@@ -1,0 +1,10 @@
+{
+    "extends": "../tsconfig.base.json",
+    "compilerOptions": {
+        "tsBuildInfoFile": "../target/buildcache/integration-tests.tsbuildinfo",
+        "rootDir": ".."
+    },
+    "references": [{ "path": "../source/tsconfig.sources.json" }],
+    "include": ["./**/*.ts"],
+    "exclude": ["fixtures/**/*"]
+}

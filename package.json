@@ -1,0 +1,35 @@
+{
+    "name": "npm-bundler",
+    "version": "1.0.0",
+    "description": "",
+    "type": "module",
+    "scripts": {
+        "test": "npm run test:unit && npm run test:integration",
+        "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
+        "test:unit": "node --test target/build/source/dependency-scanner/",
+        "pretest:integration": "tsc -b integration-tests/tsconfig.json",
+        "test:integration": "node --test target/build/integration-tests"
+    },
+    "keywords": [],
+    "author": "Mathias Schreck <schreck.mathias@gmail.com>",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/enormora/npm-bundler.git"
+    },
+    "devDependencies": {
+        "@types/sinon": "^10.0.16",
+        "@types/ssri": "^7.1.1",
+        "@types/tar": "^6.1.5",
+        "prettier": "^3.0.0",
+        "sinon": "^15.2.0",
+        "type-fest": "^4.1.0",
+        "typescript": "^5.1.6"
+    },
+    "dependencies": {
+        "ssri": "^10.0.4",
+        "true-myth": "^7.0.1",
+        "ts-morph": "^19.0.0",
+        "tslib": "^2.6.1"
+    }
+}
