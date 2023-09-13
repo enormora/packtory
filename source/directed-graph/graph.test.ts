@@ -76,7 +76,7 @@ test('connect() throws when both nodes exist but there is already a connection',
         graph.connect({from: 'a', to: 'b'});
         assert.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" already exist');
+        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" already exists');
     }
 });
 
@@ -124,7 +124,7 @@ test('disconnect() throws when both nodes exist but there is no connection', () 
     graph.addNode('b', 'bar');
 
     try {
-        graph.connect({from: 'a', to: 'b'});
+        graph.disconnect({from: 'a', to: 'b'});
         assert.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, 'Edge from "a" to "b" does not exist');
