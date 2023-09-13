@@ -6,7 +6,7 @@
     "scripts": {
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
-        "test:unit": "node --test target/build/source/dependency-scanner/",
+        "test:unit": "node --test target/build/source/",
         "pretest:integration": "tsc -b integration-tests/tsconfig.json",
         "test:integration": "node --test target/build/integration-tests"
     },
