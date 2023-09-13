@@ -1,16 +1,16 @@
 import assert from 'node:assert';
 import {test} from 'node:test';
-import {bundler} from '../source/entry.js'
-import {loadPackageJson} from './load-package-json.js'
+import {bundler} from '../../source/entry.js'
+import {loadPackageJson} from '../load-package-json.js'
 import path from 'node:path';
 
-test('adds declaration files correctly to the bundle', async () => {
-    const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-and-d-ts');
+test('correctly detects cyclic dependencies and avoids an infinite loop', async () => {
+    const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-esm-cyclic');
     const result = await bundler.build({
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [ {js: path.join(fixture, 'src/entry.js'), declarationFile: path.join(fixture, 'src/entry.d.ts')} ],
+        entryPoints: [ {js: path.join(fixture, 'src/entry.js')} ],
         mainPackageJson: await loadPackageJson(fixture)
     });
 
@@ -19,13 +19,12 @@ test('adds declaration files correctly to the bundle', async () => {
             dependencies: {},
             main: 'entry.js',
             name: 'the-package-name',
-            version: '42.0.0',
-            types: 'entry.d.ts'
+            version: '42.0.0'
         },
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "types": "entry.d.ts"\n}',
+                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js"\n}',
                 targetFilePath: 'package.json'
             },
             {
@@ -42,21 +41,6 @@ test('adds declaration files correctly to the bundle', async () => {
                 kind: "reference",
                 sourceFilePath: path.join(fixture, 'src/bar.js'),
                 targetFilePath: 'bar.js'
-            },
-            {
-                kind: "reference",
-                sourceFilePath: path.join(fixture, 'src/entry.d.ts'),
-                targetFilePath: 'entry.d.ts'
-            },
-            {
-                kind: "reference",
-                sourceFilePath: path.join(fixture, 'src/foo.d.ts'),
-                targetFilePath: 'foo.d.ts'
-            },
-            {
-                kind: "reference",
-                sourceFilePath: path.join(fixture, 'src/baz.d.ts'),
-                targetFilePath: 'baz.d.ts'
             },
         ]
     });

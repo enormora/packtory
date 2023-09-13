@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import {test} from 'node:test';
-import {bundler} from '../source/entry.js'
-import {loadPackageJson} from './load-package-json.js'
+import {bundler} from '../../source/entry.js'
+import {loadPackageJson} from '../load-package-json.js'
 import path from 'node:path';
 
 test('bundles and substitutes multiple packages correctly', async () => {

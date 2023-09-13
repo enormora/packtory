@@ -1,11 +1,11 @@
 import assert from 'node:assert';
 import {test} from 'node:test';
-import {bundler} from '../source/entry.js'
-import {loadPackageJson} from './load-package-json.js'
+import {bundler} from '../../source/entry.js'
+import {loadPackageJson} from '../load-package-json.js'
 import path from 'node:path';
 
-test('correctly detects cyclic dependencies and avoids an infinite loop', async () => {
-    const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-esm-cyclic');
+test('includes all required local files and references correct node modules but ignores builtin modules', async () => {
+    const fixture = path.join(process.cwd(), 'integration-tests/fixtures/with-local-builtin-and-node-module-dependencies');
     const result = await bundler.build({
         name: 'the-package-name',
         version: '42.0.0',
@@ -16,7 +16,7 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
 
     assert.deepStrictEqual(result, {
         packageJson: {
-            dependencies: {},
+            dependencies: {'example-module': '1.2.3'},
             main: 'entry.js',
             name: 'the-package-name',
             version: '42.0.0'
@@ -24,7 +24,7 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js"\n}',
+                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {\n        "example-module": "1.2.3"\n    },\n    "main": "entry.js"\n}',
                 targetFilePath: 'package.json'
             },
             {
