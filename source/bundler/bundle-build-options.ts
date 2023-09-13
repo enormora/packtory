@@ -47,6 +47,6 @@ export function validateBundleBuildOptions(options: BundleBuildOptions): void {
     const duplicatedNames = findDuplicates(allNames);
 
     if (duplicatedNames.length > 0) {
-        throw new Error(`The following packages are listed more than once in depenencies or peerDependencies: ${duplicatedNames.join(', ')}`);
+        throw new Error(`The following packages are listed more than once in dependencies or peerDependencies: ${duplicatedNames.join(', ')}`);
     }
 }
