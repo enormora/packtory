@@ -1,37 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert';
 import {getReferencedSourceFiles} from './source-file-references.js';
-import {ModuleKind, ModuleResolutionKind, Project, ScriptTarget} from 'ts-morph';
-
-interface FileDescription {
-    filePath: string;
-    content: string;
-}
-
-interface Options {
-    withFiles?: FileDescription[];
-    module?: ModuleKind;
-}
-
-function createProject(options: Options = {}): Project {
-    const {withFiles = [], module = ModuleKind.Node16} = options;
-    const project = new Project({
-        compilerOptions: {
-            allowJs: true,
-            module,
-            esModuleInterop: true,
-            target: ScriptTarget.ES2022,
-            moduleResolution: ModuleResolutionKind.Node10
-        },
-        useInMemoryFileSystem: true,
-    });
-
-    for (const file of withFiles) {
-        project.createSourceFile(file.filePath, file.content);
-    }
-
-    return project;
-}
+import {createProject} from '../test-libraries/typescript-project.js';
+import {ModuleKind} from 'ts-morph';
 
 test('returns an empty array when the given source file doesn’t has any imports', () => {
     const files = [ {filePath: 'main.ts', content: ''} ];

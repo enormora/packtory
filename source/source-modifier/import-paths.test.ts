@@ -1,37 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert';
 import {replaceImportPaths} from './import-paths.js';
-import {ModuleKind, ModuleResolutionKind, Project, ScriptTarget} from 'ts-morph';
-
-interface FileEntry {
-    filePath: string;
-    content: string;
-}
-
-interface Overrides {
-    withFiles?: FileEntry[]
-}
-
-function createProject(overrides: Overrides = {}): Project {
-    const {withFiles = []} = overrides;
-
-    const project = new Project({
-        compilerOptions: {
-            allowJs: true,
-            module: ModuleKind.Node16,
-            esModuleInterop: true,
-            target: ScriptTarget.ES2022,
-            moduleResolution: ModuleResolutionKind.Node10
-        },
-        useInMemoryFileSystem: true,
-    });
-
-    for (const entry of withFiles) {
-        project.createSourceFile(entry.filePath, entry.content);
-    }
-
-    return project;
-}
+import {createProject} from '../test-libraries/typescript-project.js';
 
 test('returns the source code unmodified when it doesn’t contain any import statement that needs to be replaced', () => {
     const project = createProject({

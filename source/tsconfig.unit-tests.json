@@ -5,5 +5,5 @@
         "rootDir": ".."
     },
     "references": [{ "path": "./tsconfig.sources.json" }],
-    "include": ["./**/*.test.ts"]
+    "include": ["./**/*.test.ts", "./test-libraries/**/*.ts"]
 }
