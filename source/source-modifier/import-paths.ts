@@ -14,7 +14,7 @@ export function replaceImportPaths(sourceFile: SourceFile, replacements: Replace
             const replacement = replacements.get(fullPathForLiteral);
 
             if (replacement) {
-                literal.replaceWithText(`'${replacement}'`);
+                literal.setLiteralValue(replacement);
             }
         }
     }
