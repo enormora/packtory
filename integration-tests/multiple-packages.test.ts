@@ -124,7 +124,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
                 kind: "substituted",
                 sourceFilePath: path.join(fixture, 'src/entry2.d.ts'),
                 targetFilePath: 'entry2.d.ts',
-                source: "export declare const foo: import('first/foo.d.ts').Foo;\n"
+                source: 'export declare const foo: import("first/foo.d.ts").Foo;\n'
             },
         ]
     });
@@ -168,7 +168,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
                 kind: "substituted",
                 sourceFilePath: path.join(fixture, 'src/entry3.d.ts'),
                 targetFilePath: 'entry3.d.ts',
-                source: "export declare const foo: import('first/foo.d.ts').Foo;\n"
+                source: 'export declare const foo: import("first/foo.d.ts").Foo;\n'
             },
         ]
     });

@@ -2,7 +2,7 @@ import path from 'path'
 import {PackageJson, SetRequired} from "type-fest";
 import {DependencyScanner} from "../dependency-scanner/scanner.js";
 import {ModuleResolution} from '../dependency-scanner/typescript-project-analyzer.js';
-import {BundleBuildOptions, EntryPoints} from "./bundle-build-options.js";
+import {BundleBuildOptions, EntryPoints, validateBundleBuildOptions} from "./bundle-build-options.js";
 import {DependencyFiles, LocalFile, mergeDependencyFiles} from '../dependency-scanner/dependency-graph.js';
 import {BundleContent, BundleDescription} from './bundle-description.js';
 import {substituteDependencies} from './substitute-bundles.js';
@@ -121,6 +121,8 @@ export function createBundler(dependencies: BundlerDependencies): Bundler {
 
     return {
         async build(options) {
+            validateBundleBuildOptions(options);
+
             const {entryPoints, sourcesFolder, mainPackageJson, includeSourceMapFiles = false, dependencies = [], peerDependencies = []} = options;
 
             const resolvedDependencies = await resolveDependenciesForAllEntrypoints(entryPoints, sourcesFolder, mainPackageJson, includeSourceMapFiles, [ ...dependencies, ...peerDependencies ]);
