@@ -5,11 +5,10 @@ import fs from 'node:fs';
 import {Project} from 'ts-morph';
 import {createTypescriptProjectAnalyzer} from './dependency-scanner/typescript-project-analyzer.js';
 import {getReferencedSourceFiles} from './dependency-scanner/source-file-references.js';
+import {createFileManager} from './artifacts/file-manager.js';
 
-const sourceMapFileLocator = createSourceMapFileLocator({
-    readFile: fs.promises.readFile,
-    checkFileAccess: fs.promises.access
-});
+const fileManager = createFileManager({hostFileSystem: fs.promises});
+const sourceMapFileLocator = createSourceMapFileLocator({fileManager});
 const typescriptProjectAnalyzer = createTypescriptProjectAnalyzer({Project, getReferencedSourceFiles});
 const dependencyScanner = createDependencyScanner({sourceMapFileLocator, typescriptProjectAnalyzer});
 export const bundler = createBundler({dependencyScanner});
