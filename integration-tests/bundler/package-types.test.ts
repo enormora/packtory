@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import {test} from 'node:test';
-import {bundler} from '../../source/entry.js'
+import {bundler} from '../../source/bundler.entry-point.js';
 import {loadPackageJson} from '../load-package-json.js'
 import path from 'node:path';
 

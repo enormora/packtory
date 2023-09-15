@@ -18,6 +18,9 @@
         "url": "git+ssh://git@github.com/enormora/npm-bundler.git"
     },
     "devDependencies": {
+        "@types/libnpmpublish": "^4.0.3",
+        "@types/npm-registry-fetch": "^8.0.4",
+        "@types/semver": "^7.5.2",
         "@types/sinon": "^10.0.16",
         "@types/ssri": "^7.1.1",
         "@types/tar": "^6.1.5",
@@ -28,10 +31,14 @@
         "typescript": "^5.1.6"
     },
     "dependencies": {
+        "libnpmpublish": "^9.0.0",
+        "npm-registry-fetch": "^16.0.0",
+        "semver": "^7.5.4",
         "ssri": "^10.0.5",
         "tar-stream": "^3.1.6",
         "true-myth": "^7.0.1",
         "ts-morph": "^19.0.0",
-        "tslib": "^2.6.1"
+        "tslib": "^2.6.1",
+        "valibot": "^0.15.0"
     }
 }
