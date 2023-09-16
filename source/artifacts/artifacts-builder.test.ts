@@ -99,6 +99,25 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
     assert.strictEqual(result.shasum, '0616a68ee86b060ced9a3e72e88a756e66ccde39');
 });
 
+test('buildTarball() ensures to build the exact same tarball with the same checksum when building two tarballs with the same file added in a different order', async () => {
+    const builder = artifactsBuilderFactory();
+    const firstTarball = await builder.buildTarball({
+        contents: [
+            {kind: 'source', targetFilePath: 'first.txt', source: '1'},
+            {kind: 'source', targetFilePath: 'second.txt', source: '2'},
+        ], packageJson: {name: 'the-name', version: 'the-version'}
+    });
+    const secondTarball = await builder.buildTarball({
+        contents: [
+            {kind: 'source', targetFilePath: 'second.txt', source: '2'},
+            {kind: 'source', targetFilePath: 'first.txt', source: '1'},
+        ], packageJson: {name: 'the-name', version: 'the-version'}
+    });
+
+    assert.strictEqual(firstTarball.shasum, '686d20fcc7161516e691e3c447e8b72d54be3170');
+    assert.strictEqual(secondTarball.shasum, '686d20fcc7161516e691e3c447e8b72d54be3170');
+});
+
 test('buildFolder() doesn’t write or copy anything when the given bundle has no contents', async () => {
     const writeFile = fake.resolves(undefined);
     const copyFile = fake.resolves(undefined);

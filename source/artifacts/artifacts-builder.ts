@@ -1,7 +1,7 @@
 import path from 'node:path';
 import ssri from 'ssri';
 import {FileManager} from './file-manager.js';
-import {BundleDescription} from '../bundler/bundle-description.js';
+import {BundleContent, BundleDescription} from '../bundler/bundle-description.js';
 import {createTarballBuilder} from './tarball-builder.js';
 
 export interface ArtifactsBuilderDependencies {
@@ -18,14 +18,25 @@ export interface ArtifactsBuilder {
     buildFolder(bundle: BundleDescription, targetFolder: string): Promise<void>;
 }
 
+function compareBundleContentTargetPath(first: BundleContent, second: BundleContent): -1 | 0 | 1 {
+    if (first.targetFilePath < second.targetFilePath) {
+        return -1;
+    }
+    if (first.targetFilePath > second.targetFilePath) {
+        return 1;
+    }
+    return 0;
+}
+
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
     const {fileManager} = artifactsBuilderDependencies;
 
     return {
         async buildTarball(bundle) {
             const tarballBuilder = createTarballBuilder();
+            const sortedContents = [ ...bundle.contents ].sort(compareBundleContentTargetPath);
 
-            for (const entry of bundle.contents) {
+            for (const entry of sortedContents) {
                 const targetFilePath = path.join('package', entry.targetFilePath);
 
                 if (entry.kind === 'reference') {
