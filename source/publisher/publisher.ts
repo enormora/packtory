@@ -4,7 +4,7 @@ import {ArtifactsBuilder} from '../artifacts/artifacts-builder.js';
 import {BundleBuildOptions} from '../bundler/bundle-build-options.js';
 import {BundleDescription} from '../bundler/bundle-description.js';
 import {Bundler} from '../bundler/bundler.js';
-import {RegistryClient} from './registry-client.js';
+import {PackageVersionDetails, RegistryClient, RegistrySettings} from './registry-client.js';
 import {increaseVersion, Version, replaceBundleVersion} from './version.js';
 
 interface AutomaticVersioningSettings {
@@ -29,6 +29,7 @@ type BuildOptions = Except<BundleBuildOptions, 'version'>
 
 interface BuildAndPublishOptions extends BuildOptions {
     versioning?: VersioningSettings;
+    registrySettings: RegistrySettings;
 }
 
 interface NewVersionToPublishResult {
@@ -57,13 +58,12 @@ interface BundlePublishedCheckResult {
 export function createPublisher(dependencies: PublisherDependencies): Publisher {
     const {artifactsBuilder, registryClient, bundler} = dependencies;
 
-    async function checkBundleAlreadyPublished(name: string, bundle: BundleDescription, latestVersion: string): Promise<BundlePublishedCheckResult> {
+    async function checkBundleAlreadyPublished(bundle: BundleDescription, latestVersion: PackageVersionDetails): Promise<BundlePublishedCheckResult> {
         const tarball = await artifactsBuilder.buildTarball(bundle);
-        const shasumForLatestPublishedVersion = await registryClient.fetchShasum(name, latestVersion);
-        return {alreadyPublishedAsLatest: shasumForLatestPublishedVersion !== tarball.shasum}
+        return {alreadyPublishedAsLatest: latestVersion.shasum === tarball.shasum}
     }
 
-    async function buildWithAutomaticVersioning(buildOptions: BuildOptions, latestVersion: Maybe<string>, minimumVersion: Version = '0.0.1'): Promise<BuildResult> {
+    async function buildWithAutomaticVersioning(buildOptions: BuildOptions, latestVersion: Maybe<PackageVersionDetails>, minimumVersion: Version = '0.0.1'): Promise<BuildResult> {
         if (latestVersion.isNothing) {
             const initialVersion = minimumVersion
 
@@ -73,11 +73,11 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
             return {type: 'new-version', manifest: bundle.packageJson, tarData: tarball.tarData};
         }
 
-        const bundleWithLatestVersion = await bundler.build({...buildOptions, version: latestVersion.value})
-        const result = await checkBundleAlreadyPublished(buildOptions.name, bundleWithLatestVersion, latestVersion.value);
+        const bundleWithLatestVersion = await bundler.build({...buildOptions, version: latestVersion.value.version})
+        const result = await checkBundleAlreadyPublished(bundleWithLatestVersion, latestVersion.value);
 
         if (!result.alreadyPublishedAsLatest) {
-            const newVersion = increaseVersion(latestVersion.value, minimumVersion);
+            const newVersion = increaseVersion(latestVersion.value.version, minimumVersion);
             const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
             const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
             return {type: 'new-version', manifest: bundleWithNewVersion.packageJson, tarData: tarballWithNewVersion.tarData};
@@ -86,9 +86,9 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
         return {type: 'already-published'}
     }
 
-    async function buildWithManualVersioning(buildOptions: BuildOptions, latestVersion: Maybe<string>, versionToPublish: string): Promise<BuildResult> {
+    async function buildWithManualVersioning(buildOptions: BuildOptions, latestVersion: Maybe<PackageVersionDetails>, versionToPublish: string): Promise<BuildResult> {
 
-        if (latestVersion.isJust && latestVersion.value === versionToPublish) {
+        if (latestVersion.isJust && latestVersion.value.version === versionToPublish) {
             throw new Error(`Version ${versionToPublish} of package ${buildOptions.name} is already published`);
         }
 
@@ -99,9 +99,9 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
     }
 
     async function tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildResult> {
-        const {versioning = {automatic: true}, ...buildOptions} = options;
+        const {versioning = {automatic: true}, registrySettings, ...buildOptions} = options;
 
-        const latestVersion = await registryClient.fetchLatestVersion(buildOptions.name);
+        const latestVersion = await registryClient.fetchLatestVersion(buildOptions.name, registrySettings);
         if (versioning.automatic) {
             return buildWithAutomaticVersioning(buildOptions, latestVersion, versioning.minimumVersion)
         }
@@ -116,7 +116,7 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
             const result = await tryBuildAndPublish(options);
 
             if (result.type === 'new-version') {
-                await registryClient.publishPackage(result.manifest, result.tarData);
+                 await registryClient.publishPackage(result.manifest, result.tarData, options.registrySettings);
             }
         }
     };
