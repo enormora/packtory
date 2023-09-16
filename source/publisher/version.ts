@@ -30,8 +30,10 @@ export function replaceBundleVersion(bundle: BundleDescription, newVersion: stri
     const newPackageJson: SetRequired<PackageJson, 'name' | 'version'> = {...bundle.packageJson}
     newPackageJson.version = newVersion;
 
-    const newContents = bundle.contents.filter(isNotPackageJsonContentEntry);
-    newContents.push({kind: 'source', targetFilePath: 'package.json', source: JSON.stringify(newPackageJson, null, 4)});
+    const newContents: BundleContent[] = [
+        {kind: 'source', targetFilePath: 'package.json', source: JSON.stringify(newPackageJson, null, 4)},
+        ...bundle.contents.filter(isNotPackageJsonContentEntry)
+    ];
 
     return {
         contents: newContents,
