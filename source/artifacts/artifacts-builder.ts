@@ -26,11 +26,13 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
             const tarballBuilder = createTarballBuilder();
 
             for (const entry of bundle.contents) {
+                const targetFilePath = path.join('package', entry.targetFilePath);
+
                 if (entry.kind === 'reference') {
                     const content = await fileManager.readFile(entry.sourceFilePath);
-                    tarballBuilder.addFile(entry.targetFilePath, content);
+                    tarballBuilder.addFile(targetFilePath, content);
                 } else {
-                    tarballBuilder.addFile(entry.targetFilePath, entry.source);
+                    tarballBuilder.addFile(targetFilePath, entry.source);
                 }
             }
 

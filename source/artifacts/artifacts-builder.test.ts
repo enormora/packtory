@@ -51,7 +51,7 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
                 linkname: null,
                 mode: 420,
                 mtime: new Date(0),
-                name: 'bar.txt',
+                name: 'package/bar.txt',
                 pax: null,
                 size: 3,
                 type: 'file',
@@ -69,7 +69,7 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
                 linkname: null,
                 mode: 420,
                 mtime: new Date(0),
-                name: 'baz.txt',
+                name: 'package/baz.txt',
                 pax: null,
                 size: 3,
                 type: 'file',
@@ -87,7 +87,7 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
                 linkname: null,
                 mode: 420,
                 mtime: new Date(0),
-                name: 'qux.txt',
+                name: 'package/qux.txt',
                 pax: null,
                 size: 3,
                 type: 'file',
@@ -96,7 +96,7 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
             }
         } ]);
 
-    assert.strictEqual(result.shasum, 'af1bf83f6083f84c2bd260c8e330e43514355e6b');
+    assert.strictEqual(result.shasum, '0616a68ee86b060ced9a3e72e88a756e66ccde39');
 });
 
 test('buildFolder() doesn’t write or copy anything when the given bundle has no contents', async () => {
