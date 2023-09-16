@@ -6,14 +6,16 @@ const sourcesFolder = path.join(process.cwd(), 'target/build/source');
 
 async function main() {
     const result = await publisher.tryBuildAndPublish({
-        name: 'foo',
+        name: '@enormora/publishing-automation-test-package',
         versioning: {
-            automatic: false,
-            version: '1.2.3'
+            automatic: true,
         },
         sourcesFolder,
-        entryPoints: [ {js: path.join(sourcesFolder, 'bundler.entry-point.js')} ],
-        mainPackageJson: JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), {encoding: 'utf8'}))
+        entryPoints: [ {js: path.join(sourcesFolder, 'hello-world.entry-point.js')} ],
+        mainPackageJson: JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), {encoding: 'utf8'})),
+        registrySettings: {
+            token: 'the-token'
+        }
     });
 
     console.log(result.type, result.manifest);
