@@ -34,7 +34,7 @@ export function replaceBundleVersion(bundle: BundleDescription, newVersion: stri
     newContents.push({kind: 'source', targetFilePath: 'package.json', source: JSON.stringify(newPackageJson, null, 4)});
 
     return {
-        contents: [],
+        contents: newContents,
         packageJson: newPackageJson
     };
 }
