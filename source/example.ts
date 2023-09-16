@@ -18,7 +18,7 @@ async function main() {
         }
     });
 
-    console.log(result.type, result.manifest);
+    console.log(result.status, result.version);
 }
 
 main().catch((error) => {

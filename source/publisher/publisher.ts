@@ -33,22 +33,27 @@ interface BuildAndPublishOptions extends BuildOptions {
 }
 
 interface NewVersionToPublishResult {
-    type: 'new-version'
+    type: 'new-version' | 'initial-version'
     manifest: SetRequired<PackageJson, 'name' | 'version'>;
     tarData: Buffer;
 }
 
 interface LatestVersionAlreadyPublishedResult {
     type: 'already-published'
-    manifest?: undefined
+    manifest: SetRequired<PackageJson, 'name' | 'version'>;
     tarData?: undefined
 }
 
 type BuildResult = NewVersionToPublishResult | LatestVersionAlreadyPublishedResult;
 
+interface PublishResult {
+    status: BuildResult[ 'type' ];
+    version: string;
+}
+
 export interface Publisher {
     tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildResult>
-    buildAndPublish(options: BuildAndPublishOptions): Promise<void>
+    buildAndPublish(options: BuildAndPublishOptions): Promise<PublishResult>
 }
 
 interface BundlePublishedCheckResult {
@@ -70,7 +75,7 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
             const bundle = await bundler.build({...buildOptions, version: initialVersion})
             const tarball = await artifactsBuilder.buildTarball(bundle)
 
-            return {type: 'new-version', manifest: bundle.packageJson, tarData: tarball.tarData};
+            return {type: 'initial-version', manifest: bundle.packageJson, tarData: tarball.tarData};
         }
 
         const bundleWithLatestVersion = await bundler.build({...buildOptions, version: latestVersion.value.version})
@@ -83,7 +88,7 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
             return {type: 'new-version', manifest: bundleWithNewVersion.packageJson, tarData: tarballWithNewVersion.tarData};
         }
 
-        return {type: 'already-published'}
+        return {type: 'already-published', manifest: bundleWithLatestVersion.packageJson}
     }
 
     async function buildWithManualVersioning(buildOptions: BuildOptions, latestVersion: Maybe<PackageVersionDetails>, versionToPublish: string): Promise<BuildResult> {
@@ -115,9 +120,14 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
         async buildAndPublish(options) {
             const result = await tryBuildAndPublish(options);
 
-            if (result.type === 'new-version') {
-                 await registryClient.publishPackage(result.manifest, result.tarData, options.registrySettings);
+            if (result.type !== 'already-published') {
+                await registryClient.publishPackage(result.manifest, result.tarData, options.registrySettings);
             }
+
+            return {
+                status: result.type,
+                version: result.manifest.version
+            };
         }
     };
 }
