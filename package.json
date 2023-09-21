@@ -23,12 +23,11 @@
         "@types/semver": "^7.5.2",
         "@types/sinon": "^10.0.16",
         "@types/ssri": "^7.1.1",
-        "@types/tar": "^6.1.5",
-        "@types/tar-stream": "^2.2.3",
-        "prettier": "^3.0.0",
-        "sinon": "^15.2.0",
-        "type-fest": "^4.1.0",
-        "typescript": "^5.1.6"
+        "@types/tar-stream": "^3.1.0",
+        "prettier": "^3.0.3",
+        "sinon": "^16.0.0",
+        "type-fest": "^4.3.1",
+        "typescript": "^5.2.2"
     },
     "dependencies": {
         "libnpmpublish": "^9.0.0",
@@ -36,9 +35,9 @@
         "semver": "^7.5.4",
         "ssri": "^10.0.5",
         "tar-stream": "^3.1.6",
-        "true-myth": "^7.0.1",
+        "true-myth": "^7.1.0",
         "ts-morph": "^19.0.0",
-        "tslib": "^2.6.1",
-        "valibot": "^0.15.0"
+        "tslib": "^2.6.2",
+        "valibot": "^0.17.0"
     }
 }
