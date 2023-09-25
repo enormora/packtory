@@ -51,6 +51,28 @@ function containsBundleWithPackageName(bundles: BundleDescription[], name: strin
     });
 }
 
+function compareEntryKeys(entryA: [string, unknown], entryB: [string, unknown]): -1 | 0 | 1 {
+    const [ keyA ] = entryA;
+    const [ keyB ] = entryB;
+
+    if (keyA < keyB) {
+        return -1;
+    }
+    if (keyA > keyB) {
+        return 1;
+    }
+
+    return 0;
+}
+
+function sortRecordByKey<T extends Record<string, unknown>>(record: T): T {
+    const entries = Object.entries(record);
+
+    entries.sort(compareEntryKeys);
+
+    return Object.fromEntries(entries) as T;
+}
+
 function buildPackageJson(
     options: BundleBuildOptions,
     packageDependencies: Record<string, string>
@@ -73,12 +95,12 @@ function buildPackageJson(
     const packageJson: SetRequired<PackageJson, 'name' | 'version'> = {
         name,
         version,
-        dependencies,
+        dependencies: sortRecordByKey(dependencies),
         main: mainEntryPoint
     };
 
     if (Object.keys(peerDependencies).length > 0) {
-        packageJson[ 'peerDependencies' ] = peerDependencies;
+        packageJson[ 'peerDependencies' ] = sortRecordByKey(peerDependencies);
     }
 
     if (typeof firstEntryPoint.declarationFile === 'string') {

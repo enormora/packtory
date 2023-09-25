@@ -197,7 +197,7 @@ test('builds a bundle for a project with matching dependencies and peerDependenc
 
     assert.deepStrictEqual(bundle, {
         contents: [
-            {kind: 'source', source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {\n        "pkg": "2",\n        "first": "1"\n    },\n    "main": "entry.js",\n    "peerDependencies": {\n        "second": "3"\n    }\n}', targetFilePath: 'package.json'},
+            {kind: 'source', source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {\n        "first": "1",\n        "pkg": "2"\n    },\n    "main": "entry.js",\n    "peerDependencies": {\n        "second": "3"\n    }\n}', targetFilePath: 'package.json'},
             {kind: 'substituted', source: 'import "first/foo.js"; import "second/bar.js";', sourceFilePath: '/folder/entry.js', targetFilePath: 'entry.js'}
         ],
         packageJson: {
