@@ -35,12 +35,14 @@ interface BuildAndPublishOptions extends BuildOptions {
 interface NewVersionToPublishResult {
     type: 'new-version' | 'initial-version'
     manifest: SetRequired<PackageJson, 'name' | 'version'>;
+    bundle: BundleDescription
     tarData: Buffer;
 }
 
 interface LatestVersionAlreadyPublishedResult {
     type: 'already-published'
     manifest: SetRequired<PackageJson, 'name' | 'version'>;
+    bundle: BundleDescription
     tarData?: undefined
 }
 
@@ -49,6 +51,7 @@ type BuildResult = NewVersionToPublishResult | LatestVersionAlreadyPublishedResu
 interface PublishResult {
     status: BuildResult[ 'type' ];
     version: string;
+    bundle: BundleDescription
 }
 
 export interface Publisher {
@@ -75,7 +78,7 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
             const bundle = await bundler.build({...buildOptions, version: initialVersion})
             const tarball = await artifactsBuilder.buildTarball(bundle)
 
-            return {type: 'initial-version', manifest: bundle.packageJson, tarData: tarball.tarData};
+            return {type: 'initial-version', manifest: bundle.packageJson, tarData: tarball.tarData, bundle };
         }
 
         const bundleWithLatestVersion = await bundler.build({...buildOptions, version: latestVersion.value.version})
@@ -85,10 +88,10 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
             const newVersion = increaseVersion(latestVersion.value.version, minimumVersion);
             const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
             const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
-            return {type: 'new-version', manifest: bundleWithNewVersion.packageJson, tarData: tarballWithNewVersion.tarData};
+            return {type: 'new-version', manifest: bundleWithNewVersion.packageJson, tarData: tarballWithNewVersion.tarData, bundle: bundleWithNewVersion};
         }
 
-        return {type: 'already-published', manifest: bundleWithLatestVersion.packageJson}
+        return {type: 'already-published', manifest: bundleWithLatestVersion.packageJson, bundle: bundleWithLatestVersion}
     }
 
     async function buildWithManualVersioning(buildOptions: BuildOptions, latestVersion: Maybe<PackageVersionDetails>, versionToPublish: string): Promise<BuildResult> {
@@ -100,7 +103,7 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
         const bundle = await bundler.build({...buildOptions, version: versionToPublish})
         const tarball = await artifactsBuilder.buildTarball(bundle)
 
-        return {type: 'new-version', manifest: bundle.packageJson, tarData: tarball.tarData};
+        return {type: 'new-version', manifest: bundle.packageJson, tarData: tarball.tarData, bundle};
     }
 
     async function tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildResult> {
@@ -126,7 +129,8 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
 
             return {
                 status: result.type,
-                version: result.manifest.version
+                version: result.manifest.version,
+                bundle: result.bundle
             };
         }
     };
