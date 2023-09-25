@@ -40,12 +40,13 @@ test('bundles and substitutes multiple packages correctly', async () => {
             main: 'entry1.js',
             types: 'entry1.d.ts',
             name: 'first',
-            version: '1.2.3'
+            version: '1.2.3',
+            type: "module"
         },
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "first",\n    "version": "1.2.3",\n    "dependencies": {},\n    "main": "entry1.js",\n    "types": "entry1.d.ts"\n}',
+                source: '{\n    "name": "first",\n    "version": "1.2.3",\n    "dependencies": {},\n    "main": "entry1.js",\n    "type": "module",\n    "types": "entry1.d.ts"\n}',
                 targetFilePath: 'package.json'
             },
             {
@@ -91,12 +92,13 @@ test('bundles and substitutes multiple packages correctly', async () => {
             main: 'entry2.js',
             name: 'second',
             version: '2.3.4',
-            types: 'entry2.d.ts'
+            types: 'entry2.d.ts',
+            type: 'module',
         },
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "second",\n    "version": "2.3.4",\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry2.js",\n    "types": "entry2.d.ts"\n}',
+                source: '{\n    "name": "second",\n    "version": "2.3.4",\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry2.js",\n    "type": "module",\n    "types": "entry2.d.ts"\n}',
                 targetFilePath: 'package.json'
             },
             {
@@ -135,12 +137,13 @@ test('bundles and substitutes multiple packages correctly', async () => {
             main: 'entry3.js',
             types: 'entry3.d.ts',
             name: 'third',
-            version: '3.4.5'
+            version: '3.4.5',
+            type: 'module',
         },
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "third",\n    "version": "3.4.5",\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry3.js",\n    "peerDependencies": {\n        "second": "2.3.4"\n    },\n    "types": "entry3.d.ts"\n}',
+                source: '{\n    "name": "third",\n    "version": "3.4.5",\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry3.js",\n    "type": "module",\n    "peerDependencies": {\n        "second": "2.3.4"\n    },\n    "types": "entry3.d.ts"\n}',
                 targetFilePath: 'package.json'
             },
             {

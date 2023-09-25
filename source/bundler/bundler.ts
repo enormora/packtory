@@ -77,7 +77,7 @@ function buildPackageJson(
     options: BundleBuildOptions,
     packageDependencies: Record<string, string>
 ): SetRequired<PackageJson, 'name' | 'version'> {
-    const {name, version, sourcesFolder, entryPoints, additionalPackageJsonAttributes = {}, peerDependencies: bundlePeerDependencies = []} = options;
+    const {name, version, sourcesFolder, mainPackageJson, entryPoints, additionalPackageJsonAttributes = {}, peerDependencies: bundlePeerDependencies = []} = options;
     const [ firstEntryPoint ] = entryPoints;
 
     const mainEntryPoint = path.relative(sourcesFolder, firstEntryPoint.js);
@@ -96,7 +96,8 @@ function buildPackageJson(
         name,
         version,
         dependencies: sortRecordByKey(dependencies),
-        main: mainEntryPoint
+        main: mainEntryPoint,
+        ...(mainPackageJson.type !== undefined ? {type: mainPackageJson.type} : {})
     };
 
     if (Object.keys(peerDependencies).length > 0) {
