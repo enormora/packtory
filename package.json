@@ -12,6 +12,9 @@
     },
     "keywords": [],
     "author": "Mathias Schreck <schreck.mathias@gmail.com>",
+    "contributors": [
+        "Christian Rackerseder <github@echooff.de>"
+    ],
     "license": "MIT",
     "repository": {
         "type": "git",
