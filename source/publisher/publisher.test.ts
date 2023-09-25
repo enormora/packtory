@@ -60,14 +60,14 @@ test('buildAndPublish() builds and publishes the initial version using the given
     assert.deepStrictEqual(publishPackage.firstCall.args, [ {version: '42'}, tarData, {token: 'the-token'} ]);
 });
 
-test('buildAndPublish() returns the correct result after publishing the inital version', async () => {
+test('buildAndPublish() returns the correct result after publishing the initial version', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const build = fake.resolves({contents: [], packageJson: {version: '42'}})
     const publisher = publisherFactory({fetchLatestVersion, build});
 
     const result = await publisher.buildAndPublish({name: '', sourcesFolder: '', entryPoints: [ {js: ''} ], registrySettings: {token: ''}, mainPackageJson: {}});
 
-    assert.deepStrictEqual(result, {status: 'initial-version', version: '42'});
+    assert.deepStrictEqual(result, {status: 'initial-version', version: '42', bundle: { contents: [], packageJson: {version: '42' }}});
 });
 
 test('buildAndPublish() builds and publishes a new version incrementing the latest version by one', async () => {
@@ -109,7 +109,7 @@ test('buildAndPublish() returns the correct result after publishing a new versio
 
     const result = await publisher.buildAndPublish({name: '', sourcesFolder: '', entryPoints: [ {js: ''} ], registrySettings: {token: ''}, mainPackageJson: {}});
 
-    assert.deepStrictEqual(result, {status: 'new-version', version: '1.2.4'});
+    assert.deepStrictEqual(result, {status: 'new-version', version: '1.2.4', bundle: {contents: [{kind:'source', source:'{\n    "version": "1.2.4"\n}', targetFilePath: 'package.json'}], packageJson: {version: '1.2.4'}}});
 });
 
 test('buildAndPublish() throws an error when publishing with manual versioning and the given version is the same as the latest version', async () => {
@@ -148,6 +148,6 @@ test('buildAndPublish() returns the correct result after publishing a new versio
 
     const result = await publisher.buildAndPublish({name: '', versioning: {automatic: false, version: '1.2.3'}, sourcesFolder: '', entryPoints: [ {js: ''} ], registrySettings: {token: ''}, mainPackageJson: {}});
 
-    assert.deepStrictEqual(result, {status: 'new-version', version: '42'});
+    assert.deepStrictEqual(result, {status: 'new-version', version: '42', bundle: { contents: [], packageJson: {version: '42' }}});
 });
 
