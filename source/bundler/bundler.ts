@@ -108,7 +108,7 @@ function buildPackageJson(
         packageJson.types = mainDeclarationFile;
     }
 
-    return {...additionalPackageJsonAttributes, ...packageJson}
+    return {...(sortRecordByKey(additionalPackageJsonAttributes)), ...packageJson}
 }
 
 
