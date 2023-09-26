@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert';
+import test from 'ava';
 import {
     createDependencyGraph,
     DependencyFiles,
@@ -25,36 +24,36 @@ function dependencyGraphNodeDataFactory(overrides: Overrides = {}): DependencyGr
     };
 }
 
-test('isKnown() returns false when the given file hasn’t been added', () => {
+test('isKnown() returns false when the given file hasn’t been added', (t) => {
     const graph = createDependencyGraph();
-    assert.strictEqual(graph.isKnown('foo.js'), false);
+    t.is(graph.isKnown('foo.js'), false);
 });
 
-test('isKnown() returns true when the given file has been added', () => {
+test('isKnown() returns true when the given file has been added', (t) => {
     const graph = createDependencyGraph();
 
     graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
 
-    assert.strictEqual(graph.isKnown('foo.js'), true);
+    t.is(graph.isKnown('foo.js'), true);
 });
 
-test('hasConnection() returns false when the given files are not connected', () => {
+test('hasConnection() returns false when the given files are not connected', (t) => {
     const graph = createDependencyGraph();
 
     graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
     graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
 
-    assert.strictEqual(graph.hasConnection('foo.js', 'bar.js'), false);
+    t.is(graph.hasConnection('foo.js', 'bar.js'), false);
 });
 
-test('hasConnection() returns true when the given files are connected', () => {
+test('hasConnection() returns true when the given files are connected', (t) => {
     const graph = createDependencyGraph();
 
     graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
     graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
     graph.connect('foo.js', 'bar.js');
 
-    assert.strictEqual(graph.hasConnection('foo.js', 'bar.js'), true);
+    t.is(graph.hasConnection('foo.js', 'bar.js'), true);
 });
 
 function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): DependencyNode[] {
@@ -67,13 +66,13 @@ function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): Dep
     return collected;
 }
 
-test('walk() visits the start node only if it has no connections', () => {
+test('walk() visits the start node only if it has no connections', (t) => {
     const graph = createDependencyGraph();
 
     graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
     const result = collectVisitorNodes(graph, 'foo.js');
 
-    assert.deepStrictEqual(result, [
+    t.deepEqual(result, [
         {
             filePath: 'foo.js',
             sourceMapFilePath: Maybe.nothing(),
@@ -85,7 +84,7 @@ test('walk() visits the start node only if it has no connections', () => {
     ]);
 });
 
-test('walk() visits the start node and all its connections', () => {
+test('walk() visits the start node and all its connections', (t) => {
     const graph = createDependencyGraph();
 
     graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
@@ -96,7 +95,7 @@ test('walk() visits the start node and all its connections', () => {
 
     const result = collectVisitorNodes(graph, 'foo.js');
 
-    assert.deepStrictEqual(result, [
+    t.deepEqual(result, [
         {
             filePath: 'foo.js',
             sourceMapFilePath: Maybe.nothing(),
@@ -124,7 +123,7 @@ test('walk() visits the start node and all its connections', () => {
     ]);
 });
 
-test('flatten() collects all nodes and returns a single list for all local files', () => {
+test('flatten() collects all nodes and returns a single list for all local files', (t) => {
     const graph = createDependencyGraph();
 
     graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
@@ -132,7 +131,7 @@ test('flatten() collects all nodes and returns a single list for all local files
     graph.connect('foo.js', 'bar.js');
     const result = graph.flatten('foo.js');
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
             { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
@@ -141,7 +140,7 @@ test('flatten() collects all nodes and returns a single list for all local files
     });
 });
 
-test('flatten() collects all nodes and returns a single map for topLevelDependencies eliminating duplicates', () => {
+test('flatten() collects all nodes and returns a single map for topLevelDependencies eliminating duplicates', (t) => {
     const graph = createDependencyGraph();
 
     graph.addDependency(
@@ -165,7 +164,7 @@ test('flatten() collects all nodes and returns a single map for topLevelDependen
     graph.connect('foo.js', 'bar.js');
     const result = graph.flatten('foo.js');
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
             { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
@@ -178,7 +177,7 @@ test('flatten() collects all nodes and returns a single map for topLevelDependen
     });
 });
 
-test('mergeDependencyFiles() merges two sets of dependency files', () => {
+test('mergeDependencyFiles() merges two sets of dependency files', (t) => {
     const firstSet: DependencyFiles = {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
@@ -195,7 +194,7 @@ test('mergeDependencyFiles() merges two sets of dependency files', () => {
     };
     const result = mergeDependencyFiles(firstSet, secondSet);
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
             { filePath: 'bar.js', substitutionContent: Maybe.nothing() },

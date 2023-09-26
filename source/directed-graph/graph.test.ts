@@ -1,71 +1,70 @@
-import test from 'node:test';
-import assert from 'node:assert';
+import test from 'ava';
 import { createDirectedGraph, DirectedGraph } from './graph.js';
 
-test('hasNode() returns false when there is no node for the given id', () => {
+test('hasNode() returns false when there is no node for the given id', (t) => {
     const graph = createDirectedGraph<string, string>();
-    assert.strictEqual(graph.hasNode('foo'), false);
+    t.is(graph.hasNode('foo'), false);
 });
 
-test('hasNode() returns true when there is a node for the given id', () => {
+test('hasNode() returns true when there is a node for the given id', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('foo', 'bar');
 
-    assert.strictEqual(graph.hasNode('foo'), true);
+    t.is(graph.hasNode('foo'), true);
 });
 
-test('addNode() throws when adding a node with an id that already exist', () => {
+test('addNode() throws when adding a node with an id that already exist', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('foo', 'bar');
 
     try {
         graph.addNode('foo', 'baz');
-        assert.fail('Expected addNode() to fail but it did not');
+        t.fail('Expected addNode() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "foo" already exists');
+        t.is((error as Error).message, 'Node with id "foo" already exists');
     }
 });
 
-test('connect() throws when the from and to node don’t exist', () => {
+test('connect() throws when the from and to node don’t exist', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
+        t.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
+        t.is((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('connect() throws when the from node doesn’t exist but the to node does', () => {
+test('connect() throws when the from node doesn’t exist but the to node does', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('b', 'bar');
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
+        t.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
+        t.is((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('connect() throws when the to node doesn’t exist but the from node does', () => {
+test('connect() throws when the to node doesn’t exist but the from node does', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
+        t.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
+        t.is((error as Error).message, 'Node with id "b" does not exist');
     }
 });
 
-test('connect() throws when both nodes exist but there is already a connection', () => {
+test('connect() throws when both nodes exist but there is already a connection', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -74,50 +73,50 @@ test('connect() throws when both nodes exist but there is already a connection',
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
+        t.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" already exists');
+        t.is((error as Error).message, 'Edge from "a" to "b" already exists');
     }
 });
 
-test('disconnect() throws when the from and to node don’t exist', () => {
+test('disconnect() throws when the from and to node don’t exist', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
+        t.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
+        t.is((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('disconnect() throws when the from node doesn’t exist but the to node does', () => {
+test('disconnect() throws when the from node doesn’t exist but the to node does', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('b', 'bar');
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
+        t.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
+        t.is((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('disconnect() throws when the to node doesn’t exist but the from node does', () => {
+test('disconnect() throws when the to node doesn’t exist but the from node does', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
+        t.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
+        t.is((error as Error).message, 'Node with id "b" does not exist');
     }
 });
 
-test('disconnect() throws when both nodes exist but there is no connection', () => {
+test('disconnect() throws when both nodes exist but there is no connection', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -125,41 +124,41 @@ test('disconnect() throws when both nodes exist but there is no connection', () 
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
+        t.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" does not exist');
+        t.is((error as Error).message, 'Edge from "a" to "b" does not exist');
     }
 });
 
-test('hasConnection() returns false when there is no connection for the given ids', () => {
+test('hasConnection() returns false when there is no connection for the given ids', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
     graph.addNode('b', 'bar');
 
-    assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), false);
+    t.is(graph.hasConnection({ from: 'a', to: 'b' }), false);
 });
 
-test('hasNode() returns true when there is a connection between the given nodes', () => {
+test('hasNode() returns true when there is a connection between the given nodes', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
     graph.addNode('b', 'bar');
     graph.connect({ from: 'a', to: 'b' });
 
-    assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), true);
+    t.is(graph.hasConnection({ from: 'a', to: 'b' }), true);
 });
 
-test('addNode() throws when adding a node with an id that already exist', () => {
+test('addNode() throws when adding a node with an id that already exist', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('foo', 'bar');
 
     try {
         graph.addNode('foo', 'baz');
-        assert.fail('Expected addNode() to fail but it did not');
+        t.fail('Expected addNode() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "foo" already exists');
+        t.is((error as Error).message, 'Node with id "foo" already exists');
     }
 });
 
@@ -173,28 +172,28 @@ function collectFromGraph(graph: DirectedGraph<string, string>, startId: string)
     return collected;
 }
 
-test('throws when there is no node for the given start id', () => {
+test('throws when there is no node for the given start id', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     try {
         collectFromGraph(graph, 'foo');
-        assert.fail('Expected visitBreadthFirstSearch() to fail but it did not');
+        t.fail('Expected visitBreadthFirstSearch() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "foo" does not exist');
+        t.is((error as Error).message, 'Node with id "foo" does not exist');
     }
 });
 
-test('visits the start node first', () => {
+test('visits the start node first', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a']);
+    t.deepEqual(collected, ['a']);
 });
 
-test('visits only the start node when there are multiple nodes but no connections', () => {
+test('visits only the start node when there are multiple nodes but no connections', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -204,10 +203,10 @@ test('visits only the start node when there are multiple nodes but no connection
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a']);
+    t.deepEqual(collected, ['a']);
 });
 
-test('visits the start node and all connected nodes', () => {
+test('visits the start node and all connected nodes', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -216,10 +215,10 @@ test('visits the start node and all connected nodes', () => {
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a', 'b']);
+    t.deepEqual(collected, ['a', 'b']);
 });
 
-test('visits ONLY the start node when there are two nodes but the start node is not connected to ohter but the other is connected to the start node', () => {
+test('visits ONLY the start node when there are two nodes but the start node is not connected to ohter but the other is connected to the start node', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -228,10 +227,10 @@ test('visits ONLY the start node when there are two nodes but the start node is 
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a']);
+    t.deepEqual(collected, ['a']);
 });
 
-test('visits the start node and multiple connected nodes', () => {
+test('visits the start node and multiple connected nodes', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -242,10 +241,10 @@ test('visits the start node and multiple connected nodes', () => {
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a', 'b', 'c']);
+    t.deepEqual(collected, ['a', 'b', 'c']);
 });
 
-test('visits the start node and multiple connected nodes and their subsequent nodes', () => {
+test('visits the start node and multiple connected nodes and their subsequent nodes', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -260,10 +259,10 @@ test('visits the start node and multiple connected nodes and their subsequent no
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a', 'b', 'c', 'd', 'e']);
+    t.deepEqual(collected, ['a', 'b', 'c', 'd', 'e']);
 });
 
-test('visits only the nodes that are still connected after disconnecting some', () => {
+test('visits only the nodes that are still connected after disconnecting some', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -279,10 +278,10 @@ test('visits only the nodes that are still connected after disconnecting some', 
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a', 'c']);
+    t.deepEqual(collected, ['a', 'c']);
 });
 
-test('visits the two nodes that are connected to each other', () => {
+test('visits the two nodes that are connected to each other', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -292,10 +291,10 @@ test('visits the two nodes that are connected to each other', () => {
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a', 'b']);
+    t.deepEqual(collected, ['a', 'b']);
 });
 
-test('visits the three nodes which have a cyclic connection', () => {
+test('visits the three nodes which have a cyclic connection', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -307,10 +306,10 @@ test('visits the three nodes which have a cyclic connection', () => {
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a', 'b', 'c']);
+    t.deepEqual(collected, ['a', 'b', 'c']);
 });
 
-test('visits ONYL the starting node when it is connected to itself', () => {
+test('visits ONYL the starting node when it is connected to itself', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -318,10 +317,10 @@ test('visits ONYL the starting node when it is connected to itself', () => {
 
     const collected = collectFromGraph(graph, 'a');
 
-    assert.deepStrictEqual(collected, ['a']);
+    t.deepEqual(collected, ['a']);
 });
 
-test('visits only the nodes that are connected with the starting id', () => {
+test('visits only the nodes that are connected with the starting id', (t) => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -332,5 +331,5 @@ test('visits only the nodes that are connected with the starting id', () => {
 
     const collected = collectFromGraph(graph, 'b');
 
-    assert.deepStrictEqual(collected, ['b', 'c']);
+    t.deepEqual(collected, ['b', 'c']);
 });

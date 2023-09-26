@@ -1,5 +1,4 @@
-import test from 'node:test';
-import assert from 'node:assert';
+import test from 'ava';
 import { fake, SinonSpy } from 'sinon';
 import { createPublisher, PublisherDependencies, Publisher } from './publisher.js';
 import { Maybe } from 'true-myth';
@@ -27,7 +26,7 @@ function publisherFactory(overrides: Overrides = {}): Publisher {
     return createPublisher(fakeDependencies);
 }
 
-test('buildAndPublish() fetches the latest version', async () => {
+test('buildAndPublish() fetches the latest version', async (t) => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const publisher = publisherFactory({ fetchLatestVersion });
 
@@ -39,11 +38,11 @@ test('buildAndPublish() fetches the latest version', async () => {
         mainPackageJson: {},
     });
 
-    assert.strictEqual(fetchLatestVersion.callCount, 1);
-    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
+    t.is(fetchLatestVersion.callCount, 1);
+    t.deepEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
 });
 
-test('buildAndPublish() builds and publishes the initial version when there is no version published yet', async () => {
+test('buildAndPublish() builds and publishes the initial version when there is no version published yet', async (t) => {
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
@@ -59,8 +58,8 @@ test('buildAndPublish() builds and publishes the initial version when there is n
         mainPackageJson: {},
     });
 
-    assert.strictEqual(build.callCount, 1);
-    assert.deepStrictEqual(build.firstCall.args, [
+    t.is(build.callCount, 1);
+    t.deepEqual(build.firstCall.args, [
         {
             entryPoints: [{ js: 'the-entry-point' }],
             mainPackageJson: {},
@@ -69,11 +68,11 @@ test('buildAndPublish() builds and publishes the initial version when there is n
             version: '0.0.1',
         },
     ]);
-    assert.strictEqual(publishPackage.callCount, 1);
-    assert.deepStrictEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
+    t.is(publishPackage.callCount, 1);
+    t.deepEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
 });
 
-test('buildAndPublish() builds and publishes the initial version using the given minimum version number', async () => {
+test('buildAndPublish() builds and publishes the initial version using the given minimum version number', async (t) => {
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
@@ -90,8 +89,8 @@ test('buildAndPublish() builds and publishes the initial version using the given
         mainPackageJson: {},
     });
 
-    assert.strictEqual(build.callCount, 1);
-    assert.deepStrictEqual(build.firstCall.args, [
+    t.is(build.callCount, 1);
+    t.deepEqual(build.firstCall.args, [
         {
             entryPoints: [{ js: 'the-entry-point' }],
             mainPackageJson: {},
@@ -100,11 +99,11 @@ test('buildAndPublish() builds and publishes the initial version using the given
             version: '1.2.3',
         },
     ]);
-    assert.strictEqual(publishPackage.callCount, 1);
-    assert.deepStrictEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
+    t.is(publishPackage.callCount, 1);
+    t.deepEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
 });
 
-test('buildAndPublish() returns the correct result after publishing the initial version', async () => {
+test('buildAndPublish() returns the correct result after publishing the initial version', async (t) => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const publisher = publisherFactory({ fetchLatestVersion, build });
@@ -117,14 +116,14 @@ test('buildAndPublish() returns the correct result after publishing the initial 
         mainPackageJson: {},
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         status: 'initial-version',
         version: '42',
         bundle: { contents: [], packageJson: { version: '42' } },
     });
 });
 
-test('buildAndPublish() builds and publishes a new version incrementing the latest version by one', async () => {
+test('buildAndPublish() builds and publishes a new version incrementing the latest version by one', async (t) => {
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
@@ -140,8 +139,8 @@ test('buildAndPublish() builds and publishes a new version incrementing the late
         mainPackageJson: {},
     });
 
-    assert.strictEqual(build.callCount, 1);
-    assert.deepStrictEqual(build.firstCall.args, [
+    t.is(build.callCount, 1);
+    t.deepEqual(build.firstCall.args, [
         {
             entryPoints: [{ js: 'the-entry-point' }],
             mainPackageJson: {},
@@ -150,12 +149,12 @@ test('buildAndPublish() builds and publishes a new version incrementing the late
             version: '1.2.3',
         },
     ]);
-    assert.strictEqual(buildTarball.callCount, 2);
-    assert.strictEqual(publishPackage.callCount, 1);
-    assert.deepStrictEqual(publishPackage.firstCall.args, [{ version: '1.2.4' }, tarData, { token: 'the-token' }]);
+    t.is(buildTarball.callCount, 2);
+    t.is(publishPackage.callCount, 1);
+    t.deepEqual(publishPackage.firstCall.args, [{ version: '1.2.4' }, tarData, { token: 'the-token' }]);
 });
 
-test('buildAndPublish() doesn’t publish any version when the shasum of the built bundle is the same as the shasum of the latest published version', async () => {
+test('buildAndPublish() doesn’t publish any version when the shasum of the built bundle is the same as the shasum of the latest published version', async (t) => {
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
@@ -171,11 +170,11 @@ test('buildAndPublish() doesn’t publish any version when the shasum of the bui
         mainPackageJson: {},
     });
 
-    assert.strictEqual(build.callCount, 1);
-    assert.strictEqual(publishPackage.callCount, 0);
+    t.is(build.callCount, 1);
+    t.is(publishPackage.callCount, 0);
 });
 
-test('buildAndPublish() returns the correct result after publishing a new version', async () => {
+test('buildAndPublish() returns the correct result after publishing a new version', async (t) => {
     const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', shasum: 'abc' }));
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const buildTarball = fake.resolves({ shasum: 'xyz' });
@@ -189,7 +188,7 @@ test('buildAndPublish() returns the correct result after publishing a new versio
         mainPackageJson: {},
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         status: 'new-version',
         version: '1.2.4',
         bundle: {
@@ -199,7 +198,7 @@ test('buildAndPublish() returns the correct result after publishing a new versio
     });
 });
 
-test('buildAndPublish() throws an error when publishing with manual versioning and the given version is the same as the latest version', async () => {
+test('buildAndPublish() throws an error when publishing with manual versioning and the given version is the same as the latest version', async (t) => {
     const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3' }));
     const publisher = publisherFactory({ fetchLatestVersion });
 
@@ -212,13 +211,13 @@ test('buildAndPublish() throws an error when publishing with manual versioning a
             registrySettings: { token: '' },
             mainPackageJson: {},
         });
-        assert.fail('Expected buildAndPublish() to throw but it did not');
+        t.fail('Expected buildAndPublish() to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Version 1.2.3 of package the-name is already published');
+        t.is((error as Error).message, 'Version 1.2.3 of package the-name is already published');
     }
 });
 
-test('buildAndPublish() builds and publish a new version using manual versioning', async () => {
+test('buildAndPublish() builds and publish a new version using manual versioning', async (t) => {
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
@@ -235,15 +234,15 @@ test('buildAndPublish() builds and publish a new version using manual versioning
         mainPackageJson: {},
     });
 
-    assert.strictEqual(build.callCount, 1);
-    assert.deepStrictEqual(build.firstCall.args, [
+    t.is(build.callCount, 1);
+    t.deepEqual(build.firstCall.args, [
         { name: '', version: '1.2.3', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} },
     ]);
-    assert.strictEqual(publishPackage.callCount, 1);
-    assert.deepStrictEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
+    t.is(publishPackage.callCount, 1);
+    t.deepEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
 });
 
-test('buildAndPublish() returns the correct result after publishing a new version using manual versioning', async () => {
+test('buildAndPublish() returns the correct result after publishing a new version using manual versioning', async (t) => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const buildTarball = fake.resolves({});
@@ -258,7 +257,7 @@ test('buildAndPublish() returns the correct result after publishing a new versio
         mainPackageJson: {},
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         status: 'new-version',
         version: '42',
         bundle: { contents: [], packageJson: { version: '42' } },

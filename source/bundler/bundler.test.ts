@@ -1,5 +1,4 @@
-import { test } from 'node:test';
-import assert from 'node:assert';
+import test from "ava"
 import { createBundler, Bundler, BundlerDependencies } from './bundler.js';
 import { buildDependencyGraph } from '../test-libraries/dependency-graph-builder.js';
 import { fake, SinonSpy, stub } from 'sinon';
@@ -14,7 +13,7 @@ function bundlerFactory(overrides: Overrides = {}): Bundler {
     return createBundler(fakeDependencies);
 }
 
-test('scans only the given js entry-point file', async () => {
+test('scans only the given js entry-point file', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }],
     });
@@ -29,15 +28,15 @@ test('scans only the given js entry-point file', async () => {
         mainPackageJson: {},
     });
 
-    assert.strictEqual(scan.callCount, 1);
-    assert.deepStrictEqual(scan.firstCall.args, [
+    t.is(scan.callCount, 1);
+    t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
         { includeSourceMapFiles: false, mainPackageJson: {}, moduleResolution: 'common-js' },
     ]);
 });
 
-test('scans the given js entry-point file with module resolution', async () => {
+test('scans the given js entry-point file with module resolution', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }],
     });
@@ -52,15 +51,15 @@ test('scans the given js entry-point file with module resolution', async () => {
         mainPackageJson: { type: 'module' },
     });
 
-    assert.strictEqual(scan.callCount, 1);
-    assert.deepStrictEqual(scan.firstCall.args, [
+    t.is(scan.callCount, 1);
+    t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
         { includeSourceMapFiles: false, mainPackageJson: { type: 'module' }, moduleResolution: 'module' },
     ]);
 });
 
-test('scans the given js entry-point file with includeSourceMapFiles option set to true', async () => {
+test('scans the given js entry-point file with includeSourceMapFiles option set to true', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }],
     });
@@ -76,15 +75,15 @@ test('scans the given js entry-point file with includeSourceMapFiles option set 
         includeSourceMapFiles: true,
     });
 
-    assert.strictEqual(scan.callCount, 1);
-    assert.deepStrictEqual(scan.firstCall.args, [
+    t.is(scan.callCount, 1);
+    t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
         { includeSourceMapFiles: true, mainPackageJson: {}, moduleResolution: 'common-js' },
     ]);
 });
 
-test('scans the given js and declaration entry-point files', async () => {
+test('scans the given js and declaration entry-point files', async (t) => {
     const firstGraph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }],
     });
@@ -102,13 +101,13 @@ test('scans the given js and declaration entry-point files', async () => {
         mainPackageJson: {},
     });
 
-    assert.strictEqual(scan.callCount, 2);
-    assert.deepStrictEqual(scan.firstCall.args, [
+    t.is(scan.callCount, 2);
+    t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
         { includeSourceMapFiles: false, mainPackageJson: {}, moduleResolution: 'common-js' },
     ]);
-    assert.deepStrictEqual(scan.secondCall.args, [
+    t.deepEqual(scan.secondCall.args, [
         '/foo/bar.d.ts',
         '/foo',
         {
@@ -121,7 +120,7 @@ test('scans the given js and declaration entry-point files', async () => {
     ]);
 });
 
-test('builds a bundle for a single file with the correct package.json', async () => {
+test('builds a bundle for a single file with the correct package.json', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true', topLevelDependencies: new Map([['pkg', '42']]) }],
     });
@@ -136,7 +135,7 @@ test('builds a bundle for a single file with the correct package.json', async ()
         mainPackageJson: {},
     });
 
-    assert.deepStrictEqual(bundle, {
+    t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
@@ -154,7 +153,7 @@ test('builds a bundle for a single file with the correct package.json', async ()
     });
 });
 
-test('builds a bundle for a single file with the given additional package.json fields, sorted alphabetically', async () => {
+test('builds a bundle for a single file with the given additional package.json fields, sorted alphabetically', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }],
     });
@@ -173,7 +172,7 @@ test('builds a bundle for a single file with the given additional package.json f
         },
     });
 
-    assert.deepStrictEqual(bundle, {
+    t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
@@ -193,7 +192,7 @@ test('builds a bundle for a single file with the given additional package.json f
     });
 });
 
-test('builds a bundle for a single file with the module type from the main package.json', async () => {
+test('builds a bundle for a single file with the module type from the main package.json', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }],
     });
@@ -208,7 +207,7 @@ test('builds a bundle for a single file with the module type from the main packa
         mainPackageJson: { type: 'module' },
     });
 
-    assert.deepStrictEqual(bundle, {
+    t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
@@ -227,7 +226,7 @@ test('builds a bundle for a single file with the module type from the main packa
     });
 });
 
-test('builds a bundle for a project with matching dependencies and peerDependencies correctly', async () => {
+test('builds a bundle for a project with matching dependencies and peerDependencies correctly', async (t) => {
     const graph = buildDependencyGraph({
         entries: [
             {
@@ -270,7 +269,7 @@ test('builds a bundle for a project with matching dependencies and peerDependenc
         ],
     });
 
-    assert.deepStrictEqual(bundle, {
+    t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
@@ -294,7 +293,7 @@ test('builds a bundle for a project with matching dependencies and peerDependenc
     });
 });
 
-test('throws when the same bundle dependency is listed more than once', async () => {
+test('throws when the same bundle dependency is listed more than once', async (t) => {
     const bundler = bundlerFactory();
 
     try {
@@ -317,16 +316,16 @@ test('throws when the same bundle dependency is listed more than once', async ()
                 },
             ],
         });
-        assert.fail('Expected build() to fail but it did not');
+        t.fail('Expected build() to fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual(
+        t.is(
             (error as Error).message,
             'The following packages are listed more than once in dependencies or peerDependencies: a-dependency',
         );
     }
 });
 
-test('builds a bundle for a single js file and additional files provided via options', async () => {
+test('builds a bundle for a single js file and additional files provided via options', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }],
     });
@@ -342,7 +341,7 @@ test('builds a bundle for a single js file and additional files provided via opt
         additionalFiles: ['LICENSE', { sourceFilePath: 'docs/readme-foo.md', targetFilePath: 'README.md' }],
     });
 
-    assert.deepStrictEqual(bundle, {
+    t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',

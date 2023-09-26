@@ -8,9 +8,9 @@
         "prettier:check": "prettier --check './**/*.{yml,yaml,json,md}'",
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
-        "test:unit": "node --test target/build/source/",
+        "test:unit": "ava --config ava.config.js",
         "pretest:integration": "tsc -b integration-tests/tsconfig.json",
-        "test:integration": "node --test target/build/integration-tests"
+        "test:integration": "ava --config ava.integration.config.js"
     },
     "keywords": [],
     "author": "Mathias Schreck <schreck.mathias@gmail.com>",
@@ -34,12 +34,14 @@
         "valibot": "0.17.0"
     },
     "devDependencies": {
+        "@ava/typescript": "4.1.0",
         "@types/libnpmpublish": "4.0.3",
         "@types/npm-registry-fetch": "8.0.4",
         "@types/semver": "7.5.2",
         "@types/sinon": "10.0.16",
         "@types/ssri": "7.1.1",
         "@types/tar-stream": "3.1.0",
+        "ava": "5.3.1",
         "prettier": "3.0.3",
         "sinon": "16.0.0",
         "type-fest": "4.3.1",

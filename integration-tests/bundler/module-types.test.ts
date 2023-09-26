@@ -1,10 +1,9 @@
-import assert from 'node:assert';
-import { test } from 'node:test';
+import test from "ava"
 import { bundler } from '../../source/bundler.entry-point.js';
 import { loadPackageJson } from '../load-package-json.js';
 import path from 'node:path';
 
-test('correctly resolves CommonJS files', async () => {
+test('correctly resolves CommonJS files', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-cjs');
     const result = await bundler.build({
         name: 'the-package-name',
@@ -14,7 +13,7 @@ test('correctly resolves CommonJS files', async () => {
         mainPackageJson: await loadPackageJson(fixture),
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         packageJson: {
             dependencies: {},
             main: 'entry.js',
@@ -41,7 +40,7 @@ test('correctly resolves CommonJS files', async () => {
     });
 });
 
-test('correctly resolves ESM files', async () => {
+test('correctly resolves ESM files', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-esm');
     const result = await bundler.build({
         name: 'the-package-name',
@@ -51,7 +50,7 @@ test('correctly resolves ESM files', async () => {
         mainPackageJson: await loadPackageJson(fixture),
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         packageJson: {
             dependencies: {},
             main: 'entry.js',
@@ -79,7 +78,7 @@ test('correctly resolves ESM files', async () => {
     });
 });
 
-test('correctly resolves ESM files with export from statements', async () => {
+test('correctly resolves ESM files with export from statements', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-esm-export-from');
     const result = await bundler.build({
         name: 'the-package-name',
@@ -89,7 +88,7 @@ test('correctly resolves ESM files with export from statements', async () => {
         mainPackageJson: await loadPackageJson(fixture),
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         packageJson: {
             dependencies: {},
             main: 'entry.js',
@@ -117,7 +116,7 @@ test('correctly resolves ESM files with export from statements', async () => {
     });
 });
 
-test('correctly resolves ESM files with plain import statements', async () => {
+test('correctly resolves ESM files with plain import statements', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-esm-plain-import');
     const result = await bundler.build({
         name: 'the-package-name',
@@ -127,7 +126,7 @@ test('correctly resolves ESM files with plain import statements', async () => {
         mainPackageJson: await loadPackageJson(fixture),
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         packageJson: {
             dependencies: {},
             main: 'entry.js',
