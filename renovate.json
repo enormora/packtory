@@ -1,0 +1,18 @@
+{
+    "extends": ["config:base"],
+    "commitMessagePrefix": "⬆️ ",
+    "labels": ["renovate"],
+    "rebaseStalePrs": true,
+    "lockFileMaintenance": {
+        "enabled": true,
+        "automerge": true
+    },
+    "packageRules": [
+        {
+            "depTypeList": ["dependencies", "devDependencies"],
+            "updateTypes": ["minor", "patch"],
+            "automerge": true,
+            "automergeType": "branch"
+        }
+    ]
+}
