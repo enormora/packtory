@@ -1,4 +1,4 @@
-import test from "ava"
+import test from 'ava';
 import { stub, fake, SinonSpy, SinonStub } from 'sinon';
 import {
     createTypescriptProjectAnalyzer,
@@ -224,6 +224,62 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths as
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 
     t.deepEqual(result, ['/foo/b.js', '/foo/c.js']);
+});
+
+test('getReferencedSourceFilePaths() returns the referenced source file paths as cjs when resolveDeclarationFiles is false', (t) => {
+    const getReferencedSourceFiles = fake.returns([
+        createFakeSourceFile({ filePath: '/foo/b.d.cts', isDeclarationFile: true }),
+        createFakeSourceFile({ filePath: '/foo/c.cjs', isDeclarationFile: false }),
+    ]);
+    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
+    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
+
+    const project = analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: false,
+    });
+    const result = project.getReferencedSourceFilePaths('/foo/a.js');
+
+    t.deepEqual(result, ['/foo/b.cjs', '/foo/c.cjs']);
+});
+
+test('getReferencedSourceFilePaths() returns the referenced source file paths as mjs when resolveDeclarationFiles is false', (t) => {
+    const getReferencedSourceFiles = fake.returns([
+        createFakeSourceFile({ filePath: '/foo/b.d.mts', isDeclarationFile: true }),
+        createFakeSourceFile({ filePath: '/foo/c.mjs', isDeclarationFile: false }),
+    ]);
+    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
+    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
+
+    const project = analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: false,
+    });
+    const result = project.getReferencedSourceFilePaths('/foo/a.js');
+
+    t.deepEqual(result, ['/foo/b.mjs', '/foo/c.mjs']);
+});
+
+test('getReferencedSourceFilePaths() throws when the resolved file is a declaration file with an unknown extension', (t) => {
+    const getReferencedSourceFiles = fake.returns([
+        createFakeSourceFile({ filePath: '/foo/b.foo.bar', isDeclarationFile: true }),
+        createFakeSourceFile({ filePath: '/foo/c.mjs', isDeclarationFile: false }),
+    ]);
+    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
+    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
+
+    const project = analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: false,
+    });
+
+    t.throws(()=>project.getReferencedSourceFilePaths('/foo/a.js'), { message: 'Couldn’t handle file extension of declartion file "/foo/b.foo.bar"'});
 });
 
 test('getReferencedSourceFilePaths() returns the referenced source file paths as .d.ts when resolveDeclarationFiles is true', (t) => {

@@ -54,21 +54,21 @@ export function resolveSourceFileForLiteral(
     return undefined;
 }
 
-function isDefined<T>(value: T): value is Exclude<T, undefined> {
-    return typeof value !== 'undefined';
-}
-
 export function getReferencedSourceFiles(sourceFile: SourceFile): SourceFile[] {
     const importStringLiterals = sourceFile.getImportStringLiterals();
-    return importStringLiterals
-        .map((literal) => {
-            const referencedSourceFile = getSourceFileForLiteral(literal);
+    return importStringLiterals.map((literal) => {
+        let referencedSourceFile = getSourceFileForLiteral(literal);
 
-            if (referencedSourceFile) {
-                return referencedSourceFile;
-            }
+        if (!referencedSourceFile) {
+            referencedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
+        }
 
-            return resolveSourceFileForLiteral(literal, sourceFile);
-        })
-        .filter(isDefined);
+        if (!referencedSourceFile) {
+            throw new Error(
+                `Failed to resolve file for import "${literal.getLiteralValue()}" in containing file "${sourceFile.getFilePath()}"`,
+            );
+        }
+
+        return referencedSourceFile;
+    });
 }

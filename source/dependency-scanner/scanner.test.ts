@@ -1,4 +1,4 @@
-import test from "ava"
+import test from 'ava';
 import { stub, fake, SinonSpy } from 'sinon';
 import { createDependencyScanner, DependencyScanner, DependencyScannerDependencies } from './scanner.js';
 import { Maybe } from 'true-myth';
@@ -236,7 +236,9 @@ test('doesn’t include any files from node_modules in localFiles', async (t) =>
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir');
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: {
+        dependencies: { 'any-module': 'the-version' }
+    }});
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result.localFiles, [
@@ -272,32 +274,26 @@ test('uses the version from devDependencies when includeDevDependencies is true'
     t.deepEqual(result.topLevelDependencies, { 'any-module': 'the-version' });
 });
 
-test('doesn’t include a node_modules package when package is only in devDependencies but includeDevDependencies is false', async (t) => {
+test('throws when a reference to a node_modules package is only in devDependencies but includeDevDependencies is false', async (t) => {
     const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+    await t.throwsAsync(dependencyScanner.scan('/dir/entry.js', '/dir', {
         mainPackageJson: { devDependencies: { 'any-module': 'the-version' } },
         includeDevDependencies: false,
-    });
-    const result = graph.flatten('/dir/entry.js');
-
-    t.deepEqual(result.topLevelDependencies, {});
+    }), { message: 'The referenced node module "any-module" is not defined in the dependencies' });
 });
 
-test('doesn’t include a node_modules package when package is not at all in the packageJson', async (t) => {
+test('throws when a reference to a node_modules package is not at all in the packageJson', async (t) => {
     const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+    await t.throwsAsync(dependencyScanner.scan('/dir/entry.js', '/dir', {
         mainPackageJson: {},
         includeDevDependencies: true,
-    });
-    const result = graph.flatten('/dir/entry.js');
-
-    t.deepEqual(result.topLevelDependencies, {});
+    }), {message: 'The referenced node module "any-module" is not defined in the dependencies'});
 });
 
 test('throws an error when an invalid node_modules path is returned', async (t) => {
@@ -309,10 +305,7 @@ test('throws an error when an invalid node_modules path is returned', async (t) 
         await dependencyScanner.scan('/dir/entry.js', '/dir');
         t.fail('Expected scan() to throw but it didn’t');
     } catch (error: unknown) {
-        t.is(
-            (error as Error).message,
-            "Couldn’t find node_modules package name for '/invald/node_modules/'",
-        );
+        t.is((error as Error).message, "Couldn’t find node_modules package name for '/invald/node_modules/'");
     }
 });
 
