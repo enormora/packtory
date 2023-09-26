@@ -23,18 +23,30 @@ export interface TypescriptProjectAnalyzer {
     analyzeProject(folder: string, options: AnalyzationOptions): TypescriptProject;
 }
 
-function replaceFileExtension(filePath: string, oldExtension: string, newExtension: string): string {
-    const pathWithoutFile = path.dirname(filePath);
-    const fileWithoutExtension = path.basename(filePath, oldExtension);
+const declartionFileExtensionReplacements = new Map([
+    ['.d.ts', '.js'],
+    ['.d.cts', '.cjs'],
+    ['.d.mts', '.mjs'],
+]);
 
-    return `${pathWithoutFile}/${fileWithoutExtension}${newExtension}`;
+function replaceDeclarationFileExtension(filePath: string): string {
+    for (const replacement of declartionFileExtensionReplacements) {
+        const [oldExtensions, newExtension] = replacement;
+
+        if (filePath.endsWith(oldExtensions)) {
+            const filePathWithoutExtension = filePath.slice(0, -oldExtensions.length);
+            return `${filePathWithoutExtension}${newExtension}`;
+        }
+    }
+
+    throw new Error(`Couldn’t handle file extension of declartion file "${filePath}"`);
 }
 
 export function getSourcePathFromSourceFile(sourceFile: SourceFile, resolveDeclarationFiles: boolean): string {
     const filePath = sourceFile.getFilePath();
 
     if (sourceFile.isDeclarationFile() && !resolveDeclarationFiles) {
-        return replaceFileExtension(filePath, '.d.ts', '.js');
+        return replaceDeclarationFileExtension(filePath);
     }
 
     return filePath;
