@@ -1,4 +1,4 @@
-import test from "ava"
+import test from 'ava';
 import { createBundler, Bundler, BundlerDependencies } from './bundler.js';
 import { buildDependencyGraph } from '../test-libraries/dependency-graph-builder.js';
 import { fake, SinonSpy, stub } from 'sinon';
@@ -359,4 +359,61 @@ test('builds a bundle for a single js file and additional files provided via opt
             main: 'bar.js',
         },
     });
+});
+
+test('builds a bundle for a single js file and additional files provided using absolute paths', async (t) => {
+    const graph = buildDependencyGraph({
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+    });
+    const scan = fake.resolves(graph);
+    const bundler = bundlerFactory({ scan });
+
+    const bundle = await bundler.build({
+        sourcesFolder: '/foo',
+        entryPoints: [{ js: '/foo/bar.js' }],
+        name: 'the-name',
+        version: 'the-version',
+        mainPackageJson: {},
+        additionalFiles: [{ sourceFilePath: '/LICENSE', targetFilePath: 'bar/LICENSE' }],
+    });
+
+    t.deepEqual(bundle, {
+        contents: [
+            {
+                kind: 'source',
+                source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js"\n}',
+                targetFilePath: 'package.json',
+            },
+            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' },
+            { kind: 'reference', sourceFilePath: '/LICENSE', targetFilePath: 'bar/LICENSE' },
+        ],
+        packageJson: {
+            name: 'the-name',
+            version: 'the-version',
+            dependencies: {},
+            main: 'bar.js',
+        },
+    });
+});
+
+test('throws when providing an absolute targetFilePath in additionalFiles', async (t) => {
+    const graph = buildDependencyGraph({
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+    });
+    const scan = fake.resolves(graph);
+    const bundler = bundlerFactory({ scan });
+
+    try {
+        await bundler.build({
+            sourcesFolder: '/foo',
+            entryPoints: [{ js: '/foo/bar.js' }],
+            name: 'the-name',
+            version: 'the-version',
+            mainPackageJson: {},
+            additionalFiles: [{ sourceFilePath: '/LICENSE', targetFilePath: '/bar/LICENSE' }],
+        });
+        t.fail('Expected build() to fail but it did not');
+    } catch (error: unknown) {
+        t.is((error as Error).message, 'The targetFilePath must be relative');
+    }
 });
