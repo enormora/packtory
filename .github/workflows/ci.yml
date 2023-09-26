@@ -1,0 +1,20 @@
+name: Continuous integration
+
+on: [push, pull_request]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        name: Node v20
+        steps:
+            - uses: actions/checkout@v4
+            - name: Use Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: 20
+            - name: Install dependencies
+              run: npm clean-install
+            - name: Compile Typescript
+              run: npm run compile
+            - name: Run tests
+              run: npm test
