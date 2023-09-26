@@ -43,7 +43,7 @@ function extractModuleName(nodeModulePath: string): string {
     return moduleName;
 }
 
-function isTopLevelModule(moduleName: string, options: ScanOptions): boolean {
+function isKnownNodeModule(moduleName: string, options: ScanOptions): boolean {
     const { includeDevDependencies, mainPackageJson } = options;
 
     if (typeof mainPackageJson.dependencies?.[moduleName] !== 'undefined') {
@@ -99,8 +99,13 @@ function determineTopLevelNodeModules(dependencies: readonly string[], options: 
     const modulePaths = dependencies.filter(isNodeModulesPath);
     const moduleNames = modulePaths.map(extractModuleName);
     const uniqueModuleNames = uniqueList(moduleNames);
+    const unknownNodeModule = uniqueModuleNames.find((moduleName) => !isKnownNodeModule(moduleName, options));
 
-    return uniqueModuleNames.filter((moduleName) => isTopLevelModule(moduleName, options));
+    if (unknownNodeModule) {
+        throw new Error(`The referenced node module "${unknownNodeModule}" is not defined in the dependencies`);
+    }
+
+    return uniqueModuleNames;
 }
 
 export interface DependencyScannerDependencies {
