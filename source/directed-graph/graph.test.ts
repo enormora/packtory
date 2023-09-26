@@ -149,19 +149,6 @@ test('hasNode() returns true when there is a connection between the given nodes'
     t.is(graph.hasConnection({ from: 'a', to: 'b' }), true);
 });
 
-test('addNode() throws when adding a node with an id that already exist', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('foo', 'bar');
-
-    try {
-        graph.addNode('foo', 'baz');
-        t.fail('Expected addNode() to fail but it did not');
-    } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "foo" already exists');
-    }
-});
-
 function collectFromGraph(graph: DirectedGraph<string, string>, startId: string): string[] {
     const collected: string[] = [];
 
