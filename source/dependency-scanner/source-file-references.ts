@@ -1,4 +1,5 @@
 import Maybe, { first } from 'true-myth/maybe';
+import { isBuiltin } from 'node:module';
 import { ts, Node, Project as _Project, SourceFile, Symbol as TSSymbol, SyntaxKind, StringLiteral } from 'ts-morph';
 
 function getReferencedSourceFileFromSymbol(symbol: TSSymbol): Maybe<SourceFile> {
@@ -54,6 +55,10 @@ export function resolveSourceFileForLiteral(
     return undefined;
 }
 
+function isDefined<T>(value: T): value is Exclude<T, undefined> {
+    return typeof value !== 'undefined';
+}
+
 export function getReferencedSourceFiles(sourceFile: SourceFile): SourceFile[] {
     const importStringLiterals = sourceFile.getImportStringLiterals();
     return importStringLiterals.map((literal) => {
@@ -64,11 +69,15 @@ export function getReferencedSourceFiles(sourceFile: SourceFile): SourceFile[] {
         }
 
         if (!referencedSourceFile) {
+            if (isBuiltin(literal.getLiteralValue())) {
+                return undefined;
+            }
+
             throw new Error(
                 `Failed to resolve file for import "${literal.getLiteralValue()}" in containing file "${sourceFile.getFilePath()}"`,
             );
         }
 
         return referencedSourceFile;
-    });
+    }).filter(isDefined);
 }
