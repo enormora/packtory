@@ -1,4 +1,4 @@
-import test from "ava"
+import test from 'ava';
 import { getReferencedSourceFiles } from './source-file-references.js';
 import { createProject } from '../test-libraries/typescript-project.js';
 import { ModuleKind } from 'ts-morph';
@@ -12,13 +12,11 @@ test('returns an empty array when the given source file doesn’t has any import
     t.deepEqual(result, []);
 });
 
-test('returns an empty array when the given source contains an import but it is not resolvable', (t) => {
+test('throws when the given source contains an import but it is not resolvable', (t) => {
     const files = [{ filePath: 'main.ts', content: 'import {foo} from "foo.js"' }];
     const project = createProject({ withFiles: files });
 
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    t.deepEqual(result, []);
+    t.throws(() => getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts')), { message: 'Failed to resolve file for import "foo.js" in containing file "/main.ts"' });
 });
 
 test('returns array with the resolved source file using an import from statement', (t) => {
