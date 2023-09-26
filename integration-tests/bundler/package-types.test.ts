@@ -1,10 +1,9 @@
-import assert from 'node:assert';
-import { test } from 'node:test';
+import test from "ava"
 import { bundler } from '../../source/bundler.entry-point.js';
 import { loadPackageJson } from '../load-package-json.js';
 import path from 'node:path';
 
-test('includes all required local files and references correct node modules but ignores builtin modules', async () => {
+test('includes all required local files and references correct node modules but ignores builtin modules', async (t) => {
     const fixture = path.join(
         process.cwd(),
         'integration-tests/fixtures/with-local-builtin-and-node-module-dependencies',
@@ -17,7 +16,7 @@ test('includes all required local files and references correct node modules but 
         mainPackageJson: await loadPackageJson(fixture),
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         packageJson: {
             dependencies: { 'example-module': '1.2.3' },
             main: 'entry.js',

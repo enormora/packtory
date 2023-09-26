@@ -1,24 +1,23 @@
-import test from 'node:test';
-import assert from 'node:assert';
+import test from 'ava';
 import { createTarballBuilder } from './tarball-builder.js';
 import { extractTarEntries } from '../test-libraries/tar.js';
 
-test('creates an empty tarball', async () => {
+test('creates an empty tarball', async (t) => {
     const builder = createTarballBuilder();
     const tarballBuffer = await builder.build();
     const entries = await extractTarEntries(tarballBuffer);
 
-    assert.deepEqual(entries, []);
+    t.deepEqual(entries, []);
 });
 
-test('creates a tarball with one file', async () => {
+test('creates a tarball with one file', async (t) => {
     const builder = createTarballBuilder();
 
     builder.addFile('foo.txt', 'bar');
     const tarballBuffer = await builder.build();
     const entries = await extractTarEntries(tarballBuffer);
 
-    assert.deepStrictEqual(entries, [
+    t.deepEqual(entries, [
         {
             header: {
                 devmajor: 0,
@@ -40,7 +39,7 @@ test('creates a tarball with one file', async () => {
     ]);
 });
 
-test('creates a tarball with many nested files', async () => {
+test('creates a tarball with many nested files', async (t) => {
     const builder = createTarballBuilder();
 
     builder.addFile('1.txt', '1');
@@ -50,7 +49,7 @@ test('creates a tarball with many nested files', async () => {
     const tarballBuffer = await builder.build();
     const entries = await extractTarEntries(tarballBuffer);
 
-    assert.deepStrictEqual(entries, [
+    t.deepEqual(entries, [
         {
             header: {
                 devmajor: 0,

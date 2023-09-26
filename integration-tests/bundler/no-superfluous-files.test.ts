@@ -1,10 +1,9 @@
-import assert from 'node:assert';
-import { test } from 'node:test';
+import test from "ava"
 import { bundler } from '../../source/bundler.entry-point.js';
 import { loadPackageJson } from '../load-package-json.js';
 import path from 'node:path';
 
-test('ignores superfluous local files and reference node modules', async () => {
+test('ignores superfluous local files and reference node modules', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/superfluous-files');
     const result = await bundler.build({
         name: 'the-package-name',
@@ -14,7 +13,7 @@ test('ignores superfluous local files and reference node modules', async () => {
         mainPackageJson: await loadPackageJson(fixture),
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         packageJson: {
             dependencies: {},
             main: 'entry.js',

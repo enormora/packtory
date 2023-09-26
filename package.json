@@ -8,9 +8,9 @@
         "prettier:check": "prettier --check './**/*.{yml,yaml,json,md}'",
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
-        "test:unit": "node --test target/build/source/",
+        "test:unit": "ava --config ava.config.js",
         "pretest:integration": "tsc -b integration-tests/tsconfig.json",
-        "test:integration": "node --test target/build/integration-tests"
+        "test:integration": "ava --config ava.integration.config.js"
     },
     "keywords": [],
     "author": "Mathias Schreck <schreck.mathias@gmail.com>",

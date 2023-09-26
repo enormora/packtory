@@ -1,10 +1,9 @@
-import assert from 'node:assert';
-import { test } from 'node:test';
+import test from "ava"
 import { bundler } from '../../source/bundler.entry-point.js';
 import { loadPackageJson } from '../load-package-json.js';
 import path from 'node:path';
 
-test('bundles and substitutes multiple packages correctly', async () => {
+test('bundles and substitutes multiple packages correctly', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
     const firstBundle = await bundler.build({
         name: 'first',
@@ -40,7 +39,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
         peerDependencies: [secondBundle],
     });
 
-    assert.deepStrictEqual(firstBundle, {
+    t.deepEqual(firstBundle, {
         packageJson: {
             dependencies: {},
             main: 'entry1.js',
@@ -92,7 +91,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
             },
         ],
     });
-    assert.deepStrictEqual(secondBundle, {
+    t.deepEqual(secondBundle, {
         packageJson: {
             dependencies: { first: '1.2.3' },
             main: 'entry2.js',
@@ -136,7 +135,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
             },
         ],
     });
-    assert.deepStrictEqual(thirdBundle, {
+    t.deepEqual(thirdBundle, {
         packageJson: {
             dependencies: { first: '1.2.3' },
             peerDependencies: { second: '2.3.4' },

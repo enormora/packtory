@@ -1,10 +1,9 @@
-import assert from 'node:assert';
-import { test } from 'node:test';
+import test from "ava"
 import { bundler } from '../../source/bundler.entry-point.js';
 import { loadPackageJson } from '../load-package-json.js';
 import path from 'node:path';
 
-test('adds declaration files correctly to the bundle', async () => {
+test('adds declaration files correctly to the bundle', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-and-d-ts');
     const result = await bundler.build({
         name: 'the-package-name',
@@ -16,7 +15,7 @@ test('adds declaration files correctly to the bundle', async () => {
         mainPackageJson: await loadPackageJson(fixture),
     });
 
-    assert.deepStrictEqual(result, {
+    t.deepEqual(result, {
         packageJson: {
             dependencies: {},
             main: 'entry.js',

@@ -1,8 +1,7 @@
-import test from 'node:test';
-import assert from 'node:assert';
+import test from 'ava';
 import { validateBundleBuildOptions, BundleBuildOptions } from './bundle-build-options.js';
 
-test('throws when a bundle is listed in both dependencies and peerDependencies', () => {
+test('throws when a bundle is listed in both dependencies and peerDependencies', (t) => {
     const options: BundleBuildOptions = {
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
@@ -15,16 +14,16 @@ test('throws when a bundle is listed in both dependencies and peerDependencies',
 
     try {
         validateBundleBuildOptions(options);
-        assert.fail('Expected validateBundleBuildOptions() to throw but it did not');
+        t.fail('Expected validateBundleBuildOptions() to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual(
+        t.is(
             (error as Error).message,
             'The following packages are listed more than once in dependencies or peerDependencies: foo',
         );
     }
 });
 
-test('throws when multiple bundles are listed multiple times', () => {
+test('throws when multiple bundles are listed multiple times', (t) => {
     const options: BundleBuildOptions = {
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
@@ -43,16 +42,16 @@ test('throws when multiple bundles are listed multiple times', () => {
 
     try {
         validateBundleBuildOptions(options);
-        assert.fail('Expected validateBundleBuildOptions() to throw but it did not');
+        t.fail('Expected validateBundleBuildOptions() to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual(
+        t.is(
             (error as Error).message,
             'The following packages are listed more than once in dependencies or peerDependencies: foo, bar',
         );
     }
 });
 
-test('throws when a bundle is listed twice in dependencies', () => {
+test('throws when a bundle is listed twice in dependencies', (t) => {
     const options: BundleBuildOptions = {
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
@@ -67,16 +66,16 @@ test('throws when a bundle is listed twice in dependencies', () => {
 
     try {
         validateBundleBuildOptions(options);
-        assert.fail('Expected validateBundleBuildOptions() to throw but it did not');
+        t.fail('Expected validateBundleBuildOptions() to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual(
+        t.is(
             (error as Error).message,
             'The following packages are listed more than once in dependencies or peerDependencies: foo',
         );
     }
 });
 
-test('throws when a bundle is listed twice in peerDependencies', () => {
+test('throws when a bundle is listed twice in peerDependencies', (t) => {
     const options: BundleBuildOptions = {
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
@@ -91,16 +90,16 @@ test('throws when a bundle is listed twice in peerDependencies', () => {
 
     try {
         validateBundleBuildOptions(options);
-        assert.fail('Expected validateBundleBuildOptions() to throw but it did not');
+        t.fail('Expected validateBundleBuildOptions() to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual(
+        t.is(
             (error as Error).message,
             'The following packages are listed more than once in dependencies or peerDependencies: foo',
         );
     }
 });
 
-test('doesn’t throw when a bundle is listed only once', () => {
+test('doesn’t throw when a bundle is listed only once', (t) => {
     const options: BundleBuildOptions = {
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
@@ -110,7 +109,7 @@ test('doesn’t throw when a bundle is listed only once', () => {
         dependencies: [{ contents: [], packageJson: { name: 'foo', version: '42' } }],
     };
 
-    assert.doesNotThrow(() => {
+    t.notThrows(() => {
         validateBundleBuildOptions(options);
     });
 });
