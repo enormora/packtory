@@ -4,6 +4,7 @@
     "description": "",
     "type": "module",
     "scripts": {
+        "compile": "tsc --build",
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
         "test:unit": "node --test target/build/source/",
