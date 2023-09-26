@@ -1,12 +1,12 @@
-import {PackageJson} from "type-fest";
-import {BundleDescription} from "./bundle-description.js"
+import { PackageJson } from 'type-fest';
+import { BundleDescription } from './bundle-description.js';
 
 export interface EntryPoint {
     readonly js: string;
     readonly declarationFile?: string;
 }
 
-export type EntryPoints = readonly [ EntryPoint, ... (readonly EntryPoint[]) ];
+export type EntryPoints = readonly [EntryPoint, ...(readonly EntryPoint[])];
 
 export interface AdditionalFileDescription {
     sourceFilePath: string;
@@ -23,7 +23,10 @@ export interface BundleBuildOptions {
     readonly dependencies?: BundleDescription[];
     readonly peerDependencies?: BundleDescription[];
     readonly additionalFiles?: readonly (string | AdditionalFileDescription)[];
-    readonly additionalPackageJsonAttributes?: Exclude<PackageJson, 'name' | 'version' | 'dependencies' | 'devDependencies' | 'main' | 'types'>
+    readonly additionalPackageJsonAttributes?: Exclude<
+        PackageJson,
+        'name' | 'version' | 'dependencies' | 'devDependencies' | 'main' | 'types'
+    >;
 }
 
 function extractName(bundle: BundleDescription): string {
@@ -45,13 +48,17 @@ function findDuplicates(list: string[]): string[] {
 }
 
 export function validateBundleBuildOptions(options: BundleBuildOptions): void {
-    const {dependencies = [], peerDependencies = []} = options;
+    const { dependencies = [], peerDependencies = [] } = options;
     const dependencyNames = dependencies.map(extractName);
     const peerDependencyNames = peerDependencies.map(extractName);
-    const allNames = [ ...dependencyNames, ...peerDependencyNames ];
+    const allNames = [...dependencyNames, ...peerDependencyNames];
     const duplicatedNames = findDuplicates(allNames);
 
     if (duplicatedNames.length > 0) {
-        throw new Error(`The following packages are listed more than once in dependencies or peerDependencies: ${duplicatedNames.join(', ')}`);
+        throw new Error(
+            `The following packages are listed more than once in dependencies or peerDependencies: ${duplicatedNames.join(
+                ', ',
+            )}`,
+        );
     }
 }

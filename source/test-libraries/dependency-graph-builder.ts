@@ -1,7 +1,7 @@
-import {Maybe} from 'true-myth';
-import {Project} from 'ts-morph';
-import {DependencyGraph, createDependencyGraph} from '../dependency-scanner/dependency-graph.js';
-import {createProject} from './typescript-project.js';
+import { Maybe } from 'true-myth';
+import { Project } from 'ts-morph';
+import { DependencyGraph, createDependencyGraph } from '../dependency-scanner/dependency-graph.js';
+import { createProject } from './typescript-project.js';
 
 interface Entry {
     filePath: string;
@@ -21,7 +21,7 @@ function addEntries(graph: DependencyGraph, project: Project, entries: Entry[], 
             sourceMapFilePath: Maybe.nothing(),
             topLevelDependencies: entry.topLevelDependencies ?? new Map(),
             substitutionContent: Maybe.nothing(),
-            tsSourceFile: sourceFile
+            tsSourceFile: sourceFile,
         });
         if (parentFilePath !== null) {
             graph.connect(parentFilePath, entry.filePath);
@@ -34,7 +34,7 @@ function addEntries(graph: DependencyGraph, project: Project, entries: Entry[], 
 }
 
 export function buildDependencyGraph(options: Options = {}): DependencyGraph {
-    const {entries = []} = options;
+    const { entries = [] } = options;
     const graph = createDependencyGraph();
     const project = createProject();
 

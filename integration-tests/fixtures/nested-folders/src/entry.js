@@ -1,1 +1,1 @@
-import {foo} from './nested/foo.js';
+import { foo } from './nested/foo.js';

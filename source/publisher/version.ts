@@ -1,6 +1,6 @@
 import semver from 'semver';
-import {PackageJson, SetRequired} from 'type-fest';
-import {BundleContent, BundleDescription} from '../bundler/bundle-description.js';
+import { PackageJson, SetRequired } from 'type-fest';
+import { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
 
 export type Version = `${number}.${number}.${number}`;
 
@@ -27,16 +27,16 @@ function isNotPackageJsonContentEntry(entry: BundleContent): boolean {
 }
 
 export function replaceBundleVersion(bundle: BundleDescription, newVersion: string): BundleDescription {
-    const newPackageJson: SetRequired<PackageJson, 'name' | 'version'> = {...bundle.packageJson}
+    const newPackageJson: SetRequired<PackageJson, 'name' | 'version'> = { ...bundle.packageJson };
     newPackageJson.version = newVersion;
 
     const newContents: BundleContent[] = [
-        {kind: 'source', targetFilePath: 'package.json', source: JSON.stringify(newPackageJson, null, 4)},
-        ...bundle.contents.filter(isNotPackageJsonContentEntry)
+        { kind: 'source', targetFilePath: 'package.json', source: JSON.stringify(newPackageJson, null, 4) },
+        ...bundle.contents.filter(isNotPackageJsonContentEntry),
     ];
 
     return {
         contents: newContents,
-        packageJson: newPackageJson
+        packageJson: newPackageJson,
     };
 }

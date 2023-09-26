@@ -1,5 +1,5 @@
-import Maybe, {first} from 'true-myth/maybe';
-import {ts, Node, Project as _Project, SourceFile, Symbol as TSSymbol, SyntaxKind, StringLiteral} from 'ts-morph';
+import Maybe, { first } from 'true-myth/maybe';
+import { ts, Node, Project as _Project, SourceFile, Symbol as TSSymbol, SyntaxKind, StringLiteral } from 'ts-morph';
 
 function getReferencedSourceFileFromSymbol(symbol: TSSymbol): Maybe<SourceFile> {
     const declarations = symbol.getDeclarations();
@@ -22,9 +22,8 @@ function getSourceFileForLiteral(literal: StringLiteral): SourceFile | undefined
     } else if (grandParent != null && Node.isImportEqualsDeclaration(grandParent)) {
         return grandParent.getExternalModuleReferenceSourceFile();
     } else if (grandParent != null && Node.isImportTypeNode(grandParent)) {
-        const importTypeSymbol = grandParent.getSymbol()
-        if (importTypeSymbol != null)
-            return getReferencedSourceFileFromSymbol(importTypeSymbol).unwrapOr(undefined);
+        const importTypeSymbol = grandParent.getSymbol();
+        if (importTypeSymbol != null) return getReferencedSourceFileFromSymbol(importTypeSymbol).unwrapOr(undefined);
     } else if (Node.isCallExpression(parent)) {
         const literalSymbol = literal.getSymbol();
         if (literalSymbol != null) {
@@ -35,9 +34,17 @@ function getSourceFileForLiteral(literal: StringLiteral): SourceFile | undefined
     return undefined;
 }
 
-export function resolveSourceFileForLiteral(literal: StringLiteral, containingSourceFile: SourceFile): SourceFile | undefined {
+export function resolveSourceFileForLiteral(
+    literal: StringLiteral,
+    containingSourceFile: SourceFile,
+): SourceFile | undefined {
     const project = containingSourceFile.getProject();
-    const result = ts.resolveModuleName(literal.getLiteralValue(), containingSourceFile.getFilePath(), project.getCompilerOptions(), project.getModuleResolutionHost());
+    const result = ts.resolveModuleName(
+        literal.getLiteralValue(),
+        containingSourceFile.getFilePath(),
+        project.getCompilerOptions(),
+        project.getModuleResolutionHost(),
+    );
 
     if (result.resolvedModule) {
         const resolvedFilePath = result.resolvedModule.resolvedFileName;
@@ -53,13 +60,15 @@ function isDefined<T>(value: T): value is Exclude<T, undefined> {
 
 export function getReferencedSourceFiles(sourceFile: SourceFile): SourceFile[] {
     const importStringLiterals = sourceFile.getImportStringLiterals();
-    return importStringLiterals.map((literal) => {
-        const referencedSourceFile = getSourceFileForLiteral(literal);
+    return importStringLiterals
+        .map((literal) => {
+            const referencedSourceFile = getSourceFileForLiteral(literal);
 
-        if (referencedSourceFile) {
-            return referencedSourceFile;
-        }
+            if (referencedSourceFile) {
+                return referencedSourceFile;
+            }
 
-        return resolveSourceFileForLiteral(literal, sourceFile);
-    }).filter(isDefined);
+            return resolveSourceFileForLiteral(literal, sourceFile);
+        })
+        .filter(isDefined);
 }

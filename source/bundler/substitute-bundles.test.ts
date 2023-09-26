@@ -1,9 +1,9 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert';
-import {substituteDependencies} from './substitute-bundles.js';
-import {buildDependencyGraph} from '../test-libraries/dependency-graph-builder.js';
-import {BundleDescription} from './bundle-description.js';
-import {Maybe} from 'true-myth';
+import { substituteDependencies } from './substitute-bundles.js';
+import { buildDependencyGraph } from '../test-libraries/dependency-graph-builder.js';
+import { BundleDescription } from './bundle-description.js';
+import { Maybe } from 'true-myth';
 
 test('doesn’t substitute anything when the given dependencies are empty', () => {
     const inputGraph = buildDependencyGraph({
@@ -11,13 +11,15 @@ test('doesn’t substitute anything when the given dependencies are empty', () =
             {
                 filePath: '/entry.js',
                 content: 'import "./foo.js";',
-                dependencies: [ {
-                    filePath: "/foo.js",
-                    content: 'true'
-                } ]
-            }
-        ]
-    })
+                dependencies: [
+                    {
+                        filePath: '/foo.js',
+                        content: 'true',
+                    },
+                ],
+            },
+        ],
+    });
     const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', [], false);
     const result = substitutedGraph.flatten('/entry.js');
 
@@ -30,17 +32,21 @@ test('doesn’t substitute anything when the given dependencies has only files t
             {
                 filePath: '/entry.js',
                 content: 'import "./foo.js";',
-                dependencies: [ {
-                    filePath: "/foo.js",
-                    content: 'true'
-                } ]
-            }
-        ]
-    })
-    const bundleDependencies: BundleDescription[] = [ {
-        contents: [ {kind: 'reference', targetFilePath: 'bar.js', sourceFilePath: '/bar.js'} ],
-        packageJson: {name: 'the-package', version: '1'}
-    } ];
+                dependencies: [
+                    {
+                        filePath: '/foo.js',
+                        content: 'true',
+                    },
+                ],
+            },
+        ],
+    });
+    const bundleDependencies: BundleDescription[] = [
+        {
+            contents: [{ kind: 'reference', targetFilePath: 'bar.js', sourceFilePath: '/bar.js' }],
+            packageJson: { name: 'the-package', version: '1' },
+        },
+    ];
     const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
     const result = substitutedGraph.flatten('/entry.js');
 
@@ -53,17 +59,21 @@ test('doesn’t substitute anything when the given dependencies have a matching 
             {
                 filePath: '/entry.js',
                 content: 'import "./foo.js";',
-                dependencies: [ {
-                    filePath: "/foo.js",
-                    content: 'true'
-                } ]
-            }
-        ]
-    })
-    const bundleDependencies: BundleDescription[] = [ {
-        contents: [ {kind: 'source', targetFilePath: 'foo.js', source: ''} ],
-        packageJson: {name: 'the-package', version: '1'}
-    } ];
+                dependencies: [
+                    {
+                        filePath: '/foo.js',
+                        content: 'true',
+                    },
+                ],
+            },
+        ],
+    });
+    const bundleDependencies: BundleDescription[] = [
+        {
+            contents: [{ kind: 'source', targetFilePath: 'foo.js', source: '' }],
+            packageJson: { name: 'the-package', version: '1' },
+        },
+    ];
     const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
     const result = substitutedGraph.flatten('/entry.js');
 
@@ -76,17 +86,21 @@ test('substitutes a file that has imports statements matching the files in the g
             {
                 filePath: '/entry.js',
                 content: 'import "./foo.js";',
-                dependencies: [ {
-                    filePath: "/foo.js",
-                    content: 'true'
-                } ]
-            }
-        ]
-    })
-    const bundleDependencies: BundleDescription[] = [ {
-        contents: [ {kind: 'reference', targetFilePath: 'foo.js', sourceFilePath: '/foo.js', } ],
-        packageJson: {name: 'the-package', version: '1'}
-    } ];
+                dependencies: [
+                    {
+                        filePath: '/foo.js',
+                        content: 'true',
+                    },
+                ],
+            },
+        ],
+    });
+    const bundleDependencies: BundleDescription[] = [
+        {
+            contents: [{ kind: 'reference', targetFilePath: 'foo.js', sourceFilePath: '/foo.js' }],
+            packageJson: { name: 'the-package', version: '1' },
+        },
+    ];
     const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
     const result = substitutedGraph.flatten('/entry.js');
 
@@ -94,10 +108,10 @@ test('substitutes a file that has imports statements matching the files in the g
         localFiles: [
             {
                 filePath: '/entry.js',
-                substitutionContent: Maybe.just('import "the-package/foo.js";')
-            }
+                substitutionContent: Maybe.just('import "the-package/foo.js";'),
+            },
         ],
-        topLevelDependencies: {'the-package': '1'}
+        topLevelDependencies: { 'the-package': '1' },
     });
 });
 
@@ -107,17 +121,21 @@ test('substitutes a file which matches an already substituted file from a depend
             {
                 filePath: '/entry.js',
                 content: 'import "./foo.js";',
-                dependencies: [ {
-                    filePath: "/foo.js",
-                    content: 'true'
-                } ]
-            }
-        ]
-    })
-    const bundleDependencies: BundleDescription[] = [ {
-        contents: [ {kind: 'substituted', targetFilePath: 'foo.js', sourceFilePath: '/foo.js', source: ''} ],
-        packageJson: {name: 'the-package', version: '1'}
-    } ];
+                dependencies: [
+                    {
+                        filePath: '/foo.js',
+                        content: 'true',
+                    },
+                ],
+            },
+        ],
+    });
+    const bundleDependencies: BundleDescription[] = [
+        {
+            contents: [{ kind: 'substituted', targetFilePath: 'foo.js', sourceFilePath: '/foo.js', source: '' }],
+            packageJson: { name: 'the-package', version: '1' },
+        },
+    ];
     const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
     const result = substitutedGraph.flatten('/entry.js');
 
@@ -125,10 +143,10 @@ test('substitutes a file which matches an already substituted file from a depend
         localFiles: [
             {
                 filePath: '/entry.js',
-                substitutionContent: Maybe.just('import "the-package/foo.js";')
-            }
+                substitutionContent: Maybe.just('import "the-package/foo.js";'),
+            },
         ],
-        topLevelDependencies: {'the-package': '1'}
+        topLevelDependencies: { 'the-package': '1' },
     });
 });
 
@@ -138,25 +156,30 @@ test('merges topLevelDependencies correctly when multiple files are substituted 
             {
                 filePath: '/entry.js',
                 content: 'import "./foo.js";',
-                topLevelDependencies: new Map([ [ 'pkg1', '2' ] ]),
-                dependencies: [ {
-                    filePath: "/foo.js",
-                    content: 'import "./bar.js";',
-                    topLevelDependencies: new Map([ [ 'pkg2', '3' ] ]),
-                    dependencies: [ {
-                        filePath: "/bar.js",
-                        content: 'true',
-                        topLevelDependencies: new Map([ [ 'pkg3', '4' ] ])
-                    } ]
-                },
-                ]
-            }
-        ]
-    })
-    const bundleDependencies: BundleDescription[] = [ {
-        contents: [ {kind: 'reference', targetFilePath: 'bar.js', sourceFilePath: '/bar.js', } ],
-        packageJson: {name: 'the-package', version: '1'}
-    } ];
+                topLevelDependencies: new Map([['pkg1', '2']]),
+                dependencies: [
+                    {
+                        filePath: '/foo.js',
+                        content: 'import "./bar.js";',
+                        topLevelDependencies: new Map([['pkg2', '3']]),
+                        dependencies: [
+                            {
+                                filePath: '/bar.js',
+                                content: 'true',
+                                topLevelDependencies: new Map([['pkg3', '4']]),
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    });
+    const bundleDependencies: BundleDescription[] = [
+        {
+            contents: [{ kind: 'reference', targetFilePath: 'bar.js', sourceFilePath: '/bar.js' }],
+            packageJson: { name: 'the-package', version: '1' },
+        },
+    ];
     const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
     const result = substitutedGraph.flatten('/entry.js');
 
@@ -164,14 +187,14 @@ test('merges topLevelDependencies correctly when multiple files are substituted 
         localFiles: [
             {
                 filePath: '/entry.js',
-                substitutionContent: Maybe.nothing()
+                substitutionContent: Maybe.nothing(),
             },
             {
                 filePath: '/foo.js',
-                substitutionContent: Maybe.just('import "the-package/bar.js";')
-            }
+                substitutionContent: Maybe.just('import "the-package/bar.js";'),
+            },
         ],
-        topLevelDependencies: {'the-package': '1', pkg1: '2', pkg2: '3'}
+        topLevelDependencies: { 'the-package': '1', pkg1: '2', pkg2: '3' },
     });
 });
 
@@ -181,32 +204,39 @@ test('substitutes multiple matching files in the given dependencies', () => {
             {
                 filePath: '/entry.js',
                 content: 'import "./foo.js";',
-                topLevelDependencies: new Map([ [ 'pkg1', '2' ] ]),
-                dependencies: [ {
-                    filePath: "/foo.js",
-                    content: 'import "./bar.js"; import "./baz.js";',
-                    topLevelDependencies: new Map([ [ 'pkg1', '3' ] ]),
-                    dependencies: [ {
-                        filePath: "/bar.js",
-                        content: 'true',
-                        topLevelDependencies: new Map([ [ 'pkg2', '4' ] ])
-                    }, {
-                        filePath: '/baz.js',
-                        content: 'true',
-                        topLevelDependencies: new Map([ [ 'pkg2', '4' ] ])
-                    } ]
-                },
-                ]
-            }
-        ]
-    })
-    const bundleDependencies: BundleDescription[] = [ {
-        contents: [ {kind: 'reference', targetFilePath: 'bar.js', sourceFilePath: '/bar.js', } ],
-        packageJson: {name: 'first-package', version: '21'}
-    }, {
-        contents: [ {kind: 'reference', targetFilePath: 'baz.js', sourceFilePath: '/baz.js', } ],
-        packageJson: {name: 'second-package', version: '42'}
-    } ];
+                topLevelDependencies: new Map([['pkg1', '2']]),
+                dependencies: [
+                    {
+                        filePath: '/foo.js',
+                        content: 'import "./bar.js"; import "./baz.js";',
+                        topLevelDependencies: new Map([['pkg1', '3']]),
+                        dependencies: [
+                            {
+                                filePath: '/bar.js',
+                                content: 'true',
+                                topLevelDependencies: new Map([['pkg2', '4']]),
+                            },
+                            {
+                                filePath: '/baz.js',
+                                content: 'true',
+                                topLevelDependencies: new Map([['pkg2', '4']]),
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    });
+    const bundleDependencies: BundleDescription[] = [
+        {
+            contents: [{ kind: 'reference', targetFilePath: 'bar.js', sourceFilePath: '/bar.js' }],
+            packageJson: { name: 'first-package', version: '21' },
+        },
+        {
+            contents: [{ kind: 'reference', targetFilePath: 'baz.js', sourceFilePath: '/baz.js' }],
+            packageJson: { name: 'second-package', version: '42' },
+        },
+    ];
     const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
     const result = substitutedGraph.flatten('/entry.js');
 
@@ -214,13 +244,13 @@ test('substitutes multiple matching files in the given dependencies', () => {
         localFiles: [
             {
                 filePath: '/entry.js',
-                substitutionContent: Maybe.nothing()
+                substitutionContent: Maybe.nothing(),
             },
             {
                 filePath: '/foo.js',
-                substitutionContent: Maybe.just('import "first-package/bar.js"; import "second-package/baz.js";')
-            }
+                substitutionContent: Maybe.just('import "first-package/bar.js"; import "second-package/baz.js";'),
+            },
         ],
-        topLevelDependencies: {'first-package': '21', 'second-package': '42', pkg1: '3'}
+        topLevelDependencies: { 'first-package': '21', 'second-package': '42', pkg1: '3' },
     });
 });

@@ -1,4 +1,4 @@
-import {PackageJson, SetRequired} from "type-fest";
+import { PackageJson, SetRequired } from 'type-fest';
 
 interface SourceContent {
     kind: 'source';
@@ -8,14 +8,14 @@ interface SourceContent {
 }
 
 interface ReferenceContent {
-    kind: 'reference'
+    kind: 'reference';
     targetFilePath: string;
     sourceFilePath: string;
     source?: undefined;
 }
 
 interface SubstitutedContent {
-    kind: 'substituted'
+    kind: 'substituted';
     targetFilePath: string;
     sourceFilePath: string;
     source: string;
@@ -24,7 +24,6 @@ interface SubstitutedContent {
 export type BundleContent = SourceContent | ReferenceContent | SubstitutedContent;
 
 export interface BundleDescription {
-    readonly contents: readonly BundleContent[]
+    readonly contents: readonly BundleContent[];
     readonly packageJson: SetRequired<PackageJson, 'name' | 'version'>;
 }
-

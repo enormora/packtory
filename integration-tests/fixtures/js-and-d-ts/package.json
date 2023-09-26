@@ -1,6 +1,6 @@
 {
-  "name": "test-fixture",
-  "version": "0.0.0-dev",
-  "dependencies": {},
-  "type": "module"
+    "name": "test-fixture",
+    "version": "0.0.0-dev",
+    "dependencies": {},
+    "type": "module"
 }

@@ -19,13 +19,12 @@ Then this solution could be helpful for you.
 
 ## Concept
 
-
 ## Example
 
-* example 1: image-resizer-lib & image-resizer-cli (this needs bin entrypoints)
-* example 2: awesome-logger-adapter, awesome-logger, awesome-logger-adapter-awesome-target
-
+-   example 1: image-resizer-lib & image-resizer-cli (this needs bin entrypoints)
+-   example 2: awesome-logger-adapter, awesome-logger, awesome-logger-adapter-awesome-target
 
 Minimal package:
-* no published devDependencies
-* no unnecessary files (e.g. ci configs)
+
+-   no published devDependencies
+-   no unnecessary files (e.g. ci configs)

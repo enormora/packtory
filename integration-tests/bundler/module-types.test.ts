@@ -1,7 +1,7 @@
 import assert from 'node:assert';
-import {test} from 'node:test';
-import {bundler} from '../../source/bundler.entry-point.js'
-import {loadPackageJson} from '../load-package-json.js'
+import { test } from 'node:test';
+import { bundler } from '../../source/bundler.entry-point.js';
+import { loadPackageJson } from '../load-package-json.js';
 import path from 'node:path';
 
 test('correctly resolves CommonJS files', async () => {
@@ -10,8 +10,8 @@ test('correctly resolves CommonJS files', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [ {js: path.join(fixture, 'src/entry.js')} ],
-        mainPackageJson: await loadPackageJson(fixture)
+        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+        mainPackageJson: await loadPackageJson(fixture),
     });
 
     assert.deepStrictEqual(result, {
@@ -19,25 +19,25 @@ test('correctly resolves CommonJS files', async () => {
             dependencies: {},
             main: 'entry.js',
             name: 'the-package-name',
-            version: '42.0.0'
+            version: '42.0.0',
         },
         contents: [
             {
                 kind: 'source',
                 source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js"\n}',
-                targetFilePath: 'package.json'
+                targetFilePath: 'package.json',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/entry.js'),
-                targetFilePath: 'entry.js'
+                targetFilePath: 'entry.js',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/foo.js'),
-                targetFilePath: 'foo.js'
+                targetFilePath: 'foo.js',
             },
-        ]
+        ],
     });
 });
 
@@ -47,8 +47,8 @@ test('correctly resolves ESM files', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [ {js: path.join(fixture, 'src/entry.js')} ],
-        mainPackageJson: await loadPackageJson(fixture)
+        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+        mainPackageJson: await loadPackageJson(fixture),
     });
 
     assert.deepStrictEqual(result, {
@@ -63,19 +63,19 @@ test('correctly resolves ESM files', async () => {
             {
                 kind: 'source',
                 source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "type": "module"\n}',
-                targetFilePath: 'package.json'
+                targetFilePath: 'package.json',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/entry.js'),
-                targetFilePath: 'entry.js'
+                targetFilePath: 'entry.js',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/foo.js'),
-                targetFilePath: 'foo.js'
+                targetFilePath: 'foo.js',
             },
-        ]
+        ],
     });
 });
 
@@ -85,8 +85,8 @@ test('correctly resolves ESM files with export from statements', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [ {js: path.join(fixture, 'src/entry.js')} ],
-        mainPackageJson: await loadPackageJson(fixture)
+        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+        mainPackageJson: await loadPackageJson(fixture),
     });
 
     assert.deepStrictEqual(result, {
@@ -95,25 +95,25 @@ test('correctly resolves ESM files with export from statements', async () => {
             main: 'entry.js',
             name: 'the-package-name',
             version: '42.0.0',
-            type: 'module'
+            type: 'module',
         },
         contents: [
             {
                 kind: 'source',
                 source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "type": "module"\n}',
-                targetFilePath: 'package.json'
+                targetFilePath: 'package.json',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/entry.js'),
-                targetFilePath: 'entry.js'
+                targetFilePath: 'entry.js',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/foo.js'),
-                targetFilePath: 'foo.js'
+                targetFilePath: 'foo.js',
             },
-        ]
+        ],
     });
 });
 
@@ -123,8 +123,8 @@ test('correctly resolves ESM files with plain import statements', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [ {js: path.join(fixture, 'src/entry.js')} ],
-        mainPackageJson: await loadPackageJson(fixture)
+        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+        mainPackageJson: await loadPackageJson(fixture),
     });
 
     assert.deepStrictEqual(result, {
@@ -133,24 +133,24 @@ test('correctly resolves ESM files with plain import statements', async () => {
             main: 'entry.js',
             name: 'the-package-name',
             version: '42.0.0',
-            type: 'module'
+            type: 'module',
         },
         contents: [
             {
                 kind: 'source',
                 source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "type": "module"\n}',
-                targetFilePath: 'package.json'
+                targetFilePath: 'package.json',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/entry.js'),
-                targetFilePath: 'entry.js'
+                targetFilePath: 'entry.js',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/foo.js'),
-                targetFilePath: 'foo.js'
+                targetFilePath: 'foo.js',
             },
-        ]
+        ],
     });
 });

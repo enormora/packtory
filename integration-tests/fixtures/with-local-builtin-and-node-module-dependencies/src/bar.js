@@ -1,3 +1,3 @@
-import {example} from 'example-module';
+import { example } from 'example-module';
 
 export const bar = 'bar';

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
-import {test} from 'node:test';
-import {bundler} from '../../source/bundler.entry-point.js'
-import {loadPackageJson} from '../load-package-json.js'
+import { test } from 'node:test';
+import { bundler } from '../../source/bundler.entry-point.js';
+import { loadPackageJson } from '../load-package-json.js';
 import path from 'node:path';
 
 test('adds declaration files correctly to the bundle', async () => {
@@ -10,8 +10,10 @@ test('adds declaration files correctly to the bundle', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [ {js: path.join(fixture, 'src/entry.js'), declarationFile: path.join(fixture, 'src/entry.d.ts')} ],
-        mainPackageJson: await loadPackageJson(fixture)
+        entryPoints: [
+            { js: path.join(fixture, 'src/entry.js'), declarationFile: path.join(fixture, 'src/entry.d.ts') },
+        ],
+        mainPackageJson: await loadPackageJson(fixture),
     });
 
     assert.deepStrictEqual(result, {
@@ -21,44 +23,44 @@ test('adds declaration files correctly to the bundle', async () => {
             name: 'the-package-name',
             version: '42.0.0',
             types: 'entry.d.ts',
-            type: 'module'
+            type: 'module',
         },
         contents: [
             {
                 kind: 'source',
                 source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "type": "module",\n    "types": "entry.d.ts"\n}',
-                targetFilePath: 'package.json'
+                targetFilePath: 'package.json',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/entry.js'),
-                targetFilePath: 'entry.js'
+                targetFilePath: 'entry.js',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/foo.js'),
-                targetFilePath: 'foo.js'
+                targetFilePath: 'foo.js',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/bar.js'),
-                targetFilePath: 'bar.js'
+                targetFilePath: 'bar.js',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/entry.d.ts'),
-                targetFilePath: 'entry.d.ts'
+                targetFilePath: 'entry.d.ts',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/foo.d.ts'),
-                targetFilePath: 'foo.d.ts'
+                targetFilePath: 'foo.d.ts',
             },
             {
-                kind: "reference",
+                kind: 'reference',
                 sourceFilePath: path.join(fixture, 'src/baz.d.ts'),
-                targetFilePath: 'baz.d.ts'
+                targetFilePath: 'baz.d.ts',
             },
-        ]
+        ],
     });
 });

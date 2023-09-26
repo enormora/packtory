@@ -1,6 +1,6 @@
-import {extract} from 'tar-stream';
-import {createGunzip} from 'zlib';
-import {Readable} from 'node:stream';
+import { extract } from 'tar-stream';
+import { createGunzip } from 'zlib';
+import { Readable } from 'node:stream';
 
 interface Entry {
     header: unknown;
@@ -17,7 +17,7 @@ export async function extractTarEntries(buffer: Buffer): Promise<Entry[]> {
         for await (const chunk of entry) {
             result += chunk;
         }
-        entries.push({header: entry.header, content: result});
+        entries.push({ header: entry.header, content: result });
     }
 
     return entries;

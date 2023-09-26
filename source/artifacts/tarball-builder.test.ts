@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import {createTarballBuilder} from './tarball-builder.js';
-import {extractTarEntries} from '../test-libraries/tar.js';
+import { createTarballBuilder } from './tarball-builder.js';
+import { extractTarEntries } from '../test-libraries/tar.js';
 
 test('creates an empty tarball', async () => {
-    const builder = createTarballBuilder()
+    const builder = createTarballBuilder();
     const tarballBuffer = await builder.build();
     const entries = await extractTarEntries(tarballBuffer);
 
@@ -12,34 +12,36 @@ test('creates an empty tarball', async () => {
 });
 
 test('creates a tarball with one file', async () => {
-    const builder = createTarballBuilder()
+    const builder = createTarballBuilder();
 
     builder.addFile('foo.txt', 'bar');
     const tarballBuffer = await builder.build();
     const entries = await extractTarEntries(tarballBuffer);
 
-    assert.deepStrictEqual(entries, [ {
-        header: {
-            devmajor: 0,
-            devminor: 0,
-            gid: 0,
-            gname: '',
-            linkname: null,
-            mode: 420,
-            mtime: new Date(0),
-            name: 'foo.txt',
-            pax: null,
-            size: 3,
-            type: 'file',
-            uid: 0,
-            uname: ''
-
-        }, content: 'bar'
-    } ]);
+    assert.deepStrictEqual(entries, [
+        {
+            header: {
+                devmajor: 0,
+                devminor: 0,
+                gid: 0,
+                gname: '',
+                linkname: null,
+                mode: 420,
+                mtime: new Date(0),
+                name: 'foo.txt',
+                pax: null,
+                size: 3,
+                type: 'file',
+                uid: 0,
+                uname: '',
+            },
+            content: 'bar',
+        },
+    ]);
 });
 
 test('creates a tarball with many nested files', async () => {
-    const builder = createTarballBuilder()
+    const builder = createTarballBuilder();
 
     builder.addFile('1.txt', '1');
     builder.addFile('foo/2.txt', '2');
@@ -63,9 +65,9 @@ test('creates a tarball with many nested files', async () => {
                 size: 1,
                 type: 'file',
                 uid: 0,
-                uname: ''
-
-            }, content: '1'
+                uname: '',
+            },
+            content: '1',
         },
         {
             header: {
@@ -81,9 +83,9 @@ test('creates a tarball with many nested files', async () => {
                 size: 1,
                 type: 'file',
                 uid: 0,
-                uname: ''
-
-            }, content: '2'
+                uname: '',
+            },
+            content: '2',
         },
         {
             header: {
@@ -99,9 +101,9 @@ test('creates a tarball with many nested files', async () => {
                 size: 1,
                 type: 'file',
                 uid: 0,
-                uname: ''
-
-            }, content: '3'
+                uname: '',
+            },
+            content: '3',
         },
         {
             header: {
@@ -117,9 +119,9 @@ test('creates a tarball with many nested files', async () => {
                 size: 1,
                 type: 'file',
                 uid: 0,
-                uname: ''
-
-            }, content: '4'
+                uname: '',
+            },
+            content: '4',
         },
     ]);
 });

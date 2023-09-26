@@ -1,3 +1,3 @@
-import {bar} from './deep/bar.js';
+import { bar } from './deep/bar.js';
 
 export const foo = 'foo';

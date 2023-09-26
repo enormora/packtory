@@ -1,8 +1,8 @@
 import path from 'node:path';
 import ssri from 'ssri';
-import {FileManager} from './file-manager.js';
-import {BundleContent, BundleDescription} from '../bundler/bundle-description.js';
-import {createTarballBuilder} from './tarball-builder.js';
+import { FileManager } from './file-manager.js';
+import { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
+import { createTarballBuilder } from './tarball-builder.js';
 
 export interface ArtifactsBuilderDependencies {
     readonly fileManager: FileManager;
@@ -29,12 +29,12 @@ function compareBundleContentTargetPath(first: BundleContent, second: BundleCont
 }
 
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
-    const {fileManager} = artifactsBuilderDependencies;
+    const { fileManager } = artifactsBuilderDependencies;
 
     return {
         async buildTarball(bundle) {
             const tarballBuilder = createTarballBuilder();
-            const sortedContents = [ ...bundle.contents ].sort(compareBundleContentTargetPath);
+            const sortedContents = [...bundle.contents].sort(compareBundleContentTargetPath);
 
             for (const entry of sortedContents) {
                 const targetFilePath = path.join('package', entry.targetFilePath);
@@ -48,12 +48,12 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
             }
 
             const tarData = await tarballBuilder.build();
-            const integrity = ssri.fromData(tarData, {algorithms: [ 'sha1' ]});
+            const integrity = ssri.fromData(tarData, { algorithms: ['sha1'] });
 
             return {
                 shasum: integrity.hexDigest(),
-                tarData
-            }
+                tarData,
+            };
         },
 
         async buildFolder(bundle, targetFolder) {
@@ -72,6 +72,6 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
                     await fileManager.writeFile(targetFilePath, entry.source);
                 }
             }
-        }
-    }
+        },
+    };
 }

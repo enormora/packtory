@@ -1,19 +1,23 @@
 import _npmFetch from 'npm-registry-fetch';
-import {publish as _publish} from 'libnpmpublish';
-import {Maybe} from 'true-myth'
-import {object, string, optional, record, is} from 'valibot';
-import {PackageJson, SetRequired} from 'type-fest';
+import { publish as _publish } from 'libnpmpublish';
+import { Maybe } from 'true-myth';
+import { object, string, optional, record, is } from 'valibot';
+import { PackageJson, SetRequired } from 'type-fest';
 
 type PublishFunction = typeof _publish;
 
 export interface RegistryClientDependencies {
-    npmFetch: typeof _npmFetch
-    publish: PublishFunction
+    npmFetch: typeof _npmFetch;
+    publish: PublishFunction;
 }
 
 export interface RegistryClient {
     fetchLatestVersion(packageName: string, config: RegistrySettings): Promise<Maybe<PackageVersionDetails>>;
-    publishPackage(manifest: SetRequired<PackageJson, 'name' | 'version'>, tarData: Buffer, config: RegistrySettings): Promise<void>;
+    publishPackage(
+        manifest: SetRequired<PackageJson, 'name' | 'version'>,
+        tarData: Buffer,
+        config: RegistrySettings,
+    ): Promise<void>;
 }
 
 interface FetchError {
@@ -29,17 +33,17 @@ function encodePackageName(name: string): string {
 }
 
 const distTagsSchema = object({
-    latest: optional(string())
+    latest: optional(string()),
 });
 
 const versionDataSchema = object({
-    dist: object({shasum: string()})
+    dist: object({ shasum: string() }),
 });
 
 const abbreviatedPackageResponseSchema = object({
     name: string(),
     'dist-tags': distTagsSchema,
-    versions: record(versionDataSchema)
+    versions: record(versionDataSchema),
 });
 
 export interface PackageVersionDetails {
@@ -52,29 +56,28 @@ export interface RegistrySettings {
 }
 
 export function createRegistryClient(dependencies: RegistryClientDependencies): RegistryClient {
-    const {npmFetch, publish} = dependencies;
+    const { npmFetch, publish } = dependencies;
 
     async function fetchRegistryEndpoint(endpoint: string, registrySettings: RegistrySettings): Promise<unknown> {
-        const acceptHeaderForFetchingAbbreviatedResponse = 'application/vnd.npm.install-v1+json'
+        const acceptHeaderForFetchingAbbreviatedResponse = 'application/vnd.npm.install-v1+json';
 
         return npmFetch.json(endpoint, {
             forceAuth: {
                 alwaysAuth: true,
                 token: registrySettings.token,
             },
-            headers: {accept: acceptHeaderForFetchingAbbreviatedResponse}
+            headers: { accept: acceptHeaderForFetchingAbbreviatedResponse },
         });
     }
 
-
     return {
         async publishPackage(manifest, tarData, registrySettings) {
-            await publish(manifest as unknown as Parameters<PublishFunction>[ 0 ], tarData, {
+            await publish(manifest as unknown as Parameters<PublishFunction>[0], tarData, {
                 defaultTag: 'latest',
                 forceAuth: {
                     alwaysAuth: true,
-                    token: registrySettings.token
-                }
+                    token: registrySettings.token,
+                },
             });
         },
 
@@ -87,16 +90,18 @@ export function createRegistryClient(dependencies: RegistryClientDependencies): 
                     throw new Error('Got an invalid response from registry API');
                 }
 
-                const latestVersion = response[ 'dist-tags' ].latest;
+                const latestVersion = response['dist-tags'].latest;
                 if (latestVersion) {
-                    const versionData = response.versions[ latestVersion ];
+                    const versionData = response.versions[latestVersion];
                     if (!versionData) {
-                        throw new Error(`The version information about the latest version ${latestVersion} for package ${packageName} is missing`);
+                        throw new Error(
+                            `The version information about the latest version ${latestVersion} for package ${packageName} is missing`,
+                        );
                     }
 
                     return Maybe.just({
                         version: latestVersion,
-                        shasum: versionData.dist.shasum
+                        shasum: versionData.dist.shasum,
                     });
                 }
 
@@ -108,6 +113,6 @@ export function createRegistryClient(dependencies: RegistryClientDependencies): 
 
                 throw error;
             }
-        }
+        },
     };
 }

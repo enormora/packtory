@@ -1,5 +1,5 @@
 import path from 'node:path';
-import {ModuleKind, Project as _Project, SourceFile, ModuleResolutionKind} from 'ts-morph';
+import { ModuleKind, Project as _Project, SourceFile, ModuleResolutionKind } from 'ts-morph';
 
 export type ModuleResolution = 'module' | 'common-js';
 
@@ -15,7 +15,7 @@ export interface AnalyzationOptions {
 }
 
 export interface TypescriptProject {
-    getReferencedSourceFilePaths(containingSourceFilePath: string): string[]
+    getReferencedSourceFilePaths(containingSourceFilePath: string): string[];
     getSourceFile(filePath: string): SourceFile;
 }
 
@@ -41,9 +41,9 @@ export function getSourcePathFromSourceFile(sourceFile: SourceFile, resolveDecla
 }
 
 export function createTypescriptProjectAnalyzer(
-    dependencies: TypescriptProjectAnalyzerDependencies
+    dependencies: TypescriptProjectAnalyzerDependencies,
 ): TypescriptProjectAnalyzer {
-    const {Project, getReferencedSourceFiles} = dependencies;
+    const { Project, getReferencedSourceFiles } = dependencies;
 
     return {
         analyzeProject(folder, options) {
@@ -54,13 +54,13 @@ export function createTypescriptProjectAnalyzer(
                     maxNodeModuleJsDepth: 1,
                     noEmit: true,
                     allowJs: true,
-                    module: options.moduleResolution === 'module' ? ModuleKind.Node16 : ModuleKind.CommonJS
+                    module: options.moduleResolution === 'module' ? ModuleKind.Node16 : ModuleKind.CommonJS,
                 },
             });
 
-            const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.js'
+            const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.js';
             const filesPattern = path.join(folder, `**/*${fileExtension}`);
-            project.addSourceFilesAtPaths([ filesPattern ]);
+            project.addSourceFilesAtPaths([filesPattern]);
 
             if (options.failOnCompileErrors) {
                 const diagnostics = project.getPreEmitDiagnostics();
@@ -78,9 +78,11 @@ export function createTypescriptProjectAnalyzer(
                         return [];
                     }
 
-                    const referencedSourceFilePaths = getReferencedSourceFiles(currentSourceFile).map((dependencySourceFile) => {
-                        return getSourcePathFromSourceFile(dependencySourceFile, options.resolveDeclarationFiles);
-                    });
+                    const referencedSourceFilePaths = getReferencedSourceFiles(currentSourceFile).map(
+                        (dependencySourceFile) => {
+                            return getSourcePathFromSourceFile(dependencySourceFile, options.resolveDeclarationFiles);
+                        },
+                    );
 
                     return referencedSourceFilePaths;
                 },
@@ -93,8 +95,8 @@ export function createTypescriptProjectAnalyzer(
                     }
 
                     return sourceFile;
-                }
-            }
+                },
+            };
         },
     };
 }

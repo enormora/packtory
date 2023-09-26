@@ -1,3 +1,3 @@
-import {baz} from './folder/baz.js';
+import { baz } from './folder/baz.js';
 
 export const bar = 'bar';
