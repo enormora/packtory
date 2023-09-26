@@ -120,7 +120,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 kind: 'substituted',
                 sourceFilePath: path.join(fixture, 'src/bar.js'),
                 targetFilePath: 'bar.js',
-                source: "import {qux} from 'first/qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n\n",
+                source: "import { qux } from 'first/qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n",
             },
             {
                 kind: 'reference',
@@ -131,7 +131,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 kind: 'substituted',
                 sourceFilePath: path.join(fixture, 'src/entry2.d.ts'),
                 targetFilePath: 'entry2.d.ts',
-                source: 'export declare const foo: import("first/foo.d.ts").Foo;\n',
+                source: 'export declare const foo: import(\'first/foo.d.ts\').Foo;\n',
             },
         ],
     });
@@ -165,7 +165,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 kind: 'substituted',
                 sourceFilePath: path.join(fixture, 'src/foo.js'),
                 targetFilePath: 'foo.js',
-                source: "import {bar} from 'second/bar.js'\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n\n",
+                source: "import { bar } from 'second/bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n",
             },
             {
                 kind: 'reference',
@@ -176,7 +176,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 kind: 'substituted',
                 sourceFilePath: path.join(fixture, 'src/entry3.d.ts'),
                 targetFilePath: 'entry3.d.ts',
-                source: 'export declare const foo: import("first/foo.d.ts").Foo;\n',
+                source: 'export declare const foo: import(\'first/foo.d.ts\').Foo;\n',
             },
         ],
     });
