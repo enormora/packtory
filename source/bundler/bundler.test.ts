@@ -267,3 +267,36 @@ test('throws when the same bundle dependency is listed more than once', async ()
         assert.strictEqual((error as Error).message, 'The following packages are listed more than once in dependencies or peerDependencies: a-dependency');
     }
 });
+
+test('builds a bundle for a single js file and additional files provided via options', async () => {
+    const graph = buildDependencyGraph({
+        entries: [ {filePath: '/foo/bar.js', content: 'true', } ]
+    })
+    const scan = fake.resolves(graph);
+    const bundler = bundlerFactory({scan});
+
+    const bundle = await bundler.build({
+        sourcesFolder: '/foo',
+        entryPoints: [ {js: '/foo/bar.js'} ],
+        name: 'the-name',
+        version: 'the-version',
+        mainPackageJson: {},
+        additionalFiles: [ 'LICENSE', { sourceFilePath: 'docs/readme-foo.md', targetFilePath: 'README.md'} ]
+    });
+
+    assert.deepStrictEqual(bundle, {
+        contents: [
+            {kind: 'source', source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js"\n}', targetFilePath: 'package.json'},
+            {kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js'},
+            {kind: 'reference', sourceFilePath: '/foo/LICENSE', targetFilePath: 'LICENSE'},
+            {kind: 'reference', sourceFilePath: '/foo/docs/readme-foo.md', targetFilePath: 'README.md'},
+        ],
+        packageJson: {
+            name: 'the-name',
+            version: 'the-version',
+            dependencies: {},
+            main: 'bar.js'
+        }
+    });
+});
+

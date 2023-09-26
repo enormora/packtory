@@ -8,6 +8,11 @@ export interface EntryPoint {
 
 export type EntryPoints = readonly [ EntryPoint, ... (readonly EntryPoint[]) ];
 
+export interface AdditionalFileDescription {
+    sourceFilePath: string;
+    targetFilePath: string;
+}
+
 export interface BundleBuildOptions {
     readonly sourcesFolder: string;
     readonly entryPoints: EntryPoints;
@@ -17,7 +22,7 @@ export interface BundleBuildOptions {
     readonly includeSourceMapFiles?: boolean;
     readonly dependencies?: BundleDescription[];
     readonly peerDependencies?: BundleDescription[];
-    readonly additionalFiles?: readonly string[];
+    readonly additionalFiles?: readonly (string | AdditionalFileDescription)[];
     readonly additionalPackageJsonAttributes?: Exclude<PackageJson, 'name' | 'version' | 'dependencies' | 'devDependencies' | 'main' | 'types'>
 }
 

@@ -2,7 +2,7 @@ import path from 'path'
 import {PackageJson, SetRequired} from "type-fest";
 import {DependencyScanner} from "../dependency-scanner/scanner.js";
 import {ModuleResolution} from '../dependency-scanner/typescript-project-analyzer.js';
-import {BundleBuildOptions, EntryPoints, validateBundleBuildOptions} from "./bundle-build-options.js";
+import {AdditionalFileDescription, BundleBuildOptions, EntryPoints, validateBundleBuildOptions} from "./bundle-build-options.js";
 import {DependencyFiles, LocalFile, mergeDependencyFiles} from '../dependency-scanner/dependency-graph.js';
 import {BundleContent, BundleDescription} from './bundle-description.js';
 import {substituteDependencies} from './substitute-bundles.js';
@@ -15,7 +15,7 @@ export interface Bundler {
     build(options: BundleBuildOptions): Promise<BundleDescription>
 }
 
-function combineAllPackageFiles(sourcesFolder: string, localDependencies: readonly LocalFile[], packageJson: PackageJson): readonly BundleContent[] {
+function combineAllPackageFiles(sourcesFolder: string, localDependencies: readonly LocalFile[], packageJson: PackageJson, additionalFiles: readonly (string | AdditionalFileDescription)[] = []): readonly BundleContent[] {
     const referenceContents = localDependencies.map((localFile): BundleContent => {
         const targetFilePath = path.relative(sourcesFolder, localFile.filePath);
 
@@ -34,6 +34,21 @@ function combineAllPackageFiles(sourcesFolder: string, localDependencies: readon
             targetFilePath
         };
     });
+    const additionalContents = additionalFiles.map((additionalFile): BundleContent => {
+        if (typeof additionalFile === 'string') {
+            return {
+                kind: 'reference',
+                sourceFilePath: path.join(sourcesFolder, additionalFile),
+                targetFilePath: additionalFile
+            }
+        }
+
+        return {
+            kind: 'reference',
+            sourceFilePath: path.join(sourcesFolder, additionalFile.sourceFilePath),
+            targetFilePath: additionalFile.targetFilePath
+        }
+    });
 
     return [
         {
@@ -41,7 +56,8 @@ function combineAllPackageFiles(sourcesFolder: string, localDependencies: readon
             source: JSON.stringify(packageJson, null, 4),
             targetFilePath: 'package.json'
         },
-        ...referenceContents
+        ...referenceContents,
+        ...additionalContents
     ];
 }
 
@@ -151,7 +167,7 @@ export function createBundler(dependencies: BundlerDependencies): Bundler {
             const resolvedDependencies = await resolveDependenciesForAllEntrypoints(entryPoints, sourcesFolder, mainPackageJson, includeSourceMapFiles, [ ...dependencies, ...peerDependencies ]);
 
             const packageJson = buildPackageJson(options, resolvedDependencies.topLevelDependencies);
-            const contents = combineAllPackageFiles(options.sourcesFolder, resolvedDependencies.localFiles, packageJson);
+            const contents = combineAllPackageFiles(options.sourcesFolder, resolvedDependencies.localFiles, packageJson, options.additionalFiles);
 
             return {contents, packageJson};
         },
