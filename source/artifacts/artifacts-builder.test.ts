@@ -28,7 +28,7 @@ test('buildTarball() creates an empty tarball when the given bundle has no conte
     const entries = await extractTarEntries(result.tarData);
 
     t.deepEqual(entries, []);
-    t.is(result.shasum, 'c87d7ae654b3c62ea785fb594ad9fd3af4bb75ca');
+    t.is(result.shasum, '362913d4c1f5f1db9ccb9d7cccc4e12b89c62c5f');
 });
 
 test('buildTarball() creates a tarball with all different kinds of bundle contents', async (t) => {
@@ -101,7 +101,7 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
         },
     ]);
 
-    t.is(result.shasum, '0616a68ee86b060ced9a3e72e88a756e66ccde39');
+    t.is(result.shasum, 'ada9bbb1318dd4808fbcbb8c874d07459aff577d');
 });
 
 test('buildTarball() ensures to build the exact same tarball with the same checksum when building two tarballs with the same file added in a different order', async (t) => {
@@ -121,8 +121,8 @@ test('buildTarball() ensures to build the exact same tarball with the same check
         packageJson: { name: 'the-name', version: 'the-version' },
     });
 
-    t.is(firstTarball.shasum, '686d20fcc7161516e691e3c447e8b72d54be3170');
-    t.is(secondTarball.shasum, '686d20fcc7161516e691e3c447e8b72d54be3170');
+    t.is(firstTarball.shasum, 'e8a6d0780788b78daab58294c9adb474c0b150b3');
+    t.is(secondTarball.shasum, 'e8a6d0780788b78daab58294c9adb474c0b150b3');
 });
 
 test('buildFolder() doesn’t write or copy anything when the given bundle has no contents', async (t) => {

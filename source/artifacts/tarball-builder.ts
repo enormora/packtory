@@ -6,6 +6,10 @@ export interface TarballBuilder {
     build(): Promise<Buffer>;
 }
 
+function unsetOperatingSystemGzipHeaderField(data: Buffer): void {
+    data[9] = 255;
+}
+
 export function createTarballBuilder(): TarballBuilder {
     const pack = tar.pack();
 
@@ -26,7 +30,9 @@ export function createTarballBuilder(): TarballBuilder {
                 chunks.push(chunk);
             }
 
-            return Buffer.concat(chunks);
+            const tarData = Buffer.concat(chunks);
+            unsetOperatingSystemGzipHeaderField(tarData);
+            return tarData;
         },
     };
 }
