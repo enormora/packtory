@@ -159,6 +159,36 @@ test('builds a bundle for a single file with the given additional package.json f
     });
 });
 
+test('builds a bundle for a single file with the module type from the main package.json', async () => {
+    const graph = buildDependencyGraph({
+        entries: [ {filePath: '/foo/bar.js', content: 'true', } ]
+    })
+    const scan = fake.resolves(graph);
+    const bundler = bundlerFactory({scan});
+
+    const bundle = await bundler.build({
+        sourcesFolder: '/foo',
+        entryPoints: [ {js: '/foo/bar.js'} ],
+        name: 'the-name',
+        version: 'the-version',
+        mainPackageJson: { type: 'module' },
+    });
+
+    assert.deepStrictEqual(bundle, {
+        contents: [
+            {kind: 'source', source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js",\n    "type": "module"\n}', targetFilePath: 'package.json'},
+            {kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js'}
+        ],
+        packageJson: {
+            name: 'the-name',
+            version: 'the-version',
+            dependencies: {},
+            main: 'bar.js',
+            type: 'module'
+        }
+    });
+});
+
 
 test('builds a bundle for a project with matching dependencies and peerDependencies correctly', async () => {
     const graph = buildDependencyGraph({

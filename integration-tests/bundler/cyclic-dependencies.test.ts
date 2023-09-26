@@ -19,12 +19,13 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
             dependencies: {},
             main: 'entry.js',
             name: 'the-package-name',
-            version: '42.0.0'
+            version: '42.0.0',
+            type: 'module'
         },
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js"\n}',
+                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "type": "module"\n}',
                 targetFilePath: 'package.json'
             },
             {

@@ -19,13 +19,14 @@ test('adds map files to the bundle when enabled', async () => {
         packageJson: {
             dependencies: {},
             main: 'entry.js',
+            type: 'module',
             name: 'the-package-name',
             version: '42.0.0'
         },
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js"\n}',
+                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "type": "module"\n}',
                 targetFilePath: 'package.json'
             },
             {

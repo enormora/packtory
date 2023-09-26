@@ -20,12 +20,13 @@ test('adds declaration files correctly to the bundle', async () => {
             main: 'entry.js',
             name: 'the-package-name',
             version: '42.0.0',
-            types: 'entry.d.ts'
+            types: 'entry.d.ts',
+            type: 'module'
         },
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "types": "entry.d.ts"\n}',
+                source: '{\n    "name": "the-package-name",\n    "version": "42.0.0",\n    "dependencies": {},\n    "main": "entry.js",\n    "type": "module",\n    "types": "entry.d.ts"\n}',
                 targetFilePath: 'package.json'
             },
             {
