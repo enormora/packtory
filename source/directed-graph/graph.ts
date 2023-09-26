@@ -1,7 +1,7 @@
 type GraphNodeId = string | number;
 
 interface GraphNode<TId extends GraphNodeId, TData> {
-    id: TId,
+    id: TId;
     data: TData;
     adjacentNodeIds: Set<TId>;
 }
@@ -14,23 +14,29 @@ interface GraphEdge<TId extends GraphNodeId> {
 type Visitor<TId extends GraphNodeId, TData> = (node: GraphNode<TId, TData>) => void;
 
 export interface DirectedGraph<TId extends GraphNodeId, TData> {
-    addNode(id: TId, data: TData): void
-    connect(edge: GraphEdge<TId>): void
-    disconnect(edge: GraphEdge<TId>): void
-    hasNode(id: TId): boolean
-    hasConnection(edge: GraphEdge<TId>): boolean
+    addNode(id: TId, data: TData): void;
+    connect(edge: GraphEdge<TId>): void;
+    disconnect(edge: GraphEdge<TId>): void;
+    hasNode(id: TId): boolean;
+    hasConnection(edge: GraphEdge<TId>): boolean;
     visitBreadthFirstSearch(startId: TId, visitor: Visitor<TId, TData>): void;
 }
 
-function addAdjacentNodeId<TId extends GraphNodeId, TData>(node: GraphNode<TId, TData>, idToAdd: TId): GraphNode<TId, TData> {
+function addAdjacentNodeId<TId extends GraphNodeId, TData>(
+    node: GraphNode<TId, TData>,
+    idToAdd: TId,
+): GraphNode<TId, TData> {
     return {
         id: node.id,
         data: node.data,
-        adjacentNodeIds: new Set([ ...node.adjacentNodeIds, idToAdd ])
+        adjacentNodeIds: new Set([...node.adjacentNodeIds, idToAdd]),
     };
 }
 
-function removeAdjacentNodeId<TId extends GraphNodeId, TData>(node: GraphNode<TId, TData>, idToRemove: TId): GraphNode<TId, TData> {
+function removeAdjacentNodeId<TId extends GraphNodeId, TData>(
+    node: GraphNode<TId, TData>,
+    idToRemove: TId,
+): GraphNode<TId, TData> {
     const adjacentNodeIds = new Set(node.adjacentNodeIds);
 
     adjacentNodeIds.delete(idToRemove);
@@ -38,16 +44,18 @@ function removeAdjacentNodeId<TId extends GraphNodeId, TData>(node: GraphNode<TI
     return {
         id: node.id,
         data: node.data,
-        adjacentNodeIds
+        adjacentNodeIds,
     };
 }
 
-function getNonVisitedAdjacentIds<TId extends GraphNodeId, TData>(node: GraphNode<TId, TData>, visited: Set<TId>): TId[] {
+function getNonVisitedAdjacentIds<TId extends GraphNodeId, TData>(
+    node: GraphNode<TId, TData>,
+    visited: Set<TId>,
+): TId[] {
     return Array.from(node.adjacentNodeIds).filter((id) => {
-        return !visited.has(id)
+        return !visited.has(id);
     });
 }
-
 
 export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedGraph<TId, TData> {
     const nodes = new Map<TId, GraphNode<TId, TData>>();
@@ -67,7 +75,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
             if (nodes.has(id)) {
                 throw new Error(`Node with id "${id}" already exists`);
             }
-            nodes.set(id, {id, data, adjacentNodeIds: new Set()});
+            nodes.set(id, { id, data, adjacentNodeIds: new Set() });
         },
 
         hasNode(id) {
@@ -87,7 +95,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 throw new Error(`Edge from "${edge.from}" to "${toNode.id}" already exists`);
             }
 
-            nodes.set(edge.from, addAdjacentNodeId(fromNode, toNode.id))
+            nodes.set(edge.from, addAdjacentNodeId(fromNode, toNode.id));
         },
 
         disconnect(edge) {
@@ -98,12 +106,12 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 throw new Error(`Edge from "${edge.from}" to "${toNode.id}" does not exist`);
             }
 
-            nodes.set(edge.from, removeAdjacentNodeId(fromNode, toNode.id))
+            nodes.set(edge.from, removeAdjacentNodeId(fromNode, toNode.id));
         },
 
         visitBreadthFirstSearch(startId, visitor) {
             const startNode = getNode(startId);
-            const queue: GraphNode<TId, TData>[] = [ startNode ];
+            const queue: GraphNode<TId, TData>[] = [startNode];
             const visited = new Set<TId>();
 
             for (let head = queue.shift(); typeof head !== 'undefined'; head = queue.shift()) {
@@ -112,9 +120,9 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 const nonVisitedAdjacentIds = getNonVisitedAdjacentIds(head, visited);
                 for (const id of nonVisitedAdjacentIds) {
                     const adjacentNode = getNode(id);
-                    queue.push(adjacentNode)
+                    queue.push(adjacentNode);
                 }
             }
-        }
+        },
     };
 }

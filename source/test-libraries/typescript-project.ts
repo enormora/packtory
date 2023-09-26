@@ -1,4 +1,4 @@
-import {ModuleKind, ModuleResolutionKind, Project, ScriptTarget} from 'ts-morph';
+import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 
 interface FileDescription {
     filePath: string;
@@ -11,14 +11,14 @@ interface Options {
 }
 
 export function createProject(options: Options = {}): Project {
-    const {withFiles = [], module = ModuleKind.Node16} = options;
+    const { withFiles = [], module = ModuleKind.Node16 } = options;
     const project = new Project({
         compilerOptions: {
             allowJs: true,
             module,
             esModuleInterop: true,
             target: ScriptTarget.ES2022,
-            moduleResolution: ModuleResolutionKind.Node10
+            moduleResolution: ModuleResolutionKind.Node10,
         },
         useInMemoryFileSystem: true,
     });

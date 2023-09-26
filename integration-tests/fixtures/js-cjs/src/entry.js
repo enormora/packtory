@@ -1,2 +1,2 @@
 'use strict';
-const {foo} = require('./foo');
+const { foo } = require('./foo');

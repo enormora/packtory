@@ -11,22 +11,22 @@ export function createTarballBuilder(): TarballBuilder {
 
     return {
         addFile(filePath, content) {
-            const entry = pack.entry({name: filePath, mtime: new Date(0)}, content);
+            const entry = pack.entry({ name: filePath, mtime: new Date(0) }, content);
             entry.end();
         },
 
         async build() {
             pack.finalize();
 
-            const gzipStream = zlib.createGzip({level: 9});
-            const tarballStream = pack.pipe(gzipStream)
+            const gzipStream = zlib.createGzip({ level: 9 });
+            const tarballStream = pack.pipe(gzipStream);
             const chunks: Buffer[] = [];
 
             for await (const chunk of tarballStream) {
-                chunks.push(chunk)
+                chunks.push(chunk);
             }
 
             return Buffer.concat(chunks);
-        }
+        },
     };
 }

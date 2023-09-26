@@ -1,2 +1,2 @@
-import {Baz} from './baz.js';
+import { Baz } from './baz.js';
 export type Foo = string;

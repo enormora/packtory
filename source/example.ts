@@ -1,4 +1,4 @@
-import {publisher} from './publisher.entry-point.js';
+import { publisher } from './publisher.entry-point.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -11,11 +11,11 @@ async function main() {
             automatic: true,
         },
         sourcesFolder,
-        entryPoints: [ {js: path.join(sourcesFolder, 'hello-world.entry-point.js')} ],
-        mainPackageJson: JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), {encoding: 'utf8'})),
+        entryPoints: [{ js: path.join(sourcesFolder, 'hello-world.entry-point.js') }],
+        mainPackageJson: JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), { encoding: 'utf8' })),
         registrySettings: {
-            token: 'the-token'
-        }
+            token: 'the-token',
+        },
     });
 
     console.log(result.status, result.version);

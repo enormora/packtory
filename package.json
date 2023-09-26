@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "compile": "tsc --build",
+        "prettier:check": "prettier --check './**/*.{yml,yaml,json,md}'",
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
         "test:unit": "node --test target/build/source/",

@@ -1,6 +1,6 @@
-import {Maybe} from "true-myth";
-import {SourceFile} from "ts-morph";
-import {createDirectedGraph} from '../directed-graph/graph.js';
+import { Maybe } from 'true-myth';
+import { SourceFile } from 'ts-morph';
+import { createDirectedGraph } from '../directed-graph/graph.js';
 
 export interface DependencyGraphNodeData {
     readonly sourceMapFilePath: Maybe<string>;
@@ -27,13 +27,13 @@ export interface DependencyFiles {
 export function mergeDependencyFiles(first: DependencyFiles, second: DependencyFiles): DependencyFiles {
     const mergedLocalFiles = new Map<string, LocalFile>();
 
-    for (const localFile of [ ...first.localFiles, ...second.localFiles ]) {
+    for (const localFile of [...first.localFiles, ...second.localFiles]) {
         mergedLocalFiles.set(localFile.filePath, localFile);
     }
 
     return {
         localFiles: Array.from(mergedLocalFiles.values()),
-        topLevelDependencies: {...first.topLevelDependencies, ...second.topLevelDependencies}
+        topLevelDependencies: { ...first.topLevelDependencies, ...second.topLevelDependencies },
     };
 }
 
@@ -59,11 +59,11 @@ export function createDependencyGraph(): DependencyGraph {
         isKnown: graph.hasNode,
 
         connect(fromFilePath, toFilePath) {
-            graph.connect({from: fromFilePath, to: toFilePath});
+            graph.connect({ from: fromFilePath, to: toFilePath });
         },
 
         hasConnection(fromFilePath, toFilePath) {
-            return graph.hasConnection({from: fromFilePath, to: toFilePath});
+            return graph.hasConnection({ from: fromFilePath, to: toFilePath });
         },
 
         walk(startFilePath, visitor) {
@@ -74,7 +74,7 @@ export function createDependencyGraph(): DependencyGraph {
                     topLevelDependencies: node.data.topLevelDependencies,
                     localFiles: Array.from(node.adjacentNodeIds),
                     substitutionContent: node.data.substitutionContent,
-                    tsSourceFile: node.data.tsSourceFile
+                    tsSourceFile: node.data.tsSourceFile,
                 });
             });
         },
@@ -84,20 +84,23 @@ export function createDependencyGraph(): DependencyGraph {
             const topLevelDependencies = new Map<string, string>();
 
             graph.visitBreadthFirstSearch(startFilePath, (node) => {
-                localFiles.set(node.id, {filePath: node.id, substitutionContent: node.data.substitutionContent});
+                localFiles.set(node.id, { filePath: node.id, substitutionContent: node.data.substitutionContent });
                 if (node.data.sourceMapFilePath.isJust) {
-                    localFiles.set(node.data.sourceMapFilePath.value, {filePath: node.data.sourceMapFilePath.value, substitutionContent: Maybe.nothing()});
+                    localFiles.set(node.data.sourceMapFilePath.value, {
+                        filePath: node.data.sourceMapFilePath.value,
+                        substitutionContent: Maybe.nothing(),
+                    });
                 }
 
-                for (const [ name, version ] of node.data.topLevelDependencies.entries()) {
+                for (const [name, version] of node.data.topLevelDependencies.entries()) {
                     topLevelDependencies.set(name, version);
                 }
             });
 
             return {
                 localFiles: Array.from(localFiles.values()),
-                topLevelDependencies: Object.fromEntries(topLevelDependencies.entries())
+                topLevelDependencies: Object.fromEntries(topLevelDependencies.entries()),
             };
-        }
+        },
     };
 }

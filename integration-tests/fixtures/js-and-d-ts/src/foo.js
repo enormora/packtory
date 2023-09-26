@@ -1,2 +1,2 @@
-import {bar} from './bar.js'
+import { bar } from './bar.js';
 export const foo = 'foo';
