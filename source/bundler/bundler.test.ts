@@ -124,7 +124,7 @@ test('builds a bundle for a single file with the correct package.json', async ()
     });
 });
 
-test('builds a bundle for a single file with the additional package.json fields', async () => {
+test('builds a bundle for a single file with the given additional package.json fields, sorted alphabetically', async () => {
     const graph = buildDependencyGraph({
         entries: [ {filePath: '/foo/bar.js', content: 'true', } ]
     })
@@ -138,13 +138,14 @@ test('builds a bundle for a single file with the additional package.json fields'
         version: 'the-version',
         mainPackageJson: {},
         additionalPackageJsonAttributes: {
+            xyzPropertyThat: 'should be listed last',
             license: 'Beerware'
         }
     });
 
     assert.deepStrictEqual(bundle, {
         contents: [
-            {kind: 'source', source: '{\n    "license": "Beerware",\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js"\n}', targetFilePath: 'package.json'},
+            {kind: 'source', source: '{\n    "license": "Beerware",\n    "xyzPropertyThat": "should be listed last",\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js"\n}', targetFilePath: 'package.json'},
             {kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js'}
         ],
         packageJson: {
@@ -152,7 +153,8 @@ test('builds a bundle for a single file with the additional package.json fields'
             version: 'the-version',
             dependencies: {},
             main: 'bar.js',
-            license: 'Beerware'
+            license: 'Beerware',
+            xyzPropertyThat: 'should be listed last'
         }
     });
 });
