@@ -6,6 +6,8 @@
     "scripts": {
         "compile": "tsc --build",
         "prettier:check": "prettier --check './**/*.{yml,yaml,json,md}'",
+        "eslint": "eslint . --cache --cache-location './target/.eslintcache' --cache-strategy content --max-warnings 0",
+        "lint": "npm run eslint",
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
         "test:unit": "ava --config ava.config.js",
