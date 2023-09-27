@@ -1,7 +1,7 @@
 {
-    "name": "npm-bundler",
-    "version": "1.0.0",
-    "description": "",
+    "name": "packtory",
+    "version": "0.0.0-dev",
+    "description": "Effortless code bundling and publishing for npm packages",
     "type": "module",
     "scripts": {
         "compile": "tsc --build",
@@ -20,7 +20,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+ssh://git@github.com/enormora/npm-bundler.git"
+        "url": "git+ssh://git@github.com/enormora/packtory.git"
     },
     "dependencies": {
         "libnpmpublish": "9.0.0",
