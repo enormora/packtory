@@ -1,18 +1,18 @@
 import test from 'ava';
-import { fake, SinonSpy } from 'sinon';
-import { createRegistryClient, RegistryClientDependencies, RegistryClient } from './registry-client.js';
+import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { createRegistryClient, type RegistryClientDependencies, type RegistryClient } from './registry-client.js';
 
-interface Overrides {
-    publish?: SinonSpy;
-    npmFetch?: SinonSpy;
-}
+type Overrides = {
+    readonly publish?: SinonSpy;
+    readonly npmFetch?: SinonSpy;
+};
 
-function registryClientFactory(overrides: Overrides): RegistryClient {
+function registryClientFactory(overrides: Readonly<Overrides>): RegistryClient {
     const { publish = fake(), npmFetch = fake() } = overrides;
     const fakeDependencies = {
         publish,
-        npmFetch: { json: npmFetch },
+        npmFetch: { json: npmFetch }
     } as unknown as RegistryClientDependencies;
 
     return createRegistryClient(fakeDependencies);
@@ -29,7 +29,7 @@ test('publishPackage() calls npm publish function with the given manifest and ta
     t.deepEqual(publish.firstCall.args, [
         { name: 'the-name', version: 'the-version' },
         tarData,
-        { defaultTag: 'latest', forceAuth: { alwaysAuth: true, token: 'the-token' } },
+        { defaultTag: 'latest', forceAuth: { alwaysAuth: true, token: 'the-token' } }
     ]);
 });
 
@@ -37,7 +37,7 @@ test('fetchLatestVersion() fetches the correct package endpoint with the correct
     const npmFetch = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
-        versions: { '1': { dist: { shasum: '' } } },
+        versions: { 1: { dist: { shasum: '' } } }
     });
     const registryClient = registryClientFactory({ npmFetch });
 
@@ -48,8 +48,8 @@ test('fetchLatestVersion() fetches the correct package endpoint with the correct
         '/the-name',
         {
             forceAuth: { alwaysAuth: true, token: 'the-token' },
-            headers: { accept: 'application/vnd.npm.install-v1+json' },
-        },
+            headers: { accept: 'application/vnd.npm.install-v1+json' }
+        }
     ]);
 });
 
@@ -57,7 +57,7 @@ test('fetchLatestVersion() fetches the correct package endpoint escaping the giv
     const npmFetch = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
-        versions: { '1': { dist: { shasum: '' } } },
+        versions: { 1: { dist: { shasum: '' } } }
     });
     const registryClient = registryClientFactory({ npmFetch });
 
@@ -111,7 +111,7 @@ test('fetchLatestVersion() throws when npmFetch resolves with inconsistent data'
     const npmFetch = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
-        versions: { '2': { dist: { shasum: '' } } },
+        versions: { 2: { dist: { shasum: '' } } }
     });
     const registryClient = registryClientFactory({ npmFetch });
 
@@ -119,10 +119,7 @@ test('fetchLatestVersion() throws when npmFetch resolves with inconsistent data'
         await registryClient.fetchLatestVersion('@the/name', { token: '' });
         t.fail('Expected fetchLatestVersion() to throw but it did not');
     } catch (caughtError: unknown) {
-        t.is(
-            (caughtError as Error).message,
-            'The version information about the latest version 1 for package @the/name is missing',
-        );
+        t.is((caughtError as Error).message, 'Version "1" for package "@the/name" is missing a shasum');
     }
 });
 
@@ -152,7 +149,7 @@ test('fetchLatestVersion() returns the version details when npmFetch returned th
     const npmFetch = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
-        versions: { '1': { dist: { shasum: 'abc' } } },
+        versions: { 1: { dist: { shasum: 'abc' } } }
     });
     const registryClient = registryClientFactory({ npmFetch });
 

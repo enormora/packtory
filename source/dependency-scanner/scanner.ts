@@ -1,17 +1,17 @@
 import Maybe from 'true-myth/maybe';
-import { PackageJson } from 'type-fest';
-import { SourceMapFileLocator } from './source-map-file-locator.js';
-import { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.js';
-import { createDependencyGraph, DependencyGraph } from './dependency-graph.js';
+import type { PackageJson } from 'type-fest';
+import type { SourceMapFileLocator } from './source-map-file-locator.js';
+import type { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.js';
+import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.js';
 
-interface ScanOptions {
+type ScanOptions = {
     readonly includeDevDependencies: boolean;
     readonly includeSourceMapFiles: boolean;
     readonly mainPackageJson: PackageJson;
     readonly moduleResolution: ModuleResolution;
     readonly resolveDeclarationFiles: boolean;
     readonly failOnCompileErrors?: boolean;
-}
+};
 
 function uniqueList<T>(list: readonly T[]): readonly T[] {
     return Array.from(new Set(list));
@@ -30,13 +30,13 @@ function extractModuleName(nodeModulePath: string): string {
 
     const result = pattern.exec(nodeModulePath);
 
-    if (!result) {
+    if (result === null) {
         throw new Error(`Couldn’t find node_modules package name for '${nodeModulePath}'`);
     }
 
     const { groups: { moduleName } = {} } = result;
 
-    if (!moduleName) {
+    if (moduleName === undefined) {
         throw new Error(`Couldn’t extract module name from path ${nodeModulePath}`);
     }
 
@@ -46,12 +46,12 @@ function extractModuleName(nodeModulePath: string): string {
 function isKnownNodeModule(moduleName: string, options: ScanOptions): boolean {
     const { includeDevDependencies, mainPackageJson } = options;
 
-    if (typeof mainPackageJson.dependencies?.[moduleName] !== 'undefined') {
+    if (mainPackageJson.dependencies?.[moduleName] !== undefined) {
         return true;
     }
 
     if (includeDevDependencies) {
-        return typeof mainPackageJson.devDependencies?.[moduleName] !== 'undefined';
+        return mainPackageJson.devDependencies?.[moduleName] !== undefined;
     }
 
     return false;
@@ -59,11 +59,11 @@ function isKnownNodeModule(moduleName: string, options: ScanOptions): boolean {
 
 function getVersionFromDependencies(
     moduleName: string,
-    dependencies: PackageJson['dependencies'] = {},
+    dependencies: PackageJson['dependencies'] = {}
 ): string | undefined {
     const version = dependencies[moduleName];
 
-    if (typeof version !== 'undefined') {
+    if (version !== undefined) {
         return version;
     }
 
@@ -73,22 +73,22 @@ function determineVersionNumber(moduleName: string, options: ScanOptions): strin
     const { mainPackageJson } = options;
     const version = getVersionFromDependencies(moduleName, mainPackageJson.dependencies);
 
-    if (typeof version !== 'undefined') {
+    if (version !== undefined) {
         return version;
     }
 
     const devDependencyVersion = getVersionFromDependencies(moduleName, mainPackageJson.devDependencies);
-    if (typeof devDependencyVersion !== 'undefined') {
+    if (devDependencyVersion !== undefined) {
         return devDependencyVersion;
     }
 
     throw new Error(`Couldn’t determine version number of ${moduleName}`);
 }
-function addVersionNumbersToModules(moduleNames: readonly string[], options: ScanOptions): Map<string, string> {
+function addVersionNumbersToModules(moduleNames: readonly string[], options: ScanOptions): ReadonlyMap<string, string> {
     return new Map<string, string>(
         moduleNames.map((moduleName) => {
             return [moduleName, determineVersionNumber(moduleName, options)];
-        }),
+        })
     );
 }
 function determineLocalDependencies(dependencies: readonly string[]): readonly string[] {
@@ -99,71 +99,84 @@ function determineTopLevelNodeModules(dependencies: readonly string[], options: 
     const modulePaths = dependencies.filter(isNodeModulesPath);
     const moduleNames = modulePaths.map(extractModuleName);
     const uniqueModuleNames = uniqueList(moduleNames);
-    const unknownNodeModule = uniqueModuleNames.find((moduleName) => !isKnownNodeModule(moduleName, options));
+    const unknownNodeModule = uniqueModuleNames.find((moduleName) => {
+        return !isKnownNodeModule(moduleName, options);
+    });
 
-    if (unknownNodeModule) {
+    if (unknownNodeModule !== undefined) {
         throw new Error(`The referenced node module "${unknownNodeModule}" is not defined in the dependencies`);
     }
 
     return uniqueModuleNames;
 }
 
-export interface DependencyScannerDependencies {
+export type DependencyScannerDependencies = {
     readonly sourceMapFileLocator: SourceMapFileLocator;
-    typescriptProjectAnalyzer: TypescriptProjectAnalyzer;
-}
+    readonly typescriptProjectAnalyzer: TypescriptProjectAnalyzer;
+};
 
-type FileType = 'javascript' | 'type-declartion';
+type FileType = 'javascript' | 'type-declaration';
 
-export interface LocalFile {
-    filePath: string;
-    type: FileType;
-    sourceMapFilePath: Maybe<string>;
-}
+export type LocalFile = {
+    readonly filePath: string;
+    readonly type: FileType;
+    readonly sourceMapFilePath: Maybe<string>;
+};
 
-export interface ScanResult {
+export type ScanResult = {
     readonly localFiles: readonly LocalFile[];
     readonly topLevelDependencies: Record<string, string>;
-}
+};
 
-export interface DependencyScanner {
+export type DependencyScanner = {
     scan(entryPointFile: string, folder: string, options?: Partial<ScanOptions>): Promise<DependencyGraph>;
-}
+};
 
 export function combineScanResults(scanResult1: ScanResult, scanResult2: ScanResult): ScanResult {
     return {
         localFiles: uniqueList([...scanResult1.localFiles, ...scanResult2.localFiles]),
-        topLevelDependencies: { ...scanResult1.topLevelDependencies, ...scanResult2.topLevelDependencies },
+        topLevelDependencies: { ...scanResult1.topLevelDependencies, ...scanResult2.topLevelDependencies }
     };
 }
 
 export function createDependencyScanner(
-    dependencyScannerDependencies: DependencyScannerDependencies,
+    dependencyScannerDependencies: Readonly<DependencyScannerDependencies>
 ): DependencyScanner {
     const { sourceMapFileLocator, typescriptProjectAnalyzer } = dependencyScannerDependencies;
+
+    async function getDependencyNodeData(
+        project: TypescriptProject,
+        sourceFilePath: string,
+        referencedFilePaths: readonly string[],
+        options: Required<ScanOptions>
+    ): Promise<DependencyGraphNodeData> {
+        const sourceMapFilePath = options.includeSourceMapFiles
+            ? await sourceMapFileLocator.locate(sourceFilePath)
+            : Maybe.nothing<string>();
+
+        const topLevelDependencies = determineTopLevelNodeModules(referencedFilePaths, options);
+        const topLevelDependenciesWithVersion = addVersionNumbersToModules(topLevelDependencies, options);
+        const tsSourceFile = project.getSourceFile(sourceFilePath);
+
+        return {
+            sourceMapFilePath,
+            topLevelDependencies: topLevelDependenciesWithVersion,
+            tsSourceFile,
+            substitutionContent: Maybe.nothing()
+        };
+    }
 
     async function scanDependenciesOfSourceFile(
         project: TypescriptProject,
         sourceFilePath: string,
         graph: DependencyGraph,
-        options: Required<ScanOptions>,
+        options: Required<ScanOptions>
     ): Promise<void> {
-        const sourceMapFilePath = options.includeSourceMapFiles
-            ? await sourceMapFileLocator.locate(sourceFilePath)
-            : Maybe.nothing<string>();
-
         const referencedFilePaths = project.getReferencedSourceFilePaths(sourceFilePath);
-        const topLevelDependencies = determineTopLevelNodeModules(referencedFilePaths, options);
-        const topLevelDependenciesWithVersion = addVersionNumbersToModules(topLevelDependencies, options);
         const localFiles = determineLocalDependencies(referencedFilePaths);
-        const tsSourceFile = project.getSourceFile(sourceFilePath);
 
-        graph.addDependency(sourceFilePath, {
-            sourceMapFilePath,
-            topLevelDependencies: topLevelDependenciesWithVersion,
-            tsSourceFile,
-            substitutionContent: Maybe.nothing(),
-        });
+        const nodeData = await getDependencyNodeData(project, sourceFilePath, referencedFilePaths, options);
+        graph.addDependency(sourceFilePath, nodeData);
 
         for (const localeFile of localFiles) {
             if (!graph.isKnown(localeFile)) {
@@ -183,7 +196,7 @@ export function createDependencyScanner(
                 includeSourceMapFiles = false,
                 mainPackageJson = {},
                 moduleResolution = 'module',
-                failOnCompileErrors = false,
+                failOnCompileErrors = false
             } = options;
             const scanOptions = {
                 includeDevDependencies,
@@ -191,19 +204,19 @@ export function createDependencyScanner(
                 resolveDeclarationFiles,
                 mainPackageJson,
                 moduleResolution,
-                failOnCompileErrors: failOnCompileErrors,
+                failOnCompileErrors
             };
 
             const graph = createDependencyGraph();
             const project = typescriptProjectAnalyzer.analyzeProject(folder, {
                 resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
                 failOnCompileErrors: scanOptions.failOnCompileErrors,
-                moduleResolution: scanOptions.moduleResolution,
+                moduleResolution: scanOptions.moduleResolution
             });
 
             await scanDependenciesOfSourceFile(project, entryPointFile, graph, scanOptions);
 
             return graph;
-        },
+        }
     };
 }

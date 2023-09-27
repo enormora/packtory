@@ -1,32 +1,32 @@
 import test from 'ava';
-import { stub, fake, SinonSpy } from 'sinon';
-import { createDependencyScanner, DependencyScanner, DependencyScannerDependencies } from './scanner.js';
+import { stub, fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { createDependencyScanner, type DependencyScanner, type DependencyScannerDependencies } from './scanner.js';
 
-interface ProjectOverrides {
+type ProjectOverrides = {
     readonly getReferencedSourceFilePaths?: SinonSpy;
     readonly getSourceFile?: SinonSpy;
-}
+};
 
-function createFakeAnalyzeProject(overrides: ProjectOverrides = {}): SinonSpy {
+function createFakeAnalyzeProject(overrides: ProjectOverrides = {}): Readonly<SinonSpy> {
     const { getReferencedSourceFilePaths = fake.returns([]), getSourceFile = fake.returns({}) } = overrides;
 
     return fake.returns({
         getReferencedSourceFilePaths,
-        getSourceFile,
+        getSourceFile
     });
 }
 
-interface Overrides {
+type Overrides = {
     readonly locate?: SinonSpy;
-    readonly analyzeProject?: SinonSpy;
-}
+    readonly analyzeProject?: Readonly<SinonSpy>;
+};
 
 function dependencyScannerFactory(overrides: Overrides = {}): DependencyScanner {
     const { analyzeProject = createFakeAnalyzeProject(), locate = fake.resolves(null) } = overrides;
     const fakeDependencies = {
         sourceMapFileLocator: { locate },
-        typescriptProjectAnalyzer: { analyzeProject },
+        typescriptProjectAnalyzer: { analyzeProject }
     } as unknown as DependencyScannerDependencies;
 
     return createDependencyScanner(fakeDependencies);
@@ -41,7 +41,7 @@ test('analyzes the given entryPoint file in the given folder as a typescript pro
     t.is(analyzeProject.callCount, 1);
     t.deepEqual(analyzeProject.firstCall.args, [
         '/foo',
-        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: false },
+        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: false }
     ]);
 });
 
@@ -54,7 +54,7 @@ test('passes the failOnCompileErrors option to the project analyzer', async (t) 
     t.is(analyzeProject.callCount, 1);
     t.deepEqual(analyzeProject.firstCall.args, [
         '/foo',
-        { failOnCompileErrors: true, moduleResolution: 'module', resolveDeclarationFiles: false },
+        { failOnCompileErrors: true, moduleResolution: 'module', resolveDeclarationFiles: false }
     ]);
 });
 
@@ -67,7 +67,7 @@ test('passes the resolveDeclarationFiles option to the project analyzer', async 
     t.is(analyzeProject.callCount, 1);
     t.deepEqual(analyzeProject.firstCall.args, [
         '/foo',
-        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: true },
+        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: true }
     ]);
 });
 
@@ -80,7 +80,7 @@ test('passes the moduleResolution option to the project analyzer', async (t) => 
     t.is(analyzeProject.callCount, 1);
     t.deepEqual(analyzeProject.firstCall.args, [
         '/foo',
-        { failOnCompileErrors: false, moduleResolution: 'common-js', resolveDeclarationFiles: false },
+        { failOnCompileErrors: false, moduleResolution: 'common-js', resolveDeclarationFiles: false }
     ]);
 });
 
@@ -105,11 +105,11 @@ test('returns no dependencies if the given file doesn’t have any dependencies'
 
     t.deepEqual(result, {
         localFiles: [{ filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() }],
-        topLevelDependencies: {},
+        topLevelDependencies: {}
     });
 });
 
-test('doesn’t try to locate soure map files by default', async (t) => {
+test('doesn’t try to locate source map files by default', async (t) => {
     const locate = fake.resolves(Maybe.nothing());
     const dependencyScanner = dependencyScannerFactory({ locate });
 
@@ -118,7 +118,7 @@ test('doesn’t try to locate soure map files by default', async (t) => {
     t.is(locate.callCount, 0);
 });
 
-test('tries to locate soure map files for all local files when includeSourceMapFiles is true', async (t) => {
+test('tries to locate source map files for all local files when includeSourceMapFiles is true', async (t) => {
     const locate = fake.resolves(Maybe.nothing());
     const getReferencedSourceFilePaths = stub()
         .onFirstCall()
@@ -150,7 +150,7 @@ test('returns no additional dependencies for source maps if they don’t exist',
     t.is(locate.callCount, 1);
     t.deepEqual(result, {
         localFiles: [{ filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() }],
-        topLevelDependencies: {},
+        topLevelDependencies: {}
     });
 });
 
@@ -166,9 +166,9 @@ test('returns additional dependencies for source maps if they exist', async (t) 
     t.deepEqual(result, {
         localFiles: [
             { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-            { filePath: '/dir/foo.map', substitutionContent: Maybe.nothing() },
+            { filePath: '/dir/foo.map', substitutionContent: Maybe.nothing() }
         ],
-        topLevelDependencies: {},
+        topLevelDependencies: {}
     });
 });
 
@@ -183,7 +183,7 @@ test('returns no additional dependencies for source maps if they exist, but incl
 
     t.deepEqual(result, {
         localFiles: [{ filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() }],
-        topLevelDependencies: {},
+        topLevelDependencies: {}
     });
 });
 
@@ -198,7 +198,7 @@ test('returns the local dependency files', async (t) => {
     t.deepEqual(result.localFiles, [
         { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
         { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/bar.js', substitutionContent: Maybe.nothing() },
+        { filePath: '/dir/bar.js', substitutionContent: Maybe.nothing() }
     ]);
 });
 
@@ -212,8 +212,9 @@ test('returns the local dependency files found in subsequent dependencies', asyn
         .returns(['/dir/baz.js'])
         .onCall(3)
         .returns([]);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+    const dependencyScanner = dependencyScannerFactory({
+        analyzeProject: createFakeAnalyzeProject({ getReferencedSourceFilePaths })
+    });
 
     const graph = await dependencyScanner.scan('/dir/entry.js', '/dir');
     const result = graph.flatten('/dir/entry.js');
@@ -227,7 +228,7 @@ test('returns the local dependency files found in subsequent dependencies', asyn
         { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
         { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() },
         { filePath: '/dir/bar.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/baz.js', substitutionContent: Maybe.nothing() },
+        { filePath: '/dir/baz.js', substitutionContent: Maybe.nothing() }
     ]);
 });
 
@@ -236,14 +237,16 @@ test('doesn’t include any files from node_modules in localFiles', async (t) =>
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: {
-        dependencies: { 'any-module': 'the-version' }
-    }});
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+        mainPackageJson: {
+            dependencies: { 'any-module': 'the-version' }
+        }
+    });
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result.localFiles, [
         { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() },
+        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() }
     ]);
 });
 
@@ -253,7 +256,7 @@ test('returns all detected node_modules dependencies with its corresponding vers
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
     const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: { dependencies: { 'any-module': 'the-version' } },
+        mainPackageJson: { dependencies: { 'any-module': 'the-version' } }
     });
     const result = graph.flatten('/dir/entry.js');
 
@@ -267,7 +270,7 @@ test('uses the version from devDependencies when includeDevDependencies is true'
 
     const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
         mainPackageJson: { devDependencies: { 'any-module': 'the-version' } },
-        includeDevDependencies: true,
+        includeDevDependencies: true
     });
     const result = graph.flatten('/dir/entry.js');
 
@@ -279,10 +282,13 @@ test('throws when a reference to a node_modules package is only in devDependenci
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await t.throwsAsync(dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: { devDependencies: { 'any-module': 'the-version' } },
-        includeDevDependencies: false,
-    }), { message: 'The referenced node module "any-module" is not defined in the dependencies' });
+    await t.throwsAsync(
+        dependencyScanner.scan('/dir/entry.js', '/dir', {
+            mainPackageJson: { devDependencies: { 'any-module': 'the-version' } },
+            includeDevDependencies: false
+        }),
+        { message: 'The referenced node module "any-module" is not defined in the dependencies' }
+    );
 });
 
 test('throws when a reference to a node_modules package is not at all in the packageJson', async (t) => {
@@ -290,14 +296,17 @@ test('throws when a reference to a node_modules package is not at all in the pac
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await t.throwsAsync(dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: {},
-        includeDevDependencies: true,
-    }), {message: 'The referenced node module "any-module" is not defined in the dependencies'});
+    await t.throwsAsync(
+        dependencyScanner.scan('/dir/entry.js', '/dir', {
+            mainPackageJson: {},
+            includeDevDependencies: true
+        }),
+        { message: 'The referenced node module "any-module" is not defined in the dependencies' }
+    );
 });
 
 test('throws an error when an invalid node_modules path is returned', async (t) => {
-    const getReferencedSourceFilePaths = fake.returns(['/invald/node_modules/']);
+    const getReferencedSourceFilePaths = fake.returns(['/invalid/node_modules/']);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
@@ -305,7 +314,7 @@ test('throws an error when an invalid node_modules path is returned', async (t) 
         await dependencyScanner.scan('/dir/entry.js', '/dir');
         t.fail('Expected scan() to throw but it didn’t');
     } catch (error: unknown) {
-        t.is((error as Error).message, "Couldn’t find node_modules package name for '/invald/node_modules/'");
+        t.is((error as Error).message, "Couldn’t find node_modules package name for '/invalid/node_modules/'");
     }
 });
 
@@ -316,12 +325,12 @@ test('doesn’t include the same dependency twice', async (t) => {
 
     const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
         mainPackageJson: {},
-        includeDevDependencies: true,
+        includeDevDependencies: true
     });
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result.localFiles, [
         { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() },
+        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() }
     ]);
 });

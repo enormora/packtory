@@ -1,24 +1,29 @@
-import path from 'path';
-import { PackageJson, SetRequired } from 'type-fest';
-import { DependencyScanner } from '../dependency-scanner/scanner.js';
-import { ModuleResolution } from '../dependency-scanner/typescript-project-analyzer.js';
+import path from 'node:path';
+import type { PackageJson } from 'type-fest';
+import type { DependencyScanner } from '../dependency-scanner/scanner.js';
 import {
-    AdditionalFileDescription,
-    BundleBuildOptions,
-    EntryPoints,
-    validateBundleBuildOptions,
+    type DependencyFiles,
+    type LocalFile,
+    mergeDependencyFiles,
+    type DependencyGraph
+} from '../dependency-scanner/dependency-graph.js';
+import { serializePackageJson } from '../package-json.js';
+import {
+    type AdditionalFileDescription,
+    type BundleBuildOptions,
+    type EntryPoints,
+    validateBundleBuildOptions
 } from './bundle-build-options.js';
-import { DependencyFiles, LocalFile, mergeDependencyFiles } from '../dependency-scanner/dependency-graph.js';
-import { BundleContent, BundleDescription } from './bundle-description.js';
+import type { BundleContent, BundleDescription, BundlePackageJson } from './bundle-description.js';
 import { substituteDependencies } from './substitute-bundles.js';
 
-export interface BundlerDependencies {
-    dependencyScanner: DependencyScanner;
-}
+export type BundlerDependencies = {
+    readonly dependencyScanner: DependencyScanner;
+};
 
-export interface Bundler {
+export type Bundler = {
     build(options: BundleBuildOptions): Promise<BundleDescription>;
-}
+};
 
 function prependSourcesFolderIfNecessary(sourcesFolder: string, filePath: string): string {
     if (!path.isAbsolute(filePath)) {
@@ -31,8 +36,8 @@ function prependSourcesFolderIfNecessary(sourcesFolder: string, filePath: string
 function combineAllPackageFiles(
     sourcesFolder: string,
     localDependencies: readonly LocalFile[],
-    packageJson: PackageJson,
-    additionalFiles: readonly (string | AdditionalFileDescription)[] = [],
+    packageJson: BundlePackageJson,
+    additionalFiles: readonly (AdditionalFileDescription | string)[] = []
 ): readonly BundleContent[] {
     const referenceContents = localDependencies.map((localFile): BundleContent => {
         const targetFilePath = path.relative(sourcesFolder, localFile.filePath);
@@ -42,14 +47,14 @@ function combineAllPackageFiles(
                 kind: 'substituted',
                 sourceFilePath: localFile.filePath,
                 targetFilePath,
-                source: localFile.substitutionContent.value,
+                source: localFile.substitutionContent.value
             };
         }
 
         return {
             kind: 'reference',
             sourceFilePath: localFile.filePath,
-            targetFilePath,
+            targetFilePath
         };
     });
     const additionalContents = additionalFiles.map((additionalFile): BundleContent => {
@@ -57,192 +62,192 @@ function combineAllPackageFiles(
             return {
                 kind: 'reference',
                 sourceFilePath: path.join(sourcesFolder, additionalFile),
-                targetFilePath: additionalFile,
+                targetFilePath: additionalFile
             };
         }
 
         if (path.isAbsolute(additionalFile.targetFilePath)) {
-            throw new Error(`The targetFilePath must be relative`);
+            throw new Error('The targetFilePath must be relative');
         }
 
         return {
             kind: 'reference',
             sourceFilePath: prependSourcesFolderIfNecessary(sourcesFolder, additionalFile.sourceFilePath),
-            targetFilePath: additionalFile.targetFilePath,
+            targetFilePath: additionalFile.targetFilePath
         };
     });
 
     return [
         {
             kind: 'source',
-            source: JSON.stringify(packageJson, null, 4),
-            targetFilePath: 'package.json',
+            source: serializePackageJson(packageJson),
+            targetFilePath: 'package.json'
         },
         ...referenceContents,
-        ...additionalContents,
+        ...additionalContents
     ];
 }
 
-function containsBundleWithPackageName(bundles: BundleDescription[], name: string): boolean {
+function containsBundleWithPackageName(bundles: readonly BundleDescription[], name: string): boolean {
     return bundles.some((bundle) => {
         return bundle.packageJson.name === name;
     });
 }
 
-function compareEntryKeys(entryA: [string, unknown], entryB: [string, unknown]): -1 | 0 | 1 {
-    const [keyA] = entryA;
-    const [keyB] = entryB;
+type Foo = {
+    readonly dependencies: Record<string, string>;
+    readonly peerDependencies?: Record<string, string>;
+};
 
-    if (keyA < keyB) {
-        return -1;
+function distributeDependencies(
+    packageDependencies: Record<string, string>,
+    bundlePeerDependencies: readonly BundleDescription[]
+): Readonly<Foo> {
+    const dependencies: Record<string, string> = {};
+    const peerDependencies: Record<string, string> = {};
+
+    for (const [dependencyName, dependencyVersion] of Object.entries(packageDependencies)) {
+        if (containsBundleWithPackageName(bundlePeerDependencies, dependencyName)) {
+            peerDependencies[dependencyName] = dependencyVersion;
+        } else {
+            dependencies[dependencyName] = dependencyVersion;
+        }
     }
-    if (keyA > keyB) {
-        return 1;
-    }
 
-    return 0;
-}
-
-function sortRecordByKey<T extends Record<string, unknown>>(record: T): T {
-    const entries = Object.entries(record);
-
-    entries.sort(compareEntryKeys);
-
-    return Object.fromEntries(entries) as T;
+    return { dependencies, ...(Object.keys(peerDependencies).length > 0 ? { peerDependencies } : {}) };
 }
 
 function buildPackageJson(
     options: BundleBuildOptions,
-    packageDependencies: Record<string, string>,
-): SetRequired<PackageJson, 'name' | 'version'> {
+    packageDependencies: Record<string, string>
+): Readonly<BundlePackageJson> {
     const {
         name,
         version,
         sourcesFolder,
         mainPackageJson,
-        entryPoints,
+        entryPoints: [firstEntryPoint],
         additionalPackageJsonAttributes = {},
-        peerDependencies: bundlePeerDependencies = [],
+        bundlePeerDependencies = []
     } = options;
-    const [firstEntryPoint] = entryPoints;
 
-    const mainEntryPoint = path.relative(sourcesFolder, firstEntryPoint.js);
-    const dependencies: Record<string, string> = {};
-    const peerDependencies: Record<string, string> = {};
+    const distributedDependencies = distributeDependencies(packageDependencies, bundlePeerDependencies);
+    const types =
+        firstEntryPoint.declarationFile === undefined
+            ? undefined
+            : path.relative(sourcesFolder, firstEntryPoint.declarationFile);
 
-    for (const [name, version] of Object.entries(packageDependencies)) {
-        if (containsBundleWithPackageName(bundlePeerDependencies, name)) {
-            peerDependencies[name] = version;
-        } else {
-            dependencies[name] = version;
-        }
-    }
-
-    const packageJson: SetRequired<PackageJson, 'name' | 'version'> = {
+    const packageJson: BundlePackageJson = {
+        ...distributedDependencies,
         name,
         version,
-        dependencies: sortRecordByKey(dependencies),
-        main: mainEntryPoint,
-        ...(mainPackageJson.type !== undefined ? { type: mainPackageJson.type } : {}),
+        main: path.relative(sourcesFolder, firstEntryPoint.js),
+        ...(mainPackageJson.type === undefined ? {} : { type: mainPackageJson.type }),
+        ...(types === undefined ? {} : { types })
     };
 
-    if (Object.keys(peerDependencies).length > 0) {
-        packageJson['peerDependencies'] = sortRecordByKey(peerDependencies);
-    }
-
-    if (typeof firstEntryPoint.declarationFile === 'string') {
-        const mainDeclarationFile = path.relative(sourcesFolder, firstEntryPoint.declarationFile);
-        packageJson.types = mainDeclarationFile;
-    }
-
-    return { ...sortRecordByKey(additionalPackageJsonAttributes), ...packageJson };
+    return { ...additionalPackageJsonAttributes, ...packageJson };
 }
 
-export function createBundler(dependencies: BundlerDependencies): Bundler {
+type ScanAndSubstituteOptions = {
+    readonly entryPoint: string;
+    readonly sourcesFolder: string;
+    readonly mainPackageJson: Readonly<PackageJson>;
+    readonly includeSourceMapFiles: boolean;
+    readonly resolveDeclarationFiles: boolean;
+    readonly bundleDependencies: readonly BundleDescription[];
+};
+
+type ResolveOptions = {
+    readonly entryPoints: EntryPoints;
+    readonly sourcesFolder: string;
+    readonly mainPackageJson: Readonly<PackageJson>;
+    readonly includeSourceMapFiles: boolean;
+    readonly bundleDependencies: readonly BundleDescription[];
+};
+
+export function createBundler(dependencies: Readonly<BundlerDependencies>): Bundler {
     const { dependencyScanner } = dependencies;
 
-    async function resolveDependenciesForAllEntrypoints(
-        entryPoints: EntryPoints,
-        sourcesFolder: string,
-        mainPackageJson: PackageJson,
-        includeSourceMapFiles: boolean,
-        bundleDependencies: BundleDescription[],
-    ): Promise<DependencyFiles> {
-        let dependencies: DependencyFiles = { topLevelDependencies: {}, localFiles: [] };
-        const moduleResolution: ModuleResolution = mainPackageJson.type === 'module' ? 'module' : 'common-js';
+    async function scanAndSubstitute(options: Readonly<ScanAndSubstituteOptions>): Promise<DependencyGraph> {
+        const {
+            entryPoint,
+            sourcesFolder,
+            mainPackageJson,
+            includeSourceMapFiles,
+            resolveDeclarationFiles,
+            bundleDependencies
+        } = options;
+        const moduleResolution = mainPackageJson.type === 'module' ? 'module' : 'common-js';
+
+        const dependencyGraph = await dependencyScanner.scan(entryPoint, sourcesFolder, {
+            mainPackageJson,
+            moduleResolution,
+            includeSourceMapFiles,
+            includeDevDependencies: resolveDeclarationFiles,
+            resolveDeclarationFiles
+        });
+
+        return substituteDependencies(dependencyGraph, entryPoint, bundleDependencies, resolveDeclarationFiles);
+    }
+
+    async function resolveDependenciesForAllEntrypoints(options: Readonly<ResolveOptions>): Promise<DependencyFiles> {
+        const { entryPoints, sourcesFolder, mainPackageJson, includeSourceMapFiles, bundleDependencies } = options;
+        let dependencyFiles: DependencyFiles = { topLevelDependencies: {}, localFiles: [] };
 
         for (const entryPoint of entryPoints) {
-            const jsDependencyGraph = await dependencyScanner.scan(entryPoint.js, sourcesFolder, {
+            const jsDependencyGraph = await scanAndSubstitute({
+                entryPoint: entryPoint.js,
+                sourcesFolder,
                 mainPackageJson,
-                moduleResolution,
                 includeSourceMapFiles,
+                resolveDeclarationFiles: false,
+                bundleDependencies
             });
-            const substitutedJsDependencyGraph = substituteDependencies(
-                jsDependencyGraph,
-                entryPoint.js,
-                bundleDependencies,
-                false,
-            );
-            dependencies = mergeDependencyFiles(dependencies, substitutedJsDependencyGraph.flatten(entryPoint.js));
+            dependencyFiles = mergeDependencyFiles(dependencyFiles, jsDependencyGraph.flatten(entryPoint.js));
 
-            if (entryPoint.declarationFile) {
-                const declarationDependencyGraph = await dependencyScanner.scan(
-                    entryPoint.declarationFile,
+            if (entryPoint.declarationFile !== undefined) {
+                const declarationDependencyGraph = await scanAndSubstitute({
+                    entryPoint: entryPoint.declarationFile,
                     sourcesFolder,
-                    {
-                        mainPackageJson,
-                        moduleResolution,
-                        includeSourceMapFiles,
-                        includeDevDependencies: true,
-                        resolveDeclarationFiles: true,
-                    },
-                );
-                const substitutedDeclarationDependencyGraph = substituteDependencies(
-                    declarationDependencyGraph,
-                    entryPoint.declarationFile,
-                    bundleDependencies,
-                    true,
-                );
-                dependencies = mergeDependencyFiles(
-                    dependencies,
-                    substitutedDeclarationDependencyGraph.flatten(entryPoint.declarationFile),
+                    mainPackageJson,
+                    includeSourceMapFiles,
+                    resolveDeclarationFiles: true,
+                    bundleDependencies
+                });
+                dependencyFiles = mergeDependencyFiles(
+                    dependencyFiles,
+                    declarationDependencyGraph.flatten(entryPoint.declarationFile)
                 );
             }
         }
 
-        return dependencies;
+        return dependencyFiles;
     }
 
     return {
         async build(options) {
             validateBundleBuildOptions(options);
 
-            const {
-                entryPoints,
-                sourcesFolder,
-                mainPackageJson,
-                includeSourceMapFiles = false,
-                dependencies = [],
-                peerDependencies = [],
-            } = options;
+            const { includeSourceMapFiles = false, bundleDependencies = [], bundlePeerDependencies = [] } = options;
 
-            const resolvedDependencies = await resolveDependenciesForAllEntrypoints(
-                entryPoints,
-                sourcesFolder,
-                mainPackageJson,
+            const resolvedDependencies = await resolveDependenciesForAllEntrypoints({
+                entryPoints: options.entryPoints,
+                sourcesFolder: options.sourcesFolder,
+                mainPackageJson: options.mainPackageJson,
                 includeSourceMapFiles,
-                [...dependencies, ...peerDependencies],
-            );
+                bundleDependencies: [...bundleDependencies, ...bundlePeerDependencies]
+            });
 
             const packageJson = buildPackageJson(options, resolvedDependencies.topLevelDependencies);
             const contents = combineAllPackageFiles(
                 options.sourcesFolder,
                 resolvedDependencies.localFiles,
                 packageJson,
-                options.additionalFiles,
+                options.additionalFiles
             );
 
             return { contents, packageJson };
-        },
+        }
     };
 }

@@ -1,21 +1,22 @@
 import semver from 'semver';
-import { PackageJson, SetRequired } from 'type-fest';
-import { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
+import type { Writable } from 'type-fest';
+import type { BundleContent, BundleDescription, BundlePackageJson } from '../bundler/bundle-description.js';
+import { serializePackageJson } from '../package-json.js';
 
 export type Version = `${number}.${number}.${number}`;
 
 export function increaseVersion(version: string, minimumVersion?: Version): string {
-    if (minimumVersion && !semver.valid(minimumVersion)) {
+    if (minimumVersion !== undefined && semver.valid(minimumVersion) === null) {
         throw new Error(`Invalid minimumVersion ${minimumVersion} provided`);
     }
 
     const newVersion = semver.inc(version, 'patch');
 
-    if (!newVersion) {
+    if (newVersion === null) {
         throw new Error(`Unable to increase version number ${version}`);
     }
 
-    if (minimumVersion && semver.lt(newVersion, minimumVersion)) {
+    if (minimumVersion !== undefined && semver.lt(newVersion, minimumVersion)) {
         return minimumVersion;
     }
 
@@ -27,16 +28,20 @@ function isNotPackageJsonContentEntry(entry: BundleContent): boolean {
 }
 
 export function replaceBundleVersion(bundle: BundleDescription, newVersion: string): BundleDescription {
-    const newPackageJson: SetRequired<PackageJson, 'name' | 'version'> = { ...bundle.packageJson };
+    const newPackageJson: Writable<BundlePackageJson> = { ...bundle.packageJson };
     newPackageJson.version = newVersion;
 
     const newContents: BundleContent[] = [
-        { kind: 'source', targetFilePath: 'package.json', source: JSON.stringify(newPackageJson, null, 4) },
-        ...bundle.contents.filter(isNotPackageJsonContentEntry),
+        {
+            kind: 'source',
+            targetFilePath: 'package.json',
+            source: serializePackageJson(newPackageJson)
+        },
+        ...bundle.contents.filter(isNotPackageJsonContentEntry)
     ];
 
     return {
         contents: newContents,
-        packageJson: newPackageJson,
+        packageJson: newPackageJson as BundlePackageJson
     };
 }

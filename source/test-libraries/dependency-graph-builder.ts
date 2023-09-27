@@ -1,27 +1,32 @@
 import { Maybe } from 'true-myth';
-import { Project } from 'ts-morph';
-import { DependencyGraph, createDependencyGraph } from '../dependency-scanner/dependency-graph.js';
+import type { Project } from 'ts-morph';
+import { type DependencyGraph, createDependencyGraph } from '../dependency-scanner/dependency-graph.js';
 import { createProject } from './typescript-project.js';
 
-interface Entry {
-    filePath: string;
-    content: string;
-    topLevelDependencies?: Map<string, string>;
-    dependencies?: Entry[];
-}
+type Entry = {
+    readonly filePath: string;
+    readonly content: string;
+    readonly topLevelDependencies?: Map<string, string>;
+    readonly dependencies?: Entry[];
+};
 
-interface Options {
-    entries?: Entry[];
-}
+type Options = {
+    readonly entries?: Entry[];
+};
 
-function addEntries(graph: DependencyGraph, project: Project, entries: Entry[], parentFilePath: string | null): void {
+function addEntries(
+    graph: DependencyGraph,
+    project: Project,
+    entries: readonly Entry[],
+    parentFilePath: string | null
+): void {
     for (const entry of entries) {
         const sourceFile = project.createSourceFile(entry.filePath, entry.content);
         graph.addDependency(entry.filePath, {
             sourceMapFilePath: Maybe.nothing(),
-            topLevelDependencies: entry.topLevelDependencies ?? new Map(),
+            topLevelDependencies: entry.topLevelDependencies ?? new Map<string, string>(),
             substitutionContent: Maybe.nothing(),
-            tsSourceFile: sourceFile,
+            tsSourceFile: sourceFile
         });
         if (parentFilePath !== null) {
             graph.connect(parentFilePath, entry.filePath);

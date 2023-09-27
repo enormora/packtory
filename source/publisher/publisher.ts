@@ -1,91 +1,92 @@
-import { Maybe } from 'true-myth';
-import { Except, PackageJson, SetRequired } from 'type-fest';
-import { ArtifactsBuilder } from '../artifacts/artifacts-builder.js';
-import { BundleBuildOptions } from '../bundler/bundle-build-options.js';
-import { BundleDescription } from '../bundler/bundle-description.js';
-import { Bundler } from '../bundler/bundler.js';
-import { PackageVersionDetails, RegistryClient, RegistrySettings } from './registry-client.js';
-import { increaseVersion, Version, replaceBundleVersion } from './version.js';
+import type { Maybe } from 'true-myth';
+import type { Except } from 'type-fest';
+import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.js';
+import type { BundleBuildOptions } from '../bundler/bundle-build-options.js';
+import type { BundleDescription } from '../bundler/bundle-description.js';
+import type { Bundler } from '../bundler/bundler.js';
+import type { PackageVersionDetails, RegistryClient, RegistrySettings } from './registry-client.js';
+import { increaseVersion, type Version, replaceBundleVersion } from './version.js';
 
-interface AutomaticVersioningSettings {
+type AutomaticVersioningSettings = {
     readonly automatic: true;
     readonly minimumVersion?: Version;
-}
+};
 
-interface ManualVersioningSettings {
+type ManualVersioningSettings = {
     readonly automatic: false;
     readonly version: string;
-}
+};
 
 type VersioningSettings = AutomaticVersioningSettings | ManualVersioningSettings;
 
-export interface PublisherDependencies {
+export type PublisherDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly registryClient: RegistryClient;
-    bundler: Bundler;
-}
+    readonly bundler: Bundler;
+};
 
 type BuildOptions = Except<BundleBuildOptions, 'version'>;
 
-interface BuildAndPublishOptions extends BuildOptions {
-    versioning?: VersioningSettings;
-    registrySettings: RegistrySettings;
-}
+type BuildAndPublishOptions = BuildOptions & {
+    readonly versioning?: VersioningSettings;
+    readonly registrySettings: RegistrySettings;
+};
 
-interface NewVersionToPublishResult {
-    type: 'new-version' | 'initial-version';
-    manifest: SetRequired<PackageJson, 'name' | 'version'>;
-    bundle: BundleDescription;
-    tarData: Buffer;
-}
+type NewVersionToPublishResult = {
+    readonly status: 'initial-version' | 'new-version';
+    readonly bundle: BundleDescription;
+    readonly tarData: Buffer;
+};
 
-interface LatestVersionAlreadyPublishedResult {
-    type: 'already-published';
-    manifest: SetRequired<PackageJson, 'name' | 'version'>;
-    bundle: BundleDescription;
-    tarData?: undefined;
-}
+type LatestVersionAlreadyPublishedResult = {
+    readonly status: 'already-published';
+    readonly bundle: BundleDescription;
+    readonly tarData?: undefined;
+};
 
-type BuildResult = NewVersionToPublishResult | LatestVersionAlreadyPublishedResult;
+type BuildResult = Readonly<LatestVersionAlreadyPublishedResult | NewVersionToPublishResult>;
+type NewVersionResultStatus = NewVersionToPublishResult['status'];
 
-interface PublishResult {
-    status: BuildResult['type'];
-    version: string;
-    bundle: BundleDescription;
-}
+type PublishResult = Except<BuildResult, 'tarData'>;
 
-export interface Publisher {
-    tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildResult>;
-    buildAndPublish(options: BuildAndPublishOptions): Promise<PublishResult>;
-}
+export type Publisher = {
+    tryBuildAndPublish(options: Readonly<BuildAndPublishOptions>): Promise<BuildResult>;
+    buildAndPublish(options: Readonly<BuildAndPublishOptions>): Promise<PublishResult>;
+};
 
-interface BundlePublishedCheckResult {
-    alreadyPublishedAsLatest: boolean;
-}
+type BundlePublishedCheckResult = {
+    readonly alreadyPublishedAsLatest: boolean;
+};
 
-export function createPublisher(dependencies: PublisherDependencies): Publisher {
+export function createPublisher(dependencies: Readonly<PublisherDependencies>): Publisher {
     const { artifactsBuilder, registryClient, bundler } = dependencies;
 
     async function checkBundleAlreadyPublished(
         bundle: BundleDescription,
-        latestVersion: PackageVersionDetails,
+        latestVersion: Readonly<PackageVersionDetails>
     ): Promise<BundlePublishedCheckResult> {
         const tarball = await artifactsBuilder.buildTarball(bundle);
         return { alreadyPublishedAsLatest: latestVersion.shasum === tarball.shasum };
     }
 
+    async function buildVersion(
+        buildOptions: BuildOptions,
+        version: string,
+        status: NewVersionResultStatus
+    ): Promise<BuildResult> {
+        const bundle = await bundler.build({ ...buildOptions, version });
+        const tarball = await artifactsBuilder.buildTarball(bundle);
+
+        return { status, tarData: tarball.tarData, bundle };
+    }
+
     async function buildWithAutomaticVersioning(
         buildOptions: BuildOptions,
-        latestVersion: Maybe<PackageVersionDetails>,
-        minimumVersion: Version = '0.0.1',
+        latestVersion: Readonly<Maybe<PackageVersionDetails>>,
+        minimumVersion: Version = '0.0.1'
     ): Promise<BuildResult> {
         if (latestVersion.isNothing) {
-            const initialVersion = minimumVersion;
-
-            const bundle = await bundler.build({ ...buildOptions, version: initialVersion });
-            const tarball = await artifactsBuilder.buildTarball(bundle);
-
-            return { type: 'initial-version', manifest: bundle.packageJson, tarData: tarball.tarData, bundle };
+            return buildVersion(buildOptions, minimumVersion, 'initial-version');
         }
 
         const bundleWithLatestVersion = await bundler.build({ ...buildOptions, version: latestVersion.value.version });
@@ -96,36 +97,28 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
             const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
             const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
             return {
-                type: 'new-version',
-                manifest: bundleWithNewVersion.packageJson,
+                status: 'new-version',
                 tarData: tarballWithNewVersion.tarData,
-                bundle: bundleWithNewVersion,
+                bundle: bundleWithNewVersion
             };
         }
 
-        return {
-            type: 'already-published',
-            manifest: bundleWithLatestVersion.packageJson,
-            bundle: bundleWithLatestVersion,
-        };
+        return { status: 'already-published', bundle: bundleWithLatestVersion };
     }
 
     async function buildWithManualVersioning(
         buildOptions: BuildOptions,
-        latestVersion: Maybe<PackageVersionDetails>,
-        versionToPublish: string,
+        latestVersion: Readonly<Maybe<PackageVersionDetails>>,
+        versionToPublish: string
     ): Promise<BuildResult> {
         if (latestVersion.isJust && latestVersion.value.version === versionToPublish) {
             throw new Error(`Version ${versionToPublish} of package ${buildOptions.name} is already published`);
         }
 
-        const bundle = await bundler.build({ ...buildOptions, version: versionToPublish });
-        const tarball = await artifactsBuilder.buildTarball(bundle);
-
-        return { type: 'new-version', manifest: bundle.packageJson, tarData: tarball.tarData, bundle };
+        return buildVersion(buildOptions, versionToPublish, 'new-version');
     }
 
-    async function tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildResult> {
+    async function tryBuildAndPublish(options: Readonly<BuildAndPublishOptions>): Promise<BuildResult> {
         const { versioning = { automatic: true }, registrySettings, ...buildOptions } = options;
 
         const latestVersion = await registryClient.fetchLatestVersion(buildOptions.name, registrySettings);
@@ -142,15 +135,15 @@ export function createPublisher(dependencies: PublisherDependencies): Publisher 
         async buildAndPublish(options) {
             const result = await tryBuildAndPublish(options);
 
-            if (result.type !== 'already-published') {
-                await registryClient.publishPackage(result.manifest, result.tarData, options.registrySettings);
+            if (result.status !== 'already-published') {
+                await registryClient.publishPackage(
+                    result.bundle.packageJson,
+                    result.tarData,
+                    options.registrySettings
+                );
             }
 
-            return {
-                status: result.type,
-                version: result.manifest.version,
-                bundle: result.bundle,
-            };
-        },
+            return { status: result.status, bundle: result.bundle };
+        }
     };
 }

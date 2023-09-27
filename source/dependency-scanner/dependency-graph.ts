@@ -1,30 +1,33 @@
 import { Maybe } from 'true-myth';
-import { SourceFile } from 'ts-morph';
+import type { SourceFile } from 'ts-morph';
 import { createDirectedGraph } from '../directed-graph/graph.js';
 
-export interface DependencyGraphNodeData {
+export type DependencyGraphNodeData = {
     readonly sourceMapFilePath: Maybe<string>;
-    readonly topLevelDependencies: Map<string, string>;
+    readonly topLevelDependencies: ReadonlyMap<string, string>;
     readonly substitutionContent: Maybe<string>;
-    readonly tsSourceFile: SourceFile;
-}
+    readonly tsSourceFile: Readonly<SourceFile>;
+};
 
-export interface DependencyNode extends DependencyGraphNodeData {
-    filePath: string;
+export type DependencyNode = DependencyGraphNodeData & {
+    readonly filePath: string;
     readonly localFiles: readonly string[];
-}
+};
 
-export interface LocalFile {
-    filePath: string;
-    substitutionContent: Maybe<string>;
-}
+export type LocalFile = {
+    readonly filePath: string;
+    readonly substitutionContent: Maybe<string>;
+};
 
-export interface DependencyFiles {
-    localFiles: readonly LocalFile[];
-    topLevelDependencies: Record<string, string>;
-}
+export type DependencyFiles = {
+    readonly localFiles: readonly LocalFile[];
+    readonly topLevelDependencies: Record<string, string>;
+};
 
-export function mergeDependencyFiles(first: DependencyFiles, second: DependencyFiles): DependencyFiles {
+export function mergeDependencyFiles(
+    first: Readonly<DependencyFiles>,
+    second: Readonly<DependencyFiles>
+): Readonly<DependencyFiles> {
     const mergedLocalFiles = new Map<string, LocalFile>();
 
     for (const localFile of [...first.localFiles, ...second.localFiles]) {
@@ -33,20 +36,20 @@ export function mergeDependencyFiles(first: DependencyFiles, second: DependencyF
 
     return {
         localFiles: Array.from(mergedLocalFiles.values()),
-        topLevelDependencies: { ...first.topLevelDependencies, ...second.topLevelDependencies },
+        topLevelDependencies: { ...first.topLevelDependencies, ...second.topLevelDependencies }
     };
 }
 
-type DependencyGraphVisitor = (node: DependencyNode) => void;
+type DependencyGraphVisitor = (node: Readonly<DependencyNode>) => void;
 
-export interface DependencyGraph {
+export type DependencyGraph = {
     addDependency(filePath: string, data: DependencyGraphNodeData): void;
     connect(fromFilePath: string, toFilePath: string): void;
     hasConnection(fromFilePath: string, toFilePath: string): boolean;
     walk(startFilePath: string, visitor: DependencyGraphVisitor): void;
     isKnown(filePath: string): boolean;
-    flatten(startFilePath: string): DependencyFiles;
-}
+    flatten(startFilePath: string): Readonly<DependencyFiles>;
+};
 
 export function createDependencyGraph(): DependencyGraph {
     const graph = createDirectedGraph<string, DependencyGraphNodeData>();
@@ -74,7 +77,7 @@ export function createDependencyGraph(): DependencyGraph {
                     topLevelDependencies: node.data.topLevelDependencies,
                     localFiles: Array.from(node.adjacentNodeIds),
                     substitutionContent: node.data.substitutionContent,
-                    tsSourceFile: node.data.tsSourceFile,
+                    tsSourceFile: node.data.tsSourceFile
                 });
             });
         },
@@ -88,7 +91,7 @@ export function createDependencyGraph(): DependencyGraph {
                 if (node.data.sourceMapFilePath.isJust) {
                     localFiles.set(node.data.sourceMapFilePath.value, {
                         filePath: node.data.sourceMapFilePath.value,
-                        substitutionContent: Maybe.nothing(),
+                        substitutionContent: Maybe.nothing()
                     });
                 }
 
@@ -99,8 +102,8 @@ export function createDependencyGraph(): DependencyGraph {
 
             return {
                 localFiles: Array.from(localFiles.values()),
-                topLevelDependencies: Object.fromEntries(topLevelDependencies.entries()),
+                topLevelDependencies: Object.fromEntries(topLevelDependencies.entries())
             };
-        },
+        }
     };
 }

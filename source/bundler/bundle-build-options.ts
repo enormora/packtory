@@ -1,39 +1,39 @@
-import { PackageJson } from 'type-fest';
-import { BundleDescription } from './bundle-description.js';
+import type { PackageJson } from 'type-fest';
+import type { BundleDescription } from './bundle-description.js';
 
-export interface EntryPoint {
+export type EntryPoint = {
     readonly js: string;
     readonly declarationFile?: string;
-}
+};
 
 export type EntryPoints = readonly [EntryPoint, ...(readonly EntryPoint[])];
 
-export interface AdditionalFileDescription {
-    sourceFilePath: string;
-    targetFilePath: string;
-}
+export type AdditionalFileDescription = {
+    readonly sourceFilePath: string;
+    readonly targetFilePath: string;
+};
 
-export interface BundleBuildOptions {
+type NonCustomizableAttribute = 'dependencies' | 'devDependencies' | 'main' | 'name' | 'types' | 'version';
+type AdditionalPackageJsonAttributes = Readonly<Exclude<PackageJson, NonCustomizableAttribute>>;
+
+export type BundleBuildOptions = {
     readonly sourcesFolder: string;
     readonly entryPoints: EntryPoints;
     readonly name: string;
     readonly version: string;
     readonly mainPackageJson: PackageJson;
     readonly includeSourceMapFiles?: boolean;
-    readonly dependencies?: BundleDescription[];
-    readonly peerDependencies?: BundleDescription[];
-    readonly additionalFiles?: readonly (string | AdditionalFileDescription)[];
-    readonly additionalPackageJsonAttributes?: Exclude<
-        PackageJson,
-        'name' | 'version' | 'dependencies' | 'devDependencies' | 'main' | 'types'
-    >;
-}
+    readonly bundleDependencies?: BundleDescription[];
+    readonly bundlePeerDependencies?: BundleDescription[];
+    readonly additionalFiles?: readonly (AdditionalFileDescription | string)[];
+    readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes;
+};
 
 function extractName(bundle: BundleDescription): string {
     return bundle.packageJson.name;
 }
 
-function findDuplicates(list: string[]): string[] {
+function findDuplicates(list: readonly string[]): readonly string[] {
     const uniqueValues: string[] = [];
 
     return list.filter((value) => {
@@ -48,17 +48,16 @@ function findDuplicates(list: string[]): string[] {
 }
 
 export function validateBundleBuildOptions(options: BundleBuildOptions): void {
-    const { dependencies = [], peerDependencies = [] } = options;
-    const dependencyNames = dependencies.map(extractName);
-    const peerDependencyNames = peerDependencies.map(extractName);
+    const { bundleDependencies = [], bundlePeerDependencies = [] } = options;
+    const dependencyNames = bundleDependencies.map(extractName);
+    const peerDependencyNames = bundlePeerDependencies.map(extractName);
     const allNames = [...dependencyNames, ...peerDependencyNames];
     const duplicatedNames = findDuplicates(allNames);
 
     if (duplicatedNames.length > 0) {
+        const formattedNames = duplicatedNames.join(', ');
         throw new Error(
-            `The following packages are listed more than once in dependencies or peerDependencies: ${duplicatedNames.join(
-                ', ',
-            )}`,
+            `The following packages are listed more than once in dependencies or peerDependencies: ${formattedNames}`
         );
     }
 }

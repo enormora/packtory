@@ -1,8 +1,19 @@
-import Maybe, { first } from 'true-myth/maybe';
 import { isBuiltin } from 'node:module';
-import { ts, Node, Project as _Project, SourceFile, Symbol as TSSymbol, SyntaxKind, StringLiteral } from 'ts-morph';
+import Maybe, { first } from 'true-myth/maybe';
+import {
+    ts,
+    Node as ASTNode,
+    type SourceFile,
+    type Symbol as TSSymbol,
+    SyntaxKind,
+    type StringLiteral
+} from 'ts-morph';
 
-function getReferencedSourceFileFromSymbol(symbol: TSSymbol): Maybe<SourceFile> {
+function getReferencedSourceFileFromSymbol(symbol: TSSymbol | undefined): Readonly<Maybe<SourceFile>> {
+    if (symbol === undefined) {
+        return Maybe.nothing();
+    }
+
     const declarations = symbol.getDeclarations();
 
     return first(declarations).andThen((firstDeclaration) => {
@@ -14,40 +25,48 @@ function getReferencedSourceFileFromSymbol(symbol: TSSymbol): Maybe<SourceFile> 
     });
 }
 
-function getSourceFileForLiteral(literal: StringLiteral): SourceFile | undefined {
+function getSourceFileFromSymbol(
+    literal: StringLiteral,
+    parent: ASTNode,
+    grandParent: ASTNode | undefined
+): Readonly<Maybe<SourceFile>> {
+    if (ASTNode.isImportTypeNode(grandParent)) {
+        return getReferencedSourceFileFromSymbol(grandParent.getSymbol());
+    }
+    if (ASTNode.isCallExpression(parent)) {
+        return getReferencedSourceFileFromSymbol(literal.getSymbol());
+    }
+
+    return Maybe.nothing();
+}
+
+function getSourceFileForLiteral(literal: StringLiteral): Readonly<SourceFile | undefined> {
     const parent = literal.getParentOrThrow();
     const grandParent = parent.getParent();
 
-    if (Node.isImportDeclaration(parent) || Node.isExportDeclaration(parent)) {
+    if (ASTNode.isImportDeclaration(parent) || ASTNode.isExportDeclaration(parent)) {
         return parent.getModuleSpecifierSourceFile();
-    } else if (grandParent != null && Node.isImportEqualsDeclaration(grandParent)) {
+    }
+    if (ASTNode.isImportEqualsDeclaration(grandParent)) {
         return grandParent.getExternalModuleReferenceSourceFile();
-    } else if (grandParent != null && Node.isImportTypeNode(grandParent)) {
-        const importTypeSymbol = grandParent.getSymbol();
-        if (importTypeSymbol != null) return getReferencedSourceFileFromSymbol(importTypeSymbol).unwrapOr(undefined);
-    } else if (Node.isCallExpression(parent)) {
-        const literalSymbol = literal.getSymbol();
-        if (literalSymbol != null) {
-            return getReferencedSourceFileFromSymbol(literalSymbol).unwrapOr(undefined);
-        }
     }
 
-    return undefined;
+    return getSourceFileFromSymbol(literal, parent, grandParent).unwrapOr(undefined);
 }
 
 export function resolveSourceFileForLiteral(
     literal: StringLiteral,
-    containingSourceFile: SourceFile,
-): SourceFile | undefined {
+    containingSourceFile: Readonly<SourceFile>
+): Readonly<SourceFile | undefined> {
     const project = containingSourceFile.getProject();
     const result = ts.resolveModuleName(
         literal.getLiteralValue(),
         containingSourceFile.getFilePath(),
         project.getCompilerOptions(),
-        project.getModuleResolutionHost(),
+        project.getModuleResolutionHost()
     );
 
-    if (result.resolvedModule) {
+    if (result.resolvedModule !== undefined) {
         const resolvedFilePath = result.resolvedModule.resolvedFileName;
         return project.getSourceFile(resolvedFilePath);
     }
@@ -56,28 +75,32 @@ export function resolveSourceFileForLiteral(
 }
 
 function isDefined<T>(value: T): value is Exclude<T, undefined> {
-    return typeof value !== 'undefined';
+    return value !== undefined;
 }
 
-export function getReferencedSourceFiles(sourceFile: SourceFile): SourceFile[] {
+export function getReferencedSourceFiles(sourceFile: Readonly<SourceFile>): readonly Readonly<SourceFile>[] {
     const importStringLiterals = sourceFile.getImportStringLiterals();
-    return importStringLiterals.map((literal) => {
-        let referencedSourceFile = getSourceFileForLiteral(literal);
+    return importStringLiterals
+        .map((literal) => {
+            let referencedSourceFile = getSourceFileForLiteral(literal);
 
-        if (!referencedSourceFile) {
-            referencedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
-        }
-
-        if (!referencedSourceFile) {
-            if (isBuiltin(literal.getLiteralValue())) {
-                return undefined;
+            if (referencedSourceFile === undefined) {
+                referencedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
             }
 
-            throw new Error(
-                `Failed to resolve file for import "${literal.getLiteralValue()}" in containing file "${sourceFile.getFilePath()}"`,
-            );
-        }
+            if (referencedSourceFile === undefined) {
+                const importValue = literal.getLiteralValue();
 
-        return referencedSourceFile;
-    }).filter(isDefined);
+                if (isBuiltin(importValue)) {
+                    return undefined;
+                }
+
+                const message = `Failed to resolve import "${importValue}" in file "${sourceFile.getFilePath()}"`;
+
+                throw new Error(message);
+            }
+
+            return referencedSourceFile;
+        })
+        .filter(isDefined);
 }

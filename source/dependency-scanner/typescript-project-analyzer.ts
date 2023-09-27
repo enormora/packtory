@@ -1,36 +1,36 @@
 import path from 'node:path';
-import { ModuleKind, Project as _Project, SourceFile, ModuleResolutionKind } from 'ts-morph';
+import { ModuleKind, type Project as _Project, type SourceFile, ModuleResolutionKind } from 'ts-morph';
 
-export type ModuleResolution = 'module' | 'common-js';
+export type ModuleResolution = 'common-js' | 'module';
 
-export interface TypescriptProjectAnalyzerDependencies {
+export type TypescriptProjectAnalyzerDependencies = {
     readonly Project: typeof _Project;
-    getReferencedSourceFiles(sourceFile: SourceFile): SourceFile[];
-}
+    getReferencedSourceFiles(sourceFile: Readonly<SourceFile>): readonly Readonly<SourceFile>[];
+};
 
-export interface AnalyzationOptions {
+export type AnalyzationOptions = {
     readonly moduleResolution: ModuleResolution;
     readonly failOnCompileErrors: boolean;
     readonly resolveDeclarationFiles: boolean;
-}
+};
 
-export interface TypescriptProject {
-    getReferencedSourceFilePaths(containingSourceFilePath: string): string[];
-    getSourceFile(filePath: string): SourceFile;
-}
+export type TypescriptProject = {
+    getReferencedSourceFilePaths(containingSourceFilePath: string): readonly string[];
+    getSourceFile(filePath: string): Readonly<SourceFile>;
+};
 
-export interface TypescriptProjectAnalyzer {
+export type TypescriptProjectAnalyzer = {
     analyzeProject(folder: string, options: AnalyzationOptions): TypescriptProject;
-}
+};
 
-const declartionFileExtensionReplacements = new Map([
+const declarationFileExtensionReplacements = new Map([
     ['.d.ts', '.js'],
     ['.d.cts', '.cjs'],
-    ['.d.mts', '.mjs'],
+    ['.d.mts', '.mjs']
 ]);
 
 function replaceDeclarationFileExtension(filePath: string): string {
-    for (const replacement of declartionFileExtensionReplacements) {
+    for (const replacement of declarationFileExtensionReplacements) {
         const [oldExtensions, newExtension] = replacement;
 
         if (filePath.endsWith(oldExtensions)) {
@@ -39,10 +39,13 @@ function replaceDeclarationFileExtension(filePath: string): string {
         }
     }
 
-    throw new Error(`Couldn’t handle file extension of declartion file "${filePath}"`);
+    throw new Error(`Couldn’t handle file extension of declaration file "${filePath}"`);
 }
 
-export function getSourcePathFromSourceFile(sourceFile: SourceFile, resolveDeclarationFiles: boolean): string {
+export function getSourcePathFromSourceFile(
+    sourceFile: Readonly<SourceFile>,
+    resolveDeclarationFiles: boolean
+): string {
     const filePath = sourceFile.getFilePath();
 
     if (sourceFile.isDeclarationFile() && !resolveDeclarationFiles) {
@@ -53,7 +56,7 @@ export function getSourcePathFromSourceFile(sourceFile: SourceFile, resolveDecla
 }
 
 export function createTypescriptProjectAnalyzer(
-    dependencies: TypescriptProjectAnalyzerDependencies,
+    dependencies: TypescriptProjectAnalyzerDependencies
 ): TypescriptProjectAnalyzer {
     const { Project, getReferencedSourceFiles } = dependencies;
 
@@ -66,8 +69,8 @@ export function createTypescriptProjectAnalyzer(
                     maxNodeModuleJsDepth: 1,
                     noEmit: true,
                     allowJs: true,
-                    module: options.moduleResolution === 'module' ? ModuleKind.Node16 : ModuleKind.CommonJS,
-                },
+                    module: options.moduleResolution === 'module' ? ModuleKind.Node16 : ModuleKind.CommonJS
+                }
             });
 
             const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.js';
@@ -86,14 +89,14 @@ export function createTypescriptProjectAnalyzer(
                 getReferencedSourceFilePaths(containingSourceFilePath) {
                     const currentSourceFile = project.getSourceFile(containingSourceFilePath);
 
-                    if (!currentSourceFile) {
+                    if (currentSourceFile === undefined) {
                         return [];
                     }
 
                     const referencedSourceFilePaths = getReferencedSourceFiles(currentSourceFile).map(
                         (dependencySourceFile) => {
                             return getSourcePathFromSourceFile(dependencySourceFile, options.resolveDeclarationFiles);
-                        },
+                        }
                     );
 
                     return referencedSourceFilePaths;
@@ -102,13 +105,13 @@ export function createTypescriptProjectAnalyzer(
                 getSourceFile(filePath) {
                     const sourceFile = project.getSourceFile(filePath);
 
-                    if (!sourceFile) {
+                    if (sourceFile === undefined) {
                         throw new Error(`Failed to find source file for "${filePath}"`);
                     }
 
                     return sourceFile;
-                },
+                }
             };
-        },
+        }
     };
 }

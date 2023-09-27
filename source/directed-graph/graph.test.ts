@@ -1,5 +1,5 @@
 import test from 'ava';
-import { createDirectedGraph, DirectedGraph } from './graph.js';
+import { createDirectedGraph, type GraphEdge, type DirectedGraph } from './graph.js';
 
 test('hasNode() returns false when there is no node for the given id', (t) => {
     const graph = createDirectedGraph<string, string>();
@@ -149,7 +149,7 @@ test('hasNode() returns true when there is a connection between the given nodes'
     t.is(graph.hasConnection({ from: 'a', to: 'b' }), true);
 });
 
-function collectFromGraph(graph: DirectedGraph<string, string>, startId: string): string[] {
+function collectFromGraph(graph: DirectedGraph<string, string>, startId: string): readonly string[] {
     const collected: string[] = [];
 
     graph.visitBreadthFirstSearch(startId, (node) => {
@@ -180,143 +180,166 @@ test('visits the start node first', (t) => {
     t.deepEqual(collected, ['a']);
 });
 
-test('visits only the start node when there are multiple nodes but no connections', (t) => {
+type NodeVisitingTestCase = {
+    readonly nodes: [id: string, data: string][];
+    readonly connections: GraphEdge<string>[];
+    readonly disconnections?: GraphEdge<string>[];
+    readonly startId: string;
+    readonly expectedCollectedIds: string[];
+};
+
+const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase>) => {
+    const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
     const graph = createDirectedGraph<string, string>();
 
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.addNode('c', 'baz');
-    graph.connect({ from: 'b', to: 'c' });
+    nodes.forEach(([id, data]) => {
+        graph.addNode(id, data);
+    });
 
-    const collected = collectFromGraph(graph, 'a');
+    connections.forEach((edge) => {
+        graph.connect(edge);
+    });
 
-    t.deepEqual(collected, ['a']);
+    disconnections.forEach((edge) => {
+        graph.disconnect(edge);
+    });
+
+    const collected = collectFromGraph(graph, startId);
+
+    t.deepEqual(collected, expectedCollectedIds);
 });
 
-test('visits the start node and all connected nodes', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.connect({ from: 'a', to: 'b' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a', 'b']);
+test('visits only the start node when there are multiple nodes but no connections', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar'],
+        ['c', 'baz']
+    ],
+    connections: [{ from: 'b', to: 'c' }],
+    startId: 'a',
+    expectedCollectedIds: ['a']
 });
 
-test('visits ONLY the start node when there are two nodes but the start node is not connected to ohter but the other is connected to the start node', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.connect({ from: 'b', to: 'a' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a']);
+test('visits the start node and all connected nodes', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar']
+    ],
+    connections: [{ from: 'a', to: 'b' }],
+    startId: 'a',
+    expectedCollectedIds: ['a', 'b']
 });
 
-test('visits the start node and multiple connected nodes', (t) => {
-    const graph = createDirectedGraph<string, string>();
+test(
+    'visits ONLY the start node when there are two nodes but the start node is not connected to other but the other is connected to the start node',
+    checkNodeVisiting,
+    {
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [{ from: 'b', to: 'a' }],
+        startId: 'a',
+        expectedCollectedIds: ['a']
+    }
+);
 
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.addNode('c', 'baz');
-    graph.connect({ from: 'a', to: 'b' });
-    graph.connect({ from: 'a', to: 'c' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a', 'b', 'c']);
+test('visits the start node and multiple connected nodes', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar'],
+        ['c', 'baz']
+    ],
+    connections: [
+        { from: 'a', to: 'b' },
+        { from: 'a', to: 'c' }
+    ],
+    startId: 'a',
+    expectedCollectedIds: ['a', 'b', 'c']
 });
 
-test('visits the start node and multiple connected nodes and their subsequent nodes', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.addNode('c', 'baz');
-    graph.addNode('d', 'qux');
-    graph.addNode('e', 'quux');
-    graph.connect({ from: 'a', to: 'b' });
-    graph.connect({ from: 'a', to: 'c' });
-    graph.connect({ from: 'b', to: 'd' });
-    graph.connect({ from: 'd', to: 'e' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a', 'b', 'c', 'd', 'e']);
+test('visits the start node and multiple connected nodes and their subsequent nodes', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar'],
+        ['c', 'baz'],
+        ['d', 'qux'],
+        ['e', 'quux']
+    ],
+    connections: [
+        { from: 'a', to: 'b' },
+        { from: 'a', to: 'c' },
+        { from: 'b', to: 'd' },
+        { from: 'd', to: 'e' }
+    ],
+    startId: 'a',
+    expectedCollectedIds: ['a', 'b', 'c', 'd', 'e']
 });
 
-test('visits only the nodes that are still connected after disconnecting some', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.addNode('c', 'baz');
-    graph.addNode('d', 'qux');
-    graph.addNode('e', 'quux');
-    graph.connect({ from: 'a', to: 'b' });
-    graph.connect({ from: 'a', to: 'c' });
-    graph.connect({ from: 'b', to: 'd' });
-    graph.connect({ from: 'd', to: 'e' });
-    graph.disconnect({ from: 'a', to: 'b' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a', 'c']);
+test('visits only the nodes that are still connected after disconnecting some', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar'],
+        ['c', 'baz'],
+        ['d', 'qux'],
+        ['e', 'quux']
+    ],
+    connections: [
+        { from: 'a', to: 'b' },
+        { from: 'a', to: 'c' },
+        { from: 'b', to: 'd' },
+        { from: 'd', to: 'e' }
+    ],
+    disconnections: [{ from: 'a', to: 'b' }],
+    startId: 'a',
+    expectedCollectedIds: ['a', 'c']
 });
 
-test('visits the two nodes that are connected to each other', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.connect({ from: 'a', to: 'b' });
-    graph.connect({ from: 'b', to: 'a' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a', 'b']);
+test('visits the two nodes that are connected to each other', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar']
+    ],
+    connections: [
+        { from: 'a', to: 'b' },
+        { from: 'b', to: 'a' }
+    ],
+    startId: 'a',
+    expectedCollectedIds: ['a', 'b']
 });
 
-test('visits the three nodes which have a cyclic connection', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.addNode('c', 'baz');
-    graph.connect({ from: 'a', to: 'b' });
-    graph.connect({ from: 'b', to: 'c' });
-    graph.connect({ from: 'c', to: 'a' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a', 'b', 'c']);
+test('visits the three nodes which have a cyclic connection', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar'],
+        ['c', 'baz']
+    ],
+    connections: [
+        { from: 'a', to: 'b' },
+        { from: 'b', to: 'c' },
+        { from: 'c', to: 'a' }
+    ],
+    startId: 'a',
+    expectedCollectedIds: ['a', 'b', 'c']
 });
 
-test('visits ONYL the starting node when it is connected to itself', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.connect({ from: 'a', to: 'a' });
-
-    const collected = collectFromGraph(graph, 'a');
-
-    t.deepEqual(collected, ['a']);
+test('visits ONLY the starting node when it is connected to itself', checkNodeVisiting, {
+    nodes: [['a', 'foo']],
+    connections: [{ from: 'a', to: 'a' }],
+    startId: 'a',
+    expectedCollectedIds: ['a']
 });
 
-test('visits only the nodes that are connected with the starting id', (t) => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.addNode('c', 'baz');
-    graph.connect({ from: 'a', to: 'b' });
-    graph.connect({ from: 'b', to: 'c' });
-
-    const collected = collectFromGraph(graph, 'b');
-
-    t.deepEqual(collected, ['b', 'c']);
+test('visits only the nodes that are connected with the starting id', checkNodeVisiting, {
+    nodes: [
+        ['a', 'foo'],
+        ['b', 'bar'],
+        ['c', 'baz']
+    ],
+    connections: [
+        { from: 'a', to: 'b' },
+        { from: 'b', to: 'c' }
+    ],
+    startId: 'b',
+    expectedCollectedIds: ['b', 'c']
 });

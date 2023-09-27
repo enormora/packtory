@@ -1,6 +1,6 @@
 import test from 'ava';
-import { createTarballBuilder } from './tarball-builder.js';
 import { extractTarEntries } from '../test-libraries/tar.js';
+import { createTarballBuilder } from './tarball-builder.js';
 
 test('creates an empty tarball', async (t) => {
     const builder = createTarballBuilder();
@@ -32,10 +32,10 @@ test('creates a tarball with one file', async (t) => {
                 size: 3,
                 type: 'file',
                 uid: 0,
-                uname: '',
+                uname: ''
             },
-            content: 'bar',
-        },
+            content: 'bar'
+        }
     ]);
 });
 
@@ -48,79 +48,52 @@ test('creates a tarball with many nested files', async (t) => {
     builder.addFile('foo/bar/baz/4.txt', '4');
     const tarballBuffer = await builder.build();
     const entries = await extractTarEntries(tarballBuffer);
+    const expectedBaseHeaders = {
+        devmajor: 0,
+        devminor: 0,
+        gid: 0,
+        gname: '',
+        linkname: null,
+        mode: 420,
+        mtime: new Date(0),
+        pax: null,
+        uid: 0,
+        uname: '',
+        type: 'file'
+    } as const;
 
     t.deepEqual(entries, [
         {
             header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 420,
-                mtime: new Date(0),
+                ...expectedBaseHeaders,
                 name: '1.txt',
-                pax: null,
-                size: 1,
-                type: 'file',
-                uid: 0,
-                uname: '',
+                size: 1
             },
-            content: '1',
+            content: '1'
         },
         {
             header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 420,
-                mtime: new Date(0),
+                ...expectedBaseHeaders,
                 name: 'foo/2.txt',
-                pax: null,
-                size: 1,
-                type: 'file',
-                uid: 0,
-                uname: '',
+                size: 1
             },
-            content: '2',
+            content: '2'
         },
         {
             header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 420,
-                mtime: new Date(0),
+                ...expectedBaseHeaders,
                 name: 'foo/bar/3.txt',
-                pax: null,
-                size: 1,
-                type: 'file',
-                uid: 0,
-                uname: '',
+                size: 1
             },
-            content: '3',
+            content: '3'
         },
         {
             header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 420,
-                mtime: new Date(0),
+                ...expectedBaseHeaders,
                 name: 'foo/bar/baz/4.txt',
-                pax: null,
-                size: 1,
-                type: 'file',
-                uid: 0,
-                uname: '',
+                size: 1
             },
-            content: '4',
-        },
+            content: '4'
+        }
     ]);
 });
