@@ -1,19 +1,19 @@
-import test from 'ava';
 import fs from 'node:fs';
-import { fake, SinonSpy } from 'sinon';
-import { FileManagerDependencies, createFileManager, FileManager } from './file-manager.js';
+import test from 'ava';
+import { fake, type SinonSpy } from 'sinon';
+import { type FileManagerDependencies, createFileManager, type FileManager } from './file-manager.js';
 
-interface Overrides {
-    access?: SinonSpy;
-    mkdir?: SinonSpy;
-    writeFile?: SinonSpy;
-    readFile?: SinonSpy;
-}
+type Overrides = {
+    readonly access?: SinonSpy;
+    readonly mkdir?: SinonSpy;
+    readonly writeFile?: SinonSpy;
+    readonly readFile?: SinonSpy;
+};
 
 function fileManagerFactory(overrides: Overrides = {}): FileManager {
     const { access = fake(), mkdir = fake(), writeFile = fake(), readFile = fake() } = overrides;
     const fakeDependencies = {
-        hostFileSystem: { access, mkdir, writeFile, readFile },
+        hostFileSystem: { access, mkdir, writeFile, readFile }
     } as unknown as FileManagerDependencies;
     return createFileManager(fakeDependencies);
 }
@@ -53,7 +53,7 @@ test('writeFile() writes the given content to the given file when the parent fol
     t.deepEqual(writeFile.firstCall.args, ['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]);
 });
 
-test('writeFile() recursivly creates the parent folder and then writes the given content to the given file when the parent folder does not exist', async (t) => {
+test('writeFile() recursively creates the parent folder and then writes the given content to the given file when the parent folder does not exist', async (t) => {
     const access = fake.rejects(undefined);
     const writeFile = fake.resolves(undefined);
     const mkdir = fake.resolves(undefined);
@@ -61,12 +61,9 @@ test('writeFile() recursivly creates the parent folder and then writes the given
 
     await fileManager.writeFile('/foo/bar.txt', 'the-content');
 
-    t.is(access.callCount, 1);
-    t.deepEqual(access.firstCall.args, ['/foo', fs.constants.R_OK]);
-    t.is(mkdir.callCount, 1);
-    t.deepEqual(mkdir.firstCall.args, ['/foo', { recursive: true }]);
-    t.is(writeFile.callCount, 1);
-    t.deepEqual(writeFile.firstCall.args, ['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]);
+    t.deepEqual(access.args, [['/foo', fs.constants.R_OK]]);
+    t.deepEqual(mkdir.args, [['/foo', { recursive: true }]]);
+    t.deepEqual(writeFile.args, [['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]]);
 });
 
 test('readFile() reads the given file and returns its content', async (t) => {

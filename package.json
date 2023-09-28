@@ -6,6 +6,8 @@
     "scripts": {
         "compile": "tsc --build",
         "prettier:check": "prettier --check './**/*.{yml,yaml,json,md}'",
+        "eslint": "eslint . --cache --cache-location './target/.eslintcache' --cache-strategy content --max-warnings 0",
+        "lint": "npm run eslint && npm run prettier:check",
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
         "test:unit": "ava --config ava.config.js",
@@ -35,6 +37,10 @@
     },
     "devDependencies": {
         "@ava/typescript": "4.1.0",
+        "@enormora/eslint-config-ava": "0.0.7",
+        "@enormora/eslint-config-base": "0.0.7",
+        "@enormora/eslint-config-node": "0.0.7",
+        "@enormora/eslint-config-typescript": "0.0.7",
         "@types/libnpmpublish": "4.0.3",
         "@types/npm-registry-fetch": "8.0.4",
         "@types/semver": "7.5.2",
@@ -42,9 +48,13 @@
         "@types/ssri": "7.1.1",
         "@types/tar-stream": "3.1.0",
         "ava": "5.3.1",
+        "eslint": "8.50.0",
         "prettier": "3.0.3",
         "sinon": "16.0.0",
         "type-fest": "4.3.1",
         "typescript": "5.2.2"
+    },
+    "engines": {
+        "node": "^20"
     }
 }

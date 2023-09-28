@@ -1,25 +1,25 @@
-import { BundleDescription } from './bundle-description.js';
-import { DependencyGraph, createDependencyGraph } from '../dependency-scanner/dependency-graph.js';
-import { replaceImportPaths } from '../source-modifier/import-paths.js';
 import { Maybe } from 'true-myth';
+import { type DependencyGraph, createDependencyGraph } from '../dependency-scanner/dependency-graph.js';
+import { replaceImportPaths } from '../source-modifier/import-paths.js';
+import type { BundleDescription } from './bundle-description.js';
 
-interface Replacement {
-    targetPath: string;
-    packageName: string;
-    packageVersion: string;
-}
+type Replacement = {
+    readonly targetPath: string;
+    readonly packageName: string;
+    readonly packageVersion: string;
+};
 
-function findReplacement(file: string, dependencies: BundleDescription[]): Maybe<Replacement> {
+function findReplacement(file: string, dependencies: readonly BundleDescription[]): Readonly<Maybe<Replacement>> {
     for (const bundle of dependencies) {
         const matchingContent = bundle.contents.find((content) => {
             return content.sourceFilePath === file;
         });
-        if (matchingContent && matchingContent.kind !== 'source') {
+        if (matchingContent !== undefined && matchingContent.kind !== 'source') {
             const targetPath = `${bundle.packageJson.name}/${matchingContent.targetFilePath}`;
             return Maybe.just({
                 targetPath,
                 packageName: bundle.packageJson.name,
-                packageVersion: bundle.packageJson.version,
+                packageVersion: bundle.packageJson.version
             });
         }
     }
@@ -27,12 +27,15 @@ function findReplacement(file: string, dependencies: BundleDescription[]): Maybe
     return Maybe.nothing();
 }
 
-interface Replacements {
-    importPathReplacements: Map<string, string>;
-    topLevelDependencies: Map<string, string>;
-}
+type Replacements = {
+    readonly importPathReplacements: Map<string, string>;
+    readonly topLevelDependencies: Map<string, string>;
+};
 
-function findAllPathReplacements(files: readonly string[], dependencies: BundleDescription[]): Replacements {
+function findAllPathReplacements(
+    files: readonly string[],
+    dependencies: readonly BundleDescription[]
+): Readonly<Replacements> {
     const allReplacements = new Map<string, string>();
     const topLevelDependencies = new Map<string, string>();
 
@@ -48,15 +51,18 @@ function findAllPathReplacements(files: readonly string[], dependencies: BundleD
     return { importPathReplacements: allReplacements, topLevelDependencies };
 }
 
-function mergeTopLevelDependencies(first: Map<string, string>, second: Map<string, string>): Map<string, string> {
+function mergeTopLevelDependencies(
+    first: ReadonlyMap<string, string>,
+    second: ReadonlyMap<string, string>
+): ReadonlyMap<string, string> {
     return new Map([...first.entries(), ...second.entries()]);
 }
 
 export function substituteDependencies(
     graph: DependencyGraph,
     entryPointFile: string,
-    dependencies: BundleDescription[],
-    resolveDeclarationFiles: boolean,
+    dependencies: readonly BundleDescription[],
+    resolveDeclarationFiles: boolean
 ): DependencyGraph {
     const substitutedGraph = createDependencyGraph();
     const outstandingConnections: { from: string; to: string }[] = [];
@@ -73,24 +79,24 @@ export function substituteDependencies(
 
             if (replacements.importPathReplacements.size > 0) {
                 const substitutionContent = Maybe.just(
-                    replaceImportPaths(node.tsSourceFile, replacements.importPathReplacements, resolveDeclarationFiles),
+                    replaceImportPaths(node.tsSourceFile, replacements.importPathReplacements, resolveDeclarationFiles)
                 );
 
                 substitutedGraph.addDependency(node.filePath, {
                     sourceMapFilePath: node.sourceMapFilePath,
                     topLevelDependencies: mergeTopLevelDependencies(
                         node.topLevelDependencies,
-                        replacements.topLevelDependencies,
+                        replacements.topLevelDependencies
                     ),
                     tsSourceFile: node.tsSourceFile,
-                    substitutionContent,
+                    substitutionContent
                 });
             } else {
                 substitutedGraph.addDependency(node.filePath, {
                     sourceMapFilePath: node.sourceMapFilePath,
                     topLevelDependencies: node.topLevelDependencies,
                     tsSourceFile: node.tsSourceFile,
-                    substitutionContent: node.substitutionContent,
+                    substitutionContent: node.substitutionContent
                 });
             }
         }

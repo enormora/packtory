@@ -1,5 +1,5 @@
 import test from 'ava';
-import { validateBundleBuildOptions, BundleBuildOptions } from './bundle-build-options.js';
+import { validateBundleBuildOptions, type BundleBuildOptions } from './bundle-build-options.js';
 
 test('throws when a bundle is listed in both dependencies and peerDependencies', (t) => {
     const options: BundleBuildOptions = {
@@ -8,8 +8,8 @@ test('throws when a bundle is listed in both dependencies and peerDependencies',
         name: 'the-package',
         version: 'the-version',
         mainPackageJson: {},
-        dependencies: [{ contents: [], packageJson: { name: 'foo', version: '42' } }],
-        peerDependencies: [{ contents: [], packageJson: { name: 'foo', version: '42' } }],
+        bundleDependencies: [{ contents: [], packageJson: { name: 'foo', version: '42' } }],
+        bundlePeerDependencies: [{ contents: [], packageJson: { name: 'foo', version: '42' } }]
     };
 
     try {
@@ -18,7 +18,7 @@ test('throws when a bundle is listed in both dependencies and peerDependencies',
     } catch (error: unknown) {
         t.is(
             (error as Error).message,
-            'The following packages are listed more than once in dependencies or peerDependencies: foo',
+            'The following packages are listed more than once in dependencies or peerDependencies: foo'
         );
     }
 });
@@ -30,14 +30,14 @@ test('throws when multiple bundles are listed multiple times', (t) => {
         name: 'the-package',
         version: 'the-version',
         mainPackageJson: {},
-        dependencies: [
+        bundleDependencies: [
             { contents: [], packageJson: { name: 'foo', version: '42' } },
-            { contents: [], packageJson: { name: 'bar', version: '42' } },
+            { contents: [], packageJson: { name: 'bar', version: '42' } }
         ],
-        peerDependencies: [
+        bundlePeerDependencies: [
             { contents: [], packageJson: { name: 'foo', version: '42' } },
-            { contents: [], packageJson: { name: 'bar', version: '42' } },
-        ],
+            { contents: [], packageJson: { name: 'bar', version: '42' } }
+        ]
     };
 
     try {
@@ -46,7 +46,7 @@ test('throws when multiple bundles are listed multiple times', (t) => {
     } catch (error: unknown) {
         t.is(
             (error as Error).message,
-            'The following packages are listed more than once in dependencies or peerDependencies: foo, bar',
+            'The following packages are listed more than once in dependencies or peerDependencies: foo, bar'
         );
     }
 });
@@ -58,10 +58,10 @@ test('throws when a bundle is listed twice in dependencies', (t) => {
         name: 'the-package',
         version: 'the-version',
         mainPackageJson: {},
-        dependencies: [
+        bundleDependencies: [
             { contents: [], packageJson: { name: 'foo', version: '42' } },
-            { contents: [], packageJson: { name: 'foo', version: '42' } },
-        ],
+            { contents: [], packageJson: { name: 'foo', version: '42' } }
+        ]
     };
 
     try {
@@ -70,7 +70,7 @@ test('throws when a bundle is listed twice in dependencies', (t) => {
     } catch (error: unknown) {
         t.is(
             (error as Error).message,
-            'The following packages are listed more than once in dependencies or peerDependencies: foo',
+            'The following packages are listed more than once in dependencies or peerDependencies: foo'
         );
     }
 });
@@ -82,10 +82,10 @@ test('throws when a bundle is listed twice in peerDependencies', (t) => {
         name: 'the-package',
         version: 'the-version',
         mainPackageJson: {},
-        peerDependencies: [
+        bundlePeerDependencies: [
             { contents: [], packageJson: { name: 'foo', version: '42' } },
-            { contents: [], packageJson: { name: 'foo', version: '42' } },
-        ],
+            { contents: [], packageJson: { name: 'foo', version: '42' } }
+        ]
     };
 
     try {
@@ -94,7 +94,7 @@ test('throws when a bundle is listed twice in peerDependencies', (t) => {
     } catch (error: unknown) {
         t.is(
             (error as Error).message,
-            'The following packages are listed more than once in dependencies or peerDependencies: foo',
+            'The following packages are listed more than once in dependencies or peerDependencies: foo'
         );
     }
 });
@@ -106,7 +106,7 @@ test('doesn’t throw when a bundle is listed only once', (t) => {
         name: 'the-package',
         version: 'the-version',
         mainPackageJson: {},
-        dependencies: [{ contents: [], packageJson: { name: 'foo', version: '42' } }],
+        bundleDependencies: [{ contents: [], packageJson: { name: 'foo', version: '42' } }]
     };
 
     t.notThrows(() => {

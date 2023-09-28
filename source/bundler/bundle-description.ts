@@ -1,29 +1,31 @@
-import { PackageJson, SetRequired } from 'type-fest';
+import type { PackageJson, SetRequired } from 'type-fest';
 
-interface SourceContent {
-    kind: 'source';
-    targetFilePath: string;
-    source: string;
-    sourceFilePath?: undefined;
-}
+type SourceContent = {
+    readonly kind: 'source';
+    readonly targetFilePath: string;
+    readonly source: string;
+    readonly sourceFilePath?: undefined;
+};
 
-interface ReferenceContent {
-    kind: 'reference';
-    targetFilePath: string;
-    sourceFilePath: string;
-    source?: undefined;
-}
+type ReferenceContent = {
+    readonly kind: 'reference';
+    readonly targetFilePath: string;
+    readonly sourceFilePath: string;
+    readonly source?: undefined;
+};
 
-interface SubstitutedContent {
-    kind: 'substituted';
-    targetFilePath: string;
-    sourceFilePath: string;
-    source: string;
-}
+type SubstitutedContent = {
+    readonly kind: 'substituted';
+    readonly targetFilePath: string;
+    readonly sourceFilePath: string;
+    readonly source: string;
+};
 
-export type BundleContent = SourceContent | ReferenceContent | SubstitutedContent;
+export type BundleContent = Readonly<ReferenceContent | SourceContent | SubstitutedContent>;
 
-export interface BundleDescription {
+export type BundlePackageJson = Readonly<SetRequired<PackageJson, 'name' | 'version'>>;
+
+export type BundleDescription = {
     readonly contents: readonly BundleContent[];
-    readonly packageJson: SetRequired<PackageJson, 'name' | 'version'>;
-}
+    readonly packageJson: BundlePackageJson;
+};

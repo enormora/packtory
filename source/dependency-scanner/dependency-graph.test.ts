@@ -1,18 +1,18 @@
 import test from 'ava';
+import { Maybe } from 'true-myth';
+import type { SourceFile } from 'ts-morph';
 import {
     createDependencyGraph,
-    DependencyFiles,
-    DependencyGraph,
-    DependencyGraphNodeData,
-    DependencyNode,
-    mergeDependencyFiles,
+    type DependencyFiles,
+    type DependencyGraph,
+    type DependencyGraphNodeData,
+    type DependencyNode,
+    mergeDependencyFiles
 } from './dependency-graph.js';
-import { Maybe } from 'true-myth';
-import { SourceFile } from 'ts-morph';
 
-interface Overrides {
-    topLevelDependencies?: [string, string][];
-}
+type Overrides = {
+    readonly topLevelDependencies?: [string, string][];
+};
 function dependencyGraphNodeDataFactory(overrides: Overrides = {}): DependencyGraphNodeData {
     const { topLevelDependencies = [] } = overrides;
 
@@ -20,7 +20,7 @@ function dependencyGraphNodeDataFactory(overrides: Overrides = {}): DependencyGr
         sourceMapFilePath: Maybe.nothing(),
         topLevelDependencies: new Map(topLevelDependencies),
         substitutionContent: Maybe.nothing(),
-        tsSourceFile: {} as unknown as SourceFile,
+        tsSourceFile: {} as unknown as SourceFile
     };
 }
 
@@ -56,7 +56,7 @@ test('hasConnection() returns true when the given files are connected', (t) => {
     t.is(graph.hasConnection('foo.js', 'bar.js'), true);
 });
 
-function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): DependencyNode[] {
+function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): readonly DependencyNode[] {
     const collected: DependencyNode[] = [];
 
     graph.walk(startFilePath, (node) => {
@@ -79,8 +79,8 @@ test('walk() visits the start node only if it has no connections', (t) => {
             topLevelDependencies: new Map(),
             localFiles: [],
             substitutionContent: Maybe.nothing(),
-            tsSourceFile: {},
-        },
+            tsSourceFile: {}
+        }
     ]);
 });
 
@@ -102,7 +102,7 @@ test('walk() visits the start node and all its connections', (t) => {
             topLevelDependencies: new Map(),
             localFiles: ['bar.js'],
             substitutionContent: Maybe.nothing(),
-            tsSourceFile: {},
+            tsSourceFile: {}
         },
         {
             filePath: 'bar.js',
@@ -110,7 +110,7 @@ test('walk() visits the start node and all its connections', (t) => {
             topLevelDependencies: new Map(),
             localFiles: ['baz.js'],
             substitutionContent: Maybe.nothing(),
-            tsSourceFile: {},
+            tsSourceFile: {}
         },
         {
             filePath: 'baz.js',
@@ -118,8 +118,8 @@ test('walk() visits the start node and all its connections', (t) => {
             topLevelDependencies: new Map(),
             localFiles: [],
             substitutionContent: Maybe.nothing(),
-            tsSourceFile: {},
-        },
+            tsSourceFile: {}
+        }
     ]);
 });
 
@@ -134,9 +134,9 @@ test('flatten() collects all nodes and returns a single list for all local files
     t.deepEqual(result, {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
+            { filePath: 'bar.js', substitutionContent: Maybe.nothing() }
         ],
-        topLevelDependencies: {},
+        topLevelDependencies: {}
     });
 });
 
@@ -148,18 +148,18 @@ test('flatten() collects all nodes and returns a single map for topLevelDependen
         dependencyGraphNodeDataFactory({
             topLevelDependencies: [
                 ['a', '1.2.3'],
-                ['b', '42.0.0'],
-            ],
-        }),
+                ['b', '42.0.0']
+            ]
+        })
     );
     graph.addDependency(
         'bar.js',
         dependencyGraphNodeDataFactory({
             topLevelDependencies: [
                 ['b', '21.0.0'],
-                ['c', '0.0.0'],
-            ],
-        }),
+                ['c', '0.0.0']
+            ]
+        })
     );
     graph.connect('foo.js', 'bar.js');
     const result = graph.flatten('foo.js');
@@ -167,13 +167,13 @@ test('flatten() collects all nodes and returns a single map for topLevelDependen
     t.deepEqual(result, {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
+            { filePath: 'bar.js', substitutionContent: Maybe.nothing() }
         ],
         topLevelDependencies: {
             a: '1.2.3',
             b: '21.0.0',
-            c: '0.0.0',
-        },
+            c: '0.0.0'
+        }
     });
 });
 
@@ -181,16 +181,16 @@ test('mergeDependencyFiles() merges two sets of dependency files', (t) => {
     const firstSet: DependencyFiles = {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
+            { filePath: 'bar.js', substitutionContent: Maybe.nothing() }
         ],
-        topLevelDependencies: { a: '1', b: '2' },
+        topLevelDependencies: { a: '1', b: '2' }
     };
     const secondSet: DependencyFiles = {
         localFiles: [
             { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'baz.js', substitutionContent: Maybe.nothing() },
+            { filePath: 'baz.js', substitutionContent: Maybe.nothing() }
         ],
-        topLevelDependencies: { b: '3', c: '4' },
+        topLevelDependencies: { b: '3', c: '4' }
     };
     const result = mergeDependencyFiles(firstSet, secondSet);
 
@@ -198,8 +198,8 @@ test('mergeDependencyFiles() merges two sets of dependency files', (t) => {
         localFiles: [
             { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
             { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'baz.js', substitutionContent: Maybe.nothing() },
+            { filePath: 'baz.js', substitutionContent: Maybe.nothing() }
         ],
-        topLevelDependencies: { a: '1', b: '3', c: '4' },
+        topLevelDependencies: { a: '1', b: '3', c: '4' }
     });
 });

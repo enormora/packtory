@@ -1,31 +1,31 @@
-import _npmFetch from 'npm-registry-fetch';
-import { publish as _publish } from 'libnpmpublish';
+import type _npmFetch from 'npm-registry-fetch';
+import type { publish as _publish } from 'libnpmpublish';
 import { Maybe } from 'true-myth';
-import { object, string, optional, record, is } from 'valibot';
-import { PackageJson, SetRequired } from 'type-fest';
+import { object, string, optional, record, is, type Output } from 'valibot';
+import type { BundlePackageJson } from '../bundler/bundle-description.js';
 
 type PublishFunction = typeof _publish;
 
-export interface RegistryClientDependencies {
-    npmFetch: typeof _npmFetch;
-    publish: PublishFunction;
-}
+export type RegistryClientDependencies = {
+    readonly npmFetch: typeof _npmFetch;
+    readonly publish: PublishFunction;
+};
 
-export interface RegistryClient {
-    fetchLatestVersion(packageName: string, config: RegistrySettings): Promise<Maybe<PackageVersionDetails>>;
+export type RegistryClient = {
+    fetchLatestVersion(packageName: string, config: Readonly<RegistrySettings>): Promise<Maybe<PackageVersionDetails>>;
     publishPackage(
-        manifest: SetRequired<PackageJson, 'name' | 'version'>,
+        manifest: Readonly<BundlePackageJson>,
         tarData: Buffer,
-        config: RegistrySettings,
+        config: Readonly<RegistrySettings>
     ): Promise<void>;
-}
+};
 
-interface FetchError {
+type FetchError = {
     readonly statusCode: number;
-}
+};
 
 function isFetchError(error: unknown): error is FetchError {
-    return Object.prototype.hasOwnProperty.call(error, 'statusCode');
+    return typeof error === 'object' && error !== null && Object.hasOwn(error, 'statusCode');
 }
 
 function encodePackageName(name: string): string {
@@ -33,86 +33,111 @@ function encodePackageName(name: string): string {
 }
 
 const distTagsSchema = object({
-    latest: optional(string()),
+    latest: optional(string())
 });
 
 const versionDataSchema = object({
-    dist: object({ shasum: string() }),
+    dist: object({ shasum: string() })
 });
 
 const abbreviatedPackageResponseSchema = object({
     name: string(),
     'dist-tags': distTagsSchema,
-    versions: record(versionDataSchema),
+    versions: record(versionDataSchema)
 });
 
-export interface PackageVersionDetails {
-    version: string;
-    shasum: string;
-}
+type AbbreviatedPackageResponse = Readonly<Output<typeof abbreviatedPackageResponseSchema>>;
 
-export interface RegistrySettings {
-    token: string;
-}
+const httpStatusCode = {
+    notFound: 404,
+    forbidden: 403
+};
 
-export function createRegistryClient(dependencies: RegistryClientDependencies): RegistryClient {
+export type PackageVersionDetails = {
+    readonly version: string;
+    readonly shasum: string;
+};
+
+export type RegistrySettings = {
+    readonly token: string;
+};
+
+type PublishFunctionParametersManifestIndex = 0;
+type PublishManifest = Readonly<Parameters<PublishFunction>[PublishFunctionParametersManifestIndex]>;
+
+export function createRegistryClient(dependencies: Readonly<RegistryClientDependencies>): RegistryClient {
     const { npmFetch, publish } = dependencies;
 
-    async function fetchRegistryEndpoint(endpoint: string, registrySettings: RegistrySettings): Promise<unknown> {
+    async function fetchRegistryEndpoint(
+        endpoint: string,
+        registrySettings: Readonly<RegistrySettings>
+    ): Promise<unknown> {
         const acceptHeaderForFetchingAbbreviatedResponse = 'application/vnd.npm.install-v1+json';
 
         return npmFetch.json(endpoint, {
             forceAuth: {
                 alwaysAuth: true,
-                token: registrySettings.token,
+                token: registrySettings.token
             },
-            headers: { accept: acceptHeaderForFetchingAbbreviatedResponse },
+            headers: { accept: acceptHeaderForFetchingAbbreviatedResponse }
         });
+    }
+
+    async function fetchPackage(
+        packageName: string,
+        registrySettings: RegistrySettings
+    ): Promise<Maybe<AbbreviatedPackageResponse>> {
+        const endpointUri = `/${encodePackageName(packageName)}`;
+        try {
+            const response = await fetchRegistryEndpoint(endpointUri, registrySettings);
+            if (!is(abbreviatedPackageResponseSchema, response)) {
+                throw new Error('Got an invalid response from registry API');
+            }
+            return Maybe.just(response);
+        } catch (error: unknown) {
+            if (
+                isFetchError(error) &&
+                (error.statusCode === httpStatusCode.notFound || error.statusCode === httpStatusCode.forbidden)
+            ) {
+                return Maybe.nothing();
+            }
+
+            throw error;
+        }
     }
 
     return {
         async publishPackage(manifest, tarData, registrySettings) {
-            await publish(manifest as unknown as Parameters<PublishFunction>[0], tarData, {
+            await publish(manifest as unknown as PublishManifest, tarData, {
                 defaultTag: 'latest',
                 forceAuth: {
                     alwaysAuth: true,
-                    token: registrySettings.token,
-                },
+                    token: registrySettings.token
+                }
             });
         },
 
         async fetchLatestVersion(packageName, registrySettings) {
-            const endpointUri = `/${encodePackageName(packageName)}`;
+            const packageResponse = await fetchPackage(packageName, registrySettings);
 
-            try {
-                const response = await fetchRegistryEndpoint(endpointUri, registrySettings);
-                if (!is(abbreviatedPackageResponseSchema, response)) {
-                    throw new Error('Got an invalid response from registry API');
-                }
-
-                const latestVersion = response['dist-tags'].latest;
-                if (latestVersion) {
-                    const versionData = response.versions[latestVersion];
-                    if (!versionData) {
-                        throw new Error(
-                            `The version information about the latest version ${latestVersion} for package ${packageName} is missing`,
-                        );
-                    }
-
-                    return Maybe.just({
-                        version: latestVersion,
-                        shasum: versionData.dist.shasum,
-                    });
-                }
-
+            if (packageResponse.isNothing) {
                 return Maybe.nothing();
-            } catch (error: unknown) {
-                if (isFetchError(error) && (error.statusCode === 404 || error.statusCode === 403)) {
-                    return Maybe.nothing();
+            }
+
+            const latestVersion = packageResponse.value['dist-tags'].latest;
+            if (latestVersion !== undefined) {
+                const versionData = packageResponse.value.versions[latestVersion];
+                if (versionData === undefined) {
+                    throw new Error(`Version "${latestVersion}" for package "${packageName}" is missing a shasum`);
                 }
 
-                throw error;
+                return Maybe.just({
+                    version: latestVersion,
+                    shasum: versionData.dist.shasum
+                });
             }
-        },
+
+            return Maybe.nothing();
+        }
     };
 }

@@ -1,18 +1,20 @@
 import path from 'node:path';
 import { Maybe } from 'true-myth';
-import { FileManager } from '../artifacts/file-manager.js';
+import type { FileManager } from '../artifacts/file-manager.js';
 
-export interface SourceMapFileLocatorDependencies {
-    fileManager: FileManager;
-}
+export type SourceMapFileLocatorDependencies = {
+    readonly fileManager: FileManager;
+};
 
-export interface SourceMapFileLocator {
+export type SourceMapFileLocator = {
     locate(sourceFile: string): Promise<Maybe<string>>;
-}
+};
 
 const sourceMappingUrlPattern = /^\/\/# sourceMappingURL=(?<url>.+)$/m;
 
-export function createSourceMapFileLocator(dependencies: SourceMapFileLocatorDependencies): SourceMapFileLocator {
+export function createSourceMapFileLocator(
+    dependencies: Readonly<SourceMapFileLocatorDependencies>
+): SourceMapFileLocator {
     const { fileManager } = dependencies;
 
     return {
@@ -21,7 +23,7 @@ export function createSourceMapFileLocator(dependencies: SourceMapFileLocatorDep
             const result = sourceMappingUrlPattern.exec(fileContent);
             const sourceMappingUrl = result?.groups?.url;
 
-            if (sourceMappingUrl) {
+            if (sourceMappingUrl !== undefined) {
                 const folder = path.dirname(sourceFile);
                 const sourceMappingFile = path.join(folder, sourceMappingUrl);
                 const { isReadable } = await fileManager.checkReadability(sourceMappingFile);
@@ -32,6 +34,6 @@ export function createSourceMapFileLocator(dependencies: SourceMapFileLocatorDep
             }
 
             return Maybe.nothing();
-        },
+        }
     };
 }

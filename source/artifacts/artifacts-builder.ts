@@ -1,24 +1,24 @@
 import path from 'node:path';
 import ssri from 'ssri';
-import { FileManager } from './file-manager.js';
-import { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
+import type { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
+import type { FileManager } from './file-manager.js';
 import { createTarballBuilder } from './tarball-builder.js';
 
-export interface ArtifactsBuilderDependencies {
+export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;
-}
+};
 
-export interface TarballArtifact {
+export type TarballArtifact = {
     readonly tarData: Buffer;
     readonly shasum: string;
-}
+};
 
-export interface ArtifactsBuilder {
+export type ArtifactsBuilder = {
     buildTarball(bundle: BundleDescription): Promise<TarballArtifact>;
     buildFolder(bundle: BundleDescription, targetFolder: string): Promise<void>;
-}
+};
 
-function compareBundleContentTargetPath(first: BundleContent, second: BundleContent): -1 | 0 | 1 {
+function compareBundleContentTargetPath(first: Readonly<BundleContent>, second: Readonly<BundleContent>): -1 | 0 | 1 {
     if (first.targetFilePath < second.targetFilePath) {
         return -1;
     }
@@ -34,7 +34,7 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
     return {
         async buildTarball(bundle) {
             const tarballBuilder = createTarballBuilder();
-            const sortedContents = [...bundle.contents].sort(compareBundleContentTargetPath);
+            const sortedContents = Array.from(bundle.contents).sort(compareBundleContentTargetPath);
 
             for (const entry of sortedContents) {
                 const targetFilePath = path.join('package', entry.targetFilePath);
@@ -48,11 +48,10 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
             }
 
             const tarData = await tarballBuilder.build();
-            const integrity = ssri.fromData(tarData, { algorithms: ['sha1'] });
 
             return {
-                shasum: integrity.hexDigest(),
-                tarData,
+                shasum: ssri.fromData(tarData, { algorithms: ['sha1'] }).hexDigest(),
+                tarData
             };
         },
 
@@ -66,12 +65,10 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
             for (const entry of bundle.contents) {
                 const targetFilePath = path.join(targetFolder, entry.targetFilePath);
 
-                if (entry.kind === 'reference') {
-                    await fileManager.copyFile(entry.sourceFilePath, targetFilePath);
-                } else {
-                    await fileManager.writeFile(targetFilePath, entry.source);
-                }
+                await (entry.kind === 'reference'
+                    ? fileManager.copyFile(entry.sourceFilePath, targetFilePath)
+                    : fileManager.writeFile(targetFilePath, entry.source));
             }
-        },
+        }
     };
 }

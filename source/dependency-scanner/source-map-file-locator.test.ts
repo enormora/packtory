@@ -1,24 +1,24 @@
-import test from "ava"
+import test from 'ava';
+import { fake, type SinonSpy } from 'sinon';
+import { Maybe } from 'true-myth';
 import {
     createSourceMapFileLocator,
-    SourceMapFileLocator,
-    SourceMapFileLocatorDependencies,
+    type SourceMapFileLocator,
+    type SourceMapFileLocatorDependencies
 } from './source-map-file-locator.js';
-import { fake, SinonSpy } from 'sinon';
-import { Maybe } from 'true-myth';
 
-interface Overrides {
+type Overrides = {
     readonly readFile?: SinonSpy;
     readonly checkReadability?: SinonSpy;
-}
+};
 
 function sourceMapFileLocatorFactory(overrides: Overrides = {}): SourceMapFileLocator {
     const { readFile = fake.resolves(''), checkReadability = fake.resolves(null) } = overrides;
     const fakeDependencies = {
         fileManager: {
             readFile,
-            checkReadability,
-        },
+            checkReadability
+        }
     } as unknown as SourceMapFileLocatorDependencies;
 
     return createSourceMapFileLocator(fakeDependencies);

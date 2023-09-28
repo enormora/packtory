@@ -1,26 +1,26 @@
 import test from 'ava';
-import { fake, SinonSpy } from 'sinon';
-import { createPublisher, PublisherDependencies, Publisher } from './publisher.js';
+import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { createPublisher, type PublisherDependencies, type Publisher } from './publisher.js';
 
-interface Overrides {
-    buildTarball?: SinonSpy;
-    publishPackage?: SinonSpy;
-    fetchLatestVersion?: SinonSpy;
-    build?: SinonSpy;
-}
+type Overrides = {
+    readonly buildTarball?: SinonSpy;
+    readonly publishPackage?: SinonSpy;
+    readonly fetchLatestVersion?: SinonSpy;
+    readonly build?: SinonSpy;
+};
 
 function publisherFactory(overrides: Overrides = {}): Publisher {
     const {
         buildTarball = fake.resolves({}),
         publishPackage = fake(),
         fetchLatestVersion = fake(),
-        build = fake.resolves({ packageJson: {} }),
+        build = fake.resolves({ packageJson: {} })
     } = overrides;
     const fakeDependencies = {
         artifactsBuilder: { buildTarball },
         registryClient: { publishPackage, fetchLatestVersion },
-        bundler: { build },
+        bundler: { build }
     } as unknown as PublisherDependencies;
 
     return createPublisher(fakeDependencies);
@@ -35,7 +35,7 @@ test('buildAndPublish() fetches the latest version', async (t) => {
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
         registrySettings: { token: 'the-token' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.is(fetchLatestVersion.callCount, 1);
@@ -46,16 +46,20 @@ test('buildAndPublish() builds and publishes the initial version when there is n
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
-    const buildTarball = fake.resolves({ tarData });
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const publisher = publisherFactory({ fetchLatestVersion, publishPackage, build, buildTarball });
+    const publisher = publisherFactory({
+        fetchLatestVersion,
+        publishPackage,
+        build,
+        buildTarball: fake.resolves({ tarData })
+    });
 
     await publisher.buildAndPublish({
         name: 'the-name',
         sourcesFolder: 'the-folder',
         entryPoints: [{ js: 'the-entry-point' }],
         registrySettings: { token: 'the-token' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.is(build.callCount, 1);
@@ -65,8 +69,8 @@ test('buildAndPublish() builds and publishes the initial version when there is n
             mainPackageJson: {},
             name: 'the-name',
             sourcesFolder: 'the-folder',
-            version: '0.0.1',
-        },
+            version: '0.0.1'
+        }
     ]);
     t.is(publishPackage.callCount, 1);
     t.deepEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
@@ -76,9 +80,13 @@ test('buildAndPublish() builds and publishes the initial version using the given
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
-    const buildTarball = fake.resolves({ tarData });
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const publisher = publisherFactory({ fetchLatestVersion, publishPackage, build, buildTarball });
+    const publisher = publisherFactory({
+        fetchLatestVersion,
+        publishPackage,
+        build,
+        buildTarball: fake.resolves({ tarData })
+    });
 
     await publisher.buildAndPublish({
         name: 'the-name',
@@ -86,7 +94,7 @@ test('buildAndPublish() builds and publishes the initial version using the given
         sourcesFolder: 'the-folder',
         entryPoints: [{ js: 'the-entry-point' }],
         registrySettings: { token: 'the-token' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.is(build.callCount, 1);
@@ -96,8 +104,8 @@ test('buildAndPublish() builds and publishes the initial version using the given
             mainPackageJson: {},
             name: 'the-name',
             sourcesFolder: 'the-folder',
-            version: '1.2.3',
-        },
+            version: '1.2.3'
+        }
     ]);
     t.is(publishPackage.callCount, 1);
     t.deepEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
@@ -113,13 +121,12 @@ test('buildAndPublish() returns the correct result after publishing the initial 
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
         registrySettings: { token: '' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.deepEqual(result, {
         status: 'initial-version',
-        version: '42',
-        bundle: { contents: [], packageJson: { version: '42' } },
+        bundle: { contents: [], packageJson: { version: '42' } }
     });
 });
 
@@ -128,26 +135,31 @@ test('buildAndPublish() builds and publishes a new version incrementing the late
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
     const buildTarball = fake.resolves({ tarData, shasum: 'abc' });
-    const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', shasum: 'xyz' }));
-    const publisher = publisherFactory({ fetchLatestVersion, publishPackage, build, buildTarball });
+    const publisher = publisherFactory({
+        fetchLatestVersion: fake.resolves(Maybe.just({ version: '1.2.3', shasum: 'xyz' })),
+        publishPackage,
+        build,
+        buildTarball
+    });
 
     await publisher.buildAndPublish({
         name: 'the-name',
         sourcesFolder: 'the-folder',
         entryPoints: [{ js: 'the-entry-point' }],
         registrySettings: { token: 'the-token' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
-    t.is(build.callCount, 1);
-    t.deepEqual(build.firstCall.args, [
-        {
-            entryPoints: [{ js: 'the-entry-point' }],
-            mainPackageJson: {},
-            name: 'the-name',
-            sourcesFolder: 'the-folder',
-            version: '1.2.3',
-        },
+    t.deepEqual(build.args, [
+        [
+            {
+                entryPoints: [{ js: 'the-entry-point' }],
+                mainPackageJson: {},
+                name: 'the-name',
+                sourcesFolder: 'the-folder',
+                version: '1.2.3'
+            }
+        ]
     ]);
     t.is(buildTarball.callCount, 2);
     t.is(publishPackage.callCount, 1);
@@ -167,7 +179,7 @@ test('buildAndPublish() doesn’t publish any version when the shasum of the bui
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
         registrySettings: { token: '' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.is(build.callCount, 1);
@@ -185,16 +197,15 @@ test('buildAndPublish() returns the correct result after publishing a new versio
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
         registrySettings: { token: '' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.deepEqual(result, {
         status: 'new-version',
-        version: '1.2.4',
         bundle: {
             contents: [{ kind: 'source', source: '{\n    "version": "1.2.4"\n}', targetFilePath: 'package.json' }],
-            packageJson: { version: '1.2.4' },
-        },
+            packageJson: { version: '1.2.4' }
+        }
     });
 });
 
@@ -209,7 +220,7 @@ test('buildAndPublish() throws an error when publishing with manual versioning a
             sourcesFolder: '',
             entryPoints: [{ js: '' }],
             registrySettings: { token: '' },
-            mainPackageJson: {},
+            mainPackageJson: {}
         });
         t.fail('Expected buildAndPublish() to throw but it did not');
     } catch (error: unknown) {
@@ -222,8 +233,12 @@ test('buildAndPublish() builds and publish a new version using manual versioning
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const tarData = Buffer.from([1, 2, 3, 4]);
     const buildTarball = fake.resolves({ tarData });
-    const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const publisher = publisherFactory({ fetchLatestVersion, publishPackage, build, buildTarball });
+    const publisher = publisherFactory({
+        fetchLatestVersion: fake.resolves(Maybe.nothing()),
+        publishPackage,
+        build,
+        buildTarball
+    });
 
     await publisher.buildAndPublish({
         name: '',
@@ -231,12 +246,12 @@ test('buildAndPublish() builds and publish a new version using manual versioning
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
         registrySettings: { token: 'the-token' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.is(build.callCount, 1);
     t.deepEqual(build.firstCall.args, [
-        { name: '', version: '1.2.3', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} },
+        { name: '', version: '1.2.3', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }
     ]);
     t.is(publishPackage.callCount, 1);
     t.deepEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
@@ -254,12 +269,11 @@ test('buildAndPublish() returns the correct result after publishing a new versio
         sourcesFolder: '',
         entryPoints: [{ js: '' }],
         registrySettings: { token: '' },
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.deepEqual(result, {
         status: 'new-version',
-        version: '42',
-        bundle: { contents: [], packageJson: { version: '42' } },
+        bundle: { contents: [], packageJson: { version: '42' } }
     });
 });

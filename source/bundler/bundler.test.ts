@@ -1,11 +1,11 @@
 import test from 'ava';
-import { createBundler, Bundler, BundlerDependencies } from './bundler.js';
+import { fake, type SinonSpy, stub } from 'sinon';
 import { buildDependencyGraph } from '../test-libraries/dependency-graph-builder.js';
-import { fake, SinonSpy, stub } from 'sinon';
+import { createBundler, type Bundler, type BundlerDependencies } from './bundler.js';
 
-interface Overrides {
-    scan?: SinonSpy;
-}
+type Overrides = {
+    readonly scan?: SinonSpy;
+};
 
 function bundlerFactory(overrides: Overrides = {}): Bundler {
     const { scan = fake.resolves(buildDependencyGraph()) } = overrides;
@@ -15,7 +15,7 @@ function bundlerFactory(overrides: Overrides = {}): Bundler {
 
 test('scans only the given js entry-point file', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -25,20 +25,26 @@ test('scans only the given js entry-point file', async (t) => {
         entryPoints: [{ js: '/foo/bar.js' }],
         name: 'the-name',
         version: 'the-version',
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.is(scan.callCount, 1);
     t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
-        { includeSourceMapFiles: false, mainPackageJson: {}, moduleResolution: 'common-js' },
+        {
+            resolveDeclarationFiles: false,
+            includeDevDependencies: false,
+            includeSourceMapFiles: false,
+            mainPackageJson: {},
+            moduleResolution: 'common-js'
+        }
     ]);
 });
 
 test('scans the given js entry-point file with module resolution', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -48,20 +54,26 @@ test('scans the given js entry-point file with module resolution', async (t) => 
         entryPoints: [{ js: '/foo/bar.js' }],
         name: 'the-name',
         version: 'the-version',
-        mainPackageJson: { type: 'module' },
+        mainPackageJson: { type: 'module' }
     });
 
     t.is(scan.callCount, 1);
     t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
-        { includeSourceMapFiles: false, mainPackageJson: { type: 'module' }, moduleResolution: 'module' },
+        {
+            includeDevDependencies: false,
+            resolveDeclarationFiles: false,
+            includeSourceMapFiles: false,
+            mainPackageJson: { type: 'module' },
+            moduleResolution: 'module'
+        }
     ]);
 });
 
 test('scans the given js entry-point file with includeSourceMapFiles option set to true', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -72,23 +84,29 @@ test('scans the given js entry-point file with includeSourceMapFiles option set 
         name: 'the-name',
         version: 'the-version',
         mainPackageJson: {},
-        includeSourceMapFiles: true,
+        includeSourceMapFiles: true
     });
 
     t.is(scan.callCount, 1);
     t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
-        { includeSourceMapFiles: true, mainPackageJson: {}, moduleResolution: 'common-js' },
+        {
+            resolveDeclarationFiles: false,
+            includeDevDependencies: false,
+            includeSourceMapFiles: true,
+            mainPackageJson: {},
+            moduleResolution: 'common-js'
+        }
     ]);
 });
 
 test('scans the given js and declaration entry-point files', async (t) => {
     const firstGraph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const secondGraph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.d.ts', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.d.ts', content: 'true' }]
     });
     const scan = stub().onFirstCall().resolves(firstGraph).onSecondCall().resolves(secondGraph);
     const bundler = bundlerFactory({ scan });
@@ -98,14 +116,20 @@ test('scans the given js and declaration entry-point files', async (t) => {
         entryPoints: [{ js: '/foo/bar.js', declarationFile: '/foo/bar.d.ts' }],
         name: 'the-name',
         version: 'the-version',
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.is(scan.callCount, 2);
     t.deepEqual(scan.firstCall.args, [
         '/foo/bar.js',
         '/foo',
-        { includeSourceMapFiles: false, mainPackageJson: {}, moduleResolution: 'common-js' },
+        {
+            includeDevDependencies: false,
+            resolveDeclarationFiles: false,
+            includeSourceMapFiles: false,
+            mainPackageJson: {},
+            moduleResolution: 'common-js'
+        }
     ]);
     t.deepEqual(scan.secondCall.args, [
         '/foo/bar.d.ts',
@@ -115,14 +139,14 @@ test('scans the given js and declaration entry-point files', async (t) => {
             mainPackageJson: {},
             moduleResolution: 'common-js',
             includeDevDependencies: true,
-            resolveDeclarationFiles: true,
-        },
+            resolveDeclarationFiles: true
+        }
     ]);
 });
 
 test('builds a bundle for a single file with the correct package.json', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true', topLevelDependencies: new Map([['pkg', '42']]) }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true', topLevelDependencies: new Map([['pkg', '42']]) }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -132,30 +156,30 @@ test('builds a bundle for a single file with the correct package.json', async (t
         entryPoints: [{ js: '/foo/bar.js' }],
         name: 'the-name',
         version: 'the-version',
-        mainPackageJson: {},
+        mainPackageJson: {}
     });
 
     t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {\n        "pkg": "42"\n    },\n    "main": "bar.js"\n}',
-                targetFilePath: 'package.json',
+                source: '{\n    "dependencies": {\n        "pkg": "42"\n    },\n    "main": "bar.js",\n    "name": "the-name",\n    "version": "the-version"\n}',
+                targetFilePath: 'package.json'
             },
-            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' },
+            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' }
         ],
         packageJson: {
             name: 'the-name',
             version: 'the-version',
             dependencies: { pkg: '42' },
-            main: 'bar.js',
-        },
+            main: 'bar.js'
+        }
     });
 });
 
 test('builds a bundle for a single file with the given additional package.json fields, sorted alphabetically', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -168,18 +192,18 @@ test('builds a bundle for a single file with the given additional package.json f
         mainPackageJson: {},
         additionalPackageJsonAttributes: {
             xyzPropertyThat: 'should be listed last',
-            license: 'Beerware',
-        },
+            license: 'Beerware'
+        }
     });
 
     t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "license": "Beerware",\n    "xyzPropertyThat": "should be listed last",\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js"\n}',
-                targetFilePath: 'package.json',
+                source: '{\n    "dependencies": {},\n    "license": "Beerware",\n    "main": "bar.js",\n    "name": "the-name",\n    "version": "the-version",\n    "xyzPropertyThat": "should be listed last"\n}',
+                targetFilePath: 'package.json'
             },
-            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' },
+            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' }
         ],
         packageJson: {
             name: 'the-name',
@@ -187,14 +211,14 @@ test('builds a bundle for a single file with the given additional package.json f
             dependencies: {},
             main: 'bar.js',
             license: 'Beerware',
-            xyzPropertyThat: 'should be listed last',
-        },
+            xyzPropertyThat: 'should be listed last'
+        }
     });
 });
 
 test('builds a bundle for a single file with the module type from the main package.json', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -204,25 +228,25 @@ test('builds a bundle for a single file with the module type from the main packa
         entryPoints: [{ js: '/foo/bar.js' }],
         name: 'the-name',
         version: 'the-version',
-        mainPackageJson: { type: 'module' },
+        mainPackageJson: { type: 'module' }
     });
 
     t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js",\n    "type": "module"\n}',
-                targetFilePath: 'package.json',
+                source: '{\n    "dependencies": {},\n    "main": "bar.js",\n    "name": "the-name",\n    "type": "module",\n    "version": "the-version"\n}',
+                targetFilePath: 'package.json'
             },
-            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' },
+            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' }
         ],
         packageJson: {
             name: 'the-name',
             version: 'the-version',
             dependencies: {},
             main: 'bar.js',
-            type: 'module',
-        },
+            type: 'module'
+        }
     });
 });
 
@@ -236,15 +260,15 @@ test('builds a bundle for a project with matching dependencies and peerDependenc
                 dependencies: [
                     {
                         filePath: '/folder/foo.js',
-                        content: 'true',
+                        content: 'true'
                     },
                     {
                         filePath: '/folder/bar.js',
-                        content: 'true',
-                    },
-                ],
-            },
-        ],
+                        content: 'true'
+                    }
+                ]
+            }
+        ]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -255,41 +279,41 @@ test('builds a bundle for a project with matching dependencies and peerDependenc
         name: 'the-name',
         version: 'the-version',
         mainPackageJson: {},
-        dependencies: [
+        bundleDependencies: [
             {
                 contents: [{ kind: 'reference', targetFilePath: 'foo.js', sourceFilePath: '/folder/foo.js' }],
-                packageJson: { name: 'first', version: '1' },
-            },
+                packageJson: { name: 'first', version: '1' }
+            }
         ],
-        peerDependencies: [
+        bundlePeerDependencies: [
             {
                 contents: [{ kind: 'reference', targetFilePath: 'bar.js', sourceFilePath: '/folder/bar.js' }],
-                packageJson: { name: 'second', version: '3' },
-            },
-        ],
+                packageJson: { name: 'second', version: '3' }
+            }
+        ]
     });
 
     t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {\n        "first": "1",\n        "pkg": "2"\n    },\n    "main": "entry.js",\n    "peerDependencies": {\n        "second": "3"\n    }\n}',
-                targetFilePath: 'package.json',
+                source: '{\n    "dependencies": {\n        "first": "1",\n        "pkg": "2"\n    },\n    "main": "entry.js",\n    "name": "the-name",\n    "peerDependencies": {\n        "second": "3"\n    },\n    "version": "the-version"\n}',
+                targetFilePath: 'package.json'
             },
             {
                 kind: 'substituted',
                 source: 'import "first/foo.js"; import "second/bar.js";',
                 sourceFilePath: '/folder/entry.js',
-                targetFilePath: 'entry.js',
-            },
+                targetFilePath: 'entry.js'
+            }
         ],
         packageJson: {
             name: 'the-name',
             version: 'the-version',
             dependencies: { first: '1', pkg: '2' },
             peerDependencies: { second: '3' },
-            main: 'entry.js',
-        },
+            main: 'entry.js'
+        }
     });
 });
 
@@ -303,31 +327,31 @@ test('throws when the same bundle dependency is listed more than once', async (t
             name: 'the-name',
             version: 'the-version',
             mainPackageJson: {},
-            dependencies: [
+            bundleDependencies: [
                 {
                     contents: [],
-                    packageJson: { name: 'a-dependency', version: '1' },
-                },
+                    packageJson: { name: 'a-dependency', version: '1' }
+                }
             ],
-            peerDependencies: [
+            bundlePeerDependencies: [
                 {
                     contents: [],
-                    packageJson: { name: 'a-dependency', version: '2' },
-                },
-            ],
+                    packageJson: { name: 'a-dependency', version: '2' }
+                }
+            ]
         });
         t.fail('Expected build() to fail but it did not');
     } catch (error: unknown) {
         t.is(
             (error as Error).message,
-            'The following packages are listed more than once in dependencies or peerDependencies: a-dependency',
+            'The following packages are listed more than once in dependencies or peerDependencies: a-dependency'
         );
     }
 });
 
 test('builds a bundle for a single js file and additional files provided via options', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -338,32 +362,32 @@ test('builds a bundle for a single js file and additional files provided via opt
         name: 'the-name',
         version: 'the-version',
         mainPackageJson: {},
-        additionalFiles: ['LICENSE', { sourceFilePath: 'docs/readme-foo.md', targetFilePath: 'README.md' }],
+        additionalFiles: ['LICENSE', { sourceFilePath: 'docs/readme-foo.md', targetFilePath: 'README.md' }]
     });
 
     t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js"\n}',
-                targetFilePath: 'package.json',
+                source: '{\n    "dependencies": {},\n    "main": "bar.js",\n    "name": "the-name",\n    "version": "the-version"\n}',
+                targetFilePath: 'package.json'
             },
             { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' },
             { kind: 'reference', sourceFilePath: '/foo/LICENSE', targetFilePath: 'LICENSE' },
-            { kind: 'reference', sourceFilePath: '/foo/docs/readme-foo.md', targetFilePath: 'README.md' },
+            { kind: 'reference', sourceFilePath: '/foo/docs/readme-foo.md', targetFilePath: 'README.md' }
         ],
         packageJson: {
             name: 'the-name',
             version: 'the-version',
             dependencies: {},
-            main: 'bar.js',
-        },
+            main: 'bar.js'
+        }
     });
 });
 
 test('builds a bundle for a single js file and additional files provided using absolute paths', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -374,31 +398,31 @@ test('builds a bundle for a single js file and additional files provided using a
         name: 'the-name',
         version: 'the-version',
         mainPackageJson: {},
-        additionalFiles: [{ sourceFilePath: '/LICENSE', targetFilePath: 'bar/LICENSE' }],
+        additionalFiles: [{ sourceFilePath: '/LICENSE', targetFilePath: 'bar/LICENSE' }]
     });
 
     t.deepEqual(bundle, {
         contents: [
             {
                 kind: 'source',
-                source: '{\n    "name": "the-name",\n    "version": "the-version",\n    "dependencies": {},\n    "main": "bar.js"\n}',
-                targetFilePath: 'package.json',
+                source: '{\n    "dependencies": {},\n    "main": "bar.js",\n    "name": "the-name",\n    "version": "the-version"\n}',
+                targetFilePath: 'package.json'
             },
             { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' },
-            { kind: 'reference', sourceFilePath: '/LICENSE', targetFilePath: 'bar/LICENSE' },
+            { kind: 'reference', sourceFilePath: '/LICENSE', targetFilePath: 'bar/LICENSE' }
         ],
         packageJson: {
             name: 'the-name',
             version: 'the-version',
             dependencies: {},
-            main: 'bar.js',
-        },
+            main: 'bar.js'
+        }
     });
 });
 
 test('throws when providing an absolute targetFilePath in additionalFiles', async (t) => {
     const graph = buildDependencyGraph({
-        entries: [{ filePath: '/foo/bar.js', content: 'true' }],
+        entries: [{ filePath: '/foo/bar.js', content: 'true' }]
     });
     const scan = fake.resolves(graph);
     const bundler = bundlerFactory({ scan });
@@ -410,7 +434,7 @@ test('throws when providing an absolute targetFilePath in additionalFiles', asyn
             name: 'the-name',
             version: 'the-version',
             mainPackageJson: {},
-            additionalFiles: [{ sourceFilePath: '/LICENSE', targetFilePath: '/bar/LICENSE' }],
+            additionalFiles: [{ sourceFilePath: '/LICENSE', targetFilePath: '/bar/LICENSE' }]
         });
         t.fail('Expected build() to fail but it did not');
     } catch (error: unknown) {

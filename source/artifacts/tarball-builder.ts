@@ -1,13 +1,17 @@
-import tar from 'tar-stream';
 import zlib from 'node:zlib';
+import tar from 'tar-stream';
 
-export interface TarballBuilder {
+export type TarballBuilder = {
     addFile(filePath: string, content: string): void;
     build(): Promise<Buffer>;
-}
+};
+
+const gzipHeaderOperationSystemTypeFieldIndex = 9;
+const gzipHeaderOperationSystemTypeUnknown = 255;
 
 function unsetOperatingSystemGzipHeaderField(data: Buffer): void {
-    data[9] = 255;
+    // eslint-disable-next-line no-param-reassign -- copying the whole buffer would be really inefficient
+    data[gzipHeaderOperationSystemTypeFieldIndex] = gzipHeaderOperationSystemTypeUnknown;
 }
 
 export function createTarballBuilder(): TarballBuilder {
@@ -27,12 +31,12 @@ export function createTarballBuilder(): TarballBuilder {
             const chunks: Buffer[] = [];
 
             for await (const chunk of tarballStream) {
-                chunks.push(chunk);
+                chunks.push(chunk as Buffer);
             }
 
             const tarData = Buffer.concat(chunks);
             unsetOperatingSystemGzipHeaderField(tarData);
             return tarData;
-        },
+        }
     };
 }

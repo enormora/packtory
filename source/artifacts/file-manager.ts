@@ -1,20 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export interface FileManagerDependencies {
+export type FileManagerDependencies = {
     readonly hostFileSystem: typeof fs.promises;
-}
+};
 
-interface FileOrFolderReadability {
-    isReadable: boolean;
-}
+type FileOrFolderReadability = {
+    readonly isReadable: boolean;
+};
 
-export interface FileManager {
+export type FileManager = {
     checkReadability(fileOrFolderPath: string): Promise<FileOrFolderReadability>;
     readFile(filePath: string): Promise<string>;
     writeFile(filePath: string, content: string): Promise<void>;
     copyFile(from: string, to: string): Promise<void>;
-}
+};
 
 export function createFileManager(dependencies: FileManagerDependencies): FileManager {
     const { hostFileSystem } = dependencies;
@@ -53,6 +53,6 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         async copyFile(from, to) {
             const content = await readFile(from);
             await writeFile(to, content);
-        },
+        }
     };
 }

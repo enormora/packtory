@@ -1,20 +1,24 @@
 import test from 'ava';
-import { fake, SinonSpy } from 'sinon';
-import { ArtifactsBuilder, ArtifactsBuilderDependencies, createArtifactsBuilder } from './artifacts-builder.js';
+import { fake, type SinonSpy } from 'sinon';
 import { extractTarEntries } from '../test-libraries/tar.js';
-import { BundleContent } from '../bundler/bundle-description.js';
+import type { BundleContent } from '../bundler/bundle-description.js';
+import {
+    type ArtifactsBuilder,
+    type ArtifactsBuilderDependencies,
+    createArtifactsBuilder
+} from './artifacts-builder.js';
 
-interface Overrides {
-    readFile?: SinonSpy;
-    checkReadability?: SinonSpy;
-    copyFile?: SinonSpy;
-    writeFile?: SinonSpy;
-}
+type Overrides = {
+    readonly readFile?: SinonSpy;
+    readonly checkReadability?: SinonSpy;
+    readonly copyFile?: SinonSpy;
+    readonly writeFile?: SinonSpy;
+};
 
 function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
     const { readFile = fake(), checkReadability = fake(), copyFile = fake(), writeFile = fake() } = overrides;
     const fakeDependencies = {
-        fileManager: { readFile, checkReadability, copyFile, writeFile },
+        fileManager: { readFile, checkReadability, copyFile, writeFile }
     } as unknown as ArtifactsBuilderDependencies;
     return createArtifactsBuilder(fakeDependencies);
 }
@@ -23,7 +27,7 @@ test('buildTarball() creates an empty tarball when the given bundle has no conte
     const builder = artifactsBuilderFactory();
     const result = await builder.buildTarball({
         contents: [],
-        packageJson: { name: 'the-name', version: 'the-version' },
+        packageJson: { name: 'the-name', version: 'the-version' }
     });
     const entries = await extractTarEntries(result.tarData);
 
@@ -37,7 +41,7 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
     const contents: BundleContent[] = [
         { kind: 'reference', sourceFilePath: '/foo/bar.txt', targetFilePath: 'bar.txt' },
         { kind: 'source', targetFilePath: 'baz.txt', source: 'baz' },
-        { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' },
+        { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' }
     ];
     const result = await builder.buildTarball({ contents, packageJson: { name: 'the-name', version: 'the-version' } });
     const entries = await extractTarEntries(result.tarData);
@@ -60,8 +64,8 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
                 size: 3,
                 type: 'file',
                 uid: 0,
-                uname: '',
-            },
+                uname: ''
+            }
         },
         {
             content: 'baz',
@@ -78,8 +82,8 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
                 size: 3,
                 type: 'file',
                 uid: 0,
-                uname: '',
-            },
+                uname: ''
+            }
         },
         {
             content: 'qux',
@@ -96,9 +100,9 @@ test('buildTarball() creates a tarball with all different kinds of bundle conten
                 size: 3,
                 type: 'file',
                 uid: 0,
-                uname: '',
-            },
-        },
+                uname: ''
+            }
+        }
     ]);
 
     t.is(result.shasum, 'ada9bbb1318dd4808fbcbb8c874d07459aff577d');
@@ -109,16 +113,16 @@ test('buildTarball() ensures to build the exact same tarball with the same check
     const firstTarball = await builder.buildTarball({
         contents: [
             { kind: 'source', targetFilePath: 'first.txt', source: '1' },
-            { kind: 'source', targetFilePath: 'second.txt', source: '2' },
+            { kind: 'source', targetFilePath: 'second.txt', source: '2' }
         ],
-        packageJson: { name: 'the-name', version: 'the-version' },
+        packageJson: { name: 'the-name', version: 'the-version' }
     });
     const secondTarball = await builder.buildTarball({
         contents: [
             { kind: 'source', targetFilePath: 'second.txt', source: '2' },
-            { kind: 'source', targetFilePath: 'first.txt', source: '1' },
+            { kind: 'source', targetFilePath: 'first.txt', source: '1' }
         ],
-        packageJson: { name: 'the-name', version: 'the-version' },
+        packageJson: { name: 'the-name', version: 'the-version' }
     });
 
     t.is(firstTarball.shasum, 'e8a6d0780788b78daab58294c9adb474c0b150b3');
@@ -133,7 +137,7 @@ test('buildFolder() doesn’t write or copy anything when the given bundle has n
 
     await builder.buildFolder(
         { contents: [], packageJson: { name: 'the-name', version: 'the-version' } },
-        '/the/target/folder',
+        '/the/target/folder'
     );
 
     t.is(writeFile.callCount, 0);
@@ -147,9 +151,9 @@ test('buildFolder() throws when the target folder already exists', async (t) => 
     try {
         await builder.buildFolder(
             { contents: [], packageJson: { name: 'the-name', version: 'the-version' } },
-            '/the/target/folder',
+            '/the/target/folder'
         );
-        t.fail('Expected buildFolder() to thorw but it did not');
+        t.fail('Expected buildFolder() to throw but it did not');
     } catch (error: unknown) {
         t.is(checkReadability.callCount, 1);
         t.deepEqual(checkReadability.firstCall.args, ['/the/target/folder']);
@@ -162,11 +166,11 @@ test('buildFolder() copies a reference bundle content to the given target folder
     const checkReadability = fake.resolves({ isReadable: false });
     const builder = artifactsBuilderFactory({ copyFile, checkReadability });
     const contents: BundleContent[] = [
-        { kind: 'reference', sourceFilePath: '/foo/bar/baz.txt', targetFilePath: 'bar/baz.txt' },
+        { kind: 'reference', sourceFilePath: '/foo/bar/baz.txt', targetFilePath: 'bar/baz.txt' }
     ];
     await builder.buildFolder(
         { contents, packageJson: { name: 'the-name', version: 'the-version' } },
-        '/the/target/folder',
+        '/the/target/folder'
     );
 
     t.is(copyFile.callCount, 1);
@@ -180,7 +184,7 @@ test('buildFolder() writes the source of a source bundle content to the given ta
     const contents: BundleContent[] = [{ kind: 'source', targetFilePath: 'bar/baz.txt', source: 'the-content' }];
     await builder.buildFolder(
         { contents, packageJson: { name: 'the-name', version: 'the-version' } },
-        '/the/target/folder',
+        '/the/target/folder'
     );
 
     t.is(writeFile.callCount, 1);
@@ -196,12 +200,12 @@ test('buildFolder() writes the source of a substituted bundle content to the giv
             kind: 'substituted',
             sourceFilePath: '/foo/bar/bax.txt',
             targetFilePath: 'bar/baz.txt',
-            source: 'the-content',
-        },
+            source: 'the-content'
+        }
     ];
     await builder.buildFolder(
         { contents, packageJson: { name: 'the-name', version: 'the-version' } },
-        '/the/target/folder',
+        '/the/target/folder'
     );
 
     t.is(writeFile.callCount, 1);

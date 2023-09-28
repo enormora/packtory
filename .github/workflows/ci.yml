@@ -14,6 +14,8 @@ jobs:
                   node-version: 20
             - name: Install dependencies
               run: npm clean-install
+            - name: Static Code Analysis
+              run: npm run lint
             - name: Compile Typescript
               run: npm run compile
             - name: Run tests

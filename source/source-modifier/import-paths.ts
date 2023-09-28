@@ -1,23 +1,23 @@
-import { SourceFile } from 'ts-morph';
+import type { SourceFile } from 'ts-morph';
 import { resolveSourceFileForLiteral } from '../dependency-scanner/source-file-references.js';
 import { getSourcePathFromSourceFile } from '../dependency-scanner/typescript-project-analyzer.js';
 
-type Replacements = Map<string, string>;
+type Replacements = ReadonlyMap<string, string>;
 
 export function replaceImportPaths(
-    sourceFile: SourceFile,
-    replacements: Replacements,
-    resolveDeclarationFiles: boolean,
+    sourceFile: Readonly<SourceFile>,
+    replacements: Readonly<Replacements>,
+    resolveDeclarationFiles: boolean
 ): string {
     const importStringLiterals = sourceFile.getImportStringLiterals();
 
     for (const literal of importStringLiterals) {
         const sourceFileForLiteral = resolveSourceFileForLiteral(literal, sourceFile);
-        if (sourceFileForLiteral) {
+        if (sourceFileForLiteral !== undefined) {
             const fullPathForLiteral = getSourcePathFromSourceFile(sourceFileForLiteral, resolveDeclarationFiles);
             const replacement = replacements.get(fullPathForLiteral);
 
-            if (replacement) {
+            if (replacement !== undefined) {
                 literal.setLiteralValue(replacement);
             }
         }

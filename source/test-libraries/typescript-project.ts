@@ -1,14 +1,14 @@
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 
-interface FileDescription {
-    filePath: string;
-    content: string;
-}
+type FileDescription = {
+    readonly filePath: string;
+    readonly content: string;
+};
 
-interface Options {
-    withFiles?: FileDescription[];
-    module?: ModuleKind;
-}
+type Options = {
+    readonly withFiles?: FileDescription[];
+    readonly module?: ModuleKind;
+};
 
 export function createProject(options: Options = {}): Project {
     const { withFiles = [], module = ModuleKind.Node16 } = options;
@@ -18,9 +18,9 @@ export function createProject(options: Options = {}): Project {
             module,
             esModuleInterop: true,
             target: ScriptTarget.ES2022,
-            moduleResolution: ModuleResolutionKind.Node10,
+            moduleResolution: ModuleResolutionKind.Node10
         },
-        useInMemoryFileSystem: true,
+        useInMemoryFileSystem: true
     });
 
     for (const file of withFiles) {
