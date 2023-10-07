@@ -180,16 +180,13 @@ test('visits the start node first', (t) => {
     t.deepEqual(collected, ['a']);
 });
 
-type NodeVisitingTestCase = {
+type GraphWithNodesOptions = {
     readonly nodes: [id: string, data: string][];
     readonly connections: GraphEdge<string>[];
-    readonly disconnections?: GraphEdge<string>[];
-    readonly startId: string;
-    readonly expectedCollectedIds: string[];
 };
 
-const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase>) => {
-    const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
+function createGraphWithNodes(options: GraphWithNodesOptions): DirectedGraph<string, string> {
+    const { nodes, connections } = options;
     const graph = createDirectedGraph<string, string>();
 
     nodes.forEach(([id, data]) => {
@@ -199,6 +196,19 @@ const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase
     connections.forEach((edge) => {
         graph.connect(edge);
     });
+
+    return graph;
+}
+
+type NodeVisitingTestCase = GraphWithNodesOptions & {
+    readonly disconnections?: GraphEdge<string>[];
+    readonly startId: string;
+    readonly expectedCollectedIds: string[];
+};
+
+const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase>) => {
+    const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
+    const graph = createGraphWithNodes({ nodes, connections });
 
     disconnections.forEach((edge) => {
         graph.disconnect(edge);
@@ -342,4 +352,110 @@ test('visits only the nodes that are connected with the starting id', checkNodeV
     ],
     startId: 'b',
     expectedCollectedIds: ['b', 'c']
+});
+
+test('detectCycles() returns an empty array for an empty graph', (t) => {
+    const graph = createDirectedGraph<string, string>();
+
+    t.deepEqual(graph.detectCycles(), []);
+});
+
+test('detectCycles() returns an empty array for a non-cyclic graph', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    t.deepEqual(graph.detectCycles(), []);
+});
+
+test('detectCycles() returns the detected cycle when a node is referencing itself', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', 'foo']],
+        connections: [{ from: 'a', to: 'a' }]
+    });
+
+    t.deepEqual(graph.detectCycles(), [['a', 'a']]);
+});
+
+test('detectCycles() returns the detected cycle when a node is indirectly referencing itself', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), [['a', 'b', 'a']]);
+});
+
+test('detectCycles() detects multiple cycles in the same root node', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz'],
+            ['d', 'qux']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' },
+            { from: 'b', to: 'c' },
+            { from: 'c', to: 'd' },
+            { from: 'd', to: 'c' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), [
+        ['a', 'b', 'a'],
+        ['a', 'b', 'c', 'd', 'c']
+    ]);
+});
+
+test('detectCycles() detects multiple cycles which are not connected', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' },
+            { from: 'c', to: 'c' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), [
+        ['a', 'b', 'a'],
+        ['c', 'c']
+    ]);
+});
+
+test('isCyclic() returns true when there is one cycle in the graph', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', '']],
+        connections: [{ from: 'a', to: 'a' }]
+    });
+
+    t.is(graph.isCyclic(), true);
+});
+
+test('isCyclic() returns false when there is no cycle in the graph', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', '']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    t.is(graph.isCyclic(), false);
 });

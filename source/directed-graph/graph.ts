@@ -20,6 +20,8 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     hasNode(id: TId): boolean;
     hasConnection(edge: Readonly<GraphEdge<TId>>): boolean;
     visitBreadthFirstSearch(startId: TId, visitor: Visitor<TId, TData>): void;
+    detectCycles(): readonly (readonly TId[])[];
+    isCyclic(): boolean;
 };
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
@@ -68,6 +70,51 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         }
 
         return node;
+    }
+
+    function detectCyclesForNode(baseNode: GraphNode<TId, TData>): readonly (readonly TId[])[] {
+        const queue: GraphNode<TId, TData>[] = [baseNode];
+        const visitedAdjacentIds = new Set<TId>();
+        const cycles: TId[][] = [];
+
+        for (let head = queue.shift(); head !== undefined; head = queue.shift()) {
+            visitedAdjacentIds.add(head.id);
+
+            for (const id of head.adjacentNodeIds) {
+                if (visitedAdjacentIds.has(id)) {
+                    cycles.push([...visitedAdjacentIds, id]);
+                } else {
+                    queue.push(getNode(id));
+                }
+            }
+        }
+
+        return cycles;
+    }
+
+    function detectCycles(): readonly (readonly TId[])[] {
+        const cycles: (readonly TId[])[] = [];
+        const idsWithinCycles = new Set<TId>();
+
+        for (const baseNode of nodes.values()) {
+            if (!idsWithinCycles.has(baseNode.id)) {
+                const cyclesForNode = detectCyclesForNode(baseNode);
+
+                if (cyclesForNode.length > 0) {
+                    cycles.push(...cyclesForNode);
+                    for (const id of cyclesForNode.flat()) {
+                        idsWithinCycles.add(id);
+                    }
+                }
+            }
+        }
+
+        return cycles;
+    }
+
+    function isCyclic(): boolean {
+        const cycles = detectCycles();
+        return cycles.length > 0;
     }
 
     return {
@@ -123,6 +170,10 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                     queue.push(adjacentNode);
                 }
             }
-        }
+        },
+
+        detectCycles,
+
+        isCyclic
     };
 }
