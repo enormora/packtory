@@ -459,3 +459,143 @@ test('isCyclic() returns false when there is no cycle in the graph', (t) => {
 
     t.is(graph.isCyclic(), false);
 });
+
+test('getTopologicalGenerations() throws when the graph is cyclic', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', '']],
+        connections: [{ from: 'a', to: 'a' }]
+    });
+
+    try {
+        graph.getTopologicalGenerations();
+        t.fail('Expected getTopologicalGenerations() to fail but it did not');
+    } catch (error: unknown) {
+        t.is((error as Error).message, 'Failed to determine topological generations, current graph is cyclic');
+    }
+});
+
+test('getTopologicalGenerations() returns an empty array when the graph is empty', (t) => {
+    const graph = createDirectedGraph<string, string>();
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, []);
+});
+
+test('getTopologicalGenerations() returns one generation when there is only one node', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', '']],
+        connections: []
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a']]);
+});
+
+test('getTopologicalGenerations() returns one generation when there are multiple non-connected nodes', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: []
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a', 'b', 'c']]);
+});
+
+test('getTopologicalGenerations() returns two generations when there are two nodes which are connected', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', '']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a'], ['b']]);
+});
+
+test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with two roots', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a', 'c'], ['b']]);
+});
+
+test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with one root', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' }
+        ]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a'], ['b', 'c']]);
+});
+
+test('getTopologicalGenerations() returns multiple generations of two independent paths', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', ''],
+            ['d', '']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'c', to: 'd' }
+        ]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [
+        ['a', 'c'],
+        ['b', 'd']
+    ]);
+});
+
+test('getTopologicalGenerations() returns multiple generations of two dependent paths', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', ''],
+            ['d', ''],
+            ['e', ''],
+            ['f', '']
+        ],
+        connections: [
+            { from: 'a', to: 'e' },
+            { from: 'e', to: 'b' },
+            { from: 'c', to: 'd' },
+            { from: 'd', to: 'e' },
+            { from: 'e', to: 'f' }
+        ]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a', 'c'], ['d'], ['e'], ['b', 'f']]);
+});

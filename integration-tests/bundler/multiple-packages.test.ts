@@ -3,7 +3,6 @@ import test from 'ava';
 import { bundler } from '../../source/bundler.entry-point.js';
 import { loadPackageJson } from '../load-package-json.js';
 
-// eslint-disable-next-line max-lines-per-function -- this test cases tests a complex scenario with multiple packages and dependencies
 test('bundles and substitutes multiple packages correctly', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
     const firstBundle = await bundler.build({
