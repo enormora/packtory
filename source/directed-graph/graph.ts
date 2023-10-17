@@ -4,6 +4,7 @@ type GraphNode<TId extends GraphNodeId, TData> = {
     readonly id: TId;
     readonly data: TData;
     readonly adjacentNodeIds: Set<TId>;
+    readonly incomingEdges: number;
 };
 
 export type GraphEdge<TId extends GraphNodeId> = {
@@ -20,6 +21,9 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     hasNode(id: TId): boolean;
     hasConnection(edge: Readonly<GraphEdge<TId>>): boolean;
     visitBreadthFirstSearch(startId: TId, visitor: Visitor<TId, TData>): void;
+    detectCycles(): readonly (readonly TId[])[];
+    isCyclic(): boolean;
+    getTopologicalGenerations(): readonly (readonly TId[])[];
 };
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
@@ -29,6 +33,7 @@ function addAdjacentNodeId<TId extends GraphNodeId, TData>(
     return {
         id: node.id,
         data: node.data,
+        incomingEdges: node.incomingEdges,
         adjacentNodeIds: new Set([...node.adjacentNodeIds, idToAdd])
     };
 }
@@ -44,7 +49,30 @@ function removeAdjacentNodeId<TId extends GraphNodeId, TData>(
     return {
         id: node.id,
         data: node.data,
+        incomingEdges: node.incomingEdges,
         adjacentNodeIds
+    };
+}
+
+function increaseIncomingEdges<TId extends GraphNodeId, TData>(
+    node: Readonly<GraphNode<TId, TData>>
+): Readonly<GraphNode<TId, TData>> {
+    return {
+        id: node.id,
+        data: node.data,
+        adjacentNodeIds: node.adjacentNodeIds,
+        incomingEdges: node.incomingEdges + 1
+    };
+}
+
+function decreaseIncomingEdges<TId extends GraphNodeId, TData>(
+    node: Readonly<GraphNode<TId, TData>>
+): Readonly<GraphNode<TId, TData>> {
+    return {
+        id: node.id,
+        data: node.data,
+        adjacentNodeIds: node.adjacentNodeIds,
+        incomingEdges: node.incomingEdges - 1
     };
 }
 
@@ -70,12 +98,110 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         return node;
     }
 
+    function getIncomingEdgesPerNode(): Map<TId, number> {
+        const incomingEdgesPerNode = new Map<TId, number>();
+
+        for (const node of nodes.values()) {
+            incomingEdgesPerNode.set(node.id, node.incomingEdges);
+        }
+
+        return incomingEdgesPerNode;
+    }
+
+    function decreaseIncomingEdgesPerNodeForAdjacentNodes(
+        incomingEdgesPerNode: Map<TId, number>,
+        ids: TId[]
+    ): Map<TId, number> {
+        const newIncomingEdgesPerNode = new Map(incomingEdgesPerNode);
+
+        for (const id of ids) {
+            const node = getNode(id);
+
+            for (const adjacentNodeId of node.adjacentNodeIds) {
+                const degree = newIncomingEdgesPerNode.get(adjacentNodeId) ?? 0;
+                newIncomingEdgesPerNode.set(adjacentNodeId, degree - 1);
+            }
+        }
+
+        return newIncomingEdgesPerNode;
+    }
+
+    function detectCyclesForNode(baseNode: GraphNode<TId, TData>): readonly (readonly TId[])[] {
+        const queue: GraphNode<TId, TData>[] = [baseNode];
+        const visitedAdjacentIds = new Set<TId>();
+        const cycles: TId[][] = [];
+
+        for (let head = queue.shift(); head !== undefined; head = queue.shift()) {
+            visitedAdjacentIds.add(head.id);
+
+            for (const id of head.adjacentNodeIds) {
+                if (visitedAdjacentIds.has(id)) {
+                    cycles.push([...visitedAdjacentIds, id]);
+                } else {
+                    queue.push(getNode(id));
+                }
+            }
+        }
+
+        return cycles;
+    }
+
+    function detectCycles(): readonly (readonly TId[])[] {
+        const cycles: (readonly TId[])[] = [];
+        const idsWithinCycles = new Set<TId>();
+
+        for (const baseNode of nodes.values()) {
+            if (!idsWithinCycles.has(baseNode.id)) {
+                const cyclesForNode = detectCyclesForNode(baseNode);
+
+                if (cyclesForNode.length > 0) {
+                    cycles.push(...cyclesForNode);
+                    for (const id of cyclesForNode.flat()) {
+                        idsWithinCycles.add(id);
+                    }
+                }
+            }
+        }
+
+        return cycles;
+    }
+
+    function isCyclic(): boolean {
+        const cycles = detectCycles();
+        return cycles.length > 0;
+    }
+
+    function recursivelyGetTopologicalGenerations(
+        alreadyDiscovered: Set<TId>,
+        incomingEdgesPerNode: Map<TId, number>
+    ): readonly (readonly TId[])[] {
+        const currentGeneration: TId[] = [];
+
+        for (const node of nodes.values()) {
+            if (!alreadyDiscovered.has(node.id) && incomingEdgesPerNode.get(node.id) === 0) {
+                currentGeneration.push(node.id);
+            }
+        }
+
+        if (currentGeneration.length > 0) {
+            const newIncomingEdgesPerNode = decreaseIncomingEdgesPerNodeForAdjacentNodes(
+                incomingEdgesPerNode,
+                currentGeneration
+            );
+            const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
+            const generations = recursivelyGetTopologicalGenerations(currentlyDiscovered, newIncomingEdgesPerNode);
+            return [currentGeneration, ...generations];
+        }
+
+        return [];
+    }
+
     return {
         addNode(id, data) {
             if (nodes.has(id)) {
                 throw new Error(`Node with id "${id}" already exists`);
             }
-            nodes.set(id, { id, data, adjacentNodeIds: new Set() });
+            nodes.set(id, { id, data, adjacentNodeIds: new Set(), incomingEdges: 0 });
         },
 
         hasNode(id) {
@@ -96,6 +222,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
             }
 
             nodes.set(edge.from, addAdjacentNodeId(fromNode, toNode.id));
+            nodes.set(edge.to, increaseIncomingEdges(getNode(edge.to)));
         },
 
         disconnect(edge) {
@@ -107,6 +234,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
             }
 
             nodes.set(edge.from, removeAdjacentNodeId(fromNode, toNode.id));
+            nodes.set(edge.to, decreaseIncomingEdges(toNode));
         },
 
         visitBreadthFirstSearch(startId, visitor) {
@@ -123,6 +251,19 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                     queue.push(adjacentNode);
                 }
             }
+        },
+
+        detectCycles,
+
+        isCyclic,
+
+        getTopologicalGenerations() {
+            if (isCyclic()) {
+                throw new Error('Failed to determine topological generations, current graph is cyclic');
+            }
+
+            const incomingEdgesPerNode = getIncomingEdgesPerNode();
+            return recursivelyGetTopologicalGenerations(new Set(), incomingEdgesPerNode);
         }
     };
 }

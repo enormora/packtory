@@ -43,13 +43,21 @@ export default [
                     ignoreClassFieldInitialValues: false,
                     ignore: [-1, 0, 1]
                 }
-            ]
+            ],
+            'max-lines-per-function': 'off'
         }
     },
     {
         files: ['**/*.test.ts'],
         rules: {
             '@typescript-eslint/no-magic-numbers': 'off'
+        }
+    },
+    {
+        files: ['source/directed-graph/graph.ts'],
+        rules: {
+            // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
+            'functional/prefer-immutable-types': 'off'
         }
     }
 ];

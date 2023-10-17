@@ -180,16 +180,13 @@ test('visits the start node first', (t) => {
     t.deepEqual(collected, ['a']);
 });
 
-type NodeVisitingTestCase = {
+type GraphWithNodesOptions = {
     readonly nodes: [id: string, data: string][];
     readonly connections: GraphEdge<string>[];
-    readonly disconnections?: GraphEdge<string>[];
-    readonly startId: string;
-    readonly expectedCollectedIds: string[];
 };
 
-const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase>) => {
-    const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
+function createGraphWithNodes(options: GraphWithNodesOptions): DirectedGraph<string, string> {
+    const { nodes, connections } = options;
     const graph = createDirectedGraph<string, string>();
 
     nodes.forEach(([id, data]) => {
@@ -199,6 +196,19 @@ const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase
     connections.forEach((edge) => {
         graph.connect(edge);
     });
+
+    return graph;
+}
+
+type NodeVisitingTestCase = GraphWithNodesOptions & {
+    readonly disconnections?: GraphEdge<string>[];
+    readonly startId: string;
+    readonly expectedCollectedIds: string[];
+};
+
+const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase>) => {
+    const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
+    const graph = createGraphWithNodes({ nodes, connections });
 
     disconnections.forEach((edge) => {
         graph.disconnect(edge);
@@ -342,4 +352,250 @@ test('visits only the nodes that are connected with the starting id', checkNodeV
     ],
     startId: 'b',
     expectedCollectedIds: ['b', 'c']
+});
+
+test('detectCycles() returns an empty array for an empty graph', (t) => {
+    const graph = createDirectedGraph<string, string>();
+
+    t.deepEqual(graph.detectCycles(), []);
+});
+
+test('detectCycles() returns an empty array for a non-cyclic graph', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    t.deepEqual(graph.detectCycles(), []);
+});
+
+test('detectCycles() returns the detected cycle when a node is referencing itself', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', 'foo']],
+        connections: [{ from: 'a', to: 'a' }]
+    });
+
+    t.deepEqual(graph.detectCycles(), [['a', 'a']]);
+});
+
+test('detectCycles() returns the detected cycle when a node is indirectly referencing itself', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), [['a', 'b', 'a']]);
+});
+
+test('detectCycles() detects multiple cycles in the same root node', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz'],
+            ['d', 'qux']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' },
+            { from: 'b', to: 'c' },
+            { from: 'c', to: 'd' },
+            { from: 'd', to: 'c' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), [
+        ['a', 'b', 'a'],
+        ['a', 'b', 'c', 'd', 'c']
+    ]);
+});
+
+test('detectCycles() detects multiple cycles which are not connected', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' },
+            { from: 'c', to: 'c' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), [
+        ['a', 'b', 'a'],
+        ['c', 'c']
+    ]);
+});
+
+test('isCyclic() returns true when there is one cycle in the graph', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', '']],
+        connections: [{ from: 'a', to: 'a' }]
+    });
+
+    t.is(graph.isCyclic(), true);
+});
+
+test('isCyclic() returns false when there is no cycle in the graph', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', '']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    t.is(graph.isCyclic(), false);
+});
+
+test('getTopologicalGenerations() throws when the graph is cyclic', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', '']],
+        connections: [{ from: 'a', to: 'a' }]
+    });
+
+    try {
+        graph.getTopologicalGenerations();
+        t.fail('Expected getTopologicalGenerations() to fail but it did not');
+    } catch (error: unknown) {
+        t.is((error as Error).message, 'Failed to determine topological generations, current graph is cyclic');
+    }
+});
+
+test('getTopologicalGenerations() returns an empty array when the graph is empty', (t) => {
+    const graph = createDirectedGraph<string, string>();
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, []);
+});
+
+test('getTopologicalGenerations() returns one generation when there is only one node', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [['a', '']],
+        connections: []
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a']]);
+});
+
+test('getTopologicalGenerations() returns one generation when there are multiple non-connected nodes', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: []
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a', 'b', 'c']]);
+});
+
+test('getTopologicalGenerations() returns two generations when there are two nodes which are connected', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', '']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a'], ['b']]);
+});
+
+test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with two roots', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a', 'c'], ['b']]);
+});
+
+test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with one root', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' }
+        ]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a'], ['b', 'c']]);
+});
+
+test('getTopologicalGenerations() returns multiple generations of two independent paths', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', ''],
+            ['d', '']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'c', to: 'd' }
+        ]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [
+        ['a', 'c'],
+        ['b', 'd']
+    ]);
+});
+
+test('getTopologicalGenerations() returns multiple generations of two dependent paths', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', ''],
+            ['d', ''],
+            ['e', ''],
+            ['f', '']
+        ],
+        connections: [
+            { from: 'a', to: 'e' },
+            { from: 'e', to: 'b' },
+            { from: 'c', to: 'd' },
+            { from: 'd', to: 'e' },
+            { from: 'e', to: 'f' }
+        ]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    t.deepEqual(generations, [['a', 'c'], ['d'], ['e'], ['b', 'f']]);
 });
