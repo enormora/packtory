@@ -9,6 +9,14 @@ function uniqueList<const T extends readonly unknown[]>(values: T): Readonly<T> 
 
 type Path = readonly PropertyKey[];
 
+function hasTag<Tag extends ParseIssue['_tag']>(
+    issue: ParseIssue,
+    expectedTag: Tag
+): issue is Extract<ParseIssue, { _tag: Tag }> {
+    const { _tag: tag } = issue;
+    return tag === expectedTag;
+}
+
 function formatOneOrMany(values: NonEmptyReadonlyArray<string>): string {
     const uniqueValues = uniqueList(values);
     const last = lastNonEmpty(uniqueValues);
@@ -46,15 +54,14 @@ function formatMessage(expected: NonEmptyReadonlyArray<string>, actual: unknown)
 
 type UnionWithTypeIssue = UnionMember & { errors: [Type] };
 function isUnionTypeIssue(issue: ParseIssue): issue is UnionWithTypeIssue {
-    const { _tag: tag } = issue;
-    if (tag !== 'UnionMember') {
+    if (!hasTag(issue, 'UnionMember')) {
         return false;
     }
     if (issue.errors.length > 1) {
         return false;
     }
     const [firstIssue] = issue.errors;
-    return firstIssue._tag === 'Type';
+    return hasTag(firstIssue, 'Type');
 }
 function isAllUnion(issues: NonEmptyReadonlyArray<ParseIssue>): issues is NonEmptyReadonlyArray<UnionWithTypeIssue> {
     return issues.every(isUnionTypeIssue);
@@ -88,13 +95,11 @@ function formatSimpleIssue(parseIssue: SimpleIssue, path: Path): NonEmptyReadonl
 }
 
 function isContainerIssue(parseIssue: ParseIssue): parseIssue is Index | Key {
-    const { _tag: tag } = parseIssue;
-    return ['Key', 'Index'].includes(tag);
+    return hasTag(parseIssue, 'Key') || hasTag(parseIssue, 'Index');
 }
 
 function formatContainerIssue(issue: Index | Key, path: Path): NonEmptyReadonlyArray<string> {
-    const { _tag: tag } = issue;
-    const newPathItem = tag === 'Key' ? issue.key : issue.index;
+    const newPathItem = hasTag(issue, 'Key') ? issue.key : issue.index;
     const newPath = [...path, newPathItem];
 
     // eslint-disable-next-line @typescript-eslint/no-use-before-define -- indirect recursion
@@ -110,9 +115,7 @@ function format(parseIssue: ParseIssue, path: Path): NonEmptyReadonlyArray<strin
         return formatContainerIssue(parseIssue, path);
     }
 
-    const { _tag: tag } = parseIssue;
-
-    if (tag === 'UnionMember') {
+    if (hasTag(parseIssue, 'UnionMember')) {
         return flatMap(parseIssue.errors, (error) => {
             return format(error, path);
         });
