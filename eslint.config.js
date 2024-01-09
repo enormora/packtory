@@ -15,7 +15,7 @@ export default [
     },
     {
         ...avaConfig,
-        files: ['**/*.test.ts']
+        files: ['**/*.test.ts', 'source/test-libraries/**/*.ts']
     },
     {
         ...nodeConfigFileConfig,
