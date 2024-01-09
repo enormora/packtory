@@ -44,7 +44,16 @@ export default [
                     ignore: [-1, 0, 1]
                 }
             ],
-            'max-lines-per-function': 'off'
+            'max-lines-per-function': 'off',
+            'import/extensions': [
+                'error',
+                {
+                    js: 'always',
+                    jsx: 'always',
+                    json: 'always',
+                    ignorePackages: true
+                }
+            ]
         }
     },
     {
