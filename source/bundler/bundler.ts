@@ -8,12 +8,8 @@ import {
     type DependencyGraph
 } from '../dependency-scanner/dependency-graph.js';
 import { serializePackageJson } from '../package-json.js';
-import {
-    type AdditionalFileDescription,
-    type BundleBuildOptions,
-    type EntryPoints,
-    validateBundleBuildOptions
-} from './bundle-build-options.js';
+import type { AdditionalFileDescription } from '../config/additional-files.js';
+import { type BundleBuildOptions, type EntryPoints, validateBundleBuildOptions } from './bundle-build-options.js';
 import type { BundleContent, BundleDescription, BundlePackageJson } from './bundle-description.js';
 import { substituteDependencies } from './substitute-bundles.js';
 

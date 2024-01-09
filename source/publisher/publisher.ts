@@ -4,20 +4,10 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.js';
 import type { BundleBuildOptions } from '../bundler/bundle-build-options.js';
 import type { BundleDescription } from '../bundler/bundle-description.js';
 import type { Bundler } from '../bundler/bundler.js';
-import type { PackageVersionDetails, RegistryClient, RegistrySettings } from './registry-client.js';
+import type { VersioningSettings } from '../config/versioning-settings.js';
+import type { RegistrySettings } from '../config/registry-settings.js';
+import type { PackageVersionDetails, RegistryClient } from './registry-client.js';
 import { increaseVersion, type Version, replaceBundleVersion } from './version.js';
-
-type AutomaticVersioningSettings = {
-    readonly automatic: true;
-    readonly minimumVersion?: Version;
-};
-
-type ManualVersioningSettings = {
-    readonly automatic: false;
-    readonly version: string;
-};
-
-type VersioningSettings = AutomaticVersioningSettings | ManualVersioningSettings;
 
 export type PublisherDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;

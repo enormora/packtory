@@ -3,7 +3,7 @@ import type { Writable } from 'type-fest';
 import type { BundleContent, BundleDescription, BundlePackageJson } from '../bundler/bundle-description.js';
 import { serializePackageJson } from '../package-json.js';
 
-export type Version = `${number}.${number}.${number}`;
+export type Version = string;
 
 export function increaseVersion(version: string, minimumVersion?: Version): string {
     if (minimumVersion !== undefined && semver.valid(minimumVersion) === null) {

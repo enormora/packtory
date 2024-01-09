@@ -30,7 +30,7 @@ function encodePackageName(name: string): string {
 }
 
 const distTagsSchema = struct({
-    latest: optional(string, {exact: true})
+    latest: optional(string, { exact: true })
 });
 
 const versionDataSchema = struct({
