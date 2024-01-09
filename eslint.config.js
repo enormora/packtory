@@ -53,20 +53,17 @@ export default [
                     json: 'always',
                     ignorePackages: true
                 }
-            ]
+            ],
+            // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
+            'functional/prefer-immutable-types': 'off',
+            // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
+            'functional/type-declaration-immutability': 'off'
         }
     },
     {
         files: ['**/*.test.ts'],
         rules: {
             '@typescript-eslint/no-magic-numbers': 'off'
-        }
-    },
-    {
-        files: ['source/directed-graph/graph.ts'],
-        rules: {
-            // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
-            'functional/prefer-immutable-types': 'off'
         }
     }
 ];
