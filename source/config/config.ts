@@ -5,6 +5,7 @@ import {
     struct,
     array,
     tuple,
+    nonEmptyArray,
     rest,
     type Schema,
     undefined as undefined_,
@@ -52,7 +53,7 @@ const optionalPackageSettingsSchema = struct({
 const configWithOptionalCommonSettingsSchema = struct({
     registrySettings: registrySettingsSchema,
     commonPackageSettings: optional(undefined_, { exact: true }),
-    packages: array(
+    packages: nonEmptyArray(
         requiredCommonPackageSettingsSchema
             .pipe(extend(optionalPackageSettingsSchema))
             .pipe(extend(perPackageSettingsSchema))
@@ -64,7 +65,7 @@ export const packtoryConfigSchema = union(
     struct({
         registrySettings: registrySettingsSchema,
         commonPackageSettings: requiredCommonPackageSettingsSchema.pipe(extend(optionalPackageSettingsSchema)),
-        packages: array(
+        packages: nonEmptyArray(
             partial(requiredCommonPackageSettingsSchema)
                 .pipe(extend(optionalPackageSettingsSchema))
                 .pipe(extend(perPackageSettingsSchema))
@@ -75,7 +76,7 @@ export const packtoryConfigSchema = union(
         commonPackageSettings: commonPackageSettingsMainPackageJsonRequiredSchema.pipe(
             extend(optionalPackageSettingsSchema)
         ),
-        packages: array(
+        packages: nonEmptyArray(
             commonPackageSettingsSourcesFolderRequiredSchema
                 .pipe(extend(optionalPackageSettingsSchema))
                 .pipe(extend(perPackageSettingsSchema))
@@ -86,7 +87,7 @@ export const packtoryConfigSchema = union(
         commonPackageSettings: commonPackageSettingsSourcesFolderRequiredSchema.pipe(
             extend(optionalPackageSettingsSchema)
         ),
-        packages: array(
+        packages: nonEmptyArray(
             commonPackageSettingsMainPackageJsonRequiredSchema
                 .pipe(extend(optionalPackageSettingsSchema))
                 .pipe(extend(perPackageSettingsSchema))

@@ -2,20 +2,19 @@ import test from 'ava';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
 import { packtoryConfigSchema } from './config.js';
 
-test('validation succeeds when valid data without commonPackageSettings is given', checkValidationSuccess, {
-    schema: packtoryConfigSchema,
-    data: {
-        registrySettings: { token: 'foo' },
-        packages: []
-    }
-});
-
 test('validation succeeds when commonPackageSettings is undefined', checkValidationSuccess, {
     schema: packtoryConfigSchema,
     data: {
         registrySettings: { token: 'foo' },
         commonPackageSettings: undefined,
-        packages: []
+        packages: [
+            {
+                sourcesFolder: 'source',
+                mainPackageJson: {},
+                name: 'foo',
+                entryPoints: [{ js: 'foo' }]
+            }
+        ]
     }
 });
 
@@ -226,6 +225,15 @@ test(
         ]
     }
 );
+
+test('validation fails when packages is an empty array', checkValidationFailure, {
+    schema: packtoryConfigSchema,
+    data: {
+        registrySettings: { token: 'foo' },
+        packages: []
+    },
+    expectedMessages: ['At packages.0: missing key or index', 'At commonPackageSettings: missing key or index']
+});
 
 test('validation fails when commonPackageSettings is empty', checkValidationFailure, {
     schema: packtoryConfigSchema,
