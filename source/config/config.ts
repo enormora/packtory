@@ -3,8 +3,9 @@ import {
     union,
     optional,
     struct,
-    minItems,
     array,
+    tuple,
+    rest,
     type Schema,
     undefined as undefined_,
     partial,
@@ -17,13 +18,15 @@ import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './
 import { entryPointSchema } from './entry-point.js';
 import { additionalFileDescriptionSchema } from './additional-files.js';
 
-const perPackageSettingsSchema = struct({
+const $perPackageSettingsSchema = struct({
     name: nonEmptyStringSchema,
-    entryPoints: array(entryPointSchema).pipe(minItems(1)),
+    entryPoints: tuple(entryPointSchema).pipe(rest(entryPointSchema)),
     versioning: optional(versioningSettingsSchema, { exact: true }),
     bundleDependencies: optional(array(nonEmptyStringSchema), { exact: true }),
     bundlePeerDependencies: optional(array(nonEmptyStringSchema), { exact: true })
 });
+type PerPackageSettings = Schema.To<typeof $perPackageSettingsSchema>;
+const perPackageSettingsSchema: Schema<PerPackageSettings> = $perPackageSettingsSchema;
 
 const requiredCommonPackageSettingsSchema = struct({
     sourcesFolder: nonEmptyStringSchema,

@@ -11,8 +11,11 @@ import {
     record,
     unknown,
     union,
-    extend
+    null as null_,
+    extend,
+    suspend
 } from '@effect/schema/Schema';
+import type { JsonValue } from 'type-fest';
 import type { NoExpand } from './base-validations.js';
 
 const stringRecordSchema = record(string, string);
@@ -26,9 +29,23 @@ const $mainPackageJsonSchema = struct({
 export type MainPackageJson = NoExpand<Schema.To<typeof $mainPackageJsonSchema>>;
 export const mainPackageJsonSchema: Schema<MainPackageJson> = $mainPackageJsonSchema;
 
-const $attributeValueSchema = union(string, number, boolean, array(unknown), record(string, unknown));
-type AttributeValue = NoExpand<Schema.To<typeof $attributeValueSchema>>;
-const attributeValueSchema: Schema<AttributeValue> = $attributeValueSchema;
+const attributeValueSchema: Schema<JsonValue> = union(
+    string,
+    number,
+    boolean,
+    null_,
+    array(
+        suspend(() => {
+            return attributeValueSchema;
+        })
+    ),
+    record(
+        string,
+        suspend(() => {
+            return attributeValueSchema;
+        })
+    )
+);
 
 const forbiddenAttributeNames = new Set([
     'dependencies',

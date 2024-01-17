@@ -124,5 +124,5 @@ test('additional attributes: validation fails when version is given', checkValid
 test('additional attributes: validation fails when forbidden value is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { foo: () => {} },
-    expectedMessages: ['At foo: expected one of object, array, string, number or boolean; but got function']
+    expectedMessages: ['At foo: expected one of object, array, string, number, boolean or null; but got function']
 });

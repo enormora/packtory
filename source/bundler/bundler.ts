@@ -1,5 +1,4 @@
 import path from 'node:path';
-import type { PackageJson } from 'type-fest';
 import type { DependencyScanner } from '../dependency-scanner/scanner.js';
 import {
     type DependencyFiles,
@@ -9,6 +8,7 @@ import {
 } from '../dependency-scanner/dependency-graph.js';
 import { serializePackageJson } from '../package-json.js';
 import type { AdditionalFileDescription } from '../config/additional-files.js';
+import type { MainPackageJson } from '../config/package-json.js';
 import { type BundleBuildOptions, type EntryPoints, validateBundleBuildOptions } from './bundle-build-options.js';
 import type { BundleContent, BundleDescription, BundlePackageJson } from './bundle-description.js';
 import { substituteDependencies } from './substitute-bundles.js';
@@ -90,7 +90,7 @@ function containsBundleWithPackageName(bundles: readonly BundleDescription[], na
     });
 }
 
-type Foo = {
+type GroupedDependencies = {
     readonly dependencies: Record<string, string>;
     readonly peerDependencies?: Record<string, string>;
 };
@@ -98,7 +98,7 @@ type Foo = {
 function distributeDependencies(
     packageDependencies: Record<string, string>,
     bundlePeerDependencies: readonly BundleDescription[]
-): Readonly<Foo> {
+): Readonly<GroupedDependencies> {
     const dependencies: Record<string, string> = {};
     const peerDependencies: Record<string, string> = {};
 
@@ -148,7 +148,7 @@ function buildPackageJson(
 type ScanAndSubstituteOptions = {
     readonly entryPoint: string;
     readonly sourcesFolder: string;
-    readonly mainPackageJson: Readonly<PackageJson>;
+    readonly mainPackageJson: MainPackageJson;
     readonly includeSourceMapFiles: boolean;
     readonly resolveDeclarationFiles: boolean;
     readonly bundleDependencies: readonly BundleDescription[];
@@ -157,7 +157,7 @@ type ScanAndSubstituteOptions = {
 type ResolveOptions = {
     readonly entryPoints: EntryPoints;
     readonly sourcesFolder: string;
-    readonly mainPackageJson: Readonly<PackageJson>;
+    readonly mainPackageJson: MainPackageJson;
     readonly includeSourceMapFiles: boolean;
     readonly bundleDependencies: readonly BundleDescription[];
 };

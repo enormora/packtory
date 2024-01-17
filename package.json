@@ -30,8 +30,10 @@
     },
     "dependencies": {
         "@effect/schema": "0.57.1",
-        "effect": "2.0.1",
+        "cmd-ts": "0.13.0",
+        "effect": "2.1.0",
         "libnpmpublish": "9.0.0",
+        "mitt": "3.0.1",
         "npm-registry-fetch": "16.0.0",
         "semver": "7.5.4",
         "ssri": "10.0.5",

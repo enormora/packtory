@@ -8,6 +8,7 @@ type Overrides = {
     readonly publishPackage?: SinonSpy;
     readonly fetchLatestVersion?: SinonSpy;
     readonly build?: SinonSpy;
+    readonly emit?: SinonSpy;
 };
 
 function publisherFactory(overrides: Overrides = {}): Publisher {
@@ -15,12 +16,14 @@ function publisherFactory(overrides: Overrides = {}): Publisher {
         buildTarball = fake.resolves({}),
         publishPackage = fake(),
         fetchLatestVersion = fake(),
-        build = fake.resolves({ packageJson: {} })
+        build = fake.resolves({ packageJson: {} }),
+        emit = fake()
     } = overrides;
     const fakeDependencies = {
         artifactsBuilder: { buildTarball },
         registryClient: { publishPackage, fetchLatestVersion },
-        bundler: { build }
+        bundler: { build },
+        progressBroadcaster: { emit }
     } as unknown as PublisherDependencies;
 
     return createPublisher(fakeDependencies);
@@ -130,6 +133,25 @@ test('buildAndPublish() returns the correct result after publishing the initial 
     });
 });
 
+test('buildAndPublish() emits progress events before building the initial version', async (t) => {
+    const fetchLatestVersion = fake.resolves(Maybe.nothing());
+    const emit = fake();
+    const build = fake.resolves({ contents: [], packageJson: { name: 'the-name', version: '42' } });
+    const publisher = publisherFactory({ fetchLatestVersion, emit, build });
+
+    await publisher.buildAndPublish({
+        name: 'the-name',
+        sourcesFolder: '',
+        entryPoints: [{ js: '' }],
+        registrySettings: { token: '' },
+        mainPackageJson: {}
+    });
+
+    t.is(emit.callCount, 2);
+    t.deepEqual(emit.firstCall.args, ['building', { packageName: 'the-name', version: '0.0.1' }]);
+    t.deepEqual(emit.secondCall.args, ['publishing', { packageName: 'the-name', version: '42' }]);
+});
+
 test('buildAndPublish() builds and publishes a new version incrementing the latest version by one', async (t) => {
     const publishPackage = fake.resolves(undefined);
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
@@ -164,6 +186,26 @@ test('buildAndPublish() builds and publishes a new version incrementing the late
     t.is(buildTarball.callCount, 2);
     t.is(publishPackage.callCount, 1);
     t.deepEqual(publishPackage.firstCall.args, [{ version: '1.2.4' }, tarData, { token: 'the-token' }]);
+});
+
+test('buildAndPublish() emits a progress event before building a new version', async (t) => {
+    const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', shasum: 'xyz' }));
+    const emit = fake();
+    const build = fake.resolves({ contents: [], packageJson: { name: 'the-name', version: '42' } });
+    const publisher = publisherFactory({ fetchLatestVersion, emit, build });
+
+    await publisher.buildAndPublish({
+        name: 'the-name',
+        sourcesFolder: '',
+        entryPoints: [{ js: '' }],
+        registrySettings: { token: '' },
+        mainPackageJson: {}
+    });
+
+    t.is(emit.callCount, 3);
+    t.deepEqual(emit.firstCall.args, ['building', { packageName: 'the-name', version: '1.2.3' }]);
+    t.deepEqual(emit.secondCall.args, ['rebuilding', { packageName: 'the-name', version: '1.2.4' }]);
+    t.deepEqual(emit.thirdCall.args, ['publishing', { packageName: 'the-name', version: '1.2.4' }]);
 });
 
 test('buildAndPublish() doesn’t publish any version when the shasum of the built bundle is the same as the shasum of the latest published version', async (t) => {
@@ -255,6 +297,26 @@ test('buildAndPublish() builds and publish a new version using manual versioning
     ]);
     t.is(publishPackage.callCount, 1);
     t.deepEqual(publishPackage.firstCall.args, [{ version: '42' }, tarData, { token: 'the-token' }]);
+});
+
+test('buildAndPublish() emits progress events before building a manually defined version', async (t) => {
+    const fetchLatestVersion = fake.resolves(Maybe.nothing());
+    const emit = fake();
+    const build = fake.resolves({ contents: [], packageJson: { name: 'the-name', version: '42' } });
+    const publisher = publisherFactory({ fetchLatestVersion, emit, build });
+
+    await publisher.buildAndPublish({
+        name: 'the-name',
+        versioning: { automatic: false, version: '1.2.3' },
+        sourcesFolder: '',
+        entryPoints: [{ js: '' }],
+        registrySettings: { token: '' },
+        mainPackageJson: {}
+    });
+
+    t.is(emit.callCount, 2);
+    t.deepEqual(emit.firstCall.args, ['building', { packageName: 'the-name', version: '1.2.3' }]);
+    t.deepEqual(emit.secondCall.args, ['publishing', { packageName: 'the-name', version: '42' }]);
 });
 
 test('buildAndPublish() returns the correct result after publishing a new version using manual versioning', async (t) => {

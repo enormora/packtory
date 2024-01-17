@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { PackageJson } from 'type-fest';
 import { publisher } from './publisher.entry-point.js';
+import type { MainPackageJson } from './config/package-json.js';
 
 const sourcesFolder = path.join(process.cwd(), 'target/build/source');
 
@@ -15,7 +15,7 @@ async function main(): Promise<void> {
         entryPoints: [{ js: path.join(sourcesFolder, 'hello-world.entry-point.js') }],
         mainPackageJson: JSON.parse(
             await fs.readFile(path.join(process.cwd(), 'package.json'), { encoding: 'utf8' })
-        ) as PackageJson,
+        ) as MainPackageJson,
         registrySettings: {
             token: 'the-token'
         }

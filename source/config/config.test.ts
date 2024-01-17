@@ -400,7 +400,7 @@ test('validation fails when entryPoints is an empty array', checkValidationFailu
         ]
     },
     expectedMessages: [
-        'At packages.0.entryPoints: expected an array of at least 1 items; but got array',
+        'At packages.0.entryPoints.0: missing key or index',
         'At commonPackageSettings: missing key or index'
     ]
 });

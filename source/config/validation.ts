@@ -62,6 +62,7 @@ function validateDependenciesExist(packageConfigs: Map<string, PackageConfig>): 
 }
 
 function packageListToMap(packages: readonly PackageConfig[]): Map<string, PackageConfig> {
+    // use Map.groupBy once https://github.com/microsoft/TypeScript/pull/56805 has landed
     return packages.reduce((map, packageConfig) => {
         map.set(packageConfig.name, packageConfig);
         return map;
@@ -116,7 +117,7 @@ function validatePreGraphGeneration(config: unknown): Result<GraphGenerationPoss
     });
 }
 
-type ValidConfigResult = GraphGenerationPossibleResult & {
+export type ValidConfigResult = GraphGenerationPossibleResult & {
     readonly packageGraph: DirectedGraph<string, undefined>;
 };
 

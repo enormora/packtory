@@ -6,18 +6,20 @@ import type { BundleDescription } from '../bundler/bundle-description.js';
 import type { Bundler } from '../bundler/bundler.js';
 import type { VersioningSettings } from '../config/versioning-settings.js';
 import type { RegistrySettings } from '../config/registry-settings.js';
+import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
 import type { PackageVersionDetails, RegistryClient } from './registry-client.js';
-import { increaseVersion, type Version, replaceBundleVersion } from './version.js';
+import { increaseVersion, replaceBundleVersion } from './version.js';
 
 export type PublisherDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly registryClient: RegistryClient;
     readonly bundler: Bundler;
+    readonly progressBroadcaster: ProgressBroadcastProvider;
 };
 
 type BuildOptions = Except<BundleBuildOptions, 'version'>;
 
-type BuildAndPublishOptions = BuildOptions & {
+export type BuildAndPublishOptions = BuildOptions & {
     readonly versioning?: VersioningSettings;
     readonly registrySettings: RegistrySettings;
 };
@@ -37,11 +39,11 @@ type LatestVersionAlreadyPublishedResult = {
 type BuildResult = Readonly<LatestVersionAlreadyPublishedResult | NewVersionToPublishResult>;
 type NewVersionResultStatus = NewVersionToPublishResult['status'];
 
-type PublishResult = Except<BuildResult, 'tarData'>;
+export type PublishResult = Except<BuildResult, 'tarData'>;
 
 export type Publisher = {
-    tryBuildAndPublish(options: Readonly<BuildAndPublishOptions>): Promise<BuildResult>;
-    buildAndPublish(options: Readonly<BuildAndPublishOptions>): Promise<PublishResult>;
+    tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildResult>;
+    buildAndPublish(options: BuildAndPublishOptions): Promise<PublishResult>;
 };
 
 type BundlePublishedCheckResult = {
@@ -49,7 +51,7 @@ type BundlePublishedCheckResult = {
 };
 
 export function createPublisher(dependencies: Readonly<PublisherDependencies>): Publisher {
-    const { artifactsBuilder, registryClient, bundler } = dependencies;
+    const { artifactsBuilder, registryClient, bundler, progressBroadcaster } = dependencies;
 
     async function checkBundleAlreadyPublished(
         bundle: BundleDescription,
@@ -73,17 +75,20 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
     async function buildWithAutomaticVersioning(
         buildOptions: BuildOptions,
         latestVersion: Readonly<Maybe<PackageVersionDetails>>,
-        minimumVersion: Version = '0.0.1'
+        minimumVersion = '0.0.1'
     ): Promise<BuildResult> {
         if (latestVersion.isNothing) {
+            progressBroadcaster.emit('building', { packageName: buildOptions.name, version: minimumVersion });
             return buildVersion(buildOptions, minimumVersion, 'initial-version');
         }
 
+        progressBroadcaster.emit('building', { packageName: buildOptions.name, version: latestVersion.value.version });
         const bundleWithLatestVersion = await bundler.build({ ...buildOptions, version: latestVersion.value.version });
         const result = await checkBundleAlreadyPublished(bundleWithLatestVersion, latestVersion.value);
 
         if (!result.alreadyPublishedAsLatest) {
             const newVersion = increaseVersion(latestVersion.value.version, minimumVersion);
+            progressBroadcaster.emit('rebuilding', { packageName: buildOptions.name, version: newVersion });
             const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
             const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
             return {
@@ -105,6 +110,7 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
             throw new Error(`Version ${versionToPublish} of package ${buildOptions.name} is already published`);
         }
 
+        progressBroadcaster.emit('building', { packageName: buildOptions.name, version: versionToPublish });
         return buildVersion(buildOptions, versionToPublish, 'new-version');
     }
 
@@ -126,6 +132,10 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
             const result = await tryBuildAndPublish(options);
 
             if (result.status !== 'already-published') {
+                progressBroadcaster.emit('publishing', {
+                    packageName: result.bundle.packageJson.name,
+                    version: result.bundle.packageJson.version
+                });
                 await registryClient.publishPackage(
                     result.bundle.packageJson,
                     result.tarData,
