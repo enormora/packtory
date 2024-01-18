@@ -8,5 +8,5 @@ class Foo {}
 test('formats an instanceOf schema correctly', checkValidationFailure, {
     schema: instanceOf(Foo),
     data: 42,
-    expectedMessages: ['Expected an instance of Foo; but got number']
+    expectedMessages: ['Expected Foo; but got number']
 });

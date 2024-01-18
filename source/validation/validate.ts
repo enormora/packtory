@@ -19,7 +19,7 @@ export function validateAgainstSchema<TSchema extends Schema<any>>(
         return Result.ok(result.right);
     }
 
-    const issues = formatAllParseIssues(result.left.errors);
+    const issues = formatAllParseIssues(result.left);
 
     return Result.err({
         issues,

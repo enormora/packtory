@@ -1,5 +1,5 @@
 import { type NonEmptyReadonlyArray, map, flatMap, initNonEmpty, lastNonEmpty } from 'effect/ReadonlyArray';
-import type { ParseIssue, UnionMember, Type, Key, Index } from '@effect/schema/ParseResult';
+import type { ParseIssue, Type, Key, Index, Tuple, TypeLiteral, ParseError, Union } from '@effect/schema/ParseResult';
 import { capitalize } from './capitalize.js';
 import { formatAst, isBooleanLiteralUnion } from './formatting/ast.js';
 
@@ -9,11 +9,11 @@ function uniqueList<const T extends readonly unknown[]>(values: T): Readonly<T> 
 
 type Path = readonly PropertyKey[];
 
-function hasTag<Tag extends ParseIssue['_tag']>(
-    issue: ParseIssue,
+function hasTag<TaggedValue extends { _tag: string }, Tag extends string>(
+    value: TaggedValue,
     expectedTag: Tag
-): issue is Extract<ParseIssue, { _tag: Tag }> {
-    const { _tag: tag } = issue;
+): value is Extract<TaggedValue, { _tag: Tag }> {
+    const { _tag: tag } = value;
     return tag === expectedTag;
 }
 
@@ -52,88 +52,77 @@ function formatMessage(expected: NonEmptyReadonlyArray<string>, actual: unknown)
     return `expected ${formatOneOrMany(expected)}; but got ${formatActual(actual)}`;
 }
 
-type UnionWithTypeIssue = UnionMember & { errors: [Type] };
-function isUnionTypeIssue(issue: ParseIssue): issue is UnionWithTypeIssue {
-    if (!hasTag(issue, 'UnionMember')) {
-        return false;
-    }
-    if (issue.errors.length > 1) {
-        return false;
-    }
-    const [firstIssue] = issue.errors;
-    return hasTag(firstIssue, 'Type');
+function isTypeIssue(issue: ParseIssue): issue is Type {
+    return hasTag(issue, 'Type');
 }
-function isAllUnion(issues: NonEmptyReadonlyArray<ParseIssue>): issues is NonEmptyReadonlyArray<UnionWithTypeIssue> {
-    return issues.every(isUnionTypeIssue);
-}
-function formatUnionIssues(issues: NonEmptyReadonlyArray<UnionWithTypeIssue>, path: Path): string {
-    const expectedAsts = map(issues, (issue) => {
-        return issue.errors[0].expected;
+
+function formatUnionIssues(issues: Union['errors'], path: Path): NonEmptyReadonlyArray<string> {
+    const parseIssues = map(issues, (issue) => {
+        if (hasTag(issue, 'Member')) {
+            return issue.error;
+        }
+        return issue;
     });
-    const list: NonEmptyReadonlyArray<string> = isBooleanLiteralUnion(expectedAsts)
-        ? ['boolean']
-        : flatMap(expectedAsts, formatAst);
 
-    return formatMessageWithPath(path, formatMessage(list, issues[0].errors[0].actual));
+    if (parseIssues.every(isTypeIssue)) {
+        const expectedAsts = map(parseIssues, (issue) => {
+            return issue.ast;
+        });
+        const list: NonEmptyReadonlyArray<string> = isBooleanLiteralUnion(expectedAsts)
+            ? ['boolean']
+            : flatMap(expectedAsts, formatAst);
+
+        return [formatMessageWithPath(path, formatMessage(list, parseIssues[0].actual))];
+    }
+
+    return flatMap(parseIssues, (issue) => {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define -- indirect recursion
+        return format(issue, path);
+    });
 }
 
-const simpleMessages = {
-    Missing: 'missing key or index',
-    Forbidden: 'forbidden',
-    Unexpected: 'unexpected extra key or index'
-} as const;
-type SimpleIssue = Extract<ParseIssue, { _tag: keyof typeof simpleMessages }>;
-
-function isSimpleIssue(parseIssue: ParseIssue): parseIssue is SimpleIssue {
-    const { _tag: tag } = parseIssue;
-    return Object.hasOwn(simpleMessages, tag);
-}
-
-function formatSimpleIssue(parseIssue: SimpleIssue, path: Path): NonEmptyReadonlyArray<string> {
-    const { _tag: tag } = parseIssue;
-    return [formatMessageWithPath(path, simpleMessages[tag])];
-}
-
-function isContainerIssue(parseIssue: ParseIssue): parseIssue is Index | Key {
-    return hasTag(parseIssue, 'Key') || hasTag(parseIssue, 'Index');
+function isContainerIssue(parseIssue: ParseIssue): parseIssue is Tuple | TypeLiteral {
+    return hasTag(parseIssue, 'Tuple') || hasTag(parseIssue, 'TypeLiteral');
 }
 
 function formatContainerIssue(issue: Index | Key, path: Path): NonEmptyReadonlyArray<string> {
     const newPathItem = hasTag(issue, 'Key') ? issue.key : issue.index;
     const newPath = [...path, newPathItem];
 
+    if (hasTag(issue.error, 'Missing')) {
+        return [formatMessageWithPath(newPath, 'missing key or index')];
+    }
+
+    if (hasTag(issue.error, 'Unexpected')) {
+        return [formatMessageWithPath(newPath, 'unexpected extra key or index')];
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-use-before-define -- indirect recursion
-    return formatAllWithPath(issue.errors, newPath);
+    return format(issue.error, newPath);
 }
 
 function format(parseIssue: ParseIssue, path: Path): NonEmptyReadonlyArray<string> {
-    if (isSimpleIssue(parseIssue)) {
-        return formatSimpleIssue(parseIssue, path);
+    if (hasTag(parseIssue, 'Refinement') || hasTag(parseIssue, 'Transform')) {
+        return format(parseIssue.error, path);
+    }
+
+    if (hasTag(parseIssue, 'Forbidden')) {
+        return [formatMessageWithPath(path, 'forbidden')];
     }
 
     if (isContainerIssue(parseIssue)) {
-        return formatContainerIssue(parseIssue, path);
-    }
-
-    if (hasTag(parseIssue, 'UnionMember')) {
-        return flatMap(parseIssue.errors, (error) => {
-            return format(error, path);
+        return flatMap(parseIssue.errors, (error: Index | Key) => {
+            return formatContainerIssue(error, path);
         });
     }
 
-    return [formatMessageWithPath(path, formatMessage(formatAst(parseIssue.expected), parseIssue.actual))];
-}
-
-function formatAllWithPath(parseIssues: NonEmptyReadonlyArray<ParseIssue>, path: Path): NonEmptyReadonlyArray<string> {
-    if (isAllUnion(parseIssues)) {
-        return [formatUnionIssues(parseIssues, path)];
+    if (hasTag(parseIssue, 'Union')) {
+        return formatUnionIssues(parseIssue.errors, path);
     }
 
-    return flatMap(parseIssues, (parseIssue) => {
-        return format(parseIssue, path);
-    });
+    return [formatMessageWithPath(path, formatMessage(formatAst(parseIssue.ast), parseIssue.actual))];
 }
 
-export function formatAllParseIssues(parseIssues: NonEmptyReadonlyArray<ParseIssue>): NonEmptyReadonlyArray<string> {
-    return uniqueList(formatAllWithPath(parseIssues, []));
+export function formatAllParseIssues(parseError: ParseError): NonEmptyReadonlyArray<string> {
+    return uniqueList(format(parseError.error, []));
 }
