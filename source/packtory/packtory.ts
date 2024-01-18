@@ -1,15 +1,26 @@
+import { Result } from 'true-myth';
 import type { PacktoryConfig } from '../config/config.js';
 import { validateConfig } from '../config/validation.js';
-import type { Publisher } from '../publisher/publisher.js';
-import type { Scheduler } from './scheduler.js';
+import type { PublishResult, Publisher } from '../publisher/publisher.js';
+import type { Scheduler, PartialError } from './scheduler.js';
 
 type Options = {
     readonly dryRun: boolean;
 };
 
-type Packtory = {
-    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- we treat the config as unknown but want to provide autocompletion to the client
-    buildAndPublishAll(config: PacktoryConfig | unknown, options: Options): Promise<void>;
+type ConfigError = {
+    type: 'config';
+    issues: readonly string[];
+};
+
+type Failure = ConfigError | (PartialError & { type: 'partial' });
+
+export type Packtory = {
+    buildAndPublishAll(
+        // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- we treat the config as unknown but want to provide autocompletion to the client
+        config: PacktoryConfig | unknown,
+        options: Options
+    ): Promise<Result<readonly PublishResult[], Failure>>;
 };
 
 type PacktoryDependencies = {
@@ -23,7 +34,10 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             const result = validateConfig(config);
 
             if (result.isErr) {
-                throw new Error(`Invalid config:\n\n - ${result.error.join('\n - ')}`);
+                return Result.err({
+                    type: 'config',
+                    issues: result.error
+                });
             }
 
             const runResult = await scheduler.runForEachScheduledPackage(result.value, async (buildOptions) => {
@@ -34,19 +48,13 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             });
 
             if (runResult.isErr) {
-                let message = 'Some packages couldn’t be built or published while others succeeded:\n';
-                message += `Succeeded: ${runResult.error.succeeded
-                    .map((packageResult) => {
-                        return packageResult.bundle.packageJson.name;
-                    })
-                    .join(', ')}\n`;
-                message += `Failed: ${runResult.error.failures
-                    .map((error) => {
-                        return error.message;
-                    })
-                    .join(', ')}`;
-                throw new Error(message);
+                return Result.err({
+                    type: 'partial',
+                    ...runResult.error
+                });
             }
+
+            return Result.ok(runResult.value);
         }
     };
 }

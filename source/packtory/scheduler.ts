@@ -11,7 +11,7 @@ import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster
 
 type PackageOperationCallback = (options: BuildAndPublishOptions) => Promise<PublishResult>;
 
-type PartialError = {
+export type PartialError = {
     readonly succeeded: readonly PublishResult[];
     readonly failures: readonly Error[];
 };
