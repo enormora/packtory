@@ -46,6 +46,7 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
 
 async function main(): Promise<void> {
     const exitCode = await commandLinerInterfaceRunner.run(process.argv);
+    // eslint-disable-next-line require-atomic-updates -- we intentionally want to override the exitCode no matter what its current value is
     process.exitCode = exitCode;
 }
 

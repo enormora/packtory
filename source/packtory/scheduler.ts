@@ -1,13 +1,11 @@
 import { partition } from 'effect/ReadonlyArray';
-import { isSubrecord } from 'effect/ReadonlyRecord';
 import { get } from 'effect/Struct';
 import { Result } from 'true-myth';
 import type { BundleDescription } from '../bundler/bundle-description.js';
-import type { PackageConfig, PacktoryConfig } from '../config/config.js';
-import type { MainPackageJson } from '../config/package-json.js';
 import type { ValidConfigResult } from '../config/validation.js';
 import type { BuildAndPublishOptions, PublishResult } from '../publisher/publisher.js';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
+import { configToBuildAndPublishOptions } from './map-config.js';
 
 type PackageOperationCallback = (options: BuildAndPublishOptions) => Promise<PublishResult>;
 
@@ -27,53 +25,6 @@ type SchedulerDependencies = {
     readonly progressBroadcastProvider: ProgressBroadcastProvider;
 };
 
-function dependencyNamesToBundles(
-    dependencyNames: readonly string[],
-    bundles: readonly BundleDescription[]
-): readonly BundleDescription[] {
-    return dependencyNames.map((dependencyName) => {
-        const matchName = isSubrecord<unknown>({ name: dependencyName });
-        const bundle = bundles.find(matchName);
-        if (bundle === undefined) {
-            throw new Error(`Dependent bundle "${dependencyName}" not found`);
-        }
-        return bundle;
-    });
-}
-
-function configToBuildAndPublishOptions(
-    packageName: string,
-    packageConfigs: Map<string, PackageConfig>,
-    packtoryConfig: PacktoryConfig,
-    existingBundles: readonly BundleDescription[]
-): BuildAndPublishOptions {
-    const packageConfig = packageConfigs.get(packageName);
-    if (packageConfig === undefined) {
-        throw new Error(`Config for package "${packageName}" is missing`);
-    }
-
-    const {
-        sourcesFolder: sourcesFolderFromPackageConfig,
-        mainPackageJson: mainPackageJsonFromPackageConfig,
-        bundleDependencies = [],
-        bundlePeerDependencies = [],
-        ...remainingPackageConfig
-    } = packageConfig;
-    const mainPackageJson = (packtoryConfig.commonPackageSettings?.mainPackageJson ??
-        mainPackageJsonFromPackageConfig) as MainPackageJson;
-    const sourcesFolder = (packtoryConfig.commonPackageSettings?.sourcesFolder ??
-        sourcesFolderFromPackageConfig) as string;
-
-    return {
-        ...remainingPackageConfig,
-        registrySettings: packtoryConfig.registrySettings,
-        mainPackageJson,
-        sourcesFolder,
-        bundleDependencies: dependencyNamesToBundles(bundleDependencies, existingBundles),
-        bundlePeerDependencies: dependencyNamesToBundles(bundlePeerDependencies, existingBundles)
-    };
-}
-
 function isFulfilledResult<T extends PromiseSettledResult<unknown>>(
     result: T
 ): result is Extract<T, { status: 'fulfilled' }> {
@@ -89,11 +40,11 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
 
     async function runForGeneration(
         packageNames: readonly string[],
-        packageConfigs: Map<string, PackageConfig>,
-        packtoryConfig: PacktoryConfig,
+        config: ValidConfigResult,
         existingBundles: readonly BundleDescription[],
         callback: PackageOperationCallback
     ): Promise<Result<readonly PublishResult[], PartialError>> {
+        const { packageConfigs, packtoryConfig } = config;
         const results = await Promise.allSettled(
             packageNames.map(async (packageName) => {
                 const options = configToBuildAndPublishOptions(
@@ -134,26 +85,25 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         return Result.ok(succeeded);
     }
 
+    function emitScheduledEventForAllPackages(config: ValidConfigResult): void {
+        for (const packageConfig of config.packtoryConfig.packages) {
+            progressBroadcastProvider.emit('scheduled', { packageName: packageConfig.name });
+        }
+    }
+
+    function getExecutionPlan(config: ValidConfigResult): readonly (readonly string[])[] {
+        return config.packageGraph.getTopologicalGenerations();
+    }
+
     return {
         async runForEachScheduledPackage(config, callback) {
-            const { packageGraph, packageConfigs, packtoryConfig } = config;
+            emitScheduledEventForAllPackages(config);
 
-            for (const packageConfig of packtoryConfig.packages) {
-                progressBroadcastProvider.emit('scheduled', { packageName: packageConfig.name });
-            }
-
-            const executionPlan = packageGraph.getTopologicalGenerations();
             const bundles: BundleDescription[] = [];
             const succeeded: PublishResult[] = [];
 
-            for (const generation of executionPlan) {
-                const generationResult = await runForGeneration(
-                    generation,
-                    packageConfigs,
-                    packtoryConfig,
-                    bundles,
-                    callback
-                );
+            for (const generation of getExecutionPlan(config)) {
+                const generationResult = await runForGeneration(generation, config, bundles, callback);
                 if (generationResult.isErr) {
                     return Result.err({
                         succeeded: [...succeeded, ...generationResult.error.succeeded],

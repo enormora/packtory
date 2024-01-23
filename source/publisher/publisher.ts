@@ -8,6 +8,7 @@ import type { VersioningSettings } from '../config/versioning-settings.js';
 import type { RegistrySettings } from '../config/registry-settings.js';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
 import type { PackageVersionDetails, RegistryClient } from './registry-client.js';
+// eslint-disable-next-line import/max-dependencies -- needs to be fixed but I don’t have a good idea yet
 import { increaseVersion, replaceBundleVersion } from './version.js';
 
 export type PublisherDependencies = {
@@ -72,6 +73,23 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
         return { status, tarData: tarball.tarData, bundle };
     }
 
+    async function buildNewVersion(
+        buildOptions: BuildOptions,
+        latestVersion: string,
+        bundleWithLatestVersion: BundleDescription,
+        minimumVersion = '0.0.1'
+    ): Promise<BuildResult> {
+        const newVersion = increaseVersion(latestVersion, minimumVersion);
+        progressBroadcaster.emit('rebuilding', { packageName: buildOptions.name, version: newVersion });
+        const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
+        const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
+        return {
+            status: 'new-version',
+            tarData: tarballWithNewVersion.tarData,
+            bundle: bundleWithNewVersion
+        };
+    }
+
     async function buildWithAutomaticVersioning(
         buildOptions: BuildOptions,
         latestVersion: Readonly<Maybe<PackageVersionDetails>>,
@@ -87,15 +105,7 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
         const result = await checkBundleAlreadyPublished(bundleWithLatestVersion, latestVersion.value);
 
         if (!result.alreadyPublishedAsLatest) {
-            const newVersion = increaseVersion(latestVersion.value.version, minimumVersion);
-            progressBroadcaster.emit('rebuilding', { packageName: buildOptions.name, version: newVersion });
-            const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
-            const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
-            return {
-                status: 'new-version',
-                tarData: tarballWithNewVersion.tarData,
-                bundle: bundleWithNewVersion
-            };
+            return buildNewVersion(buildOptions, latestVersion.value.version, bundleWithLatestVersion, minimumVersion);
         }
 
         return { status: 'already-published', bundle: bundleWithLatestVersion };

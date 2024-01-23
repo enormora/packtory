@@ -63,7 +63,8 @@ export default [
     {
         files: ['**/*.test.ts'],
         rules: {
-            '@typescript-eslint/no-magic-numbers': 'off'
+            '@typescript-eslint/no-magic-numbers': 'off',
+            'max-lines': 'off'
         }
     }
 ];
