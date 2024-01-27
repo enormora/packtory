@@ -13,10 +13,11 @@ import { createPacktory } from './packtory/packtory.js';
 import { createCommandLineInterfaceRunner } from './command-line-interface/runner.js';
 import { createTerminalSpinnerRenderer } from './command-line-interface/terminal-spinner-renderer.js';
 import { createConfigLoader } from './command-line-interface/config-loader.js';
+import { createTarballBuilder } from './tar/tarball-builder.js';
 
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
 const registryClient = createRegistryClient({ npmFetch, publish });
-const artifactsBuilder = createArtifactsBuilder({ fileManager });
+const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
 const progressBroadcaster = createProgressBroadcaster();
 const publisher = createPublisher({
     progressBroadcaster: progressBroadcaster.provider,

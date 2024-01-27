@@ -1,10 +1,10 @@
 import test from 'ava';
-import { extractTarEntries } from '../test-libraries/tar.js';
+import { extractTarEntries } from './extract-tar.js';
 import { createTarballBuilder } from './tarball-builder.js';
 
 test('creates an empty tarball', async (t) => {
     const builder = createTarballBuilder();
-    const tarballBuffer = await builder.build();
+    const tarballBuffer = await builder.build([]);
     const entries = await extractTarEntries(tarballBuffer);
 
     t.deepEqual(entries, []);
@@ -13,8 +13,7 @@ test('creates an empty tarball', async (t) => {
 test('creates a tarball with one file', async (t) => {
     const builder = createTarballBuilder();
 
-    builder.addFile('foo.txt', 'bar');
-    const tarballBuffer = await builder.build();
+    const tarballBuffer = await builder.build([{ filePath: 'foo.txt', content: 'bar' }]);
     const entries = await extractTarEntries(tarballBuffer);
 
     t.deepEqual(entries, [
@@ -42,11 +41,12 @@ test('creates a tarball with one file', async (t) => {
 test('creates a tarball with many nested files', async (t) => {
     const builder = createTarballBuilder();
 
-    builder.addFile('1.txt', '1');
-    builder.addFile('foo/2.txt', '2');
-    builder.addFile('foo/bar/3.txt', '3');
-    builder.addFile('foo/bar/baz/4.txt', '4');
-    const tarballBuffer = await builder.build();
+    const tarballBuffer = await builder.build([
+        { filePath: '1.txt', content: '1' },
+        { filePath: 'foo/2.txt', content: '2' },
+        { filePath: 'foo/bar/3.txt', content: '3' },
+        { filePath: 'foo/bar/baz/4.txt', content: '4' }
+    ]);
     const entries = await extractTarEntries(tarballBuffer);
     const expectedBaseHeaders = {
         devmajor: 0,

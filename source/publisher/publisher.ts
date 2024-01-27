@@ -7,9 +7,11 @@ import type { Bundler } from '../bundler/bundler.js';
 import type { VersioningSettings } from '../config/versioning-settings.js';
 import type { RegistrySettings } from '../config/registry-settings.js';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
+import { compareFileDescriptions } from '../file-description/compare.js';
 import type { PackageVersionDetails, RegistryClient } from './registry-client.js';
-// eslint-disable-next-line import/max-dependencies -- needs to be fixed but I don’t have a good idea yet
 import { increaseVersion, replaceBundleVersion } from './version.js';
+// eslint-disable-next-line import/max-dependencies -- needs to be fixed but I don’t have a good idea right now
+import { extractPackageTarball } from './extract-package-tarball.js';
 
 export type PublisherDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
@@ -58,8 +60,11 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
         bundle: BundleDescription,
         latestVersion: Readonly<PackageVersionDetails>
     ): Promise<BundlePublishedCheckResult> {
-        const tarball = await artifactsBuilder.buildTarball(bundle);
-        return { alreadyPublishedAsLatest: latestVersion.shasum === tarball.shasum };
+        const artifactContents = await artifactsBuilder.collectContents(bundle);
+        const tarball = await registryClient.fetchTarball(latestVersion.tarballUrl, latestVersion.shasum);
+        const latestVersionArtifactContents = await extractPackageTarball(tarball);
+        const result = compareFileDescriptions(artifactContents, latestVersionArtifactContents);
+        return { alreadyPublishedAsLatest: result.status === 'equal' };
     }
 
     async function buildVersion(

@@ -7,10 +7,11 @@ import { bundler } from './bundler.entry-point.js';
 import { createRegistryClient } from './publisher/registry-client.js';
 import { createArtifactsBuilder } from './artifacts/artifacts-builder.js';
 import { createProgressBroadcaster } from './progress/progress-broadcaster.js';
+import { createTarballBuilder } from './tar/tarball-builder.js';
 
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
 const registryClient = createRegistryClient({ npmFetch, publish });
-const artifactsBuilder = createArtifactsBuilder({ fileManager });
+const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
 const progressBroadcaster = createProgressBroadcaster();
 
 export const publisher = createPublisher({

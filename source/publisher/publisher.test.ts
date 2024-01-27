@@ -3,12 +3,28 @@ import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import { createPublisher, type PublisherDependencies, type Publisher } from './publisher.js';
 
+const emptyTarball = Buffer.from([
+    31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 99, 96, 24, 5, 163, 96, 20, 140, 84, 0, 0, 46, 175, 181, 239, 0, 4, 0, 0
+]);
+const tarballWithOneFile = Buffer.from([
+    /* eslint-disable unicorn/no-useless-spread -- hardcoded binary data for testing */
+    ...[31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 43, 72, 76, 206, 78, 76, 79, 213],
+    ...[79, 203, 207, 215, 203, 42, 102, 160, 9, 48, 48, 48, 48, 51, 49, 81],
+    ...[0, 209, 64, 128, 78, 131, 128, 177, 2, 130, 109, 160, 96, 96, 104, 104],
+    ...[102, 110, 4, 148, 103, 160, 3, 40, 45, 46, 73, 44, 2, 58, 133, 10, 158],
+    ...[68, 241, 220, 16, 1, 192, 120, 103, 24, 5, 163, 96, 20, 140, 130, 81, 48],
+    ...[242, 0, 0, 60, 78, 198, 6, 0, 8, 0, 0]
+    /* eslint-enable unicorn/no-useless-spread -- hardcoded binary data for testing */
+]);
+
 type Overrides = {
     readonly buildTarball?: SinonSpy;
     readonly publishPackage?: SinonSpy;
     readonly fetchLatestVersion?: SinonSpy;
     readonly build?: SinonSpy;
     readonly emit?: SinonSpy;
+    readonly collectContents?: SinonSpy;
+    readonly fetchTarball?: SinonSpy;
 };
 
 function publisherFactory(overrides: Overrides = {}): Publisher {
@@ -17,11 +33,13 @@ function publisherFactory(overrides: Overrides = {}): Publisher {
         publishPackage = fake(),
         fetchLatestVersion = fake(),
         build = fake.resolves({ packageJson: {} }),
-        emit = fake()
+        emit = fake(),
+        collectContents = fake.resolves([]),
+        fetchTarball = fake.resolves(emptyTarball)
     } = overrides;
     const fakeDependencies = {
-        artifactsBuilder: { buildTarball },
-        registryClient: { publishPackage, fetchLatestVersion },
+        artifactsBuilder: { buildTarball, collectContents },
+        registryClient: { publishPackage, fetchLatestVersion, fetchTarball },
         bundler: { build },
         progressBroadcaster: { emit }
     } as unknown as PublisherDependencies;
@@ -161,7 +179,8 @@ test('buildAndPublish() builds and publishes a new version incrementing the late
         fetchLatestVersion: fake.resolves(Maybe.just({ version: '1.2.3', shasum: 'xyz' })),
         publishPackage,
         build,
-        buildTarball
+        buildTarball,
+        fetchTarball: fake.resolves(tarballWithOneFile)
     });
 
     await publisher.buildAndPublish({
@@ -183,16 +202,17 @@ test('buildAndPublish() builds and publishes a new version incrementing the late
             }
         ]
     ]);
-    t.is(buildTarball.callCount, 2);
+    t.is(buildTarball.callCount, 1);
     t.is(publishPackage.callCount, 1);
     t.deepEqual(publishPackage.firstCall.args, [{ version: '1.2.4' }, tarData, { token: 'the-token' }]);
 });
 
 test('buildAndPublish() emits a progress event before building a new version', async (t) => {
+    const fetchTarball = fake.resolves(tarballWithOneFile);
     const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', shasum: 'xyz' }));
     const emit = fake();
     const build = fake.resolves({ contents: [], packageJson: { name: 'the-name', version: '42' } });
-    const publisher = publisherFactory({ fetchLatestVersion, emit, build });
+    const publisher = publisherFactory({ fetchLatestVersion, emit, build, fetchTarball });
 
     await publisher.buildAndPublish({
         name: 'the-name',
@@ -229,10 +249,11 @@ test('buildAndPublish() doesn’t publish any version when the shasum of the bui
 });
 
 test('buildAndPublish() returns the correct result after publishing a new version', async (t) => {
+    const fetchTarball = fake.resolves(tarballWithOneFile);
     const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', shasum: 'abc' }));
     const build = fake.resolves({ contents: [], packageJson: { version: '42' } });
     const buildTarball = fake.resolves({ shasum: 'xyz' });
-    const publisher = publisherFactory({ fetchLatestVersion, build, buildTarball });
+    const publisher = publisherFactory({ fetchLatestVersion, build, buildTarball, fetchTarball });
 
     const result = await publisher.buildAndPublish({
         name: '',

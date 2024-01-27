@@ -15,6 +15,7 @@ export type RegistryClientDependencies = {
 export type RegistryClient = {
     fetchLatestVersion(packageName: string, config: RegistrySettings): Promise<Maybe<PackageVersionDetails>>;
     publishPackage(manifest: Readonly<BundlePackageJson>, tarData: Buffer, config: RegistrySettings): Promise<void>;
+    fetchTarball(tarballUrl: string, shasum: string): Promise<Buffer>;
 };
 
 type FetchError = {
@@ -34,7 +35,7 @@ const distTagsSchema = struct({
 });
 
 const versionDataSchema = struct({
-    dist: struct({ shasum: string })
+    dist: struct({ shasum: string, tarball: string })
 });
 
 const abbreviatedPackageResponseSchema = struct({
@@ -53,6 +54,7 @@ const httpStatusCode = {
 export type PackageVersionDetails = {
     readonly version: string;
     readonly shasum: string;
+    readonly tarballUrl: string;
 };
 
 type PublishFunctionParametersManifestIndex = 0;
@@ -100,6 +102,11 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
     }
 
     return {
+        async fetchTarball(tarballUrl) {
+            const response = await npmFetch(tarballUrl);
+            return response.buffer();
+        },
+
         async publishPackage(manifest, tarData, registrySettings) {
             await publish(manifest as unknown as PublishManifest, tarData, {
                 defaultTag: 'latest',
@@ -126,7 +133,8 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
 
                 return Maybe.just({
                     version: latestVersion,
-                    shasum: versionData.dist.shasum
+                    shasum: versionData.dist.shasum,
+                    tarballUrl: versionData.dist.tarball
                 });
             }
 

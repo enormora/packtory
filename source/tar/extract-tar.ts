@@ -1,16 +1,16 @@
 import { createGunzip } from 'node:zlib';
 import { Readable } from 'node:stream';
-import { extract } from 'tar-stream';
+import { extract, type Headers as TarEntryHeaders } from 'tar-stream';
 
-type Entry = {
-    readonly header: unknown;
+export type TarEntry = {
+    readonly header: TarEntryHeaders;
     readonly content: string;
 };
 
-export async function extractTarEntries(buffer: Buffer): Promise<Entry[]> {
+export async function extractTarEntries(buffer: Buffer): Promise<TarEntry[]> {
     const extractStream = extract();
     const stream = Readable.from(buffer).pipe(createGunzip()).pipe(extractStream);
-    const entries: Entry[] = [];
+    const entries: TarEntry[] = [];
 
     for await (const entry of stream) {
         let result = '';

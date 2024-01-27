@@ -1,6 +1,5 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
-import { extractTarEntries } from '../test-libraries/tar.js';
 import type { BundleContent } from '../bundler/bundle-description.js';
 import {
     type ArtifactsBuilder,
@@ -13,120 +12,59 @@ type Overrides = {
     readonly checkReadability?: SinonSpy;
     readonly copyFile?: SinonSpy;
     readonly writeFile?: SinonSpy;
+    readonly tarballBuilder?: { readonly build?: SinonSpy };
 };
 
 function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
-    const { readFile = fake(), checkReadability = fake(), copyFile = fake(), writeFile = fake() } = overrides;
+    const {
+        readFile = fake(),
+        checkReadability = fake(),
+        copyFile = fake(),
+        writeFile = fake(),
+        tarballBuilder: { build = fake.resolves(Buffer.from([-1])) } = {}
+    } = overrides;
     const fakeDependencies = {
-        fileManager: { readFile, checkReadability, copyFile, writeFile }
+        fileManager: { readFile, checkReadability, copyFile, writeFile },
+        tarballBuilder: { build }
     } as unknown as ArtifactsBuilderDependencies;
     return createArtifactsBuilder(fakeDependencies);
 }
 
-test('buildTarball() creates an empty tarball when the given bundle has no contents', async (t) => {
-    const builder = artifactsBuilderFactory();
+test('buildTarball() returns the tarData and its shasum', async (t) => {
+    const tarballBuilder = { build: fake.resolves(Buffer.from([42])) };
+    const builder = artifactsBuilderFactory({ tarballBuilder });
     const result = await builder.buildTarball({
         contents: [],
         packageJson: { name: 'the-name', version: 'the-version' }
     });
-    const entries = await extractTarEntries(result.tarData);
 
-    t.deepEqual(entries, []);
-    t.is(result.shasum, '362913d4c1f5f1db9ccb9d7cccc4e12b89c62c5f');
+    t.deepEqual(result, {
+        tarData: Buffer.from([42]),
+        shasum: 'df58248c414f342c81e056b40bee12d17a08bf61'
+    });
 });
 
-test('buildTarball() creates a tarball with all different kinds of bundle contents', async (t) => {
+test('buildTarball() passes all given contents to the tarballBuilder', async (t) => {
+    const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
     const readFile = fake.resolves('bar');
-    const builder = artifactsBuilderFactory({ readFile });
+    const builder = artifactsBuilderFactory({ readFile, tarballBuilder });
     const contents: BundleContent[] = [
         { kind: 'reference', sourceFilePath: '/foo/bar.txt', targetFilePath: 'bar.txt' },
         { kind: 'source', targetFilePath: 'baz.txt', source: 'baz' },
         { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' }
     ];
-    const result = await builder.buildTarball({ contents, packageJson: { name: 'the-name', version: 'the-version' } });
-    const entries = await extractTarEntries(result.tarData);
+    await builder.buildTarball({ contents, packageJson: { name: 'the-name', version: 'the-version' } });
 
     t.is(readFile.callCount, 1);
     t.deepEqual(readFile.firstCall.args, ['/foo/bar.txt']);
-    t.deepEqual(entries, [
-        {
-            content: 'bar',
-            header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 420,
-                mtime: new Date(0),
-                name: 'package/bar.txt',
-                pax: null,
-                size: 3,
-                type: 'file',
-                uid: 0,
-                uname: ''
-            }
-        },
-        {
-            content: 'baz',
-            header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 420,
-                mtime: new Date(0),
-                name: 'package/baz.txt',
-                pax: null,
-                size: 3,
-                type: 'file',
-                uid: 0,
-                uname: ''
-            }
-        },
-        {
-            content: 'qux',
-            header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 420,
-                mtime: new Date(0),
-                name: 'package/qux.txt',
-                pax: null,
-                size: 3,
-                type: 'file',
-                uid: 0,
-                uname: ''
-            }
-        }
+    t.is(tarballBuilder.build.callCount, 1);
+    t.deepEqual(tarballBuilder.build.firstCall.args, [
+        [
+            { filePath: 'package/bar.txt', content: 'bar' },
+            { filePath: 'package/baz.txt', content: 'baz' },
+            { filePath: 'package/qux.txt', content: 'qux' }
+        ]
     ]);
-
-    t.is(result.shasum, 'ada9bbb1318dd4808fbcbb8c874d07459aff577d');
-});
-
-test('buildTarball() ensures to build the exact same tarball with the same checksum when building two tarballs with the same file added in a different order', async (t) => {
-    const builder = artifactsBuilderFactory();
-    const firstTarball = await builder.buildTarball({
-        contents: [
-            { kind: 'source', targetFilePath: 'first.txt', source: '1' },
-            { kind: 'source', targetFilePath: 'second.txt', source: '2' }
-        ],
-        packageJson: { name: 'the-name', version: 'the-version' }
-    });
-    const secondTarball = await builder.buildTarball({
-        contents: [
-            { kind: 'source', targetFilePath: 'second.txt', source: '2' },
-            { kind: 'source', targetFilePath: 'first.txt', source: '1' }
-        ],
-        packageJson: { name: 'the-name', version: 'the-version' }
-    });
-
-    t.is(firstTarball.shasum, 'e8a6d0780788b78daab58294c9adb474c0b150b3');
-    t.is(secondTarball.shasum, 'e8a6d0780788b78daab58294c9adb474c0b150b3');
 });
 
 test('buildFolder() doesn’t write or copy anything when the given bundle has no contents', async (t) => {
@@ -210,4 +148,24 @@ test('buildFolder() writes the source of a substituted bundle content to the giv
 
     t.is(writeFile.callCount, 1);
     t.deepEqual(writeFile.firstCall.args, ['/the/target/folder/bar/baz.txt', 'the-content']);
+});
+
+test('collectContents() returns the list of file descriptions of the given bundle', async (t) => {
+    const readFile = fake.resolves('bar');
+    const builder = artifactsBuilderFactory({ readFile });
+    const contents: BundleContent[] = [
+        { kind: 'reference', sourceFilePath: '/foo/bar.txt', targetFilePath: 'bar.txt' },
+        { kind: 'source', targetFilePath: 'baz.txt', source: 'baz' },
+        { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' }
+    ];
+    const result = await builder.collectContents({
+        contents,
+        packageJson: { name: 'the-name', version: 'the-version' }
+    });
+
+    t.deepEqual(result, [
+        { filePath: 'package/bar.txt', content: 'bar' },
+        { filePath: 'package/baz.txt', content: 'baz' },
+        { filePath: 'package/qux.txt', content: 'qux' }
+    ]);
 });
