@@ -4,30 +4,25 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.js';
 import type { BundleBuildOptions } from '../bundler/bundle-build-options.js';
 import type { BundleDescription } from '../bundler/bundle-description.js';
 import type { Bundler } from '../bundler/bundler.js';
-import type { PackageVersionDetails, RegistryClient, RegistrySettings } from './registry-client.js';
-import { increaseVersion, type Version, replaceBundleVersion } from './version.js';
-
-type AutomaticVersioningSettings = {
-    readonly automatic: true;
-    readonly minimumVersion?: Version;
-};
-
-type ManualVersioningSettings = {
-    readonly automatic: false;
-    readonly version: string;
-};
-
-type VersioningSettings = AutomaticVersioningSettings | ManualVersioningSettings;
+import type { VersioningSettings } from '../config/versioning-settings.js';
+import type { RegistrySettings } from '../config/registry-settings.js';
+import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
+import { compareFileDescriptions } from '../file-description/compare.js';
+import type { PackageVersionDetails, RegistryClient } from './registry-client.js';
+import { increaseVersion, replaceBundleVersion } from './version.js';
+// eslint-disable-next-line import/max-dependencies -- needs to be fixed but I don’t have a good idea right now
+import { extractPackageTarball } from './extract-package-tarball.js';
 
 export type PublisherDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly registryClient: RegistryClient;
     readonly bundler: Bundler;
+    readonly progressBroadcaster: ProgressBroadcastProvider;
 };
 
 type BuildOptions = Except<BundleBuildOptions, 'version'>;
 
-type BuildAndPublishOptions = BuildOptions & {
+export type BuildAndPublishOptions = BuildOptions & {
     readonly versioning?: VersioningSettings;
     readonly registrySettings: RegistrySettings;
 };
@@ -47,11 +42,11 @@ type LatestVersionAlreadyPublishedResult = {
 type BuildResult = Readonly<LatestVersionAlreadyPublishedResult | NewVersionToPublishResult>;
 type NewVersionResultStatus = NewVersionToPublishResult['status'];
 
-type PublishResult = Except<BuildResult, 'tarData'>;
+export type PublishResult = Except<BuildResult, 'tarData'>;
 
 export type Publisher = {
-    tryBuildAndPublish(options: Readonly<BuildAndPublishOptions>): Promise<BuildResult>;
-    buildAndPublish(options: Readonly<BuildAndPublishOptions>): Promise<PublishResult>;
+    tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildResult>;
+    buildAndPublish(options: BuildAndPublishOptions): Promise<PublishResult>;
 };
 
 type BundlePublishedCheckResult = {
@@ -59,14 +54,17 @@ type BundlePublishedCheckResult = {
 };
 
 export function createPublisher(dependencies: Readonly<PublisherDependencies>): Publisher {
-    const { artifactsBuilder, registryClient, bundler } = dependencies;
+    const { artifactsBuilder, registryClient, bundler, progressBroadcaster } = dependencies;
 
     async function checkBundleAlreadyPublished(
         bundle: BundleDescription,
         latestVersion: Readonly<PackageVersionDetails>
     ): Promise<BundlePublishedCheckResult> {
-        const tarball = await artifactsBuilder.buildTarball(bundle);
-        return { alreadyPublishedAsLatest: latestVersion.shasum === tarball.shasum };
+        const artifactContents = await artifactsBuilder.collectContents(bundle);
+        const tarball = await registryClient.fetchTarball(latestVersion.tarballUrl, latestVersion.shasum);
+        const latestVersionArtifactContents = await extractPackageTarball(tarball);
+        const result = compareFileDescriptions(artifactContents, latestVersionArtifactContents);
+        return { alreadyPublishedAsLatest: result.status === 'equal' };
     }
 
     async function buildVersion(
@@ -80,27 +78,39 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
         return { status, tarData: tarball.tarData, bundle };
     }
 
+    async function buildNewVersion(
+        buildOptions: BuildOptions,
+        latestVersion: string,
+        bundleWithLatestVersion: BundleDescription,
+        minimumVersion = '0.0.1'
+    ): Promise<BuildResult> {
+        const newVersion = increaseVersion(latestVersion, minimumVersion);
+        progressBroadcaster.emit('rebuilding', { packageName: buildOptions.name, version: newVersion });
+        const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
+        const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
+        return {
+            status: 'new-version',
+            tarData: tarballWithNewVersion.tarData,
+            bundle: bundleWithNewVersion
+        };
+    }
+
     async function buildWithAutomaticVersioning(
         buildOptions: BuildOptions,
         latestVersion: Readonly<Maybe<PackageVersionDetails>>,
-        minimumVersion: Version = '0.0.1'
+        minimumVersion = '0.0.1'
     ): Promise<BuildResult> {
         if (latestVersion.isNothing) {
+            progressBroadcaster.emit('building', { packageName: buildOptions.name, version: minimumVersion });
             return buildVersion(buildOptions, minimumVersion, 'initial-version');
         }
 
+        progressBroadcaster.emit('building', { packageName: buildOptions.name, version: latestVersion.value.version });
         const bundleWithLatestVersion = await bundler.build({ ...buildOptions, version: latestVersion.value.version });
         const result = await checkBundleAlreadyPublished(bundleWithLatestVersion, latestVersion.value);
 
         if (!result.alreadyPublishedAsLatest) {
-            const newVersion = increaseVersion(latestVersion.value.version, minimumVersion);
-            const bundleWithNewVersion = replaceBundleVersion(bundleWithLatestVersion, newVersion);
-            const tarballWithNewVersion = await artifactsBuilder.buildTarball(bundleWithNewVersion);
-            return {
-                status: 'new-version',
-                tarData: tarballWithNewVersion.tarData,
-                bundle: bundleWithNewVersion
-            };
+            return buildNewVersion(buildOptions, latestVersion.value.version, bundleWithLatestVersion, minimumVersion);
         }
 
         return { status: 'already-published', bundle: bundleWithLatestVersion };
@@ -115,6 +125,7 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
             throw new Error(`Version ${versionToPublish} of package ${buildOptions.name} is already published`);
         }
 
+        progressBroadcaster.emit('building', { packageName: buildOptions.name, version: versionToPublish });
         return buildVersion(buildOptions, versionToPublish, 'new-version');
     }
 
@@ -136,6 +147,10 @@ export function createPublisher(dependencies: Readonly<PublisherDependencies>): 
             const result = await tryBuildAndPublish(options);
 
             if (result.status !== 'already-published') {
+                progressBroadcaster.emit('publishing', {
+                    packageName: result.bundle.packageJson.name,
+                    version: result.bundle.packageJson.version
+                });
                 await registryClient.publishPackage(
                     result.bundle.packageJson,
                     result.tarData,

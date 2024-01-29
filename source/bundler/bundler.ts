@@ -1,21 +1,15 @@
 import path from 'node:path';
-import type { PackageJson } from 'type-fest';
 import type { DependencyScanner } from '../dependency-scanner/scanner.js';
 import {
     type DependencyFiles,
-    type LocalFile,
     mergeDependencyFiles,
     type DependencyGraph
 } from '../dependency-scanner/dependency-graph.js';
-import { serializePackageJson } from '../package-json.js';
-import {
-    type AdditionalFileDescription,
-    type BundleBuildOptions,
-    type EntryPoints,
-    validateBundleBuildOptions
-} from './bundle-build-options.js';
-import type { BundleContent, BundleDescription, BundlePackageJson } from './bundle-description.js';
+import type { MainPackageJson } from '../config/package-json.js';
+import { type BundleBuildOptions, type EntryPoints, validateBundleBuildOptions } from './bundle-build-options.js';
+import type { BundleDescription, BundlePackageJson } from './bundle-description.js';
 import { substituteDependencies } from './substitute-bundles.js';
+import { combineAllPackageFiles } from './content.js';
 
 export type BundlerDependencies = {
     readonly dependencyScanner: DependencyScanner;
@@ -25,76 +19,13 @@ export type Bundler = {
     build(options: BundleBuildOptions): Promise<BundleDescription>;
 };
 
-function prependSourcesFolderIfNecessary(sourcesFolder: string, filePath: string): string {
-    if (!path.isAbsolute(filePath)) {
-        return path.join(sourcesFolder, filePath);
-    }
-
-    return filePath;
-}
-
-function combineAllPackageFiles(
-    sourcesFolder: string,
-    localDependencies: readonly LocalFile[],
-    packageJson: BundlePackageJson,
-    additionalFiles: readonly (AdditionalFileDescription | string)[] = []
-): readonly BundleContent[] {
-    const referenceContents = localDependencies.map((localFile): BundleContent => {
-        const targetFilePath = path.relative(sourcesFolder, localFile.filePath);
-
-        if (localFile.substitutionContent.isJust) {
-            return {
-                kind: 'substituted',
-                sourceFilePath: localFile.filePath,
-                targetFilePath,
-                source: localFile.substitutionContent.value
-            };
-        }
-
-        return {
-            kind: 'reference',
-            sourceFilePath: localFile.filePath,
-            targetFilePath
-        };
-    });
-    const additionalContents = additionalFiles.map((additionalFile): BundleContent => {
-        if (typeof additionalFile === 'string') {
-            return {
-                kind: 'reference',
-                sourceFilePath: path.join(sourcesFolder, additionalFile),
-                targetFilePath: additionalFile
-            };
-        }
-
-        if (path.isAbsolute(additionalFile.targetFilePath)) {
-            throw new Error('The targetFilePath must be relative');
-        }
-
-        return {
-            kind: 'reference',
-            sourceFilePath: prependSourcesFolderIfNecessary(sourcesFolder, additionalFile.sourceFilePath),
-            targetFilePath: additionalFile.targetFilePath
-        };
-    });
-
-    return [
-        {
-            kind: 'source',
-            source: serializePackageJson(packageJson),
-            targetFilePath: 'package.json'
-        },
-        ...referenceContents,
-        ...additionalContents
-    ];
-}
-
 function containsBundleWithPackageName(bundles: readonly BundleDescription[], name: string): boolean {
     return bundles.some((bundle) => {
         return bundle.packageJson.name === name;
     });
 }
 
-type Foo = {
+type GroupedDependencies = {
     readonly dependencies: Record<string, string>;
     readonly peerDependencies?: Record<string, string>;
 };
@@ -102,7 +33,7 @@ type Foo = {
 function distributeDependencies(
     packageDependencies: Record<string, string>,
     bundlePeerDependencies: readonly BundleDescription[]
-): Readonly<Foo> {
+): Readonly<GroupedDependencies> {
     const dependencies: Record<string, string> = {};
     const peerDependencies: Record<string, string> = {};
 
@@ -152,7 +83,7 @@ function buildPackageJson(
 type ScanAndSubstituteOptions = {
     readonly entryPoint: string;
     readonly sourcesFolder: string;
-    readonly mainPackageJson: Readonly<PackageJson>;
+    readonly mainPackageJson: MainPackageJson;
     readonly includeSourceMapFiles: boolean;
     readonly resolveDeclarationFiles: boolean;
     readonly bundleDependencies: readonly BundleDescription[];
@@ -161,7 +92,7 @@ type ScanAndSubstituteOptions = {
 type ResolveOptions = {
     readonly entryPoints: EntryPoints;
     readonly sourcesFolder: string;
-    readonly mainPackageJson: Readonly<PackageJson>;
+    readonly mainPackageJson: MainPackageJson;
     readonly includeSourceMapFiles: boolean;
     readonly bundleDependencies: readonly BundleDescription[];
 };

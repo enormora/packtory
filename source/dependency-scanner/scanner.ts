@@ -1,5 +1,6 @@
 import Maybe from 'true-myth/maybe';
 import type { PackageJson } from 'type-fest';
+import type { MainPackageJson } from '../config/package-json.js';
 import type { SourceMapFileLocator } from './source-map-file-locator.js';
 import type { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.js';
 import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.js';
@@ -7,7 +8,7 @@ import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGra
 type ScanOptions = {
     readonly includeDevDependencies: boolean;
     readonly includeSourceMapFiles: boolean;
-    readonly mainPackageJson: PackageJson;
+    readonly mainPackageJson: MainPackageJson;
     readonly moduleResolution: ModuleResolution;
     readonly resolveDeclarationFiles: boolean;
     readonly failOnCompileErrors?: boolean;

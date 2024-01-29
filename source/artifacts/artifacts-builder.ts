@@ -1,11 +1,13 @@
 import path from 'node:path';
 import ssri from 'ssri';
-import type { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
+import type { BundleDescription } from '../bundler/bundle-description.js';
+import type { TarballBuilder } from '../tar/tarball-builder.js';
+import type { FileDescription } from '../file-description/file-description.js';
 import type { FileManager } from './file-manager.js';
-import { createTarballBuilder } from './tarball-builder.js';
 
 export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;
+    readonly tarballBuilder: TarballBuilder;
 };
 
 export type TarballArtifact = {
@@ -14,40 +16,36 @@ export type TarballArtifact = {
 };
 
 export type ArtifactsBuilder = {
+    collectContents(bundle: BundleDescription): Promise<readonly FileDescription[]>;
     buildTarball(bundle: BundleDescription): Promise<TarballArtifact>;
     buildFolder(bundle: BundleDescription, targetFolder: string): Promise<void>;
 };
 
-function compareBundleContentTargetPath(first: Readonly<BundleContent>, second: Readonly<BundleContent>): -1 | 0 | 1 {
-    if (first.targetFilePath < second.targetFilePath) {
-        return -1;
-    }
-    if (first.targetFilePath > second.targetFilePath) {
-        return 1;
-    }
-    return 0;
-}
-
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
-    const { fileManager } = artifactsBuilderDependencies;
+    const { fileManager, tarballBuilder } = artifactsBuilderDependencies;
+
+    async function collectContents(bundle: BundleDescription): Promise<readonly FileDescription[]> {
+        const artifactContents: FileDescription[] = [];
+
+        for (const entry of bundle.contents) {
+            const targetFilePath = path.join('package', entry.targetFilePath);
+
+            if (entry.kind === 'reference') {
+                const content = await fileManager.readFile(entry.sourceFilePath);
+                artifactContents.push({ filePath: targetFilePath, content });
+            } else {
+                artifactContents.push({ filePath: targetFilePath, content: entry.source });
+            }
+        }
+        return artifactContents;
+    }
 
     return {
+        collectContents,
+
         async buildTarball(bundle) {
-            const tarballBuilder = createTarballBuilder();
-            const sortedContents = Array.from(bundle.contents).sort(compareBundleContentTargetPath);
-
-            for (const entry of sortedContents) {
-                const targetFilePath = path.join('package', entry.targetFilePath);
-
-                if (entry.kind === 'reference') {
-                    const content = await fileManager.readFile(entry.sourceFilePath);
-                    tarballBuilder.addFile(targetFilePath, content);
-                } else {
-                    tarballBuilder.addFile(targetFilePath, entry.source);
-                }
-            }
-
-            const tarData = await tarballBuilder.build();
+            const contents = await collectContents(bundle);
+            const tarData = await tarballBuilder.build(contents);
 
             return {
                 shasum: ssri.fromData(tarData, { algorithms: ['sha1'] }).hexDigest(),

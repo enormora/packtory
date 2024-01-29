@@ -1,9 +1,9 @@
 import zlib from 'node:zlib';
-import tar from 'tar-stream';
+import tar, { type Pack } from 'tar-stream';
+import type { FileDescription } from '../file-description/file-description.js';
 
 export type TarballBuilder = {
-    addFile(filePath: string, content: string): void;
-    build(): Promise<Buffer>;
+    build(fileDescriptions: readonly FileDescription[]): Promise<Buffer>;
 };
 
 const gzipHeaderOperationSystemTypeFieldIndex = 9;
@@ -14,17 +14,28 @@ function unsetOperatingSystemGzipHeaderField(data: Buffer): void {
     data[gzipHeaderOperationSystemTypeFieldIndex] = gzipHeaderOperationSystemTypeUnknown;
 }
 
+const staticFileModificationTime = new Date(0);
+
 export function createTarballBuilder(): TarballBuilder {
-    const pack = tar.pack();
+    function createPack(fileDescriptions: readonly FileDescription[]): Pack {
+        const pack = tar.pack();
+
+        for (const fileDescription of fileDescriptions) {
+            const entry = pack.entry(
+                { name: fileDescription.filePath, mtime: staticFileModificationTime },
+                fileDescription.content
+            );
+            entry.end();
+        }
+
+        pack.finalize();
+
+        return pack;
+    }
 
     return {
-        addFile(filePath, content) {
-            const entry = pack.entry({ name: filePath, mtime: new Date(0) }, content);
-            entry.end();
-        },
-
-        async build() {
-            pack.finalize();
+        async build(fileDescriptions) {
+            const pack = createPack(fileDescriptions);
 
             const gzipStream = zlib.createGzip({ level: 9 });
             const tarballStream = pack.pipe(gzipStream);

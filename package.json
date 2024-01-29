@@ -5,9 +5,13 @@
     "type": "module",
     "scripts": {
         "compile": "tsc --build",
-        "prettier:check": "prettier --check './**/*.{yml,yaml,json,md}'",
+        "prettier": "prettier './**/*.{yml,yaml,json,md}'",
+        "prettier:check": "npm run prettier -- --check",
+        "prettier:fix": "npm run prettier -- --write",
         "eslint": "eslint . --cache --cache-location './target/.eslintcache' --cache-strategy content --max-warnings 0",
+        "eslint:fix": "npm run eslint -- --fix",
         "lint": "npm run eslint && npm run prettier:check",
+        "lint:fix": "npm run eslint:fix && npm run prettier:fix",
         "test": "npm run test:unit && npm run test:integration",
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
         "test:unit": "ava --config ava.config.js",
@@ -25,15 +29,20 @@
         "url": "git+ssh://git@github.com/enormora/packtory.git"
     },
     "dependencies": {
+        "@effect/schema": "0.60.4",
+        "@topcli/spinner": "2.1.2",
+        "cmd-ts": "0.13.0",
+        "effect": "2.1.1",
+        "kleur": "4.1.5",
         "libnpmpublish": "9.0.0",
+        "mitt": "3.0.1",
         "npm-registry-fetch": "16.0.0",
         "semver": "7.5.4",
         "ssri": "10.0.5",
         "tar-stream": "3.1.6",
         "true-myth": "7.1.0",
         "ts-morph": "19.0.0",
-        "tslib": "2.6.2",
-        "valibot": "0.17.0"
+        "tslib": "2.6.2"
     },
     "devDependencies": {
         "@ava/typescript": "4.1.0",
@@ -42,6 +51,7 @@
         "@enormora/eslint-config-node": "0.0.7",
         "@enormora/eslint-config-typescript": "0.0.7",
         "@types/libnpmpublish": "4.0.3",
+        "@types/node": "20.11.8",
         "@types/npm-registry-fetch": "8.0.4",
         "@types/semver": "7.5.2",
         "@types/sinon": "10.0.16",
@@ -52,7 +62,7 @@
         "prettier": "3.0.3",
         "sinon": "16.0.0",
         "type-fest": "4.3.1",
-        "typescript": "5.2.2"
+        "typescript": "5.3.3"
     },
     "engines": {
         "node": "^20"

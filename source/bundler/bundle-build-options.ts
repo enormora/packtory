@@ -1,30 +1,19 @@
-import type { PackageJson } from 'type-fest';
+import type { EntryPoint } from '../config/entry-point.js';
+import type { AdditionalFileDescription } from '../config/additional-files.js';
+import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.js';
 import type { BundleDescription } from './bundle-description.js';
 
-export type EntryPoint = {
-    readonly js: string;
-    readonly declarationFile?: string;
-};
-
 export type EntryPoints = readonly [EntryPoint, ...(readonly EntryPoint[])];
-
-export type AdditionalFileDescription = {
-    readonly sourceFilePath: string;
-    readonly targetFilePath: string;
-};
-
-type NonCustomizableAttribute = 'dependencies' | 'devDependencies' | 'main' | 'name' | 'types' | 'version';
-type AdditionalPackageJsonAttributes = Readonly<Exclude<PackageJson, NonCustomizableAttribute>>;
 
 export type BundleBuildOptions = {
     readonly sourcesFolder: string;
     readonly entryPoints: EntryPoints;
     readonly name: string;
     readonly version: string;
-    readonly mainPackageJson: PackageJson;
+    readonly mainPackageJson: MainPackageJson;
     readonly includeSourceMapFiles?: boolean;
-    readonly bundleDependencies?: BundleDescription[];
-    readonly bundlePeerDependencies?: BundleDescription[];
+    readonly bundleDependencies?: readonly BundleDescription[];
+    readonly bundlePeerDependencies?: readonly BundleDescription[];
     readonly additionalFiles?: readonly (AdditionalFileDescription | string)[];
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes;
 };

@@ -1,8 +1,9 @@
 import type _npmFetch from 'npm-registry-fetch';
 import type { publish as _publish } from 'libnpmpublish';
 import { Maybe } from 'true-myth';
-import { object, string, optional, record, is, type Output } from 'valibot';
+import { struct, string, optional, record, is, type Schema } from '@effect/schema/Schema';
 import type { BundlePackageJson } from '../bundler/bundle-description.js';
+import type { RegistrySettings } from '../config/registry-settings.js';
 
 type PublishFunction = typeof _publish;
 
@@ -12,12 +13,9 @@ export type RegistryClientDependencies = {
 };
 
 export type RegistryClient = {
-    fetchLatestVersion(packageName: string, config: Readonly<RegistrySettings>): Promise<Maybe<PackageVersionDetails>>;
-    publishPackage(
-        manifest: Readonly<BundlePackageJson>,
-        tarData: Buffer,
-        config: Readonly<RegistrySettings>
-    ): Promise<void>;
+    fetchLatestVersion(packageName: string, config: RegistrySettings): Promise<Maybe<PackageVersionDetails>>;
+    publishPackage(manifest: Readonly<BundlePackageJson>, tarData: Buffer, config: RegistrySettings): Promise<void>;
+    fetchTarball(tarballUrl: string, shasum: string): Promise<Buffer>;
 };
 
 type FetchError = {
@@ -32,21 +30,21 @@ function encodePackageName(name: string): string {
     return name.replace('/', '%2F');
 }
 
-const distTagsSchema = object({
-    latest: optional(string())
+const distTagsSchema = struct({
+    latest: optional(string, { exact: true })
 });
 
-const versionDataSchema = object({
-    dist: object({ shasum: string() })
+const versionDataSchema = struct({
+    dist: struct({ shasum: string, tarball: string })
 });
 
-const abbreviatedPackageResponseSchema = object({
-    name: string(),
+const abbreviatedPackageResponseSchema = struct({
+    name: string,
     'dist-tags': distTagsSchema,
-    versions: record(versionDataSchema)
+    versions: record(string, versionDataSchema)
 });
 
-type AbbreviatedPackageResponse = Readonly<Output<typeof abbreviatedPackageResponseSchema>>;
+type AbbreviatedPackageResponse = Schema.To<typeof abbreviatedPackageResponseSchema>;
 
 const httpStatusCode = {
     notFound: 404,
@@ -56,10 +54,7 @@ const httpStatusCode = {
 export type PackageVersionDetails = {
     readonly version: string;
     readonly shasum: string;
-};
-
-export type RegistrySettings = {
-    readonly token: string;
+    readonly tarballUrl: string;
 };
 
 type PublishFunctionParametersManifestIndex = 0;
@@ -90,7 +85,7 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
         const endpointUri = `/${encodePackageName(packageName)}`;
         try {
             const response = await fetchRegistryEndpoint(endpointUri, registrySettings);
-            if (!is(abbreviatedPackageResponseSchema, response)) {
+            if (!is(abbreviatedPackageResponseSchema)(response)) {
                 throw new Error('Got an invalid response from registry API');
             }
             return Maybe.just(response);
@@ -107,6 +102,11 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
     }
 
     return {
+        async fetchTarball(tarballUrl) {
+            const response = await npmFetch(tarballUrl);
+            return response.buffer();
+        },
+
         async publishPackage(manifest, tarData, registrySettings) {
             await publish(manifest as unknown as PublishManifest, tarData, {
                 defaultTag: 'latest',
@@ -133,7 +133,8 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
 
                 return Maybe.just({
                     version: latestVersion,
-                    shasum: versionData.dist.shasum
+                    shasum: versionData.dist.shasum,
+                    tarballUrl: versionData.dist.tarball
                 });
             }
 

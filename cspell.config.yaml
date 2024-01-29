@@ -1,1 +1,16 @@
-{ 'words': ['Analyzation', 'enormora', 'linkname', 'gname', 'devminor', 'devmajor', 'ssri'] }
+{
+    'words':
+        [
+            'Analyzation',
+            'enormora',
+            'linkname',
+            'gname',
+            'devminor',
+            'devmajor',
+            'ssri',
+            'packtory',
+            'subrecord',
+            'kleur',
+            'cmds'
+        ]
+}

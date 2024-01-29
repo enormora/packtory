@@ -15,7 +15,7 @@ export default [
     },
     {
         ...avaConfig,
-        files: ['**/*.test.ts']
+        files: ['**/*.test.ts', 'source/test-libraries/**/*.ts']
     },
     {
         ...nodeConfigFileConfig,
@@ -44,20 +44,27 @@ export default [
                     ignore: [-1, 0, 1]
                 }
             ],
-            'max-lines-per-function': 'off'
+            'max-lines-per-function': 'off',
+            'import/extensions': [
+                'error',
+                {
+                    js: 'always',
+                    jsx: 'always',
+                    json: 'always',
+                    ignorePackages: true
+                }
+            ],
+            // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
+            'functional/prefer-immutable-types': 'off',
+            // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
+            'functional/type-declaration-immutability': 'off'
         }
     },
     {
         files: ['**/*.test.ts'],
         rules: {
-            '@typescript-eslint/no-magic-numbers': 'off'
-        }
-    },
-    {
-        files: ['source/directed-graph/graph.ts'],
-        rules: {
-            // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
-            'functional/prefer-immutable-types': 'off'
+            '@typescript-eslint/no-magic-numbers': 'off',
+            'max-lines': 'off'
         }
     }
 ];
