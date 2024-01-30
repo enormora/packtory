@@ -1,8 +1,10 @@
 import { isSubrecord } from 'effect/ReadonlyRecord';
+import { map } from 'effect/ReadonlyArray';
 import type { BundleDescription } from '../bundler/bundle-description.js';
 import type { PackageConfig, PacktoryConfig } from '../config/config.js';
 import type { MainPackageJson } from '../config/package-json.js';
 import type { BuildAndPublishOptions } from '../publisher/publisher.js';
+import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.js';
 
 function dependencyNamesToBundles(
     dependencyNames: readonly string[],
@@ -34,6 +36,8 @@ export function configToBuildAndPublishOptions(
         mainPackageJson: mainPackageJsonFromPackageConfig,
         bundleDependencies = [],
         bundlePeerDependencies = [],
+        entryPoints,
+        additionalFiles = [],
         ...remainingPackageConfig
     } = packageConfig;
     const mainPackageJson = (packtoryConfig.commonPackageSettings?.mainPackageJson ??
@@ -44,6 +48,12 @@ export function configToBuildAndPublishOptions(
     return {
         ...remainingPackageConfig,
         registrySettings: packtoryConfig.registrySettings,
+        entryPoints: map(entryPoints, (entryPoint) => {
+            return normalizeEntryPoint(entryPoint, sourcesFolder);
+        }),
+        additionalFiles: additionalFiles.map((additionalFile) => {
+            return normalizeAdditionalFile(additionalFile, sourcesFolder);
+        }),
         mainPackageJson,
         sourcesFolder,
         bundleDependencies: dependencyNamesToBundles(bundleDependencies, existingBundles),
