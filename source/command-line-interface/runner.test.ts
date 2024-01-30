@@ -104,11 +104,11 @@ test('prints error summary when publish command encounters config errors', async
 
     await runner.run(['foo', 'bar', 'publish']);
 
-    t.is(log.callCount, 1);
+    t.is(log.callCount, 2);
     t.deepEqual(log.firstCall.args, ['✖ The provided config is invalid, there are 1 issue(s)\n\n- foo']);
 });
 
-test('prints error summary when publish command encounters partial errors', async (t) => {
+test('prints error summary and dry-run note when publish command encounters partial errors', async (t) => {
     const buildAndPublishAll = fake.resolves(
         Result.err({ type: 'partial', succeeded: ['foo'], failures: [new Error('first'), new Error('second')] })
     );
@@ -117,16 +117,46 @@ test('prints error summary when publish command encounters partial errors', asyn
 
     await runner.run(['foo', 'bar', 'publish']);
 
+    t.is(log.callCount, 2);
+    t.deepEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded']);
+    t.deepEqual(log.secondCall.args, [
+        '⚠  Note: dry-run mode was enabled, so there was nothing really published; add the --no-dry-run flag to disable dry-run mode'
+    ]);
+});
+
+test('prints error summary without dry-run note when publish command encounters partial errors and dry-run mode is disabled', async (t) => {
+    const buildAndPublishAll = fake.resolves(
+        Result.err({ type: 'partial', succeeded: ['foo'], failures: [new Error('first'), new Error('second')] })
+    );
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
+
     t.is(log.callCount, 1);
     t.deepEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded']);
 });
 
-test('prints success summary when publish command had no errors', async (t) => {
+test('prints success summary and dry-run note when publish command had no errors', async (t) => {
     const buildAndPublishAll = fake.resolves(Result.ok(['foo', 'bar']));
     const log = fake();
     const runner = runnerFactory({ buildAndPublishAll, log });
 
     await runner.run(['foo', 'bar', 'publish']);
+
+    t.is(log.callCount, 2);
+    t.deepEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);
+    t.deepEqual(log.secondCall.args, [
+        '⚠  Note: dry-run mode was enabled, so there was nothing really published; add the --no-dry-run flag to disable dry-run mode'
+    ]);
+});
+
+test('prints success summary without dry-run note when publish command had no errors and dry-run mode is disabled', async (t) => {
+    const buildAndPublishAll = fake.resolves(Result.ok(['foo', 'bar']));
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
 
     t.is(log.callCount, 1);
     t.deepEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);

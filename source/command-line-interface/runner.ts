@@ -1,6 +1,6 @@
 import { command, subcommands, flag, binary, run } from 'cmd-ts';
 import kleur from 'kleur';
-import type { Packtory } from '../packtory/packtory.js';
+import type { Packtory, PublishFailure } from '../packtory/packtory.js';
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.js';
 import type { PartialError } from '../packtory/scheduler.js';
 import type { PublishResult } from '../publisher/publisher.js';
@@ -21,6 +21,11 @@ export type CommandLineInterfaceRunner = {
 
 const errorSymbol = kleur.bold().red('✖');
 const successSymbol = kleur.bold().green('✔');
+const warningSymbol = kleur.yellow('⚠');
+
+type PublishFlags = {
+    noDryRun: boolean;
+};
 
 export function createCommandLineInterfaceRunner(
     dependencies: CommandLineInterfaceRunnerDependencies
@@ -28,6 +33,19 @@ export function createCommandLineInterfaceRunner(
     const { log, packtory, progressBroadcaster, spinnerRenderer, configLoader } = dependencies;
     let exitCode = 0;
 
+    function printDryRunNote(flags: PublishFlags): void {
+        if (flags.noDryRun) {
+            return;
+        }
+
+        log(
+            `${warningSymbol} ${kleur.dim(
+                ` Note: dry-run mode was enabled, so there was nothing really published; add the ${kleur.bold(
+                    '--no-dry-run'
+                )} flag to disable dry-run mode`
+            )}`
+        );
+    }
     function printInvalidConfigErrors(issues: readonly string[]): void {
         const title = `${errorSymbol} The provided config is invalid, there are ${issues.length} issue(s)`;
         const message = `${title}\n\n- ${issues.join('\n- ')}`;
@@ -41,6 +59,14 @@ export function createCommandLineInterfaceRunner(
                 total
             )} package(s) failed; ${kleur.green(error.succeeded.length)} succeeded`
         );
+    }
+
+    function printPublishFailure(error: PublishFailure): void {
+        if (error.type === 'config') {
+            printInvalidConfigErrors(error.issues);
+        } else {
+            printPartialErrorSummary(error);
+        }
     }
 
     function printSuccessSummary(results: readonly PublishResult[]): void {
@@ -62,16 +88,13 @@ export function createCommandLineInterfaceRunner(
                         const result = await packtory.buildAndPublishAll(config, { dryRun: !noDryRun });
                         if (result.isErr) {
                             exitCode = 1;
-                            if (result.error.type === 'config') {
-                                printInvalidConfigErrors(result.error.issues);
-                            } else {
-                                printPartialErrorSummary(result.error);
-                            }
+                            printPublishFailure(result.error);
                         } else {
                             printSuccessSummary(result.value);
                         }
                     } finally {
                         spinnerRenderer.stopAll();
+                        printDryRunNote({ noDryRun });
                     }
                 }
             })
