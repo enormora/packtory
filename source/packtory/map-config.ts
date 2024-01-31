@@ -1,4 +1,3 @@
-import { isSubrecord } from 'effect/ReadonlyRecord';
 import { map } from 'effect/ReadonlyArray';
 import type { BundleDescription } from '../bundler/bundle-description.js';
 import type { PackageConfig, PacktoryConfig } from '../config/config.js';
@@ -11,12 +10,13 @@ function dependencyNamesToBundles(
     bundles: readonly BundleDescription[]
 ): readonly BundleDescription[] {
     return dependencyNames.map((dependencyName) => {
-        const matchName = isSubrecord<unknown>({ name: dependencyName });
-        const bundle = bundles.find(matchName);
-        if (bundle === undefined) {
+        const matchingBundle = bundles.find((bundle) => {
+            return bundle.packageJson.name === dependencyName;
+        });
+        if (matchingBundle === undefined) {
             throw new Error(`Dependent bundle "${dependencyName}" not found`);
         }
-        return bundle;
+        return matchingBundle;
     });
 }
 
@@ -27,6 +27,7 @@ export function configToBuildAndPublishOptions(
     existingBundles: readonly BundleDescription[]
 ): BuildAndPublishOptions {
     const packageConfig = packageConfigs.get(packageName);
+
     if (packageConfig === undefined) {
         throw new Error(`Config for package "${packageName}" is missing`);
     }

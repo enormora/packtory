@@ -145,3 +145,50 @@ test('adds the sourceFolder as prefix to an additionalFile sourcePathFile when i
 
     t.deepEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
 });
+
+test('throws an error when a bundle dependency does not exist', (t) => {
+    const packageConfig = {
+        name: 'foo',
+        sourcesFolder: 'the-source',
+        entryPoints: [{ js: '' }],
+        mainPackageJson: {},
+        bundleDependencies: ['bar']
+    } as const;
+
+    t.throws(
+        () => {
+            configToBuildAndPublishOptions(
+                'foo',
+                new Map([['foo', packageConfig]]),
+                {
+                    registrySettings: { token: '' },
+                    packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
+                },
+                []
+            );
+        },
+        { message: 'Dependent bundle "bar" not found' }
+    );
+});
+
+test('maps the bundle dependency names correctly to the BundleDescription objects when it exists', (t) => {
+    const packageConfig = {
+        name: 'foo',
+        sourcesFolder: 'the-source',
+        entryPoints: [{ js: '' }],
+        mainPackageJson: {},
+        bundleDependencies: ['bar']
+    } as const;
+
+    const options = configToBuildAndPublishOptions(
+        'foo',
+        new Map([['foo', packageConfig]]),
+        {
+            registrySettings: { token: '' },
+            packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
+        },
+        [{ contents: [], packageJson: { name: 'bar', version: '' } }]
+    );
+
+    t.deepEqual(options.bundleDependencies, [{ contents: [], packageJson: { name: 'bar', version: '' } }]);
+});
