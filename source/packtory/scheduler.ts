@@ -47,14 +47,13 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         const { packageConfigs, packtoryConfig } = config;
         const results = await Promise.allSettled(
             packageNames.map(async (packageName) => {
-                const options = configToBuildAndPublishOptions(
-                    packageName,
-                    packageConfigs,
-                    packtoryConfig,
-                    existingBundles
-                );
-
                 try {
+                    const options = configToBuildAndPublishOptions(
+                        packageName,
+                        packageConfigs,
+                        packtoryConfig,
+                        existingBundles
+                    );
                     const result = await callback(options);
                     progressBroadcastProvider.emit('done', {
                         packageName,
