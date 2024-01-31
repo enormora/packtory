@@ -190,7 +190,7 @@ test('adds a spinner when progressBroadcaster receives a "scheduled" event', asy
     progressBroadcaster.provider.emit('scheduled', { packageName: 'foo' });
 
     t.is(add.callCount, 1);
-    t.deepEqual(add.firstCall.args, ['foo', 'foo', 'Scheduled...']);
+    t.deepEqual(add.firstCall.args, ['foo', 'foo', 'Scheduled …']);
 });
 
 test('stops a running spinner with failure status when progressBroadcaster receives an "error" event', async (t) => {
