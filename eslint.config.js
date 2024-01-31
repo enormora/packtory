@@ -23,7 +23,7 @@ export default [
     },
     {
         ...nodeEntryPointFileConfig,
-        files: ['source/*.entry-point.ts', 'source/example.ts']
+        files: ['source/packages/**/*.entry-point.ts', 'source/example.ts']
     },
     {
         files: ['**/*.ts'],
