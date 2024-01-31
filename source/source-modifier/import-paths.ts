@@ -4,17 +4,13 @@ import { getSourcePathFromSourceFile } from '../dependency-scanner/typescript-pr
 
 type Replacements = ReadonlyMap<string, string>;
 
-export function replaceImportPaths(
-    sourceFile: Readonly<SourceFile>,
-    replacements: Readonly<Replacements>,
-    resolveDeclarationFiles: boolean
-): string {
+export function replaceImportPaths(sourceFile: Readonly<SourceFile>, replacements: Readonly<Replacements>): string {
     const importStringLiterals = sourceFile.getImportStringLiterals();
 
     for (const literal of importStringLiterals) {
         const sourceFileForLiteral = resolveSourceFileForLiteral(literal, sourceFile);
         if (sourceFileForLiteral !== undefined) {
-            const fullPathForLiteral = getSourcePathFromSourceFile(sourceFileForLiteral, resolveDeclarationFiles);
+            const fullPathForLiteral = getSourcePathFromSourceFile(sourceFileForLiteral);
             const replacement = replacements.get(fullPathForLiteral);
 
             if (replacement !== undefined) {

@@ -31,6 +31,7 @@
     "dependencies": {
         "@effect/schema": "0.60.4",
         "@topcli/spinner": "2.1.2",
+        "@ts-morph/common": "0.22.0",
         "cmd-ts": "0.13.0",
         "effect": "2.1.1",
         "kleur": "4.1.5",

@@ -12,7 +12,7 @@ test('returns source code unmodified when it doesn’t contain any import statem
     const sourceFile = project.getSourceFileOrThrow('/folder/foo.ts');
     const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
 
-    const result = replaceImportPaths(sourceFile, replacements, false);
+    const result = replaceImportPaths(sourceFile, replacements);
 
     t.is(result, 'const foo = "bar";');
 });
@@ -27,7 +27,7 @@ test('returns the source code unmodified when there are no replacements', (t) =>
     const sourceFile = project.getSourceFileOrThrow('/folder/foo.ts');
     const replacements = new Map<string, string>([]);
 
-    const result = replaceImportPaths(sourceFile, replacements, false);
+    const result = replaceImportPaths(sourceFile, replacements);
 
     t.is(result, 'const foo = "bar"; import "./bar";');
 });
@@ -42,7 +42,7 @@ test('returns the source code with the modified import statement', (t) => {
     const sourceFile = project.getSourceFileOrThrow('/folder/foo.ts');
     const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
 
-    const result = replaceImportPaths(sourceFile, replacements, false);
+    const result = replaceImportPaths(sourceFile, replacements);
 
     t.is(result, 'const foo = "bar"; import "replacement";');
 });
@@ -58,12 +58,12 @@ test('modifies only matching import statements and keeps non-matching statements
     const sourceFile = project.getSourceFileOrThrow('/folder/foo.ts');
     const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
 
-    const result = replaceImportPaths(sourceFile, replacements, false);
+    const result = replaceImportPaths(sourceFile, replacements);
 
     t.is(result, 'import "./baz"; import "replacement";');
 });
 
-test('doesn’t modify import statements in d.ts files when resolving d.ts files is disabled', (t) => {
+test('modifies import statements correctly in d.ts files', (t) => {
     const project = createProject({
         withFiles: [
             { filePath: '/folder/foo.d.ts', content: 'import "./bar";' },
@@ -73,22 +73,7 @@ test('doesn’t modify import statements in d.ts files when resolving d.ts files
     const sourceFile = project.getSourceFileOrThrow('/folder/foo.d.ts');
     const replacements = new Map<string, string>([['/folder/bar.d.ts', 'replacement']]);
 
-    const result = replaceImportPaths(sourceFile, replacements, false);
-
-    t.is(result, 'import "./bar";');
-});
-
-test('modifies import statements correctly in d.ts files when resolving d.ts files is enabled', (t) => {
-    const project = createProject({
-        withFiles: [
-            { filePath: '/folder/foo.d.ts', content: 'import "./bar";' },
-            { filePath: '/folder/bar.d.ts', content: 'const bar = "baz";' }
-        ]
-    });
-    const sourceFile = project.getSourceFileOrThrow('/folder/foo.d.ts');
-    const replacements = new Map<string, string>([['/folder/bar.d.ts', 'replacement']]);
-
-    const result = replaceImportPaths(sourceFile, replacements, true);
+    const result = replaceImportPaths(sourceFile, replacements);
 
     t.is(result, 'import "replacement";');
 });
