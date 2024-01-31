@@ -57,3 +57,5 @@ function crash(error: unknown): void {
 }
 
 main().catch(crash);
+
+export type { PacktoryConfig } from './config/config.js';
