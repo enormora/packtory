@@ -119,7 +119,7 @@ export function createBundler(dependencies: Readonly<BundlerDependencies>): Bund
             resolveDeclarationFiles
         });
 
-        return substituteDependencies(dependencyGraph, entryPoint, bundleDependencies, resolveDeclarationFiles);
+        return substituteDependencies(dependencyGraph, entryPoint, bundleDependencies);
     }
 
     async function resolveDependenciesForAllEntrypoints(options: Readonly<ResolveOptions>): Promise<DependencyFiles> {

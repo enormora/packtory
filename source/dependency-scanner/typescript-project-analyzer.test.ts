@@ -44,13 +44,19 @@ function createFakeTSMorphProject(overrides: TSMorphProjectOverrides = {}): Read
 type Overrides = {
     readonly getReferencedSourceFiles?: SinonSpy;
     readonly TSMorphProject?: Readonly<SinonStub>;
+    readonly fileSystemAdapters?: Record<string, unknown>;
 };
 
 function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): TypescriptProjectAnalyzer {
-    const { TSMorphProject = createFakeTSMorphProject(), getReferencedSourceFiles = fake.resolves([]) } = overrides;
+    const {
+        TSMorphProject = createFakeTSMorphProject(),
+        getReferencedSourceFiles = fake.resolves([]),
+        fileSystemAdapters = {}
+    } = overrides;
     const fakeDependencies = {
         getReferencedSourceFiles,
-        Project: TSMorphProject
+        Project: TSMorphProject,
+        fileSystemAdapters
     } as unknown as TypescriptProjectAnalyzerDependencies;
 
     return createTypescriptProjectAnalyzer(fakeDependencies);
@@ -59,7 +65,12 @@ function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): Typescript
 test('creates a project for all js files in the given folder with module resolution', (t) => {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+    const analyzer = typescriptProjectAnalyzerFactory({
+        TSMorphProject,
+        fileSystemAdapters: {
+            fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files'
+        }
+    });
 
     analyzer.analyzeProject('/foo', {
         moduleResolution: 'module',
@@ -77,8 +88,13 @@ test('creates a project for all js files in the given folder with module resolut
                 esModuleInterop: true,
                 maxNodeModuleJsDepth: 1,
                 noEmit: true,
-                moduleResolution: 3
-            }
+                moduleResolution: 3,
+                noLib: true,
+                skipLibCheck: true,
+                typeRoots: [],
+                types: []
+            },
+            fileSystem: 'filtering-declaration-files'
         }
     ]);
     t.is(addSourceFilesAtPaths.callCount, 1);
@@ -88,7 +104,12 @@ test('creates a project for all js files in the given folder with module resolut
 test('creates a project for all js files in the given folder with commonjs resolution', (t) => {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+    const analyzer = typescriptProjectAnalyzerFactory({
+        TSMorphProject,
+        fileSystemAdapters: {
+            fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files'
+        }
+    });
 
     analyzer.analyzeProject('/foo', {
         moduleResolution: 'common-js',
@@ -106,8 +127,13 @@ test('creates a project for all js files in the given folder with commonjs resol
                 esModuleInterop: true,
                 maxNodeModuleJsDepth: 1,
                 noEmit: true,
-                moduleResolution: 3
-            }
+                moduleResolution: 3,
+                noLib: true,
+                skipLibCheck: true,
+                typeRoots: [],
+                types: []
+            },
+            fileSystem: 'filtering-declaration-files'
         }
     ]);
     t.is(addSourceFilesAtPaths.callCount, 1);
@@ -117,7 +143,10 @@ test('creates a project for all js files in the given folder with commonjs resol
 test('creates a project for all d.ts files in the given folder', (t) => {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+    const analyzer = typescriptProjectAnalyzerFactory({
+        TSMorphProject,
+        fileSystemAdapters: { fileSystemHostWithoutFilter: 'no-filtering' }
+    });
 
     analyzer.analyzeProject('/foo', {
         moduleResolution: 'module',
@@ -135,8 +164,11 @@ test('creates a project for all d.ts files in the given folder', (t) => {
                 esModuleInterop: true,
                 maxNodeModuleJsDepth: 1,
                 noEmit: true,
-                moduleResolution: 3
-            }
+                moduleResolution: 3,
+                noLib: true,
+                skipLibCheck: true
+            },
+            fileSystem: 'no-filtering'
         }
     ]);
     t.is(addSourceFilesAtPaths.callCount, 1);
@@ -207,7 +239,7 @@ test('getReferencedSourceFilePaths() returns an empty array when the source file
     t.deepEqual(result, []);
 });
 
-test('getReferencedSourceFilePaths() returns the referenced source file paths as js when resolveDeclarationFiles is false', (t) => {
+test('getReferencedSourceFilePaths() returns the referenced source file paths', (t) => {
     const getReferencedSourceFiles = fake.returns([
         createFakeSourceFile({ filePath: '/foo/b.d.ts', isDeclarationFile: true }),
         createFakeSourceFile({ filePath: '/foo/c.js', isDeclarationFile: false })
@@ -223,87 +255,5 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths as
     });
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 
-    t.deepEqual(result, ['/foo/b.js', '/foo/c.js']);
-});
-
-test('getReferencedSourceFilePaths() returns the referenced source file paths as cjs when resolveDeclarationFiles is false', (t) => {
-    const getReferencedSourceFiles = fake.returns([
-        createFakeSourceFile({ filePath: '/foo/b.d.cts', isDeclarationFile: true }),
-        createFakeSourceFile({ filePath: '/foo/c.cjs', isDeclarationFile: false })
-    ]);
-    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
-
-    const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
-    const result = project.getReferencedSourceFilePaths('/foo/a.js');
-
-    t.deepEqual(result, ['/foo/b.cjs', '/foo/c.cjs']);
-});
-
-test('getReferencedSourceFilePaths() returns the referenced source file paths as mjs when resolveDeclarationFiles is false', (t) => {
-    const getReferencedSourceFiles = fake.returns([
-        createFakeSourceFile({ filePath: '/foo/b.d.mts', isDeclarationFile: true }),
-        createFakeSourceFile({ filePath: '/foo/c.mjs', isDeclarationFile: false })
-    ]);
-    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
-
-    const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
-    const result = project.getReferencedSourceFilePaths('/foo/a.js');
-
-    t.deepEqual(result, ['/foo/b.mjs', '/foo/c.mjs']);
-});
-
-test('getReferencedSourceFilePaths() throws when the resolved file is a declaration file with an unknown extension', (t) => {
-    const getReferencedSourceFiles = fake.returns([
-        createFakeSourceFile({ filePath: '/foo/b.foo.bar', isDeclarationFile: true }),
-        createFakeSourceFile({ filePath: '/foo/c.mjs', isDeclarationFile: false })
-    ]);
-    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
-
-    const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
-
-    t.throws(
-        () => {
-            return project.getReferencedSourceFilePaths('/foo/a.js');
-        },
-        {
-            message: 'Couldn’t handle file extension of declaration file "/foo/b.foo.bar"'
-        }
-    );
-});
-
-test('getReferencedSourceFilePaths() returns the referenced source file paths as .d.ts when resolveDeclarationFiles is true', (t) => {
-    const getReferencedSourceFiles = fake.returns([
-        createFakeSourceFile({ filePath: '/foo/b.d.ts', isDeclarationFile: true }),
-        createFakeSourceFile({ filePath: '/foo/c.d.ts', isDeclarationFile: false })
-    ]);
-    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.d.ts' }));
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
-
-    const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: true,
-        failOnCompileErrors: false
-    });
-    const result = project.getReferencedSourceFilePaths('/foo/a.d.ts');
-
-    t.deepEqual(result, ['/foo/b.d.ts', '/foo/c.d.ts']);
+    t.deepEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
 });

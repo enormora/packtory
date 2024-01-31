@@ -19,7 +19,7 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
             }
         ]
     });
-    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', [], false);
+    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', []);
     const result = substitutedGraph.flatten('/entry.js');
 
     t.deepEqual(result, inputGraph.flatten('/entry.js'));
@@ -46,7 +46,7 @@ test('doesn’t substitute anything when the given dependencies has only files t
             packageJson: { name: 'the-package', version: '1' }
         }
     ];
-    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
+    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies);
     const result = substitutedGraph.flatten('/entry.js');
 
     t.deepEqual(result, inputGraph.flatten('/entry.js'));
@@ -73,7 +73,7 @@ test('doesn’t substitute anything when the given dependencies have a matching 
             packageJson: { name: 'the-package', version: '1' }
         }
     ];
-    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
+    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies);
     const result = substitutedGraph.flatten('/entry.js');
 
     t.deepEqual(result, inputGraph.flatten('/entry.js'));
@@ -100,7 +100,7 @@ test('substitutes a file that has imports statements matching the files in the g
             packageJson: { name: 'the-package', version: '1' }
         }
     ];
-    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
+    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies);
     const result = substitutedGraph.flatten('/entry.js');
 
     t.deepEqual(result, {
@@ -135,7 +135,7 @@ test('substitutes a file which matches an already substituted file from a depend
             packageJson: { name: 'the-package', version: '1' }
         }
     ];
-    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
+    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies);
     const result = substitutedGraph.flatten('/entry.js');
 
     t.deepEqual(result, {
@@ -179,7 +179,7 @@ test('merges topLevelDependencies correctly when multiple files are substituted 
             packageJson: { name: 'the-package', version: '1' }
         }
     ];
-    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
+    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies);
     const result = substitutedGraph.flatten('/entry.js');
 
     t.deepEqual(result, {
@@ -236,7 +236,7 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
             packageJson: { name: 'second-package', version: '42' }
         }
     ];
-    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies, false);
+    const substitutedGraph = substituteDependencies(inputGraph, '/entry.js', bundleDependencies);
     const result = substitutedGraph.flatten('/entry.js');
 
     t.deepEqual(result, {

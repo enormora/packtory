@@ -61,8 +61,7 @@ function mergeTopLevelDependencies(
 export function substituteDependencies(
     graph: DependencyGraph,
     entryPointFile: string,
-    dependencies: readonly BundleDescription[],
-    resolveDeclarationFiles: boolean
+    dependencies: readonly BundleDescription[]
 ): DependencyGraph {
     const substitutedGraph = createDependencyGraph();
     const outstandingConnections: { from: string; to: string }[] = [];
@@ -79,7 +78,7 @@ export function substituteDependencies(
 
             if (replacements.importPathReplacements.size > 0) {
                 const substitutionContent = Maybe.just(
-                    replaceImportPaths(node.tsSourceFile, replacements.importPathReplacements, resolveDeclarationFiles)
+                    replaceImportPaths(node.tsSourceFile, replacements.importPathReplacements)
                 );
 
                 substitutedGraph.addDependency(node.filePath, {

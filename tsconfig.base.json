@@ -23,6 +23,7 @@
         "noUncheckedIndexedAccess": true,
         "verbatimModuleSyntax": true,
         "outDir": "./target/build",
-        "types": []
+        "types": [],
+        "skipLibCheck": true
     }
 }
