@@ -11,7 +11,7 @@ export type BundleBuildOptions = {
     readonly name: string;
     readonly version: string;
     readonly mainPackageJson: MainPackageJson;
-    readonly includeSourceMapFiles?: boolean;
+    readonly includeSourceMapFiles?: boolean | undefined;
     readonly bundleDependencies?: readonly BundleDescription[];
     readonly bundlePeerDependencies?: readonly BundleDescription[];
     readonly additionalFiles?: readonly (AdditionalFileDescription | string)[];

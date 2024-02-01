@@ -2,11 +2,11 @@ import test from 'ava';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
 import { packtoryConfigSchema } from './config.js';
 
-test('validation succeeds when commonPackageSettings is undefined', checkValidationSuccess, {
+test('validation succeeds when commonPackageSettings is defined but empty', checkValidationSuccess, {
     schema: packtoryConfigSchema,
     data: {
         registrySettings: { token: 'foo' },
-        commonPackageSettings: undefined,
+        commonPackageSettings: {},
         packages: [
             {
                 sourcesFolder: 'source',
@@ -18,6 +18,25 @@ test('validation succeeds when commonPackageSettings is undefined', checkValidat
     }
 });
 
+test('validation succeeds when commonPackageSettings is defined with all optional values', checkValidationSuccess, {
+    schema: packtoryConfigSchema,
+    data: {
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: {
+            includeSourceMapFiles: true,
+            additionalFiles: [],
+            additionalPackageJsonAttributes: {}
+        },
+        packages: [
+            {
+                sourcesFolder: 'source',
+                mainPackageJson: {},
+                name: 'foo',
+                entryPoints: [{ js: 'foo' }]
+            }
+        ]
+    }
+});
 test(
     'validation succeeds when commonPackageSettings is not given and a package contains all required settings',
     checkValidationSuccess,
@@ -204,13 +223,12 @@ test('validation fails when an empty object is given', checkValidationFailure, {
 });
 
 test(
-    'validation fails when commonPackageSettings is undefined and mainPackageJson is missing in a package',
+    'validation fails when commonPackageSettings is not defined and mainPackageJson is missing in a package',
     checkValidationFailure,
     {
         schema: packtoryConfigSchema,
         data: {
             registrySettings: { token: 'foo' },
-            commonPackageSettings: undefined,
             packages: [
                 {
                     sourcesFolder: 'source',
@@ -221,7 +239,7 @@ test(
         },
         expectedMessages: [
             'At packages.0.mainPackageJson: missing key or index',
-            'At commonPackageSettings: expected object; but got undefined'
+            'At commonPackageSettings: missing key or index'
         ]
     }
 );
@@ -235,26 +253,29 @@ test('validation fails when packages is an empty array', checkValidationFailure,
     expectedMessages: ['At packages.0: missing key or index', 'At commonPackageSettings: missing key or index']
 });
 
-test('validation fails when commonPackageSettings is empty', checkValidationFailure, {
-    schema: packtoryConfigSchema,
-    data: {
-        registrySettings: { token: 'foo' },
-        commonPackageSettings: {},
-        packages: [
-            {
-                name: 'foo',
-                entryPoints: [{ js: 'foo' }]
-            }
+test(
+    'validation fails when commonPackageSettings is empty and packages don’t define required properties',
+    checkValidationFailure,
+    {
+        schema: packtoryConfigSchema,
+        data: {
+            registrySettings: { token: 'foo' },
+            commonPackageSettings: {},
+            packages: [
+                {
+                    name: 'foo',
+                    entryPoints: [{ js: 'foo' }]
+                }
+            ]
+        },
+        expectedMessages: [
+            'At packages.0.sourcesFolder: missing key or index',
+            'At packages.0.mainPackageJson: missing key or index',
+            'At commonPackageSettings.sourcesFolder: missing key or index',
+            'At commonPackageSettings.mainPackageJson: missing key or index'
         ]
-    },
-    expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At commonPackageSettings.sourcesFolder: missing key or index',
-        'At commonPackageSettings.mainPackageJson: missing key or index'
-    ]
-});
+    }
+);
 
 test('validation fails when commonPackageSettings contains only mainPackageJson', checkValidationFailure, {
     schema: packtoryConfigSchema,
@@ -271,7 +292,6 @@ test('validation fails when commonPackageSettings contains only mainPackageJson'
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
         'At packages.0.sourcesFolder: missing key or index',
         'At packages.0.mainPackageJson: missing key or index',
         'At commonPackageSettings.sourcesFolder: missing key or index'
@@ -295,8 +315,8 @@ test(
             ]
         },
         expectedMessages: [
-            'At packages.0.sourcesFolder: missing key or index',
-            'At commonPackageSettings: expected object; but got undefined'
+            'At commonPackageSettings: expected object; but got undefined',
+            'At packages.0.sourcesFolder: missing key or index'
         ]
     }
 );
@@ -316,7 +336,6 @@ test('validation fails when commonPackageSettings contains only sourcesFolder', 
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
         'At packages.0.sourcesFolder: missing key or index',
         'At packages.0.mainPackageJson: missing key or index',
         'At commonPackageSettings.mainPackageJson: missing key or index'
@@ -450,10 +469,9 @@ test('validation fails when additionalFiles is not an array', checkValidationFai
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
+        'At commonPackageSettings.additionalFiles: expected array; but got string',
         'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At commonPackageSettings.additionalFiles: expected array; but got string'
+        'At packages.0.mainPackageJson: missing key or index'
     ]
 });
 
@@ -474,10 +492,9 @@ test('validation fails when includeSourceMapFiles is not a boolean', checkValida
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
+        'At commonPackageSettings.includeSourceMapFiles: expected boolean; but got string',
         'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At commonPackageSettings.includeSourceMapFiles: expected boolean; but got string'
+        'At packages.0.mainPackageJson: missing key or index'
     ]
 });
 
@@ -498,10 +515,9 @@ test('validation fails when additionalPackageJsonAttributes is not an object', c
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
+        'At commonPackageSettings.additionalPackageJsonAttributes: expected object; but got string',
         'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At commonPackageSettings.additionalPackageJsonAttributes: expected object; but got string'
+        'At packages.0.mainPackageJson: missing key or index'
     ]
 });
 
@@ -522,7 +538,6 @@ test('validation fails when versioning is not an object', checkValidationFailure
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
         'At packages.0.sourcesFolder: missing key or index',
         'At packages.0.mainPackageJson: missing key or index',
         'At packages.0.versioning: expected object; but got string'
@@ -546,7 +561,6 @@ test('validation fails when bundleDependencies is not an array', checkValidation
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
         'At packages.0.sourcesFolder: missing key or index',
         'At packages.0.mainPackageJson: missing key or index',
         'At packages.0.bundleDependencies: expected array; but got string'
@@ -570,7 +584,6 @@ test('validation fails when bundlePeerDependencies is not an array', checkValida
         ]
     },
     expectedMessages: [
-        'At commonPackageSettings: expected undefined; but got object',
         'At packages.0.sourcesFolder: missing key or index',
         'At packages.0.mainPackageJson: missing key or index',
         'At packages.0.bundlePeerDependencies: expected array; but got string'

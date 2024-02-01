@@ -20,46 +20,35 @@ export async function buildConfig() {
         registrySettings: { token: npmToken },
         commonPackageSettings: {
             sourcesFolder,
-            mainPackageJson: packageJson
+            mainPackageJson: packageJson,
+            includeSourceMapFiles: true,
+            additionalFiles: [
+                {
+                    sourceFilePath: path.join(projectFolder, 'LICENSE'),
+                    targetFilePath: 'LICENSE'
+                },
+                {
+                    sourceFilePath: path.join(projectFolder, 'README.md'),
+                    targetFilePath: 'readme.md'
+                }
+            ]
         },
         packages: [
             {
                 name: 'packtory',
-                includeSourceMapFiles: true,
                 entryPoints: [
                     {
                         js: 'packages/packtory/packtory.entry-point.js',
                         declarationFile: 'packages/packtory/packtory.entry-point.d.ts'
                     }
-                ],
-                additionalFiles: [
-                    {
-                        sourceFilePath: path.join(projectFolder, 'LICENSE'),
-                        targetFilePath: 'LICENSE'
-                    },
-                    {
-                        sourceFilePath: path.join(projectFolder, 'README.md'),
-                        targetFilePath: 'readme.md'
-                    }
                 ]
             },
             {
                 name: '@packtory/cli',
-                includeSourceMapFiles: true,
                 entryPoints: [
                     {
                         js: 'packages/command-line-interface/command-line-interface.entry-point.js',
                         declarationFile: 'packages/command-line-interface/command-line-interface.entry-point.d.ts'
-                    }
-                ],
-                additionalFiles: [
-                    {
-                        sourceFilePath: path.join(projectFolder, 'LICENSE'),
-                        targetFilePath: 'LICENSE'
-                    },
-                    {
-                        sourceFilePath: path.join(projectFolder, 'README.md'),
-                        targetFilePath: 'readme.md'
                     }
                 ],
                 additionalPackageJsonAttributes: {
