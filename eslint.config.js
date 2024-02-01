@@ -19,11 +19,18 @@ export default [
     },
     {
         ...nodeConfigFileConfig,
-        files: ['eslint.config.js', 'ava.config.js', 'ava.integration.config.js']
+        files: ['eslint.config.js', 'ava.config.js', 'ava.integration.config.js', 'packtory.config.js']
+    },
+    {
+        ...nodeConfigFileConfig,
+        files: ['packtory.config.js'],
+        rules: {
+            'node/no-process-env': 'off'
+        }
     },
     {
         ...nodeEntryPointFileConfig,
-        files: ['source/*.entry-point.ts', 'source/example.ts']
+        files: ['source/packages/**/*.entry-point.ts']
     },
     {
         files: ['**/*.ts'],

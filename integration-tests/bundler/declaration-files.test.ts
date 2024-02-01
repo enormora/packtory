@@ -1,6 +1,6 @@
 import path from 'node:path';
 import test from 'ava';
-import { bundler } from '../../source/bundler.entry-point.js';
+import { bundler } from '../../source/packages/bundler/bundler.entry-point.js';
 import { loadPackageJson } from '../load-package-json.js';
 
 test('adds declaration files correctly to the bundle', async (t) => {
