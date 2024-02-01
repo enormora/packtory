@@ -104,7 +104,7 @@ export function createCommandLineInterfaceRunner(
     return {
         async run(programArguments) {
             progressBroadcaster.on('scheduled', (payload) => {
-                spinnerRenderer.add(payload.packageName, payload.packageName, 'Scheduled...');
+                spinnerRenderer.add(payload.packageName, payload.packageName, 'Scheduled …');
             });
 
             progressBroadcaster.on('error', (payload) => {

@@ -13,7 +13,7 @@ type SpinnerOverrides = {
     reset?: SinonSpy;
 };
 
-type FakeSpinnerInstance = { start: SinonSpy; failed: SinonSpy; succeed: SinonSpy; text?: string };
+type FakeSpinnerInstance = { start: SinonSpy; failed: SinonSpy; succeed: SinonSpy; text?: string; started?: boolean };
 type FakeSpinnerClass = SinonSpy<unknown[], FakeSpinnerInstance> & { reset: SinonSpy };
 
 function createFakeSpinnerClass(overrides: SpinnerOverrides = {}): FakeSpinnerClass {
@@ -164,4 +164,18 @@ test('stopAll() resets all spinners', (t) => {
 
     t.is(reset.callCount, 1);
     t.deepEqual(reset.firstCall.args, []);
+});
+
+test('stopAll() stops all spinners that are still running', (t) => {
+    const failed = fake();
+    const SpinnerClass = createFakeSpinnerClass({ failed });
+    const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
+
+    renderer.add('first', '', '');
+    renderer.add('second', '', '');
+    renderer.stop('first', 'success', 'foo');
+    renderer.stopAll();
+
+    t.is(failed.callCount, 1);
+    t.deepEqual(failed.firstCall.args, ['Canceled …']);
 });
