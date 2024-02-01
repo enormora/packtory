@@ -3,6 +3,7 @@ import type { BundleDescription } from '../bundler/bundle-description.js';
 import type { PackageConfig, PacktoryConfig } from '../config/config.js';
 import type { MainPackageJson } from '../config/package-json.js';
 import type { BuildAndPublishOptions } from '../publisher/publisher.js';
+import type { AdditionalFileDescription } from '../config/additional-files.js';
 import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.js';
 
 function dependencyNamesToBundles(
@@ -18,6 +19,20 @@ function dependencyNamesToBundles(
         }
         return matchingBundle;
     });
+}
+
+function mergeAdditionalFiles(
+    firstFiles: readonly AdditionalFileDescription[] = [],
+    secondFiles: readonly AdditionalFileDescription[] = []
+): readonly AdditionalFileDescription[] {
+    const filesWithUniqueTargetPath = new Map<string, AdditionalFileDescription>();
+    for (const file of firstFiles) {
+        filesWithUniqueTargetPath.set(file.targetFilePath, file);
+    }
+    for (const file of secondFiles) {
+        filesWithUniqueTargetPath.set(file.targetFilePath, file);
+    }
+    return Array.from(filesWithUniqueTargetPath.values());
 }
 
 export function configToBuildAndPublishOptions(
@@ -38,7 +53,9 @@ export function configToBuildAndPublishOptions(
         bundleDependencies = [],
         bundlePeerDependencies = [],
         entryPoints,
-        additionalFiles = [],
+        additionalFiles,
+        includeSourceMapFiles = packtoryConfig.commonPackageSettings?.includeSourceMapFiles,
+        additionalPackageJsonAttributes = {},
         ...remainingPackageConfig
     } = packageConfig;
     const mainPackageJson = (packtoryConfig.commonPackageSettings?.mainPackageJson ??
@@ -46,13 +63,23 @@ export function configToBuildAndPublishOptions(
     const sourcesFolder = (packtoryConfig.commonPackageSettings?.sourcesFolder ??
         sourcesFolderFromPackageConfig) as string;
 
+    const uniqueAdditionalFiles = mergeAdditionalFiles(
+        packtoryConfig.commonPackageSettings?.additionalFiles,
+        additionalFiles
+    );
+
     return {
         ...remainingPackageConfig,
+        additionalPackageJsonAttributes: {
+            ...packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
+            ...additionalPackageJsonAttributes
+        },
         registrySettings: packtoryConfig.registrySettings,
+        includeSourceMapFiles,
         entryPoints: map(entryPoints, (entryPoint) => {
             return normalizeEntryPoint(entryPoint, sourcesFolder);
         }),
-        additionalFiles: additionalFiles.map((additionalFile) => {
+        additionalFiles: uniqueAdditionalFiles.map((additionalFile) => {
             return normalizeAdditionalFile(additionalFile, sourcesFolder);
         }),
         mainPackageJson,

@@ -8,7 +8,6 @@ import {
     nonEmptyArray,
     rest,
     type Schema,
-    undefined as undefined_,
     partial,
     extend
 } from '@effect/schema/Schema';
@@ -28,6 +27,11 @@ const $perPackageSettingsSchema = struct({
 });
 type PerPackageSettings = Schema.To<typeof $perPackageSettingsSchema>;
 const perPackageSettingsSchema: Schema<PerPackageSettings> = $perPackageSettingsSchema;
+
+const optionalCommonPackageSettingsSchema = struct({
+    sourcesFolder: optional(nonEmptyStringSchema, { exact: true }),
+    mainPackageJson: optional(mainPackageJsonSchema, { exact: true })
+});
 
 const requiredCommonPackageSettingsSchema = struct({
     sourcesFolder: nonEmptyStringSchema,
@@ -52,7 +56,9 @@ const optionalPackageSettingsSchema = struct({
 
 const configWithOptionalCommonSettingsSchema = struct({
     registrySettings: registrySettingsSchema,
-    commonPackageSettings: optional(undefined_, { exact: true }),
+    commonPackageSettings: optional(optionalCommonPackageSettingsSchema.pipe(extend(optionalPackageSettingsSchema)), {
+        exact: true
+    }),
     packages: nonEmptyArray(
         requiredCommonPackageSettingsSchema
             .pipe(extend(optionalPackageSettingsSchema))
