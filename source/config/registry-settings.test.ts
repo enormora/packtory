@@ -2,10 +2,18 @@ import test from 'ava';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
 import { registrySettingsSchema } from './registry-settings.js';
 
-test('validation succeeds when valid registry settings are given', checkValidationSuccess, {
+test('validation succeeds when no url is given', checkValidationSuccess, {
     schema: registrySettingsSchema,
     data: {
         token: 'foo'
+    }
+});
+
+test('validation succeeds when url is given', checkValidationSuccess, {
+    schema: registrySettingsSchema,
+    data: {
+        token: 'foo',
+        registryUrl: 'bar'
     }
 });
 

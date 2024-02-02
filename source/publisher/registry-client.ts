@@ -74,6 +74,7 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
                 alwaysAuth: true,
                 token: registrySettings.token
             },
+            registry: registrySettings.registryUrl,
             headers: { accept: acceptHeaderForFetchingAbbreviatedResponse }
         });
     }
@@ -113,7 +114,8 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
                 forceAuth: {
                     alwaysAuth: true,
                     token: registrySettings.token
-                }
+                },
+                registry: registrySettings.registryUrl
             });
         },
 

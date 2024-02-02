@@ -50,7 +50,25 @@ test('publishPackage() calls npm publish function with the given manifest and ta
     t.deepEqual(publish.firstCall.args, [
         { name: 'the-name', version: 'the-version' },
         tarData,
-        { defaultTag: 'latest', forceAuth: { alwaysAuth: true, token: 'the-token' } }
+        { defaultTag: 'latest', forceAuth: { alwaysAuth: true, token: 'the-token' }, registry: undefined }
+    ]);
+});
+
+test('publishPackage() calls npm publish function with custom registry', async (t) => {
+    const publish = fake.resolves(undefined);
+    const registryClient = registryClientFactory({ publish });
+    const tarData = Buffer.from([1, 2, 3, 4]);
+
+    await registryClient.publishPackage({ name: 'the-name', version: 'the-version' }, tarData, {
+        token: 'the-token',
+        registryUrl: 'the-url'
+    });
+
+    t.is(publish.callCount, 1);
+    t.deepEqual(publish.firstCall.args, [
+        { name: 'the-name', version: 'the-version' },
+        tarData,
+        { defaultTag: 'latest', forceAuth: { alwaysAuth: true, token: 'the-token' }, registry: 'the-url' }
     ]);
 });
 
@@ -69,7 +87,29 @@ test('fetchLatestVersion() fetches the correct package endpoint with the correct
         '/the-name',
         {
             forceAuth: { alwaysAuth: true, token: 'the-token' },
-            headers: { accept: 'application/vnd.npm.install-v1+json' }
+            headers: { accept: 'application/vnd.npm.install-v1+json' },
+            registry: undefined
+        }
+    ]);
+});
+
+test('fetchLatestVersion() fetches the correct package endpoint with the correct authentication settings and headers when using a custom registry', async (t) => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': { latest: '1' },
+        versions: { 1: { dist: { shasum: '', tarball: '' } } }
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await registryClient.fetchLatestVersion('the-name', { token: 'the-token', registryUrl: 'the-url' });
+
+    t.is(npmFetchJson.callCount, 1);
+    t.deepEqual(npmFetchJson.firstCall.args, [
+        '/the-name',
+        {
+            forceAuth: { alwaysAuth: true, token: 'the-token' },
+            headers: { accept: 'application/vnd.npm.install-v1+json' },
+            registry: 'the-url'
         }
     ]);
 });

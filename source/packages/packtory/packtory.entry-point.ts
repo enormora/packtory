@@ -34,3 +34,4 @@ export const { buildAndPublishAll } = packtory;
 export const progressBroadcastConsumer = progressBroadcaster.consumer;
 
 export type { PacktoryConfig } from '../../config/config.js';
+export type { PublishAllResult } from '../../packtory/packtory.js';

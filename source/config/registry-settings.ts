@@ -1,7 +1,8 @@
-import { type Schema, struct } from '@effect/schema/Schema';
+import { type Schema, struct, optional } from '@effect/schema/Schema';
 import { type NoExpand, nonEmptyStringSchema } from './base-validations.js';
 
 const $registrySettingsSchema = struct({
+    registryUrl: optional(nonEmptyStringSchema, { exact: true }),
     token: nonEmptyStringSchema
 });
 
