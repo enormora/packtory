@@ -10,6 +10,7 @@
         "packtory",
         "subrecord",
         "kleur",
-        "cmds"
+        "cmds",
+        "htpasswd"
     ]
 }
