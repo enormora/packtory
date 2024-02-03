@@ -439,6 +439,51 @@ test('detectCycles() detects multiple cycles which are not connected', (t) => {
     ]);
 });
 
+test('detectCycles() returns an empty array for a non-cyclic graph even when adjacent nodes of the base node reference a certain node multiple times within the graph', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: [
+            { from: 'b', to: 'a' },
+            { from: 'c', to: 'a' },
+            { from: 'c', to: 'b' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), []);
+});
+
+test('detectCycles() returns all detected cycles when one base node has multiple cycles in its adjacent nodes', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', ''],
+            ['d', ''],
+            ['e', '']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' },
+            { from: 'b', to: 'd' },
+            { from: 'c', to: 'd' },
+            { from: 'd', to: 'e' },
+            { from: 'e', to: 'a' },
+            { from: 'e', to: 'c' }
+        ]
+    });
+
+    t.deepEqual(graph.detectCycles(), [
+        ['a', 'b', 'd', 'e', 'a'],
+        ['a', 'b', 'd', 'e', 'c', 'd'],
+        ['a', 'c', 'd', 'e', 'a'],
+        ['a', 'c', 'd', 'e', 'c']
+    ]);
+});
+
 test('isCyclic() returns true when there is one cycle in the graph', (t) => {
     const graph = createGraphWithNodes({
         nodes: [['a', '']],
