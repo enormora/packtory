@@ -17,7 +17,7 @@ function buildPackageGraph(packages: ReadonlyMap<string, PackageConfig>): Direct
         ];
 
         for (const dependency of allDependencies) {
-            graph.connect({ from: dependency, to: packageConfig.name });
+            graph.connect({ from: packageConfig.name, to: dependency });
         }
     }
 
