@@ -15,7 +15,7 @@ function isDeclarationFile(filePath: string): boolean {
 }
 
 function isTypesRootFolder(directoryPath: string): boolean {
-    return directoryPath.includes('/node_modules/@types');
+    return directoryPath.endsWith('/node_modules/@types') || directoryPath.includes('/node_modules/@types/');
 }
 
 export type FileSystemAdaptersDependencies = {
