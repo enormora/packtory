@@ -66,7 +66,7 @@ export async function buildConfig() {
                 ],
                 additionalPackageJsonAttributes: {
                     bin: {
-                        packtory: './command-line-interface.entry-point.js'
+                        packtory: 'packages/command-line-interface/command-line-interface.entry-point.js'
                     },
                     description:
                         'Effortlessly bundle and publish npm packages from the command line with @packtory/cli.'
