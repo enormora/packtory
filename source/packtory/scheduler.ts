@@ -91,7 +91,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
     }
 
     function getExecutionPlan(config: ValidConfigResult): readonly (readonly string[])[] {
-        return config.packageGraph.getTopologicalGenerations();
+        return config.packageGraph.reverse().getTopologicalGenerations();
     }
 
     return {

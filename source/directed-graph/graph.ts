@@ -24,6 +24,7 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     detectCycles(): readonly (readonly TId[])[];
     isCyclic(): boolean;
     getTopologicalGenerations(): readonly (readonly TId[])[];
+    reverse(): DirectedGraph<TId, TData>;
 };
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
@@ -126,21 +127,21 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         return newIncomingEdgesPerNode;
     }
 
-    function detectCyclesForNode(baseNode: GraphNode<TId, TData>): readonly (readonly TId[])[] {
-        const queue: GraphNode<TId, TData>[] = [baseNode];
-        const visitedAdjacentIds = new Set<TId>();
-        const cycles: TId[][] = [];
+    function detectCyclesForNode(
+        baseNode: GraphNode<TId, TData>,
+        visitedIds: readonly TId[]
+    ): readonly (readonly TId[])[] {
+        const newVisitedIds = [...visitedIds, baseNode.id];
 
-        for (let head = queue.shift(); head !== undefined; head = queue.shift()) {
-            visitedAdjacentIds.add(head.id);
+        if (visitedIds.includes(baseNode.id)) {
+            return [newVisitedIds];
+        }
 
-            for (const id of head.adjacentNodeIds) {
-                if (visitedAdjacentIds.has(id)) {
-                    cycles.push([...visitedAdjacentIds, id]);
-                } else {
-                    queue.push(getNode(id));
-                }
-            }
+        const cycles: (readonly TId[])[] = [];
+
+        for (const id of baseNode.adjacentNodeIds) {
+            const cyclesInAdjacentNode = detectCyclesForNode(getNode(id), newVisitedIds);
+            cycles.push(...cyclesInAdjacentNode);
         }
 
         return cycles;
@@ -152,7 +153,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
 
         for (const baseNode of nodes.values()) {
             if (!idsWithinCycles.has(baseNode.id)) {
-                const cyclesForNode = detectCyclesForNode(baseNode);
+                const cyclesForNode = detectCyclesForNode(baseNode, []);
 
                 if (cyclesForNode.length > 0) {
                     cycles.push(...cyclesForNode);
@@ -264,6 +265,22 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
 
             const incomingEdgesPerNode = getIncomingEdgesPerNode();
             return recursivelyGetTopologicalGenerations(new Set(), incomingEdgesPerNode);
+        },
+
+        reverse() {
+            const reversedGraph = createDirectedGraph<TId, TData>();
+
+            for (const node of nodes.values()) {
+                reversedGraph.addNode(node.id, node.data);
+            }
+
+            for (const node of nodes.values()) {
+                for (const adjacentNodeId of node.adjacentNodeIds) {
+                    reversedGraph.connect({ from: adjacentNodeId, to: node.id });
+                }
+            }
+
+            return reversedGraph;
         }
     };
 }

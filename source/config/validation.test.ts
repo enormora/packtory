@@ -82,6 +82,21 @@ test('returns an issue when there is a cycle per bundleDependencies', (t) => {
     t.deepEqual(result, Result.err(['Unexpected cyclic dependency path: [a→b→a]']));
 });
 
+test('returns an issue when there is a long cycle per bundleDependencies', (t) => {
+    const result = validateConfig({
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        packages: [
+            { name: 'a', entryPoints: [{ js: 'foo' }], bundleDependencies: ['d'] },
+            { name: 'b', entryPoints: [{ js: 'foo' }], bundleDependencies: ['a'] },
+            { name: 'c', entryPoints: [{ js: 'foo' }], bundleDependencies: ['b'] },
+            { name: 'd', entryPoints: [{ js: 'foo' }], bundleDependencies: ['c'] }
+        ]
+    });
+
+    t.deepEqual(result, Result.err(['Unexpected cyclic dependency path: [a→d→c→b→a]']));
+});
+
 test('returns an issue when there is a cycle per bundlePeerDependencies', (t) => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
