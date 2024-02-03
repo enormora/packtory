@@ -155,7 +155,7 @@ test(
 );
 
 test(
-    'fileSystemHostFilteringDeclarationFiles.directoryExists returns false when the path contains the segments node_modules/@types',
+    'fileSystemHostFilteringDeclarationFiles.directoryExists returns false when the path contains the segments node_modules/@types/',
     checkWrappedFileHostMethod,
     {
         method: 'directoryExists',
@@ -255,5 +255,61 @@ test(
         upstreamMethodReturnValue: true,
         expectedResult: true,
         expectedUpstreamCalls: [['foo/node_modules/@types/bar']]
+    }
+);
+
+test(
+    'fileSystemHostFilteringDeclarationFiles.directoryExists returns false when the path ends with the segments node_modules/@types',
+    checkWrappedFileHostMethod,
+    {
+        method: 'directoryExists',
+        adapter: 'fileSystemHostFilteringDeclarationFiles',
+        pathToCheck: 'foo/node_modules/@types',
+        upstreamMethodReturnValue: true,
+        expectedResult: false,
+        expectedUpstreamCalls: []
+    }
+);
+
+test(
+    'fileSystemHostFilteringDeclarationFiles.directoryExists returns the same value from the wrapped fileSystemHost when the path contains node_modules/@types which is not the end of the segment',
+    checkWrappedFileHostMethod,
+    {
+        method: 'directoryExists',
+        adapter: 'fileSystemHostFilteringDeclarationFiles',
+        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+        pathToCheck: 'foo/node_modules/@typesomething/foo',
+        upstreamMethodReturnValue: true,
+        expectedResult: true,
+        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+        expectedUpstreamCalls: [['foo/node_modules/@typesomething/foo']]
+    }
+);
+
+test(
+    'fileSystemHostFilteringDeclarationFiles.directoryExistsSync returns false when the path ends with the segments node_modules/@types',
+    checkWrappedFileHostMethod,
+    {
+        method: 'directoryExistsSync',
+        adapter: 'fileSystemHostFilteringDeclarationFiles',
+        pathToCheck: 'foo/node_modules/@types',
+        upstreamMethodReturnValue: true,
+        expectedResult: false,
+        expectedUpstreamCalls: []
+    }
+);
+
+test(
+    'fileSystemHostFilteringDeclarationFiles.directoryExistsSync returns the same value from the wrapped fileSystemHost when the path contains node_modules/@types which is not the end of the segment',
+    checkWrappedFileHostMethod,
+    {
+        method: 'directoryExistsSync',
+        adapter: 'fileSystemHostFilteringDeclarationFiles',
+        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+        pathToCheck: 'foo/node_modules/@typesomething/foo',
+        upstreamMethodReturnValue: true,
+        expectedResult: true,
+        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+        expectedUpstreamCalls: [['foo/node_modules/@typesomething/foo']]
     }
 );
