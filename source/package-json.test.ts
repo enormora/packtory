@@ -7,9 +7,19 @@ test('serializes the given data with 4 spaces indentation', (t) => {
     t.is(result, '{\n    "a": "foo",\n    "b": "bar"\n}');
 });
 
+test('serializes arrays correctly', (t) => {
+    const result = serializePackageJson({ foo: ['a', 'b'] });
+    t.is(result, '{\n    "foo": [\n        "a",\n        "b"\n    ]\n}');
+});
+
 test('sorts the top-level keys alphabetically', (t) => {
     const result = serializePackageJson({ b: 'foo', a: 'bar' });
     t.is(result, '{\n    "a": "bar",\n    "b": "foo"\n}');
+});
+
+test('sorts simple array correctly', (t) => {
+    const result = serializePackageJson({ foo: ['b', 'a', 0, true] });
+    t.is(result, '{\n    "foo": [\n        "a",\n        "b",\n        0,\n        true\n    ]\n}');
 });
 
 test('sorts the keys of a top-level property alphabetically', (t) => {
@@ -48,5 +58,13 @@ test('throws when a circular structure is given', (t) => {
             return serializePackageJson({ b: 'foo', a: firstEntry });
         },
         { message: 'Circular structures are not supported' }
+    );
+});
+
+test('sorts objects nested within array correctly', (t) => {
+    const result = serializePackageJson({ foo: ['f', { b: '1', a: '2', d: [3, 2] }, 'c'] });
+    t.is(
+        result,
+        '{\n    "foo": [\n        "f",\n        {\n            "a": "2",\n            "b": "1",\n            "d": [\n                2,\n                3\n            ]\n        },\n        "c"\n    ]\n}'
     );
 });
