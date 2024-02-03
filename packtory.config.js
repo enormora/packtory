@@ -51,7 +51,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: 'packages/packtory/readme.md',
+                        sourceFilePath: path.join(projectFolder, 'source/packages/packtory/readme.md'),
                         targetFilePath: 'readme.md'
                     }
                 ]
@@ -73,7 +73,7 @@ export async function buildConfig() {
                 },
                 additionalFiles: [
                     {
-                        sourceFilePath: 'packages/command-line-interface/readme.md',
+                        sourceFilePath: path.join(projectFolder, 'source/packages/command-line-interface/readme.md'),
                         targetFilePath: 'readme.md'
                     }
                 ],
