@@ -644,3 +644,50 @@ test('getTopologicalGenerations() returns multiple generations of two dependent 
 
     t.deepEqual(generations, [['a', 'c'], ['d'], ['e'], ['b', 'f']]);
 });
+
+test('reverse() returns a new graph with the edges reversed', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+    const reversedGraph = graph.reverse();
+
+    t.is(graph.hasConnection({ from: 'a', to: 'b' }), true);
+    t.is(graph.hasConnection({ from: 'b', to: 'a' }), false);
+    t.is(reversedGraph.hasConnection({ from: 'a', to: 'b' }), false);
+    t.is(reversedGraph.hasConnection({ from: 'b', to: 'a' }), true);
+});
+
+test('reverse() copies all nodes with their data', (t) => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [{ from: 'a', to: 'b' }]
+    });
+    const reversedGraph = graph.reverse();
+    const collectedNodes: unknown[] = [];
+
+    reversedGraph.visitBreadthFirstSearch('b', (node) => {
+        collectedNodes.push(node);
+    });
+
+    t.deepEqual(collectedNodes, [
+        {
+            id: 'b',
+            data: 'bar',
+            adjacentNodeIds: new Set(['a']),
+            incomingEdges: 0
+        },
+        {
+            id: 'a',
+            data: 'foo',
+            adjacentNodeIds: new Set([]),
+            incomingEdges: 1
+        }
+    ]);
+});

@@ -24,6 +24,7 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     detectCycles(): readonly (readonly TId[])[];
     isCyclic(): boolean;
     getTopologicalGenerations(): readonly (readonly TId[])[];
+    reverse(): DirectedGraph<TId, TData>;
 };
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
@@ -264,6 +265,22 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
 
             const incomingEdgesPerNode = getIncomingEdgesPerNode();
             return recursivelyGetTopologicalGenerations(new Set(), incomingEdgesPerNode);
+        },
+
+        reverse() {
+            const reversedGraph = createDirectedGraph<TId, TData>();
+
+            for (const node of nodes.values()) {
+                reversedGraph.addNode(node.id, node.data);
+            }
+
+            for (const node of nodes.values()) {
+                for (const adjacentNodeId of node.adjacentNodeIds) {
+                    reversedGraph.connect({ from: adjacentNodeId, to: node.id });
+                }
+            }
+
+            return reversedGraph;
         }
     };
 }
