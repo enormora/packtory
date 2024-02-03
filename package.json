@@ -18,7 +18,18 @@
         "pretest:integration": "tsc -b integration-tests/tsconfig.json",
         "test:integration": "ava --config ava.integration.config.js"
     },
-    "keywords": [],
+    "keywords": [
+        "bundler",
+        "bundling",
+        "npm",
+        "publish",
+        "modules",
+        "versioning",
+        "monorepo",
+        "publishing",
+        "package",
+        "packaging"
+    ],
     "author": "Mathias Schreck <schreck.mathias@gmail.com>",
     "contributors": [
         "Christian Rackerseder <github@echooff.de>"

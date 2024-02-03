@@ -26,12 +26,16 @@ export async function buildConfig() {
                 {
                     sourceFilePath: path.join(projectFolder, 'LICENSE'),
                     targetFilePath: 'LICENSE'
-                },
-                {
-                    sourceFilePath: path.join(projectFolder, 'README.md'),
-                    targetFilePath: 'readme.md'
                 }
-            ]
+            ],
+            additionalPackageJsonAttributes: {
+                repository: packageJson.repository,
+                license: packageJson.license,
+                keywords: packageJson.keywords,
+                author: packageJson.author,
+                contributors: packageJson.contributors,
+                engines: packageJson.engines
+            }
         },
         packages: [
             {
@@ -40,6 +44,15 @@ export async function buildConfig() {
                     {
                         js: 'packages/packtory/packtory.entry-point.js',
                         declarationFile: 'packages/packtory/packtory.entry-point.d.ts'
+                    }
+                ],
+                additionalPackageJsonAttributes: {
+                    description: 'Enable customized npm package bundling and publishing using packtory’s versatile API.'
+                },
+                additionalFiles: [
+                    {
+                        sourceFilePath: 'packages/packtory/readme.md',
+                        targetFilePath: 'readme.md'
                     }
                 ]
             },
@@ -54,8 +67,16 @@ export async function buildConfig() {
                 additionalPackageJsonAttributes: {
                     bin: {
                         packtory: './command-line-interface.entry-point.js'
-                    }
+                    },
+                    description:
+                        'Effortlessly bundle and publish npm packages from the command line with @packtory/cli.'
                 },
+                additionalFiles: [
+                    {
+                        sourceFilePath: 'packages/command-line-interface/readme.md',
+                        targetFilePath: 'readme.md'
+                    }
+                ],
                 bundleDependencies: ['packtory']
             }
         ]
