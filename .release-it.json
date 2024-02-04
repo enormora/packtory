@@ -1,0 +1,16 @@
+{
+    "git": {
+        "changelog": "npx pr-log --stdout --unreleased"
+    },
+    "npm": {
+        "publish": false
+    },
+    "github": {
+        "release": true,
+        "releaseName": "${version}"
+    },
+    "hooks": {
+        "before:init": ["npm run compile", "npm run lint", "npm run test"],
+        "after:bump": ["npx pr-log ${version} --sloppy"]
+    }
+}

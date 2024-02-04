@@ -16,7 +16,8 @@
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
         "test:unit": "ava --config ava.config.js",
         "pretest:integration": "tsc -b integration-tests/tsconfig.json",
-        "test:integration": "ava --config ava.integration.config.js"
+        "test:integration": "ava --config ava.integration.config.js",
+        "release": "release-it"
     },
     "keywords": [
         "bundler",
@@ -72,7 +73,9 @@
         "ava": "5.3.1",
         "eslint": "8.50.0",
         "get-port": "7.0.0",
+        "pr-log": "6.0.0",
         "prettier": "3.0.3",
+        "release-it": "17.0.3",
         "sinon": "16.0.0",
         "type-fest": "4.3.1",
         "typescript": "5.3.3",
