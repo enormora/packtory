@@ -16,7 +16,8 @@
         "pretest:unit": "tsc -b source/tsconfig.unit-tests.json",
         "test:unit": "ava --config ava.config.js",
         "pretest:integration": "tsc -b integration-tests/tsconfig.json",
-        "test:integration": "ava --config ava.integration.config.js"
+        "test:integration": "ava --config ava.integration.config.js",
+        "release": "release-it"
     },
     "keywords": [
         "bundler",
