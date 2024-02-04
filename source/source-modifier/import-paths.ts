@@ -19,5 +19,5 @@ export function replaceImportPaths(sourceFile: Readonly<SourceFile>, replacement
         }
     }
 
-    return sourceFile.getText();
+    return sourceFile.getFullText();
 }

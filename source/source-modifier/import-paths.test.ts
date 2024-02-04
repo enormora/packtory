@@ -77,3 +77,18 @@ test('modifies import statements correctly in d.ts files', (t) => {
 
     t.is(result, 'import "replacement";');
 });
+
+test('keeps shebang line in the transformed output', (t) => {
+    const project = createProject({
+        withFiles: [
+            { filePath: '/folder/foo.ts', content: '#!/usr/bin/env node\nconst foo = "bar"; import "./bar";' },
+            { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
+        ]
+    });
+    const sourceFile = project.getSourceFileOrThrow('/folder/foo.ts');
+    const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
+
+    const result = replaceImportPaths(sourceFile, replacements);
+
+    t.is(result, '#!/usr/bin/env node\nconst foo = "bar"; import "replacement";');
+});
