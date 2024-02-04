@@ -10,10 +10,10 @@ test('returns an empty array when the given tarball is empty', async (t) => {
     t.deepEqual(files, []);
 });
 
-test('returns the extract file descriptions when the given tarball is not empty', async (t) => {
+test('returns the extracted file descriptions when the given tarball is not empty', async (t) => {
     const tarballBuilder = createTarballBuilder();
-    const tarball = await tarballBuilder.build([{ filePath: 'foo', content: 'bar' }]);
+    const tarball = await tarballBuilder.build([{ filePath: 'foo', content: 'bar', isExecutable: true }]);
     const files = await extractPackageTarball(tarball);
 
-    t.deepEqual(files, [{ filePath: 'foo', content: 'bar' }]);
+    t.deepEqual(files, [{ filePath: 'foo', content: 'bar', isExecutable: true }]);
 });

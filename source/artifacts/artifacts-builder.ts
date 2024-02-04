@@ -1,8 +1,9 @@
 import path from 'node:path';
 import ssri from 'ssri';
-import type { BundleDescription } from '../bundler/bundle-description.js';
+import type { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
 import type { TarballBuilder } from '../tar/tarball-builder.js';
 import type { FileDescription } from '../file-description/file-description.js';
+import { isExecutableFileMode } from '../file-description/permissions.js';
 import type { FileManager } from './file-manager.js';
 
 export type ArtifactsBuilderDependencies = {
@@ -24,17 +25,27 @@ export type ArtifactsBuilder = {
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
     const { fileManager, tarballBuilder } = artifactsBuilderDependencies;
 
+    async function isBundleContentExecutable(content: BundleContent): Promise<boolean> {
+        if (content.kind !== 'source') {
+            const fileMode = await fileManager.getFileMode(content.sourceFilePath);
+            return isExecutableFileMode(fileMode);
+        }
+
+        return false;
+    }
+
     async function collectContents(bundle: BundleDescription): Promise<readonly FileDescription[]> {
         const artifactContents: FileDescription[] = [];
 
         for (const entry of bundle.contents) {
             const targetFilePath = path.join('package', entry.targetFilePath);
+            const isExecutable = await isBundleContentExecutable(entry);
 
             if (entry.kind === 'reference') {
                 const content = await fileManager.readFile(entry.sourceFilePath);
-                artifactContents.push({ filePath: targetFilePath, content });
+                artifactContents.push({ filePath: targetFilePath, content, isExecutable });
             } else {
-                artifactContents.push({ filePath: targetFilePath, content: entry.source });
+                artifactContents.push({ filePath: targetFilePath, content: entry.source, isExecutable });
             }
         }
         return artifactContents;

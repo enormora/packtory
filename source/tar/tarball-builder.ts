@@ -15,6 +15,8 @@ function unsetOperatingSystemGzipHeaderField(data: Buffer): void {
 }
 
 const staticFileModificationTime = new Date(0);
+const executableFileMode = 493;
+const nonExecutableFileMode = 420;
 
 export function createTarballBuilder(): TarballBuilder {
     function createPack(fileDescriptions: readonly FileDescription[]): Pack {
@@ -22,7 +24,11 @@ export function createTarballBuilder(): TarballBuilder {
 
         for (const fileDescription of fileDescriptions) {
             const entry = pack.entry(
-                { name: fileDescription.filePath, mtime: staticFileModificationTime },
+                {
+                    name: fileDescription.filePath,
+                    mtime: staticFileModificationTime,
+                    mode: fileDescription.isExecutable ? executableFileMode : nonExecutableFileMode
+                },
                 fileDescription.content
             );
             entry.end();
