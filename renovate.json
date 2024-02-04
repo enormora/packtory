@@ -12,7 +12,7 @@
             "depTypeList": ["dependencies", "devDependencies"],
             "updateTypes": ["minor", "patch"],
             "automerge": true,
-            "automergeType": "branch"
+            "automergeType": "pr"
         }
     ]
 }
