@@ -2,6 +2,7 @@
     "extends": ["config:base"],
     "commitMessagePrefix": "⬆️ ",
     "labels": ["renovate", "upgrade"],
+    "dependencyDashboard": false,
     "rebaseStalePrs": true,
     "lockFileMaintenance": {
         "enabled": true,
@@ -12,7 +13,7 @@
             "depTypeList": ["dependencies", "devDependencies"],
             "updateTypes": ["minor", "patch"],
             "automerge": true,
-            "automergeType": "branch"
+            "automergeType": "pr"
         }
     ]
 }
