@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { Spinner } from '@topcli/spinner';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.js';
 import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.js';

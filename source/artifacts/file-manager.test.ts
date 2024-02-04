@@ -8,12 +8,13 @@ type Overrides = {
     readonly mkdir?: SinonSpy;
     readonly writeFile?: SinonSpy;
     readonly readFile?: SinonSpy;
+    readonly stat?: SinonSpy;
 };
 
 function fileManagerFactory(overrides: Overrides = {}): FileManager {
-    const { access = fake(), mkdir = fake(), writeFile = fake(), readFile = fake() } = overrides;
+    const { access = fake(), mkdir = fake(), writeFile = fake(), readFile = fake(), stat = fake() } = overrides;
     const fakeDependencies = {
-        hostFileSystem: { access, mkdir, writeFile, readFile }
+        hostFileSystem: { access, mkdir, writeFile, readFile, stat }
     } as unknown as FileManagerDependencies;
     return createFileManager(fakeDependencies);
 }
@@ -88,4 +89,15 @@ test('copyFile() reads the content of the first file and writes that to the seco
     t.deepEqual(readFile.firstCall.args, ['/foo/1.txt', { encoding: 'utf8' }]);
     t.is(writeFile.callCount, 1);
     t.deepEqual(writeFile.firstCall.args, ['/foo/2.txt', 'the-content', { encoding: 'utf8' }]);
+});
+
+test('getFileMode() returns the file mode of the given file path', async (t) => {
+    const stat = fake.resolves({ mode: 42 });
+    const fileManager = fileManagerFactory({ stat });
+
+    const result = await fileManager.getFileMode('/foo/bar.txt');
+
+    t.is(stat.callCount, 1);
+    t.deepEqual(stat.firstCall.args, ['/foo/bar.txt']);
+    t.is(result, 42);
 });

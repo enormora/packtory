@@ -12,6 +12,7 @@ type Overrides = {
     readonly checkReadability?: SinonSpy;
     readonly copyFile?: SinonSpy;
     readonly writeFile?: SinonSpy;
+    readonly getFileMode?: SinonSpy;
     readonly tarballBuilder?: { readonly build?: SinonSpy };
 };
 
@@ -21,10 +22,11 @@ function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
         checkReadability = fake(),
         copyFile = fake(),
         writeFile = fake(),
+        getFileMode = fake.resolves(-1),
         tarballBuilder: { build = fake.resolves(Buffer.from([-1])) } = {}
     } = overrides;
     const fakeDependencies = {
-        fileManager: { readFile, checkReadability, copyFile, writeFile },
+        fileManager: { readFile, checkReadability, copyFile, writeFile, getFileMode },
         tarballBuilder: { build }
     } as unknown as ArtifactsBuilderDependencies;
     return createArtifactsBuilder(fakeDependencies);
@@ -60,9 +62,9 @@ test('buildTarball() passes all given contents to the tarballBuilder', async (t)
     t.is(tarballBuilder.build.callCount, 1);
     t.deepEqual(tarballBuilder.build.firstCall.args, [
         [
-            { filePath: 'package/bar.txt', content: 'bar' },
-            { filePath: 'package/baz.txt', content: 'baz' },
-            { filePath: 'package/qux.txt', content: 'qux' }
+            { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
+            { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
+            { filePath: 'package/qux.txt', content: 'qux', isExecutable: false }
         ]
     ]);
 });
@@ -164,8 +166,32 @@ test('collectContents() returns the list of file descriptions of the given bundl
     });
 
     t.deepEqual(result, [
-        { filePath: 'package/bar.txt', content: 'bar' },
-        { filePath: 'package/baz.txt', content: 'baz' },
-        { filePath: 'package/qux.txt', content: 'qux' }
+        { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
+        { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
+        { filePath: 'package/qux.txt', content: 'qux', isExecutable: false }
+    ]);
+});
+
+test('collectContents() determines files with a sourcePath whether they are executable or not', async (t) => {
+    const readFile = fake.resolves('bar');
+    const getFileMode = fake.resolves(493);
+    const builder = artifactsBuilderFactory({ readFile, getFileMode });
+    const contents: BundleContent[] = [
+        { kind: 'reference', sourceFilePath: '/foo/bar.txt', targetFilePath: 'bar.txt' },
+        { kind: 'source', targetFilePath: 'baz.txt', source: 'baz' },
+        { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' }
+    ];
+    const result = await builder.collectContents({
+        contents,
+        packageJson: { name: 'the-name', version: 'the-version' }
+    });
+
+    t.is(getFileMode.callCount, 2);
+    t.deepEqual(getFileMode.firstCall.args, ['/foo/bar.txt']);
+    t.deepEqual(getFileMode.secondCall.args, ['/foo/qux.txt']);
+    t.deepEqual(result, [
+        { filePath: 'package/bar.txt', content: 'bar', isExecutable: true },
+        { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
+        { filePath: 'package/qux.txt', content: 'qux', isExecutable: true }
     ]);
 });
