@@ -10,6 +10,11 @@
     },
     "packageRules": [
         {
+            "matchPackagePatterns": ["^@enormora/eslint-config"],
+            "groupName": "@enormora/eslint-config",
+            "groupSlug": "enormora-eslint-config"
+        },
+        {
             "depTypeList": ["dependencies", "devDependencies"],
             "updateTypes": ["minor", "patch"],
             "automerge": true,
