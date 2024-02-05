@@ -1,5 +1,6 @@
 {
     "extends": ["config:base"],
+    "ignorePaths": ["**/node_modules/**", "**/integration-tests/**"],
     "commitMessagePrefix": "⬆️ ",
     "labels": ["renovate", "upgrade"],
     "dependencyDashboard": false,
