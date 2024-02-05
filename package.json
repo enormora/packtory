@@ -60,7 +60,7 @@
     "devDependencies": {
         "@ava/typescript": "4.1.0",
         "@enormora/eslint-config-ava": "0.0.7",
-        "@enormora/eslint-config-base": "0.0.7",
+        "@enormora/eslint-config-base": "0.0.12",
         "@enormora/eslint-config-node": "0.0.7",
         "@enormora/eslint-config-typescript": "0.0.7",
         "@types/libnpmpublish": "4.0.3",
