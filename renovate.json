@@ -15,8 +15,8 @@
             "groupSlug": "enormora-eslint-config"
         },
         {
-            "depTypeList": ["dependencies", "devDependencies"],
-            "updateTypes": ["minor", "patch"],
+            "matchDepTypes": ["dependencies", "devDependencies"],
+            "matchUpdateTypes": ["minor", "patch"],
             "automerge": true,
             "automergeType": "pr"
         }
