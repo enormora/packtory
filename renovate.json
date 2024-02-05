@@ -11,8 +11,13 @@
     },
     "packageRules": [
         {
-            "depTypeList": ["dependencies", "devDependencies"],
-            "updateTypes": ["minor", "patch"],
+            "matchPackagePatterns": ["^@enormora/eslint-config"],
+            "groupName": "@enormora/eslint-config",
+            "groupSlug": "enormora-eslint-config"
+        },
+        {
+            "matchDepTypes": ["dependencies", "devDependencies"],
+            "matchUpdateTypes": ["minor", "patch"],
             "automerge": true,
             "automergeType": "pr"
         }
