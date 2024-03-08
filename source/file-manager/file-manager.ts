@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { TransferableFileDescription } from './file-description.js';
+import { isExecutableFileMode } from './permissions.js';
 
 export type FileManagerDependencies = {
     readonly hostFileSystem: typeof fs.promises;
@@ -15,6 +17,10 @@ export type FileManager = {
     writeFile(filePath: string, content: string): Promise<void>;
     copyFile(from: string, to: string): Promise<void>;
     getFileMode(filePath: string): Promise<number>;
+    getTransferableFileDescriptionFromPath(
+        sourceFilePath: string,
+        targetFilePath: string
+    ): Promise<TransferableFileDescription>;
 };
 
 export function createFileManager(dependencies: FileManagerDependencies): FileManager {
@@ -44,6 +50,11 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         return hostFileSystem.readFile(filePath, { encoding: 'utf8' });
     }
 
+    async function getFileMode(filePath: string): Promise<number> {
+        const stats = await hostFileSystem.stat(filePath);
+        return stats.mode;
+    }
+
     return {
         checkReadability,
 
@@ -51,14 +62,22 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
 
         readFile,
 
+        getFileMode,
+
+        async getTransferableFileDescriptionFromPath(sourceFilePath, targetFilePath) {
+            const mode = await getFileMode(sourceFilePath);
+
+            return {
+                sourceFilePath,
+                targetFilePath,
+                content: await readFile(targetFilePath),
+                isExecutable: isExecutableFileMode(mode)
+            };
+        },
+
         async copyFile(from, to) {
             const content = await readFile(from);
             await writeFile(to, content);
-        },
-
-        async getFileMode(filePath) {
-            const stats = await hostFileSystem.stat(filePath);
-            return stats.mode;
         }
     };
 }

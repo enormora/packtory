@@ -101,3 +101,37 @@ test('getFileMode() returns the file mode of the given file path', async (t) => 
     t.deepEqual(stat.firstCall.args, ['/foo/bar.txt']);
     t.is(result, 42);
 });
+
+test('getTransferableFileDescriptionFromPath() returns the file description of the given file paths', async (t) => {
+    const stat = fake.resolves({ mode: 42 });
+    const readFile = fake.resolves('the-content');
+    const fileManager = fileManagerFactory({ stat, readFile });
+
+    const result = await fileManager.getTransferableFileDescriptionFromPath('/foo/bar.txt', '/target/path.txt');
+
+    t.is(stat.callCount, 1);
+    t.deepEqual(stat.firstCall.args, ['/foo/bar.txt']);
+    t.is(readFile.callCount, 1);
+    t.deepEqual(readFile.firstCall.args, ['/foo/bar.txt']);
+    t.deepEqual(result, {
+        sourceFilePath: '/foo/bar.txt',
+        targetFilePath: '/target/path.txt',
+        content: 'the-content',
+        isExecutable: false
+    });
+});
+
+test('getTransferableFileDescriptionFromPath() returns the file description with isExecutable set to true when the file mode indicates this', async (t) => {
+    const stat = fake.resolves({ mode: 493 });
+    const readFile = fake.resolves('the-content');
+    const fileManager = fileManagerFactory({ stat, readFile });
+
+    const result = await fileManager.getTransferableFileDescriptionFromPath('/foo/bar.txt', '/target/path.txt');
+
+    t.deepEqual(result, {
+        sourceFilePath: '/foo/bar.txt',
+        targetFilePath: '/target/path.txt',
+        content: 'the-content',
+        isExecutable: true
+    });
+});

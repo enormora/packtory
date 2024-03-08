@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import npmFetch from 'npm-registry-fetch';
 import { publish } from 'libnpmpublish';
-import { createFileManager } from '../../artifacts/file-manager.js';
+import { createFileManager } from '../../file-manager/file-manager.js';
 import { createPublisher } from '../../publisher/publisher.js';
 import { bundler } from '../bundler/bundler.entry-point.js';
 import { createRegistryClient } from '../../publisher/registry-client.js';

@@ -6,7 +6,7 @@ import { createDependencyScanner } from '../../dependency-scanner/scanner.js';
 import { createSourceMapFileLocator } from '../../dependency-scanner/source-map-file-locator.js';
 import { createTypescriptProjectAnalyzer } from '../../dependency-scanner/typescript-project-analyzer.js';
 import { getReferencedSourceFiles } from '../../dependency-scanner/source-file-references.js';
-import { createFileManager } from '../../artifacts/file-manager.js';
+import { createFileManager } from '../../file-manager/file-manager.js';
 import { createFileSystemAdapters } from '../../dependency-scanner/typescript-file-host.js';
 
 const fileManager = createFileManager({ hostFileSystem: fs.promises });

@@ -1,5 +1,5 @@
-import type { FileDescription } from '../file-description/file-description.js';
-import { isExecutableFileMode } from '../file-description/permissions.js';
+import type { FileDescription } from '../file-manager/file-description.js';
+import { isExecutableFileMode } from '../file-manager/permissions.js';
 import { extractTarEntries, type TarEntry } from '../tar/extract-tar.js';
 
 function tarEntryToFileDescription(tarEntry: TarEntry): FileDescription {

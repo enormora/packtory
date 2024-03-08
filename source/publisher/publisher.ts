@@ -7,7 +7,7 @@ import type { Bundler } from '../bundler/bundler.js';
 import type { VersioningSettings } from '../config/versioning-settings.js';
 import type { RegistrySettings } from '../config/registry-settings.js';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
-import { compareFileDescriptions } from '../file-description/compare.js';
+import { compareFileDescriptions } from '../file-manager/compare.js';
 import type { PackageVersionDetails, RegistryClient } from './registry-client.js';
 import { increaseVersion, replaceBundleVersion } from './version.js';
 // eslint-disable-next-line import/max-dependencies -- needs to be fixed but I don’t have a good idea right now

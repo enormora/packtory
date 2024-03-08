@@ -2,9 +2,9 @@ import path from 'node:path';
 import ssri from 'ssri';
 import type { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
 import type { TarballBuilder } from '../tar/tarball-builder.js';
-import type { FileDescription } from '../file-description/file-description.js';
-import { isExecutableFileMode } from '../file-description/permissions.js';
-import type { FileManager } from './file-manager.js';
+import type { FileDescription } from '../file-manager/file-description.js';
+import { isExecutableFileMode } from '../file-manager/permissions.js';
+import type { FileManager } from '../file-manager/file-manager.js';
 
 export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;
