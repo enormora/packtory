@@ -25,6 +25,7 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     isCyclic(): boolean;
     getTopologicalGenerations(): readonly (readonly TId[])[];
     reverse(): DirectedGraph<TId, TData>;
+    getAdjacentIds(id: TId): ReadonlySet<TId>;
 };
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
@@ -203,6 +204,11 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 throw new Error(`Node with id "${id}" already exists`);
             }
             nodes.set(id, { id, data, adjacentNodeIds: new Set(), incomingEdges: 0 });
+        },
+
+        getAdjacentIds(id) {
+            const node = getNode(id);
+            return node.adjacentNodeIds;
         },
 
         hasNode(id) {
