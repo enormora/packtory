@@ -77,7 +77,7 @@
         "sinon": "17.0.1",
         "type-fest": "4.14.0",
         "typescript": "5.4.3",
-        "verdaccio": "5.29.2"
+        "verdaccio": "5.30.2"
     },
     "engines": {
         "node": "^20"
