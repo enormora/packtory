@@ -51,6 +51,18 @@ test('main package.json: validation fails when dependencies contains non-string 
     expectedMessages: ['At dependencies.foo: expected string; but got number']
 });
 
+test('main package.json: validation fails when peerDependencies is not an object', checkValidationFailure, {
+    schema: mainPackageJsonSchema,
+    data: { peerDependencies: true },
+    expectedMessages: ['At peerDependencies: expected object; but got boolean']
+});
+
+test('main package.json: validation fails when peerDependencies contains non-string values', checkValidationFailure, {
+    schema: mainPackageJsonSchema,
+    data: { peerDependencies: { foo: 123 } },
+    expectedMessages: ['At peerDependencies.foo: expected string; but got number']
+});
+
 test('main package.json: validation fails when devDependencies is not an object', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { devDependencies: true },
@@ -89,6 +101,12 @@ test('additional attributes: validation fails when peerDependencies key is given
     schema: additionalPackageJsonAttributesSchema,
     data: { peerDependencies: {} },
     expectedMessages: ['At peerDependencies: unexpected extra key or index']
+});
+
+test('additional attributes: validation fails when devDependencies key is given', checkValidationFailure, {
+    schema: additionalPackageJsonAttributesSchema,
+    data: { devDependencies: {} },
+    expectedMessages: ['At devDependencies: unexpected extra key or index']
 });
 
 test('additional attributes: validation fails when main key is given', checkValidationFailure, {
