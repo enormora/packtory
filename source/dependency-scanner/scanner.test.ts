@@ -263,6 +263,19 @@ test('returns all detected node_modules dependencies with its corresponding vers
     t.deepEqual(result.topLevelDependencies, { 'any-module': 'the-version' });
 });
 
+test('returns the detected node_modules dependencies when they are defined as a peer dependency', async (t) => {
+    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
+    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
+    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+        mainPackageJson: { peerDependencies: { 'any-module': 'the-version' } }
+    });
+    const result = graph.flatten('/dir/entry.js');
+
+    t.deepEqual(result.topLevelDependencies, { 'any-module': 'the-version' });
+});
+
 test('uses the version from devDependencies when includeDevDependencies is true', async (t) => {
     const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });

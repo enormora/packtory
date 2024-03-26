@@ -32,7 +32,8 @@ type GroupedDependencies = {
 
 function distributeDependencies(
     packageDependencies: Record<string, string>,
-    bundlePeerDependencies: readonly BundleDescription[]
+    bundlePeerDependencies: readonly BundleDescription[],
+    mainPackageJson: MainPackageJson
 ): Readonly<GroupedDependencies> {
     const dependencies: Record<string, string> = {};
     const peerDependencies: Record<string, string> = {};
@@ -40,8 +41,10 @@ function distributeDependencies(
     for (const [dependencyName, dependencyVersion] of Object.entries(packageDependencies)) {
         if (containsBundleWithPackageName(bundlePeerDependencies, dependencyName)) {
             peerDependencies[dependencyName] = dependencyVersion;
-        } else {
+        } else if (mainPackageJson.peerDependencies?.[dependencyName] === undefined) {
             dependencies[dependencyName] = dependencyVersion;
+        } else {
+            peerDependencies[dependencyName] = dependencyVersion;
         }
     }
 
@@ -62,7 +65,11 @@ function buildPackageJson(
         bundlePeerDependencies = []
     } = options;
 
-    const distributedDependencies = distributeDependencies(packageDependencies, bundlePeerDependencies);
+    const distributedDependencies = distributeDependencies(
+        packageDependencies,
+        bundlePeerDependencies,
+        mainPackageJson
+    );
     const types =
         firstEntryPoint.declarationFile === undefined
             ? undefined

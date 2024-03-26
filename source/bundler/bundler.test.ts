@@ -177,6 +177,40 @@ test('builds a bundle for a single file with the correct package.json', async (t
     });
 });
 
+test('builds a bundle for a single file with the correct peerDependencies in package.json', async (t) => {
+    const graph = buildDependencyGraph({
+        entries: [{ filePath: '/foo/bar.js', content: 'true', topLevelDependencies: new Map([['pkg', '42']]) }]
+    });
+    const scan = fake.resolves(graph);
+    const bundler = bundlerFactory({ scan });
+
+    const bundle = await bundler.build({
+        sourcesFolder: '/foo',
+        entryPoints: [{ js: '/foo/bar.js' }],
+        name: 'the-name',
+        version: 'the-version',
+        mainPackageJson: { peerDependencies: { pkg: '21' } }
+    });
+
+    t.deepEqual(bundle, {
+        contents: [
+            {
+                kind: 'source',
+                source: '{\n    "dependencies": {},\n    "main": "bar.js",\n    "name": "the-name",\n    "peerDependencies": {\n        "pkg": "42"\n    },\n    "version": "the-version"\n}',
+                targetFilePath: 'package.json'
+            },
+            { kind: 'reference', sourceFilePath: '/foo/bar.js', targetFilePath: 'bar.js' }
+        ],
+        packageJson: {
+            name: 'the-name',
+            version: 'the-version',
+            dependencies: {},
+            peerDependencies: { pkg: '42' },
+            main: 'bar.js'
+        }
+    });
+});
+
 test('builds a bundle for a single file with the given additional package.json fields, sorted alphabetically', async (t) => {
     const graph = buildDependencyGraph({
         entries: [{ filePath: '/foo/bar.js', content: 'true' }]

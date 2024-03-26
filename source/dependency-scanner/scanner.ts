@@ -47,7 +47,10 @@ function extractModuleName(nodeModulePath: string): string {
 function isKnownNodeModule(moduleName: string, options: ScanOptions): boolean {
     const { includeDevDependencies, mainPackageJson } = options;
 
-    if (mainPackageJson.dependencies?.[moduleName] !== undefined) {
+    if (
+        mainPackageJson.dependencies?.[moduleName] !== undefined ||
+        mainPackageJson.peerDependencies?.[moduleName] !== undefined
+    ) {
         return true;
     }
 
@@ -70,12 +73,20 @@ function getVersionFromDependencies(
 
     return undefined;
 }
+
+// eslint-disable-next-line max-statements -- this will be removed soon when the dependency scanner doesn’t have to take care about versions anymore
 function determineVersionNumber(moduleName: string, options: ScanOptions): string {
     const { mainPackageJson } = options;
     const version = getVersionFromDependencies(moduleName, mainPackageJson.dependencies);
 
     if (version !== undefined) {
         return version;
+    }
+
+    const peerDependencyVersion = getVersionFromDependencies(moduleName, mainPackageJson.peerDependencies);
+
+    if (peerDependencyVersion !== undefined) {
+        return peerDependencyVersion;
     }
 
     const devDependencyVersion = getVersionFromDependencies(moduleName, mainPackageJson.devDependencies);
@@ -85,6 +96,7 @@ function determineVersionNumber(moduleName: string, options: ScanOptions): strin
 
     throw new Error(`Couldn’t determine version number of ${moduleName}`);
 }
+
 function addVersionNumbersToModules(moduleNames: readonly string[], options: ScanOptions): ReadonlyMap<string, string> {
     return new Map<string, string>(
         moduleNames.map((moduleName) => {

@@ -24,7 +24,8 @@ const optionalStringRecordSchema = optional(stringRecordSchema, { exact: true })
 const $mainPackageJsonSchema = struct({
     type: optional(literal('module'), { exact: true }),
     dependencies: optionalStringRecordSchema,
-    devDependencies: optionalStringRecordSchema
+    devDependencies: optionalStringRecordSchema,
+    peerDependencies: optionalStringRecordSchema
 }).pipe(extend(record(string, unknown)));
 export type MainPackageJson = NoExpand<Schema.To<typeof $mainPackageJsonSchema>>;
 export const mainPackageJsonSchema: Schema<MainPackageJson> = $mainPackageJsonSchema;
@@ -50,6 +51,7 @@ const attributeValueSchema: Schema<JsonValue> = union(
 const forbiddenAttributeNames = new Set([
     'dependencies',
     'peerDependencies',
+    'devDependencies',
     'main',
     'name',
     'types',
