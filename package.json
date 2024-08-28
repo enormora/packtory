@@ -75,7 +75,7 @@
         "get-port": "7.1.0",
         "prettier": "3.3.3",
         "sinon": "18.0.0",
-        "type-fest": "4.25.0",
+        "type-fest": "4.26.0",
         "typescript": "5.5.4",
         "verdaccio": "5.32.1"
     },
