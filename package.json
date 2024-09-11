@@ -53,7 +53,7 @@
         "ssri": "11.0.0",
         "tar-stream": "3.1.7",
         "true-myth": "8.0.1",
-        "ts-morph": "21.0.1",
+        "ts-morph": "23.0.0",
         "tslib": "2.7.0",
         "unix-permissions": "6.0.0"
     },
