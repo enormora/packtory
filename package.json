@@ -48,7 +48,7 @@
         "kleur": "4.1.5",
         "libnpmpublish": "10.0.0",
         "mitt": "3.0.1",
-        "npm-registry-fetch": "17.1.0",
+        "npm-registry-fetch": "18.0.2",
         "semver": "7.6.3",
         "ssri": "12.0.0",
         "tar-stream": "3.1.7",
