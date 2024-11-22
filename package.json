@@ -46,7 +46,7 @@
         "cmd-ts": "0.13.0",
         "effect": "2.2.5",
         "kleur": "4.1.5",
-        "libnpmpublish": "10.0.0",
+        "libnpmpublish": "10.0.1",
         "mitt": "3.0.1",
         "npm-registry-fetch": "18.0.2",
         "semver": "7.6.3",
