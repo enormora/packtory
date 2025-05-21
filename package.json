@@ -73,7 +73,7 @@
         "ava": "6.3.0",
         "eslint": "8.57.1",
         "get-port": "7.1.0",
-        "prettier": "3.3.3",
+        "prettier": "3.5.3",
         "sinon": "19.0.5",
         "type-fest": "4.41.0",
         "typescript": "5.8.3",
