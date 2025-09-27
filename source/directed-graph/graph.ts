@@ -26,6 +26,7 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     getTopologicalGenerations(): readonly (readonly TId[])[];
     reverse(): DirectedGraph<TId, TData>;
     getAdjacentIds(id: TId): ReadonlySet<TId>;
+    traverse(visitor: Visitor<TId, TData>): void;
 };
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
@@ -198,6 +199,22 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         return [];
     }
 
+    function visitBreadthFirstSearch(startId: TId, visitor: Visitor<TId, TData>): void {
+        const startNode = getNode(startId);
+        const queue: GraphNode<TId, TData>[] = [startNode];
+        const visited = new Set<TId>();
+
+        for (let head = queue.shift(); head !== undefined; head = queue.shift()) {
+            visited.add(head.id);
+            visitor(head);
+            const nonVisitedAdjacentIds = getNonVisitedAdjacentIds(head, visited);
+            for (const id of nonVisitedAdjacentIds) {
+                const adjacentNode = getNode(id);
+                queue.push(adjacentNode);
+            }
+        }
+    }
+
     return {
         addNode(id, data) {
             if (nodes.has(id)) {
@@ -244,18 +261,12 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
             nodes.set(edge.to, decreaseIncomingEdges(toNode));
         },
 
-        visitBreadthFirstSearch(startId, visitor) {
-            const startNode = getNode(startId);
-            const queue: GraphNode<TId, TData>[] = [startNode];
-            const visited = new Set<TId>();
+        visitBreadthFirstSearch,
 
-            for (let head = queue.shift(); head !== undefined; head = queue.shift()) {
-                visited.add(head.id);
-                visitor(head);
-                const nonVisitedAdjacentIds = getNonVisitedAdjacentIds(head, visited);
-                for (const id of nonVisitedAdjacentIds) {
-                    const adjacentNode = getNode(id);
-                    queue.push(adjacentNode);
+        traverse(visitor) {
+            for (const [nodeId, node] of nodes) {
+                if (node.incomingEdges === 0) {
+                    visitBreadthFirstSearch(nodeId, visitor);
                 }
             }
         },

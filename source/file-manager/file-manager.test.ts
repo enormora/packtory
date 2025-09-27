@@ -112,7 +112,7 @@ test('getTransferableFileDescriptionFromPath() returns the file description of t
     t.is(stat.callCount, 1);
     t.deepEqual(stat.firstCall.args, ['/foo/bar.txt']);
     t.is(readFile.callCount, 1);
-    t.deepEqual(readFile.firstCall.args, ['/foo/bar.txt']);
+    t.deepEqual(readFile.firstCall.args, ['/foo/bar.txt', { encoding: 'utf8' }]);
     t.deepEqual(result, {
         sourceFilePath: '/foo/bar.txt',
         targetFilePath: '/target/path.txt',

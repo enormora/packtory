@@ -6,14 +6,20 @@ import { createDependencyScanner, type DependencyScanner, type DependencyScanner
 type ProjectOverrides = {
     readonly getReferencedSourceFilePaths?: SinonSpy;
     readonly getSourceFile?: SinonSpy;
+    readonly getProject?: SinonSpy;
 };
 
 function createFakeAnalyzeProject(overrides: ProjectOverrides = {}): Readonly<SinonSpy> {
-    const { getReferencedSourceFilePaths = fake.returns([]), getSourceFile = fake.returns({}) } = overrides;
+    const {
+        getReferencedSourceFilePaths = fake.returns([]),
+        getSourceFile = fake.returns({}),
+        getProject = fake.returns({})
+    } = overrides;
 
     return fake.returns({
         getReferencedSourceFilePaths,
-        getSourceFile
+        getSourceFile,
+        getProject
     });
 }
 
@@ -104,8 +110,8 @@ test('returns no dependencies if the given file doesn’t have any dependencies'
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result, {
-        localFiles: [{ filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() }],
-        topLevelDependencies: {}
+        localFiles: [{ directDependencies: new Set(), filePath: '/dir/entry.js', project: {} }],
+        externalDependencies: new Map()
     });
 });
 
@@ -149,8 +155,8 @@ test('returns no additional dependencies for source maps if they don’t exist',
 
     t.is(locate.callCount, 1);
     t.deepEqual(result, {
-        localFiles: [{ filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() }],
-        topLevelDependencies: {}
+        localFiles: [{ directDependencies: new Set(), filePath: '/dir/entry.js', project: {} }],
+        externalDependencies: new Map()
     });
 });
 
@@ -165,10 +171,10 @@ test('returns additional dependencies for source maps if they exist', async (t) 
 
     t.deepEqual(result, {
         localFiles: [
-            { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-            { filePath: '/dir/foo.map', substitutionContent: Maybe.nothing() }
+            { directDependencies: new Set(), filePath: '/dir/foo.map', project: {} },
+            { directDependencies: new Set(['/dir/foo.map']), filePath: '/dir/entry.js', project: {} }
         ],
-        topLevelDependencies: {}
+        externalDependencies: new Map()
     });
 });
 
@@ -182,8 +188,8 @@ test('returns no additional dependencies for source maps if they exist, but incl
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result, {
-        localFiles: [{ filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() }],
-        topLevelDependencies: {}
+        localFiles: [{ directDependencies: new Set(), filePath: '/dir/entry.js', project: {} }],
+        externalDependencies: new Map()
     });
 });
 
@@ -196,9 +202,9 @@ test('returns the local dependency files', async (t) => {
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result.localFiles, [
-        { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/bar.js', substitutionContent: Maybe.nothing() }
+        { directDependencies: new Set(['/dir/foo.js', '/dir/bar.js']), filePath: '/dir/entry.js', project: {} },
+        { directDependencies: new Set(['/dir/foo.js', '/dir/bar.js']), filePath: '/dir/foo.js', project: {} },
+        { directDependencies: new Set(['/dir/foo.js', '/dir/bar.js']), filePath: '/dir/bar.js', project: {} }
     ]);
 });
 
@@ -225,10 +231,10 @@ test('returns the local dependency files found in subsequent dependencies', asyn
     t.deepEqual(getReferencedSourceFilePaths.thirdCall.args, ['/dir/bar.js']);
     t.deepEqual(getReferencedSourceFilePaths.getCall(3).args, ['/dir/baz.js']);
     t.deepEqual(result.localFiles, [
-        { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/bar.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/baz.js', substitutionContent: Maybe.nothing() }
+        { directDependencies: new Set(['/dir/foo.js', '/dir/bar.js']), filePath: '/dir/entry.js', project: {} },
+        { directDependencies: new Set([]), filePath: '/dir/foo.js', project: {} },
+        { directDependencies: new Set(['/dir/baz.js']), filePath: '/dir/bar.js', project: {} },
+        { directDependencies: new Set(), filePath: '/dir/baz.js', project: {} }
     ]);
 });
 
@@ -237,16 +243,12 @@ test('doesn’t include any files from node_modules in localFiles', async (t) =>
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: {
-            dependencies: { 'any-module': 'the-version' }
-        }
-    });
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result.localFiles, [
-        { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() }
+        { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/entry.js', project: {} },
+        { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/foo.js', project: {} }
     ]);
 });
 
@@ -255,66 +257,12 @@ test('returns all detected node_modules dependencies with its corresponding vers
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: { dependencies: { 'any-module': 'the-version' } }
-    });
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
     const result = graph.flatten('/dir/entry.js');
 
-    t.deepEqual(result.topLevelDependencies, { 'any-module': 'the-version' });
-});
-
-test('returns the detected node_modules dependencies when they are defined as a peer dependency', async (t) => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: { peerDependencies: { 'any-module': 'the-version' } }
-    });
-    const result = graph.flatten('/dir/entry.js');
-
-    t.deepEqual(result.topLevelDependencies, { 'any-module': 'the-version' });
-});
-
-test('uses the version from devDependencies when includeDevDependencies is true', async (t) => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: { devDependencies: { 'any-module': 'the-version' } },
-        includeDevDependencies: true
-    });
-    const result = graph.flatten('/dir/entry.js');
-
-    t.deepEqual(result.topLevelDependencies, { 'any-module': 'the-version' });
-});
-
-test('throws when a reference to a node_modules package is only in devDependencies but includeDevDependencies is false', async (t) => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    await t.throwsAsync(
-        dependencyScanner.scan('/dir/entry.js', '/dir', {
-            mainPackageJson: { devDependencies: { 'any-module': 'the-version' } },
-            includeDevDependencies: false
-        }),
-        { message: 'The referenced node module "any-module" is not defined in the dependencies' }
-    );
-});
-
-test('throws when a reference to a node_modules package is not at all in the packageJson', async (t) => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    await t.throwsAsync(
-        dependencyScanner.scan('/dir/entry.js', '/dir', {
-            mainPackageJson: {},
-            includeDevDependencies: true
-        }),
-        { message: 'The referenced node module "any-module" is not defined in the dependencies' }
+    t.deepEqual(
+        result.externalDependencies,
+        new Map([['any-module', { name: 'any-module', referencedFrom: ['/dir/entry.js'] }]])
     );
 });
 
@@ -336,14 +284,11 @@ test('doesn’t include the same dependency twice', async (t) => {
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
-        mainPackageJson: {},
-        includeDevDependencies: true
-    });
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
     const result = graph.flatten('/dir/entry.js');
 
     t.deepEqual(result.localFiles, [
-        { filePath: '/dir/entry.js', substitutionContent: Maybe.nothing() },
-        { filePath: '/dir/foo.js', substitutionContent: Maybe.nothing() }
+        { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/entry.js', project: {} },
+        { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/foo.js', project: {} }
     ]);
 });

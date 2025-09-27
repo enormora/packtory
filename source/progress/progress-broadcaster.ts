@@ -12,6 +12,14 @@ type ScheduledEventPayload = {
     readonly packageName: string;
 };
 
+type ResolvingEventPayload = {
+    readonly packageName: string;
+};
+
+type LinkingEventPayload = {
+    readonly packageName: string;
+};
+
 type ErrorPayload = {
     readonly packageName: string;
     readonly error: Error;
@@ -25,6 +33,8 @@ type DonePayload = {
 
 type Events = {
     readonly scheduled: ScheduledEventPayload;
+    readonly resolving: ResolvingEventPayload;
+    readonly linking: LinkingEventPayload;
     readonly building: ProgressEventPayload;
     readonly rebuilding: ProgressEventPayload;
     readonly publishing: ProgressEventPayload;

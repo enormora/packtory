@@ -700,7 +700,7 @@ test('getAdjacentIds() returns an empty Set if the requested node doesn’t have
 
     const adjacentIds = graph.getAdjacentIds('a');
 
-    t.deepEqual(adjacentIds.values(), []);
+    t.deepEqual(Array.from(adjacentIds.values()), []);
 });
 
 test('getAdjacentIds() returns all connected ids for the requested node', (t) => {
@@ -722,12 +722,12 @@ test('getAdjacentIds() returns all connected ids for the requested node', (t) =>
 
     const adjacentIds = graph.getAdjacentIds('a');
 
-    t.deepEqual(adjacentIds.values(), ['b', 'c', 'd']);
+    t.deepEqual(Array.from(adjacentIds.values()), ['b', 'c', 'd']);
 });
 
 test('getAdjacentIds() throws when the requested node doesn’t exist', (t) => {
     const graph = createGraphWithNodes({
-        nodes: [['a', '']],
+        nodes: [],
         connections: []
     });
 
@@ -735,6 +735,6 @@ test('getAdjacentIds() throws when the requested node doesn’t exist', (t) => {
         graph.getAdjacentIds('a');
         t.fail('Expected getAdjacentIds() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "a" doesn’t exist');
+        t.is((error as Error).message, 'Node with id "a" does not exist');
     }
 });

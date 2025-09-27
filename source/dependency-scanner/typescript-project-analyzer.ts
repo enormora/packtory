@@ -24,7 +24,8 @@ export type AnalyzationOptions = {
 
 export type TypescriptProject = {
     getReferencedSourceFilePaths(containingSourceFilePath: string): readonly string[];
-    getSourceFile(filePath: string): Readonly<SourceFile>;
+    getSourceFile(filePath: string): SourceFile;
+    getProject(): _Project;
 };
 
 export type TypescriptProjectAnalyzer = {
@@ -107,6 +108,10 @@ export function createTypescriptProjectAnalyzer(
                     }
 
                     return sourceFile;
+                },
+
+                getProject() {
+                    return project;
                 }
             };
         }

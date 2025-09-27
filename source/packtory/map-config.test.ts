@@ -171,7 +171,7 @@ test('throws an error when a bundle dependency does not exist', (t) => {
     );
 });
 
-test('maps the bundle dependency names correctly to the BundleDescription objects when it exists', (t) => {
+test('maps the bundle dependency names correctly to the VersionedBundleWithManifest objects when it exists', (t) => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -187,13 +187,39 @@ test('maps the bundle dependency names correctly to the BundleDescription object
             registrySettings: { token: '' },
             packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
         },
-        [{ contents: [], packageJson: { name: 'bar', version: '' } }]
+        [
+            {
+                contents: [],
+                packageJson: { name: 'bar', version: '' },
+                name: 'bar',
+                version: '',
+                dependencies: {},
+                peerDependencies: {},
+                additionalAttributes: {},
+                mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+                packageType: 'module',
+                manifestFile: { content: '', isExecutable: false, filePath: '' }
+            }
+        ]
     );
 
-    t.deepEqual(options.bundleDependencies, [{ contents: [], packageJson: { name: 'bar', version: '' } }]);
+    t.deepEqual(options.bundleDependencies, [
+        {
+            contents: [],
+            packageJson: { name: 'bar', version: '' },
+            name: 'bar',
+            version: '',
+            dependencies: {},
+            peerDependencies: {},
+            additionalAttributes: {},
+            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+            manifestFile: { content: '', filePath: '', isExecutable: false },
+            packageType: 'module'
+        }
+    ]);
 });
 
-test('keeps the includeSourceMapFiles option undefined when it is not in the package config nor in common settings', (t) => {
+test('defaults the includeSourceMapFiles option to false when it is not in the package config nor in common settings', (t) => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -208,10 +234,10 @@ test('keeps the includeSourceMapFiles option undefined when it is not in the pac
             registrySettings: { token: '' },
             packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
         },
-        [{ contents: [], packageJson: { name: 'bar', version: '' } }]
+        []
     );
 
-    t.is(options.includeSourceMapFiles, undefined);
+    t.is(options.includeSourceMapFiles, false);
 });
 
 test('sets the includeSourceMapFiles option to true when it is true in the per package config and not set in common settings', (t) => {
@@ -230,13 +256,13 @@ test('sets the includeSourceMapFiles option to true when it is true in the per p
             registrySettings: { token: '' },
             packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
         },
-        [{ contents: [], packageJson: { name: 'bar', version: '' } }]
+        []
     );
 
     t.is(options.includeSourceMapFiles, true);
 });
 
-test('sets the includeSourceMapFiles option to true when it is not set in the per package config and but set in common settings', (t) => {
+test('sets the includeSourceMapFiles option to true when it is not set in the per package config but set in common settings', (t) => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -254,13 +280,13 @@ test('sets the includeSourceMapFiles option to true when it is not set in the pe
             },
             packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
         },
-        [{ contents: [], packageJson: { name: 'bar', version: '' } }]
+        []
     );
 
     t.is(options.includeSourceMapFiles, true);
 });
 
-test('sets the includeSourceMapFiles option to false when it is set to false the per package config and and set to true in the common settings', (t) => {
+test('sets the includeSourceMapFiles option to false when it is set to false the per package config and set to true in the common settings', (t) => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -279,7 +305,7 @@ test('sets the includeSourceMapFiles option to false when it is set to false the
             },
             packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
         },
-        [{ contents: [], packageJson: { name: 'bar', version: '' } }]
+        []
     );
 
     t.is(options.includeSourceMapFiles, false);

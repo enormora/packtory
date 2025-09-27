@@ -3,7 +3,7 @@ import kleur from 'kleur';
 import type { Packtory, PublishFailure } from '../packtory/packtory.js';
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.js';
 import type { PartialError } from '../packtory/scheduler.js';
-import type { PublishResult } from '../publisher/publisher.js';
+import type { BuildAndPublishResult } from '../packtory/package-processor.js';
 import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.js';
 import type { ConfigLoader } from './config-loader.js';
 
@@ -69,7 +69,7 @@ export function createCommandLineInterfaceRunner(
         }
     }
 
-    function printSuccessSummary(results: readonly PublishResult[]): void {
+    function printSuccessSummary(results: readonly BuildAndPublishResult[]): void {
         log(`${successSymbol} Success: all ${results.length} package(s) have been published`);
     }
     const baseCommand = subcommands({

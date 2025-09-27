@@ -1,16 +1,16 @@
 import { partition } from 'effect/ReadonlyArray';
 import { get } from 'effect/Struct';
 import { Result } from 'true-myth';
-import type { BundleDescription } from '../bundler/bundle-description.js';
 import type { ValidConfigResult } from '../config/validation.js';
-import type { BuildAndPublishOptions, PublishResult } from '../publisher/publisher.js';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
-import { configToBuildAndPublishOptions } from './map-config.js';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
+import { configToBuildAndPublishOptions, type BuildAndPublishOptions } from './map-config.js';
+import type { BuildAndPublishResult } from './package-processor.js';
 
-type PackageOperationCallback = (options: BuildAndPublishOptions) => Promise<PublishResult>;
+type PackageOperationCallback = (options: BuildAndPublishOptions) => Promise<BuildAndPublishResult>;
 
 export type PartialError = {
-    readonly succeeded: readonly PublishResult[];
+    readonly succeeded: readonly BuildAndPublishResult[];
     readonly failures: readonly Error[];
 };
 
@@ -18,7 +18,7 @@ export type Scheduler = {
     runForEachScheduledPackage(
         config: ValidConfigResult,
         callback: PackageOperationCallback
-    ): Promise<Result<readonly PublishResult[], PartialError>>;
+    ): Promise<Result<readonly BuildAndPublishResult[], PartialError>>;
 };
 
 type SchedulerDependencies = {
@@ -41,9 +41,9 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
     async function runForGeneration(
         packageNames: readonly string[],
         config: ValidConfigResult,
-        existingBundles: readonly BundleDescription[],
+        existingBundles: readonly VersionedBundleWithManifest[],
         callback: PackageOperationCallback
-    ): Promise<Result<readonly PublishResult[], PartialError>> {
+    ): Promise<Result<readonly BuildAndPublishResult[], PartialError>> {
         const { packageConfigs, packtoryConfig } = config;
         const results = await Promise.allSettled(
             packageNames.map(async (packageName) => {
@@ -98,8 +98,8 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         async runForEachScheduledPackage(config, callback) {
             emitScheduledEventForAllPackages(config);
 
-            const bundles: BundleDescription[] = [];
-            const succeeded: PublishResult[] = [];
+            const bundles: VersionedBundleWithManifest[] = [];
+            const succeeded: BuildAndPublishResult[] = [];
 
             for (const generation of getExecutionPlan(config)) {
                 const generationResult = await runForGeneration(generation, config, bundles, callback);

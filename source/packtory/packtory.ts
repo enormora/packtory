@@ -1,8 +1,8 @@
 import { Result } from 'true-myth';
 import type { PacktoryConfig } from '../config/config.js';
 import { validateConfig } from '../config/validation.js';
-import type { PublishResult, Publisher } from '../publisher/publisher.js';
 import type { Scheduler, PartialError } from './scheduler.js';
+import type { BuildAndPublishResult, PackageProcessor } from './package-processor.js';
 
 type Options = {
     readonly dryRun: boolean;
@@ -14,7 +14,7 @@ type ConfigError = {
 };
 
 export type PublishFailure = ConfigError | (PartialError & { type: 'partial' });
-export type PublishAllResult = Result<readonly PublishResult[], PublishFailure>;
+export type PublishAllResult = Result<readonly BuildAndPublishResult[], PublishFailure>;
 
 export type Packtory = {
     buildAndPublishAll(
@@ -25,11 +25,12 @@ export type Packtory = {
 };
 
 type PacktoryDependencies = {
-    readonly publisher: Publisher;
+    readonly packageProcessor: PackageProcessor;
     readonly scheduler: Scheduler;
 };
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
-    const { publisher, scheduler } = dependencies;
+    const { packageProcessor, scheduler } = dependencies;
+
     return {
         async buildAndPublishAll(config, options) {
             const result = validateConfig(config);
@@ -43,9 +44,9 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
 
             const runResult = await scheduler.runForEachScheduledPackage(result.value, async (buildOptions) => {
                 if (options.dryRun) {
-                    return publisher.tryBuildAndPublish(buildOptions);
+                    return packageProcessor.tryBuildAndPublish(buildOptions);
                 }
-                return publisher.buildAndPublish(buildOptions);
+                return packageProcessor.buildAndPublish(buildOptions);
             });
 
             if (runResult.isErr) {

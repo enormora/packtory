@@ -13,8 +13,6 @@ import { createTypescriptProjectAnalyzer } from '../../dependency-scanner/typesc
 import { createFileManager } from '../../file-manager/file-manager.js';
 import { createBundleLinker } from '../../linker/linker.js';
 import { createPackageProcessor } from '../../packtory/package-processor.js';
-import { createPacktory } from '../../packtory/packtory.js';
-import { createScheduler } from '../../packtory/scheduler.js';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.js';
 import { createRegistryClient } from '../../bundle-emitter/registry-client.js';
 import { createResourceResolver } from '../../resource-resolver/resource-resolver.js';
@@ -35,30 +33,15 @@ const registryClient = createRegistryClient({ npmFetch, publish });
 const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
 const progressBroadcaster = createProgressBroadcaster();
 
-const scheduler = createScheduler({
-    progressBroadcastProvider: progressBroadcaster.provider
-});
-
 const versionManager = createVersionManager();
 const bundleEmitter = createBundleEmitter({ registryClient, artifactsBuilder });
 const linker = createBundleLinker();
 const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
 
-const packageProcessor = createPackageProcessor({
+export const packageProcessor = createPackageProcessor({
     progressBroadcaster: progressBroadcaster.provider,
     versionManager,
     bundleEmitter,
     linker,
     resourceResolver
 });
-
-const packtory = createPacktory({
-    scheduler,
-    packageProcessor
-});
-
-export const { buildAndPublishAll } = packtory;
-export const progressBroadcastConsumer = progressBroadcaster.consumer;
-
-export type { PacktoryConfig } from '../../config/config.js';
-export type { PublishAllResult } from '../../packtory/packtory.js';

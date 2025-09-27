@@ -1,12 +1,18 @@
-import { Maybe } from 'true-myth';
-import type { SourceFile } from 'ts-morph';
+import type { Maybe } from 'true-myth';
+import type { Project } from 'ts-morph';
 import { createDirectedGraph } from '../directed-graph/graph.js';
+import { uniqueList } from '../list/unique-list.js';
+import {
+    mergeExternalDependencies,
+    type ExternalDependencies,
+    type ExternalDependency
+} from './external-dependencies.js';
+import type { TypescriptProject } from './typescript-project-analyzer.js';
 
 export type DependencyGraphNodeData = {
     readonly sourceMapFilePath: Maybe<string>;
-    readonly topLevelDependencies: ReadonlyMap<string, string>;
-    readonly substitutionContent: Maybe<string>;
-    readonly tsSourceFile: Readonly<SourceFile>;
+    readonly project: TypescriptProject;
+    readonly externalDependencies: readonly string[];
 };
 
 export type DependencyNode = DependencyGraphNodeData & {
@@ -16,12 +22,13 @@ export type DependencyNode = DependencyGraphNodeData & {
 
 export type LocalFile = {
     readonly filePath: string;
-    readonly substitutionContent: Maybe<string>;
+    readonly directDependencies: ReadonlySet<string>;
+    readonly project?: Project | undefined;
 };
 
 export type DependencyFiles = {
     readonly localFiles: readonly LocalFile[];
-    readonly topLevelDependencies: Record<string, string>;
+    readonly externalDependencies: ExternalDependencies;
 };
 
 export function mergeDependencyFiles(
@@ -36,7 +43,7 @@ export function mergeDependencyFiles(
 
     return {
         localFiles: Array.from(mergedLocalFiles.values()),
-        topLevelDependencies: { ...first.topLevelDependencies, ...second.topLevelDependencies }
+        externalDependencies: mergeExternalDependencies(first.externalDependencies, second.externalDependencies)
     };
 }
 
@@ -74,35 +81,54 @@ export function createDependencyGraph(): DependencyGraph {
                 visitor({
                     filePath: node.id,
                     sourceMapFilePath: node.data.sourceMapFilePath,
-                    topLevelDependencies: node.data.topLevelDependencies,
+                    externalDependencies: node.data.externalDependencies,
                     localFiles: Array.from(node.adjacentNodeIds),
-                    substitutionContent: node.data.substitutionContent,
-                    tsSourceFile: node.data.tsSourceFile
+                    project: node.data.project
                 });
             });
         },
 
         flatten(startFilePath) {
             const localFiles = new Map<string, LocalFile>();
-            const topLevelDependencies = new Map<string, string>();
+            const externalDependencies = new Map<string, ExternalDependency>();
 
             graph.visitBreadthFirstSearch(startFilePath, (node) => {
-                localFiles.set(node.id, { filePath: node.id, substitutionContent: node.data.substitutionContent });
+                const directDependencies = new Set(graph.getAdjacentIds(node.id));
+
                 if (node.data.sourceMapFilePath.isJust) {
+                    directDependencies.add(node.data.sourceMapFilePath.value);
                     localFiles.set(node.data.sourceMapFilePath.value, {
                         filePath: node.data.sourceMapFilePath.value,
-                        substitutionContent: Maybe.nothing()
+                        directDependencies: new Set(),
+                        project: node.data.project.getProject()
                     });
                 }
 
-                for (const [name, version] of node.data.topLevelDependencies.entries()) {
-                    topLevelDependencies.set(name, version);
+                localFiles.set(node.id, {
+                    filePath: node.id,
+                    directDependencies,
+                    project: node.data.project.getProject()
+                });
+
+                for (const externalDependencyName of node.data.externalDependencies) {
+                    const externalDependency = externalDependencies.get(externalDependencyName);
+                    if (externalDependency === undefined) {
+                        externalDependencies.set(externalDependencyName, {
+                            name: externalDependencyName,
+                            referencedFrom: [node.id]
+                        });
+                    } else {
+                        externalDependencies.set(externalDependencyName, {
+                            name: externalDependencyName,
+                            referencedFrom: uniqueList([...externalDependency.referencedFrom, node.id])
+                        });
+                    }
                 }
             });
 
             return {
                 localFiles: Array.from(localFiles.values()),
-                topLevelDependencies: Object.fromEntries(topLevelDependencies.entries())
+                externalDependencies
             };
         }
     };

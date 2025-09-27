@@ -70,7 +70,7 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
             return {
                 sourceFilePath,
                 targetFilePath,
-                content: await readFile(targetFilePath),
+                content: await readFile(sourceFilePath),
                 isExecutable: isExecutableFileMode(mode)
             };
         },
