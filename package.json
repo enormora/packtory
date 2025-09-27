@@ -43,7 +43,7 @@
         "@effect/schema": "0.60.4",
         "@topcli/spinner": "3.0.0",
         "@ts-morph/common": "0.28.0",
-        "cmd-ts": "0.14.1",
+        "cmd-ts": "0.14.2",
         "effect": "2.2.5",
         "kleur": "4.1.5",
         "libnpmpublish": "11.1.0",
