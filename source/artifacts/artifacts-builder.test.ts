@@ -1,6 +1,6 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
-import type { BundleContent } from '../bundler/bundle-description.js';
+import type { LinkedBundleResource } from '../linker/linked-bundle.js';
 import {
     type ArtifactsBuilder,
     type ArtifactsBuilderDependencies,
@@ -37,7 +37,15 @@ test('buildTarball() returns the tarData and its shasum', async (t) => {
     const builder = artifactsBuilderFactory({ tarballBuilder });
     const result = await builder.buildTarball({
         contents: [],
-        packageJson: { name: 'the-name', version: 'the-version' }
+        packageJson: { name: 'the-name', version: 'the-version' },
+        name: 'the-name',
+        version: '',
+        dependencies: {},
+        peerDependencies: {},
+        additionalAttributes: {},
+        mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+        packageType: 'module',
+        manifestFile: { content: '', isExecutable: false, filePath: '' }
     });
 
     t.deepEqual(result, {
@@ -48,20 +56,56 @@ test('buildTarball() returns the tarData and its shasum', async (t) => {
 
 test('buildTarball() passes all given contents to the tarballBuilder', async (t) => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
-    const readFile = fake.resolves('bar');
-    const builder = artifactsBuilderFactory({ readFile, tarballBuilder });
-    const contents: BundleContent[] = [
-        { kind: 'reference', sourceFilePath: '/foo/bar.txt', targetFilePath: 'bar.txt' },
-        { kind: 'source', targetFilePath: 'baz.txt', source: 'baz' },
-        { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' }
+    const builder = artifactsBuilderFactory({ tarballBuilder });
+    const contents: LinkedBundleResource[] = [
+        {
+            isSubstituted: false,
+            directDependencies: new Set(),
+            fileDescription: {
+                content: 'bar',
+                isExecutable: false,
+                sourceFilePath: '/foo/bar.txt',
+                targetFilePath: 'bar.txt'
+            }
+        },
+        {
+            isSubstituted: false,
+            directDependencies: new Set(),
+            fileDescription: {
+                content: 'baz',
+                isExecutable: false,
+                sourceFilePath: '/foo/bar.txt',
+                targetFilePath: 'baz.txt'
+            }
+        },
+        {
+            isSubstituted: true,
+            directDependencies: new Set(),
+            fileDescription: {
+                content: 'qux',
+                isExecutable: false,
+                sourceFilePath: '/foo/bar.txt',
+                targetFilePath: 'qux.txt'
+            }
+        }
     ];
-    await builder.buildTarball({ contents, packageJson: { name: 'the-name', version: 'the-version' } });
+    await builder.buildTarball({
+        contents,
+        packageJson: { name: 'the-name', version: 'the-version' },
+        name: 'the-name',
+        version: '',
+        dependencies: {},
+        peerDependencies: {},
+        additionalAttributes: {},
+        mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+        packageType: 'module',
+        manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
+    });
 
-    t.is(readFile.callCount, 1);
-    t.deepEqual(readFile.firstCall.args, ['/foo/bar.txt']);
     t.is(tarballBuilder.build.callCount, 1);
     t.deepEqual(tarballBuilder.build.firstCall.args, [
         [
+            { filePath: 'package/package.json', content: '{}', isExecutable: false },
             { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
             { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
             { filePath: 'package/qux.txt', content: 'qux', isExecutable: false }
@@ -69,19 +113,29 @@ test('buildTarball() passes all given contents to the tarballBuilder', async (t)
     ]);
 });
 
-test('buildFolder() doesn’t write or copy anything when the given bundle has no contents', async (t) => {
+test('buildFolder() writes only the manifest when the given bundle has no contents', async (t) => {
     const writeFile = fake.resolves(undefined);
-    const copyFile = fake.resolves(undefined);
     const checkReadability = fake.resolves({ isReadable: false });
-    const builder = artifactsBuilderFactory({ writeFile, copyFile, checkReadability });
+    const builder = artifactsBuilderFactory({ writeFile, checkReadability });
 
     await builder.buildFolder(
-        { contents: [], packageJson: { name: 'the-name', version: 'the-version' } },
+        {
+            contents: [],
+            packageJson: { name: 'the-name', version: 'the-version' },
+            name: '',
+            version: '',
+            dependencies: {},
+            peerDependencies: {},
+            additionalAttributes: {},
+            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+            packageType: 'module',
+            manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
+        },
         '/the/target/folder'
     );
 
-    t.is(writeFile.callCount, 0);
-    t.is(copyFile.callCount, 0);
+    t.is(writeFile.callCount, 1);
+    t.deepEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
 });
 
 test('buildFolder() throws when the target folder already exists', async (t) => {
@@ -90,7 +144,18 @@ test('buildFolder() throws when the target folder already exists', async (t) => 
 
     try {
         await builder.buildFolder(
-            { contents: [], packageJson: { name: 'the-name', version: 'the-version' } },
+            {
+                contents: [],
+                packageJson: { name: 'the-name', version: 'the-version' },
+                name: '',
+                version: '',
+                dependencies: {},
+                peerDependencies: {},
+                additionalAttributes: {},
+                mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+                packageType: 'module',
+                manifestFile: { content: '', isExecutable: false, filePath: '' }
+            },
             '/the/target/folder'
         );
         t.fail('Expected buildFolder() to throw but it did not');
@@ -101,97 +166,95 @@ test('buildFolder() throws when the target folder already exists', async (t) => 
     }
 });
 
-test('buildFolder() copies a reference bundle content to the given target folder', async (t) => {
-    const copyFile = fake.resolves(undefined);
-    const checkReadability = fake.resolves({ isReadable: false });
-    const builder = artifactsBuilderFactory({ copyFile, checkReadability });
-    const contents: BundleContent[] = [
-        { kind: 'reference', sourceFilePath: '/foo/bar/baz.txt', targetFilePath: 'bar/baz.txt' }
-    ];
-    await builder.buildFolder(
-        { contents, packageJson: { name: 'the-name', version: 'the-version' } },
-        '/the/target/folder'
-    );
-
-    t.is(copyFile.callCount, 1);
-    t.deepEqual(copyFile.firstCall.args, ['/foo/bar/baz.txt', '/the/target/folder/bar/baz.txt']);
-});
-
 test('buildFolder() writes the source of a source bundle content to the given target folder', async (t) => {
     const writeFile = fake.resolves(undefined);
     const checkReadability = fake.resolves({ isReadable: false });
     const builder = artifactsBuilderFactory({ writeFile, checkReadability });
-    const contents: BundleContent[] = [{ kind: 'source', targetFilePath: 'bar/baz.txt', source: 'the-content' }];
-    await builder.buildFolder(
-        { contents, packageJson: { name: 'the-name', version: 'the-version' } },
-        '/the/target/folder'
-    );
-
-    t.is(writeFile.callCount, 1);
-    t.deepEqual(writeFile.firstCall.args, ['/the/target/folder/bar/baz.txt', 'the-content']);
-});
-
-test('buildFolder() writes the source of a substituted bundle content to the given target folder', async (t) => {
-    const writeFile = fake.resolves(undefined);
-    const checkReadability = fake.resolves({ isReadable: false });
-    const builder = artifactsBuilderFactory({ writeFile, checkReadability });
-    const contents: BundleContent[] = [
+    const contents: LinkedBundleResource[] = [
         {
-            kind: 'substituted',
-            sourceFilePath: '/foo/bar/bax.txt',
-            targetFilePath: 'bar/baz.txt',
-            source: 'the-content'
+            isSubstituted: false,
+            directDependencies: new Set(),
+            fileDescription: {
+                content: 'the-content',
+                isExecutable: false,
+                sourceFilePath: '/foo/bar.txt',
+                targetFilePath: 'bar/baz.txt'
+            }
         }
     ];
     await builder.buildFolder(
-        { contents, packageJson: { name: 'the-name', version: 'the-version' } },
+        {
+            contents,
+            packageJson: { name: 'the-name', version: 'the-version' },
+            name: '',
+            version: '',
+            dependencies: {},
+            peerDependencies: {},
+            additionalAttributes: {},
+            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+            packageType: 'module',
+            manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
+        },
         '/the/target/folder'
     );
 
-    t.is(writeFile.callCount, 1);
-    t.deepEqual(writeFile.firstCall.args, ['/the/target/folder/bar/baz.txt', 'the-content']);
+    t.is(writeFile.callCount, 2);
+    t.deepEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
+    t.deepEqual(writeFile.secondCall.args, ['/the/target/folder/bar/baz.txt', 'the-content']);
 });
 
-test('collectContents() returns the list of file descriptions of the given bundle', async (t) => {
+test('collectContents() returns the list of file descriptions of the given bundle', (t) => {
     const readFile = fake.resolves('bar');
     const builder = artifactsBuilderFactory({ readFile });
-    const contents: BundleContent[] = [
-        { kind: 'reference', sourceFilePath: '/foo/bar.txt', targetFilePath: 'bar.txt' },
-        { kind: 'source', targetFilePath: 'baz.txt', source: 'baz' },
-        { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' }
+    const contents: LinkedBundleResource[] = [
+        {
+            isSubstituted: false,
+            directDependencies: new Set(),
+            fileDescription: {
+                content: 'bar',
+                isExecutable: false,
+                sourceFilePath: '/foo/bar.txt',
+                targetFilePath: 'bar.txt'
+            }
+        },
+        {
+            isSubstituted: false,
+            directDependencies: new Set(),
+            fileDescription: {
+                content: 'baz',
+                isExecutable: false,
+                sourceFilePath: '/foo/bar.txt',
+                targetFilePath: 'baz.txt'
+            }
+        },
+        {
+            isSubstituted: true,
+            directDependencies: new Set(),
+            fileDescription: {
+                content: 'qux',
+                isExecutable: false,
+                sourceFilePath: '/foo/bar.txt',
+                targetFilePath: 'qux.txt'
+            }
+        }
     ];
-    const result = await builder.collectContents({
+    const result = builder.collectContents({
         contents,
-        packageJson: { name: 'the-name', version: 'the-version' }
+        packageJson: { name: 'the-name', version: 'the-version' },
+        name: '',
+        version: '',
+        dependencies: {},
+        peerDependencies: {},
+        additionalAttributes: {},
+        mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+        packageType: 'module',
+        manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
     });
 
     t.deepEqual(result, [
-        { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
-        { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
-        { filePath: 'package/qux.txt', content: 'qux', isExecutable: false }
-    ]);
-});
-
-test('collectContents() determines files with a sourcePath whether they are executable or not', async (t) => {
-    const readFile = fake.resolves('bar');
-    const getFileMode = fake.resolves(493);
-    const builder = artifactsBuilderFactory({ readFile, getFileMode });
-    const contents: BundleContent[] = [
-        { kind: 'reference', sourceFilePath: '/foo/bar.txt', targetFilePath: 'bar.txt' },
-        { kind: 'source', targetFilePath: 'baz.txt', source: 'baz' },
-        { kind: 'substituted', sourceFilePath: '/foo/qux.txt', targetFilePath: 'qux.txt', source: 'qux' }
-    ];
-    const result = await builder.collectContents({
-        contents,
-        packageJson: { name: 'the-name', version: 'the-version' }
-    });
-
-    t.is(getFileMode.callCount, 2);
-    t.deepEqual(getFileMode.firstCall.args, ['/foo/bar.txt']);
-    t.deepEqual(getFileMode.secondCall.args, ['/foo/qux.txt']);
-    t.deepEqual(result, [
-        { filePath: 'package/bar.txt', content: 'bar', isExecutable: true },
-        { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
-        { filePath: 'package/qux.txt', content: 'qux', isExecutable: true }
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'bar.txt', content: 'bar', isExecutable: false },
+        { filePath: 'baz.txt', content: 'baz', isExecutable: false },
+        { filePath: 'qux.txt', content: 'qux', isExecutable: false }
     ]);
 });

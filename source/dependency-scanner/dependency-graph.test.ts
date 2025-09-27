@@ -1,6 +1,6 @@
 import test from 'ava';
 import { Maybe } from 'true-myth';
-import type { SourceFile } from 'ts-morph';
+import { type SinonSpy, fake } from 'sinon';
 import {
     createDependencyGraph,
     type DependencyFiles,
@@ -11,17 +11,19 @@ import {
 } from './dependency-graph.js';
 
 type Overrides = {
-    readonly topLevelDependencies?: [string, string][];
+    readonly topLevelDependencies?: string[];
+    readonly getProject?: SinonSpy;
 };
 function dependencyGraphNodeDataFactory(overrides: Overrides = {}): DependencyGraphNodeData {
-    const { topLevelDependencies = [] } = overrides;
+    const { topLevelDependencies = [], getProject = fake.returns({}) } = overrides;
 
     return {
         sourceMapFilePath: Maybe.nothing(),
-        topLevelDependencies: new Map(topLevelDependencies),
-        substitutionContent: Maybe.nothing(),
-        tsSourceFile: {} as unknown as SourceFile
-    };
+        externalDependencies: topLevelDependencies,
+        project: {
+            getProject
+        }
+    } as unknown as DependencyGraphNodeData;
 }
 
 test('isKnown() returns false when the given file hasn’t been added', (t) => {
@@ -68,28 +70,29 @@ function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): rea
 
 test('walk() visits the start node only if it has no connections', (t) => {
     const graph = createDependencyGraph();
+    const getProject = fake.returns({});
 
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
+    graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ getProject }));
     const result = collectVisitorNodes(graph, 'foo.js');
 
     t.deepEqual(result, [
         {
             filePath: 'foo.js',
             sourceMapFilePath: Maybe.nothing(),
-            topLevelDependencies: new Map(),
+            externalDependencies: [],
             localFiles: [],
-            substitutionContent: Maybe.nothing(),
-            tsSourceFile: {}
+            project: { getProject }
         }
     ]);
 });
 
 test('walk() visits the start node and all its connections', (t) => {
     const graph = createDependencyGraph();
+    const getProject = fake.returns({});
 
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
-    graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
-    graph.addDependency('baz.js', dependencyGraphNodeDataFactory());
+    graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ getProject }));
+    graph.addDependency('bar.js', dependencyGraphNodeDataFactory({ getProject }));
+    graph.addDependency('baz.js', dependencyGraphNodeDataFactory({ getProject }));
     graph.connect('foo.js', 'bar.js');
     graph.connect('bar.js', 'baz.js');
 
@@ -99,26 +102,23 @@ test('walk() visits the start node and all its connections', (t) => {
         {
             filePath: 'foo.js',
             sourceMapFilePath: Maybe.nothing(),
-            topLevelDependencies: new Map(),
+            externalDependencies: [],
             localFiles: ['bar.js'],
-            substitutionContent: Maybe.nothing(),
-            tsSourceFile: {}
+            project: { getProject }
         },
         {
             filePath: 'bar.js',
             sourceMapFilePath: Maybe.nothing(),
-            topLevelDependencies: new Map(),
+            externalDependencies: [],
             localFiles: ['baz.js'],
-            substitutionContent: Maybe.nothing(),
-            tsSourceFile: {}
+            project: { getProject }
         },
         {
             filePath: 'baz.js',
             sourceMapFilePath: Maybe.nothing(),
-            topLevelDependencies: new Map(),
+            externalDependencies: [],
             localFiles: [],
-            substitutionContent: Maybe.nothing(),
-            tsSourceFile: {}
+            project: { getProject }
         }
     ]);
 });
@@ -133,10 +133,10 @@ test('flatten() collects all nodes and returns a single list for all local files
 
     t.deepEqual(result, {
         localFiles: [
-            { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() }
+            { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
+            { directDependencies: new Set(), filePath: 'bar.js', project: {} }
         ],
-        topLevelDependencies: {}
+        externalDependencies: new Map()
     });
 });
 
@@ -146,19 +146,13 @@ test('flatten() collects all nodes and returns a single map for topLevelDependen
     graph.addDependency(
         'foo.js',
         dependencyGraphNodeDataFactory({
-            topLevelDependencies: [
-                ['a', '1.2.3'],
-                ['b', '42.0.0']
-            ]
+            topLevelDependencies: ['a', 'b']
         })
     );
     graph.addDependency(
         'bar.js',
         dependencyGraphNodeDataFactory({
-            topLevelDependencies: [
-                ['b', '21.0.0'],
-                ['c', '0.0.0']
-            ]
+            topLevelDependencies: ['b', 'c']
         })
     );
     graph.connect('foo.js', 'bar.js');
@@ -166,40 +160,50 @@ test('flatten() collects all nodes and returns a single map for topLevelDependen
 
     t.deepEqual(result, {
         localFiles: [
-            { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() }
+            { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
+            { directDependencies: new Set([]), filePath: 'bar.js', project: {} }
         ],
-        topLevelDependencies: {
-            a: '1.2.3',
-            b: '21.0.0',
-            c: '0.0.0'
-        }
+        externalDependencies: new Map([
+            ['a', { name: 'a', referencedFrom: ['foo.js'] }],
+            ['b', { name: 'b', referencedFrom: ['foo.js', 'bar.js'] }],
+            ['c', { name: 'c', referencedFrom: ['bar.js'] }]
+        ])
     });
 });
 
 test('mergeDependencyFiles() merges two sets of dependency files', (t) => {
     const firstSet: DependencyFiles = {
         localFiles: [
-            { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() }
+            { filePath: 'foo.js', directDependencies: new Set() },
+            { filePath: 'bar.js', directDependencies: new Set() }
         ],
-        topLevelDependencies: { a: '1', b: '2' }
+        externalDependencies: new Map([
+            ['a', { name: 'a', referencedFrom: ['foo.js'] }],
+            ['b', { name: 'b', referencedFrom: ['foo.js'] }]
+        ])
     };
     const secondSet: DependencyFiles = {
         localFiles: [
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'baz.js', substitutionContent: Maybe.nothing() }
+            { filePath: 'bar.js', directDependencies: new Set() },
+            { filePath: 'baz.js', directDependencies: new Set() }
         ],
-        topLevelDependencies: { b: '3', c: '4' }
+        externalDependencies: new Map([
+            ['b', { name: 'b', referencedFrom: ['baz.js'] }],
+            ['d', { name: 'c', referencedFrom: ['baz.js'] }]
+        ])
     };
     const result = mergeDependencyFiles(firstSet, secondSet);
 
     t.deepEqual(result, {
         localFiles: [
-            { filePath: 'foo.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'bar.js', substitutionContent: Maybe.nothing() },
-            { filePath: 'baz.js', substitutionContent: Maybe.nothing() }
+            { filePath: 'foo.js', directDependencies: new Set() },
+            { filePath: 'bar.js', directDependencies: new Set() },
+            { filePath: 'baz.js', directDependencies: new Set() }
         ],
-        topLevelDependencies: { a: '1', b: '3', c: '4' }
+        externalDependencies: new Map([
+            ['a', { name: 'a', referencedFrom: ['foo.js'] }],
+            ['b', { name: 'b', referencedFrom: ['foo.js', 'baz.js'] }],
+            ['c', { name: 'c', referencedFrom: ['baz.js'] }]
+        ])
     });
 });

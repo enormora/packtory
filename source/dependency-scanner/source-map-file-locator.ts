@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { Maybe } from 'true-myth';
-import type { FileManager } from '../artifacts/file-manager.js';
+import type { FileManager } from '../file-manager/file-manager.js';
 
 export type SourceMapFileLocatorDependencies = {
     readonly fileManager: FileManager;

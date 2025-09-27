@@ -1,10 +1,9 @@
 import path from 'node:path';
 import ssri from 'ssri';
-import type { BundleContent, BundleDescription } from '../bundler/bundle-description.js';
 import type { TarballBuilder } from '../tar/tarball-builder.js';
-import type { FileDescription } from '../file-description/file-description.js';
-import { isExecutableFileMode } from '../file-description/permissions.js';
-import type { FileManager } from './file-manager.js';
+import type { FileDescription } from '../file-manager/file-description.js';
+import type { FileManager } from '../file-manager/file-manager.js';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
 
 export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;
@@ -17,37 +16,37 @@ export type TarballArtifact = {
 };
 
 export type ArtifactsBuilder = {
-    collectContents(bundle: BundleDescription): Promise<readonly FileDescription[]>;
-    buildTarball(bundle: BundleDescription): Promise<TarballArtifact>;
-    buildFolder(bundle: BundleDescription, targetFolder: string): Promise<void>;
+    collectContents(bundle: VersionedBundleWithManifest, prefix?: string): readonly FileDescription[];
+    buildTarball(bundle: VersionedBundleWithManifest): Promise<TarballArtifact>;
+    buildFolder(bundle: VersionedBundleWithManifest, targetFolder: string): Promise<void>;
 };
 
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
     const { fileManager, tarballBuilder } = artifactsBuilderDependencies;
 
-    async function isBundleContentExecutable(content: BundleContent): Promise<boolean> {
-        if (content.kind !== 'source') {
-            const fileMode = await fileManager.getFileMode(content.sourceFilePath);
-            return isExecutableFileMode(fileMode);
-        }
-
-        return false;
-    }
-
-    async function collectContents(bundle: BundleDescription): Promise<readonly FileDescription[]> {
-        const artifactContents: FileDescription[] = [];
+    function collectContents(bundle: VersionedBundleWithManifest, prefix?: string): readonly FileDescription[] {
+        const artifactContents: FileDescription[] = [
+            {
+                ...bundle.manifestFile,
+                filePath:
+                    prefix === undefined
+                        ? bundle.manifestFile.filePath
+                        : path.join(prefix, bundle.manifestFile.filePath)
+            }
+        ];
 
         for (const entry of bundle.contents) {
-            const targetFilePath = path.join('package', entry.targetFilePath);
-            const isExecutable = await isBundleContentExecutable(entry);
-
-            if (entry.kind === 'reference') {
-                const content = await fileManager.readFile(entry.sourceFilePath);
-                artifactContents.push({ filePath: targetFilePath, content, isExecutable });
-            } else {
-                artifactContents.push({ filePath: targetFilePath, content: entry.source, isExecutable });
-            }
+            const targetFilePath =
+                prefix === undefined
+                    ? entry.fileDescription.targetFilePath
+                    : path.join(prefix, entry.fileDescription.targetFilePath);
+            artifactContents.push({
+                filePath: targetFilePath,
+                content: entry.fileDescription.content,
+                isExecutable: entry.fileDescription.isExecutable
+            });
         }
+
         return artifactContents;
     }
 
@@ -55,7 +54,7 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
         collectContents,
 
         async buildTarball(bundle) {
-            const contents = await collectContents(bundle);
+            const contents = collectContents(bundle, 'package');
             const tarData = await tarballBuilder.build(contents);
 
             return {
@@ -71,12 +70,12 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
                 throw new Error(`Folder ${targetFolder} already exists`);
             }
 
-            for (const entry of bundle.contents) {
-                const targetFilePath = path.join(targetFolder, entry.targetFilePath);
+            const contents = collectContents(bundle);
 
-                await (entry.kind === 'reference'
-                    ? fileManager.copyFile(entry.sourceFilePath, targetFilePath)
-                    : fileManager.writeFile(targetFilePath, entry.source));
+            for (const entry of contents) {
+                const targetFilePath = path.join(targetFolder, entry.filePath);
+
+                await fileManager.writeFile(targetFilePath, entry.content);
             }
         }
     };

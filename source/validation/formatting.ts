@@ -1,11 +1,8 @@
 import { type NonEmptyReadonlyArray, map, flatMap, initNonEmpty, lastNonEmpty } from 'effect/ReadonlyArray';
 import type { ParseIssue, Type, Key, Index, Tuple, TypeLiteral, ParseError, Union } from '@effect/schema/ParseResult';
+import { uniqueList } from '../list/unique-list.js';
 import { capitalize } from './capitalize.js';
 import { formatAst, isBooleanLiteralUnion } from './formatting/ast.js';
-
-function uniqueList<const T extends readonly unknown[]>(values: T): Readonly<T> {
-    return Array.from(new Set(values)) as unknown as T;
-}
 
 type Path = readonly PropertyKey[];
 
