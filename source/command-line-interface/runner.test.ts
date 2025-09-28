@@ -6,7 +6,7 @@ import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
     type CommandLineInterfaceRunnerDependencies
-} from './runner.js';
+} from './runner.ts';
 
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;

@@ -5,7 +5,7 @@ import {
     type ArtifactsBuilder,
     type ArtifactsBuilderDependencies,
     createArtifactsBuilder
-} from './artifacts-builder.js';
+} from './artifacts-builder.ts';
 
 type Overrides = {
     readonly readFile?: SinonSpy;

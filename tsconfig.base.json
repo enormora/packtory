@@ -25,6 +25,7 @@
         "outDir": "./target/build",
         "types": [],
         "skipLibCheck": true,
-        "rewriteRelativeImportExtensions": true
+        "rewriteRelativeImportExtensions": true,
+        "erasableSyntaxOnly": true
     }
 }

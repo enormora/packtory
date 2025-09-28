@@ -52,15 +52,7 @@ export default [
                 }
             ],
             'max-lines-per-function': 'off',
-            'import/extensions': [
-                'error',
-                {
-                    js: 'always',
-                    jsx: 'always',
-                    json: 'always',
-                    ignorePackages: true
-                }
-            ],
+            'import/extensions': 'off',
             // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed
             'functional/prefer-immutable-types': 'off',
             // re-enable once https://github.com/eslint-functional/eslint-plugin-functional/issues/733 is fixed

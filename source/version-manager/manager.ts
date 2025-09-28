@@ -6,7 +6,7 @@ import {
     type BuildVersionedBundleOptions,
     type VersionedBundle,
     type VersionedBundleWithManifest
-} from './versioned-bundle.js';
+} from './versioned-bundle.ts';
 
 export type VersionManager = {
     addVersion: (options: BuildVersionedBundleOptions) => VersionedBundleWithManifest;

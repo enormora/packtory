@@ -6,7 +6,7 @@ import {
     mergeExternalDependencies,
     type ExternalDependencies,
     type ExternalDependency
-} from './external-dependencies.js';
+} from './external-dependencies.ts';
 import type { TypescriptProject } from './typescript-project-analyzer.ts';
 
 export type DependencyGraphNodeData = {
