@@ -81,15 +81,15 @@ test('modifies only matching import statements and keeps non-matching statements
 test('modifies import statements correctly in d.ts files', (t) => {
     const project = createProject({
         withFiles: [
-            { filePath: '/folder/foo.d.ts', content: 'import "./bar";' },
+            { filePath: '/folder/foo.d.ts', content: 'import "./bar.js";' },
             { filePath: '/folder/bar.d.ts', content: 'const bar = "baz";' }
         ]
     });
-    const replacements = new Map<string, string>([['/folder/bar.d.ts', 'replacement']]);
+    const replacements = new Map<string, string>([['/folder/bar.d.ts', 'replacement/bar.d.ts']]);
 
-    const result = replaceImportPaths(project, '/folder/foo.d.ts', 'import "./bar"', replacements);
+    const result = replaceImportPaths(project, '/folder/foo.d.ts', 'import "./bar.js"', replacements);
 
-    t.is(result, 'import "replacement";');
+    t.is(result, 'import "replacement/bar.js";');
 });
 
 test('keeps shebang line in the transformed output', (t) => {

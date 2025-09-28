@@ -144,7 +144,7 @@ test(
                 },
                 {
                     isExecutable: false,
-                    content: "export declare const foo: import('first/foo.d.ts').Foo;\n",
+                    content: "export declare const foo: import('first/foo.js').Foo;\n",
                     filePath: 'package/entry2.d.ts'
                 }
             ]
@@ -219,7 +219,7 @@ test(
                 },
                 {
                     isExecutable: false,
-                    content: "export declare const foo: import('first/foo.d.ts').Foo;\n",
+                    content: "export declare const foo: import('first/foo.js').Foo;\n",
                     filePath: 'package/entry2.d.ts'
                 }
             ]
