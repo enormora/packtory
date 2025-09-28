@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/indent -- conflicts with prettier */
-/* eslint-disable import/max-dependencies -- needed */
 import { map } from 'effect/ReadonlyArray';
 import type { Except } from 'type-fest';
 import type { PackageConfig, PacktoryConfig } from '../config/config.js';
@@ -56,6 +54,7 @@ function mergeAdditionalFiles(
     return Array.from(filesWithUniqueTargetPath.values());
 }
 
+// eslint-disable-next-line complexity -- needs to be refactored
 export function configToBuildAndPublishOptions(
     packageName: string,
     packageConfigs: Map<string, PackageConfig>,
@@ -80,8 +79,10 @@ export function configToBuildAndPublishOptions(
         versioning = { automatic: true },
         ...remainingPackageConfig
     } = packageConfig;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
     const mainPackageJson = (packtoryConfig.commonPackageSettings?.mainPackageJson ??
         mainPackageJsonFromPackageConfig) as MainPackageJson;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
     const sourcesFolder = (packtoryConfig.commonPackageSettings?.sourcesFolder ??
         sourcesFolderFromPackageConfig) as string;
 

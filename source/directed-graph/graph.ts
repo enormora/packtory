@@ -15,18 +15,18 @@ export type GraphEdge<TId extends GraphNodeId> = {
 type Visitor<TId extends GraphNodeId, TData> = (node: Readonly<GraphNode<TId, TData>>) => void;
 
 export type DirectedGraph<TId extends GraphNodeId, TData> = {
-    addNode(id: TId, data: TData): void;
-    connect(edge: Readonly<GraphEdge<TId>>): void;
-    disconnect(edge: Readonly<GraphEdge<TId>>): void;
-    hasNode(id: TId): boolean;
-    hasConnection(edge: Readonly<GraphEdge<TId>>): boolean;
-    visitBreadthFirstSearch(startId: TId, visitor: Visitor<TId, TData>): void;
-    detectCycles(): readonly (readonly TId[])[];
-    isCyclic(): boolean;
-    getTopologicalGenerations(): readonly (readonly TId[])[];
-    reverse(): DirectedGraph<TId, TData>;
-    getAdjacentIds(id: TId): ReadonlySet<TId>;
-    traverse(visitor: Visitor<TId, TData>): void;
+    addNode: (id: TId, data: TData) => void;
+    connect: (edge: Readonly<GraphEdge<TId>>) => void;
+    disconnect: (edge: Readonly<GraphEdge<TId>>) => void;
+    hasNode: (id: TId) => boolean;
+    hasConnection: (edge: Readonly<GraphEdge<TId>>) => boolean;
+    visitBreadthFirstSearch: (startId: TId, visitor: Visitor<TId, TData>) => void;
+    detectCycles: () => readonly (readonly TId[])[];
+    isCyclic: () => boolean;
+    getTopologicalGenerations: () => readonly (readonly TId[])[];
+    reverse: () => DirectedGraph<TId, TData>;
+    getAdjacentIds: (id: TId) => ReadonlySet<TId>;
+    traverse: (visitor: Visitor<TId, TData>) => void;
 };
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(

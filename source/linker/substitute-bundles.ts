@@ -1,7 +1,7 @@
 import { Maybe } from 'true-myth';
-import type { ResourceGraph } from '../linker/resource-graph.js';
-import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from '../linker/substituted-resource-graph.js';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
+import type { ResourceGraph } from './resource-graph.js';
+import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from './substituted-resource-graph.js';
 import { replaceImportPaths } from './source-modifier/import-paths.js';
 
 type Replacement = {

@@ -12,15 +12,15 @@ type FileOrFolderReadability = {
 };
 
 export type FileManager = {
-    checkReadability(fileOrFolderPath: string): Promise<FileOrFolderReadability>;
-    readFile(filePath: string): Promise<string>;
-    writeFile(filePath: string, content: string): Promise<void>;
-    copyFile(from: string, to: string): Promise<void>;
-    getFileMode(filePath: string): Promise<number>;
-    getTransferableFileDescriptionFromPath(
+    checkReadability: (fileOrFolderPath: string) => Promise<FileOrFolderReadability>;
+    readFile: (filePath: string) => Promise<string>;
+    writeFile: (filePath: string, content: string) => Promise<void>;
+    copyFile: (from: string, to: string) => Promise<void>;
+    getFileMode: (filePath: string) => Promise<number>;
+    getTransferableFileDescriptionFromPath: (
         sourceFilePath: string,
         targetFilePath: string
-    ): Promise<TransferableFileDescription>;
+    ) => Promise<TransferableFileDescription>;
 };
 
 export function createFileManager(dependencies: FileManagerDependencies): FileManager {

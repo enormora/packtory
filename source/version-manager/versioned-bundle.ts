@@ -1,4 +1,5 @@
 import type { PackageJson } from 'type-fest';
+import { oneLine } from 'common-tags';
 import type { LinkedBundle } from '../linker/linked-bundle.js';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.js';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.js';
@@ -96,8 +97,8 @@ function groupExternalDependencies(
         if (mainPackageJson.peerDependencies?.[dependencyName] === undefined) {
             if (mainPackageJson.dependencies?.[dependencyName] === undefined) {
                 throw new Error(
-                    `Couldn’t determine version number of ${dependencyName}, ` +
-                        'because it is not listed in the main package.json'
+                    oneLine`Couldn’t determine version number of ${dependencyName},
+                        because it is not listed in the main package.json`
                 );
             }
             const version = getVersionFromDependencies(dependencyName, mainPackageJson, 'dependencies');

@@ -143,7 +143,7 @@ test('fetchLatestVersion() throws and propagates the error when npmFetch throws 
 
 test('fetchLatestVersion() throws and propagates the error when npmFetch throws with a fetch-error and the status code is not 404 nor 403', async (t) => {
     const error = new Error('fetch-error');
-    // @ts-expect-error
+    // @ts-expect-error -- ok in this case
     error.statusCode = 500;
     const npmFetchJson = fake.rejects(error);
     const registryClient = registryClientFactory({ npmFetchJson });
@@ -186,7 +186,7 @@ test('fetchLatestVersion() throws when npmFetch resolves with inconsistent data'
 
 test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 404', async (t) => {
     const error = new Error('fetch-error');
-    // @ts-expect-error
+    // @ts-expect-error -- ok in this case
     error.statusCode = 404;
     const npmFetchJson = fake.rejects(error);
     const registryClient = registryClientFactory({ npmFetchJson });
@@ -197,7 +197,7 @@ test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error wi
 
 test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 403', async (t) => {
     const error = new Error('fetch-error');
-    // @ts-expect-error
+    // @ts-expect-error -- ok in this case
     error.statusCode = 403;
     const npmFetchJson = fake.rejects(error);
     const registryClient = registryClientFactory({ npmFetchJson });
@@ -239,7 +239,7 @@ test('fetchTarball() returns the buffer of the fetched tarball', async (t) => {
 
 test('fetchTarball() throws when npmFetch throws a fetch error with status code 404', async (t) => {
     const error = new Error('fetch-error');
-    // @ts-expect-error
+    // @ts-expect-error -- ok in this case
     error.statusCode = 404;
     const npmFetch = fake.rejects(error) as FakeNpmFetch;
     const registryClient = registryClientFactory({ npmFetch });

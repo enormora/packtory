@@ -12,11 +12,11 @@ export type CommandLineInterfaceRunnerDependencies = {
     readonly progressBroadcaster: ProgressBroadcastConsumer;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
-    log(message: string): void;
+    log: (message: string) => void;
 };
 
 export type CommandLineInterfaceRunner = {
-    run(programArguments: readonly string[]): Promise<number>;
+    run: (programArguments: readonly string[]) => Promise<number>;
 };
 
 const errorSymbol = kleur.bold().red('✖');
@@ -137,6 +137,7 @@ export function createCommandLineInterfaceRunner(
             });
 
             const program = binary(baseCommand);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
             await run(program, programArguments as string[]);
 
             return exitCode;

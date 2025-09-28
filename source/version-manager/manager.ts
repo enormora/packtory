@@ -9,8 +9,8 @@ import {
 } from './versioned-bundle.js';
 
 export type VersionManager = {
-    addVersion(options: BuildVersionedBundleOptions): VersionedBundleWithManifest;
-    increaseVersion(bundle: VersionedBundle): VersionedBundleWithManifest;
+    addVersion: (options: BuildVersionedBundleOptions) => VersionedBundleWithManifest;
+    increaseVersion: (bundle: VersionedBundle) => VersionedBundleWithManifest;
 };
 
 export function createVersionManager(): VersionManager {

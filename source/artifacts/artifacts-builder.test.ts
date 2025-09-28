@@ -16,6 +16,7 @@ type Overrides = {
     readonly tarballBuilder?: { readonly build?: SinonSpy };
 };
 
+// eslint-disable-next-line complexity -- needs to be refactored
 function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
     const {
         readFile = fake(),

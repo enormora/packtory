@@ -13,7 +13,7 @@ export type ModuleResolution = 'common-js' | 'module';
 export type TypescriptProjectAnalyzerDependencies = {
     readonly Project: typeof _Project;
     readonly fileSystemAdapters: FileSystemAdapters;
-    getReferencedSourceFiles(sourceFile: Readonly<SourceFile>): readonly Readonly<SourceFile>[];
+    getReferencedSourceFiles: (sourceFile: Readonly<SourceFile>) => readonly Readonly<SourceFile>[];
 };
 
 export type AnalyzationOptions = {
@@ -23,13 +23,13 @@ export type AnalyzationOptions = {
 };
 
 export type TypescriptProject = {
-    getReferencedSourceFilePaths(containingSourceFilePath: string): readonly string[];
-    getSourceFile(filePath: string): SourceFile;
-    getProject(): _Project;
+    getReferencedSourceFilePaths: (containingSourceFilePath: string) => readonly string[];
+    getSourceFile: (filePath: string) => SourceFile;
+    getProject: () => _Project;
 };
 
 export type TypescriptProjectAnalyzer = {
-    analyzeProject(folder: string, options: AnalyzationOptions): TypescriptProject;
+    analyzeProject: (folder: string, options: AnalyzationOptions) => TypescriptProject;
 };
 
 export function getSourcePathFromSourceFile(sourceFile: Readonly<SourceFile>): string {

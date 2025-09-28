@@ -277,11 +277,11 @@ test(
     {
         method: 'directoryExists',
         adapter: 'fileSystemHostFilteringDeclarationFiles',
-        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+
         pathToCheck: 'foo/node_modules/@typesomething/foo',
         upstreamMethodReturnValue: true,
         expectedResult: true,
-        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+
         expectedUpstreamCalls: [['foo/node_modules/@typesomething/foo']]
     }
 );
@@ -305,11 +305,11 @@ test(
     {
         method: 'directoryExistsSync',
         adapter: 'fileSystemHostFilteringDeclarationFiles',
-        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+
         pathToCheck: 'foo/node_modules/@typesomething/foo',
         upstreamMethodReturnValue: true,
         expectedResult: true,
-        // eslint-disable-next-line @cspell/spellchecker -- need this weird word for this test case
+
         expectedUpstreamCalls: [['foo/node_modules/@typesomething/foo']]
     }
 );

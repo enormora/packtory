@@ -4,11 +4,11 @@ import { has, type ReadonlyRecord } from 'effect/ReadonlyRecord';
 
 export type ConfigLoaderDependencies = {
     readonly currentWorkingDirectory: string;
-    importModule(modulePath: string): Promise<unknown>;
+    importModule: (modulePath: string) => Promise<unknown>;
 };
 
 export type ConfigLoader = {
-    load(): Promise<unknown>;
+    load: () => Promise<unknown>;
 };
 
 type UnknownFunction = (...args: unknown[]) => unknown;

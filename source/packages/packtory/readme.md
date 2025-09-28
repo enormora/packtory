@@ -28,11 +28,11 @@ const options = { dryRun: true }; // Example options
 
 **Parameters:**
 
--   **config:** The packtory configuration object.
--   **options:** An options object, currently supporting a `dryRun` boolean.
+- **config:** The packtory configuration object.
+- **options:** An options object, currently supporting a `dryRun` boolean.
 
 **Return Value:**
 
--   A `PublishAllResult` object containing either a list of successful publish results or a partial error if some packages have failed.
+- A `PublishAllResult` object containing either a list of successful publish results or a partial error if some packages have failed.
 
 **Note:** Refer to the [full documentation](https://github.com/enormora/packtory/blob/main/readme.md) for additional details.

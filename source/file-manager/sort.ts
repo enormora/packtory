@@ -16,5 +16,5 @@ function compareFilePath(first: FileDescription, second: FileDescription): Compa
 }
 
 export function sortByFilePath(fileDescriptions: readonly FileDescription[]): readonly FileDescription[] {
-    return Array.from(fileDescriptions).sort(compareFilePath);
+    return Array.from(fileDescriptions).toSorted(compareFilePath);
 }

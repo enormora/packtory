@@ -3,10 +3,10 @@ import type { Spinner } from '@topcli/spinner';
 type Status = 'failure' | 'success';
 
 export type TerminalSpinnerRenderer = {
-    add(id: string, label: string, message: string): void;
-    updateMessage(id: string, message: string): void;
-    stop(id: string, status: Status, message: string): void;
-    stopAll(): void;
+    add: (id: string, label: string, message: string) => void;
+    updateMessage: (id: string, message: string) => void;
+    stop: (id: string, status: Status, message: string) => void;
+    stopAll: () => void;
 };
 
 export type TerminalSpinnerRendererDependencies = {

@@ -48,6 +48,7 @@ function deepSort<T>(value: T, visitedObjects: readonly unknown[]): T {
         const entries = Object.entries(value);
         entries.sort(compareEntryKeys);
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
         return Object.fromEntries(
             entries.map(([propertyName, propertyValue]) => {
                 let currentValue = propertyValue;
@@ -60,7 +61,7 @@ function deepSort<T>(value: T, visitedObjects: readonly unknown[]): T {
                             }
                             return item;
                         })
-                        .sort(compareValues);
+                        .toSorted(compareValues);
                 }
 
                 return [propertyName, deepSort(currentValue, [...visitedObjects, value])];

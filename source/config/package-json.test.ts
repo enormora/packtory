@@ -141,6 +141,7 @@ test('additional attributes: validation fails when version is given', checkValid
 
 test('additional attributes: validation fails when forbidden value is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- ok in this case
     data: { foo: () => {} },
     expectedMessages: [
         'at foo: invalid value: expected one of string, number, boolean, null, array or record, but got function'

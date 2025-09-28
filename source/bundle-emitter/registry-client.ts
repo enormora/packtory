@@ -14,9 +14,9 @@ export type RegistryClientDependencies = {
 };
 
 export type RegistryClient = {
-    fetchLatestVersion(packageName: string, config: RegistrySettings): Promise<Maybe<PackageVersionDetails>>;
-    publishPackage(manifest: Readonly<BundlePackageJson>, tarData: Buffer, config: RegistrySettings): Promise<void>;
-    fetchTarball(tarballUrl: string, shasum: string): Promise<Buffer>;
+    fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
+    publishPackage: (manifest: Readonly<BundlePackageJson>, tarData: Buffer, config: RegistrySettings) => Promise<void>;
+    fetchTarball: (tarballUrl: string, shasum: string) => Promise<Buffer>;
 };
 
 type FetchError = {
@@ -112,6 +112,7 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
         },
 
         async publishPackage(manifest, tarData, registrySettings) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
             await publish(manifest as unknown as PublishManifest, tarData, {
                 defaultTag: 'latest',
                 forceAuth: {

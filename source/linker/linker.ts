@@ -10,7 +10,7 @@ type LinkBundleOptions = {
 };
 
 export type BundleLinker = {
-    linkBundle(options: LinkBundleOptions): Promise<LinkedBundle>;
+    linkBundle: (options: LinkBundleOptions) => Promise<LinkedBundle>;
 };
 
 function flattenEntryPoints(entryPoints: ResolvedBundle['entryPoints']): string[] {
