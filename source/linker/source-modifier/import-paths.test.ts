@@ -1,6 +1,6 @@
 import test from 'ava';
-import { createProject } from '../../test-libraries/typescript-project.js';
-import { replaceImportPaths } from './import-paths.js';
+import { createProject } from '../../test-libraries/typescript-project.ts';
+import { replaceImportPaths } from './import-paths.ts';
 
 test('returns source code unmodified when project is undefined', (t) => {
     const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);

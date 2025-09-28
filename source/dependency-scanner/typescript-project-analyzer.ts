@@ -6,7 +6,7 @@ import {
     ModuleResolutionKind,
     type CompilerOptions
 } from 'ts-morph';
-import type { FileSystemAdapters } from './typescript-file-host.js';
+import type { FileSystemAdapters } from './typescript-file-host.ts';
 
 export type ModuleResolution = 'common-js' | 'module';
 

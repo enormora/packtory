@@ -1,6 +1,6 @@
-import { areFileDescriptionEqual } from './equal.js';
-import type { FileDescription } from './file-description.js';
-import { sortByFilePath } from './sort.js';
+import { areFileDescriptionEqual } from './equal.ts';
+import type { FileDescription } from './file-description.ts';
+import { sortByFilePath } from './sort.ts';
 
 type FileDescriptionsComparisonResult = {
     status: 'equal' | 'not-equal';

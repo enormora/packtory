@@ -1,6 +1,6 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
-import { createConfigLoader, type ConfigLoader } from './config-loader.js';
+import { createConfigLoader, type ConfigLoader } from './config-loader.ts';
 
 type Overrides = {
     currentWorkingDirectory?: string;

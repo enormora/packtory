@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { TransferableFileDescription } from './file-description.js';
-import { isExecutableFileMode } from './permissions.js';
+import type { TransferableFileDescription } from './file-description.ts';
+import { isExecutableFileMode } from './permissions.ts';
 
 export type FileManagerDependencies = {
     readonly hostFileSystem: typeof fs.promises;

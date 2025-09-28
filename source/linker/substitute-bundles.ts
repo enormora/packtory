@@ -1,8 +1,8 @@
 import { Maybe } from 'true-myth';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
-import type { ResourceGraph } from './resource-graph.js';
-import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from './substituted-resource-graph.js';
-import { replaceImportPaths } from './source-modifier/import-paths.js';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { ResourceGraph } from './resource-graph.ts';
+import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from './substituted-resource-graph.ts';
+import { replaceImportPaths } from './source-modifier/import-paths.ts';
 
 type Replacement = {
     readonly targetPath: string;

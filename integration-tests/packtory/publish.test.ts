@@ -2,11 +2,11 @@ import path from 'node:path';
 import test from 'ava';
 import npmFetch from 'npm-registry-fetch';
 import { publish } from 'libnpmpublish';
-import { loadPackageJson } from '../load-package-json.js';
-import { checkWithRegistry, type RegistryDetails } from '../registry.js';
-import { buildAndPublishAll, type PublishAllResult } from '../../source/packages/packtory/packtory.entry-point.js';
-import { createRegistryClient } from '../../source/bundle-emitter/registry-client.js';
-import { extractPackageTarball } from '../../source/bundle-emitter/extract-package-tarball.js';
+import { loadPackageJson } from '../load-package-json.ts';
+import { checkWithRegistry, type RegistryDetails } from '../registry.ts';
+import { buildAndPublishAll, type PublishAllResult } from '../../source/packages/packtory/packtory.entry-point.ts';
+import { createRegistryClient } from '../../source/bundle-emitter/registry-client.ts';
+import { extractPackageTarball } from '../../source/bundle-emitter/extract-package-tarball.ts';
 
 const registryClient = createRegistryClient({ npmFetch, publish });
 

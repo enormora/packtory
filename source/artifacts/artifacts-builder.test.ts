@@ -1,6 +1,6 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
-import type { LinkedBundleResource } from '../linker/linked-bundle.js';
+import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
 import {
     type ArtifactsBuilder,
     type ArtifactsBuilderDependencies,

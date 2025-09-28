@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
-import { type FileManagerDependencies, createFileManager, type FileManager } from './file-manager.js';
+import { type FileManagerDependencies, createFileManager, type FileManager } from './file-manager.ts';
 
 type Overrides = {
     readonly access?: SinonSpy;

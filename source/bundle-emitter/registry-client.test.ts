@@ -1,7 +1,7 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
-import { createRegistryClient, type RegistryClientDependencies, type RegistryClient } from './registry-client.js';
+import { createRegistryClient, type RegistryClientDependencies, type RegistryClient } from './registry-client.ts';
 
 type NpmFetchOverrides = {
     readonly buffer?: SinonSpy;

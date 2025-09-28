@@ -1,8 +1,8 @@
 import { Maybe } from 'true-myth/maybe';
-import { uniqueList } from '../list/unique-list.js';
-import type { SourceMapFileLocator } from './source-map-file-locator.js';
-import type { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.js';
-import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.js';
+import { uniqueList } from '../list/unique-list.ts';
+import type { SourceMapFileLocator } from './source-map-file-locator.ts';
+import type { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.ts';
+import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.ts';
 
 type ScanOptions = {
     readonly includeSourceMapFiles: boolean;

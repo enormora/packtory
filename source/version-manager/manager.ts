@@ -1,6 +1,6 @@
 import semver from 'semver';
-import { buildPackageManifest } from './manifest/builder.js';
-import { serializePackageJson } from './manifest/serialize.js';
+import { buildPackageManifest } from './manifest/builder.ts';
+import { serializePackageJson } from './manifest/serialize.ts';
 import {
     buildVersionedBundle,
     type BuildVersionedBundleOptions,

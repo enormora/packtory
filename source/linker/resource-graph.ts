@@ -1,8 +1,8 @@
 import type { Project } from 'ts-morph';
-import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.js';
-import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.js';
-import type { TransferableFileDescription } from '../file-manager/file-description.js';
-import type { BundleResource, ResolvedBundle } from '../resource-resolver/resolved-bundle.js';
+import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
+import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
+import type { TransferableFileDescription } from '../file-manager/file-description.ts';
+import type { BundleResource, ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
 
 export type ResourceGraphNodeData = {
     readonly fileDescription: TransferableFileDescription;

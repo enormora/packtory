@@ -1,5 +1,5 @@
 import test from 'ava';
-import { configToBuildAndPublishOptions } from './map-config.js';
+import { configToBuildAndPublishOptions } from './map-config.ts';
 
 test('throws when the given packageName doesn’t exist in the configs', (t) => {
     t.throws(

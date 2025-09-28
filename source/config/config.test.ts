@@ -1,6 +1,6 @@
 import test from 'ava';
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
-import { packtoryConfigSchema } from './config.js';
+import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
+import { packtoryConfigSchema } from './config.ts';
 
 test('validation succeeds when commonPackageSettings is defined but empty', checkValidationSuccess, {
     schema: packtoryConfigSchema,

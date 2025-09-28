@@ -1,6 +1,6 @@
 import test from 'ava';
 import type { JsonValue } from 'type-fest';
-import { serializePackageJson } from './serialize.js';
+import { serializePackageJson } from './serialize.ts';
 
 test('serializes the given data with 4 spaces indentation', (t) => {
     const result = serializePackageJson({ a: 'foo', b: 'bar' });

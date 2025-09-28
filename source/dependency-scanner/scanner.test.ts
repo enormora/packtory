@@ -1,7 +1,7 @@
 import test from 'ava';
 import { stub, fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
-import { createDependencyScanner, type DependencyScanner, type DependencyScannerDependencies } from './scanner.js';
+import { createDependencyScanner, type DependencyScanner, type DependencyScannerDependencies } from './scanner.ts';
 
 type ProjectOverrides = {
     readonly getReferencedSourceFilePaths?: SinonSpy;

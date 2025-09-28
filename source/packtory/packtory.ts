@@ -1,8 +1,8 @@
 import { Result } from 'true-myth';
-import type { PacktoryConfig } from '../config/config.js';
-import { validateConfig } from '../config/validation.js';
-import type { Scheduler, PartialError } from './scheduler.js';
-import type { BuildAndPublishResult, PackageProcessor } from './package-processor.js';
+import type { PacktoryConfig } from '../config/config.ts';
+import { validateConfig } from '../config/validation.ts';
+import type { Scheduler, PartialError } from './scheduler.ts';
+import type { BuildAndPublishResult, PackageProcessor } from './package-processor.ts';
 
 type Options = {
     readonly dryRun: boolean;

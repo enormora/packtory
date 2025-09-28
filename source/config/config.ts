@@ -1,10 +1,10 @@
 import { z } from 'zod/mini';
-import { registrySettingsSchema } from './registry-settings.js';
-import { nonEmptyStringSchema } from './base-validations.js';
-import { versioningSettingsSchema } from './versioning-settings.js';
-import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './package-json.js';
-import { entryPointSchema } from './entry-point.js';
-import { additionalFileDescriptionSchema } from './additional-files.js';
+import { registrySettingsSchema } from './registry-settings.ts';
+import { nonEmptyStringSchema } from './base-validations.ts';
+import { versioningSettingsSchema } from './versioning-settings.ts';
+import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './package-json.ts';
+import { entryPointSchema } from './entry-point.ts';
+import { additionalFileDescriptionSchema } from './additional-files.ts';
 
 const perPackageSettingsSchema = z.strictObject({
     name: nonEmptyStringSchema,

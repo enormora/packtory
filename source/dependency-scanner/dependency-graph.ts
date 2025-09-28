@@ -1,13 +1,13 @@
 import type { Maybe } from 'true-myth';
 import type { Project } from 'ts-morph';
-import { createDirectedGraph } from '../directed-graph/graph.js';
-import { uniqueList } from '../list/unique-list.js';
+import { createDirectedGraph } from '../directed-graph/graph.ts';
+import { uniqueList } from '../list/unique-list.ts';
 import {
     mergeExternalDependencies,
     type ExternalDependencies,
     type ExternalDependency
 } from './external-dependencies.js';
-import type { TypescriptProject } from './typescript-project-analyzer.js';
+import type { TypescriptProject } from './typescript-project-analyzer.ts';
 
 export type DependencyGraphNodeData = {
     readonly sourceMapFilePath: Maybe<string>;

@@ -1,9 +1,9 @@
 import type { Except } from 'type-fest';
-import type { ExternalDependency } from '../dependency-scanner/external-dependencies.js';
-import { createDirectedGraph } from '../directed-graph/graph.js';
-import { uniqueList } from '../list/unique-list.js';
-import type { LinkedBundle, LinkedBundleResource } from './linked-bundle.js';
-import type { ResourceGraphNodeData } from './resource-graph.js';
+import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
+import { createDirectedGraph } from '../directed-graph/graph.ts';
+import { uniqueList } from '../list/unique-list.ts';
+import type { LinkedBundle, LinkedBundleResource } from './linked-bundle.ts';
+import type { ResourceGraphNodeData } from './resource-graph.ts';
 
 type SubstitutedResourceGraphNodeData = ResourceGraphNodeData & {
     readonly bundleDependencies: readonly string[];

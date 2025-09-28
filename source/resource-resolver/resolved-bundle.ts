@@ -1,6 +1,6 @@
 import type { Project } from 'ts-morph';
-import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.js';
-import type { TransferableFileDescription } from '../file-manager/file-description.js';
+import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
+import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 
 export type BundleResource = {
     readonly fileDescription: TransferableFileDescription;

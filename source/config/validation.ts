@@ -1,7 +1,7 @@
 import { Result } from 'true-myth';
 import { safeParse } from '@schema-hub/zod-error-formatter';
-import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.js';
-import { type PacktoryConfig, packtoryConfigSchema, type PackageConfig } from './config.js';
+import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
+import { type PacktoryConfig, packtoryConfigSchema, type PackageConfig } from './config.ts';
 
 function buildPackageGraph(packages: ReadonlyMap<string, PackageConfig>): DirectedGraph<string, undefined> {
     const graph = createDirectedGraph<string, undefined>();

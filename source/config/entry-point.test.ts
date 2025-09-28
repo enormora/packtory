@@ -1,6 +1,6 @@
 import test from 'ava';
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
-import { entryPointSchema } from './entry-point.js';
+import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
+import { entryPointSchema } from './entry-point.ts';
 
 test('validation succeeds when a minimal entryPoint is given', checkValidationSuccess, {
     schema: entryPointSchema,

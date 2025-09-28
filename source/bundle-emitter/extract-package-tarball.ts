@@ -1,6 +1,6 @@
-import type { FileDescription } from '../file-manager/file-description.js';
-import { isExecutableFileMode } from '../file-manager/permissions.js';
-import { extractTarEntries, type TarEntry } from '../tar/extract-tar.js';
+import type { FileDescription } from '../file-manager/file-description.ts';
+import { isExecutableFileMode } from '../file-manager/permissions.ts';
+import { extractTarEntries, type TarEntry } from '../tar/extract-tar.ts';
 
 function tarEntryToFileDescription(tarEntry: TarEntry): FileDescription {
     const isExecutable = tarEntry.header.mode === undefined ? false : isExecutableFileMode(tarEntry.header.mode);

@@ -24,6 +24,7 @@
         "verbatimModuleSyntax": true,
         "outDir": "./target/build",
         "types": [],
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "rewriteRelativeImportExtensions": true
     }
 }

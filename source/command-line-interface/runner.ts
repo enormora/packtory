@@ -1,11 +1,11 @@
 import { command, subcommands, flag, binary, run } from 'cmd-ts';
 import kleur from 'kleur';
-import type { Packtory, PublishFailure } from '../packtory/packtory.js';
-import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.js';
-import type { PartialError } from '../packtory/scheduler.js';
-import type { BuildAndPublishResult } from '../packtory/package-processor.js';
-import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.js';
-import type { ConfigLoader } from './config-loader.js';
+import type { Packtory, PublishFailure } from '../packtory/packtory.ts';
+import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
+import type { PartialError } from '../packtory/scheduler.ts';
+import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
+import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
+import type { ConfigLoader } from './config-loader.ts';
 
 export type CommandLineInterfaceRunnerDependencies = {
     readonly packtory: Packtory;

@@ -1,11 +1,11 @@
 import { map } from 'effect/ReadonlyArray';
-import type { DependencyScanner } from '../dependency-scanner/scanner.js';
-import { type DependencyFiles, mergeDependencyFiles } from '../dependency-scanner/dependency-graph.js';
-import type { FileManager } from '../file-manager/file-manager.js';
-import type { TransferableFileDescription } from '../file-manager/file-description.js';
-import type { BundleResource, ResolvedBundle, ResolvedContent } from './resolved-bundle.js';
-import type { ResourceResolveOptions } from './resource-resolve-options.js';
-import { combineAllBundleFiles } from './content.js';
+import type { DependencyScanner } from '../dependency-scanner/scanner.ts';
+import { type DependencyFiles, mergeDependencyFiles } from '../dependency-scanner/dependency-graph.ts';
+import type { FileManager } from '../file-manager/file-manager.ts';
+import type { TransferableFileDescription } from '../file-manager/file-description.ts';
+import type { BundleResource, ResolvedBundle, ResolvedContent } from './resolved-bundle.ts';
+import type { ResourceResolveOptions } from './resource-resolve-options.ts';
+import { combineAllBundleFiles } from './content.ts';
 
 export type ResourceResolverDependencies = {
     readonly dependencyScanner: DependencyScanner;

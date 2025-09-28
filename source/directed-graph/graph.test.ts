@@ -1,5 +1,5 @@
 import test from 'ava';
-import { createDirectedGraph, type GraphEdge, type DirectedGraph } from './graph.js';
+import { createDirectedGraph, type GraphEdge, type DirectedGraph } from './graph.ts';
 
 test('hasNode() returns false when there is no node for the given id', (t) => {
     const graph = createDirectedGraph<string, string>();

@@ -1,7 +1,7 @@
 import test from 'ava';
 import { ModuleKind } from 'ts-morph';
-import { createProject } from '../test-libraries/typescript-project.js';
-import { getReferencedSourceFiles } from './source-file-references.js';
+import { createProject } from '../test-libraries/typescript-project.ts';
+import { getReferencedSourceFiles } from './source-file-references.ts';
 
 test('returns an empty array when the given source file doesn’t has any imports', (t) => {
     const files = [{ filePath: 'main.ts', content: '' }];

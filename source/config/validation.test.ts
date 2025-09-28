@@ -1,6 +1,6 @@
 import test from 'ava';
 import { Result } from 'true-myth';
-import { validateConfig } from './validation.js';
+import { validateConfig } from './validation.ts';
 
 test('returns the issues when the given config doesn’t match the schema', (t) => {
     const result = validateConfig({ not: 'valid' });

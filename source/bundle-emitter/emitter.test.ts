@@ -1,7 +1,7 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
-import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.js';
+import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
 
 const emptyTarball = Buffer.from([
     31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 99, 96, 24, 5, 163, 96, 20, 140, 84, 0, 0, 46, 175, 181, 239, 0, 4, 0, 0

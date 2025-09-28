@@ -1,6 +1,6 @@
-import type { EntryPoint } from '../config/entry-point.js';
-import type { AdditionalFileDescription } from '../config/additional-files.js';
-import type { ModuleResolution } from '../dependency-scanner/typescript-project-analyzer.js';
+import type { EntryPoint } from '../config/entry-point.ts';
+import type { AdditionalFileDescription } from '../config/additional-files.ts';
+import type { ModuleResolution } from '../dependency-scanner/typescript-project-analyzer.ts';
 
 export type EntryPoints = readonly [EntryPoint, ...(readonly EntryPoint[])];
 

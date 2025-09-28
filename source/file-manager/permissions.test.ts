@@ -1,5 +1,5 @@
 import test from 'ava';
-import { isExecutableFileMode } from './permissions.js';
+import { isExecutableFileMode } from './permissions.ts';
 
 test('returns false when the given mode is invalid', (t) => {
     const result = isExecutableFileMode(-1);

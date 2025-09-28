@@ -1,9 +1,9 @@
 import path from 'node:path';
 import ssri from 'ssri';
-import type { TarballBuilder } from '../tar/tarball-builder.js';
-import type { FileDescription } from '../file-manager/file-description.js';
-import type { FileManager } from '../file-manager/file-manager.js';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
+import type { FileDescription } from '../file-manager/file-description.ts';
+import type { FileManager } from '../file-manager/file-manager.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { TarballBuilder } from '../tar/tarball-builder.ts';
 
 export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;

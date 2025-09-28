@@ -1,11 +1,11 @@
 import { partition } from 'effect/ReadonlyArray';
 import { get } from 'effect/Struct';
 import { Result } from 'true-myth';
-import type { ValidConfigResult } from '../config/validation.js';
-import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
-import { configToBuildAndPublishOptions, type BuildAndPublishOptions } from './map-config.js';
-import type { BuildAndPublishResult } from './package-processor.js';
+import type { ValidConfigResult } from '../config/validation.ts';
+import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { configToBuildAndPublishOptions, type BuildAndPublishOptions } from './map-config.ts';
+import type { BuildAndPublishResult } from './package-processor.ts';
 
 type PackageOperationCallback = (options: BuildAndPublishOptions) => Promise<BuildAndPublishResult>;
 

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { Project, SourceFile } from 'ts-morph';
-import { resolveSourceFileForLiteral } from '../../dependency-scanner/source-file-references.js';
-import { getSourcePathFromSourceFile } from '../../dependency-scanner/typescript-project-analyzer.js';
+import { resolveSourceFileForLiteral } from '../../dependency-scanner/source-file-references.ts';
+import { getSourcePathFromSourceFile } from '../../dependency-scanner/typescript-project-analyzer.ts';
 
 function useBasenameFromSource(sourceFile: string, targetFile: string): string {
     const basename = path.basename(sourceFile);

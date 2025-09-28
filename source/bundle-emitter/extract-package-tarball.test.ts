@@ -1,6 +1,6 @@
 import test from 'ava';
-import { createTarballBuilder } from '../tar/tarball-builder.js';
-import { extractPackageTarball } from './extract-package-tarball.js';
+import { createTarballBuilder } from '../tar/tarball-builder.ts';
+import { extractPackageTarball } from './extract-package-tarball.ts';
 
 test('returns an empty array when the given tarball is empty', async (t) => {
     const tarballBuilder = createTarballBuilder();
