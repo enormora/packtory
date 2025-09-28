@@ -1,6 +1,13 @@
+import path from 'node:path';
 import type { Project, SourceFile } from 'ts-morph';
 import { resolveSourceFileForLiteral } from '../../dependency-scanner/source-file-references.js';
 import { getSourcePathFromSourceFile } from '../../dependency-scanner/typescript-project-analyzer.js';
+
+function useBasenameFromSource(sourceFile: string, targetFile: string): string {
+    const basename = path.basename(sourceFile);
+    const dirname = path.dirname(targetFile);
+    return path.join(dirname, basename);
+}
 
 type Replacements = ReadonlyMap<string, string>;
 
@@ -10,7 +17,11 @@ function applyImportPathReplacements(sourceFile: SourceFile, replacements: Repla
         if (resolvedSourceFile !== undefined) {
             const replacement = replacements.get(getSourcePathFromSourceFile(resolvedSourceFile));
             if (replacement !== undefined) {
-                literal.setLiteralValue(replacement);
+                if (resolvedSourceFile.isDeclarationFile()) {
+                    literal.setLiteralValue(useBasenameFromSource(literal.getLiteralValue(), replacement));
+                } else {
+                    literal.setLiteralValue(replacement);
+                }
             }
         }
     }

@@ -230,7 +230,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     isExecutable: false,
                     sourceFilePath: path.join(fixture, 'src/entry2.d.ts'),
                     targetFilePath: 'entry2.d.ts',
-                    content: "export declare const foo: import('first/foo.d.ts').Foo;\n"
+                    content: "export declare const foo: import('first/foo.js').Foo;\n"
                 },
                 isSubstituted: true
             }
@@ -323,7 +323,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     isExecutable: false,
                     sourceFilePath: path.join(fixture, 'src/entry3.d.ts'),
                     targetFilePath: 'entry3.d.ts',
-                    content: "export declare const foo: import('first/foo.d.ts').Foo;\n"
+                    content: "export declare const foo: import('first/foo.js').Foo;\n"
                 },
                 isSubstituted: true
             }
