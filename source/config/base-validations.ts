@@ -1,5 +1,3 @@
-import { string, nonEmpty } from '@effect/schema/Schema';
+import { z } from 'zod/mini';
 
-export const nonEmptyStringSchema = string.pipe(nonEmpty());
-
-export type NoExpand<T> = T & { readonly _?: never };
+export const nonEmptyStringSchema = z.string().check(z.minLength(1));

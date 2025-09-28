@@ -1,52 +1,19 @@
-import {
-    type Schema,
-    filter,
-    struct,
-    number,
-    boolean,
-    array,
-    optional,
-    literal,
-    string,
-    record,
-    unknown,
-    union,
-    null as null_,
-    extend,
-    suspend
-} from '@effect/schema/Schema';
-import type { JsonValue } from 'type-fest';
-import type { NoExpand } from './base-validations.js';
+import { z } from 'zod/mini';
 
-const stringRecordSchema = record(string, string);
-const optionalStringRecordSchema = optional(stringRecordSchema, { exact: true });
+const stringRecordSchema = z.readonly(z.record(z.string(), z.string()));
+const optionalStringRecordSchema = z.optional(stringRecordSchema);
 
-const $mainPackageJsonSchema = struct({
-    type: optional(literal('module'), { exact: true }),
-    dependencies: optionalStringRecordSchema,
-    devDependencies: optionalStringRecordSchema,
-    peerDependencies: optionalStringRecordSchema
-}).pipe(extend(record(string, unknown)));
-export type MainPackageJson = NoExpand<Schema.To<typeof $mainPackageJsonSchema>>;
-export const mainPackageJsonSchema: Schema<MainPackageJson> = $mainPackageJsonSchema;
-
-const attributeValueSchema: Schema<JsonValue> = union(
-    string,
-    number,
-    boolean,
-    null_,
-    array(
-        suspend(() => {
-            return attributeValueSchema;
-        })
-    ),
-    record(
-        string,
-        suspend(() => {
-            return attributeValueSchema;
-        })
-    )
+export const mainPackageJsonSchema = z.readonly(
+    z.object({
+        type: z.optional(z.literal('module')),
+        dependencies: optionalStringRecordSchema,
+        devDependencies: optionalStringRecordSchema,
+        peerDependencies: optionalStringRecordSchema
+    })
 );
+export type MainPackageJson = z.infer<typeof mainPackageJsonSchema>;
+
+const attributeValueSchema = z.json();
 
 const forbiddenAttributeNames = new Set([
     'dependencies',
@@ -59,23 +26,13 @@ const forbiddenAttributeNames = new Set([
     'version'
 ]);
 
-const $additionalPackageJsonAttributeNameSchema = string.pipe(
-    filter(
-        (value) => {
-            return !forbiddenAttributeNames.has(value);
-        },
-        {
-            message(value) {
-                return `the key '${value}' is not allowed`;
-            }
-        }
-    )
+const additionalPackageJsonAttributeNameSchema = z.string().check(
+    z.refine((value) => {
+        return !forbiddenAttributeNames.has(value);
+    })
 );
-type AdditionalPackageJsonAttributeName = Schema.To<typeof $additionalPackageJsonAttributeNameSchema>;
-const additionalPackageJsonAttributeNameSchema: Schema<AdditionalPackageJsonAttributeName> =
-    $additionalPackageJsonAttributeNameSchema;
 
-const $additionalPackageJsonAttributesSchema = record(additionalPackageJsonAttributeNameSchema, attributeValueSchema);
-export type AdditionalPackageJsonAttributes = Schema.To<typeof $additionalPackageJsonAttributesSchema>;
-export const additionalPackageJsonAttributesSchema: Schema<AdditionalPackageJsonAttributes> =
-    $additionalPackageJsonAttributesSchema;
+export const additionalPackageJsonAttributesSchema = z.readonly(
+    z.record(additionalPackageJsonAttributeNameSchema, attributeValueSchema)
+);
+export type AdditionalPackageJsonAttributes = z.infer<typeof additionalPackageJsonAttributesSchema>;

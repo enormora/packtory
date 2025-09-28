@@ -1,9 +1,10 @@
-import { type Schema, struct, optional } from '@effect/schema/Schema';
-import { nonEmptyStringSchema, type NoExpand } from './base-validations.js';
+import { z } from 'zod/mini';
+import { nonEmptyStringSchema } from './base-validations.js';
 
-const $entryPointSchema = struct({
-    js: nonEmptyStringSchema,
-    declarationFile: optional(nonEmptyStringSchema, { exact: true })
-});
-export type EntryPoint = NoExpand<Schema.To<typeof $entryPointSchema>>;
-export const entryPointSchema: Schema<EntryPoint> = $entryPointSchema;
+export const entryPointSchema = z.readonly(
+    z.strictObject({
+        js: nonEmptyStringSchema,
+        declarationFile: z.optional(nonEmptyStringSchema)
+    })
+);
+export type EntryPoint = z.infer<typeof entryPointSchema>;

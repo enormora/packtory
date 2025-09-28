@@ -209,17 +209,13 @@ test('validation succeeds when all optional properties are given', checkValidati
 test('validation fails when a non-object is given', checkValidationFailure, {
     schema: packtoryConfigSchema,
     data: true,
-    expectedMessages: ['Expected object; but got boolean']
+    expectedMessages: ['invalid value: expected object, but got boolean']
 });
 
 test('validation fails when an empty object is given', checkValidationFailure, {
     schema: packtoryConfigSchema,
     data: {},
-    expectedMessages: [
-        'At registrySettings: missing key or index',
-        'At packages: missing key or index',
-        'At commonPackageSettings: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test(
@@ -237,10 +233,7 @@ test(
                 }
             ]
         },
-        expectedMessages: [
-            'At packages.0.mainPackageJson: missing key or index',
-            'At commonPackageSettings: missing key or index'
-        ]
+        expectedMessages: ['invalid value doesn’t match expected union']
     }
 );
 
@@ -250,7 +243,7 @@ test('validation fails when packages is an empty array', checkValidationFailure,
         registrySettings: { token: 'foo' },
         packages: []
     },
-    expectedMessages: ['At packages.0: missing key or index', 'At commonPackageSettings: missing key or index']
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test(
@@ -268,12 +261,7 @@ test(
                 }
             ]
         },
-        expectedMessages: [
-            'At packages.0.sourcesFolder: missing key or index',
-            'At packages.0.mainPackageJson: missing key or index',
-            'At commonPackageSettings.sourcesFolder: missing key or index',
-            'At commonPackageSettings.mainPackageJson: missing key or index'
-        ]
+        expectedMessages: ['invalid value doesn’t match expected union']
     }
 );
 
@@ -291,11 +279,7 @@ test('validation fails when commonPackageSettings contains only mainPackageJson'
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At commonPackageSettings.sourcesFolder: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test(
@@ -314,10 +298,7 @@ test(
                 }
             ]
         },
-        expectedMessages: [
-            'At commonPackageSettings: expected object; but got undefined',
-            'At packages.0.sourcesFolder: missing key or index'
-        ]
+        expectedMessages: ['invalid value doesn’t match expected union']
     }
 );
 
@@ -335,11 +316,7 @@ test('validation fails when commonPackageSettings contains only sourcesFolder', 
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At commonPackageSettings.mainPackageJson: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when name is missing in a package', checkValidationFailure, {
@@ -354,7 +331,7 @@ test('validation fails when name is missing in a package', checkValidationFailur
             }
         ]
     },
-    expectedMessages: ['At packages.0.name: missing key or index', 'At commonPackageSettings: missing key or index']
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when name is not a string', checkValidationFailure, {
@@ -370,10 +347,7 @@ test('validation fails when name is not a string', checkValidationFailure, {
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.name: expected string; but got number',
-        'At commonPackageSettings: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when entryPoints is missing in a package', checkValidationFailure, {
@@ -388,10 +362,7 @@ test('validation fails when entryPoints is missing in a package', checkValidatio
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.entryPoints: missing key or index',
-        'At commonPackageSettings: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when entryPoints is not an array', checkValidationFailure, {
@@ -407,10 +378,7 @@ test('validation fails when entryPoints is not an array', checkValidationFailure
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.entryPoints: expected array; but got string',
-        'At commonPackageSettings: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when entryPoints is an empty array', checkValidationFailure, {
@@ -426,10 +394,7 @@ test('validation fails when entryPoints is an empty array', checkValidationFailu
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.entryPoints.0: missing key or index',
-        'At commonPackageSettings: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when entryPoints item is invalid', checkValidationFailure, {
@@ -445,11 +410,7 @@ test('validation fails when entryPoints item is invalid', checkValidationFailure
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.entryPoints.0.foo: unexpected extra key or index',
-        'At packages.0.entryPoints.0.js: missing key or index',
-        'At commonPackageSettings: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when additionalFiles is not an array', checkValidationFailure, {
@@ -468,11 +429,7 @@ test('validation fails when additionalFiles is not an array', checkValidationFai
             }
         ]
     },
-    expectedMessages: [
-        'At commonPackageSettings.additionalFiles: expected array; but got string',
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when includeSourceMapFiles is not a boolean', checkValidationFailure, {
@@ -491,11 +448,7 @@ test('validation fails when includeSourceMapFiles is not a boolean', checkValida
             }
         ]
     },
-    expectedMessages: [
-        'At commonPackageSettings.includeSourceMapFiles: expected boolean; but got string',
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when additionalPackageJsonAttributes is not an object', checkValidationFailure, {
@@ -514,11 +467,7 @@ test('validation fails when additionalPackageJsonAttributes is not an object', c
             }
         ]
     },
-    expectedMessages: [
-        'At commonPackageSettings.additionalPackageJsonAttributes: expected object; but got string',
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when versioning is not an object', checkValidationFailure, {
@@ -537,11 +486,7 @@ test('validation fails when versioning is not an object', checkValidationFailure
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At packages.0.versioning: expected object; but got string'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when bundleDependencies is not an array', checkValidationFailure, {
@@ -560,11 +505,7 @@ test('validation fails when bundleDependencies is not an array', checkValidation
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At packages.0.bundleDependencies: expected array; but got string'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });
 
 test('validation fails when bundlePeerDependencies is not an array', checkValidationFailure, {
@@ -583,9 +524,5 @@ test('validation fails when bundlePeerDependencies is not an array', checkValida
             }
         ]
     },
-    expectedMessages: [
-        'At packages.0.sourcesFolder: missing key or index',
-        'At packages.0.mainPackageJson: missing key or index',
-        'At packages.0.bundlePeerDependencies: expected array; but got string'
-    ]
+    expectedMessages: ['invalid value doesn’t match expected union']
 });

@@ -13,53 +13,59 @@ test('validation succeeds when valid data is given', checkValidationSuccess, {
 test('validation fails when a non-object is given', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: true,
-    expectedMessages: ['Expected object; but got boolean']
+    expectedMessages: ['expected object, but got boolean']
 });
 
 test('validation fails when the an empty object is given', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: {},
-    expectedMessages: ['At sourceFilePath: missing key or index', 'At targetFilePath: missing key or index']
+    expectedMessages: ['at sourceFilePath: missing property', 'at targetFilePath: missing property']
 });
 
 test('validation fails when sourceFilePath is missing', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: { targetFilePath: 'foo' },
-    expectedMessages: ['At sourceFilePath: missing key or index']
+    expectedMessages: ['at sourceFilePath: missing property']
 });
 
 test('validation fails when sourceFilePath is not a string', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: { sourceFilePath: [], targetFilePath: 'foo' },
-    expectedMessages: ['At sourceFilePath: expected string; but got array']
+    expectedMessages: [
+        'at sourceFilePath: expected string, but got array',
+        'at sourceFilePath: array must contain at least 1 element'
+    ]
 });
 
 test('validation fails when sourceFilePath is an empty string', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: { sourceFilePath: '', targetFilePath: 'foo' },
-    expectedMessages: ['At sourceFilePath: expected a non empty string; but got string']
+    expectedMessages: ['at sourceFilePath: string must contain at least 1 character']
 });
 
 test('validation fails when targetFilePath is missing', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: { sourceFilePath: 'foo' },
-    expectedMessages: ['At targetFilePath: missing key or index']
+    expectedMessages: ['at targetFilePath: missing property']
 });
 
 test('validation fails when targetFilePath is not a string', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: { targetFilePath: [], sourceFilePath: 'foo' },
-    expectedMessages: ['At targetFilePath: expected string; but got array']
+    expectedMessages: [
+        'at targetFilePath: expected string, but got array',
+        'at targetFilePath: array must contain at least 1 element'
+    ]
 });
 
 test('validation fails when targetFilePath is an empty string', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: { targetFilePath: '', sourceFilePath: 'foo' },
-    expectedMessages: ['At targetFilePath: expected a non empty string; but got string']
+    expectedMessages: ['at targetFilePath: string must contain at least 1 character']
 });
 
 test('validation fails when an additional unknown property is given', checkValidationFailure, {
     schema: additionalFileDescriptionSchema,
     data: { targetFilePath: 'bar', sourceFilePath: 'foo', something: 'else' },
-    expectedMessages: ['At something: unexpected extra key or index']
+    expectedMessages: ['unexpected additional property: "something"']
 });

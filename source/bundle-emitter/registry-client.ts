@@ -1,7 +1,8 @@
 import type _npmFetch from 'npm-registry-fetch';
 import type { publish as _publish } from 'libnpmpublish';
 import { Maybe } from 'true-myth';
-import { struct, string, optional, record, is, type Schema } from '@effect/schema/Schema';
+import { z } from 'zod/mini';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import type { RegistrySettings } from '../config/registry-settings.js';
 import type { BundlePackageJson } from '../version-manager/manifest/builder.js';
 
@@ -30,21 +31,21 @@ function encodePackageName(name: string): string {
     return name.replace('/', '%2F');
 }
 
-const distTagsSchema = struct({
-    latest: optional(string, { exact: true })
+const distTagsSchema = z.object({
+    latest: z.optional(z.string())
 });
 
-const versionDataSchema = struct({
-    dist: struct({ shasum: string, tarball: string })
+const versionDataSchema = z.object({
+    dist: z.object({ shasum: z.string(), tarball: z.string() })
 });
 
-const abbreviatedPackageResponseSchema = struct({
-    name: string,
+const abbreviatedPackageResponseSchema = z.object({
+    name: z.string(),
     'dist-tags': distTagsSchema,
-    versions: record(string, versionDataSchema)
+    versions: z.record(z.string(), versionDataSchema)
 });
 
-type AbbreviatedPackageResponse = Schema.To<typeof abbreviatedPackageResponseSchema>;
+type AbbreviatedPackageResponse = z.infer<typeof abbreviatedPackageResponseSchema>;
 
 const httpStatusCode = {
     notFound: 404,
@@ -86,10 +87,12 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
         const endpointUri = `/${encodePackageName(packageName)}`;
         try {
             const response = await fetchRegistryEndpoint(endpointUri, registrySettings);
-            if (!is(abbreviatedPackageResponseSchema)(response)) {
+            const result = safeParse(abbreviatedPackageResponseSchema, response);
+
+            if (!result.success) {
                 throw new Error('Got an invalid response from registry API');
             }
-            return Maybe.just(response);
+            return Maybe.just(result.data);
         } catch (error: unknown) {
             if (
                 isFetchError(error) &&

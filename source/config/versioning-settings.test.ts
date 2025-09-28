@@ -24,43 +24,42 @@ test('validation succeeds when valid manual versioning settings are given', chec
 test('validation fails when a non-object is given', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: 'foo',
-    expectedMessages: ['Expected object; but got string']
+    expectedMessages: ['expected object, but got string']
 });
 
 test('validation fails when an empty object is given', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: {},
-    expectedMessages: ['At automatic: missing key or index']
+    expectedMessages: ['at automatic: missing property']
 });
 
 test('validation fails when automatic is not a boolean', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: 'yes' },
-    expectedMessages: ['At automatic: expected boolean; but got string']
+    expectedMessages: ['at automatic: invalid value doesn’t match expected union']
 });
 
 test('validation fails when automatic is true and version is given', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: true, version: '1' },
-    expectedMessages: ['At version: unexpected extra key or index']
+    expectedMessages: ['unexpected additional property: "version"']
 });
 
-test('validation fails when automatic is true and minimumVersion is undefined', checkValidationFailure, {
+test('validation succeeds when automatic is true and minimumVersion is undefined', checkValidationSuccess, {
     schema: versioningSettingsSchema,
-    data: { automatic: true, minimumVersion: undefined },
-    expectedMessages: ['At minimumVersion: expected string; but got undefined']
+    data: { automatic: true, minimumVersion: undefined }
 });
 
 test('validation fails when automatic is true and additional properties are given', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: true, minimumVersion: '1', foo: 'bar' },
-    expectedMessages: ['At foo: unexpected extra key or index']
+    expectedMessages: ['unexpected additional property: "foo"']
 });
 
 test('validation fails when automatic is true and minimumVersion is given but not a string', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: true, minimumVersion: 42 },
-    expectedMessages: ['At minimumVersion: expected string; but got number']
+    expectedMessages: ['at minimumVersion: expected string, but got number']
 });
 
 test(
@@ -69,29 +68,29 @@ test(
     {
         schema: versioningSettingsSchema,
         data: { automatic: true, minimumVersion: '' },
-        expectedMessages: ['At minimumVersion: expected a non empty string; but got string']
+        expectedMessages: ['at minimumVersion: string must contain at least 1 character']
     }
 );
 test('validation fails when automatic is false and minimumVersion is given', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: false, version: '1', minimumVersion: '2' },
-    expectedMessages: ['At minimumVersion: unexpected extra key or index']
+    expectedMessages: ['unexpected additional property: "minimumVersion"']
 });
 
 test('validation fails when automatic is false and an additional property is given', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: false, version: '1', foo: 'bar' },
-    expectedMessages: ['At foo: unexpected extra key or index']
+    expectedMessages: ['unexpected additional property: "foo"']
 });
 
 test('validation fails when automatic is false and version is given but not a string', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: false, version: 42 },
-    expectedMessages: ['At version: expected string; but got number']
+    expectedMessages: ['at version: expected string, but got number']
 });
 
 test('validation fails when automatic is false and version is given but an empty string', checkValidationFailure, {
     schema: versioningSettingsSchema,
     data: { automatic: false, version: '' },
-    expectedMessages: ['At version: expected a non empty string; but got string']
+    expectedMessages: ['at version: string must contain at least 1 character']
 });
