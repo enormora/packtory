@@ -1,4 +1,4 @@
-import Maybe from 'true-myth/maybe';
+import { Maybe } from 'true-myth/maybe';
 import { uniqueList } from '../list/unique-list.js';
 import type { SourceMapFileLocator } from './source-map-file-locator.js';
 import type { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.js';
@@ -55,7 +55,7 @@ export type DependencyScannerDependencies = {
 };
 
 export type DependencyScanner = {
-    scan(entryPointFile: string, folder: string, options?: Partial<ScanOptions>): Promise<DependencyGraph>;
+    scan: (entryPointFile: string, folder: string, options?: Partial<ScanOptions>) => Promise<DependencyGraph>;
 };
 
 export function createDependencyScanner(

@@ -71,7 +71,7 @@ async function createTemporaryDirectory(): Promise<string> {
 }
 
 async function createRegistryServer(storageDirectory: string): Promise<Server> {
-    // @ts-expect-error
+    // @ts-expect-error -- ok in this case
     const server = (await runServer({ ...configuration, storage: storageDirectory })) as Server;
     return server;
 }

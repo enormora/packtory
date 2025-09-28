@@ -13,7 +13,7 @@ export type ResourceResolverDependencies = {
 };
 
 export type ResourceResolver = {
-    resolve(options: ResourceResolveOptions): Promise<ResolvedBundle>;
+    resolve: (options: ResourceResolveOptions) => Promise<ResolvedBundle>;
 };
 
 export function createResourceResolver(dependencies: ResourceResolverDependencies): ResourceResolver {

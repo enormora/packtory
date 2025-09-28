@@ -16,9 +16,9 @@ export type TarballArtifact = {
 };
 
 export type ArtifactsBuilder = {
-    collectContents(bundle: VersionedBundleWithManifest, prefix?: string): readonly FileDescription[];
-    buildTarball(bundle: VersionedBundleWithManifest): Promise<TarballArtifact>;
-    buildFolder(bundle: VersionedBundleWithManifest, targetFolder: string): Promise<void>;
+    collectContents: (bundle: VersionedBundleWithManifest, prefix?: string) => readonly FileDescription[];
+    buildTarball: (bundle: VersionedBundleWithManifest) => Promise<TarballArtifact>;
+    buildFolder: (bundle: VersionedBundleWithManifest, targetFolder: string) => Promise<void>;
 };
 
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {

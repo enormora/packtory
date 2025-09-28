@@ -9,21 +9,21 @@ Tired of restrictive monorepo conventions? Fed up with complex workspace setups?
 
 Say goodbye to:
 
--   🔗 Cumbersome workspaces
--   📦 Dependency linking during development
--   🙅‍♂️ Manual file selection (e.g. via `.npmignore` or `files`)
--   📄 Shipping unnecessary files (e.g. build configs, tests)
--   🔄 Manual versioning
+- 🔗 Cumbersome workspaces
+- 📦 Dependency linking during development
+- 🙅‍♂️ Manual file selection (e.g. via `.npmignore` or `files`)
+- 📄 Shipping unnecessary files (e.g. build configs, tests)
+- 🔄 Manual versioning
 
 ## 🌟 **Introducing packtory: Your Code Organization and Packaging Game Changer** 🌟
 
 **Key Features:**
 
--   **Organize with Freedom**: Manage your monorepo without confining conventions or workspace limitations. packtory simplifies it, just like a single codebase.
--   **Effortless Dependency Bundling**: Forget manual dependency linking. packtory automatically detects and bundles dependencies, freeing you to focus on your code.
--   **Clean and Efficient Packaging**: Package only essential files, excluding devDependencies, CI configurations, and tests. Keep your npm package clean and efficient.
--   **Revolutionary Automatic Versioning**: Choose manual versioning or let packtory handle it. In automatic mode, it calculates versions intelligently, ensuring reproducibility without complexity.
--   **Seamless CI Pipeline Integration**: Easily integrate packtory into your CI pipelines for automatic publishing with every commit. No more intricate checks to decide what to publish.
+- **Organize with Freedom**: Manage your monorepo without confining conventions or workspace limitations. packtory simplifies it, just like a single codebase.
+- **Effortless Dependency Bundling**: Forget manual dependency linking. packtory automatically detects and bundles dependencies, freeing you to focus on your code.
+- **Clean and Efficient Packaging**: Package only essential files, excluding devDependencies, CI configurations, and tests. Keep your npm package clean and efficient.
+- **Revolutionary Automatic Versioning**: Choose manual versioning or let packtory handle it. In automatic mode, it calculates versions intelligently, ensuring reproducibility without complexity.
+- **Seamless CI Pipeline Integration**: Easily integrate packtory into your CI pipelines for automatic publishing with every commit. No more intricate checks to decide what to publish.
 
 ## Quick Start
 
@@ -85,8 +85,8 @@ For more details about the CLI application have a look at the [full documentatio
 
 Packtory guarantees minimal packages with:
 
--   No published `devDependencies`
--   No unnecessary files, including CI configurations
+- No published `devDependencies`
+- No unnecessary files, including CI configurations
 
 **How Bundling Works:**
 
@@ -102,7 +102,6 @@ Packtory guarantees minimal packages with:
 Packtory supports two versioning modes:
 
 1. **Automatic Versioning (Default) 🔄:**
-
     - Fetch the version details of the latest information available from the registry.
     - Download and extract the tarball of the latest version in-memory.
     - Compare the contents of all files from the downloaded tarball with the contents of all files resolved from the bundler:
@@ -120,57 +119,46 @@ This explanation provides a comprehensive overview of the bundling and publishin
 The configuration for `packtory` is an object with the following properties:
 
 1. **`registrySettings`** (Required):
-
     - An object with at least a required `token` for authentication.
     - Optionally, you can provide a custom `registryUrl` for non-default registries.
 
 2. **`commonPackageSettings`** (Optional):
-
     - Defines settings that can be shared for all packages.
     - Allowed settings: `sourcesFolder`, `mainPackageJson`, `includeSourceMapFiles`, `additionalFiles`, `additionalPackageJsonAttributes`.
 
 3. **`packages`** (Required, Array):
-
     - An array of per-package configurations.
     - Each per-package configuration has the following settings:
 
     - **`name`** (Required, String):
-
         - Must be unique; the name of the package.
 
     - **`sourcesFolder`** (Required):
-
         - The absolute path to the base folder of the source files.
         - All other file paths are resolved relative to this path.
 
     - **`mainPackageJson`** (Required):
-
         - The parsed content of the project's `package.json`.
         - Needed to obtain version numbers of third-party dependencies.
 
     - **`entryPoints`** (Required, Array of Objects):
-
         - An array of entry points with the following shape: `{ js: 'file.js', declarationFile: 'file.d.ts' }`.
         - The `js` property is required, while `declarationFile` is optional.
 
     - **`includeSourceMapFiles`** (Optional, Boolean, Default: `false`):
-
         - If `true`, the bundler will look for and include source map files in the final package.
 
     - **`additionalFiles`** (Optional, Array of File Descriptions):
-
         - An array to add additional files to the package that are not automatically resolved.
         - Example: `{ sourceFilePath: 'LICENSE', targetFilePath: 'LICENSE' }`.
         - If defined in both per-package and common settings, they are merged.
 
     - **`additionalPackageJsonAttributes`** (Optional, Object):
-
         - An object to be merged directly into the generated `package.json`.
         - Useful for setting meta properties like `description` or `keywords`.
         - If defined in both per-package and common settings, they are merged.
 
     - **`bundleDependencies`** (Optional, Array of Strings):
-
         - An array of package names to mark as dependencies, allowing the bundler to substitute import statements accordingly.
 
     - **`bundlePeerDependencies`** (Optional, Array of Strings):

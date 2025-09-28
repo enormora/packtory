@@ -1,4 +1,3 @@
-/* eslint-disable import/max-dependencies -- needed */
 import path from 'node:path';
 import test from 'ava';
 import npmFetch from 'npm-registry-fetch';

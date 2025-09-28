@@ -27,6 +27,7 @@ type Overrides = {
     readonly fetchTarball?: SinonSpy;
 };
 
+// eslint-disable-next-line complexity -- needs to be refactored
 function emitterFactory(overrides: Overrides = {}): BundleEmitter {
     const {
         buildTarball = fake.resolves({}),

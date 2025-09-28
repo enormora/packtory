@@ -15,10 +15,10 @@ export type PartialError = {
 };
 
 export type Scheduler = {
-    runForEachScheduledPackage(
+    runForEachScheduledPackage: (
         config: ValidConfigResult,
         callback: PackageOperationCallback
-    ): Promise<Result<readonly BuildAndPublishResult[], PartialError>>;
+    ) => Promise<Result<readonly BuildAndPublishResult[], PartialError>>;
 };
 
 type SchedulerDependencies = {
@@ -91,6 +91,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
     }
 
     function getExecutionPlan(config: ValidConfigResult): readonly (readonly string[])[] {
+        // eslint-disable-next-line unicorn/no-array-reverse -- false positive
         return config.packageGraph.reverse().getTopologicalGenerations();
     }
 

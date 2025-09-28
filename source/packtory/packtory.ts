@@ -17,11 +17,11 @@ export type PublishFailure = ConfigError | (PartialError & { type: 'partial' });
 export type PublishAllResult = Result<readonly BuildAndPublishResult[], PublishFailure>;
 
 export type Packtory = {
-    buildAndPublishAll(
+    buildAndPublishAll: (
         // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- we treat the config as unknown but want to provide autocompletion to the client
         config: PacktoryConfig | unknown,
         options: Options
-    ): Promise<PublishAllResult>;
+    ) => Promise<PublishAllResult>;
 };
 
 type PacktoryDependencies = {

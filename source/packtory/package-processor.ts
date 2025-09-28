@@ -1,4 +1,3 @@
-/* eslint-disable import/max-dependencies -- needed */
 import type { Except } from 'type-fest';
 import type { Maybe } from 'true-myth';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
@@ -16,9 +15,9 @@ export type BuildAndPublishResult = {
 };
 
 export type PackageProcessor = {
-    build(options: BuildOptions): Promise<VersionedBundleWithManifest>;
-    buildAndPublish(options: BuildAndPublishOptions): Promise<BuildAndPublishResult>;
-    tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildAndPublishResult>;
+    build: (options: BuildOptions) => Promise<VersionedBundleWithManifest>;
+    buildAndPublish: (options: BuildAndPublishOptions) => Promise<BuildAndPublishResult>;
+    tryBuildAndPublish: (options: BuildAndPublishOptions) => Promise<BuildAndPublishResult>;
 };
 
 type PackageProcessorDependencies = {

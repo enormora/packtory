@@ -50,12 +50,12 @@ export function mergeDependencyFiles(
 type DependencyGraphVisitor = (node: Readonly<DependencyNode>) => void;
 
 export type DependencyGraph = {
-    addDependency(filePath: string, data: DependencyGraphNodeData): void;
-    connect(fromFilePath: string, toFilePath: string): void;
-    hasConnection(fromFilePath: string, toFilePath: string): boolean;
-    walk(startFilePath: string, visitor: DependencyGraphVisitor): void;
-    isKnown(filePath: string): boolean;
-    flatten(startFilePath: string): Readonly<DependencyFiles>;
+    addDependency: (filePath: string, data: DependencyGraphNodeData) => void;
+    connect: (fromFilePath: string, toFilePath: string) => void;
+    hasConnection: (fromFilePath: string, toFilePath: string) => boolean;
+    walk: (startFilePath: string, visitor: DependencyGraphVisitor) => void;
+    isKnown: (filePath: string) => boolean;
+    flatten: (startFilePath: string) => Readonly<DependencyFiles>;
 };
 
 export function createDependencyGraph(): DependencyGraph {

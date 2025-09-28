@@ -28,9 +28,9 @@ type BundlePublishedCheckResult = {
 };
 
 export type BundleEmitter = {
-    publish(options: PublishOptions): Promise<void>;
-    determineCurrentVersion(options: CurrentVersionLookupOptions): Promise<Maybe<string>>;
-    checkBundleAlreadyPublished(options: PublishOptions): Promise<BundlePublishedCheckResult>;
+    publish: (options: PublishOptions) => Promise<void>;
+    determineCurrentVersion: (options: CurrentVersionLookupOptions) => Promise<Maybe<string>>;
+    checkBundleAlreadyPublished: (options: PublishOptions) => Promise<BundlePublishedCheckResult>;
 };
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {

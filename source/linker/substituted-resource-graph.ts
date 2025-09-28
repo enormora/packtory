@@ -11,11 +11,11 @@ type SubstitutedResourceGraphNodeData = ResourceGraphNodeData & {
 };
 
 export type SubstitutedResourceGraph = {
-    add(filePath: string, data: SubstitutedResourceGraphNodeData): void;
-    connect(fromFilePath: string, toFilePath: string): void;
-    hasConnection(fromFilePath: string, toFilePath: string): boolean;
-    isKnown(filePath: string): boolean;
-    flatten(entryPoints: string[]): Except<LinkedBundle, 'entryPoints' | 'name'>;
+    add: (filePath: string, data: SubstitutedResourceGraphNodeData) => void;
+    connect: (fromFilePath: string, toFilePath: string) => void;
+    hasConnection: (fromFilePath: string, toFilePath: string) => boolean;
+    isKnown: (filePath: string) => boolean;
+    flatten: (entryPoints: string[]) => Except<LinkedBundle, 'entryPoints' | 'name'>;
 };
 
 function addOrCreateReference(

@@ -3,7 +3,7 @@ import tar, { type Pack } from 'tar-stream';
 import type { FileDescription } from '../file-manager/file-description.js';
 
 export type TarballBuilder = {
-    build(fileDescriptions: readonly FileDescription[]): Promise<Buffer>;
+    build: (fileDescriptions: readonly FileDescription[]) => Promise<Buffer>;
 };
 
 const gzipHeaderOperationSystemTypeFieldIndex = 9;
@@ -48,6 +48,7 @@ export function createTarballBuilder(): TarballBuilder {
             const chunks: Buffer[] = [];
 
             for await (const chunk of tarballStream) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
                 chunks.push(chunk as Buffer);
             }
 

@@ -1,5 +1,5 @@
 import { isBuiltin } from 'node:module';
-import Maybe, { first } from 'true-myth/maybe';
+import { Maybe, first } from 'true-myth/maybe';
 import {
     ts,
     Node as ASTNode,
@@ -18,6 +18,7 @@ function getReferencedSourceFileFromSymbol(symbol: TSSymbol | undefined): Readon
 
     return first(declarations).andThen((firstDeclaration) => {
         if (firstDeclaration.getKind() === SyntaxKind.SourceFile) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
             return Maybe.just(firstDeclaration as SourceFile);
         }
 

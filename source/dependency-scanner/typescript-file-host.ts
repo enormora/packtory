@@ -30,7 +30,8 @@ export type FileSystemAdapters = {
 export function createFileSystemAdapters(dependencies: FileSystemAdaptersDependencies): FileSystemAdapters {
     const { fileSystemHost } = dependencies;
 
-    const fileSystemHostFilteringDeclarationFiles = Object.create(fileSystemHost) as FileSystemHost;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
+    const fileSystemHostFilteringDeclarationFiles = Object.create(fileSystemHost) as unknown as FileSystemHost;
 
     fileSystemHostFilteringDeclarationFiles.fileExists = async (filePath) => {
         if (isDeclarationFile(filePath)) {
@@ -39,8 +40,6 @@ export function createFileSystemAdapters(dependencies: FileSystemAdaptersDepende
 
         return fileSystemHost.fileExists(filePath);
     };
-
-    // eslint-disable-next-line node/no-sync -- we need to provide this method to match the expected interface
     fileSystemHostFilteringDeclarationFiles.fileExistsSync = (filePath) => {
         if (isDeclarationFile(filePath)) {
             return false;
@@ -58,7 +57,6 @@ export function createFileSystemAdapters(dependencies: FileSystemAdaptersDepende
         return fileSystemHost.directoryExists(directoryPath);
     };
 
-    // eslint-disable-next-line node/no-sync -- we need to provide this method to match the expected interface
     fileSystemHostFilteringDeclarationFiles.directoryExistsSync = (directoryPath) => {
         if (isTypesRootFolder(directoryPath)) {
             return false;

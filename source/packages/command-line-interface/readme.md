@@ -18,11 +18,11 @@ packtory <command> [options]
 
 **Commands:**
 
--   **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
+- **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
 
 **Options:**
 
--   **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing.
+- **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing.
 
 **Configuration:**
 

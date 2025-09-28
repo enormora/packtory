@@ -1,6 +1,7 @@
 import _createEventEmitter, { type Emitter } from 'mitt';
 
 // workaround for https://github.com/developit/mitt/issues/191
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- workaround
 const createEventEmitter = _createEventEmitter as unknown as typeof _createEventEmitter.default;
 
 type ProgressEventPayload = {

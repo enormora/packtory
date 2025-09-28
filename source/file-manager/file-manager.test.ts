@@ -11,6 +11,7 @@ type Overrides = {
     readonly stat?: SinonSpy;
 };
 
+// eslint-disable-next-line complexity -- needs to be refactored
 function fileManagerFactory(overrides: Overrides = {}): FileManager {
     const { access = fake(), mkdir = fake(), writeFile = fake(), readFile = fake(), stat = fake() } = overrides;
     const fakeDependencies = {

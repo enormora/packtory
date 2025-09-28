@@ -7,7 +7,7 @@ export type SourceMapFileLocatorDependencies = {
 };
 
 export type SourceMapFileLocator = {
-    locate(sourceFile: string): Promise<Maybe<string>>;
+    locate: (sourceFile: string) => Promise<Maybe<string>>;
 };
 
 const sourceMappingUrlPattern = /^\/\/# sourceMappingURL=(?<url>.+)$/m;

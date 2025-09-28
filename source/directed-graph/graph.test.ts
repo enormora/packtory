@@ -653,6 +653,7 @@ test('reverse() returns a new graph with the edges reversed', (t) => {
         ],
         connections: [{ from: 'a', to: 'b' }]
     });
+    // eslint-disable-next-line unicorn/no-array-reverse -- false positive
     const reversedGraph = graph.reverse();
 
     t.is(graph.hasConnection({ from: 'a', to: 'b' }), true);
@@ -669,6 +670,7 @@ test('reverse() copies all nodes with their data', (t) => {
         ],
         connections: [{ from: 'a', to: 'b' }]
     });
+    // eslint-disable-next-line unicorn/no-array-reverse -- false positive
     const reversedGraph = graph.reverse();
     const collectedNodes: unknown[] = [];
 
