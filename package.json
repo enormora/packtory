@@ -40,7 +40,6 @@
         "url": "git+ssh://git@github.com/enormora/packtory.git"
     },
     "dependencies": {
-        "@effect/schema": "0.60.4",
         "@schema-hub/zod-error-formatter": "0.0.10",
         "@topcli/spinner": "3.0.0",
         "@ts-morph/common": "0.28.0",
