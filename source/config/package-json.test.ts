@@ -30,49 +30,49 @@ test('main package.json: validation succeeds when additional properties are give
 test('main package.json: validation fails when a non-object is given', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: 'foo',
-    expectedMessages: ['Expected object; but got string']
+    expectedMessages: ['expected object, but got string']
 });
 
 test('main package.json: validation fails when type is not "module"', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { type: 'foo' },
-    expectedMessages: ['At type: expected "module"; but got string']
+    expectedMessages: ['at type: invalid literal: expected "module", but got string']
 });
 
 test('main package.json: validation fails when dependencies is not an object', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { dependencies: true },
-    expectedMessages: ['At dependencies: expected object; but got boolean']
+    expectedMessages: ['at dependencies: expected record, but got boolean']
 });
 
 test('main package.json: validation fails when dependencies contains non-string values', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { dependencies: { foo: 123 } },
-    expectedMessages: ['At dependencies.foo: expected string; but got number']
+    expectedMessages: ['at dependencies.foo: expected string, but got number']
 });
 
 test('main package.json: validation fails when peerDependencies is not an object', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { peerDependencies: true },
-    expectedMessages: ['At peerDependencies: expected object; but got boolean']
+    expectedMessages: ['at peerDependencies: expected record, but got boolean']
 });
 
 test('main package.json: validation fails when peerDependencies contains non-string values', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { peerDependencies: { foo: 123 } },
-    expectedMessages: ['At peerDependencies.foo: expected string; but got number']
+    expectedMessages: ['at peerDependencies.foo: expected string, but got number']
 });
 
 test('main package.json: validation fails when devDependencies is not an object', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { devDependencies: true },
-    expectedMessages: ['At devDependencies: expected object; but got boolean']
+    expectedMessages: ['at devDependencies: expected record, but got boolean']
 });
 
 test('main package.json: validation fails when devDependencies contains non-string values', checkValidationFailure, {
     schema: mainPackageJsonSchema,
     data: { devDependencies: { foo: 123 } },
-    expectedMessages: ['At devDependencies.foo: expected string; but got number']
+    expectedMessages: ['at devDependencies.foo: expected string, but got number']
 });
 
 test('additional attributes: validation succeeds for an empty object', checkValidationSuccess, {
@@ -88,59 +88,61 @@ test('additional attributes: validation succeeds for keys that are not forbidden
 test('additional attributes: validation fails when a non-object is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: 'foo',
-    expectedMessages: ['Expected object; but got string']
+    expectedMessages: ['expected record, but got string']
 });
 
 test('additional attributes: validation fails when dependencies key is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { dependencies: {} },
-    expectedMessages: ['At dependencies: unexpected extra key or index']
+    expectedMessages: ['at dependencies: invalid key']
 });
 
 test('additional attributes: validation fails when peerDependencies key is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { peerDependencies: {} },
-    expectedMessages: ['At peerDependencies: unexpected extra key or index']
+    expectedMessages: ['at peerDependencies: invalid key']
 });
 
 test('additional attributes: validation fails when devDependencies key is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { devDependencies: {} },
-    expectedMessages: ['At devDependencies: unexpected extra key or index']
+    expectedMessages: ['at devDependencies: invalid key']
 });
 
 test('additional attributes: validation fails when main key is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { main: 'foo' },
-    expectedMessages: ['At main: unexpected extra key or index']
+    expectedMessages: ['at main: invalid key']
 });
 
 test('additional attributes: validation fails when name key is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { name: 'foo' },
-    expectedMessages: ['At name: unexpected extra key or index']
+    expectedMessages: ['at name: invalid key']
 });
 
 test('additional attributes: validation fails when types key is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { types: 'foo' },
-    expectedMessages: ['At types: unexpected extra key or index']
+    expectedMessages: ['at types: invalid key']
 });
 
 test('additional attributes: validation fails when type key is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { type: 'module' },
-    expectedMessages: ['At type: unexpected extra key or index']
+    expectedMessages: ['at type: invalid key']
 });
 
 test('additional attributes: validation fails when version is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { version: '999' },
-    expectedMessages: ['At version: unexpected extra key or index']
+    expectedMessages: ['at version: invalid key']
 });
 
 test('additional attributes: validation fails when forbidden value is given', checkValidationFailure, {
     schema: additionalPackageJsonAttributesSchema,
     data: { foo: () => {} },
-    expectedMessages: ['At foo: expected one of object, array, string, number, boolean or null; but got function']
+    expectedMessages: [
+        'at foo: invalid value: expected one of string, number, boolean, null, array or record, but got function'
+    ]
 });

@@ -1,5 +1,5 @@
 import { Result } from 'true-myth';
-import { validateAgainstSchema } from '../validation/validate.js';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.js';
 import { type PacktoryConfig, packtoryConfigSchema, type PackageConfig } from './config.js';
 
@@ -96,13 +96,13 @@ type GraphGenerationPossibleResult = {
 };
 
 function validatePreGraphGeneration(config: unknown): Result<GraphGenerationPossibleResult, readonly string[]> {
-    const schemaValidationResult = validateAgainstSchema(packtoryConfigSchema, config);
+    const schemaValidationResult = safeParse(packtoryConfigSchema, config);
 
-    if (schemaValidationResult.isErr) {
+    if (!schemaValidationResult.success) {
         return Result.err(schemaValidationResult.error.issues);
     }
 
-    const packtoryConfig = schemaValidationResult.value;
+    const packtoryConfig = schemaValidationResult.data;
     const packageConfigs = packageListToMap(packtoryConfig.packages);
 
     const missingDependenciesIssues = validateDependenciesExist(packageConfigs);

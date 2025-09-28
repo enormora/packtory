@@ -4,15 +4,7 @@ import { validateConfig } from './validation.js';
 
 test('returns the issues when the given config doesn’t match the schema', (t) => {
     const result = validateConfig({ not: 'valid' });
-    t.deepEqual(
-        result,
-        Result.err([
-            'At not: unexpected extra key or index',
-            'At registrySettings: missing key or index',
-            'At packages: missing key or index',
-            'At commonPackageSettings: missing key or index'
-        ])
-    );
+    t.deepEqual(result, Result.err(['invalid value doesn’t match expected union']));
 });
 
 test('returns an issue when a package with the same name exists twice', (t) => {

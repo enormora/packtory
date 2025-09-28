@@ -1,11 +1,11 @@
-import { type Schema, struct } from '@effect/schema/Schema';
-import { type NoExpand, nonEmptyStringSchema } from './base-validations.js';
+import { z } from 'zod/mini';
+import { nonEmptyStringSchema } from './base-validations.js';
 
-const $additionalFileDescriptionSchema = struct({
-    sourceFilePath: nonEmptyStringSchema,
-    targetFilePath: nonEmptyStringSchema
-});
+export const additionalFileDescriptionSchema = z.readonly(
+    z.strictObject({
+        sourceFilePath: nonEmptyStringSchema,
+        targetFilePath: nonEmptyStringSchema
+    })
+);
 
-export type AdditionalFileDescription = NoExpand<Schema.To<typeof $additionalFileDescriptionSchema>>;
-
-export const additionalFileDescriptionSchema: Schema<AdditionalFileDescription> = $additionalFileDescriptionSchema;
+export type AdditionalFileDescription = z.infer<typeof additionalFileDescriptionSchema>;
