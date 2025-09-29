@@ -4,7 +4,7 @@ import {
     createFileSystemAdapters,
     type FileSystemAdapters,
     type FileSystemAdaptersDependencies
-} from './typescript-file-host.js';
+} from './typescript-file-host.ts';
 
 type Overrides = {
     fileExists?: SinonSpy;

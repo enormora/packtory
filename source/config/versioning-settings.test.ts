@@ -1,6 +1,6 @@
 import test from 'ava';
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
-import { versioningSettingsSchema } from './versioning-settings.js';
+import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
+import { versioningSettingsSchema } from './versioning-settings.ts';
 
 test('validation succeeds when valid automatic versioning settings are given', checkValidationSuccess, {
     schema: versioningSettingsSchema,

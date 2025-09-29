@@ -3,8 +3,8 @@ import type { publish as _publish } from 'libnpmpublish';
 import { Maybe } from 'true-myth';
 import { z } from 'zod/mini';
 import { safeParse } from '@schema-hub/zod-error-formatter';
-import type { RegistrySettings } from '../config/registry-settings.js';
-import type { BundlePackageJson } from '../version-manager/manifest/builder.js';
+import type { RegistrySettings } from '../config/registry-settings.ts';
+import type { BundlePackageJson } from '../version-manager/manifest/builder.ts';
 
 type PublishFunction = typeof _publish;
 

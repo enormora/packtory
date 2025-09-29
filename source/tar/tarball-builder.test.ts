@@ -1,6 +1,6 @@
 import test from 'ava';
-import { extractTarEntries } from './extract-tar.js';
-import { createTarballBuilder } from './tarball-builder.js';
+import { extractTarEntries } from './extract-tar.ts';
+import { createTarballBuilder } from './tarball-builder.ts';
 
 test('creates an empty tarball', async (t) => {
     const builder = createTarballBuilder();

@@ -1,11 +1,11 @@
 import { Maybe } from 'true-myth';
-import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.js';
-import type { RegistrySettings } from '../config/registry-settings.js';
-import type { VersioningSettings } from '../config/versioning-settings.js';
-import { compareFileDescriptions } from '../file-manager/compare.js';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
-import { extractPackageTarball } from './extract-package-tarball.js';
-import type { RegistryClient } from './registry-client.js';
+import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
+import type { RegistrySettings } from '../config/registry-settings.ts';
+import type { VersioningSettings } from '../config/versioning-settings.ts';
+import { compareFileDescriptions } from '../file-manager/compare.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { extractPackageTarball } from './extract-package-tarball.ts';
+import type { RegistryClient } from './registry-client.ts';
 
 export type BundleEmitterDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;

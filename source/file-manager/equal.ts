@@ -1,4 +1,4 @@
-import type { FileDescription } from './file-description.js';
+import type { FileDescription } from './file-description.ts';
 
 export function areFileDescriptionEqual(first: FileDescription, second: FileDescription): boolean {
     return (

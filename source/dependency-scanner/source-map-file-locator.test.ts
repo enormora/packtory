@@ -5,7 +5,7 @@ import {
     createSourceMapFileLocator,
     type SourceMapFileLocator,
     type SourceMapFileLocatorDependencies
-} from './source-map-file-locator.js';
+} from './source-map-file-locator.ts';
 
 type Overrides = {
     readonly readFile?: SinonSpy;

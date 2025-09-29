@@ -8,7 +8,7 @@ import {
     type DependencyGraphNodeData,
     type DependencyNode,
     mergeDependencyFiles
-} from './dependency-graph.js';
+} from './dependency-graph.ts';
 
 type Overrides = {
     readonly topLevelDependencies?: string[];

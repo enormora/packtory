@@ -1,5 +1,5 @@
 import test from 'ava';
-import { compareFileDescriptions } from './compare.js';
+import { compareFileDescriptions } from './compare.ts';
 
 test('returns equal when both file lists are empty', (t) => {
     const result = compareFileDescriptions([], []);

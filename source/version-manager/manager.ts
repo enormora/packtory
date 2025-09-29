@@ -1,12 +1,12 @@
 import semver from 'semver';
-import { buildPackageManifest } from './manifest/builder.js';
-import { serializePackageJson } from './manifest/serialize.js';
+import { buildPackageManifest } from './manifest/builder.ts';
+import { serializePackageJson } from './manifest/serialize.ts';
 import {
     buildVersionedBundle,
     type BuildVersionedBundleOptions,
     type VersionedBundle,
     type VersionedBundleWithManifest
-} from './versioned-bundle.js';
+} from './versioned-bundle.ts';
 
 export type VersionManager = {
     addVersion: (options: BuildVersionedBundleOptions) => VersionedBundleWithManifest;

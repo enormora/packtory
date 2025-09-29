@@ -1,5 +1,5 @@
 import { z } from 'zod/mini';
-import { nonEmptyStringSchema } from './base-validations.js';
+import { nonEmptyStringSchema } from './base-validations.ts';
 
 export const additionalFileDescriptionSchema = z.readonly(
     z.strictObject({

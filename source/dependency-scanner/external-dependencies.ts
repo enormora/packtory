@@ -1,4 +1,4 @@
-import { uniqueList } from '../list/unique-list.js';
+import { uniqueList } from '../list/unique-list.ts';
 
 export type ExternalDependency = {
     readonly name: string;

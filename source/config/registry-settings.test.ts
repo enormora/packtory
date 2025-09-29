@@ -1,6 +1,6 @@
 import test from 'ava';
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
-import { registrySettingsSchema } from './registry-settings.js';
+import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
+import { registrySettingsSchema } from './registry-settings.ts';
 
 test('validation succeeds when no url is given', checkValidationSuccess, {
     schema: registrySettingsSchema,

@@ -1,13 +1,13 @@
 import { map } from 'effect/ReadonlyArray';
 import type { Except } from 'type-fest';
-import type { PackageConfig, PacktoryConfig } from '../config/config.js';
-import type { MainPackageJson } from '../config/package-json.js';
-import type { AdditionalFileDescription } from '../config/additional-files.js';
-import type { RegistrySettings } from '../config/registry-settings.js';
-import type { VersioningSettings } from '../config/versioning-settings.js';
-import type { ResourceResolveOptions } from '../resource-resolver/resource-resolve-options.js';
-import type { BuildVersionedBundleOptions, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
-import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.js';
+import type { PackageConfig, PacktoryConfig } from '../config/config.ts';
+import type { MainPackageJson } from '../config/package-json.ts';
+import type { AdditionalFileDescription } from '../config/additional-files.ts';
+import type { RegistrySettings } from '../config/registry-settings.ts';
+import type { VersioningSettings } from '../config/versioning-settings.ts';
+import type { ResourceResolveOptions } from '../resource-resolver/resource-resolve-options.ts';
+import type { BuildVersionedBundleOptions, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
 
 type AdditionalBuildOptions = {
     readonly version: string;

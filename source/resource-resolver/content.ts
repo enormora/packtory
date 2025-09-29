@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { Project } from 'ts-morph';
-import type { AdditionalFileDescription } from '../config/additional-files.js';
-import type { LocalFile } from '../dependency-scanner/dependency-graph.js';
+import type { AdditionalFileDescription } from '../config/additional-files.ts';
+import type { LocalFile } from '../dependency-scanner/dependency-graph.ts';
 
 function prependSourcesFolderIfNecessary(sourcesFolder: string, filePath: string): string {
     if (!path.isAbsolute(filePath)) {

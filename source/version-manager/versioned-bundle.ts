@@ -1,9 +1,9 @@
 import type { PackageJson } from 'type-fest';
 import { oneLine } from 'common-tags';
-import type { LinkedBundle } from '../linker/linked-bundle.js';
-import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.js';
-import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.js';
-import type { BundlePackageJson } from './manifest/builder.js';
+import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
+import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
+import type { BundlePackageJson } from './manifest/builder.ts';
 
 export type VersionedBundle = Pick<LinkedBundle, 'contents' | 'name'> & {
     readonly version: string;

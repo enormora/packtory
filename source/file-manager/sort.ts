@@ -1,4 +1,4 @@
-import type { FileDescription } from './file-description.js';
+import type { FileDescription } from './file-description.ts';
 
 type LowerThan = -1;
 type Equals = 0;

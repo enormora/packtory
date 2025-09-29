@@ -1,6 +1,6 @@
 import path from 'node:path';
-import type { EntryPoint } from '../config/entry-point.js';
-import type { AdditionalFileDescription } from '../config/additional-files.js';
+import type { EntryPoint } from '../config/entry-point.ts';
+import type { AdditionalFileDescription } from '../config/additional-files.ts';
 
 function ensureAbsolutePath(filePath: string, folder: string): string {
     if (path.isAbsolute(filePath)) {

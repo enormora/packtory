@@ -1,8 +1,8 @@
 import test from 'ava';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
-import { createProject } from '../test-libraries/typescript-project.js';
-import { substituteDependencies } from './substitute-bundles.js';
-import { createGraphFromResolvedBundle } from './resource-graph.js';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { createProject } from '../test-libraries/typescript-project.ts';
+import { substituteDependencies } from './substitute-bundles.ts';
+import { createGraphFromResolvedBundle } from './resource-graph.ts';
 
 test('doesn’t substitute anything when the given dependencies are empty', (t) => {
     const inputGraph = createGraphFromResolvedBundle({

@@ -1,6 +1,6 @@
 import test from 'ava';
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
-import { additionalFileDescriptionSchema } from './additional-files.js';
+import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
+import { additionalFileDescriptionSchema } from './additional-files.ts';
 
 test('validation succeeds when valid data is given', checkValidationSuccess, {
     schema: additionalFileDescriptionSchema,

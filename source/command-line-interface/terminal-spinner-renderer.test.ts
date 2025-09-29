@@ -4,7 +4,7 @@ import {
     createTerminalSpinnerRenderer,
     type TerminalSpinnerRenderer,
     type TerminalSpinnerRendererDependencies
-} from './terminal-spinner-renderer.js';
+} from './terminal-spinner-renderer.ts';
 
 type SpinnerOverrides = {
     start?: SinonSpy;

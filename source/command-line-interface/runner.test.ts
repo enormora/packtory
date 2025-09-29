@@ -1,12 +1,12 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
-import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.js';
+import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
     type CommandLineInterfaceRunnerDependencies
-} from './runner.js';
+} from './runner.ts';
 
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;

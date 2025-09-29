@@ -1,11 +1,11 @@
 import test from 'ava';
 import { fake, type SinonSpy } from 'sinon';
-import type { LinkedBundleResource } from '../linker/linked-bundle.js';
+import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
 import {
     type ArtifactsBuilder,
     type ArtifactsBuilderDependencies,
     createArtifactsBuilder
-} from './artifacts-builder.js';
+} from './artifacts-builder.ts';
 
 type Overrides = {
     readonly readFile?: SinonSpy;

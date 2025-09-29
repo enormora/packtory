@@ -1,7 +1,7 @@
 import path from 'node:path';
 import test from 'ava';
-import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.js';
-import { loadPackageJson } from '../load-package-json.js';
+import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { loadPackageJson } from '../load-package-json.ts';
 
 test('correctly resolves CommonJS files', async (t) => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-cjs');

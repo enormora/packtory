@@ -4,7 +4,7 @@ import {
     createTypescriptProjectAnalyzer,
     type TypescriptProjectAnalyzer,
     type TypescriptProjectAnalyzerDependencies
-} from './typescript-project-analyzer.js';
+} from './typescript-project-analyzer.ts';
 
 type FakeSourceFile = {
     readonly getFilePath: SinonSpy;

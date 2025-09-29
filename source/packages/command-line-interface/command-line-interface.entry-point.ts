@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import { Spinner } from '@topcli/spinner';
-import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.js';
-import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.js';
-import { createConfigLoader } from '../../command-line-interface/config-loader.js';
-import { buildAndPublishAll, progressBroadcastConsumer } from '../packtory/packtory.entry-point.js';
+import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.ts';
+import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.ts';
+import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
+import { buildAndPublishAll, progressBroadcastConsumer } from '../packtory/packtory.entry-point.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);

@@ -1,13 +1,13 @@
 import type { Except } from 'type-fest';
 import type { Maybe } from 'true-myth';
-import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.js';
-import type { BundleLinker } from '../linker/linker.js';
-import type { ResourceResolver } from '../resource-resolver/resource-resolver.js';
-import type { BundleEmitter } from '../bundle-emitter/emitter.js';
-import type { VersionManager } from '../version-manager/manager.js';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.js';
-import type { LinkedBundle } from '../linker/linked-bundle.js';
-import type { BuildAndPublishOptions, BuildOptions } from './map-config.js';
+import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import type { BundleLinker } from '../linker/linker.ts';
+import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
+import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
+import type { VersionManager } from '../version-manager/manager.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { BuildAndPublishOptions, BuildOptions } from './map-config.ts';
 
 export type BuildAndPublishResult = {
     readonly status: 'already-published' | 'initial-version' | 'new-version';

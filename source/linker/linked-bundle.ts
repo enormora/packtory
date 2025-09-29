@@ -1,5 +1,5 @@
-import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.js';
-import type { BundleResource, ResolvedBundle } from '../resource-resolver/resolved-bundle.js';
+import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
+import type { BundleResource, ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
 
 export type LinkedBundleResource = BundleResource & {
     readonly isSubstituted: boolean;

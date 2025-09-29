@@ -1,6 +1,6 @@
 import test from 'ava';
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.js';
-import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './package-json.js';
+import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
+import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './package-json.ts';
 
 test('main package.json: validation succeeds for an empty object', checkValidationSuccess, {
     schema: mainPackageJsonSchema,

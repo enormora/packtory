@@ -1,6 +1,6 @@
 import zlib from 'node:zlib';
 import tar, { type Pack } from 'tar-stream';
-import type { FileDescription } from '../file-manager/file-description.js';
+import type { FileDescription } from '../file-manager/file-description.ts';
 
 export type TarballBuilder = {
     build: (fileDescriptions: readonly FileDescription[]) => Promise<Buffer>;
