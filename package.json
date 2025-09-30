@@ -76,7 +76,7 @@
         "prettier": "3.6.2",
         "sinon": "21.0.0",
         "type-fest": "5.0.1",
-        "typescript": "5.9.2",
+        "typescript": "5.9.3",
         "verdaccio": "6.1.6"
     },
     "engines": {
