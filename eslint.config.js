@@ -22,7 +22,6 @@ export default [
         files: ['eslint.config.js', 'ava.config.js', 'ava.integration.config.js', 'packtory.config.js']
     },
     {
-        ...nodeConfigFileConfig,
         files: ['packtory.config.js'],
         rules: {
             'node/no-process-env': 'off'
@@ -35,6 +34,11 @@ export default [
     {
         files: ['**/*.ts'],
         rules: {
+            '@stylistic/operator-linebreak': [
+                'error',
+                'after',
+                { overrides: { '?': 'before', ':': 'before', '|': 'before' } }
+            ],
             '@typescript-eslint/no-extra-parens': 'off',
             '@typescript-eslint/no-magic-numbers': [
                 'error',

@@ -1,12 +1,11 @@
 import type { ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { substituteDependencies } from './substitute-bundles.ts';
-import type { LinkedBundle } from './linked-bundle.ts';
+import type { BundleSubstitutionSource, LinkedBundle } from './linked-bundle.ts';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
 
 type LinkBundleOptions = {
     readonly bundle: ResolvedBundle;
-    readonly bundleDependencies: readonly VersionedBundleWithManifest[];
+    readonly bundleDependencies: readonly BundleSubstitutionSource[];
 };
 
 export type BundleLinker = {

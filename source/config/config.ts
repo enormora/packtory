@@ -40,70 +40,79 @@ const optionalPackageSettingsSchema = z.strictObject({
     additionalPackageJsonAttributes: z.optional(additionalPackageJsonAttributesSchema)
 });
 
-const foo1 = z.readonly(
+const packageSchemaWithAllCommonSettings = z.readonly(
     z.extend(
         z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
         perPackageSettingsSchema.shape
     )
 );
 
-const configWithOptionalCommonSettingsSchema = z.strictObject({
-    registrySettings: registrySettingsSchema,
-    commonPackageSettings: z.optional(
-        z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
-    ),
-    packages: z.readonly(z.tuple([foo1], foo1))
-});
-
-const foo2 = z.readonly(
+const packageSchemaWithPartialCommonSettings = z.readonly(
     z.extend(
         z.extend(z.partial(requiredCommonPackageSettingsSchema), optionalPackageSettingsSchema.shape),
         perPackageSettingsSchema.shape
     )
 );
 
-const foo3 = z.readonly(
+const packageSchemaWithMandatorySourcesFolder = z.readonly(
     z.extend(
         z.extend(commonPackageSettingsSourcesFolderRequiredSchema, optionalPackageSettingsSchema.shape),
         perPackageSettingsSchema.shape
     )
 );
 
-const foo4 = z.extend(
+const packageSchemaWithMandatoryMainPackageJson = z.extend(
     z.extend(commonPackageSettingsMainPackageJsonRequiredSchema, optionalPackageSettingsSchema.shape),
     perPackageSettingsSchema.shape
 );
 
-export const packtoryConfigSchema = z.union([
-    configWithOptionalCommonSettingsSchema,
+export const packtoryConfigWithoutRegistrySchema = z.union([
+    z.object({
+        commonPackageSettings: z.optional(
+            z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
+        ),
+        packages: z.readonly(z.tuple([packageSchemaWithAllCommonSettings], packageSchemaWithAllCommonSettings))
+    }),
     z.readonly(
-        z.strictObject({
-            registrySettings: registrySettingsSchema,
+        z.object({
             commonPackageSettings: z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
-            packages: z.readonly(z.tuple([foo2], foo2))
+            packages: z.readonly(
+                z.tuple([packageSchemaWithPartialCommonSettings], packageSchemaWithPartialCommonSettings)
+            )
         })
     ),
     z.readonly(
-        z.strictObject({
-            registrySettings: registrySettingsSchema,
+        z.object({
             commonPackageSettings: z.extend(
                 commonPackageSettingsMainPackageJsonRequiredSchema,
                 optionalPackageSettingsSchema.shape
             ),
-            packages: z.readonly(z.tuple([foo3], foo3))
+            packages: z.readonly(
+                z.tuple([packageSchemaWithMandatorySourcesFolder], packageSchemaWithMandatorySourcesFolder)
+            )
         })
     ),
     z.readonly(
-        z.strictObject({
-            registrySettings: registrySettingsSchema,
+        z.object({
             commonPackageSettings: z.extend(
                 commonPackageSettingsSourcesFolderRequiredSchema,
                 optionalPackageSettingsSchema.shape
             ),
-            packages: z.readonly(z.tuple([foo4], foo4))
+            packages: z.readonly(
+                z.tuple([packageSchemaWithMandatoryMainPackageJson], packageSchemaWithMandatoryMainPackageJson)
+            )
         })
     )
 ]);
+
+export type PacktoryConfigWithoutRegistry = z.infer<typeof packtoryConfigWithoutRegistrySchema>;
+
+export const packtoryConfigSchema = z.intersection(
+    z.object({
+        registrySettings: registrySettingsSchema
+    }),
+    packtoryConfigWithoutRegistrySchema
+);
 
 export type PacktoryConfig = z.infer<typeof packtoryConfigSchema>;
 export type PackageConfig = PacktoryConfig['packages'][number];

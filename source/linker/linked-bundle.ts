@@ -12,3 +12,5 @@ export type LinkedBundle = {
     readonly linkedBundleDependencies: ExternalDependencies;
     readonly externalDependencies: ExternalDependencies;
 };
+
+export type BundleSubstitutionSource = Pick<LinkedBundle, 'contents' | 'name'>;

@@ -1,8 +1,20 @@
 import { Result } from 'true-myth';
-import type { PacktoryConfig } from '../config/config.ts';
-import { validateConfig } from '../config/validation.ts';
+import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import { validateConfig, type ValidConfigResult } from '../config/validation.ts';
+import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { Scheduler, PartialError } from './scheduler.ts';
-import type { BuildAndPublishResult, PackageProcessor } from './package-processor.ts';
+import {
+    configToBuildAndPublishOptions,
+    configToResolveAndLinkOptions,
+    type ResolveAndLinkOptions,
+    type BuildAndPublishOptions
+} from './map-config.ts';
+import type {
+    BuildAndPublishResult,
+    PackageProcessor,
+    DetermineVersionAndPublishOptions
+} from './package-processor.ts';
 
 type Options = {
     readonly dryRun: boolean;
@@ -13,7 +25,7 @@ type ConfigError = {
     issues: readonly string[];
 };
 
-export type PublishFailure = ConfigError | (PartialError & { type: 'partial' });
+export type PublishFailure = ConfigError | (PartialError<BuildAndPublishResult> & { type: 'partial' });
 export type PublishAllResult = Result<readonly BuildAndPublishResult[], PublishFailure>;
 
 export type Packtory = {
@@ -31,6 +43,100 @@ type PacktoryDependencies = {
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const { packageProcessor, scheduler } = dependencies;
 
+    type ResolvedPackage = {
+        readonly name: string;
+        readonly linkedBundle: LinkedBundle;
+        readonly resolveOptions: ResolveAndLinkOptions;
+    };
+
+    async function resolveAndLinkAll(
+        config: ValidConfigResult
+    ): Promise<Result<readonly ResolvedPackage[], PartialError<ResolvedPackage>>> {
+        return scheduler.runForEachScheduledPackage<ResolvedPackage, LinkedBundle, ResolveAndLinkOptions>({
+            config,
+            createOptions: (context) => {
+                const { packageName, existing, config: validatedConfig } = context;
+                const { registrySettings: _registrySettings, ...configWithoutRegistry } =
+                    validatedConfig.packtoryConfig;
+                const sanitizedConfig: PacktoryConfigWithoutRegistry = configWithoutRegistry;
+
+                return configToResolveAndLinkOptions(
+                    packageName,
+                    validatedConfig.packageConfigs,
+                    sanitizedConfig,
+                    existing
+                );
+            },
+            execute: async (resolveOptions) => {
+                const linkedBundle = await packageProcessor.resolveAndLink(resolveOptions);
+                return {
+                    name: resolveOptions.name,
+                    linkedBundle,
+                    resolveOptions
+                } satisfies ResolvedPackage;
+            },
+            selectNext: (params) => {
+                const { result } = params;
+                return result.linkedBundle;
+            }
+        });
+    }
+
+    async function determineVersionAndPublishAll(
+        config: ValidConfigResult,
+        resolvedPackages: readonly ResolvedPackage[],
+        options: Options
+    ): Promise<Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>> {
+        const linkedBundlesByName = new Map<string, LinkedBundle>(
+            resolvedPackages.map((resolvedPackage) => {
+                return [resolvedPackage.name, resolvedPackage.linkedBundle];
+            })
+        );
+
+        return scheduler.runForEachScheduledPackage<
+            BuildAndPublishResult,
+            VersionedBundleWithManifest,
+            BuildAndPublishOptions
+        >({
+            config,
+            createOptions: (context) => {
+                const { packageName, existing, config: validatedConfig } = context;
+                return configToBuildAndPublishOptions(
+                    packageName,
+                    validatedConfig.packageConfigs,
+                    validatedConfig.packtoryConfig,
+                    existing
+                );
+            },
+            execute: async (buildOptions) => {
+                const linkedBundle = linkedBundlesByName.get(buildOptions.name);
+                if (linkedBundle === undefined) {
+                    throw new Error(`Linked bundle for package "${buildOptions.name}" is missing`);
+                }
+
+                const processorOptions: DetermineVersionAndPublishOptions = {
+                    linkedBundle,
+                    buildOptions
+                };
+
+                if (options.dryRun) {
+                    return packageProcessor.tryBuildAndPublish(processorOptions);
+                }
+                return packageProcessor.buildAndPublish(processorOptions);
+            },
+            selectNext: (params) => {
+                return params.result.bundle;
+            },
+            createProgressEvent: (params) => {
+                const { result } = params;
+                return {
+                    version: result.bundle.packageJson.version,
+                    status: result.status
+                };
+            }
+        });
+    }
+
     return {
         async buildAndPublishAll(config, options) {
             const result = validateConfig(config);
@@ -42,21 +148,29 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
                 });
             }
 
-            const runResult = await scheduler.runForEachScheduledPackage(result.value, async (buildOptions) => {
-                if (options.dryRun) {
-                    return packageProcessor.tryBuildAndPublish(buildOptions);
-                }
-                return packageProcessor.buildAndPublish(buildOptions);
-            });
-
-            if (runResult.isErr) {
+            const resolvedBundlesResult = await resolveAndLinkAll(result.value);
+            if (resolvedBundlesResult.isErr) {
                 return Result.err({
                     type: 'partial',
-                    ...runResult.error
+                    succeeded: [],
+                    failures: resolvedBundlesResult.error.failures
                 });
             }
 
-            return Result.ok(runResult.value);
+            const publishResult = await determineVersionAndPublishAll(
+                result.value,
+                resolvedBundlesResult.value,
+                options
+            );
+
+            if (publishResult.isErr) {
+                return Result.err({
+                    type: 'partial',
+                    ...publishResult.error
+                });
+            }
+
+            return Result.ok(publishResult.value);
         }
     };
 }

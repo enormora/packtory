@@ -1,34 +1,37 @@
 import { map } from 'effect/ReadonlyArray';
-import type { Except } from 'type-fest';
-import type { PackageConfig, PacktoryConfig } from '../config/config.ts';
+import type { PackageConfig, PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
 import type { RegistrySettings } from '../config/registry-settings.ts';
 import type { VersioningSettings } from '../config/versioning-settings.ts';
 import type { ResourceResolveOptions } from '../resource-resolver/resource-resolve-options.ts';
 import type { BuildVersionedBundleOptions, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { BundleSubstitutionSource } from '../linker/linked-bundle.ts';
 import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
 
-type AdditionalBuildOptions = {
-    readonly version: string;
-    readonly bundleDependencies: readonly VersionedBundleWithManifest[];
-    readonly bundlePeerDependencies: readonly VersionedBundleWithManifest[];
-};
-type BuildOptionFromBuildVersion = Pick<
-    BuildVersionedBundleOptions,
-    'additionalPackageJsonAttributes' | 'mainPackageJson'
->;
-export type BuildOptions = AdditionalBuildOptions & BuildOptionFromBuildVersion & ResourceResolveOptions;
+type ManifestOptionsSubset = Pick<BuildVersionedBundleOptions, 'additionalPackageJsonAttributes' | 'mainPackageJson'>;
 
-export type BuildAndPublishOptions = Except<BuildOptions, 'version'> & {
+type SharedPackageOptions<TBundle extends { name: string }> = ManifestOptionsSubset &
+    ResourceResolveOptions & {
+        readonly bundleDependencies: readonly TBundle[];
+        readonly bundlePeerDependencies: readonly TBundle[];
+    };
+
+export type BuildOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
+    readonly version: string;
+};
+
+export type BuildAndPublishOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
     readonly registrySettings: RegistrySettings;
     readonly versioning: VersioningSettings;
 };
 
-function dependencyNamesToBundles(
+export type ResolveAndLinkOptions = SharedPackageOptions<BundleSubstitutionSource>;
+
+function dependencyNamesToBundles<TBundle extends { name: string }>(
     dependencyNames: readonly string[],
-    bundles: readonly VersionedBundleWithManifest[]
-): readonly VersionedBundleWithManifest[] {
+    bundles: readonly TBundle[]
+): readonly TBundle[] {
     return dependencyNames.map((dependencyName) => {
         const matchingBundle = bundles.find((bundle) => {
             return bundle.name === dependencyName;
@@ -54,13 +57,18 @@ function mergeAdditionalFiles(
     return Array.from(filesWithUniqueTargetPath.values());
 }
 
+type PreparedPackageOptions<TBundle extends { name: string }> = {
+    readonly sharedOptions: SharedPackageOptions<TBundle>;
+    readonly versioning: VersioningSettings;
+};
+
 // eslint-disable-next-line complexity -- needs to be refactored
-export function configToBuildAndPublishOptions(
+function preparePackageOptions<TBundle extends { name: string }>(
     packageName: string,
     packageConfigs: Map<string, PackageConfig>,
-    packtoryConfig: PacktoryConfig,
-    existingBundles: readonly VersionedBundleWithManifest[]
-): BuildAndPublishOptions {
+    packtoryConfig: PacktoryConfigWithoutRegistry,
+    existingBundles: readonly TBundle[]
+): PreparedPackageOptions<TBundle> {
     const packageConfig = packageConfigs.get(packageName);
 
     if (packageConfig === undefined) {
@@ -77,7 +85,7 @@ export function configToBuildAndPublishOptions(
         includeSourceMapFiles = packtoryConfig.commonPackageSettings?.includeSourceMapFiles ?? false,
         additionalPackageJsonAttributes = {},
         versioning = { automatic: true },
-        ...remainingPackageConfig
+        name
     } = packageConfig;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
     const mainPackageJson = (packtoryConfig.commonPackageSettings?.mainPackageJson ??
@@ -91,25 +99,56 @@ export function configToBuildAndPublishOptions(
         additionalFiles
     );
 
-    return {
-        ...remainingPackageConfig,
-        versioning,
+    const sharedOptions: SharedPackageOptions<TBundle> = {
+        name,
+        entryPoints: map(entryPoints, (entryPoint) => {
+            return normalizeEntryPoint(entryPoint, sourcesFolder);
+        }),
+        sourcesFolder,
+        includeSourceMapFiles,
+        additionalFiles: uniqueAdditionalFiles.map((additionalFile) => {
+            return normalizeAdditionalFile(additionalFile, sourcesFolder);
+        }),
         moduleResolution: mainPackageJson.type ?? 'module',
+        mainPackageJson,
         additionalPackageJsonAttributes: {
             ...packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
             ...additionalPackageJsonAttributes
         },
-        registrySettings: packtoryConfig.registrySettings,
-        includeSourceMapFiles,
-        entryPoints: map(entryPoints, (entryPoint) => {
-            return normalizeEntryPoint(entryPoint, sourcesFolder);
-        }),
-        additionalFiles: uniqueAdditionalFiles.map((additionalFile) => {
-            return normalizeAdditionalFile(additionalFile, sourcesFolder);
-        }),
-        mainPackageJson,
-        sourcesFolder,
         bundleDependencies: dependencyNamesToBundles(bundleDependencies, existingBundles),
         bundlePeerDependencies: dependencyNamesToBundles(bundlePeerDependencies, existingBundles)
     };
+
+    return { sharedOptions, versioning };
+}
+
+export function configToBuildAndPublishOptions(
+    packageName: string,
+    packageConfigs: Map<string, PackageConfig>,
+    packtoryConfig: PacktoryConfig,
+    existingBundles: readonly VersionedBundleWithManifest[]
+): BuildAndPublishOptions {
+    const { sharedOptions, versioning } = preparePackageOptions(
+        packageName,
+        packageConfigs,
+        packtoryConfig,
+        existingBundles
+    );
+
+    return {
+        ...sharedOptions,
+        versioning,
+        registrySettings: packtoryConfig.registrySettings
+    };
+}
+
+export function configToResolveAndLinkOptions(
+    packageName: string,
+    packageConfigs: Map<string, PackageConfig>,
+    packtoryConfig: PacktoryConfigWithoutRegistry,
+    existingBundles: readonly BundleSubstitutionSource[]
+): ResolveAndLinkOptions {
+    const { sharedOptions } = preparePackageOptions(packageName, packageConfigs, packtoryConfig, existingBundles);
+
+    return sharedOptions;
 }
