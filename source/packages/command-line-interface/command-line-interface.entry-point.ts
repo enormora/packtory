@@ -4,14 +4,14 @@ import { Spinner } from '@topcli/spinner';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.ts';
 import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
-import { buildAndPublishAll, progressBroadcastConsumer } from '../packtory/packtory.entry-point.ts';
+import { buildAndPublishAll, resolveAndLinkAll, progressBroadcastConsumer } from '../packtory/packtory.entry-point.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
 }
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
-    packtory: { buildAndPublishAll },
+    packtory: { buildAndPublishAll, resolveAndLinkAll },
     progressBroadcaster: progressBroadcastConsumer,
     spinnerRenderer: createTerminalSpinnerRenderer({ SpinnerClass: Spinner }),
     configLoader: createConfigLoader({ currentWorkingDirectory: process.cwd(), importModule }),

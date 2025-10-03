@@ -1,8 +1,9 @@
 import { partition } from 'effect/ReadonlyArray';
 import { get } from 'effect/Struct';
 import { Result } from 'true-myth';
-import type { ValidConfigResult } from '../config/validation.ts';
+import type { ConfigWithGraph } from '../config/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import type { PackageConfig } from '../config/config.ts';
 
 export type PartialError<TResult> = {
     readonly succeeded: readonly TResult[];
@@ -10,8 +11,8 @@ export type PartialError<TResult> = {
 };
 
 export type Scheduler = {
-    runForEachScheduledPackage: <TResult, TNext, TOptions>(
-        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions>
+    runForEachScheduledPackage: <TResult, TNext, TOptions, TConfig extends { packages: readonly PackageConfig[] }>(
+        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>
     ) => Promise<Result<readonly TResult[], PartialError<TResult>>>;
 };
 
@@ -28,10 +29,10 @@ function isFulfilledResult<T extends PromiseSettledResult<unknown>>(
 const getValue = get('value');
 const getReason = get('reason');
 
-type PackageExecutionContext<TNext> = {
+type PackageExecutionContext<TNext, TConfig extends { packages: readonly PackageConfig[] }> = {
     readonly packageName: string;
     readonly existing: readonly TNext[];
-    readonly config: ValidConfigResult;
+    readonly config: ConfigWithGraph<TConfig>;
 };
 
 type PackageSuccess<TResult, TOptions> = {
@@ -50,9 +51,14 @@ type SchedulerState<TResult, TNext> = {
     readonly succeeded: TResult[];
 };
 
-type RunForEachScheduledPackageParams<TResult, TNext, TOptions> = {
-    readonly config: ValidConfigResult;
-    readonly createOptions: (context: PackageExecutionContext<TNext>) => TOptions;
+type RunForEachScheduledPackageParams<
+    TResult,
+    TNext,
+    TOptions,
+    TConfig extends { packages: readonly PackageConfig[] }
+> = {
+    readonly config: ConfigWithGraph<TConfig>;
+    readonly createOptions: (context: PackageExecutionContext<TNext, TConfig>) => TOptions;
     readonly execute: (options: TOptions) => Promise<TResult>;
     readonly selectNext: (params: { result: TResult; options: TOptions }) => TNext;
     readonly createProgressEvent?:
@@ -63,11 +69,11 @@ type RunForEachScheduledPackageParams<TResult, TNext, TOptions> = {
 export function createScheduler(dependencies: SchedulerDependencies): Scheduler {
     const { progressBroadcastProvider } = dependencies;
 
-    async function runForGeneration<TResult, TNext, TOptions>(
+    async function runForGeneration<TResult, TNext, TOptions, TConfig extends { packages: readonly PackageConfig[] }>(
         packageNames: readonly string[],
-        config: ValidConfigResult,
+        config: ConfigWithGraph<TConfig>,
         existingItems: readonly TNext[],
-        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions>
+        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>
     ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>>> {
         const buildPackageSuccess = async (packageName: string): Promise<PackageSuccess<TResult, TOptions>> => {
             const options = params.createOptions({ packageName, existing: existingItems, config });
@@ -108,21 +114,28 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         return Result.ok(succeeded);
     }
 
-    function emitScheduledEventForAllPackages(config: ValidConfigResult): void {
+    function emitScheduledEventForAllPackages<TConfig extends { packages: readonly PackageConfig[] }>(
+        config: ConfigWithGraph<TConfig>
+    ): void {
         for (const packageConfig of config.packtoryConfig.packages) {
             progressBroadcastProvider.emit('scheduled', { packageName: packageConfig.name });
         }
     }
 
-    function getExecutionPlan(config: ValidConfigResult): readonly (readonly string[])[] {
+    function getExecutionPlan<TConfig extends { packages: readonly PackageConfig[] }>(
+        config: ConfigWithGraph<TConfig>
+    ): readonly (readonly string[])[] {
         // eslint-disable-next-line unicorn/no-array-reverse -- false positive
         return config.packageGraph.reverse().getTopologicalGenerations();
     }
 
     return {
-        async runForEachScheduledPackage<TResult, TNext, TOptions>(
-            params: RunForEachScheduledPackageParams<TResult, TNext, TOptions>
-        ) {
+        async runForEachScheduledPackage<
+            TResult,
+            TNext,
+            TOptions,
+            TConfig extends { packages: readonly PackageConfig[] }
+        >(params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>) {
             const { config } = params;
             emitScheduledEventForAllPackages(config);
 

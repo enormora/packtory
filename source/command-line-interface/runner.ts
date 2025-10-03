@@ -54,6 +54,12 @@ export function createCommandLineInterfaceRunner(
         log(message);
     }
 
+    function printCheckErrors(issues: readonly string[]): void {
+        const title = `${errorSymbol} Checks failed, there are ${issues.length} issue(s)`;
+        const message = `${title}\n\n- ${issues.join('\n- ')}`;
+        log(message);
+    }
+
     function printPartialErrorSummary(error: PublishPartialError): void {
         const total = error.succeeded.length + error.failures.length;
         log(
@@ -66,6 +72,8 @@ export function createCommandLineInterfaceRunner(
     function printPublishFailure(error: PublishFailure): void {
         if (error.type === 'config') {
             printInvalidConfigErrors(error.issues);
+        } else if (error.type === 'checks') {
+            printCheckErrors(error.issues);
         } else {
             printPartialErrorSummary(error);
         }

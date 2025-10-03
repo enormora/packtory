@@ -57,8 +57,13 @@ const packtory = createPacktory({
     packageProcessor
 });
 
-export const { buildAndPublishAll } = packtory;
+export const { buildAndPublishAll, resolveAndLinkAll } = packtory;
 export const progressBroadcastConsumer = progressBroadcaster.consumer;
 
 export type { PacktoryConfig } from '../../config/config.js';
-export type { PublishAllResult } from '../../packtory/packtory.js';
+export type {
+    PublishAllResult,
+    ResolveAndLinkAllResult,
+    ResolveAndLinkFailure,
+    ResolvedPackage
+} from '../../packtory/packtory.js';
