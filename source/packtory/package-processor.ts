@@ -1,4 +1,3 @@
-import type { Except } from 'type-fest';
 import type { Maybe } from 'true-myth';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { BundleLinker } from '../linker/linker.ts';
@@ -7,17 +6,23 @@ import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
-import type { BuildAndPublishOptions, BuildOptions } from './map-config.ts';
+import type { BuildAndPublishOptions, BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 
 export type BuildAndPublishResult = {
     readonly status: 'already-published' | 'initial-version' | 'new-version';
     readonly bundle: VersionedBundleWithManifest;
 };
 
+export type DetermineVersionAndPublishOptions = {
+    readonly linkedBundle: LinkedBundle;
+    readonly buildOptions: BuildAndPublishOptions;
+};
+
 export type PackageProcessor = {
+    resolveAndLink: (options: ResolveAndLinkOptions) => Promise<LinkedBundle>;
     build: (options: BuildOptions) => Promise<VersionedBundleWithManifest>;
-    buildAndPublish: (options: BuildAndPublishOptions) => Promise<BuildAndPublishResult>;
-    tryBuildAndPublish: (options: BuildAndPublishOptions) => Promise<BuildAndPublishResult>;
+    buildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
+    tryBuildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
 };
 
 type PackageProcessorDependencies = {
@@ -31,7 +36,7 @@ type PackageProcessorDependencies = {
 export function createPackageProcessor(dependencies: PackageProcessorDependencies): PackageProcessor {
     const { progressBroadcaster, versionManager, bundleEmitter, linker, resourceResolver } = dependencies;
 
-    async function resolveAndLinkBundle(options: Except<BuildOptions, 'version'>): Promise<LinkedBundle> {
+    async function resolveAndLink(options: ResolveAndLinkOptions): Promise<LinkedBundle> {
         progressBroadcaster.emit('resolving', { packageName: options.name });
         const resolvedBundle = await resourceResolver.resolve(options);
         progressBroadcaster.emit('linking', { packageName: options.name });
@@ -42,12 +47,14 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         return linkedBundle;
     }
 
-    async function buildVersionedBundle(options: BuildAndPublishOptions): Promise<{
+    async function buildVersionedBundle(
+        linkedBundle: LinkedBundle,
+        options: BuildAndPublishOptions
+    ): Promise<{
         versionedBundle: VersionedBundleWithManifest;
         currentVersion: Maybe<string>;
         version: string;
     }> {
-        const linkedBundle = await resolveAndLinkBundle(options);
         const currentVersion = await bundleEmitter.determineCurrentVersion({
             name: linkedBundle.name,
             registrySettings: options.registrySettings,
@@ -59,16 +66,19 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         return { versionedBundle, currentVersion, version };
     }
 
-    async function tryBuildAndPublish(options: BuildAndPublishOptions): Promise<BuildAndPublishResult> {
-        const buildContext = await buildVersionedBundle(options);
+    async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
+        const buildContext = await buildVersionedBundle(options.linkedBundle, options.buildOptions);
         const result = await bundleEmitter.checkBundleAlreadyPublished({
             bundle: buildContext.versionedBundle,
-            registrySettings: options.registrySettings
+            registrySettings: options.buildOptions.registrySettings
         });
         if (result.alreadyPublishedAsLatest) {
             return { bundle: buildContext.versionedBundle, status: 'already-published' };
         }
-        progressBroadcaster.emit('rebuilding', { packageName: options.name, version: buildContext.version });
+        progressBroadcaster.emit('rebuilding', {
+            packageName: options.buildOptions.name,
+            version: buildContext.version
+        });
         const newVersionedBundle = versionManager.increaseVersion(buildContext.versionedBundle);
         return {
             bundle: newVersionedBundle,
@@ -77,8 +87,30 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
     }
 
     return {
+        resolveAndLink,
         async build(options) {
-            const linkedBundle = await resolveAndLinkBundle(options);
+            const {
+                bundleDependencies,
+                bundlePeerDependencies,
+                entryPoints,
+                includeSourceMapFiles,
+                additionalFiles,
+                moduleResolution,
+                name,
+                sourcesFolder
+            } = options;
+            const linkedBundle = await resolveAndLink({
+                name,
+                sourcesFolder,
+                entryPoints,
+                includeSourceMapFiles,
+                additionalFiles,
+                moduleResolution,
+                mainPackageJson: options.mainPackageJson,
+                additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
+                bundleDependencies,
+                bundlePeerDependencies
+            });
 
             return versionManager.addVersion({
                 bundle: linkedBundle,
@@ -98,8 +130,14 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
                 return result;
             }
 
-            progressBroadcaster.emit('publishing', { packageName: options.name, version: result.bundle.version });
-            await bundleEmitter.publish({ bundle: result.bundle, registrySettings: options.registrySettings });
+            progressBroadcaster.emit('publishing', {
+                packageName: options.buildOptions.name,
+                version: result.bundle.version
+            });
+            await bundleEmitter.publish({
+                bundle: result.bundle,
+                registrySettings: options.buildOptions.registrySettings
+            });
 
             return result;
         }

@@ -4,7 +4,10 @@ import { validateConfig } from './validation.ts';
 
 test('returns the issues when the given config doesn’t match the schema', (t) => {
     const result = validateConfig({ not: 'valid' });
-    t.deepEqual(result, Result.err(['invalid value doesn’t match expected union']));
+    t.deepEqual(
+        result,
+        Result.err(['at registrySettings: missing property', 'invalid value doesn’t match expected union'])
+    );
 });
 
 test('returns an issue when a package with the same name exists twice', (t) => {

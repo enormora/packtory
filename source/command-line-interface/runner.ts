@@ -2,10 +2,12 @@ import { command, subcommands, flag, binary, run } from 'cmd-ts';
 import kleur from 'kleur';
 import type { Packtory, PublishFailure } from '../packtory/packtory.ts';
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
-import type { PartialError } from '../packtory/scheduler.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
+import type { PartialError } from '../packtory/scheduler.ts';
 import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 import type { ConfigLoader } from './config-loader.ts';
+
+type PublishPartialError = PartialError<BuildAndPublishResult>;
 
 export type CommandLineInterfaceRunnerDependencies = {
     readonly packtory: Packtory;
@@ -52,7 +54,7 @@ export function createCommandLineInterfaceRunner(
         log(message);
     }
 
-    function printPartialErrorSummary(error: PartialError): void {
+    function printPartialErrorSummary(error: PublishPartialError): void {
         const total = error.succeeded.length + error.failures.length;
         log(
             `${errorSymbol} ${kleur.red(error.failures.length)} from ${kleur.bold(

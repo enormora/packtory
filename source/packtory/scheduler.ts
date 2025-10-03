@@ -3,22 +3,16 @@ import { get } from 'effect/Struct';
 import { Result } from 'true-myth';
 import type { ValidConfigResult } from '../config/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import { configToBuildAndPublishOptions, type BuildAndPublishOptions } from './map-config.ts';
-import type { BuildAndPublishResult } from './package-processor.ts';
 
-type PackageOperationCallback = (options: BuildAndPublishOptions) => Promise<BuildAndPublishResult>;
-
-export type PartialError = {
-    readonly succeeded: readonly BuildAndPublishResult[];
+export type PartialError<TResult> = {
+    readonly succeeded: readonly TResult[];
     readonly failures: readonly Error[];
 };
 
 export type Scheduler = {
-    runForEachScheduledPackage: (
-        config: ValidConfigResult,
-        callback: PackageOperationCallback
-    ) => Promise<Result<readonly BuildAndPublishResult[], PartialError>>;
+    runForEachScheduledPackage: <TResult, TNext, TOptions>(
+        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions>
+    ) => Promise<Result<readonly TResult[], PartialError<TResult>>>;
 };
 
 type SchedulerDependencies = {
@@ -32,51 +26,81 @@ function isFulfilledResult<T extends PromiseSettledResult<unknown>>(
 }
 
 const getValue = get('value');
-const getBundle = get('bundle');
 const getReason = get('reason');
+
+type PackageExecutionContext<TNext> = {
+    readonly packageName: string;
+    readonly existing: readonly TNext[];
+    readonly config: ValidConfigResult;
+};
+
+type PackageSuccess<TResult, TOptions> = {
+    readonly packageName: string;
+    readonly options: TOptions;
+    readonly result: TResult;
+};
+
+type ProgressEventReturnValue = {
+    version: string;
+    status: 'already-published' | 'initial-version' | 'new-version';
+};
+
+type SchedulerState<TResult, TNext> = {
+    readonly nextItems: TNext[];
+    readonly succeeded: TResult[];
+};
+
+type RunForEachScheduledPackageParams<TResult, TNext, TOptions> = {
+    readonly config: ValidConfigResult;
+    readonly createOptions: (context: PackageExecutionContext<TNext>) => TOptions;
+    readonly execute: (options: TOptions) => Promise<TResult>;
+    readonly selectNext: (params: { result: TResult; options: TOptions }) => TNext;
+    readonly createProgressEvent?:
+        | ((params: { packageName: string; result: TResult; options: TOptions }) => ProgressEventReturnValue)
+        | undefined;
+};
 
 export function createScheduler(dependencies: SchedulerDependencies): Scheduler {
     const { progressBroadcastProvider } = dependencies;
 
-    async function runForGeneration(
+    async function runForGeneration<TResult, TNext, TOptions>(
         packageNames: readonly string[],
         config: ValidConfigResult,
-        existingBundles: readonly VersionedBundleWithManifest[],
-        callback: PackageOperationCallback
-    ): Promise<Result<readonly BuildAndPublishResult[], PartialError>> {
-        const { packageConfigs, packtoryConfig } = config;
-        const results = await Promise.allSettled(
-            packageNames.map(async (packageName) => {
-                try {
-                    const options = configToBuildAndPublishOptions(
-                        packageName,
-                        packageConfigs,
-                        packtoryConfig,
-                        existingBundles
-                    );
-                    const result = await callback(options);
-                    progressBroadcastProvider.emit('done', {
-                        packageName,
-                        version: result.bundle.packageJson.version,
-                        status: result.status
-                    });
-                    return result;
-                } catch (error: unknown) {
-                    if (error instanceof Error) {
-                        progressBroadcastProvider.emit('error', { packageName, error });
-                    } else {
-                        progressBroadcastProvider.emit('error', { packageName, error: new Error('Unknown error') });
-                    }
-                    throw error;
+        existingItems: readonly TNext[],
+        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions>
+    ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>>> {
+        const buildPackageSuccess = async (packageName: string): Promise<PackageSuccess<TResult, TOptions>> => {
+            const options = params.createOptions({ packageName, existing: existingItems, config });
+            const result = await params.execute(options);
+            const progressEvent = params.createProgressEvent?.({ packageName, result, options });
+            if (progressEvent !== undefined) {
+                progressBroadcastProvider.emit('done', { packageName, ...progressEvent });
+            }
+            return { packageName, result, options } satisfies PackageSuccess<TResult, TOptions>;
+        };
+
+        const executePackage = async (packageName: string): Promise<PackageSuccess<TResult, TOptions>> => {
+            try {
+                return await buildPackageSuccess(packageName);
+            } catch (error: unknown) {
+                if (error instanceof Error) {
+                    progressBroadcastProvider.emit('error', { packageName, error });
+                } else {
+                    progressBroadcastProvider.emit('error', { packageName, error: new Error('Unknown error') });
                 }
-            })
-        );
+                throw error;
+            }
+        };
+
+        const results = await Promise.allSettled(packageNames.map(executePackage));
         const [rejectedResults, fulfilledResults] = partition(results, isFulfilledResult);
         const succeeded = fulfilledResults.map(getValue);
 
         if (rejectedResults.length > 0) {
             return Result.err({
-                succeeded,
+                succeeded: succeeded.map((entry) => {
+                    return entry.result;
+                }),
                 failures: rejectedResults.map(getReason)
             });
         }
@@ -96,26 +120,41 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
     }
 
     return {
-        async runForEachScheduledPackage(config, callback) {
+        async runForEachScheduledPackage<TResult, TNext, TOptions>(
+            params: RunForEachScheduledPackageParams<TResult, TNext, TOptions>
+        ) {
+            const { config } = params;
             emitScheduledEventForAllPackages(config);
 
-            const bundles: VersionedBundleWithManifest[] = [];
-            const succeeded: BuildAndPublishResult[] = [];
+            const state: SchedulerState<TResult, TNext> = { nextItems: [], succeeded: [] };
 
-            for (const generation of getExecutionPlan(config)) {
-                const generationResult = await runForGeneration(generation, config, bundles, callback);
+            const processGeneration = async (
+                generation: readonly string[]
+            ): Promise<Result<undefined, PartialError<TResult>>> => {
+                const generationResult = await runForGeneration(generation, config, state.nextItems, params);
                 if (generationResult.isErr) {
                     return Result.err({
-                        succeeded: [...succeeded, ...generationResult.error.succeeded],
+                        succeeded: [...state.succeeded, ...generationResult.error.succeeded],
                         failures: generationResult.error.failures
                     });
                 }
 
-                bundles.push(...generationResult.value.map(getBundle));
-                succeeded.push(...generationResult.value);
+                generationResult.value.forEach((entry) => {
+                    state.nextItems.push(params.selectNext({ result: entry.result, options: entry.options }));
+                    state.succeeded.push(entry.result);
+                });
+
+                return Result.ok(undefined);
+            };
+
+            for (const generation of getExecutionPlan(config)) {
+                const iterationResult = await processGeneration(generation);
+                if (iterationResult.isErr) {
+                    return Result.err(iterationResult.error);
+                }
             }
 
-            return Result.ok(succeeded);
+            return Result.ok(state.succeeded);
         }
     };
 }

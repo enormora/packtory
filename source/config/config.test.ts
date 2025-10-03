@@ -209,13 +209,13 @@ test('validation succeeds when all optional properties are given', checkValidati
 test('validation fails when a non-object is given', checkValidationFailure, {
     schema: packtoryConfigSchema,
     data: true,
-    expectedMessages: ['invalid value: expected object, but got boolean']
+    expectedMessages: ['expected object, but got boolean', 'invalid value: expected object, but got boolean']
 });
 
 test('validation fails when an empty object is given', checkValidationFailure, {
     schema: packtoryConfigSchema,
     data: {},
-    expectedMessages: ['invalid value doesn’t match expected union']
+    expectedMessages: ['at registrySettings: missing property', 'invalid value doesn’t match expected union']
 });
 
 test(

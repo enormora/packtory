@@ -1,5 +1,5 @@
 import { Maybe } from 'true-myth';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import type { ResourceGraph } from './resource-graph.ts';
 import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from './substituted-resource-graph.ts';
 import { replaceImportPaths } from './source-modifier/import-paths.ts';
@@ -9,7 +9,7 @@ type Replacement = {
     readonly packageName: string;
 };
 
-function findReplacement(file: string, bundleDependencies: readonly VersionedBundleWithManifest[]): Maybe<Replacement> {
+function findReplacement(file: string, bundleDependencies: readonly BundleSubstitutionSource[]): Maybe<Replacement> {
     for (const bundle of bundleDependencies) {
         const matchingContent = bundle.contents.find((content) => {
             return content.fileDescription.sourceFilePath === file;
@@ -33,7 +33,7 @@ type Replacements = {
 
 function findAllPathReplacements(
     files: readonly string[],
-    bundleDependencies: readonly VersionedBundleWithManifest[]
+    bundleDependencies: readonly BundleSubstitutionSource[]
 ): Replacements {
     const allReplacements = new Map<string, string>();
     const usedBundleDependencies: string[] = [];
@@ -52,7 +52,7 @@ function findAllPathReplacements(
 
 export function substituteDependencies(
     resourceGraph: ResourceGraph,
-    bundleDependencies: readonly VersionedBundleWithManifest[]
+    bundleDependencies: readonly BundleSubstitutionSource[]
 ): SubstitutedResourceGraph {
     const substitutedGraph = createSubstitutedResourceGraph();
     const outstandingConnections: { from: string; to: string }[] = [];
