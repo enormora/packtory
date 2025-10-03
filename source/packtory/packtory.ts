@@ -105,7 +105,8 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             selectNext: (params) => {
                 const { result } = params;
                 return result.linkedBundle;
-            }
+            },
+            emitScheduledEvents: true
         });
 
         if (runResult.isErr) {
@@ -175,6 +176,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             selectNext: (params) => {
                 return params.result.bundle;
             },
+            emitScheduledEvents: false,
             createProgressEvent: (params) => {
                 const { result } = params;
                 return {

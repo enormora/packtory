@@ -64,6 +64,7 @@ type RunForEachScheduledPackageParams<
     readonly createProgressEvent?:
         | ((params: { packageName: string; result: TResult; options: TOptions }) => ProgressEventReturnValue)
         | undefined;
+    readonly emitScheduledEvents?: boolean;
 };
 
 export function createScheduler(dependencies: SchedulerDependencies): Scheduler {
@@ -137,7 +138,9 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
             TConfig extends { packages: readonly PackageConfig[] }
         >(params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>) {
             const { config } = params;
-            emitScheduledEventForAllPackages(config);
+            if (params.emitScheduledEvents ?? true) {
+                emitScheduledEventForAllPackages(config);
+            }
 
             const state: SchedulerState<TResult, TNext> = { nextItems: [], succeeded: [] };
 
