@@ -1,7 +1,13 @@
 import { Result } from 'true-myth';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
-import { type PacktoryConfig, packtoryConfigSchema, type PackageConfig } from './config.ts';
+import {
+    type PacktoryConfig,
+    packtoryConfigSchema,
+    type PackageConfig,
+    type PacktoryConfigWithoutRegistry,
+    packtoryConfigWithoutRegistrySchema
+} from './config.ts';
 
 function buildPackageGraph(packages: ReadonlyMap<string, PackageConfig>): DirectedGraph<string, undefined> {
     const graph = createDirectedGraph<string, undefined>();
@@ -62,7 +68,6 @@ function validateDependenciesExist(packageConfigs: Map<string, PackageConfig>): 
 }
 
 function packageListToMap(packages: readonly PackageConfig[]): Map<string, PackageConfig> {
-    // use Map.groupBy once https://github.com/microsoft/TypeScript/pull/56805 has landed
     return packages.reduce((map, packageConfig) => {
         map.set(packageConfig.name, packageConfig);
         return map;
@@ -90,12 +95,19 @@ function validateCyclicDependencies(packageGraph: DirectedGraph<string, undefine
     });
 }
 
-type GraphGenerationPossibleResult = {
-    readonly packtoryConfig: PacktoryConfig;
+type GraphGenerationPossibleResult<TConfig extends { packages: readonly PackageConfig[] }> = {
+    readonly packtoryConfig: TConfig;
     readonly packageConfigs: Map<string, PackageConfig>;
 };
 
-function validatePreGraphGeneration(config: unknown): Result<GraphGenerationPossibleResult, readonly string[]> {
+type ConfigWithGraphInternal<TConfig extends { packages: readonly PackageConfig[] }> =
+    GraphGenerationPossibleResult<TConfig> & {
+        readonly packageGraph: DirectedGraph<string, undefined>;
+    };
+
+function validatePreGraphGeneration(
+    config: unknown
+): Result<GraphGenerationPossibleResult<PacktoryConfig>, readonly string[]> {
     const schemaValidationResult = safeParse(packtoryConfigSchema, config);
 
     if (!schemaValidationResult.success) {
@@ -117,13 +129,33 @@ function validatePreGraphGeneration(config: unknown): Result<GraphGenerationPoss
     });
 }
 
-export type ValidConfigResult = GraphGenerationPossibleResult & {
-    readonly packageGraph: DirectedGraph<string, undefined>;
-};
+function validatePreGraphGenerationWithoutRegistry(
+    config: unknown
+): Result<GraphGenerationPossibleResult<PacktoryConfigWithoutRegistry>, readonly string[]> {
+    const schemaValidationResult = safeParse(packtoryConfigWithoutRegistrySchema, config);
 
-export function validateConfig(config: unknown): Result<ValidConfigResult, readonly string[]> {
-    const result = validatePreGraphGeneration(config);
+    if (!schemaValidationResult.success) {
+        return Result.err(schemaValidationResult.error.issues);
+    }
 
+    const packtoryConfig = schemaValidationResult.data;
+    const packageConfigs = packageListToMap(packtoryConfig.packages);
+
+    const missingDependenciesIssues = validateDependenciesExist(packageConfigs);
+    if (missingDependenciesIssues.length > 0) {
+        const issues = Array.from(validateDuplicatePackages(packtoryConfig.packages));
+        return Result.err([...issues, ...missingDependenciesIssues]);
+    }
+
+    return Result.ok({
+        packtoryConfig,
+        packageConfigs
+    });
+}
+
+function finalizeValidation<TConfig extends { packages: readonly PackageConfig[] }>(
+    result: Result<GraphGenerationPossibleResult<TConfig>, readonly string[]>
+): Result<ConfigWithGraphInternal<TConfig>, readonly string[]> {
     if (result.isErr) {
         return Result.err(result.error);
     }
@@ -143,4 +175,20 @@ export function validateConfig(config: unknown): Result<ValidConfigResult, reado
         packageConfigs,
         packageGraph
     });
+}
+
+export type ConfigWithGraph<TConfig extends { packages: readonly PackageConfig[] }> = ConfigWithGraphInternal<TConfig>;
+export type ValidConfigResult = ConfigWithGraph<PacktoryConfig>;
+export type ValidConfigWithoutRegistryResult = ConfigWithGraph<PacktoryConfigWithoutRegistry>;
+
+export function validateConfig(config: unknown): Result<ValidConfigResult, readonly string[]> {
+    const result = validatePreGraphGeneration(config);
+    return finalizeValidation(result);
+}
+
+export function validateConfigWithoutRegistry(
+    config: unknown
+): Result<ValidConfigWithoutRegistryResult, readonly string[]> {
+    const result = validatePreGraphGenerationWithoutRegistry(config);
+    return finalizeValidation(result);
 }

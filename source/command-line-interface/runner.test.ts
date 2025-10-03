@@ -10,6 +10,7 @@ import {
 
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
+    readonly resolveAndLinkAll?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
     progressBroadcaster?: ProgressBroadcaster;
@@ -25,13 +26,14 @@ type Overrides = {
 function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
     const {
         buildAndPublishAll = fake.resolves(undefined),
+        resolveAndLinkAll = fake.resolves(Result.ok([])),
         loadConfig = fake.resolves(undefined),
         log = fake(),
         progressBroadcaster = createProgressBroadcaster(),
         spinnerRenderer: { add = fake(), stop = fake(), updateMessage = fake(), stopAll = fake() } = {}
     } = overrides;
     const fakeDependencies = {
-        packtory: { buildAndPublishAll },
+        packtory: { buildAndPublishAll, resolveAndLinkAll },
         log,
         configLoader: { load: loadConfig },
         progressBroadcaster: progressBroadcaster.consumer,

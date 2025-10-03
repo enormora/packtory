@@ -40,6 +40,12 @@ const optionalPackageSettingsSchema = z.strictObject({
     additionalPackageJsonAttributes: z.optional(additionalPackageJsonAttributesSchema)
 });
 
+const checksSchema = z.strictObject({
+    noDuplicatedFiles: z.optional(z.boolean())
+});
+
+export type ChecksSettings = z.infer<typeof checksSchema>;
+
 const packageSchemaWithAllCommonSettings = z.readonly(
     z.extend(
         z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
@@ -67,14 +73,18 @@ const packageSchemaWithMandatoryMainPackageJson = z.extend(
 );
 
 export const packtoryConfigWithoutRegistrySchema = z.union([
-    z.object({
-        commonPackageSettings: z.optional(
-            z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
-        ),
-        packages: z.readonly(z.tuple([packageSchemaWithAllCommonSettings], packageSchemaWithAllCommonSettings))
-    }),
     z.readonly(
         z.object({
+            checks: z.optional(checksSchema),
+            commonPackageSettings: z.optional(
+                z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
+            ),
+            packages: z.readonly(z.tuple([packageSchemaWithAllCommonSettings], packageSchemaWithAllCommonSettings))
+        })
+    ),
+    z.readonly(
+        z.object({
+            checks: z.optional(checksSchema),
             commonPackageSettings: z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
             packages: z.readonly(
                 z.tuple([packageSchemaWithPartialCommonSettings], packageSchemaWithPartialCommonSettings)
@@ -83,6 +93,7 @@ export const packtoryConfigWithoutRegistrySchema = z.union([
     ),
     z.readonly(
         z.object({
+            checks: z.optional(checksSchema),
             commonPackageSettings: z.extend(
                 commonPackageSettingsMainPackageJsonRequiredSchema,
                 optionalPackageSettingsSchema.shape
@@ -94,6 +105,7 @@ export const packtoryConfigWithoutRegistrySchema = z.union([
     ),
     z.readonly(
         z.object({
+            checks: z.optional(checksSchema),
             commonPackageSettings: z.extend(
                 commonPackageSettingsSourcesFolderRequiredSchema,
                 optionalPackageSettingsSchema.shape
