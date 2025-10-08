@@ -20,7 +20,8 @@ export async function buildConfig() {
         registrySettings: { token: npmToken },
         checks: {
             noDuplicatedFiles: {
-                enabled: true
+                enabled: true,
+                allowList: [path.join(projectFolder, 'LICENSE')]
             }
         },
         commonPackageSettings: {
