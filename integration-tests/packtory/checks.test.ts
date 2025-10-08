@@ -36,7 +36,7 @@ test('resolveAndLinkAll() reports duplicated files when the rule is enabled', as
     const baseConfig = await createBaseConfig(fixturePath);
     const config = {
         ...baseConfig,
-        checks: { noDuplicatedFiles: true }
+        checks: { noDuplicatedFiles: { enabled: true } }
     };
 
     const result = await resolveAndLinkAll(config);
@@ -62,6 +62,27 @@ test('resolveAndLinkAll succeeds when checks are disabled', async (t) => {
     const result = await resolveAndLinkAll(config);
 
     t.true(result.isOk, 'Duplicated file rule should not run when disabled');
+    if (result.isOk) {
+        t.is(result.value.length, 2);
+    }
+});
+
+test('resolveAndLinkAll succeeds when duplicated files are allow-listed', async (t) => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const config = {
+        ...baseConfig,
+        checks: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [`${fixturePath}/src/shared/util.js`]
+            }
+        }
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    t.true(result.isOk, 'Duplicated files that are allow-listed should not fail checks');
     if (result.isOk) {
         t.is(result.value.length, 2);
     }

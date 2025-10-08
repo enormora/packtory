@@ -3,7 +3,7 @@ import type { CheckContext, CheckRule } from './rule.ts';
 import { noDuplicatedFilesRule } from './rules/no-duplicated-files.ts';
 
 export type CheckRunnerParams = CheckContext & {
-    readonly settings: ChecksSettings;
+    readonly settings: ChecksSettings | undefined;
 };
 
 const checkRules: readonly CheckRule[] = [noDuplicatedFilesRule];
@@ -16,6 +16,6 @@ export function runChecks(params: CheckRunnerParams): readonly string[] {
             return rule.isEnabled(settings);
         })
         .flatMap((rule) => {
-            return rule.run({ bundles: packages });
+            return rule.run({ bundles: packages }, settings);
         });
 }

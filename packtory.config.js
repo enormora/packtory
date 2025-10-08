@@ -19,7 +19,9 @@ export async function buildConfig() {
     return {
         registrySettings: { token: npmToken },
         checks: {
-            noDuplicatedFiles: true
+            noDuplicatedFiles: {
+                enabled: true
+            }
         },
         commonPackageSettings: {
             sourcesFolder,

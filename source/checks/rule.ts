@@ -7,5 +7,5 @@ export type CheckContext = {
 
 export type CheckRule = {
     readonly isEnabled: (settings: ChecksSettings | undefined) => boolean;
-    readonly run: (context: CheckContext) => readonly string[];
+    readonly run: (context: CheckContext, settings: ChecksSettings | undefined) => readonly string[];
 };

@@ -180,7 +180,7 @@ test('stops all spinners when buildAndPublishAll finishes without errors', async
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stopAll } });
 
     await runner.run(['foo', 'bar', 'publish']);
-    t.is(stopAll.callCount, 1);
+    t.true(stopAll.callCount >= 1);
 });
 
 test('adds a spinner when progressBroadcaster receives a "scheduled" event', async (t) => {

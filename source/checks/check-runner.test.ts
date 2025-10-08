@@ -44,7 +44,7 @@ test('does not report issues when checks are disabled', (t) => {
 
 test('reports duplicate files when the rule is enabled', (t) => {
     const issues = runChecks({
-        settings: { noDuplicatedFiles: true },
+        settings: { noDuplicatedFiles: { enabled: true } },
         bundles: [createBundle('a', ['shared.ts']), createBundle('b', ['shared.ts'])]
     });
 
@@ -58,4 +58,25 @@ test('ignores duplicate files when the rule is disabled', (t) => {
     });
 
     t.deepEqual(issues, []);
+});
+
+test('ignores duplicate files that are present in the allow list', (t) => {
+    const issues = runChecks({
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } },
+        bundles: [createBundle('a', ['shared.ts']), createBundle('b', ['shared.ts']), createBundle('c', ['other.ts'])]
+    });
+
+    t.deepEqual(issues, []);
+});
+
+test('reports duplicate files that are not present in the allow list', (t) => {
+    const issues = runChecks({
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } },
+        bundles: [
+            createBundle('a', ['shared.ts', 'not-allowed.ts']),
+            createBundle('b', ['shared.ts', 'not-allowed.ts'])
+        ]
+    });
+
+    t.deepEqual(issues, ['File "not-allowed.ts" is included in multiple packages: a, b']);
 });

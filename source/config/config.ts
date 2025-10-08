@@ -40,9 +40,16 @@ const optionalPackageSettingsSchema = z.strictObject({
     additionalPackageJsonAttributes: z.optional(additionalPackageJsonAttributesSchema)
 });
 
-const checksSchema = z.strictObject({
-    noDuplicatedFiles: z.optional(z.boolean())
+const noDuplicatedFilesSettingsSchema = z.strictObject({
+    enabled: z.boolean(),
+    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
 });
+
+const checksSchema = z.strictObject({
+    noDuplicatedFiles: z.optional(noDuplicatedFilesSettingsSchema)
+});
+
+export type NoDuplicatedFilesSettings = z.infer<typeof noDuplicatedFilesSettingsSchema>;
 
 export type ChecksSettings = z.infer<typeof checksSchema>;
 

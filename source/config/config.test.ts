@@ -18,6 +18,27 @@ test('validation succeeds when commonPackageSettings is defined but empty', chec
     }
 });
 
+test('validation succeeds when checks.noDuplicatedFiles specifies an allow list', checkValidationSuccess, {
+    schema: packtoryConfigSchema,
+    data: {
+        registrySettings: { token: 'foo' },
+        checks: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: ['foo/bar.ts']
+            }
+        },
+        packages: [
+            {
+                sourcesFolder: 'source',
+                mainPackageJson: {},
+                name: 'foo',
+                entryPoints: [{ js: 'foo' }]
+            }
+        ]
+    }
+});
+
 test('validation succeeds when commonPackageSettings is defined with all optional values', checkValidationSuccess, {
     schema: packtoryConfigSchema,
     data: {
