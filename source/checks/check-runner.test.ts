@@ -14,7 +14,8 @@ function createBundle(name: string, filePaths: readonly string[]): LinkedBundle 
                     isExecutable: false
                 },
                 directDependencies: new Set<string>(),
-                isSubstituted: false
+                isSubstituted: false,
+                isExplicitlyIncluded: false
             };
         }),
         entryPoints: [

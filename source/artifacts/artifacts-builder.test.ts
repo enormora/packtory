@@ -61,6 +61,7 @@ test('buildTarball() passes all given contents to the tarballBuilder', async (t)
     const contents: LinkedBundleResource[] = [
         {
             isSubstituted: false,
+            isExplicitlyIncluded: false,
             directDependencies: new Set(),
             fileDescription: {
                 content: 'bar',
@@ -71,6 +72,7 @@ test('buildTarball() passes all given contents to the tarballBuilder', async (t)
         },
         {
             isSubstituted: false,
+            isExplicitlyIncluded: false,
             directDependencies: new Set(),
             fileDescription: {
                 content: 'baz',
@@ -81,6 +83,7 @@ test('buildTarball() passes all given contents to the tarballBuilder', async (t)
         },
         {
             isSubstituted: true,
+            isExplicitlyIncluded: false,
             directDependencies: new Set(),
             fileDescription: {
                 content: 'qux',
@@ -174,6 +177,7 @@ test('buildFolder() writes the source of a source bundle content to the given ta
     const contents: LinkedBundleResource[] = [
         {
             isSubstituted: false,
+            isExplicitlyIncluded: false,
             directDependencies: new Set(),
             fileDescription: {
                 content: 'the-content',
@@ -210,6 +214,7 @@ test('collectContents() returns the list of file descriptions of the given bundl
     const contents: LinkedBundleResource[] = [
         {
             isSubstituted: false,
+            isExplicitlyIncluded: false,
             directDependencies: new Set(),
             fileDescription: {
                 content: 'bar',
@@ -220,6 +225,7 @@ test('collectContents() returns the list of file descriptions of the given bundl
         },
         {
             isSubstituted: false,
+            isExplicitlyIncluded: false,
             directDependencies: new Set(),
             fileDescription: {
                 content: 'baz',
@@ -230,6 +236,7 @@ test('collectContents() returns the list of file descriptions of the given bundl
         },
         {
             isSubstituted: true,
+            isExplicitlyIncluded: false,
             directDependencies: new Set(),
             fileDescription: {
                 content: 'qux',
