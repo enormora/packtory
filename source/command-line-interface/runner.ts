@@ -96,6 +96,8 @@ export function createCommandLineInterfaceRunner(
 
                     try {
                         const result = await packtory.buildAndPublishAll(config, { dryRun: !noDryRun });
+                        spinnerRenderer.stopAll();
+
                         if (result.isErr) {
                             exitCode = 1;
                             printPublishFailure(result.error);
