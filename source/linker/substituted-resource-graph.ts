@@ -36,12 +36,68 @@ function addOrCreateReference(
     };
 }
 
+type FlattenCollectors = {
+    readonly collect: (
+        filePath: string,
+        data: SubstitutedResourceGraphNodeData,
+        directDependencies: ReadonlySet<string>
+    ) => void;
+    readonly contents: LinkedBundleResource[];
+    readonly linkedBundleDependencies: Map<string, ExternalDependency>;
+    readonly externalDependencies: Map<string, ExternalDependency>;
+};
+
+function createFlattenCollectors(): FlattenCollectors {
+    const contents: LinkedBundleResource[] = [];
+    const linkedBundleDependencies = new Map<string, ExternalDependency>();
+    const externalDependencies = new Map<string, ExternalDependency>();
+    const visited = new Set<string>();
+
+    function collect(
+        filePath: string,
+        data: SubstitutedResourceGraphNodeData,
+        directDependencies: ReadonlySet<string>
+    ): void {
+        if (visited.has(filePath)) {
+            return;
+        }
+
+        visited.add(filePath);
+        contents.push({
+            fileDescription: data.fileDescription,
+            directDependencies,
+            isSubstituted: data.isSubstituted,
+            isExplicitlyIncluded: data.isExplicitlyIncluded
+        });
+
+        for (const bundleDependencyName of data.bundleDependencies) {
+            const bundleDependency = linkedBundleDependencies.get(bundleDependencyName);
+            linkedBundleDependencies.set(
+                bundleDependencyName,
+                addOrCreateReference(bundleDependencyName, filePath, bundleDependency)
+            );
+        }
+
+        for (const externalDependencyName of data.externalDependencies) {
+            const externalDependency = externalDependencies.get(externalDependencyName);
+            externalDependencies.set(
+                externalDependencyName,
+                addOrCreateReference(externalDependencyName, filePath, externalDependency)
+            );
+        }
+    }
+
+    return { collect, contents, linkedBundleDependencies, externalDependencies };
+}
+
 export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
     const graph = createDirectedGraph<string, SubstitutedResourceGraphNodeData>();
+    const nodeDataByFilePath = new Map<string, SubstitutedResourceGraphNodeData>();
 
     return {
         add(filePath, data) {
             graph.addNode(filePath, data);
+            nodeDataByFilePath.set(filePath, data);
         },
 
         isKnown: graph.hasNode,
@@ -55,33 +111,19 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
         },
 
         flatten(entryPoints) {
-            const contents: LinkedBundleResource[] = [];
-            const linkedBundleDependencies = new Map<string, ExternalDependency>();
-            const externalDependencies = new Map<string, ExternalDependency>();
+            const { collect, contents, linkedBundleDependencies, externalDependencies } = createFlattenCollectors();
 
             for (const entryPoint of entryPoints) {
                 graph.visitBreadthFirstSearch(entryPoint, (node) => {
-                    contents.push({
-                        fileDescription: node.data.fileDescription,
-                        directDependencies: node.adjacentNodeIds,
-                        isSubstituted: node.data.isSubstituted
-                    });
-
-                    for (const bundleDependencyName of node.data.bundleDependencies) {
-                        const bundleDependency = linkedBundleDependencies.get(bundleDependencyName);
-                        linkedBundleDependencies.set(
-                            bundleDependencyName,
-                            addOrCreateReference(bundleDependencyName, node.id, bundleDependency)
-                        );
-                    }
-                    for (const externalDependencyName of node.data.externalDependencies) {
-                        const externalDependency = externalDependencies.get(externalDependencyName);
-                        externalDependencies.set(
-                            externalDependencyName,
-                            addOrCreateReference(externalDependencyName, node.id, externalDependency)
-                        );
-                    }
+                    collect(node.id, node.data, node.adjacentNodeIds);
                 });
+            }
+
+            for (const [filePath, data] of nodeDataByFilePath) {
+                if (data.isExplicitlyIncluded) {
+                    const directDependencies = graph.getAdjacentIds(filePath);
+                    collect(filePath, data, directDependencies);
+                }
             }
 
             return {

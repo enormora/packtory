@@ -14,7 +14,8 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
                     sourceFilePath: '/entry.js',
                     targetFilePath: 'entry.js'
                 },
-                directDependencies: new Set(['/foo.js'])
+                directDependencies: new Set(['/foo.js']),
+                isExplicitlyIncluded: false
             },
             {
                 fileDescription: {
@@ -23,7 +24,8 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
                     sourceFilePath: '/foo.js',
                     targetFilePath: 'foo.js'
                 },
-                directDependencies: new Set()
+                directDependencies: new Set(),
+                isExplicitlyIncluded: false
             }
         ],
         entryPoints: [
@@ -48,7 +50,8 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
                     sourceFilePath: '/entry.js',
                     targetFilePath: 'entry.js'
                 },
-                isSubstituted: false
+                isSubstituted: false,
+                isExplicitlyIncluded: false
             },
             {
                 directDependencies: new Set([]),
@@ -58,7 +61,8 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
                     sourceFilePath: '/foo.js',
                     targetFilePath: 'foo.js'
                 },
-                isSubstituted: false
+                isSubstituted: false,
+                isExplicitlyIncluded: false
             }
         ],
         externalDependencies: new Map(),
@@ -76,7 +80,8 @@ test('doesn’t substitute anything when the given dependencies has only files t
                     sourceFilePath: '/entry.js',
                     targetFilePath: 'entry.js'
                 },
-                directDependencies: new Set(['/foo.js'])
+                directDependencies: new Set(['/foo.js']),
+                isExplicitlyIncluded: false
             },
             {
                 fileDescription: {
@@ -85,7 +90,8 @@ test('doesn’t substitute anything when the given dependencies has only files t
                     sourceFilePath: '/foo.js',
                     targetFilePath: 'foo.js'
                 },
-                directDependencies: new Set()
+                directDependencies: new Set(),
+                isExplicitlyIncluded: false
             }
         ],
         entryPoints: [
@@ -108,7 +114,8 @@ test('doesn’t substitute anything when the given dependencies has only files t
                         targetFilePath: 'bar.js'
                     },
                     directDependencies: new Set(),
-                    isSubstituted: false
+                    isSubstituted: false,
+                    isExplicitlyIncluded: false
                 }
             ],
             packageJson: { name: 'first-package', version: '21' },
@@ -136,7 +143,8 @@ test('doesn’t substitute anything when the given dependencies has only files t
                     sourceFilePath: '/entry.js',
                     targetFilePath: 'entry.js'
                 },
-                isSubstituted: false
+                isSubstituted: false,
+                isExplicitlyIncluded: false
             },
             {
                 directDependencies: new Set([]),
@@ -146,7 +154,8 @@ test('doesn’t substitute anything when the given dependencies has only files t
                     sourceFilePath: '/foo.js',
                     targetFilePath: 'foo.js'
                 },
-                isSubstituted: false
+                isSubstituted: false,
+                isExplicitlyIncluded: false
             }
         ],
         externalDependencies: new Map(),
@@ -171,7 +180,8 @@ test('substitutes a file that has imports statements matching the files in the g
                     targetFilePath: 'entry.js'
                 },
                 directDependencies: new Set(['/foo.js']),
-                project
+                project,
+                isExplicitlyIncluded: false
             },
             {
                 fileDescription: {
@@ -181,7 +191,8 @@ test('substitutes a file that has imports statements matching the files in the g
                     targetFilePath: 'foo.js'
                 },
                 directDependencies: new Set(),
-                project
+                project,
+                isExplicitlyIncluded: false
             }
         ],
         entryPoints: [
@@ -204,7 +215,8 @@ test('substitutes a file that has imports statements matching the files in the g
                         targetFilePath: 'foo.js'
                     },
                     directDependencies: new Set(),
-                    isSubstituted: false
+                    isSubstituted: false,
+                    isExplicitlyIncluded: false
                 }
             ],
             packageJson: { name: 'the-package', version: '21' },
@@ -232,7 +244,8 @@ test('substitutes a file that has imports statements matching the files in the g
                     targetFilePath: 'entry.js',
                     content: 'import "the-package/foo.js";'
                 },
-                isSubstituted: true
+                isSubstituted: true,
+                isExplicitlyIncluded: false
             }
         ],
         externalDependencies: new Map(),
@@ -257,7 +270,8 @@ test('substitutes a file which matches an already substituted file from a depend
                     targetFilePath: 'entry.js'
                 },
                 directDependencies: new Set(['/foo.js']),
-                project
+                project,
+                isExplicitlyIncluded: false
             },
             {
                 fileDescription: {
@@ -267,7 +281,8 @@ test('substitutes a file which matches an already substituted file from a depend
                     targetFilePath: 'foo.js'
                 },
                 directDependencies: new Set(),
-                project
+                project,
+                isExplicitlyIncluded: false
             }
         ],
         entryPoints: [
@@ -290,7 +305,8 @@ test('substitutes a file which matches an already substituted file from a depend
                         targetFilePath: 'foo.js'
                     },
                     directDependencies: new Set(),
-                    isSubstituted: true
+                    isSubstituted: true,
+                    isExplicitlyIncluded: false
                 }
             ],
             packageJson: { name: 'first-package', version: '21' },
@@ -318,7 +334,8 @@ test('substitutes a file which matches an already substituted file from a depend
                     targetFilePath: 'entry.js',
                     content: 'import "first-package/foo.js";'
                 },
-                isSubstituted: true
+                isSubstituted: true,
+                isExplicitlyIncluded: false
             }
         ],
         externalDependencies: new Map(),
@@ -345,7 +362,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                     targetFilePath: 'entry.js'
                 },
                 directDependencies: new Set(['/foo.js']),
-                project
+                project,
+                isExplicitlyIncluded: false
             },
             {
                 fileDescription: {
@@ -355,7 +373,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                     targetFilePath: 'foo.js'
                 },
                 directDependencies: new Set(['/bar.js', '/baz.js']),
-                project
+                project,
+                isExplicitlyIncluded: false
             },
             {
                 fileDescription: {
@@ -365,7 +384,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                     targetFilePath: 'bar.js'
                 },
                 directDependencies: new Set(),
-                project
+                project,
+                isExplicitlyIncluded: false
             },
             {
                 fileDescription: {
@@ -375,7 +395,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                     targetFilePath: 'baz.js'
                 },
                 directDependencies: new Set(),
-                project
+                project,
+                isExplicitlyIncluded: false
             }
         ],
         entryPoints: [
@@ -399,7 +420,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                         targetFilePath: 'bar.js'
                     },
                     directDependencies: new Set(),
-                    isSubstituted: false
+                    isSubstituted: false,
+                    isExplicitlyIncluded: false
                 }
             ],
             packageJson: { name: 'first-package', version: '21' },
@@ -423,7 +445,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                         targetFilePath: 'baz.js'
                     },
                     directDependencies: new Set(),
-                    isSubstituted: false
+                    isSubstituted: false,
+                    isExplicitlyIncluded: false
                 }
             ],
             packageJson: { name: 'second-package', version: '21' },
@@ -451,7 +474,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                     sourceFilePath: '/entry.js',
                     targetFilePath: 'entry.js'
                 },
-                isSubstituted: false
+                isSubstituted: false,
+                isExplicitlyIncluded: false
             },
             {
                 directDependencies: new Set([]),
@@ -461,7 +485,8 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                     sourceFilePath: '/foo.js',
                     targetFilePath: 'foo.js'
                 },
-                isSubstituted: true
+                isSubstituted: true,
+                isExplicitlyIncluded: false
             }
         ],
         externalDependencies: new Map(),

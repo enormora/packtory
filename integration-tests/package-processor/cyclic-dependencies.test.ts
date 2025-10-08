@@ -42,6 +42,7 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -52,6 +53,7 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -62,6 +64,7 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
                     sourceFilePath: path.join(fixture, 'src/bar.js'),
                     targetFilePath: 'bar.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],

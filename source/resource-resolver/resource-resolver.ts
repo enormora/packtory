@@ -86,7 +86,8 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
                     return {
                         fileDescription,
                         directDependencies: bundleFile.directDependencies,
-                        project: bundleFile.project
+                        project: bundleFile.project,
+                        isExplicitlyIncluded: bundleFile.isExplicitlyIncluded
                     };
                 })
             );

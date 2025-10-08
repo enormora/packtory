@@ -78,6 +78,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry1.js'),
                     targetFilePath: 'entry1.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -88,6 +89,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/qux.js'),
                     targetFilePath: 'qux.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -99,6 +101,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry1.js.map'),
                     targetFilePath: 'entry1.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -110,6 +113,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/qux.js.map'),
                     targetFilePath: 'qux.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -120,6 +124,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry1.d.ts'),
                     targetFilePath: 'entry1.d.ts'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -130,6 +135,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.d.ts'),
                     targetFilePath: 'foo.d.ts'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -140,6 +146,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/baz.d.ts'),
                     targetFilePath: 'baz.d.ts'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],
@@ -189,6 +196,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry2.js'),
                     targetFilePath: 'entry2.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -200,6 +208,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     content:
                         "import { qux } from 'first/qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n"
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: true
             },
             {
@@ -211,6 +220,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry2.js.map'),
                     targetFilePath: 'entry2.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -222,6 +232,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/bar.js.map'),
                     targetFilePath: 'bar.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -232,6 +243,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     targetFilePath: 'entry2.d.ts',
                     content: "export declare const foo: import('first/foo.js').Foo;\n"
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: true
             }
         ],
@@ -282,6 +294,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry3.js'),
                     targetFilePath: 'entry3.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -293,6 +306,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     content:
                         "import { bar } from 'second/bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: true
             },
             {
@@ -304,6 +318,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry3.js.map'),
                     targetFilePath: 'entry3.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -315,6 +330,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.js.map'),
                     targetFilePath: 'foo.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -325,6 +341,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                     targetFilePath: 'entry3.d.ts',
                     content: "export declare const foo: import('first/foo.js').Foo;\n"
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: true
             }
         ],

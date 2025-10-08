@@ -42,6 +42,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -53,6 +54,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -64,6 +66,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js.map'),
                     targetFilePath: 'entry.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -74,6 +77,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/bar.js'),
                     targetFilePath: 'bar.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -85,6 +89,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.js.map'),
                     targetFilePath: 'foo.js.map'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],

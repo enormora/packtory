@@ -45,6 +45,7 @@ test('includes all required local files and references correct node modules but 
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -56,6 +57,7 @@ test('includes all required local files and references correct node modules but 
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -66,6 +68,7 @@ test('includes all required local files and references correct node modules but 
                     sourceFilePath: path.join(fixture, 'src/bar.js'),
                     targetFilePath: 'bar.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],
@@ -125,6 +128,7 @@ test('includes peer dependencies correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],

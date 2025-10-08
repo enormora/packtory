@@ -5,6 +5,7 @@ import type { TransferableFileDescription } from '../file-manager/file-descripti
 export type BundleResource = {
     readonly fileDescription: TransferableFileDescription;
     readonly directDependencies: ReadonlySet<string>;
+    readonly isExplicitlyIncluded: boolean;
 };
 
 export type ResolvedContent = BundleResource & {

@@ -40,6 +40,7 @@ test('resolves files in a nested folder structure correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -50,6 +51,7 @@ test('resolves files in a nested folder structure correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/nested/foo.js'),
                     targetFilePath: 'nested/foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -60,6 +62,7 @@ test('resolves files in a nested folder structure correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/nested/deep/bar.js'),
                     targetFilePath: 'nested/deep/bar.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -70,6 +73,7 @@ test('resolves files in a nested folder structure correctly', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/nested/deep/folder/baz.js'),
                     targetFilePath: 'nested/deep/folder/baz.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],

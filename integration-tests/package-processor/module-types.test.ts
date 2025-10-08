@@ -40,6 +40,7 @@ test('correctly resolves CommonJS files', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -50,6 +51,7 @@ test('correctly resolves CommonJS files', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],
@@ -107,6 +109,7 @@ test('correctly resolves ESM files', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -117,6 +120,7 @@ test('correctly resolves ESM files', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],
@@ -174,6 +178,7 @@ test('correctly resolves ESM files with export from statements', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -184,6 +189,7 @@ test('correctly resolves ESM files with export from statements', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],
@@ -241,6 +247,7 @@ test('correctly resolves ESM files with plain import statements', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -251,6 +258,7 @@ test('correctly resolves ESM files with plain import statements', async (t) => {
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],

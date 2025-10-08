@@ -43,6 +43,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     sourceFilePath: path.join(fixture, 'src/entry.js'),
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -53,6 +54,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -63,6 +65,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     sourceFilePath: path.join(fixture, 'src/entry.d.ts'),
                     targetFilePath: 'entry.d.ts'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -73,6 +76,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     sourceFilePath: path.join(fixture, 'src/foo.d.ts'),
                     targetFilePath: 'foo.d.ts'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],

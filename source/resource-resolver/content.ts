@@ -16,6 +16,7 @@ type ResolvedBundleFile = {
     readonly targetFilePath: string;
     readonly directDependencies: ReadonlySet<string>;
     readonly project?: Project | undefined;
+    readonly isExplicitlyIncluded: boolean;
 };
 
 export function combineAllBundleFiles(
@@ -29,7 +30,8 @@ export function combineAllBundleFiles(
             sourceFilePath: localFile.filePath,
             targetFilePath,
             directDependencies: localFile.directDependencies,
-            project: localFile.project
+            project: localFile.project,
+            isExplicitlyIncluded: false
         };
     });
 
@@ -37,7 +39,12 @@ export function combineAllBundleFiles(
         if (typeof additionalFile === 'string') {
             const sourceFilePath = path.join(sourcesFolder, additionalFile);
             const targetFilePath = additionalFile;
-            return { sourceFilePath, targetFilePath, directDependencies: new Set() };
+            return {
+                sourceFilePath,
+                targetFilePath,
+                directDependencies: new Set(),
+                isExplicitlyIncluded: true
+            };
         }
 
         if (path.isAbsolute(additionalFile.targetFilePath)) {
@@ -47,7 +54,8 @@ export function combineAllBundleFiles(
         return {
             sourceFilePath: prependSourcesFolderIfNecessary(sourcesFolder, additionalFile.sourceFilePath),
             targetFilePath: additionalFile.targetFilePath,
-            directDependencies: new Set()
+            directDependencies: new Set(),
+            isExplicitlyIncluded: true
         };
     });
 

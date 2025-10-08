@@ -8,6 +8,7 @@ export type ResourceGraphNodeData = {
     readonly fileDescription: TransferableFileDescription;
     readonly project?: Project | undefined;
     readonly externalDependencies: readonly string[];
+    readonly isExplicitlyIncluded: boolean;
 };
 
 export type ResourceGraph = DirectedGraph<string, ResourceGraphNodeData>;
@@ -34,7 +35,8 @@ export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceG
         graph.addNode(resource.fileDescription.sourceFilePath, {
             fileDescription: resource.fileDescription,
             externalDependencies,
-            project: resource.project
+            project: resource.project,
+            isExplicitlyIncluded: resource.isExplicitlyIncluded
         });
     }
 

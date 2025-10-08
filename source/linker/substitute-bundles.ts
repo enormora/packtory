@@ -85,14 +85,16 @@ export function substituteDependencies(
                     },
                     externalDependencies: node.data.externalDependencies,
                     bundleDependencies: replacements.bundleDependencies,
-                    isSubstituted: true
+                    isSubstituted: true,
+                    isExplicitlyIncluded: node.data.isExplicitlyIncluded
                 });
             } else {
                 substitutedGraph.add(node.id, {
                     fileDescription: node.data.fileDescription,
                     externalDependencies: node.data.externalDependencies,
                     bundleDependencies: [],
-                    isSubstituted: false
+                    isSubstituted: false,
+                    isExplicitlyIncluded: node.data.isExplicitlyIncluded
                 });
             }
         }

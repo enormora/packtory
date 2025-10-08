@@ -40,6 +40,7 @@ test('ignores superfluous local files and reference node modules', async (t) => 
                     isExecutable: false,
                     targetFilePath: 'entry.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             },
             {
@@ -50,6 +51,7 @@ test('ignores superfluous local files and reference node modules', async (t) => 
                     sourceFilePath: path.join(fixture, 'src/foo.js'),
                     targetFilePath: 'foo.js'
                 },
+                isExplicitlyIncluded: false,
                 isSubstituted: false
             }
         ],
