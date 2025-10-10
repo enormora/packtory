@@ -65,7 +65,7 @@
         "@enormora/eslint-config-ava": "0.0.26",
         "@enormora/eslint-config-base": "0.0.25",
         "@enormora/eslint-config-node": "0.0.21",
-        "@enormora/eslint-config-typescript": "0.0.28",
+        "@enormora/eslint-config-typescript": "0.0.29",
         "@types/node": "22.18.9",
         "@types/semver": "7.7.1",
         "@types/sinon": "17.0.4",
