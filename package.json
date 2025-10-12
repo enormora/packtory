@@ -42,7 +42,7 @@
         "@types/libnpmpublish": "9.0.1",
         "@schema-hub/zod-error-formatter": "0.0.10",
         "@topcli/spinner": "3.0.0",
-        "@ts-morph/common": "0.28.0",
+        "@ts-morph/common": "0.28.1",
         "@types/common-tags": "1.8.4",
         "cmd-ts": "0.14.2",
         "common-tags": "1.8.2",
