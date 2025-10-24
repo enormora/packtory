@@ -38,7 +38,7 @@
         "url": "git+ssh://git@github.com/enormora/packtory.git"
     },
     "dependencies": {
-        "@types/npm-registry-fetch": "8.0.8",
+        "@types/npm-registry-fetch": "8.0.9",
         "@types/libnpmpublish": "9.0.1",
         "@schema-hub/zod-error-formatter": "0.0.10",
         "@topcli/spinner": "3.0.0",
