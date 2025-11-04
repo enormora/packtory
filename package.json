@@ -41,7 +41,7 @@
         "@types/npm-registry-fetch": "8.0.9",
         "@types/libnpmpublish": "9.0.1",
         "@schema-hub/zod-error-formatter": "0.0.10",
-        "@topcli/spinner": "3.0.0",
+        "@topcli/spinner": "4.0.0",
         "@ts-morph/common": "0.28.1",
         "@types/common-tags": "1.8.4",
         "cmd-ts": "0.14.3",
