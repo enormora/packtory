@@ -40,7 +40,7 @@
     "dependencies": {
         "@types/npm-registry-fetch": "8.0.9",
         "@types/libnpmpublish": "9.0.1",
-        "@schema-hub/zod-error-formatter": "0.0.10",
+        "@schema-hub/zod-error-formatter": "0.0.11",
         "@topcli/spinner": "4.0.0",
         "@ts-morph/common": "0.28.1",
         "@types/common-tags": "1.8.4",
