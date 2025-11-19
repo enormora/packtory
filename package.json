@@ -48,7 +48,7 @@
         "common-tags": "1.8.2",
         "effect": "2.2.5",
         "kleur": "4.1.5",
-        "libnpmpublish": "11.1.2",
+        "libnpmpublish": "11.1.3",
         "mitt": "3.0.1",
         "npm-registry-fetch": "19.1.1",
         "semver": "7.7.3",
