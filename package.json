@@ -74,7 +74,7 @@
         "ava": "6.4.1",
         "eslint": "9.39.1",
         "get-port": "7.1.0",
-        "prettier": "3.7.1",
+        "prettier": "3.7.2",
         "sinon": "21.0.0",
         "typescript": "5.9.3",
         "verdaccio": "6.2.3"
