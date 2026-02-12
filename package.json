@@ -44,7 +44,7 @@
         "@topcli/spinner": "4.0.0",
         "@ts-morph/common": "0.28.1",
         "@types/common-tags": "1.8.4",
-        "cmd-ts": "0.14.3",
+        "cmd-ts": "0.15.0",
         "common-tags": "1.8.2",
         "effect": "2.2.5",
         "kleur": "4.1.5",
