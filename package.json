@@ -77,7 +77,7 @@
         "prettier": "3.8.1",
         "sinon": "21.0.1",
         "typescript": "5.9.3",
-        "verdaccio": "6.2.5"
+        "verdaccio": "6.2.7"
     },
     "engines": {
         "node": "^22 || ^24"
