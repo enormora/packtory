@@ -232,7 +232,7 @@ test('returns the local dependency files found in subsequent dependencies', asyn
     t.deepEqual(getReferencedSourceFilePaths.getCall(3).args, ['/dir/baz.js']);
     t.deepEqual(result.localFiles, [
         { directDependencies: new Set(['/dir/foo.js', '/dir/bar.js']), filePath: '/dir/entry.js', project: {} },
-        { directDependencies: new Set([]), filePath: '/dir/foo.js', project: {} },
+        { directDependencies: new Set(), filePath: '/dir/foo.js', project: {} },
         { directDependencies: new Set(['/dir/baz.js']), filePath: '/dir/bar.js', project: {} },
         { directDependencies: new Set(), filePath: '/dir/baz.js', project: {} }
     ]);

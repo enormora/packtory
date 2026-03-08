@@ -44,7 +44,7 @@ test('ignores superfluous local files and reference node modules', async (t) => 
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export const foo = 'foo';\n",
                     isExecutable: false,

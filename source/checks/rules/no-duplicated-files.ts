@@ -24,7 +24,7 @@ function getAllowList(settings: ChecksSettings | undefined): ReadonlySet<string>
         return new Set();
     }
 
-    return new Set(option.allowList ?? []);
+    return new Set(option.allowList);
 }
 
 export const noDuplicatedFilesRule: CheckRule = {

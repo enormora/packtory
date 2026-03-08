@@ -54,7 +54,7 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
                 isExplicitlyIncluded: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: 'true',
                     isExecutable: false,
@@ -147,7 +147,7 @@ test('doesn’t substitute anything when the given dependencies has only files t
                 isExplicitlyIncluded: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: 'true',
                     isExecutable: false,
@@ -478,7 +478,7 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
                 isExplicitlyIncluded: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: 'import "first-package/bar.js"; import "second-package/baz.js";',
                     isExecutable: false,

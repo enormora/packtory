@@ -66,7 +66,7 @@ test('resolves files in a nested folder structure correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export const baz = 'baz';\n",
                     isExecutable: false,

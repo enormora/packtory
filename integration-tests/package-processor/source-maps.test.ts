@@ -58,7 +58,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
@@ -70,7 +70,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export const bar = 'bar';\n",
                     isExecutable: false,
@@ -81,7 +81,7 @@ test('adds map files to the bundle when enabled', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"foo.js","sourceRoot":"","sources":["./src/foo.ts"],"names":[],"mappings":""}\n',
