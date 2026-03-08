@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Spinner } from '@topcli/spinner';
+import type * as configTypes from '../../config/config.ts';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.ts';
 import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
@@ -31,4 +32,4 @@ function crash(error: unknown): void {
 
 main().catch(crash);
 
-export type { PacktoryConfig } from '../packtory/packtory.entry-point.js';
+export type PacktoryConfig = configTypes.PacktoryConfig;

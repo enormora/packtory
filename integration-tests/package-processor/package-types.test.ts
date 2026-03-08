@@ -61,7 +61,7 @@ test('includes all required local files and references correct node modules but 
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "import { example } from 'example-module';\n\nexport const bar = 'bar';\n",
                     isExecutable: false,

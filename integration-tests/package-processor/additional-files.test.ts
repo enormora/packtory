@@ -52,7 +52,7 @@ test('includes additional files in the bundle contents', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export function greeting() {\n    return 'hello from src';\n}\n",
                     sourceFilePath: path.join(fixture, 'src/greeting.js'),
@@ -63,7 +63,7 @@ test('includes additional files in the bundle contents', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: 'This file should be included in the bundle.\n',
                     sourceFilePath: additionalFileSourcePath,

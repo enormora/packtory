@@ -42,7 +42,7 @@ test('returns the source code unmodified when there are no replacements', (t) =>
             { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
         ]
     });
-    const replacements = new Map<string, string>([]);
+    const replacements = new Map<string, string>();
 
     const result = replaceImportPaths(project, '/folder/foo.ts', 'const foo = "bar"; import "./bar";', replacements);
 

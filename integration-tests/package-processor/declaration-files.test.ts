@@ -60,7 +60,7 @@ test('adds declaration files correctly to the bundle', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export const bar = 'bar';\n",
                     isExecutable: false,
@@ -93,7 +93,7 @@ test('adds declaration files correctly to the bundle', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: 'export type Baz = number;\n',
                     isExecutable: false,

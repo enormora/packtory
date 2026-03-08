@@ -93,7 +93,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
@@ -105,7 +105,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
@@ -139,7 +139,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: 'export type Baz = number;\n',
                     isExecutable: false,
@@ -212,7 +212,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: true
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
@@ -224,7 +224,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
@@ -236,7 +236,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     isExecutable: false,
                     sourceFilePath: path.join(fixture, 'src/entry2.d.ts'),
@@ -310,7 +310,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: true
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
@@ -322,7 +322,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content:
                         '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n',
@@ -334,7 +334,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     isExecutable: false,
                     sourceFilePath: path.join(fixture, 'src/entry3.d.ts'),

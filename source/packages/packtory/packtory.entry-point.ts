@@ -3,6 +3,7 @@ import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
 import { Project } from 'ts-morph';
+import type * as configTypes from '../../config/config.ts';
 import { createArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import { createBundleEmitter } from '../../bundle-emitter/emitter.ts';
 import { createDependencyScanner } from '../../dependency-scanner/scanner.ts';
@@ -20,6 +21,7 @@ import { createRegistryClient } from '../../bundle-emitter/registry-client.ts';
 import { createResourceResolver } from '../../resource-resolver/resource-resolver.ts';
 import { createTarballBuilder } from '../../tar/tarball-builder.ts';
 import { createVersionManager } from '../../version-manager/manager.ts';
+import type * as packtoryTypes from '../../packtory/packtory.ts';
 
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
 const sourceMapFileLocator = createSourceMapFileLocator({ fileManager });
@@ -60,10 +62,8 @@ const packtory = createPacktory({
 export const { buildAndPublishAll, resolveAndLinkAll } = packtory;
 export const progressBroadcastConsumer = progressBroadcaster.consumer;
 
-export type { PacktoryConfig } from '../../config/config.js';
-export type {
-    PublishAllResult,
-    ResolveAndLinkAllResult,
-    ResolveAndLinkFailure,
-    ResolvedPackage
-} from '../../packtory/packtory.js';
+export type PacktoryConfig = configTypes.PacktoryConfig;
+export type PublishAllResult = packtoryTypes.PublishAllResult;
+export type ResolveAndLinkAllResult = packtoryTypes.ResolveAndLinkAllResult;
+export type ResolveAndLinkFailure = packtoryTypes.ResolveAndLinkFailure;
+export type ResolvedPackage = packtoryTypes.ResolvedPackage;

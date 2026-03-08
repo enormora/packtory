@@ -44,7 +44,7 @@ test('correctly resolves CommonJS files', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "module.exports = { foo: 'foo' };\n",
                     isExecutable: false,
@@ -113,7 +113,7 @@ test('correctly resolves ESM files', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export const foo = 'foo';\n",
                     isExecutable: false,
@@ -182,7 +182,7 @@ test('correctly resolves ESM files with export from statements', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export const foo = 'foo';\n",
                     isExecutable: false,
@@ -251,7 +251,7 @@ test('correctly resolves ESM files with plain import statements', async (t) => {
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "console.log('foo');\n",
                     isExecutable: false,

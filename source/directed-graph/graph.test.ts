@@ -688,7 +688,7 @@ test('reverse() copies all nodes with their data', (t) => {
         {
             id: 'a',
             data: 'foo',
-            adjacentNodeIds: new Set([]),
+            adjacentNodeIds: new Set(),
             incomingEdges: 1
         }
     ]);

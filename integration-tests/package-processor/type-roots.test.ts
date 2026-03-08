@@ -47,7 +47,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "import { bar } from 'foo';\nexport const foo = bar('foo');\n",
                     isExecutable: false,
@@ -69,7 +69,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                 isSubstituted: false
             },
             {
-                directDependencies: new Set([]),
+                directDependencies: new Set(),
                 fileDescription: {
                     content: "export type Bar = string;\nexport type { Foo } from 'foo';\n",
                     isExecutable: false,

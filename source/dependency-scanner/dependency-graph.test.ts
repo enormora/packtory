@@ -161,7 +161,7 @@ test('flatten() collects all nodes and returns a single map for topLevelDependen
     t.deepEqual(result, {
         localFiles: [
             { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
-            { directDependencies: new Set([]), filePath: 'bar.js', project: {} }
+            { directDependencies: new Set(), filePath: 'bar.js', project: {} }
         ],
         externalDependencies: new Map([
             ['a', { name: 'a', referencedFrom: ['foo.js'] }],
