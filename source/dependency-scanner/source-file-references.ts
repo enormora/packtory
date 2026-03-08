@@ -16,14 +16,21 @@ function getReferencedSourceFileFromSymbol(symbol: TSSymbol | undefined): Readon
 
     const declarations = symbol.getDeclarations();
 
-    return first(declarations).andThen((firstDeclaration) => {
-        if (firstDeclaration.getKind() === SyntaxKind.SourceFile) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-            return Maybe.just(firstDeclaration as SourceFile);
-        }
+    return first(declarations)
+        .andThen((firstDeclaration) => {
+            return firstDeclaration;
+        })
+        .andThen((firstDeclaration) => {
+            if (firstDeclaration.getKind() !== SyntaxKind.SourceFile) {
+                return Maybe.nothing();
+            }
 
-        return Maybe.nothing();
-    });
+            if (!ASTNode.isSourceFile(firstDeclaration)) {
+                return Maybe.nothing();
+            }
+
+            return Maybe.just(firstDeclaration);
+        });
 }
 
 function getSourceFileFromSymbol(
