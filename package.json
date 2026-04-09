@@ -75,7 +75,7 @@
         "eslint": "9.39.4",
         "get-port": "7.2.0",
         "prettier": "3.8.1",
-        "sinon": "21.0.3",
+        "sinon": "21.1.0",
         "typescript": "5.9.3",
         "verdaccio": "6.4.0"
     },
