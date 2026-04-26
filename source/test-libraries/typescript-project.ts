@@ -17,9 +17,11 @@ export function createProject(options: Options = {}): Project {
             allowJs: true,
             module,
             esModuleInterop: true,
+            noLib: true,
             target: ScriptTarget.ES2022,
             moduleResolution: ModuleResolutionKind.Node10
         },
+        skipLoadingLibFiles: true,
         useInMemoryFileSystem: true
     });
 

@@ -12,8 +12,9 @@
         "eslint:fix": "npm run eslint -- --fix",
         "lint": "npm run eslint && npm run prettier:check",
         "lint:fix": "npm run eslint:fix && npm run prettier:fix",
-        "test": "npm run test:unit && npm run test:integration",
+        "test": "npm run test:unit:with-coverage && npm run test:integration",
         "test:unit": "mocha --config mocha.config.unit-tests.cjs",
+        "test:unit:with-coverage": "c8 --config .c8rc.json mocha --config mocha.config.unit-tests.cjs",
         "test:integration": "mocha --config mocha.config.integration-tests.cjs"
     },
     "keywords": [
@@ -64,7 +65,7 @@
     "devDependencies": {
         "@enormora/eslint-config-base": "0.0.31",
         "@enormora/eslint-config-mocha": "0.0.26",
-        "@enormora/eslint-config-node": "0.0.26",
+        "@enormora/eslint-config-node": "0.0.25",
         "@enormora/eslint-config-typescript": "0.0.36",
         "@types/mocha": "10.0.10",
         "@types/node": "24.12.2",
@@ -72,9 +73,10 @@
         "@types/sinon": "21.0.1",
         "@types/ssri": "7.1.5",
         "@types/tar-stream": "3.1.4",
+        "c8": "11.0.0",
         "eslint": "9.39.4",
         "get-port": "7.2.0",
-        "mocha": "11.7.5",
+        "mocha": "11.7.2",
         "prettier": "3.8.3",
         "sinon": "21.1.2",
         "typescript": "6.0.3",
