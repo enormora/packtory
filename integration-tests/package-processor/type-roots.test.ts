@@ -1,9 +1,10 @@
 import path from 'node:path';
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
-test('resolves node_modules dependencies correctly when depending on @types/* packages', async (t) => {
+test('resolves node_modules dependencies correctly when depending on @types/* packages', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/type-roots-node-modules');
     const result = await packageProcessor.build({
         name: 'the-package-name',
@@ -21,7 +22,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
         additionalPackageJsonAttributes: {}
     });
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         additionalAttributes: {},
         packageJson: {
             dependencies: {

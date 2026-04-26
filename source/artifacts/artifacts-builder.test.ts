@@ -1,4 +1,5 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
 import {
@@ -33,7 +34,7 @@ function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
     return createArtifactsBuilder(fakeDependencies);
 }
 
-test('buildTarball() returns the tarData and its shasum', async (t) => {
+test('buildTarball() returns the tarData and its shasum', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([42])) };
     const builder = artifactsBuilderFactory({ tarballBuilder });
     const result = await builder.buildTarball({
@@ -49,13 +50,13 @@ test('buildTarball() returns the tarData and its shasum', async (t) => {
         manifestFile: { content: '', isExecutable: false, filePath: '' }
     });
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         tarData: Buffer.from([42]),
         shasum: 'df58248c414f342c81e056b40bee12d17a08bf61'
     });
 });
 
-test('buildTarball() passes all given contents to the tarballBuilder', async (t) => {
+test('buildTarball() passes all given contents to the tarballBuilder', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
     const builder = artifactsBuilderFactory({ tarballBuilder });
     const contents: LinkedBundleResource[] = [
@@ -106,8 +107,8 @@ test('buildTarball() passes all given contents to the tarballBuilder', async (t)
         manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
     });
 
-    t.is(tarballBuilder.build.callCount, 1);
-    t.deepEqual(tarballBuilder.build.firstCall.args, [
+    assert.strictEqual(tarballBuilder.build.callCount, 1);
+    assert.deepStrictEqual(tarballBuilder.build.firstCall.args, [
         [
             { filePath: 'package/package.json', content: '{}', isExecutable: false },
             { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
@@ -117,7 +118,7 @@ test('buildTarball() passes all given contents to the tarballBuilder', async (t)
     ]);
 });
 
-test('buildFolder() writes only the manifest when the given bundle has no contents', async (t) => {
+test('buildFolder() writes only the manifest when the given bundle has no contents', async () => {
     const writeFile = fake.resolves(undefined);
     const checkReadability = fake.resolves({ isReadable: false });
     const builder = artifactsBuilderFactory({ writeFile, checkReadability });
@@ -138,11 +139,11 @@ test('buildFolder() writes only the manifest when the given bundle has no conten
         '/the/target/folder'
     );
 
-    t.is(writeFile.callCount, 1);
-    t.deepEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
+    assert.strictEqual(writeFile.callCount, 1);
+    assert.deepStrictEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
 });
 
-test('buildFolder() throws when the target folder already exists', async (t) => {
+test('buildFolder() throws when the target folder already exists', async () => {
     const checkReadability = fake.resolves({ isReadable: true });
     const builder = artifactsBuilderFactory({ checkReadability });
 
@@ -162,15 +163,15 @@ test('buildFolder() throws when the target folder already exists', async (t) => 
             },
             '/the/target/folder'
         );
-        t.fail('Expected buildFolder() to throw but it did not');
+        assert.fail('Expected buildFolder() to throw but it did not');
     } catch (error: unknown) {
-        t.is(checkReadability.callCount, 1);
-        t.deepEqual(checkReadability.firstCall.args, ['/the/target/folder']);
-        t.is((error as Error).message, 'Folder /the/target/folder already exists');
+        assert.strictEqual(checkReadability.callCount, 1);
+        assert.deepStrictEqual(checkReadability.firstCall.args, ['/the/target/folder']);
+        assert.strictEqual((error as Error).message, 'Folder /the/target/folder already exists');
     }
 });
 
-test('buildFolder() writes the source of a source bundle content to the given target folder', async (t) => {
+test('buildFolder() writes the source of a source bundle content to the given target folder', async () => {
     const writeFile = fake.resolves(undefined);
     const checkReadability = fake.resolves({ isReadable: false });
     const builder = artifactsBuilderFactory({ writeFile, checkReadability });
@@ -203,12 +204,12 @@ test('buildFolder() writes the source of a source bundle content to the given ta
         '/the/target/folder'
     );
 
-    t.is(writeFile.callCount, 2);
-    t.deepEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
-    t.deepEqual(writeFile.secondCall.args, ['/the/target/folder/bar/baz.txt', 'the-content']);
+    assert.strictEqual(writeFile.callCount, 2);
+    assert.deepStrictEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
+    assert.deepStrictEqual(writeFile.secondCall.args, ['/the/target/folder/bar/baz.txt', 'the-content']);
 });
 
-test('collectContents() returns the list of file descriptions of the given bundle', (t) => {
+test('collectContents() returns the list of file descriptions of the given bundle', () => {
     const readFile = fake.resolves('bar');
     const builder = artifactsBuilderFactory({ readFile });
     const contents: LinkedBundleResource[] = [
@@ -259,7 +260,7 @@ test('collectContents() returns the list of file descriptions of the given bundl
         manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
     });
 
-    t.deepEqual(result, [
+    assert.deepStrictEqual(result, [
         { filePath: 'package.json', content: '{}', isExecutable: false },
         { filePath: 'bar.txt', content: 'bar', isExecutable: false },
         { filePath: 'baz.txt', content: 'baz', isExecutable: false },

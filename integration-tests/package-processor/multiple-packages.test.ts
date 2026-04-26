@@ -1,9 +1,10 @@
 import path from 'node:path';
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
-test('bundles and substitutes multiple packages correctly', async (t) => {
+test('bundles and substitutes multiple packages correctly', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
     const firstBundle = await packageProcessor.build({
         name: 'first',
@@ -51,7 +52,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
         moduleResolution: 'module'
     });
 
-    t.deepEqual(firstBundle, {
+    assert.deepStrictEqual(firstBundle, {
         additionalAttributes: {},
         packageJson: {
             main: 'entry1.js',
@@ -168,7 +169,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
         },
         version: '1.2.3'
     });
-    t.deepEqual(secondBundle, {
+    assert.deepStrictEqual(secondBundle, {
         additionalAttributes: {},
         packageJson: {
             dependencies: { first: '1.2.3' },
@@ -265,7 +266,7 @@ test('bundles and substitutes multiple packages correctly', async (t) => {
         },
         version: '2.3.4'
     });
-    t.deepEqual(thirdBundle, {
+    assert.deepStrictEqual(thirdBundle, {
         additionalAttributes: {},
         packageJson: {
             dependencies: { first: '1.2.3' },

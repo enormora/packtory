@@ -13,8 +13,8 @@
         "lint": "npm run eslint && npm run prettier:check",
         "lint:fix": "npm run eslint:fix && npm run prettier:fix",
         "test": "npm run test:unit && npm run test:integration",
-        "test:unit": "ava --config ava.config.js",
-        "test:integration": "ava --config ava.integration.config.js"
+        "test:unit": "mocha --config mocha.config.unit-tests.cjs",
+        "test:integration": "mocha --config mocha.config.integration-tests.cjs"
     },
     "keywords": [
         "bundler",
@@ -38,12 +38,12 @@
         "url": "git+ssh://git@github.com/enormora/packtory.git"
     },
     "dependencies": {
-        "@types/npm-registry-fetch": "8.0.9",
-        "@types/libnpmpublish": "9.0.1",
         "@schema-hub/zod-error-formatter": "0.0.11",
         "@topcli/spinner": "4.2.1",
         "@ts-morph/common": "0.29.0",
         "@types/common-tags": "1.8.4",
+        "@types/libnpmpublish": "9.0.1",
+        "@types/npm-registry-fetch": "8.0.9",
         "cmd-ts": "0.15.0",
         "common-tags": "1.8.2",
         "effect": "2.2.5",
@@ -62,18 +62,19 @@
         "zod": "4.3.6"
     },
     "devDependencies": {
-        "@enormora/eslint-config-ava": "0.0.30",
-        "@enormora/eslint-config-base": "0.0.29",
+        "@enormora/eslint-config-base": "0.0.31",
+        "@enormora/eslint-config-mocha": "0.0.26",
         "@enormora/eslint-config-node": "0.0.25",
-        "@enormora/eslint-config-typescript": "0.0.34",
+        "@enormora/eslint-config-typescript": "0.0.36",
+        "@types/mocha": "10.0.10",
         "@types/node": "24.12.2",
         "@types/semver": "7.7.1",
         "@types/sinon": "21.0.1",
         "@types/ssri": "7.1.5",
         "@types/tar-stream": "3.1.4",
-        "ava": "7.0.0",
         "eslint": "9.39.4",
         "get-port": "7.2.0",
+        "mocha": "11.7.2",
         "prettier": "3.8.3",
         "sinon": "21.1.2",
         "typescript": "5.9.3",

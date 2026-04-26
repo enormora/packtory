@@ -1,4 +1,5 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { stub, fake, type SinonSpy, type SinonStub } from 'sinon';
 import {
     createTypescriptProjectAnalyzer,
@@ -62,7 +63,7 @@ function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): Typescript
     return createTypescriptProjectAnalyzer(fakeDependencies);
 }
 
-test('creates a project for all js files in the given folder with module resolution', (t) => {
+test('creates a project for all js files in the given folder with module resolution', () => {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
     const analyzer = typescriptProjectAnalyzerFactory({
@@ -78,9 +79,9 @@ test('creates a project for all js files in the given folder with module resolut
         failOnCompileErrors: false
     });
 
-    t.is(TSMorphProject.callCount, 1);
-    t.is(TSMorphProject.calledWithNew(), true);
-    t.deepEqual(TSMorphProject.firstCall.args, [
+    assert.strictEqual(TSMorphProject.callCount, 1);
+    assert.strictEqual(TSMorphProject.calledWithNew(), true);
+    assert.deepStrictEqual(TSMorphProject.firstCall.args, [
         {
             compilerOptions: {
                 allowJs: true,
@@ -97,11 +98,11 @@ test('creates a project for all js files in the given folder with module resolut
             fileSystem: 'filtering-declaration-files'
         }
     ]);
-    t.is(addSourceFilesAtPaths.callCount, 1);
-    t.deepEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.js']]);
+    assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
+    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.js']]);
 });
 
-test('creates a project for all js files in the given folder with commonjs resolution', (t) => {
+test('creates a project for all js files in the given folder with commonjs resolution', () => {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
     const analyzer = typescriptProjectAnalyzerFactory({
@@ -117,9 +118,9 @@ test('creates a project for all js files in the given folder with commonjs resol
         failOnCompileErrors: false
     });
 
-    t.is(TSMorphProject.callCount, 1);
-    t.is(TSMorphProject.calledWithNew(), true);
-    t.deepEqual(TSMorphProject.firstCall.args, [
+    assert.strictEqual(TSMorphProject.callCount, 1);
+    assert.strictEqual(TSMorphProject.calledWithNew(), true);
+    assert.deepStrictEqual(TSMorphProject.firstCall.args, [
         {
             compilerOptions: {
                 allowJs: true,
@@ -136,11 +137,11 @@ test('creates a project for all js files in the given folder with commonjs resol
             fileSystem: 'filtering-declaration-files'
         }
     ]);
-    t.is(addSourceFilesAtPaths.callCount, 1);
-    t.deepEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.js']]);
+    assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
+    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.js']]);
 });
 
-test('creates a project for all d.ts files in the given folder', (t) => {
+test('creates a project for all d.ts files in the given folder', () => {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
     const analyzer = typescriptProjectAnalyzerFactory({
@@ -154,9 +155,9 @@ test('creates a project for all d.ts files in the given folder', (t) => {
         failOnCompileErrors: false
     });
 
-    t.is(TSMorphProject.callCount, 1);
-    t.is(TSMorphProject.calledWithNew(), true);
-    t.deepEqual(TSMorphProject.firstCall.args, [
+    assert.strictEqual(TSMorphProject.callCount, 1);
+    assert.strictEqual(TSMorphProject.calledWithNew(), true);
+    assert.deepStrictEqual(TSMorphProject.firstCall.args, [
         {
             compilerOptions: {
                 allowJs: true,
@@ -171,43 +172,39 @@ test('creates a project for all d.ts files in the given folder', (t) => {
             fileSystem: 'no-filtering'
         }
     ]);
-    t.is(addSourceFilesAtPaths.callCount, 1);
-    t.deepEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.d.ts']]);
+    assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
+    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.d.ts']]);
 });
 
-test('creates a project and doesn’t throw when there are pre-emit diagnostics and failOnCompileErrors is false', (t) => {
+test('creates a project and doesn’t throw when there are pre-emit diagnostics and failOnCompileErrors is false', () => {
     const getPreEmitDiagnostics = fake.returns([{}]);
     const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
-    t.notThrows(() => {
-        analyzer.analyzeProject('/foo', {
-            moduleResolution: 'module',
-            resolveDeclarationFiles: false,
-            failOnCompileErrors: false
-        });
+    analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: false
     });
 
-    t.is(getPreEmitDiagnostics.callCount, 0);
+    assert.strictEqual(getPreEmitDiagnostics.callCount, 0);
 });
 
-test('creates a project and doesn’t throw when there are no pre-emit diagnostics and failOnCompileErrors is true', (t) => {
+test('creates a project and doesn’t throw when there are no pre-emit diagnostics and failOnCompileErrors is true', () => {
     const getPreEmitDiagnostics = fake.returns([]);
     const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
-    t.notThrows(() => {
-        analyzer.analyzeProject('/foo', {
-            moduleResolution: 'module',
-            resolveDeclarationFiles: false,
-            failOnCompileErrors: true
-        });
+    analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: true
     });
 
-    t.is(getPreEmitDiagnostics.callCount, 1);
+    assert.strictEqual(getPreEmitDiagnostics.callCount, 1);
 });
 
-test('throws when there are pre-emit diagnostics and failOnCompileErrors is true', (t) => {
+test('throws when there are pre-emit diagnostics and failOnCompileErrors is true', () => {
     const getPreEmitDiagnostics = fake.returns([{}]);
     const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
@@ -218,13 +215,13 @@ test('throws when there are pre-emit diagnostics and failOnCompileErrors is true
             resolveDeclarationFiles: false,
             failOnCompileErrors: true
         });
-        t.fail('Expected analyzeProject() to fail but it did not');
+        assert.fail('Expected analyzeProject() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Failed to analyze source files');
+        assert.strictEqual((error as Error).message, 'Failed to analyze source files');
     }
 });
 
-test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', (t) => {
+test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', () => {
     const getSourceFile = fake.returns(undefined);
     const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
@@ -236,10 +233,10 @@ test('getReferencedSourceFilePaths() returns an empty array when the source file
     });
     const result = project.getReferencedSourceFilePaths('/foo/bar.js');
 
-    t.deepEqual(result, []);
+    assert.deepStrictEqual(result, []);
 });
 
-test('getReferencedSourceFilePaths() returns the referenced source file paths', (t) => {
+test('getReferencedSourceFilePaths() returns the referenced source file paths', () => {
     const getReferencedSourceFiles = fake.returns([
         createFakeSourceFile({ filePath: '/foo/b.d.ts', isDeclarationFile: true }),
         createFakeSourceFile({ filePath: '/foo/c.js', isDeclarationFile: false })
@@ -255,5 +252,5 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
     });
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 
-    t.deepEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
+    assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
 });

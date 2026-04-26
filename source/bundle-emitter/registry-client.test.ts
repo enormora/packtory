@@ -1,4 +1,5 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import { createRegistryClient, type RegistryClientDependencies, type RegistryClient } from './registry-client.ts';
@@ -39,22 +40,22 @@ function registryClientFactory(overrides: Readonly<Overrides>): RegistryClient {
     return createRegistryClient(fakeDependencies);
 }
 
-test('publishPackage() calls npm publish function with the given manifest and tar data and the correct options', async (t) => {
+test('publishPackage() calls npm publish function with the given manifest and tar data and the correct options', async () => {
     const publish = fake.resolves(undefined);
     const registryClient = registryClientFactory({ publish });
     const tarData = Buffer.from([1, 2, 3, 4]);
 
     await registryClient.publishPackage({ name: 'the-name', version: 'the-version' }, tarData, { token: 'the-token' });
 
-    t.is(publish.callCount, 1);
-    t.deepEqual(publish.firstCall.args, [
+    assert.strictEqual(publish.callCount, 1);
+    assert.deepStrictEqual(publish.firstCall.args, [
         { name: 'the-name', version: 'the-version' },
         tarData,
         { defaultTag: 'latest', forceAuth: { alwaysAuth: true, token: 'the-token' }, registry: undefined }
     ]);
 });
 
-test('publishPackage() calls npm publish function with custom registry', async (t) => {
+test('publishPackage() calls npm publish function with custom registry', async () => {
     const publish = fake.resolves(undefined);
     const registryClient = registryClientFactory({ publish });
     const tarData = Buffer.from([1, 2, 3, 4]);
@@ -64,15 +65,15 @@ test('publishPackage() calls npm publish function with custom registry', async (
         registryUrl: 'the-url'
     });
 
-    t.is(publish.callCount, 1);
-    t.deepEqual(publish.firstCall.args, [
+    assert.strictEqual(publish.callCount, 1);
+    assert.deepStrictEqual(publish.firstCall.args, [
         { name: 'the-name', version: 'the-version' },
         tarData,
         { defaultTag: 'latest', forceAuth: { alwaysAuth: true, token: 'the-token' }, registry: 'the-url' }
     ]);
 });
 
-test('fetchLatestVersion() fetches the correct package endpoint with the correct authentication settings and headers', async (t) => {
+test('fetchLatestVersion() fetches the correct package endpoint with the correct authentication settings and headers', async () => {
     const npmFetchJson = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
@@ -82,8 +83,8 @@ test('fetchLatestVersion() fetches the correct package endpoint with the correct
 
     await registryClient.fetchLatestVersion('the-name', { token: 'the-token' });
 
-    t.is(npmFetchJson.callCount, 1);
-    t.deepEqual(npmFetchJson.firstCall.args, [
+    assert.strictEqual(npmFetchJson.callCount, 1);
+    assert.deepStrictEqual(npmFetchJson.firstCall.args, [
         '/the-name',
         {
             forceAuth: { alwaysAuth: true, token: 'the-token' },
@@ -93,7 +94,7 @@ test('fetchLatestVersion() fetches the correct package endpoint with the correct
     ]);
 });
 
-test('fetchLatestVersion() fetches the correct package endpoint with the correct authentication settings and headers when using a custom registry', async (t) => {
+test('fetchLatestVersion() fetches the correct package endpoint with the correct authentication settings and headers when using a custom registry', async () => {
     const npmFetchJson = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
@@ -103,8 +104,8 @@ test('fetchLatestVersion() fetches the correct package endpoint with the correct
 
     await registryClient.fetchLatestVersion('the-name', { token: 'the-token', registryUrl: 'the-url' });
 
-    t.is(npmFetchJson.callCount, 1);
-    t.deepEqual(npmFetchJson.firstCall.args, [
+    assert.strictEqual(npmFetchJson.callCount, 1);
+    assert.deepStrictEqual(npmFetchJson.firstCall.args, [
         '/the-name',
         {
             forceAuth: { alwaysAuth: true, token: 'the-token' },
@@ -114,7 +115,7 @@ test('fetchLatestVersion() fetches the correct package endpoint with the correct
     ]);
 });
 
-test('fetchLatestVersion() fetches the correct package endpoint escaping the given name of a scoped package', async (t) => {
+test('fetchLatestVersion() fetches the correct package endpoint escaping the given name of a scoped package', async () => {
     const npmFetchJson = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
@@ -124,24 +125,24 @@ test('fetchLatestVersion() fetches the correct package endpoint escaping the giv
 
     await registryClient.fetchLatestVersion('@the/name', { token: 'the-token' });
 
-    t.is(npmFetchJson.callCount, 1);
-    t.is(npmFetchJson.firstCall.firstArg, '/@the%2Fname');
+    assert.strictEqual(npmFetchJson.callCount, 1);
+    assert.strictEqual(npmFetchJson.firstCall.firstArg, '/@the%2Fname');
 });
 
-test('fetchLatestVersion() throws and propagates the error when npmFetch throws with a generic error', async (t) => {
+test('fetchLatestVersion() throws and propagates the error when npmFetch throws with a generic error', async () => {
     const error = new Error('the-error');
     const npmFetchJson = fake.rejects(error);
     const registryClient = registryClientFactory({ npmFetchJson });
 
     try {
         await registryClient.fetchLatestVersion('@the/name', { token: '' });
-        t.fail('Expected fetchLatestVersion() to throw but it did not');
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
     } catch (caughtError: unknown) {
-        t.is((caughtError as Error).message, 'the-error');
+        assert.strictEqual((caughtError as Error).message, 'the-error');
     }
 });
 
-test('fetchLatestVersion() throws and propagates the error when npmFetch throws with a fetch-error and the status code is not 404 nor 403', async (t) => {
+test('fetchLatestVersion() throws and propagates the error when npmFetch throws with a fetch-error and the status code is not 404 nor 403', async () => {
     const error = new Error('fetch-error');
     // @ts-expect-error -- ok in this case
     error.statusCode = 500;
@@ -150,25 +151,25 @@ test('fetchLatestVersion() throws and propagates the error when npmFetch throws 
 
     try {
         await registryClient.fetchLatestVersion('@the/name', { token: '' });
-        t.fail('Expected fetchLatestVersion() to throw but it did not');
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
     } catch (caughtError: unknown) {
-        t.deepEqual(caughtError, error);
+        assert.deepStrictEqual(caughtError, error);
     }
 });
 
-test('fetchLatestVersion() throws when npmFetch resolves with an invalid response', async (t) => {
+test('fetchLatestVersion() throws when npmFetch resolves with an invalid response', async () => {
     const npmFetchJson = fake.resolves({ invalid: 'response-data' });
     const registryClient = registryClientFactory({ npmFetchJson });
 
     try {
         await registryClient.fetchLatestVersion('@the/name', { token: '' });
-        t.fail('Expected fetchLatestVersion() to throw but it did not');
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
     } catch (caughtError: unknown) {
-        t.is((caughtError as Error).message, 'Got an invalid response from registry API');
+        assert.strictEqual((caughtError as Error).message, 'Got an invalid response from registry API');
     }
 });
 
-test('fetchLatestVersion() throws when npmFetch resolves with inconsistent data', async (t) => {
+test('fetchLatestVersion() throws when npmFetch resolves with inconsistent data', async () => {
     const npmFetchJson = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
@@ -178,13 +179,13 @@ test('fetchLatestVersion() throws when npmFetch resolves with inconsistent data'
 
     try {
         await registryClient.fetchLatestVersion('@the/name', { token: '' });
-        t.fail('Expected fetchLatestVersion() to throw but it did not');
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
     } catch (caughtError: unknown) {
-        t.is((caughtError as Error).message, 'Version "1" for package "@the/name" is missing a shasum');
+        assert.strictEqual((caughtError as Error).message, 'Version "1" for package "@the/name" is missing a shasum');
     }
 });
 
-test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 404', async (t) => {
+test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 404', async () => {
     const error = new Error('fetch-error');
     // @ts-expect-error -- ok in this case
     error.statusCode = 404;
@@ -192,10 +193,10 @@ test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error wi
     const registryClient = registryClientFactory({ npmFetchJson });
 
     const result = await registryClient.fetchLatestVersion('@the/name', { token: '' });
-    t.deepEqual(result, Maybe.nothing());
+    assert.deepStrictEqual(result, Maybe.nothing());
 });
 
-test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 403', async (t) => {
+test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 403', async () => {
     const error = new Error('fetch-error');
     // @ts-expect-error -- ok in this case
     error.statusCode = 403;
@@ -203,10 +204,10 @@ test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error wi
     const registryClient = registryClientFactory({ npmFetchJson });
 
     const result = await registryClient.fetchLatestVersion('@the/name', { token: '' });
-    t.deepEqual(result, Maybe.nothing());
+    assert.deepStrictEqual(result, Maybe.nothing());
 });
 
-test('fetchLatestVersion() returns the version details when npmFetch returned the expected data', async (t) => {
+test('fetchLatestVersion() returns the version details when npmFetch returned the expected data', async () => {
     const npmFetchJson = fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
@@ -215,42 +216,52 @@ test('fetchLatestVersion() returns the version details when npmFetch returned th
     const registryClient = registryClientFactory({ npmFetchJson });
 
     const result = await registryClient.fetchLatestVersion('@the/name', { token: '' });
-    t.deepEqual(result, Maybe.just({ version: '1', shasum: 'abc', tarballUrl: 'the-tarball' }));
+    assert.deepStrictEqual(result, Maybe.just({ version: '1', shasum: 'abc', tarballUrl: 'the-tarball' }));
 });
 
-test('fetchTarball() fetches the tarball at the given url', async (t) => {
+test('fetchTarball() fetches the tarball at the given url', async () => {
     const npmFetch = createFakeNpmFetch();
     const registryClient = registryClientFactory({ npmFetch });
 
     await registryClient.fetchTarball('the-tarball-url', 'the-shasum');
 
-    t.is(npmFetch.callCount, 1);
-    t.deepEqual(npmFetch.firstCall.args, ['the-tarball-url']);
+    assert.strictEqual(npmFetch.callCount, 1);
+    assert.deepStrictEqual(npmFetch.firstCall.args, ['the-tarball-url']);
 });
 
-test('fetchTarball() returns the buffer of the fetched tarball', async (t) => {
+test('fetchTarball() returns the buffer of the fetched tarball', async () => {
     const npmFetch = createFakeNpmFetch({ buffer: fake.resolves(Buffer.from([1, 2, 3])) });
     const registryClient = registryClientFactory({ npmFetch });
 
     const result = await registryClient.fetchTarball('', '');
 
-    t.deepEqual(result, Buffer.from([1, 2, 3]));
+    assert.deepStrictEqual(result, Buffer.from([1, 2, 3]));
 });
 
-test('fetchTarball() throws when npmFetch throws a fetch error with status code 404', async (t) => {
+test('fetchTarball() throws when npmFetch throws a fetch error with status code 404', async () => {
     const error = new Error('fetch-error');
     // @ts-expect-error -- ok in this case
     error.statusCode = 404;
     const npmFetch = fake.rejects(error) as FakeNpmFetch;
     const registryClient = registryClientFactory({ npmFetch });
 
-    await t.throwsAsync(registryClient.fetchTarball('', ''), { message: 'fetch-error' });
+    try {
+        await registryClient.fetchTarball('', '');
+        assert.fail('Expected fetchTarball() should fail but it did not');
+    } catch (caughtError: unknown) {
+        assert.strictEqual((caughtError as Error).message, 'fetch-error');
+    }
 });
 
-test('fetchTarball() throws when npmFetch throws any error', async (t) => {
+test('fetchTarball() throws when npmFetch throws any error', async () => {
     const error = new Error('any-error');
     const npmFetch = fake.rejects(error) as FakeNpmFetch;
     const registryClient = registryClientFactory({ npmFetch });
 
-    await t.throwsAsync(registryClient.fetchTarball('', ''), { message: 'any-error' });
+    try {
+        await registryClient.fetchTarball('', '');
+        assert.fail('Expected fetchTarball() should fail but it did not');
+    } catch (caughtError: unknown) {
+        assert.strictEqual((caughtError as Error).message, 'any-error');
+    }
 });

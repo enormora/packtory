@@ -1,7 +1,7 @@
 import { baseConfig } from '@enormora/eslint-config-base';
+import { mochaConfig } from '@enormora/eslint-config-mocha';
 import { typescriptConfig } from '@enormora/eslint-config-typescript';
 import { nodeConfig, nodeConfigFileConfig, nodeEntryPointFileConfig } from '@enormora/eslint-config-node';
-import { avaConfig } from '@enormora/eslint-config-ava';
 
 export default [
     {
@@ -14,12 +14,26 @@ export default [
         files: ['**/*.ts']
     },
     {
-        ...avaConfig,
+        ...mochaConfig,
         files: ['**/*.test.ts', 'source/test-libraries/**/*.ts', 'integration-tests/**/*.ts']
     },
     {
         ...nodeConfigFileConfig,
-        files: ['eslint.config.js', 'ava.config.js', 'ava.integration.config.js', 'packtory.config.js']
+        files: [
+            'eslint.config.js',
+            'mocha.config.base.cjs',
+            'mocha.config.unit-tests.cjs',
+            'mocha.config.integration-tests.cjs',
+            'packtory.config.js'
+        ]
+    },
+    {
+        files: ['mocha.config.base.cjs', 'mocha.config.unit-tests.cjs', 'mocha.config.integration-tests.cjs'],
+        rules: {
+            'import/no-commonjs': 'off',
+            'import/extensions': 'off',
+            'no-undef': 'off'
+        }
     },
     {
         files: ['packtory.config.js'],
@@ -68,6 +82,11 @@ export default [
         rules: {
             '@typescript-eslint/no-magic-numbers': 'off',
             'max-lines': 'off'
+        },
+        settings: {
+            mocha: {
+                interface: 'TDD'
+            }
         }
     }
 ];

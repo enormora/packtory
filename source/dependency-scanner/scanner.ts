@@ -28,7 +28,7 @@ function extractModuleName(nodeModulePath: string): string {
         throw new Error(`Couldn’t find node_modules package name for '${nodeModulePath}'`);
     }
 
-    const { groups: { moduleName } = {} } = result;
+    const moduleName = result.groups?.moduleName;
 
     if (moduleName === undefined) {
         throw new Error(`Couldn’t extract module name from path ${nodeModulePath}`);

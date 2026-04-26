@@ -1,20 +1,21 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { compareFileDescriptions } from './compare.ts';
 
-test('returns equal when both file lists are empty', (t) => {
+test('returns equal when both file lists are empty', () => {
     const result = compareFileDescriptions([], []);
-    t.deepEqual(result, { status: 'equal' });
+    assert.deepStrictEqual(result, { status: 'equal' });
 });
 
-test('returns equal when both file lists have single element which is the same', (t) => {
+test('returns equal when both file lists have single element which is the same', () => {
     const result = compareFileDescriptions(
         [{ filePath: 'a', content: 'a', isExecutable: false }],
         [{ filePath: 'a', content: 'a', isExecutable: false }]
     );
-    t.deepEqual(result, { status: 'equal' });
+    assert.deepStrictEqual(result, { status: 'equal' });
 });
 
-test('returns equal when both file lists have multiple elements which are the same and are in the same order', (t) => {
+test('returns equal when both file lists have multiple elements which are the same and are in the same order', () => {
     const result = compareFileDescriptions(
         [
             { filePath: 'a', content: 'a', isExecutable: true },
@@ -25,10 +26,10 @@ test('returns equal when both file lists have multiple elements which are the sa
             { filePath: 'b', content: 'b', isExecutable: false }
         ]
     );
-    t.deepEqual(result, { status: 'equal' });
+    assert.deepStrictEqual(result, { status: 'equal' });
 });
 
-test('returns equal when both file lists have multiple elements which are the same and are in different order', (t) => {
+test('returns equal when both file lists have multiple elements which are the same and are in different order', () => {
     const result = compareFileDescriptions(
         [
             { filePath: 'a', content: 'a', isExecutable: true },
@@ -39,52 +40,52 @@ test('returns equal when both file lists have multiple elements which are the sa
             { filePath: 'a', content: 'a', isExecutable: true }
         ]
     );
-    t.deepEqual(result, { status: 'equal' });
+    assert.deepStrictEqual(result, { status: 'equal' });
 });
 
-test('returns not-equal when one list is empty but the other not', (t) => {
+test('returns not-equal when one list is empty but the other not', () => {
     const result = compareFileDescriptions([], [{ filePath: 'a', content: 'a', isExecutable: false }]);
-    t.deepEqual(result, { status: 'not-equal' });
+    assert.deepStrictEqual(result, { status: 'not-equal' });
 });
 
-test('returns not-equal when one list is not empty but the other is', (t) => {
+test('returns not-equal when one list is not empty but the other is', () => {
     const result = compareFileDescriptions([{ filePath: 'a', content: 'a', isExecutable: true }], []);
-    t.deepEqual(result, { status: 'not-equal' });
+    assert.deepStrictEqual(result, { status: 'not-equal' });
 });
 
-test('returns not-equal when both file lists have single element which is not the same', (t) => {
+test('returns not-equal when both file lists have single element which is not the same', () => {
     const result = compareFileDescriptions(
         [{ filePath: 'a', content: 'a', isExecutable: true }],
         [{ filePath: 'b', content: 'b', isExecutable: false }]
     );
-    t.deepEqual(result, { status: 'not-equal' });
+    assert.deepStrictEqual(result, { status: 'not-equal' });
 });
 
-test('returns not-equal when both file lists have single element where only the filePath is different', (t) => {
+test('returns not-equal when both file lists have single element where only the filePath is different', () => {
     const result = compareFileDescriptions(
         [{ filePath: 'a', content: 'a', isExecutable: true }],
         [{ filePath: 'b', content: 'a', isExecutable: true }]
     );
-    t.deepEqual(result, { status: 'not-equal' });
+    assert.deepStrictEqual(result, { status: 'not-equal' });
 });
 
-test('returns not-equal when both file lists have single element where only the content is different', (t) => {
+test('returns not-equal when both file lists have single element where only the content is different', () => {
     const result = compareFileDescriptions(
         [{ filePath: 'a', content: 'a', isExecutable: false }],
         [{ filePath: 'a', content: 'b', isExecutable: false }]
     );
-    t.deepEqual(result, { status: 'not-equal' });
+    assert.deepStrictEqual(result, { status: 'not-equal' });
 });
 
-test('returns not-equal when both file lists have single element where only the isExecutable flag is different', (t) => {
+test('returns not-equal when both file lists have single element where only the isExecutable flag is different', () => {
     const result = compareFileDescriptions(
         [{ filePath: 'a', content: 'a', isExecutable: false }],
         [{ filePath: 'a', content: 'a', isExecutable: true }]
     );
-    t.deepEqual(result, { status: 'not-equal' });
+    assert.deepStrictEqual(result, { status: 'not-equal' });
 });
 
-test('returns not-equal when both file lists have multiple elements where some are not the same', (t) => {
+test('returns not-equal when both file lists have multiple elements where some are not the same', () => {
     const result = compareFileDescriptions(
         [
             { filePath: 'a', content: 'a', isExecutable: true },
@@ -95,5 +96,5 @@ test('returns not-equal when both file lists have multiple elements where some a
             { filePath: 'b', content: 'a', isExecutable: true }
         ]
     );
-    t.deepEqual(result, { status: 'not-equal' });
+    assert.deepStrictEqual(result, { status: 'not-equal' });
 });

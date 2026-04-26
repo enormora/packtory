@@ -44,7 +44,11 @@ export const noDuplicatedFilesRule: CheckRule = {
 
         for (const [filePath, owners] of fileOwnership.entries()) {
             if (owners.size > 1 && !allowList.has(filePath)) {
-                const ownerList = Array.from(owners).toSorted().join(', ');
+                const ownerList = Array.from(owners)
+                    .toSorted((left, right) => {
+                        return left.localeCompare(right);
+                    })
+                    .join(', ');
                 issues.push(`File "${filePath}" is included in multiple packages: ${ownerList}`);
             }
         }

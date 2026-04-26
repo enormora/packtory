@@ -3,8 +3,8 @@ import type { Server } from 'node:http';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import getPort from 'get-port';
+import type { AsyncFunc } from 'mocha';
 import { runServer } from 'verdaccio';
-import test, { type ExecutionContext } from 'ava';
 
 const userName = 'foo';
 const password = 'top-secret';
@@ -55,7 +55,7 @@ async function startServer(server: Server, port: number): Promise<void> {
 async function stopServer(server: Server): Promise<void> {
     return new Promise((resolve, reject) => {
         server.close((error) => {
-            if (error === undefined) {
+            if (error === undefined || (error as { code?: string }).code === 'ERR_SERVER_NOT_RUNNING') {
                 resolve();
             } else {
                 reject(error);
@@ -106,13 +106,13 @@ async function startRegistry(server: Server): Promise<RegistryDetails> {
     return { registryUrl, token };
 }
 
-export const checkWithRegistry = test.macro(
-    async (t, callback: (t: ExecutionContext, registryDetails: RegistryDetails) => Promise<void>) => {
+export function checkWithRegistry(callback: (registryDetails: RegistryDetails) => Promise<void>): AsyncFunc {
+    return async () => {
         const storageDirectory = await createTemporaryDirectory();
         const server = await createRegistryServer(storageDirectory);
         try {
             const registryDetails = await startRegistry(server);
-            await callback(t, registryDetails);
+            await callback(registryDetails);
         } finally {
             try {
                 await stopServer(server);
@@ -120,5 +120,5 @@ export const checkWithRegistry = test.macro(
                 await fs.rm(storageDirectory, { recursive: true, force: true });
             }
         }
-    }
-);
+    };
+}

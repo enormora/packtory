@@ -1,16 +1,17 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { replaceImportPaths } from './import-paths.ts';
 
-test('returns source code unmodified when project is undefined', (t) => {
+test('returns source code unmodified when project is undefined', () => {
     const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
 
     const result = replaceImportPaths(undefined, '/folder/foo.ts', 'const foo = "bar"; import "./bar";', replacements);
 
-    t.is(result, 'const foo = "bar"; import "./bar";');
+    assert.strictEqual(result, 'const foo = "bar"; import "./bar";');
 });
 
-test('returns source code unmodified when there is no matching file in the given project', (t) => {
+test('returns source code unmodified when there is no matching file in the given project', () => {
     const project = createProject({
         withFiles: [{ filePath: '/folder/bar.ts', content: 'const bar = "baz";' }]
     });
@@ -18,10 +19,10 @@ test('returns source code unmodified when there is no matching file in the given
 
     const result = replaceImportPaths(project, '/folder/foo.ts', 'const foo = "bar"; import "./bar";', replacements);
 
-    t.is(result, 'const foo = "bar"; import "./bar";');
+    assert.strictEqual(result, 'const foo = "bar"; import "./bar";');
 });
 
-test('returns source code unmodified when it doesn’t contain any import statement that needs to be replaced', (t) => {
+test('returns source code unmodified when it doesn’t contain any import statement that needs to be replaced', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/folder/foo.ts', content: 'const foo = "bar";' },
@@ -32,10 +33,10 @@ test('returns source code unmodified when it doesn’t contain any import statem
 
     const result = replaceImportPaths(project, '/folder/foo.ts', 'const foo = "bar";', replacements);
 
-    t.is(result, 'const foo = "bar";');
+    assert.strictEqual(result, 'const foo = "bar";');
 });
 
-test('returns the source code unmodified when there are no replacements', (t) => {
+test('returns the source code unmodified when there are no replacements', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/folder/foo.ts', content: 'const foo = "bar"; import "./bar";' },
@@ -46,10 +47,10 @@ test('returns the source code unmodified when there are no replacements', (t) =>
 
     const result = replaceImportPaths(project, '/folder/foo.ts', 'const foo = "bar"; import "./bar";', replacements);
 
-    t.is(result, 'const foo = "bar"; import "./bar";');
+    assert.strictEqual(result, 'const foo = "bar"; import "./bar";');
 });
 
-test('returns the source code with the modified import statement', (t) => {
+test('returns the source code with the modified import statement', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/folder/foo.ts', content: 'const foo = "bar"; import "./bar";' },
@@ -60,10 +61,10 @@ test('returns the source code with the modified import statement', (t) => {
 
     const result = replaceImportPaths(project, '/folder/foo.ts', 'const foo = "bar"; import "./bar";', replacements);
 
-    t.is(result, 'const foo = "bar"; import "replacement";');
+    assert.strictEqual(result, 'const foo = "bar"; import "replacement";');
 });
 
-test('modifies only matching import statements and keeps non-matching statements unchanged', (t) => {
+test('modifies only matching import statements and keeps non-matching statements unchanged', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/folder/foo.ts', content: 'import "./baz"; import "./bar";' },
@@ -75,10 +76,10 @@ test('modifies only matching import statements and keeps non-matching statements
 
     const result = replaceImportPaths(project, '/folder/foo.ts', 'import "./baz"; import "./bar";', replacements);
 
-    t.is(result, 'import "./baz"; import "replacement";');
+    assert.strictEqual(result, 'import "./baz"; import "replacement";');
 });
 
-test('modifies import statements correctly in d.ts files', (t) => {
+test('modifies import statements correctly in d.ts files', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/folder/foo.d.ts', content: 'import "./bar.js";' },
@@ -89,10 +90,10 @@ test('modifies import statements correctly in d.ts files', (t) => {
 
     const result = replaceImportPaths(project, '/folder/foo.d.ts', 'import "./bar.js"', replacements);
 
-    t.is(result, 'import "replacement/bar.js";');
+    assert.strictEqual(result, 'import "replacement/bar.js";');
 });
 
-test('keeps shebang line in the transformed output', (t) => {
+test('keeps shebang line in the transformed output', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/folder/foo.ts', content: '#!/usr/bin/env node\nconst foo = "bar"; import "./bar";' },
@@ -108,5 +109,5 @@ test('keeps shebang line in the transformed output', (t) => {
         replacements
     );
 
-    t.is(result, '#!/usr/bin/env node\nconst foo = "bar"; import "replacement";');
+    assert.strictEqual(result, '#!/usr/bin/env node\nconst foo = "bar"; import "replacement";');
 });

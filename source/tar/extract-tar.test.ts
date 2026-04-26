@@ -1,21 +1,22 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
-test('returns an empty array when the given tar buffer has no files', async (t) => {
+test('returns an empty array when the given tar buffer has no files', async () => {
     const builder = createTarballBuilder();
     const tar = await builder.build([]);
     const entries = await extractTarEntries(tar);
 
-    t.deepEqual(entries, []);
+    assert.deepStrictEqual(entries, []);
 });
 
-test('returns the extracted entries when the given tar buffer has files', async (t) => {
+test('returns the extracted entries when the given tar buffer has files', async () => {
     const builder = createTarballBuilder();
     const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: false }]);
     const entries = await extractTarEntries(tar);
 
-    t.deepEqual(entries, [
+    assert.deepStrictEqual(entries, [
         {
             content: 'bar',
             header: {
@@ -37,12 +38,12 @@ test('returns the extracted entries when the given tar buffer has files', async 
     ]);
 });
 
-test('returns the extracted entries when the given tar buffer has files which are executable', async (t) => {
+test('returns the extracted entries when the given tar buffer has files which are executable', async () => {
     const builder = createTarballBuilder();
     const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: true }]);
     const entries = await extractTarEntries(tar);
 
-    t.deepEqual(entries, [
+    assert.deepStrictEqual(entries, [
         {
             content: 'bar',
             header: {

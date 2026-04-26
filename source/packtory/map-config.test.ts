@@ -1,24 +1,25 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { configToBuildAndPublishOptions } from './map-config.ts';
 
-test('throws when the given packageName doesn’t exist in the configs', (t) => {
-    t.throws(
-        () => {
-            configToBuildAndPublishOptions(
-                'foo',
-                new Map(),
-                {
-                    registrySettings: { token: '' },
-                    packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-                },
-                []
-            );
-        },
-        { message: 'Config for package "foo" is missing' }
-    );
+test('throws when the given packageName doesn’t exist in the configs', () => {
+    try {
+        configToBuildAndPublishOptions(
+            'foo',
+            new Map(),
+            {
+                registrySettings: { token: '' },
+                packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
+            },
+            []
+        );
+        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Config for package "foo" is missing');
+    }
 });
 
-test('doesn’t change js entryPoints when they are already absolute paths', (t) => {
+test('doesn’t change js entryPoints when they are already absolute paths', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -36,10 +37,10 @@ test('doesn’t change js entryPoints when they are already absolute paths', (t)
         []
     );
 
-    t.deepEqual(result.entryPoints, [{ js: '/the-entry-file' }]);
+    assert.deepStrictEqual(result.entryPoints, [{ js: '/the-entry-file' }]);
 });
 
-test('adds the sourcesFolder as a prefix to a js entryPoint when it is a relative path', (t) => {
+test('adds the sourcesFolder as a prefix to a js entryPoint when it is a relative path', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -57,10 +58,10 @@ test('adds the sourcesFolder as a prefix to a js entryPoint when it is a relativ
         []
     );
 
-    t.deepEqual(result.entryPoints, [{ js: 'the-source/the-entry-file' }]);
+    assert.deepStrictEqual(result.entryPoints, [{ js: 'the-source/the-entry-file' }]);
 });
 
-test('doesn’t change declarationFile entryPoints when they are already absolute paths', (t) => {
+test('doesn’t change declarationFile entryPoints when they are already absolute paths', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -78,10 +79,10 @@ test('doesn’t change declarationFile entryPoints when they are already absolut
         []
     );
 
-    t.deepEqual(result.entryPoints, [{ js: '/js-file', declarationFile: '/declaration-file' }]);
+    assert.deepStrictEqual(result.entryPoints, [{ js: '/js-file', declarationFile: '/declaration-file' }]);
 });
 
-test('adds the sourcesFolder as a prefix to a declarationFile entryPoint when it is a relative path', (t) => {
+test('adds the sourcesFolder as a prefix to a declarationFile entryPoint when it is a relative path', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -99,10 +100,10 @@ test('adds the sourcesFolder as a prefix to a declarationFile entryPoint when it
         []
     );
 
-    t.deepEqual(result.entryPoints, [{ js: '/js-file', declarationFile: 'the-source/declaration-file' }]);
+    assert.deepStrictEqual(result.entryPoints, [{ js: '/js-file', declarationFile: 'the-source/declaration-file' }]);
 });
 
-test('doesn’t change an additionalFile sourcePathFile when it is already an absolute path', (t) => {
+test('doesn’t change an additionalFile sourcePathFile when it is already an absolute path', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -121,10 +122,10 @@ test('doesn’t change an additionalFile sourcePathFile when it is already an ab
         []
     );
 
-    t.deepEqual(result.additionalFiles, [{ sourceFilePath: '/foo', targetFilePath: 'bar' }]);
+    assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: '/foo', targetFilePath: 'bar' }]);
 });
 
-test('adds the sourceFolder as prefix to an additionalFile sourcePathFile when it is a relative path', (t) => {
+test('adds the sourceFolder as prefix to an additionalFile sourcePathFile when it is a relative path', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -143,10 +144,10 @@ test('adds the sourceFolder as prefix to an additionalFile sourcePathFile when i
         []
     );
 
-    t.deepEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
+    assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
 });
 
-test('throws an error when a bundle dependency does not exist', (t) => {
+test('throws an error when a bundle dependency does not exist', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -155,23 +156,23 @@ test('throws an error when a bundle dependency does not exist', (t) => {
         bundleDependencies: ['bar']
     } as const;
 
-    t.throws(
-        () => {
-            configToBuildAndPublishOptions(
-                'foo',
-                new Map([['foo', packageConfig]]),
-                {
-                    registrySettings: { token: '' },
-                    packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-                },
-                []
-            );
-        },
-        { message: 'Dependent bundle "bar" not found' }
-    );
+    try {
+        configToBuildAndPublishOptions(
+            'foo',
+            new Map([['foo', packageConfig]]),
+            {
+                registrySettings: { token: '' },
+                packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
+            },
+            []
+        );
+        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Dependent bundle "bar" not found');
+    }
 });
 
-test('maps the bundle dependency names correctly to the VersionedBundleWithManifest objects when it exists', (t) => {
+test('maps the bundle dependency names correctly to the VersionedBundleWithManifest objects when it exists', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -203,7 +204,7 @@ test('maps the bundle dependency names correctly to the VersionedBundleWithManif
         ]
     );
 
-    t.deepEqual(options.bundleDependencies, [
+    assert.deepStrictEqual(options.bundleDependencies, [
         {
             contents: [],
             packageJson: { name: 'bar', version: '' },
@@ -219,7 +220,7 @@ test('maps the bundle dependency names correctly to the VersionedBundleWithManif
     ]);
 });
 
-test('defaults the includeSourceMapFiles option to false when it is not in the package config nor in common settings', (t) => {
+test('defaults the includeSourceMapFiles option to false when it is not in the package config nor in common settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -237,10 +238,10 @@ test('defaults the includeSourceMapFiles option to false when it is not in the p
         []
     );
 
-    t.is(options.includeSourceMapFiles, false);
+    assert.strictEqual(options.includeSourceMapFiles, false);
 });
 
-test('sets the includeSourceMapFiles option to true when it is true in the per package config and not set in common settings', (t) => {
+test('sets the includeSourceMapFiles option to true when it is true in the per package config and not set in common settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -259,10 +260,10 @@ test('sets the includeSourceMapFiles option to true when it is true in the per p
         []
     );
 
-    t.is(options.includeSourceMapFiles, true);
+    assert.strictEqual(options.includeSourceMapFiles, true);
 });
 
-test('sets the includeSourceMapFiles option to true when it is not set in the per package config but set in common settings', (t) => {
+test('sets the includeSourceMapFiles option to true when it is not set in the per package config but set in common settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -283,10 +284,10 @@ test('sets the includeSourceMapFiles option to true when it is not set in the pe
         []
     );
 
-    t.is(options.includeSourceMapFiles, true);
+    assert.strictEqual(options.includeSourceMapFiles, true);
 });
 
-test('sets the includeSourceMapFiles option to false when it is set to false the per package config and set to true in the common settings', (t) => {
+test('sets the includeSourceMapFiles option to false when it is set to false the per package config and set to true in the common settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -308,10 +309,10 @@ test('sets the includeSourceMapFiles option to false when it is set to false the
         []
     );
 
-    t.is(options.includeSourceMapFiles, false);
+    assert.strictEqual(options.includeSourceMapFiles, false);
 });
 
-test('merges the additional files if they are set both in common settings and per package settings', (t) => {
+test('merges the additional files if they are set both in common settings and per package settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -333,13 +334,13 @@ test('merges the additional files if they are set both in common settings and pe
         []
     );
 
-    t.deepEqual(result.additionalFiles, [
+    assert.deepStrictEqual(result.additionalFiles, [
         { sourceFilePath: 'the-source/baz', targetFilePath: 'qux' },
         { sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }
     ]);
 });
 
-test('overwrites the additional files from common settings when a per package setting defines a file with the same target', (t) => {
+test('overwrites the additional files from common settings when a per package setting defines a file with the same target', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -361,10 +362,10 @@ test('overwrites the additional files from common settings when a per package se
         []
     );
 
-    t.deepEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
+    assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
 });
 
-test('uses only the additionalFiles from common settings when the per package settings don’t have additional files specified', (t) => {
+test('uses only the additionalFiles from common settings when the per package settings don’t have additional files specified', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -385,10 +386,10 @@ test('uses only the additionalFiles from common settings when the per package se
         []
     );
 
-    t.deepEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
+    assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
 });
 
-test('removes additional files which are duplicated by picking the last one', (t) => {
+test('removes additional files which are duplicated by picking the last one', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -410,10 +411,10 @@ test('removes additional files which are duplicated by picking the last one', (t
         []
     );
 
-    t.deepEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
+    assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
 });
 
-test('sets additionalPackageJsonAttributes to an empty object when they are not defined at all', (t) => {
+test('sets additionalPackageJsonAttributes to an empty object when they are not defined at all', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -431,10 +432,10 @@ test('sets additionalPackageJsonAttributes to an empty object when they are not 
         []
     );
 
-    t.deepEqual(result.additionalPackageJsonAttributes, {});
+    assert.deepStrictEqual(result.additionalPackageJsonAttributes, {});
 });
 
-test('sets additionalPackageJsonAttributes to the value of the per package settings', (t) => {
+test('sets additionalPackageJsonAttributes to the value of the per package settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -453,10 +454,10 @@ test('sets additionalPackageJsonAttributes to the value of the per package setti
         []
     );
 
-    t.deepEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
+    assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
 });
 
-test('sets additionalPackageJsonAttributes to the value of the common settings', (t) => {
+test('sets additionalPackageJsonAttributes to the value of the common settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -477,10 +478,10 @@ test('sets additionalPackageJsonAttributes to the value of the common settings',
         []
     );
 
-    t.deepEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
+    assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
 });
 
-test('merges additionalPackageJsonAttributes from per package and common settings', (t) => {
+test('merges additionalPackageJsonAttributes from per package and common settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -502,10 +503,10 @@ test('merges additionalPackageJsonAttributes from per package and common setting
         []
     );
 
-    t.deepEqual(result.additionalPackageJsonAttributes, { foo: 'bar', baz: 'qux' });
+    assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar', baz: 'qux' });
 });
 
-test('overwrites additionalPackageJsonAttributes from common settings when there are also defined in per package settings', (t) => {
+test('overwrites additionalPackageJsonAttributes from common settings when there are also defined in per package settings', () => {
     const packageConfig = {
         name: 'foo',
         sourcesFolder: 'the-source',
@@ -527,5 +528,5 @@ test('overwrites additionalPackageJsonAttributes from common settings when there
         []
     );
 
-    t.deepEqual(result.additionalPackageJsonAttributes, { foo: 'qux' });
+    assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'qux' });
 });

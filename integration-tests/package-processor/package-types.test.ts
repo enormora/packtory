@@ -1,9 +1,10 @@
 import path from 'node:path';
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
-test('includes all required local files and references correct node modules but ignores builtin modules', async (t) => {
+test('includes all required local files and references correct node modules but ignores builtin modules', async () => {
     const fixture = path.join(
         process.cwd(),
         'integration-tests/fixtures/with-local-builtin-and-node-module-dependencies'
@@ -22,7 +23,7 @@ test('includes all required local files and references correct node modules but 
         additionalPackageJsonAttributes: {}
     });
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         additionalAttributes: {},
         packageJson: {
             dependencies: { 'example-module': '1.2.3' },
@@ -89,7 +90,7 @@ test('includes all required local files and references correct node modules but 
     });
 });
 
-test('includes peer dependencies correctly', async (t) => {
+test('includes peer dependencies correctly', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/with-peer-dependencies');
     const result = await packageProcessor.build({
         name: 'the-package-name',
@@ -105,7 +106,7 @@ test('includes peer dependencies correctly', async (t) => {
         additionalPackageJsonAttributes: {}
     });
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         additionalAttributes: {},
         packageJson: {
             peerDependencies: { 'example-module': '1.2.3' },

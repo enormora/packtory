@@ -1,16 +1,17 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { Result } from 'true-myth';
 import { validateConfig } from './validation.ts';
 
-test('returns the issues when the given config doesn’t match the schema', (t) => {
+test('returns the issues when the given config doesn’t match the schema', () => {
     const result = validateConfig({ not: 'valid' });
-    t.deepEqual(
+    assert.deepStrictEqual(
         result,
         Result.err(['at registrySettings: missing property', 'invalid value doesn’t match expected union'])
     );
 });
 
-test('returns an issue when a package with the same name exists twice', (t) => {
+test('returns an issue when a package with the same name exists twice', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -20,10 +21,10 @@ test('returns an issue when a package with the same name exists twice', (t) => {
         ]
     });
 
-    t.deepEqual(result, Result.err(['Duplicate package definition with the name "foo"']));
+    assert.deepStrictEqual(result, Result.err(['Duplicate package definition with the name "foo"']));
 });
 
-test('returns two issues when packages with the same name exists thrice', (t) => {
+test('returns two issues when packages with the same name exists thrice', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -34,7 +35,7 @@ test('returns two issues when packages with the same name exists thrice', (t) =>
         ]
     });
 
-    t.deepEqual(
+    assert.deepStrictEqual(
         result,
         Result.err([
             'Duplicate package definition with the name "foo"',
@@ -43,7 +44,7 @@ test('returns two issues when packages with the same name exists thrice', (t) =>
     );
 });
 
-test('returns two issues when there are two duplicated package names', (t) => {
+test('returns two issues when there are two duplicated package names', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -55,7 +56,7 @@ test('returns two issues when there are two duplicated package names', (t) => {
         ]
     });
 
-    t.deepEqual(
+    assert.deepStrictEqual(
         result,
         Result.err([
             'Duplicate package definition with the name "foo"',
@@ -64,7 +65,7 @@ test('returns two issues when there are two duplicated package names', (t) => {
     );
 });
 
-test('returns an issue when there is a cycle per bundleDependencies', (t) => {
+test('returns an issue when there is a cycle per bundleDependencies', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -74,10 +75,10 @@ test('returns an issue when there is a cycle per bundleDependencies', (t) => {
         ]
     });
 
-    t.deepEqual(result, Result.err(['Unexpected cyclic dependency path: [a→b→a]']));
+    assert.deepStrictEqual(result, Result.err(['Unexpected cyclic dependency path: [a→b→a]']));
 });
 
-test('returns an issue when there is a long cycle per bundleDependencies', (t) => {
+test('returns an issue when there is a long cycle per bundleDependencies', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -89,10 +90,10 @@ test('returns an issue when there is a long cycle per bundleDependencies', (t) =
         ]
     });
 
-    t.deepEqual(result, Result.err(['Unexpected cyclic dependency path: [a→d→c→b→a]']));
+    assert.deepStrictEqual(result, Result.err(['Unexpected cyclic dependency path: [a→d→c→b→a]']));
 });
 
-test('returns an issue when there is a cycle per bundlePeerDependencies', (t) => {
+test('returns an issue when there is a cycle per bundlePeerDependencies', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -102,10 +103,10 @@ test('returns an issue when there is a cycle per bundlePeerDependencies', (t) =>
         ]
     });
 
-    t.deepEqual(result, Result.err(['Unexpected cyclic dependency path: [a→b→a]']));
+    assert.deepStrictEqual(result, Result.err(['Unexpected cyclic dependency path: [a→b→a]']));
 });
 
-test('returns an issue when there is a cycle per bundleDependencies and bundlePeerDependencies', (t) => {
+test('returns an issue when there is a cycle per bundleDependencies and bundlePeerDependencies', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -115,40 +116,40 @@ test('returns an issue when there is a cycle per bundleDependencies and bundlePe
         ]
     });
 
-    t.deepEqual(result, Result.err(['Unexpected cyclic dependency path: [a→b→a]']));
+    assert.deepStrictEqual(result, Result.err(['Unexpected cyclic dependency path: [a→b→a]']));
 });
 
-test('returns an issue when a package depends on itself', (t) => {
+test('returns an issue when a package depends on itself', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
         packages: [{ name: 'a', entryPoints: [{ js: 'foo' }], bundleDependencies: ['a'] }]
     });
 
-    t.deepEqual(result, Result.err(['Unexpected cyclic dependency path: [a→a]']));
+    assert.deepStrictEqual(result, Result.err(['Unexpected cyclic dependency path: [a→a]']));
 });
 
-test('returns an issue when a package bundle dependency does not exit', (t) => {
+test('returns an issue when a package bundle dependency does not exit', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
         packages: [{ name: 'a', entryPoints: [{ js: 'foo' }], bundleDependencies: ['b'] }]
     });
 
-    t.deepEqual(result, Result.err(['Bundle dependency "b" referenced in "a" does not exist']));
+    assert.deepStrictEqual(result, Result.err(['Bundle dependency "b" referenced in "a" does not exist']));
 });
 
-test('returns an issue when a package bundle peer dependency does not exit', (t) => {
+test('returns an issue when a package bundle peer dependency does not exit', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
         packages: [{ name: 'a', entryPoints: [{ js: 'foo' }], bundlePeerDependencies: ['b'] }]
     });
 
-    t.deepEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
+    assert.deepStrictEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
 });
 
-test('returns multiple issues of different kind', (t) => {
+test('returns multiple issues of different kind', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -160,13 +161,13 @@ test('returns multiple issues of different kind', (t) => {
         ]
     });
 
-    t.deepEqual(
+    assert.deepStrictEqual(
         result,
         Result.err(['Duplicate package definition with the name "foo"', 'Unexpected cyclic dependency path: [a→b→a]'])
     );
 });
 
-test('returns a missing dependency and duplicate package issue at the same time', (t) => {
+test('returns a missing dependency and duplicate package issue at the same time', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -177,7 +178,7 @@ test('returns a missing dependency and duplicate package issue at the same time'
         ]
     });
 
-    t.deepEqual(
+    assert.deepStrictEqual(
         result,
         Result.err([
             'Duplicate package definition with the name "c"',
@@ -186,7 +187,7 @@ test('returns a missing dependency and duplicate package issue at the same time'
     );
 });
 
-test('doesn’t report cyclic dependency issues when there is also a missing dependency', (t) => {
+test('doesn’t report cyclic dependency issues when there is also a missing dependency', () => {
     const result = validateConfig({
         registrySettings: { token: 'foo' },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
@@ -196,5 +197,5 @@ test('doesn’t report cyclic dependency issues when there is also a missing dep
         ]
     });
 
-    t.deepEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
+    assert.deepStrictEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
 });
