@@ -3,15 +3,23 @@
     "exclude": ["types"],
     "entry": [
         "source/packages/**/*.entry-point.ts!",
-        "source/**/*.test.ts!",
-        "integration-tests/**/*.ts!",
+        "source/**/*.test.ts",
+        "integration-tests/**/*.ts",
         "dependency-cruiser.config.js",
         "mocha.config.base.cjs",
         "mocha.config.unit-tests.cjs",
         "mocha.config.integration-tests.cjs",
         "packtory.config.js"
     ],
-    "project": ["source/**/*.ts!", "integration-tests/**/*.ts!", "*.js", "*.cjs", "!integration-tests/fixtures/**/*"],
+    "project": [
+        "source/**/*.ts!",
+        "integration-tests/**/*.ts",
+        "*.js",
+        "*.cjs",
+        "!integration-tests/fixtures/**/*",
+        "!source/**/*.test.ts!",
+        "!source/test-libraries/**/*.ts!"
+    ],
     "ignoreDependencies": ["@ls-lint/ls-lint", "c8", "eslint", "foo", "prettier"],
     "ignoreBinaries": []
 }

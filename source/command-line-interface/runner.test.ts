@@ -128,6 +128,16 @@ test('returns exit code 1 when publish command has errors', async () => {
     assert.strictEqual(exitCode, 1);
 });
 
+test('returns exit code 1 instead of exiting the process when command parsing fails', async () => {
+    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    const exitCode = await runner.run(['foo', 'bar', 'not-a-command']);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(buildAndPublishAll.callCount, 0);
+});
+
 test('rethrows the error when buildAndPublishAll() throws', async () => {
     const buildAndPublishAll = fake.rejects(new Error('foo'));
     const runner = runnerFactory({ buildAndPublishAll });
