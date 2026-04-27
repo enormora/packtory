@@ -19,8 +19,8 @@ jobs:
             - name: Install dependencies
               run: npm clean-install
             - name: Static Code Analysis
-              run: npm run lint
+              run: npx just lint
             - name: Compile Typescript
-              run: npm run compile
+              run: npx just compile
             - name: Run tests
-              run: npm test
+              run: npx just test
