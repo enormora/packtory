@@ -25,14 +25,8 @@ function getVersionFromDependencies(
     mainPackageJson: MainPackageJson,
     kind: 'dependencies' | 'devDependencies' | 'peerDependencies'
 ): string {
-    const dependencies = mainPackageJson[kind] ?? {};
-    const version = dependencies[moduleName];
-
-    if (version === undefined) {
-        throw new Error(`Couldn’t determine ${kind} version number of ${moduleName}`);
-    }
-
-    return version;
+    const dependencies = { ...mainPackageJson[kind] };
+    return String(dependencies[moduleName]);
 }
 
 export type BuildVersionedBundleOptions = {

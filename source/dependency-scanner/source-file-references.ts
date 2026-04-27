@@ -1,36 +1,14 @@
 import { isBuiltin } from 'node:module';
-import { Maybe, first } from 'true-myth/maybe';
-import {
-    ts,
-    Node as ASTNode,
-    type SourceFile,
-    type Symbol as TSSymbol,
-    SyntaxKind,
-    type StringLiteral
-} from 'ts-morph';
+import { Maybe } from 'true-myth/maybe';
+import { ts, Node as ASTNode, type SourceFile, type Symbol as TSSymbol, type StringLiteral } from 'ts-morph';
 
 function getReferencedSourceFileFromSymbol(symbol: TSSymbol | undefined): Readonly<Maybe<SourceFile>> {
     if (symbol === undefined) {
         return Maybe.nothing();
     }
 
-    const declarations = symbol.getDeclarations();
-
-    return first(declarations)
-        .andThen((firstDeclaration) => {
-            return firstDeclaration;
-        })
-        .andThen((firstDeclaration) => {
-            if (firstDeclaration.getKind() !== SyntaxKind.SourceFile) {
-                return Maybe.nothing();
-            }
-
-            if (!ASTNode.isSourceFile(firstDeclaration)) {
-                return Maybe.nothing();
-            }
-
-            return Maybe.just(firstDeclaration);
-        });
+    const firstDeclaration = symbol.getDeclarations().find(ASTNode.isSourceFile);
+    return Maybe.of(firstDeclaration);
 }
 
 function getSourceFileFromSymbol(
@@ -54,9 +32,6 @@ function getSourceFileForLiteral(literal: StringLiteral): Readonly<SourceFile | 
 
     if (ASTNode.isImportDeclaration(parent) || ASTNode.isExportDeclaration(parent)) {
         return parent.getModuleSpecifierSourceFile();
-    }
-    if (ASTNode.isImportEqualsDeclaration(grandParent)) {
-        return grandParent.getExternalModuleReferenceSourceFile();
     }
 
     return getSourceFileFromSymbol(literal, parent, grandParent).unwrapOr(undefined);

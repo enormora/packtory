@@ -20,7 +20,8 @@ function isLocalPath(filePath: string): boolean {
 }
 
 function extractModuleName(nodeModulePath: string): string {
-    const pattern = /\/node_modules\/(?<moduleName>[^@]+?|(?:@.+?\/.+?))\//;
+    const prefix = '/node_modules/';
+    const pattern = /\/node_modules\/(?:[^@]+?|(?:@.+?\/.+?))\//;
 
     const result = pattern.exec(nodeModulePath);
 
@@ -28,13 +29,7 @@ function extractModuleName(nodeModulePath: string): string {
         throw new Error(`Couldn’t find node_modules package name for '${nodeModulePath}'`);
     }
 
-    const moduleName = result.groups?.moduleName;
-
-    if (moduleName === undefined) {
-        throw new Error(`Couldn’t extract module name from path ${nodeModulePath}`);
-    }
-
-    return moduleName;
+    return result[0].slice(prefix.length, -1);
 }
 
 function determineLocalDependencies(dependencies: readonly string[]): readonly string[] {

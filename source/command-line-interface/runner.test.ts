@@ -117,6 +117,17 @@ test('prints error summary when publish command encounters config errors', async
     assert.deepStrictEqual(log.firstCall.args, ['✖ The provided config is invalid, there are 1 issue(s)\n\n- foo']);
 });
 
+test('prints error summary when publish command encounters check errors', async () => {
+    const buildAndPublishAll = fake.resolves(Result.err({ type: 'checks', issues: ['foo'] }));
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    await runner.run(['foo', 'bar', 'publish']);
+
+    assert.strictEqual(log.callCount, 2);
+    assert.deepStrictEqual(log.firstCall.args, ['✖ Checks failed, there are 1 issue(s)\n\n- foo']);
+});
+
 test('prints error summary and dry-run note when publish command encounters partial errors', async () => {
     const buildAndPublishAll = fake.resolves(
         Result.err({ type: 'partial', succeeded: ['foo'], failures: [new Error('first'), new Error('second')] })

@@ -219,6 +219,18 @@ test('fetchLatestVersion() returns the version details when npmFetch returned th
     assert.deepStrictEqual(result, Maybe.just({ version: '1', shasum: 'abc', tarballUrl: 'the-tarball' }));
 });
 
+test('fetchLatestVersion() returns nothing when the package has no latest dist-tag', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': {},
+        versions: {}
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    const result = await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    assert.deepStrictEqual(result, Maybe.nothing());
+});
+
 test('fetchTarball() fetches the tarball at the given url', async () => {
     const npmFetch = createFakeNpmFetch();
     const registryClient = registryClientFactory({ npmFetch });

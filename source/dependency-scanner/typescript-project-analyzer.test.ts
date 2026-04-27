@@ -1,3 +1,4 @@
+/* eslint-disable max-statements -- these tests exercise several analyzer branches through one fixture-heavy setup */
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { stub, fake, type SinonSpy, type SinonStub } from 'sinon';
@@ -253,4 +254,30 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 
     assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
+});
+
+test('getSourceFile() returns the requested source file and throws when it does not exist', () => {
+    const sourceFile = createFakeSourceFile({ filePath: '/foo/source-file.ts' });
+    const getSourceFile = fake((filePath: string) => {
+        return filePath === '/foo/source-file.ts' ? sourceFile : undefined;
+    });
+    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+
+    const project = analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: false
+    });
+
+    assert.strictEqual(project.getSourceFile('/foo/source-file.ts'), sourceFile);
+
+    try {
+        project.getSourceFile('/foo/missing.ts');
+        assert.fail('Expected getSourceFile() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Failed to find source file for "/foo/missing.ts"');
+    }
+
+    assert.strictEqual(project.getProject().getSourceFile, getSourceFile);
 });
