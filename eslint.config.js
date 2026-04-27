@@ -20,6 +20,7 @@ export default [
     {
         ...nodeConfigFileConfig,
         files: [
+            'dependency-cruiser.config.js',
             'eslint.config.js',
             'mocha.config.base.cjs',
             'mocha.config.unit-tests.cjs',

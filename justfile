@@ -18,7 +18,10 @@ prettier-check: (prettier '--check')
 
 prettier-fix: (prettier '--write')
 
-lint: eslint prettier-check
+lint-dependencies:
+    depcruise --config dependency-cruiser.config.js './source/**/*.ts' './integration-tests/*.ts' './integration-tests/**/*.test.ts' './*.js' './*.cjs'
+
+lint: eslint prettier-check lint-dependencies
 
 lint-fix: eslint-fix prettier-fix
 

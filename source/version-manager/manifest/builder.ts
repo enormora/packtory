@@ -1,7 +1,4 @@
-import type { SetRequired, PackageJson } from 'type-fest';
-import type { VersionedBundle } from '../versioned-bundle.ts';
-
-export type BundlePackageJson = Readonly<SetRequired<PackageJson, 'name' | 'version'>>;
+import type { VersionedBundle, BundlePackageJson } from '../versioned-bundle.ts';
 
 export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson {
     const packageJson: BundlePackageJson = {

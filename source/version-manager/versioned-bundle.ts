@@ -1,9 +1,10 @@
-import type { PackageJson } from 'type-fest';
+import type { PackageJson, SetRequired } from 'type-fest';
 import { oneLine } from 'common-tags';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
-import type { BundlePackageJson } from './manifest/builder.ts';
+
+export type BundlePackageJson = Readonly<SetRequired<PackageJson, 'name' | 'version'>>;
 
 export type VersionedBundle = Pick<LinkedBundle, 'contents' | 'name'> & {
     readonly version: string;
@@ -20,15 +21,6 @@ export type VersionedBundleWithManifest = VersionedBundle & {
     readonly packageJson: BundlePackageJson;
 };
 
-function getVersionFromDependencies(
-    moduleName: string,
-    mainPackageJson: MainPackageJson,
-    kind: 'dependencies' | 'devDependencies' | 'peerDependencies'
-): string {
-    const dependencies = { ...mainPackageJson[kind] };
-    return String(dependencies[moduleName]);
-}
-
 export type BuildVersionedBundleOptions = {
     readonly bundle: LinkedBundle;
     readonly version: string;
@@ -37,6 +29,15 @@ export type BuildVersionedBundleOptions = {
     readonly bundlePeerDependencies: readonly VersionedBundle[];
     readonly additionalPackageJsonAttributes: AdditionalPackageJsonAttributes;
 };
+
+function getVersionFromDependencies(
+    moduleName: string,
+    mainPackageJson: MainPackageJson,
+    kind: 'dependencies' | 'devDependencies' | 'peerDependencies'
+): string {
+    const dependencies = { ...mainPackageJson[kind] };
+    return String(dependencies[moduleName]);
+}
 
 function findBundleByPackageName(bundles: readonly VersionedBundle[], name: string): VersionedBundle | undefined {
     return bundles.find((bundle) => {
