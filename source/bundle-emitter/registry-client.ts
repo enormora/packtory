@@ -58,10 +58,10 @@ export type PackageVersionDetails = {
     readonly tarballUrl: string;
 };
 
-type PublishFunctionParametersManifestIndex = 0;
-type PublishManifest = Readonly<Parameters<PublishFunction>[PublishFunctionParametersManifestIndex]>;
+type PublishManifest = Readonly<Parameters<PublishFunction>[0]>;
 
 function toPublishManifest(manifest: Readonly<BundlePackageJson>): PublishManifest {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- libnpmpublish expects @npm/types PackageJson, which is structurally compatible with our validated manifest
     return manifest as unknown as PublishManifest;
 }
 
