@@ -3,20 +3,7 @@
     "version": "0.0.0-dev",
     "description": "Effortless code bundling and publishing for npm packages",
     "type": "module",
-    "scripts": {
-        "compile": "tsc --build",
-        "prettier": "prettier './**/*.{yml,yaml,json,md}'",
-        "prettier:check": "npm run prettier -- --check",
-        "prettier:fix": "npm run prettier -- --write",
-        "eslint": "eslint . --cache --cache-location './target/.eslintcache' --cache-strategy content --max-warnings 0",
-        "eslint:fix": "npm run eslint -- --fix",
-        "lint": "npm run eslint && npm run prettier:check",
-        "lint:fix": "npm run eslint:fix && npm run prettier:fix",
-        "test": "npm run test:unit:with-coverage && npm run test:integration",
-        "test:unit": "mocha --config mocha.config.unit-tests.cjs",
-        "test:unit:with-coverage": "c8 --config .c8rc.json mocha --config mocha.config.unit-tests.cjs",
-        "test:integration": "mocha --config mocha.config.integration-tests.cjs"
-    },
+    "scripts": {},
     "keywords": [
         "bundler",
         "bundling",
@@ -78,6 +65,7 @@
         "get-port": "7.2.0",
         "mocha": "11.7.5",
         "prettier": "3.8.3",
+        "rust-just": "1.49.0",
         "sinon": "21.1.2",
         "typescript": "6.0.3",
         "verdaccio": "6.5.2"
