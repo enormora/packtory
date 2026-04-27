@@ -221,6 +221,36 @@ test(
     })
 );
 
+test('throws when fileExistsSync is not a function', () => {
+    try {
+        createFileSystemAdapters({
+            fileSystemHost: {
+                fileExists: fake(),
+                fileExistsSync: true,
+                directoryExists: fake(),
+                directoryExistsSync: fake()
+            } as unknown as FileSystemAdaptersDependencies['fileSystemHost']
+        });
+        assert.fail('Expected createFileSystemAdapters() to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Expected fileExistsSync to be a function');
+    }
+});
+
+test('throws when directoryExistsSync does not return a boolean', () => {
+    const fileSystemAdapters = fileSystemAdaptersFactory({
+        directoryExistsSync: fake.returns('invalid')
+    });
+
+    try {
+        // eslint-disable-next-line node/no-sync -- this test intentionally exercises the synchronous ts-morph host contract
+        fileSystemAdapters.fileSystemHostFilteringDeclarationFiles.directoryExistsSync('foo/node_modules/bar');
+        assert.fail('Expected directoryExistsSync() to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Expected directoryExistsSync to return a boolean');
+    }
+});
+
 test(
     'fileSystemHostWithoutFilter.directoryExists returns the same value from the wrapped fileSystemHost even when a type-roots path is given',
     checkWrappedFileHostMethod({

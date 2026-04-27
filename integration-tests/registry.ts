@@ -64,9 +64,19 @@ async function stopServer(server: Server): Promise<void> {
     });
 }
 
+function getEnvironmentVariable(variableName: string): string | undefined {
+    const environment: unknown = Reflect.get(process, 'env');
+
+    if (typeof environment !== 'object' || environment === null) {
+        return undefined;
+    }
+
+    const value: unknown = Reflect.get(environment, variableName);
+    return typeof value === 'string' ? value : undefined;
+}
+
 async function createTemporaryDirectory(): Promise<string> {
-    // eslint-disable-next-line node/no-process-env -- github actions runner don’t allow writing into the os temporary directory, so we need to use the job temp dir from the environment variable
-    const tempRootDir = process.env.RUNNER_TEMP ?? os.tmpdir();
+    const tempRootDir = getEnvironmentVariable('RUNNER_TEMP') ?? os.tmpdir();
     return fs.mkdtemp(tempRootDir);
 }
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import { buildVersionedBundle } from './versioned-bundle.ts';
 
@@ -29,7 +30,7 @@ function createLinkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundle
     };
 }
 
-function createReferencedDependency(name: string) {
+function createReferencedDependency(name: string): ExternalDependency {
     return { name, referencedFrom: ['/src/index.js'] as const };
 }
 

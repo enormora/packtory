@@ -1,4 +1,3 @@
-/* eslint-disable max-statements, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/consistent-type-assertions, prettier/prettier -- these orchestrator tests use broad inline fixtures to cover public control flow directly */
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
@@ -6,6 +5,7 @@ import { Result } from 'true-myth';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { PackageProcessor } from './package-processor.ts';
 import {
     createPacktory,
     type PublishAllResult,
@@ -64,9 +64,7 @@ function createVersionedBundle(name: string, version = '1.0.0'): VersionedBundle
     };
 }
 
-function createConfigWithoutRegistry(
-    overrides: Record<string, unknown> = {}
-): PacktoryConfigWithoutRegistry {
+function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): PacktoryConfigWithoutRegistry {
     return {
         commonPackageSettings: {
             sourcesFolder: '/src',
@@ -84,6 +82,15 @@ function createConfig(overrides: Record<string, unknown> = {}): PacktoryConfig {
     };
 }
 
+type CreateProgressEvent = (params: {
+    readonly packageName: string;
+    readonly result: unknown;
+    readonly options: unknown;
+}) => {
+    version: string;
+    status: 'already-published' | 'initial-version' | 'new-version';
+};
+
 type SchedulerOverrides = {
     readonly resolveStage?: (params: {
         readonly createOptions: (context: unknown) => unknown;
@@ -96,12 +103,7 @@ type SchedulerOverrides = {
         readonly execute: (options: unknown) => Promise<unknown>;
         readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
         readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
-        readonly createProgressEvent?:
-            | ((params: { packageName: string; result: unknown; options: unknown }) => {
-                version: string;
-                status: 'already-published' | 'initial-version' | 'new-version';
-            })
-            | undefined;
+        readonly createProgressEvent?: CreateProgressEvent | undefined;
     }) => Promise<Result<readonly unknown[], unknown>>;
 };
 
@@ -114,6 +116,68 @@ type PacktoryUnderTest = {
         readonly runForEachScheduledPackage: SinonSpy;
     };
 };
+
+function getErrResult<TValue, TError>(result: Result<TValue, TError>, message: string): TError {
+    if (result.isErr) {
+        return result.error;
+    }
+
+    assert.fail(message);
+    throw new Error(message);
+}
+
+function getOkResult<TValue, TError>(result: Result<TValue, TError>, message: string): TValue {
+    if (result.isOk) {
+        return result.value;
+    }
+
+    assert.fail(message);
+    throw new Error(message);
+}
+
+function recordStageSuccess(params: {
+    readonly existing: unknown[];
+    readonly succeeded: unknown[];
+    readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
+    readonly result: unknown;
+    readonly options: unknown;
+}): void {
+    params.existing.push(params.selectNext({ result: params.result, options: params.options }));
+    params.succeeded.push(params.result);
+}
+
+async function runPublishStageUntilFailure(params: {
+    readonly createOptions: (context: unknown) => unknown;
+    readonly execute: (options: unknown) => Promise<unknown>;
+    readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
+    readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
+}): Promise<Result<readonly unknown[], unknown>> {
+    const succeeded: unknown[] = [];
+    const failures: Error[] = [];
+    const existing: unknown[] = [];
+
+    for (const packageConfig of params.config.packtoryConfig.packages) {
+        const options = params.createOptions({
+            packageName: packageConfig.name,
+            existing,
+            config: params.config
+        });
+        try {
+            const result = await params.execute(options);
+            recordStageSuccess({
+                existing,
+                succeeded,
+                selectNext: params.selectNext,
+                result,
+                options
+            });
+        } catch (error: unknown) {
+            failures.push(error as Error);
+        }
+    }
+
+    return Result.err({ succeeded, failures });
+}
 
 function createPacktoryUnderTest(
     overrides: SchedulerOverrides & {
@@ -146,12 +210,7 @@ function createPacktoryUnderTest(
         }) => unknown;
         readonly execute: (options: unknown) => Promise<unknown>;
         readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-        readonly createProgressEvent?:
-            | ((params: { packageName: string; result: unknown; options: unknown }) => {
-                version: string;
-                status: 'already-published' | 'initial-version' | 'new-version';
-            })
-            | undefined;
+        readonly createProgressEvent?: CreateProgressEvent | undefined;
         readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
     }): Promise<Result<unknown[], never>> => {
         const existing: unknown[] = [];
@@ -183,12 +242,7 @@ function createPacktoryUnderTest(
                 }) => unknown;
                 readonly execute: (options: unknown) => Promise<unknown>;
                 readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-                readonly createProgressEvent?:
-                    | ((params: { packageName: string; result: unknown; options: unknown }) => {
-                        version: string;
-                        status: 'already-published' | 'initial-version' | 'new-version';
-                    })
-                    | undefined;
+                readonly createProgressEvent?: CreateProgressEvent | undefined;
                 readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
             }) => {
                 if (params.emitScheduledEvents === false) {
@@ -206,14 +260,18 @@ function createPacktoryUnderTest(
             }
         )
     };
+    const packageProcessor: PackageProcessor = {
+        resolveAndLink,
+        tryBuildAndPublish,
+        buildAndPublish,
+        build: async () => {
+            throw new Error('Not implemented in tests');
+        }
+    };
 
     return {
         packtory: createPacktory({
-            packageProcessor: {
-                resolveAndLink,
-                tryBuildAndPublish,
-                buildAndPublish
-            } as never,
+            packageProcessor,
             scheduler: scheduler as never
         }),
         resolveAndLink,
@@ -228,11 +286,8 @@ test('resolveAndLinkAll() returns config issues when the config without registry
 
     const result = await packtory.resolveAndLinkAll({ invalid: true });
 
-    assert.strictEqual(result.isErr, true);
-    if (result.isOk) {
-        assert.fail('Expected resolveAndLinkAll() should fail but it did not');
-    }
-    assert.strictEqual(result.error.type, 'config');
+    const error = getErrResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
+    assert.strictEqual(error.type, 'config');
 });
 
 test('resolveAndLinkAll() returns partial scheduler failures', async () => {
@@ -295,14 +350,11 @@ test('resolveAndLinkAll() returns all resolved packages on success', async () =>
         })
     );
 
-    assert.strictEqual(result.isOk, true);
-    if (result.isErr) {
-        assert.fail('Expected resolveAndLinkAll() should succeed');
-    }
+    const resolvedPackages = getOkResult(result, 'Expected resolveAndLinkAll() should succeed');
     assert.strictEqual(resolveAndLink.callCount, 2);
     assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 1);
     assert.deepStrictEqual(
-        result.value.map((entry) => {
+        resolvedPackages.map((entry) => {
             return entry.name;
         }),
         ['dependency', 'package-a']
@@ -446,27 +498,7 @@ test('buildAndPublishAll() returns a partial failure when a linked bundle is mis
         resolveStage: async () => {
             return Result.ok([resolvedPackage]);
         },
-        publishStage: async (params) => {
-            const packageNames = params.config.packtoryConfig.packages.map((packageConfig) => {
-                return packageConfig.name;
-            });
-            const succeeded: unknown[] = [];
-            const failures: Error[] = [];
-            const existing: unknown[] = [];
-
-            for (const packageName of packageNames) {
-                const options = params.createOptions({ packageName, existing, config: params.config });
-                try {
-                    const result = await params.execute(options);
-                    existing.push(params.selectNext({ result, options }));
-                    succeeded.push(result);
-                } catch (error: unknown) {
-                    failures.push(error as Error);
-                }
-            }
-
-            return Result.err({ succeeded, failures });
-        }
+        publishStage: runPublishStageUntilFailure
     });
 
     const result = await packtory.buildAndPublishAll(

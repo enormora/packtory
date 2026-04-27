@@ -1,4 +1,5 @@
 import { test } from 'mocha';
+import { fake } from 'sinon';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './package-json.ts';
 
@@ -215,8 +216,7 @@ test(
     'additional attributes: validation fails when forbidden value is given',
     checkValidationFailure({
         schema: additionalPackageJsonAttributesSchema,
-        // eslint-disable-next-line @typescript-eslint/no-empty-function -- ok in this case
-        data: { foo: () => {} },
+        data: { foo: fake() },
         expectedMessages: [
             'at foo: invalid value: expected one of string, number, boolean, null, array or record, but got function'
         ]

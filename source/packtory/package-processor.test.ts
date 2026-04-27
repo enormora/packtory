@@ -75,18 +75,33 @@ type ProcessorContext = {
     readonly publish: SinonSpy;
 };
 
-// eslint-disable-next-line complexity -- test dependency setup is intentionally centralized here
+function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
+    return spy ?? fallback();
+}
+
 function createProcessor(overrides: Overrides = {}): ProcessorContext {
-    const {
-        emit = fake(),
-        resolve = fake.resolves(createLinkedBundle()),
-        linkBundle = fake.resolves(createLinkedBundle()),
-        determineCurrentVersion = fake.resolves(Maybe.nothing()),
-        addVersion = fake.returns(createVersionedBundle()),
-        increaseVersion = fake.returns(createVersionedBundle('package-a', '1.2.4')),
-        checkBundleAlreadyPublished = fake.resolves({ alreadyPublishedAsLatest: false }),
-        publish = fake.resolves(undefined)
-    } = overrides;
+    const emit = createSpy(overrides.emit, fake);
+    const resolve = createSpy(overrides.resolve, () => {
+        return fake.resolves(createLinkedBundle());
+    });
+    const linkBundle = createSpy(overrides.linkBundle, () => {
+        return fake.resolves(createLinkedBundle());
+    });
+    const determineCurrentVersion = createSpy(overrides.determineCurrentVersion, () => {
+        return fake.resolves(Maybe.nothing());
+    });
+    const addVersion = createSpy(overrides.addVersion, () => {
+        return fake.returns(createVersionedBundle());
+    });
+    const increaseVersion = createSpy(overrides.increaseVersion, () => {
+        return fake.returns(createVersionedBundle('package-a', '1.2.4'));
+    });
+    const checkBundleAlreadyPublished = createSpy(overrides.checkBundleAlreadyPublished, () => {
+        return fake.resolves({ alreadyPublishedAsLatest: false });
+    });
+    const publish = createSpy(overrides.publish, () => {
+        return fake.resolves(undefined);
+    });
     const dependencies = {
         progressBroadcaster: { emit },
         resourceResolver: { resolve },

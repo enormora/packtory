@@ -1,5 +1,6 @@
 import type _npmFetch from 'npm-registry-fetch';
 import type { publish as _publish } from 'libnpmpublish';
+import type { PackageJson } from '@npm/types';
 import { Maybe } from 'true-myth';
 import { z } from 'zod/mini';
 import { safeParse } from '@schema-hub/zod-error-formatter';
@@ -61,6 +62,10 @@ export type PackageVersionDetails = {
 type PublishFunctionParametersManifestIndex = 0;
 type PublishManifest = Readonly<Parameters<PublishFunction>[PublishFunctionParametersManifestIndex]>;
 
+function toPublishManifest(manifest: Readonly<BundlePackageJson>): PublishManifest {
+    return { ...manifest } satisfies PackageJson;
+}
+
 export function createRegistryClient(dependencies: Readonly<RegistryClientDependencies>): RegistryClient {
     const { npmFetch, publish } = dependencies;
 
@@ -112,8 +117,7 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
         },
 
         async publishPackage(manifest, tarData, registrySettings) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-            await publish(manifest as unknown as PublishManifest, tarData, {
+            await publish(toPublishManifest(manifest), tarData, {
                 defaultTag: 'latest',
                 forceAuth: {
                     alwaysAuth: true,

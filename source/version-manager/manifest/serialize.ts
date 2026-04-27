@@ -39,40 +39,35 @@ function isRecord(value: unknown): value is UnknownRecord {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function deepSort<T>(value: T, visitedObjects: readonly unknown[]): T {
-    if (visitedObjects.includes(value)) {
-        throw new Error('Circular structures are not supported');
+function deepSortValue(value: unknown, visitedObjects: readonly unknown[]): unknown {
+    if (isArray(value)) {
+        return value
+            .map((item) => {
+                return deepSortValue(item, visitedObjects);
+            })
+            .toSorted(compareValues);
     }
 
     if (isRecord(value)) {
+        if (visitedObjects.includes(value)) {
+            throw new Error('Circular structures are not supported');
+        }
+
+        const nextVisitedObjects = [...visitedObjects, value];
         const entries = Object.entries(value);
         entries.sort(compareEntryKeys);
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
         return Object.fromEntries(
             entries.map(([propertyName, propertyValue]) => {
-                let currentValue = propertyValue;
-
-                if (isArray(propertyValue)) {
-                    currentValue = propertyValue
-                        .map((item) => {
-                            if (isRecord(item)) {
-                                return deepSort(item, []);
-                            }
-                            return item;
-                        })
-                        .toSorted(compareValues);
-                }
-
-                return [propertyName, deepSort(currentValue, [...visitedObjects, value])];
+                return [propertyName, deepSortValue(propertyValue, nextVisitedObjects)];
             })
-        ) as T;
+        );
     }
 
     return value;
 }
 
 export function serializePackageJson(data: Readonly<PackageJson>): string {
-    const sortedData = deepSort(data, []);
+    const sortedData = deepSortValue(data, []);
     return JSON.stringify(sortedData, null, indentationSize);
 }

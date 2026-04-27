@@ -1,9 +1,3 @@
-import _createEventEmitter, { type Emitter } from 'mitt';
-
-// workaround for https://github.com/developit/mitt/issues/191
-// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- workaround
-const createEventEmitter = _createEventEmitter as unknown as typeof _createEventEmitter.default;
-
 type ProgressEventPayload = {
     readonly packageName: string;
     readonly version: string;
@@ -43,15 +37,21 @@ type Events = {
     readonly error: ErrorPayload;
 };
 
-type ProgressBroadcastEmitter = Emitter<Events>;
+type Listener<TPayload> = (payload: TPayload) => void;
 
 export type ProgressBroadcastProvider = {
-    readonly emit: ProgressBroadcastEmitter['emit'];
+    readonly emit: <TEventName extends keyof Events>(eventName: TEventName, payload: Events[TEventName]) => void;
 };
 
 export type ProgressBroadcastConsumer = {
-    readonly on: ProgressBroadcastEmitter['on'];
-    readonly off: ProgressBroadcastEmitter['off'];
+    readonly on: <TEventName extends keyof Events>(
+        eventName: TEventName,
+        listener: Listener<Events[TEventName]>
+    ) => void;
+    readonly off: <TEventName extends keyof Events>(
+        eventName: TEventName,
+        listener: Listener<Events[TEventName]>
+    ) => void;
 };
 
 export type ProgressBroadcaster = {
@@ -59,16 +59,37 @@ export type ProgressBroadcaster = {
     readonly consumer: ProgressBroadcastConsumer;
 };
 
+function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<Events[TEventName]>> } {
+    return {
+        scheduled: new Set(),
+        resolving: new Set(),
+        linking: new Set(),
+        building: new Set(),
+        rebuilding: new Set(),
+        publishing: new Set(),
+        done: new Set(),
+        error: new Set()
+    };
+}
+
 export function createProgressBroadcaster(): ProgressBroadcaster {
-    const emitter = createEventEmitter<Events>();
+    const listeners = createListenerRegistry();
 
     return {
         provider: {
-            emit: emitter.emit
+            emit: (eventName, payload) => {
+                listeners[eventName].forEach((listener) => {
+                    listener(payload);
+                });
+            }
         },
         consumer: {
-            on: emitter.on,
-            off: emitter.off
+            on: (eventName, listener) => {
+                listeners[eventName].add(listener);
+            },
+            off: (eventName, listener) => {
+                listeners[eventName].delete(listener);
+            }
         }
     };
 }

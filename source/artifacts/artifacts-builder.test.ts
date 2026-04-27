@@ -17,21 +17,35 @@ type Overrides = {
     readonly tarballBuilder?: { readonly build?: SinonSpy };
 };
 
-// eslint-disable-next-line complexity -- needs to be refactored
+function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
+    return spy ?? fallback();
+}
+
+function createTarballBuilderDependencies(overrides: Overrides['tarballBuilder'] = {}): {
+    readonly build: SinonSpy;
+} {
+    return {
+        build: createSpy(overrides.build, () => {
+            return fake.resolves(Buffer.from([-1]));
+        })
+    };
+}
+
 function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
-    const {
-        readFile = fake(),
-        checkReadability = fake(),
-        copyFile = fake(),
-        writeFile = fake(),
-        getFileMode = fake.resolves(-1),
-        tarballBuilder: { build = fake.resolves(Buffer.from([-1])) } = {}
-    } = overrides;
-    const fakeDependencies = {
-        fileManager: { readFile, checkReadability, copyFile, writeFile, getFileMode },
-        tarballBuilder: { build }
-    } as unknown as ArtifactsBuilderDependencies;
-    return createArtifactsBuilder(fakeDependencies);
+    const dependencies: ArtifactsBuilderDependencies = {
+        fileManager: {
+            readFile: createSpy(overrides.readFile, fake),
+            checkReadability: createSpy(overrides.checkReadability, fake),
+            copyFile: createSpy(overrides.copyFile, fake),
+            writeFile: createSpy(overrides.writeFile, fake),
+            getFileMode: createSpy(overrides.getFileMode, () => {
+                return fake.resolves(-1);
+            })
+        },
+        tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder)
+    };
+
+    return createArtifactsBuilder(dependencies);
 }
 
 test('buildTarball() returns the tarData and its shasum', async () => {

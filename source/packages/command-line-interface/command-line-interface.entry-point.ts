@@ -19,10 +19,13 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     log: console.log
 });
 
+function setExitCode(exitCode: number): void {
+    process.exitCode = exitCode;
+}
+
 async function main(): Promise<void> {
     const exitCode = await commandLinerInterfaceRunner.run(process.argv);
-    // eslint-disable-next-line require-atomic-updates -- we intentionally want to override the exitCode no matter what its current value is
-    process.exitCode = exitCode;
+    setExitCode(exitCode);
 }
 
 function crash(error: unknown): void {

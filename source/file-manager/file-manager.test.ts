@@ -12,13 +12,22 @@ type Overrides = {
     readonly stat?: SinonSpy;
 };
 
-// eslint-disable-next-line complexity -- needs to be refactored
+function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
+    return spy ?? fallback();
+}
+
 function fileManagerFactory(overrides: Overrides = {}): FileManager {
-    const { access = fake(), mkdir = fake(), writeFile = fake(), readFile = fake(), stat = fake() } = overrides;
-    const fakeDependencies = {
-        hostFileSystem: { access, mkdir, writeFile, readFile, stat }
-    } as unknown as FileManagerDependencies;
-    return createFileManager(fakeDependencies);
+    const dependencies: FileManagerDependencies = {
+        hostFileSystem: {
+            access: createSpy(overrides.access, fake),
+            mkdir: createSpy(overrides.mkdir, fake),
+            writeFile: createSpy(overrides.writeFile, fake),
+            readFile: createSpy(overrides.readFile, fake),
+            stat: createSpy(overrides.stat, fake)
+        }
+    };
+
+    return createFileManager(dependencies);
 }
 
 test('checkReadability() returns isReadable true when access() resolves', async () => {

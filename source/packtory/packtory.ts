@@ -1,5 +1,5 @@
 import { Result } from 'true-myth';
-import type { PacktoryConfig, PacktoryConfigWithoutRegistry, PackageConfig } from '../config/config.ts';
+import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import {
     validateConfig,
     validateConfigWithoutRegistry,
@@ -54,45 +54,58 @@ export type ResolveAndLinkFailure = CheckError | ConfigError | PartialErrorResul
 export type ResolveAndLinkAllResult = Result<readonly ResolvedPackage[], ResolveAndLinkFailure>;
 
 export type Packtory = {
-    buildAndPublishAll: (
-        // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- we treat the config as unknown but want to provide autocompletion to the client
-        config: PacktoryConfig | unknown,
-        options: Options
-    ) => Promise<PublishAllResult>;
-    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- we treat the config as unknown but want to provide autocompletion to the client
-    resolveAndLinkAll: (config: PacktoryConfigWithoutRegistry | unknown) => Promise<ResolveAndLinkAllResult>;
+    buildAndPublishAll: (config: unknown, options: Options) => Promise<PublishAllResult>;
+    resolveAndLinkAll: (config: unknown) => Promise<ResolveAndLinkAllResult>;
 };
 
 type PacktoryDependencies = {
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PacktoryScheduler;
 };
+
+type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const { packageProcessor, scheduler } = dependencies;
 
-    type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
+    function createResolveOptions(
+        packageName: string,
+        existing: readonly LinkedBundle[],
+        config: ConfigWithGraph<PacktoryConfigWithoutRegistry>
+    ): ResolveAndLinkOptions {
+        return configToResolveAndLinkOptions(packageName, config.packageConfigs, config.packtoryConfig, existing);
+    }
 
-    async function resolveAndLinkAllValidated<TConfig extends { packages: readonly PackageConfig[] }>(
-        config: ConfigWithGraph<TConfig>
+    function buildChecksResult(
+        config: PacktoryConfigWithoutRegistry,
+        resolvedPackages: readonly ResolvedPackage[]
+    ): Result<readonly ResolvedPackage[], CheckError> {
+        const checkIssues = runChecks({
+            settings: config.checks ?? {},
+            bundles: resolvedPackages.map((resolvedPackage) => {
+                return resolvedPackage.linkedBundle;
+            })
+        });
+
+        if (checkIssues.length > 0) {
+            return Result.err({ type: 'checks', issues: checkIssues });
+        }
+
+        return Result.ok(resolvedPackages);
+    }
+
+    async function resolveAndLinkAllValidated(
+        config: ConfigWithGraph<PacktoryConfigWithoutRegistry>
     ): Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
         const runResult = await scheduler.runForEachScheduledPackage<
             ResolvedPackage,
             LinkedBundle,
             ResolveAndLinkOptions,
-            TConfig
+            PacktoryConfigWithoutRegistry
         >({
             config,
             createOptions: (context) => {
-                const { packageName, existing, config: validatedConfig } = context;
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-                const sanitizedConfig = validatedConfig.packtoryConfig as unknown as PacktoryConfigWithoutRegistry;
-
-                return configToResolveAndLinkOptions(
-                    packageName,
-                    validatedConfig.packageConfigs,
-                    sanitizedConfig,
-                    existing
-                );
+                return createResolveOptions(context.packageName, context.existing, context.config);
             },
             execute: async (resolveOptions) => {
                 const linkedBundle = await packageProcessor.resolveAndLink(resolveOptions);
@@ -113,21 +126,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             return Result.err({ type: 'partial', error: runResult.error });
         }
 
-        const resolvedPackages = runResult.value;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-        const sanitizedConfig = config.packtoryConfig as unknown as PacktoryConfigWithoutRegistry;
-        const checkIssues = runChecks({
-            settings: sanitizedConfig.checks ?? {},
-            bundles: resolvedPackages.map((resolvedPackage) => {
-                return resolvedPackage.linkedBundle;
-            })
-        });
-
-        if (checkIssues.length > 0) {
-            return Result.err({ type: 'checks', issues: checkIssues });
-        }
-
-        return Result.ok(resolvedPackages);
+        return buildChecksResult(config.packtoryConfig, runResult.value);
     }
 
     async function determineVersionAndPublishAll(
@@ -187,6 +186,25 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         });
     }
 
+    function mapResolveFailureToPublishFailure(error: ResolveAndLinkFailure): PublishFailure {
+        if (error.type === 'partial') {
+            return {
+                type: 'partial',
+                succeeded: [],
+                failures: error.error.failures
+            };
+        }
+
+        return error;
+    }
+
+    function mapPublishStageFailure(error: PartialError<BuildAndPublishResult>): PublishFailure {
+        return {
+            type: 'partial',
+            ...error
+        };
+    }
+
     async function resolveAndLinkAllPublic(config: unknown): Promise<ResolveAndLinkAllResult> {
         const validation = validateConfigWithoutRegistry(config);
         if (validation.isErr) {
@@ -203,10 +221,8 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         return Result.ok(result.value);
     }
 
-    // eslint-disable-next-line max-statements -- needs to be refactored
     async function buildAndPublishAllPublic(config: unknown, options: Options): Promise<PublishAllResult> {
         const validation = validateConfig(config);
-
         if (validation.isErr) {
             return Result.err({
                 type: 'config',
@@ -216,15 +232,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
 
         const resolvedBundlesResult = await resolveAndLinkAllValidated(validation.value);
         if (resolvedBundlesResult.isErr) {
-            if (resolvedBundlesResult.error.type === 'partial') {
-                return Result.err({
-                    type: 'partial',
-                    succeeded: [],
-                    failures: resolvedBundlesResult.error.error.failures
-                });
-            }
-
-            return Result.err(resolvedBundlesResult.error);
+            return Result.err(mapResolveFailureToPublishFailure(resolvedBundlesResult.error));
         }
 
         const publishResult = await determineVersionAndPublishAll(
@@ -234,10 +242,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         );
 
         if (publishResult.isErr) {
-            return Result.err({
-                type: 'partial',
-                ...publishResult.error
-            });
+            return Result.err(mapPublishStageFailure(publishResult.error));
         }
 
         return Result.ok(publishResult.value);

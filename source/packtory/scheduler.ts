@@ -26,6 +26,14 @@ function isFulfilledResult<T extends PromiseSettledResult<unknown>>(
     return result.status === 'fulfilled';
 }
 
+function toError(error: unknown): Error {
+    if (error instanceof Error) {
+        return error;
+    }
+
+    return new Error('Unknown error');
+}
+
 const getValue = get('value');
 const getReason = get('reason');
 
@@ -90,11 +98,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
             try {
                 return await buildPackageSuccess(packageName);
             } catch (error: unknown) {
-                if (error instanceof Error) {
-                    progressBroadcastProvider.emit('error', { packageName, error });
-                } else {
-                    progressBroadcastProvider.emit('error', { packageName, error: new Error('Unknown error') });
-                }
+                progressBroadcastProvider.emit('error', { packageName, error: toError(error) });
                 throw error;
             }
         };
@@ -126,8 +130,8 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
     function getExecutionPlan<TConfig extends { packages: readonly PackageConfig[] }>(
         config: ConfigWithGraph<TConfig>
     ): readonly (readonly string[])[] {
-        // eslint-disable-next-line unicorn/no-array-reverse -- false positive
-        return config.packageGraph.reverse().getTopologicalGenerations();
+        const reverseGraph = config.packageGraph.reverse.bind(config.packageGraph);
+        return reverseGraph().getTopologicalGenerations();
     }
 
     return {
