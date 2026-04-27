@@ -23,25 +23,59 @@ type Overrides = {
     };
 };
 
-// eslint-disable-next-line complexity -- needs to be refactored
-function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
-    const {
-        buildAndPublishAll = fake.resolves(undefined),
-        resolveAndLinkAll = fake.resolves(Result.ok([])),
-        loadConfig = fake.resolves(undefined),
-        log = fake(),
-        progressBroadcaster = createProgressBroadcaster(),
-        spinnerRenderer: { add = fake(), stop = fake(), updateMessage = fake(), stopAll = fake() } = {}
-    } = overrides;
-    const fakeDependencies = {
-        packtory: { buildAndPublishAll, resolveAndLinkAll },
-        log,
-        configLoader: { load: loadConfig },
-        progressBroadcaster: progressBroadcaster.consumer,
-        spinnerRenderer: { add, stop, updateMessage, stopAll }
-    } as unknown as CommandLineInterfaceRunnerDependencies;
+function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
+    return spy ?? fallback();
+}
 
-    return createCommandLineInterfaceRunner(fakeDependencies);
+function createSpinnerRenderer(
+    overrides: Overrides['spinnerRenderer'] = {}
+): CommandLineInterfaceRunnerDependencies['spinnerRenderer'] {
+    const add = createSpy(overrides.add, fake);
+    const stop = createSpy(overrides.stop, fake);
+    const updateMessage = createSpy(overrides.updateMessage, fake);
+    const stopAll = createSpy(overrides.stopAll, fake);
+
+    return {
+        add: (...args) => {
+            add(...args);
+        },
+        stop: (...args) => {
+            stop(...args);
+        },
+        updateMessage: (...args) => {
+            updateMessage(...args);
+        },
+        stopAll: () => {
+            stopAll();
+        }
+    };
+}
+
+function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
+    const progressBroadcaster = overrides.progressBroadcaster ?? createProgressBroadcaster();
+    const log = createSpy(overrides.log, fake);
+    const dependencies: CommandLineInterfaceRunnerDependencies = {
+        packtory: {
+            buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
+                return fake.resolves(undefined);
+            }),
+            resolveAndLinkAll: createSpy(overrides.resolveAndLinkAll, () => {
+                return fake.resolves(Result.ok([]));
+            })
+        },
+        log: (message) => {
+            log(message);
+        },
+        configLoader: {
+            load: createSpy(overrides.loadConfig, () => {
+                return fake.resolves(undefined);
+            })
+        },
+        progressBroadcaster: progressBroadcaster.consumer,
+        spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer)
+    };
+
+    return createCommandLineInterfaceRunner(dependencies);
 }
 
 test('publish command loads the config file and passes it to buildAndPublishAll()', async () => {
@@ -115,6 +149,17 @@ test('prints error summary when publish command encounters config errors', async
 
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✖ The provided config is invalid, there are 1 issue(s)\n\n- foo']);
+});
+
+test('prints error summary when publish command encounters check errors', async () => {
+    const buildAndPublishAll = fake.resolves(Result.err({ type: 'checks', issues: ['foo'] }));
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    await runner.run(['foo', 'bar', 'publish']);
+
+    assert.strictEqual(log.callCount, 2);
+    assert.deepStrictEqual(log.firstCall.args, ['✖ Checks failed, there are 1 issue(s)\n\n- foo']);
 });
 
 test('prints error summary and dry-run note when publish command encounters partial errors', async () => {

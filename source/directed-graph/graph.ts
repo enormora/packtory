@@ -121,7 +121,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
             const node = getNode(id);
 
             for (const adjacentNodeId of node.adjacentNodeIds) {
-                const degree = newIncomingEdgesPerNode.get(adjacentNodeId) ?? 0;
+                const degree = Number(newIncomingEdgesPerNode.get(adjacentNodeId));
                 newIncomingEdgesPerNode.set(adjacentNodeId, degree - 1);
             }
         }

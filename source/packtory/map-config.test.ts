@@ -19,6 +19,43 @@ test('throws when the given packageName doesn’t exist in the configs', () => {
     }
 });
 
+test('throws when the sourcesFolder is missing after config merging', () => {
+    try {
+        configToBuildAndPublishOptions(
+            'foo',
+            new Map([['foo', { name: 'foo', entryPoints: [{ js: '' }], mainPackageJson: {} }]]),
+            {
+                registrySettings: { token: '' },
+                packages: [{ name: 'foo', entryPoints: [{ js: '' }], mainPackageJson: {} }]
+            } as unknown as Parameters<typeof configToBuildAndPublishOptions>[2],
+            []
+        );
+        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Config for package "foo" is missing the sources folder');
+    }
+});
+
+test('throws when the main package.json settings are missing after config merging', () => {
+    try {
+        configToBuildAndPublishOptions(
+            'foo',
+            new Map([['foo', { name: 'foo', sourcesFolder: '/src', entryPoints: [{ js: '' }] }]]),
+            {
+                registrySettings: { token: '' },
+                packages: [{ name: 'foo', sourcesFolder: '/src', entryPoints: [{ js: '' }] }]
+            } as unknown as Parameters<typeof configToBuildAndPublishOptions>[2],
+            []
+        );
+        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual(
+            (error as Error).message,
+            'Config for package "foo" is missing the main package.json settings'
+        );
+    }
+});
+
 test('doesn’t change js entryPoints when they are already absolute paths', () => {
     const packageConfig = {
         name: 'foo',

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { Result } from 'true-myth';
-import { validateConfig } from './validation.ts';
+import { validateConfig, validateConfigWithoutRegistry } from './validation.ts';
 
 test('returns the issues when the given config doesn’t match the schema', () => {
     const result = validateConfig({ not: 'valid' });
@@ -198,4 +198,29 @@ test('doesn’t report cyclic dependency issues when there is also a missing dep
     });
 
     assert.deepStrictEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
+});
+
+test('validateConfigWithoutRegistry() returns schema issues when the config is invalid', () => {
+    const result = validateConfigWithoutRegistry({ not: 'valid' });
+
+    assert.deepStrictEqual(result, Result.err(['invalid value doesn’t match expected union']));
+});
+
+test('validateConfigWithoutRegistry() returns duplicate and missing dependency issues', () => {
+    const result = validateConfigWithoutRegistry({
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        packages: [
+            { name: 'a', entryPoints: [{ js: 'foo' }], bundlePeerDependencies: ['b'] },
+            { name: 'c', entryPoints: [{ js: 'foo' }] },
+            { name: 'c', entryPoints: [{ js: 'foo' }] }
+        ]
+    });
+
+    assert.deepStrictEqual(
+        result,
+        Result.err([
+            'Duplicate package definition with the name "c"',
+            'Bundle peer dependency "b" referenced in "a" does not exist'
+        ])
+    );
 });

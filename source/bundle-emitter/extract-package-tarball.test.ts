@@ -18,3 +18,11 @@ test('returns the extracted file descriptions when the given tarball is not empt
 
     assert.deepStrictEqual(files, [{ filePath: 'foo', content: 'bar', isExecutable: true }]);
 });
+
+test('marks extracted files as non-executable when the tar header has no executable mode', async () => {
+    const tarballBuilder = createTarballBuilder();
+    const tarball = await tarballBuilder.build([{ filePath: 'foo', content: 'bar', isExecutable: false }]);
+    const files = await extractPackageTarball(tarball);
+
+    assert.deepStrictEqual(files, [{ filePath: 'foo', content: 'bar', isExecutable: false }]);
+});

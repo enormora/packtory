@@ -149,8 +149,7 @@ export function createCommandLineInterfaceRunner(
             });
 
             const program = binary(baseCommand);
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-            await run(program, programArguments as string[]);
+            await run(program, Array.from(programArguments));
 
             return exitCode;
         }

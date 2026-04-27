@@ -27,44 +27,69 @@ export type FileSystemAdapters = {
     fileSystemHostFilteringDeclarationFiles: FileSystemHost;
 };
 
+const syncMethodNames = {
+    fileExists: 'fileExistsSync',
+    directoryExists: 'directoryExistsSync'
+} as const;
+
+function bindRequiredBooleanMethod(object: FileSystemHost, methodName: string): (path: string) => boolean {
+    const method: unknown = Reflect.get(object, methodName);
+
+    if (typeof method !== 'function') {
+        throw new TypeError(`Expected ${methodName} to be a function`);
+    }
+
+    return (path) => {
+        const result: unknown = Reflect.apply(method, object, [path]);
+
+        if (typeof result !== 'boolean') {
+            throw new TypeError(`Expected ${methodName} to return a boolean`);
+        }
+
+        return result;
+    };
+}
+
 export function createFileSystemAdapters(dependencies: FileSystemAdaptersDependencies): FileSystemAdapters {
     const { fileSystemHost } = dependencies;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-    const fileSystemHostFilteringDeclarationFiles = Object.create(fileSystemHost) as unknown as FileSystemHost;
+    const fileExistsSync = bindRequiredBooleanMethod(fileSystemHost, syncMethodNames.fileExists);
+    const directoryExistsSync = bindRequiredBooleanMethod(fileSystemHost, syncMethodNames.directoryExists);
 
-    fileSystemHostFilteringDeclarationFiles.fileExists = async (filePath) => {
-        if (isDeclarationFile(filePath)) {
-            return false;
+    const fileSystemHostFilteringDeclarationFiles: FileSystemHost = {
+        ...fileSystemHost,
+        fileExists: async (filePath: string): Promise<boolean> => {
+            if (isDeclarationFile(filePath)) {
+                return false;
+            }
+
+            return fileSystemHost.fileExists(filePath);
+        },
+        [syncMethodNames.fileExists]: (filePath: string): boolean => {
+            if (isDeclarationFile(filePath)) {
+                return false;
+            }
+
+            // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
+            return fileExistsSync(filePath);
+        },
+        directoryExists: async (directoryPath: string): Promise<boolean> => {
+            if (isTypesRootFolder(directoryPath)) {
+                return false;
+            }
+
+            return fileSystemHost.directoryExists(directoryPath);
+        },
+        [syncMethodNames.directoryExists]: (directoryPath: string): boolean => {
+            if (isTypesRootFolder(directoryPath)) {
+                return false;
+            }
+
+            // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
+            return directoryExistsSync(directoryPath);
         }
-
-        return fileSystemHost.fileExists(filePath);
     };
-    fileSystemHostFilteringDeclarationFiles.fileExistsSync = (filePath) => {
-        if (isDeclarationFile(filePath)) {
-            return false;
-        }
-
-        // eslint-disable-next-line node/no-sync -- we need to provide this method to match the expected interface
-        return fileSystemHost.fileExistsSync(filePath);
-    };
-
-    fileSystemHostFilteringDeclarationFiles.directoryExists = async (directoryPath) => {
-        if (isTypesRootFolder(directoryPath)) {
-            return false;
-        }
-
-        return fileSystemHost.directoryExists(directoryPath);
-    };
-
-    fileSystemHostFilteringDeclarationFiles.directoryExistsSync = (directoryPath) => {
-        if (isTypesRootFolder(directoryPath)) {
-            return false;
-        }
-
-        // eslint-disable-next-line node/no-sync -- we need to provide this method to match the expected interface
-        return fileSystemHost.directoryExistsSync(directoryPath);
-    };
+    Object.setPrototypeOf(fileSystemHostFilteringDeclarationFiles, fileSystemHost);
 
     return {
         fileSystemHostWithoutFilter: fileSystemHost,

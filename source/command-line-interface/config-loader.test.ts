@@ -60,8 +60,7 @@ test('returns the value of the config property when it exists and buildConfig do
 });
 
 test('returns the value of the config property when it exists and buildConfig exists', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function -- ok in this case
-    const importModule = fake.resolves({ config: 'the-value', buildConfig() {} });
+    const importModule = fake.resolves({ config: 'the-value', buildConfig: fake() });
     const configLoader = configLoaderFactory({ importModule });
 
     const result = await configLoader.load();

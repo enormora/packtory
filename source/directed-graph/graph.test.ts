@@ -685,8 +685,8 @@ test('reverse() returns a new graph with the edges reversed', () => {
         ],
         connections: [{ from: 'a', to: 'b' }]
     });
-    // eslint-disable-next-line unicorn/no-array-reverse -- false positive
-    const reversedGraph = graph.reverse();
+    const reverseGraph = graph.reverse.bind(graph);
+    const reversedGraph = reverseGraph();
 
     assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), true);
     assert.strictEqual(graph.hasConnection({ from: 'b', to: 'a' }), false);
@@ -702,8 +702,8 @@ test('reverse() copies all nodes with their data', () => {
         ],
         connections: [{ from: 'a', to: 'b' }]
     });
-    // eslint-disable-next-line unicorn/no-array-reverse -- false positive
-    const reversedGraph = graph.reverse();
+    const reverseGraph = graph.reverse.bind(graph);
+    const reversedGraph = reverseGraph();
     const collectedNodes: unknown[] = [];
 
     reversedGraph.visitBreadthFirstSearch('b', (node) => {

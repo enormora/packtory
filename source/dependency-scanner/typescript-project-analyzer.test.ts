@@ -63,6 +63,26 @@ function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): Typescript
     return createTypescriptProjectAnalyzer(fakeDependencies);
 }
 
+function createAnalyzedProjectForGetSourceFileTest(): {
+    readonly project: ReturnType<TypescriptProjectAnalyzer['analyzeProject']>;
+    readonly sourceFile: FakeSourceFile;
+    readonly getSourceFile: SinonSpy;
+} {
+    const sourceFile = createFakeSourceFile({ filePath: '/foo/source-file.ts' });
+    const getSourceFile = fake((filePath: string) => {
+        return filePath === '/foo/source-file.ts' ? sourceFile : undefined;
+    });
+    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+    const project = analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: false
+    });
+
+    return { project, sourceFile, getSourceFile };
+}
+
 test('creates a project for all js files in the given folder with module resolution', () => {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
@@ -253,4 +273,19 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 
     assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
+});
+
+test('getSourceFile() returns the requested source file and throws when it does not exist', () => {
+    const { project, sourceFile, getSourceFile } = createAnalyzedProjectForGetSourceFileTest();
+
+    assert.strictEqual(project.getSourceFile('/foo/source-file.ts'), sourceFile);
+
+    try {
+        project.getSourceFile('/foo/missing.ts');
+        assert.fail('Expected getSourceFile() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Failed to find source file for "/foo/missing.ts"');
+    }
+
+    assert.strictEqual(project.getProject().getSourceFile, getSourceFile);
 });

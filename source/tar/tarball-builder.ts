@@ -9,9 +9,14 @@ export type TarballBuilder = {
 const gzipHeaderOperationSystemTypeFieldIndex = 9;
 const gzipHeaderOperationSystemTypeUnknown = 255;
 
-function unsetOperatingSystemGzipHeaderField(data: Buffer): void {
-    // eslint-disable-next-line no-param-reassign -- copying the whole buffer would be really inefficient
-    data[gzipHeaderOperationSystemTypeFieldIndex] = gzipHeaderOperationSystemTypeUnknown;
+function normalizeGzipHeader(data: Buffer): Buffer {
+    const normalizedData = Buffer.from(data);
+    normalizedData[gzipHeaderOperationSystemTypeFieldIndex] = gzipHeaderOperationSystemTypeUnknown;
+    return normalizedData;
+}
+
+function toBuffer(chunk: Buffer | string): Buffer {
+    return Buffer.from(chunk);
 }
 
 const staticFileModificationTime = new Date(0);
@@ -47,14 +52,13 @@ export function createTarballBuilder(): TarballBuilder {
             const tarballStream = pack.pipe(gzipStream);
             const chunks: Buffer[] = [];
 
-            for await (const chunk of tarballStream) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-                chunks.push(chunk as Buffer);
+            for await (const chunk of tarballStream as AsyncIterable<unknown>) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- gzip stream yields buffers in this usage
+                chunks.push(toBuffer(chunk as Buffer | string));
             }
 
             const tarData = Buffer.concat(chunks);
-            unsetOperatingSystemGzipHeaderField(tarData);
-            return tarData;
+            return normalizeGzipHeader(tarData);
         }
     };
 }

@@ -58,8 +58,12 @@ export type PackageVersionDetails = {
     readonly tarballUrl: string;
 };
 
-type PublishFunctionParametersManifestIndex = 0;
-type PublishManifest = Readonly<Parameters<PublishFunction>[PublishFunctionParametersManifestIndex]>;
+type PublishManifest = Readonly<Parameters<PublishFunction>[0]>;
+
+function toPublishManifest(manifest: Readonly<BundlePackageJson>): PublishManifest {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- libnpmpublish expects @npm/types PackageJson, which is structurally compatible with our validated manifest
+    return manifest as unknown as PublishManifest;
+}
 
 export function createRegistryClient(dependencies: Readonly<RegistryClientDependencies>): RegistryClient {
     const { npmFetch, publish } = dependencies;
@@ -112,8 +116,7 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
         },
 
         async publishPackage(manifest, tarData, registrySettings) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-            await publish(manifest as unknown as PublishManifest, tarData, {
+            await publish(toPublishManifest(manifest), tarData, {
                 defaultTag: 'latest',
                 forceAuth: {
                     alwaysAuth: true,

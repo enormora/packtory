@@ -7,46 +7,50 @@ import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter
 const emptyTarball = Buffer.from([
     31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 99, 96, 24, 5, 163, 96, 20, 140, 84, 0, 0, 46, 175, 181, 239, 0, 4, 0, 0
 ]);
-const tarballWithOneFile = Buffer.from([
-    /* eslint-disable unicorn/no-useless-spread -- hardcoded binary data for testing */
-    ...[31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 43, 72, 76, 206, 78, 76, 79, 213],
-    ...[79, 203, 207, 215, 203, 42, 102, 160, 9, 48, 48, 48, 48, 51, 49, 81],
-    ...[0, 209, 64, 128, 78, 131, 128, 177, 2, 130, 109, 160, 96, 96, 104, 104],
-    ...[102, 110, 4, 148, 103, 160, 3, 40, 45, 46, 73, 44, 2, 58, 133, 10, 158],
-    ...[68, 241, 220, 16, 1, 192, 120, 103, 24, 5, 163, 96, 20, 140, 130, 81, 48],
-    ...[242, 0, 0, 60, 78, 198, 6, 0, 8, 0, 0]
-    /* eslint-enable unicorn/no-useless-spread -- hardcoded binary data for testing */
-]);
+const tarballWithOneFile = Buffer.from(
+    [
+        [31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 43, 72, 76, 206, 78, 76, 79, 213],
+        [79, 203, 207, 215, 203, 42, 102, 160, 9, 48, 48, 48, 48, 51, 49, 81],
+        [0, 209, 64, 128, 78, 131, 128, 177, 2, 130, 109, 160, 96, 96, 104, 104],
+        [102, 110, 4, 148, 103, 160, 3, 40, 45, 46, 73, 44, 2, 58, 133, 10, 158],
+        [68, 241, 220, 16, 1, 192, 120, 103, 24, 5, 163, 96, 20, 140, 130, 81, 48],
+        [242, 0, 0, 60, 78, 198, 6, 0, 8, 0, 0]
+    ].flat()
+);
 
 type Overrides = {
     readonly buildTarball?: SinonSpy;
     readonly publishPackage?: SinonSpy;
     readonly fetchLatestVersion?: SinonSpy;
-    readonly build?: SinonSpy;
-    readonly emit?: SinonSpy;
     readonly collectContents?: SinonSpy;
     readonly fetchTarball?: SinonSpy;
 };
 
-// eslint-disable-next-line complexity -- needs to be refactored
-function emitterFactory(overrides: Overrides = {}): BundleEmitter {
-    const {
-        buildTarball = fake.resolves({}),
-        publishPackage = fake(),
-        fetchLatestVersion = fake(),
-        build = fake.resolves({ packageJson: {} }),
-        emit = fake(),
-        collectContents = fake.resolves([]),
-        fetchTarball = fake.resolves(emptyTarball)
-    } = overrides;
-    const fakeDependencies = {
-        artifactsBuilder: { buildTarball, collectContents },
-        registryClient: { publishPackage, fetchLatestVersion, fetchTarball },
-        bundler: { build },
-        progressBroadcaster: { emit }
-    } as unknown as BundleEmitterDependencies;
+function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
+    return spy ?? fallback();
+}
 
-    return createBundleEmitter(fakeDependencies);
+function emitterFactory(overrides: Overrides = {}): BundleEmitter {
+    const dependencies: BundleEmitterDependencies = {
+        artifactsBuilder: {
+            buildTarball: createSpy(overrides.buildTarball, () => {
+                return fake.resolves({});
+            }),
+            collectContents: createSpy(overrides.collectContents, () => {
+                return fake.resolves([]);
+            }),
+            buildFolder: fake()
+        },
+        registryClient: {
+            publishPackage: createSpy(overrides.publishPackage, fake),
+            fetchLatestVersion: createSpy(overrides.fetchLatestVersion, fake),
+            fetchTarball: createSpy(overrides.fetchTarball, () => {
+                return fake.resolves(emptyTarball);
+            })
+        }
+    };
+
+    return createBundleEmitter(dependencies);
 }
 
 test('determineCurrentVersion() fetches the latest version when automatic versioning is enabled', async () => {

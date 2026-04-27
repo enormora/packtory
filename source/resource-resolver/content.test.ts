@@ -6,3 +6,62 @@ test('combines all bundle files correctly', () => {
     const result = combineAllBundleFiles('/foo', [], []);
     assert.deepStrictEqual(result, []);
 });
+
+test('keeps absolute local dependency paths and derives relative target paths from sourcesFolder', () => {
+    const result = combineAllBundleFiles(
+        '/src',
+        [
+            {
+                filePath: '/src/nested/index.js',
+                directDependencies: new Set(['/src/nested/internal.js']),
+                project: 'project' as never
+            }
+        ],
+        []
+    );
+
+    assert.deepStrictEqual(result, [
+        {
+            sourceFilePath: '/src/nested/index.js',
+            targetFilePath: 'nested/index.js',
+            directDependencies: new Set(['/src/nested/internal.js']),
+            project: 'project',
+            isExplicitlyIncluded: false
+        }
+    ]);
+});
+
+test('normalizes object-form additional files and marks them as explicitly included', () => {
+    const result = combineAllBundleFiles(
+        '/src',
+        [],
+        [
+            { sourceFilePath: 'assets/readme.md', targetFilePath: 'readme.md' },
+            { sourceFilePath: '/absolute/license.txt', targetFilePath: 'license.txt' }
+        ]
+    );
+
+    assert.deepStrictEqual(result, [
+        {
+            sourceFilePath: '/src/assets/readme.md',
+            targetFilePath: 'readme.md',
+            directDependencies: new Set(),
+            isExplicitlyIncluded: true
+        },
+        {
+            sourceFilePath: '/absolute/license.txt',
+            targetFilePath: 'license.txt',
+            directDependencies: new Set(),
+            isExplicitlyIncluded: true
+        }
+    ]);
+});
+
+test('throws when an object-form additional file uses an absolute target path', () => {
+    try {
+        combineAllBundleFiles('/src', [], [{ sourceFilePath: 'file.txt', targetFilePath: '/absolute/file.txt' }]);
+        assert.fail('Expected combineAllBundleFiles() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'The targetFilePath must be relative');
+    }
+});

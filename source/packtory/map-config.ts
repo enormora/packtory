@@ -62,62 +62,114 @@ type PreparedPackageOptions<TBundle extends { name: string }> = {
     readonly versioning: VersioningSettings;
 };
 
-// eslint-disable-next-line complexity -- needs to be refactored
-function preparePackageOptions<TBundle extends { name: string }>(
-    packageName: string,
-    packageConfigs: Map<string, PackageConfig>,
-    packtoryConfig: PacktoryConfigWithoutRegistry,
-    existingBundles: readonly TBundle[]
-): PreparedPackageOptions<TBundle> {
+function getPackageConfig(packageName: string, packageConfigs: Map<string, PackageConfig>): PackageConfig {
     const packageConfig = packageConfigs.get(packageName);
 
     if (packageConfig === undefined) {
         throw new Error(`Config for package "${packageName}" is missing`);
     }
 
-    const {
-        sourcesFolder: sourcesFolderFromPackageConfig,
-        mainPackageJson: mainPackageJsonFromPackageConfig,
-        bundleDependencies = [],
-        bundlePeerDependencies = [],
-        entryPoints,
-        additionalFiles,
-        includeSourceMapFiles = packtoryConfig.commonPackageSettings?.includeSourceMapFiles ?? false,
-        additionalPackageJsonAttributes = {},
-        versioning = { automatic: true },
-        name
-    } = packageConfig;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-    const mainPackageJson = (packtoryConfig.commonPackageSettings?.mainPackageJson ??
-        mainPackageJsonFromPackageConfig) as MainPackageJson;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ok in this case
-    const sourcesFolder = (packtoryConfig.commonPackageSettings?.sourcesFolder ??
-        sourcesFolderFromPackageConfig) as string;
+    return packageConfig;
+}
 
-    const uniqueAdditionalFiles = mergeAdditionalFiles(
-        packtoryConfig.commonPackageSettings?.additionalFiles,
-        additionalFiles
+function getRequiredValue<TValue>(value: TValue | undefined, message: string): TValue {
+    if (value === undefined) {
+        throw new Error(message);
+    }
+
+    return value;
+}
+
+function resolveSourcesFolder(packageConfig: PackageConfig, packtoryConfig: PacktoryConfigWithoutRegistry): string {
+    return getRequiredValue(
+        packtoryConfig.commonPackageSettings?.sourcesFolder ?? packageConfig.sourcesFolder,
+        `Config for package "${packageConfig.name}" is missing the sources folder`
     );
+}
 
-    const sharedOptions: SharedPackageOptions<TBundle> = {
-        name,
-        entryPoints: map(entryPoints, (entryPoint) => {
+function resolveMainPackageJson(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): MainPackageJson {
+    return getRequiredValue(
+        packtoryConfig.commonPackageSettings?.mainPackageJson ?? packageConfig.mainPackageJson,
+        `Config for package "${packageConfig.name}" is missing the main package.json settings`
+    );
+}
+
+function buildAdditionalPackageJsonAttributes(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): ManifestOptionsSubset['additionalPackageJsonAttributes'] {
+    return {
+        ...packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
+        ...packageConfig.additionalPackageJsonAttributes
+    };
+}
+
+function resolveIncludeSourceMapFiles(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): boolean {
+    return packageConfig.includeSourceMapFiles ?? packtoryConfig.commonPackageSettings?.includeSourceMapFiles ?? false;
+}
+
+function resolveAdditionalFiles(
+    packageConfig: PackageConfig,
+    sourcesFolder: string,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): readonly AdditionalFileDescription[] {
+    return mergeAdditionalFiles(
+        packtoryConfig.commonPackageSettings?.additionalFiles,
+        packageConfig.additionalFiles
+    ).map((additionalFile) => {
+        return normalizeAdditionalFile(additionalFile, sourcesFolder);
+    });
+}
+
+function resolveBundleDependencies<TBundle extends { name: string }>(
+    packageConfig: PackageConfig,
+    existingBundles: readonly TBundle[]
+): Pick<SharedPackageOptions<TBundle>, 'bundleDependencies' | 'bundlePeerDependencies'> {
+    return {
+        bundleDependencies: dependencyNamesToBundles(packageConfig.bundleDependencies ?? [], existingBundles),
+        bundlePeerDependencies: dependencyNamesToBundles(packageConfig.bundlePeerDependencies ?? [], existingBundles)
+    };
+}
+
+function buildSharedOptions<TBundle extends { name: string }>(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry,
+    existingBundles: readonly TBundle[]
+): SharedPackageOptions<TBundle> {
+    const sourcesFolder = resolveSourcesFolder(packageConfig, packtoryConfig);
+    const mainPackageJson = resolveMainPackageJson(packageConfig, packtoryConfig);
+    const bundleDependencies = resolveBundleDependencies(packageConfig, existingBundles);
+
+    return {
+        name: packageConfig.name,
+        entryPoints: map(packageConfig.entryPoints, (entryPoint) => {
             return normalizeEntryPoint(entryPoint, sourcesFolder);
         }),
         sourcesFolder,
-        includeSourceMapFiles,
-        additionalFiles: uniqueAdditionalFiles.map((additionalFile) => {
-            return normalizeAdditionalFile(additionalFile, sourcesFolder);
-        }),
+        includeSourceMapFiles: resolveIncludeSourceMapFiles(packageConfig, packtoryConfig),
+        additionalFiles: resolveAdditionalFiles(packageConfig, sourcesFolder, packtoryConfig),
         moduleResolution: mainPackageJson.type ?? 'module',
         mainPackageJson,
-        additionalPackageJsonAttributes: {
-            ...packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
-            ...additionalPackageJsonAttributes
-        },
-        bundleDependencies: dependencyNamesToBundles(bundleDependencies, existingBundles),
-        bundlePeerDependencies: dependencyNamesToBundles(bundlePeerDependencies, existingBundles)
+        additionalPackageJsonAttributes: buildAdditionalPackageJsonAttributes(packageConfig, packtoryConfig),
+        ...bundleDependencies
     };
+}
+
+function preparePackageOptions<TBundle extends { name: string }>(
+    packageName: string,
+    packageConfigs: Map<string, PackageConfig>,
+    packtoryConfig: PacktoryConfigWithoutRegistry,
+    existingBundles: readonly TBundle[]
+): PreparedPackageOptions<TBundle> {
+    const packageConfig = getPackageConfig(packageName, packageConfigs);
+    const sharedOptions = buildSharedOptions(packageConfig, packtoryConfig, existingBundles);
+    const versioning = packageConfig.versioning ?? { automatic: true };
 
     return { sharedOptions, versioning };
 }
