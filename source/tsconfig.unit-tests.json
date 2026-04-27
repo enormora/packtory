@@ -3,7 +3,7 @@
     "compilerOptions": {
         "tsBuildInfoFile": "../target/buildcache/unit-tests.tsbuildinfo",
         "rootDir": "..",
-        "types": ["node"]
+        "types": ["node", "mocha"]
     },
     "references": [{ "path": "./tsconfig.sources.json" }],
     "include": ["./**/*.test.ts", "./test-libraries/**/*.ts"]

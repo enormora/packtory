@@ -1,22 +1,23 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
-test('creates an empty tarball', async (t) => {
+test('creates an empty tarball', async () => {
     const builder = createTarballBuilder();
     const tarballBuffer = await builder.build([]);
     const entries = await extractTarEntries(tarballBuffer);
 
-    t.deepEqual(entries, []);
+    assert.deepStrictEqual(entries, []);
 });
 
-test('creates a tarball with one file', async (t) => {
+test('creates a tarball with one file', async () => {
     const builder = createTarballBuilder();
 
     const tarballBuffer = await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
     const entries = await extractTarEntries(tarballBuffer);
 
-    t.deepEqual(entries, [
+    assert.deepStrictEqual(entries, [
         {
             header: {
                 devmajor: 0,
@@ -38,13 +39,13 @@ test('creates a tarball with one file', async (t) => {
     ]);
 });
 
-test('sets the file mode in the tar header correctly when the file is executable', async (t) => {
+test('sets the file mode in the tar header correctly when the file is executable', async () => {
     const builder = createTarballBuilder();
 
     const tarballBuffer = await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: true }]);
     const entries = await extractTarEntries(tarballBuffer);
 
-    t.deepEqual(entries, [
+    assert.deepStrictEqual(entries, [
         {
             header: {
                 devmajor: 0,
@@ -66,7 +67,7 @@ test('sets the file mode in the tar header correctly when the file is executable
     ]);
 });
 
-test('creates a tarball with many nested files', async (t) => {
+test('creates a tarball with many nested files', async () => {
     const builder = createTarballBuilder();
 
     const tarballBuffer = await builder.build([
@@ -90,7 +91,7 @@ test('creates a tarball with many nested files', async (t) => {
         type: 'file'
     } as const;
 
-    t.deepEqual(entries, [
+    assert.deepStrictEqual(entries, [
         {
             header: {
                 ...expectedBaseHeaders,

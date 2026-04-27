@@ -1,4 +1,5 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import { runChecks } from './check-runner.ts';
 
@@ -33,43 +34,43 @@ function createBundle(name: string, filePaths: readonly string[]): LinkedBundle 
     };
 }
 
-test('does not report issues when checks are disabled', (t) => {
+test('does not report issues when checks are disabled', () => {
     const issues = runChecks({
         settings: {},
         bundles: [createBundle('a', ['file-a.ts']), createBundle('b', ['file-b.ts'])]
     });
 
-    t.deepEqual(issues, []);
+    assert.deepStrictEqual(issues, []);
 });
 
-test('reports duplicate files when the rule is enabled', (t) => {
+test('reports duplicate files when the rule is enabled', () => {
     const issues = runChecks({
         settings: { noDuplicatedFiles: { enabled: true } },
         bundles: [createBundle('a', ['shared.ts']), createBundle('b', ['shared.ts'])]
     });
 
-    t.deepEqual(issues, ['File "shared.ts" is included in multiple packages: a, b']);
+    assert.deepStrictEqual(issues, ['File "shared.ts" is included in multiple packages: a, b']);
 });
 
-test('ignores duplicate files when the rule is disabled', (t) => {
+test('ignores duplicate files when the rule is disabled', () => {
     const issues = runChecks({
         settings: {},
         bundles: [createBundle('a', ['shared.ts']), createBundle('b', ['shared.ts'])]
     });
 
-    t.deepEqual(issues, []);
+    assert.deepStrictEqual(issues, []);
 });
 
-test('ignores duplicate files that are present in the allow list', (t) => {
+test('ignores duplicate files that are present in the allow list', () => {
     const issues = runChecks({
         settings: { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } },
         bundles: [createBundle('a', ['shared.ts']), createBundle('b', ['shared.ts']), createBundle('c', ['other.ts'])]
     });
 
-    t.deepEqual(issues, []);
+    assert.deepStrictEqual(issues, []);
 });
 
-test('reports duplicate files that are not present in the allow list', (t) => {
+test('reports duplicate files that are not present in the allow list', () => {
     const issues = runChecks({
         settings: { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } },
         bundles: [
@@ -78,5 +79,5 @@ test('reports duplicate files that are not present in the allow list', (t) => {
         ]
     });
 
-    t.deepEqual(issues, ['File "not-allowed.ts" is included in multiple packages: a, b']);
+    assert.deepStrictEqual(issues, ['File "not-allowed.ts" is included in multiple packages: a, b']);
 });

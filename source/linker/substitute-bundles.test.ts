@@ -1,10 +1,11 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { substituteDependencies } from './substitute-bundles.ts';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
 
-test('doesn’t substitute anything when the given dependencies are empty', (t) => {
+test('doesn’t substitute anything when the given dependencies are empty', () => {
     const inputGraph = createGraphFromResolvedBundle({
         contents: [
             {
@@ -40,7 +41,7 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
     const substitutedGraph = substituteDependencies(inputGraph, []);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         contents: [
             {
                 directDependencies: new Set(['/foo.js']),
@@ -70,7 +71,7 @@ test('doesn’t substitute anything when the given dependencies are empty', (t) 
     });
 });
 
-test('doesn’t substitute anything when the given dependencies has only files that don’t match', (t) => {
+test('doesn’t substitute anything when the given dependencies has only files that don’t match', () => {
     const inputGraph = createGraphFromResolvedBundle({
         contents: [
             {
@@ -133,7 +134,7 @@ test('doesn’t substitute anything when the given dependencies has only files t
     const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         contents: [
             {
                 directDependencies: new Set(['/foo.js']),
@@ -163,7 +164,7 @@ test('doesn’t substitute anything when the given dependencies has only files t
     });
 });
 
-test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', (t) => {
+test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/entry.js', content: 'import "./foo.js";' },
@@ -234,7 +235,7 @@ test('substitutes a file that has imports statements matching the files in the g
     const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         contents: [
             {
                 directDependencies: new Set(),
@@ -253,7 +254,7 @@ test('substitutes a file that has imports statements matching the files in the g
     });
 });
 
-test('substitutes a file which matches an already substituted file from a dependency', (t) => {
+test('substitutes a file which matches an already substituted file from a dependency', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/entry.js', content: 'import "./foo.js";' },
@@ -324,7 +325,7 @@ test('substitutes a file which matches an already substituted file from a depend
     const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         contents: [
             {
                 directDependencies: new Set(),
@@ -343,7 +344,7 @@ test('substitutes a file which matches an already substituted file from a depend
     });
 });
 
-test('substitutes multiple matching files in the given dependencies', (t) => {
+test('substitutes multiple matching files in the given dependencies', () => {
     const project = createProject({
         withFiles: [
             { filePath: '/entry.js', content: 'import "./foo.js";' },
@@ -464,7 +465,7 @@ test('substitutes multiple matching files in the given dependencies', (t) => {
     const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         contents: [
             {
                 directDependencies: new Set(['/foo.js']),

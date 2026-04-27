@@ -1,9 +1,10 @@
 import path from 'node:path';
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
-test('adds declaration files correctly to the bundle', async (t) => {
+test('adds declaration files correctly to the bundle', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-and-d-ts');
     const result = await packageProcessor.build({
         name: 'the-package-name',
@@ -21,7 +22,7 @@ test('adds declaration files correctly to the bundle', async (t) => {
         additionalPackageJsonAttributes: {}
     });
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         additionalAttributes: {},
         packageJson: {
             main: 'entry.js',

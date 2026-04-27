@@ -1,4 +1,5 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import {
     createTerminalSpinnerRenderer,
@@ -39,46 +40,46 @@ function terminalSpinnerRendererFactory(overrides: Overrides = {}): TerminalSpin
     return createTerminalSpinnerRenderer({ SpinnerClass } as unknown as TerminalSpinnerRendererDependencies);
 }
 
-test('add() creates a new spinner and starts that spinner directly', (t) => {
+test('add() creates a new spinner and starts that spinner directly', () => {
     const start = fake();
     const SpinnerClass = createFakeSpinnerClass({ start });
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
 
     renderer.add('the-id', 'the-label', 'the message');
 
-    t.is(SpinnerClass.callCount, 1);
-    t.is(SpinnerClass.calledWithNew(), true);
-    t.deepEqual(SpinnerClass.firstCall.args, [{ name: 'dots' }]);
-    t.is(start.callCount, 1);
-    t.deepEqual(start.firstCall.args, ['the message', { withPrefix: 'the-label: ' }]);
+    assert.strictEqual(SpinnerClass.callCount, 1);
+    assert.strictEqual(SpinnerClass.calledWithNew(), true);
+    assert.deepStrictEqual(SpinnerClass.firstCall.args, [{ name: 'dots' }]);
+    assert.strictEqual(start.callCount, 1);
+    assert.deepStrictEqual(start.firstCall.args, ['the message', { withPrefix: 'the-label: ' }]);
 });
 
-test('add() throws when adding two spinners with the same id', (t) => {
+test('add() throws when adding two spinners with the same id', () => {
     const start = fake();
     const SpinnerClass = createFakeSpinnerClass({ start });
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
 
     renderer.add('the-id', '', '');
 
-    t.throws(
-        () => {
-            renderer.add('the-id', '', '');
-        },
-        { message: 'Spinner with id the-id already exists' }
-    );
+    try {
+        renderer.add('the-id', '', '');
+        assert.fail('Expected add() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Spinner with id the-id already exists');
+    }
 });
 
-test('updateMessage() replaces the text of the spinner with the given id', (t) => {
+test('updateMessage() replaces the text of the spinner with the given id', () => {
     const SpinnerClass = createFakeSpinnerClass();
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
 
     renderer.add('the-id', '', '');
     renderer.updateMessage('the-id', 'foo');
 
-    t.is(SpinnerClass.firstCall.returnValue.text, 'foo');
+    assert.strictEqual(SpinnerClass.firstCall.returnValue.text, 'foo');
 });
 
-test('updateMessage() replaces the text of the correct spinner when having multiple', (t) => {
+test('updateMessage() replaces the text of the correct spinner when having multiple', () => {
     const SpinnerClass = createFakeSpinnerClass();
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
 
@@ -87,23 +88,23 @@ test('updateMessage() replaces the text of the correct spinner when having multi
     renderer.updateMessage('first', 'foo');
     renderer.updateMessage('second', 'bar');
 
-    t.is(SpinnerClass.firstCall.returnValue.text, 'foo');
-    t.is(SpinnerClass.secondCall.returnValue.text, 'bar');
+    assert.strictEqual(SpinnerClass.firstCall.returnValue.text, 'foo');
+    assert.strictEqual(SpinnerClass.secondCall.returnValue.text, 'bar');
 });
 
-test('updateMessage() throws when trying to change the message of a non-existing spinner', (t) => {
+test('updateMessage() throws when trying to change the message of a non-existing spinner', () => {
     const SpinnerClass = createFakeSpinnerClass();
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
 
-    t.throws(
-        () => {
-            renderer.updateMessage('the-id', '');
-        },
-        { message: 'Spinner with id the-id does not exist' }
-    );
+    try {
+        renderer.updateMessage('the-id', '');
+        assert.fail('Expected updateMessage() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Spinner with id the-id does not exist');
+    }
 });
 
-test('stop() stops the spinner with the given id with success status and the given message', (t) => {
+test('stop() stops the spinner with the given id with success status and the given message', () => {
     const succeed = fake();
     const SpinnerClass = createFakeSpinnerClass({ succeed });
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
@@ -111,11 +112,11 @@ test('stop() stops the spinner with the given id with success status and the giv
     renderer.add('the-id', '', '');
     renderer.stop('the-id', 'success', 'foo');
 
-    t.is(succeed.callCount, 1);
-    t.deepEqual(succeed.firstCall.args, ['foo']);
+    assert.strictEqual(succeed.callCount, 1);
+    assert.deepStrictEqual(succeed.firstCall.args, ['foo']);
 });
 
-test('stop() stops the spinner with the given id with failure status and the given message', (t) => {
+test('stop() stops the spinner with the given id with failure status and the given message', () => {
     const failed = fake();
     const SpinnerClass = createFakeSpinnerClass({ failed });
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
@@ -123,11 +124,11 @@ test('stop() stops the spinner with the given id with failure status and the giv
     renderer.add('the-id', '', '');
     renderer.stop('the-id', 'failure', 'foo');
 
-    t.is(failed.callCount, 1);
-    t.deepEqual(failed.firstCall.args, ['foo']);
+    assert.strictEqual(failed.callCount, 1);
+    assert.deepStrictEqual(failed.firstCall.args, ['foo']);
 });
 
-test('stop() stops only the correct corresponding spinners when having multiple', (t) => {
+test('stop() stops only the correct corresponding spinners when having multiple', () => {
     const failed = fake();
     const SpinnerClass = createFakeSpinnerClass({ failed });
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
@@ -137,24 +138,24 @@ test('stop() stops only the correct corresponding spinners when having multiple'
     renderer.stop('first', 'failure', 'foo');
     renderer.stop('second', 'failure', 'bar');
 
-    t.is(failed.callCount, 2);
-    t.deepEqual(failed.firstCall.args, ['foo']);
-    t.deepEqual(failed.secondCall.args, ['bar']);
+    assert.strictEqual(failed.callCount, 2);
+    assert.deepStrictEqual(failed.firstCall.args, ['foo']);
+    assert.deepStrictEqual(failed.secondCall.args, ['bar']);
 });
 
-test('stop() throws when trying to stop a spinner that does not exist', (t) => {
+test('stop() throws when trying to stop a spinner that does not exist', () => {
     const SpinnerClass = createFakeSpinnerClass();
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
 
-    t.throws(
-        () => {
-            renderer.stop('the-id', 'failure', '');
-        },
-        { message: 'Spinner with id the-id does not exist' }
-    );
+    try {
+        renderer.stop('the-id', 'failure', '');
+        assert.fail('Expected stop() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Spinner with id the-id does not exist');
+    }
 });
 
-test('stopAll() resets all spinners', (t) => {
+test('stopAll() resets all spinners', () => {
     const reset = fake();
     const SpinnerClass = createFakeSpinnerClass({ reset });
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
@@ -162,11 +163,11 @@ test('stopAll() resets all spinners', (t) => {
     renderer.add('first', '', '');
     renderer.stopAll();
 
-    t.is(reset.callCount, 1);
-    t.deepEqual(reset.firstCall.args, []);
+    assert.strictEqual(reset.callCount, 1);
+    assert.deepStrictEqual(reset.firstCall.args, []);
 });
 
-test('stopAll() stops all spinners that are still running', (t) => {
+test('stopAll() stops all spinners that are still running', () => {
     const failed = fake();
     const SpinnerClass = createFakeSpinnerClass({ failed });
     const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
@@ -176,6 +177,6 @@ test('stopAll() stops all spinners that are still running', (t) => {
     renderer.stop('first', 'success', 'foo');
     renderer.stopAll();
 
-    t.is(failed.callCount, 1);
-    t.deepEqual(failed.firstCall.args, ['Canceled …']);
+    assert.strictEqual(failed.callCount, 1);
+    assert.deepStrictEqual(failed.firstCall.args, ['Canceled …']);
 });

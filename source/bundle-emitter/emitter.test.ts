@@ -1,4 +1,5 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
@@ -48,7 +49,7 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
     return createBundleEmitter(fakeDependencies);
 }
 
-test('determineCurrentVersion() fetches the latest version when automatic versioning is enabled', async (t) => {
+test('determineCurrentVersion() fetches the latest version when automatic versioning is enabled', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const emitter = emitterFactory({ fetchLatestVersion });
 
@@ -58,11 +59,11 @@ test('determineCurrentVersion() fetches the latest version when automatic versio
         versioning: { automatic: true }
     });
 
-    t.is(fetchLatestVersion.callCount, 1);
-    t.deepEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
+    assert.strictEqual(fetchLatestVersion.callCount, 1);
+    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
 });
 
-test('determineCurrentVersion() returns the fetched version when automatic versioning is enabled', async (t) => {
+test('determineCurrentVersion() returns the fetched version when automatic versioning is enabled', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.just({ version: 'the-version' }));
     const emitter = emitterFactory({ fetchLatestVersion });
 
@@ -72,10 +73,10 @@ test('determineCurrentVersion() returns the fetched version when automatic versi
         versioning: { automatic: true }
     });
 
-    t.deepEqual(result, Maybe.just('the-version'));
+    assert.deepStrictEqual(result, Maybe.just('the-version'));
 });
 
-test('determineCurrentVersion() doesn’t fetches the latest version when manual versioning is enabled', async (t) => {
+test('determineCurrentVersion() doesn’t fetches the latest version when manual versioning is enabled', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const emitter = emitterFactory({ fetchLatestVersion });
 
@@ -85,10 +86,10 @@ test('determineCurrentVersion() doesn’t fetches the latest version when manual
         versioning: { automatic: false, version: '' }
     });
 
-    t.is(fetchLatestVersion.callCount, 0);
+    assert.strictEqual(fetchLatestVersion.callCount, 0);
 });
 
-test('determineCurrentVersion() returns the given version when manual versioning is enabled', async (t) => {
+test('determineCurrentVersion() returns the given version when manual versioning is enabled', async () => {
     const emitter = emitterFactory({});
 
     const result = await emitter.determineCurrentVersion({
@@ -97,10 +98,10 @@ test('determineCurrentVersion() returns the given version when manual versioning
         versioning: { automatic: false, version: 'manual-version' }
     });
 
-    t.deepEqual(result, Maybe.just('manual-version'));
+    assert.deepStrictEqual(result, Maybe.just('manual-version'));
 });
 
-test('checkBundleAlreadyPublished() fetches the latest version', async (t) => {
+test('checkBundleAlreadyPublished() fetches the latest version', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const emitter = emitterFactory({ fetchLatestVersion });
 
@@ -120,11 +121,11 @@ test('checkBundleAlreadyPublished() fetches the latest version', async (t) => {
         }
     });
 
-    t.is(fetchLatestVersion.callCount, 1);
-    t.deepEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
+    assert.strictEqual(fetchLatestVersion.callCount, 1);
+    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
 });
 
-test('checkBundleAlreadyPublished() returns false when there is no latest version in the registry', async (t) => {
+test('checkBundleAlreadyPublished() returns false when there is no latest version in the registry', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const emitter = emitterFactory({ fetchLatestVersion });
 
@@ -144,10 +145,10 @@ test('checkBundleAlreadyPublished() returns false when there is no latest versio
         }
     });
 
-    t.deepEqual(result, { alreadyPublishedAsLatest: false });
+    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
 });
 
-test('checkBundleAlreadyPublished() returns false when the latest version contents doesn’t match the given bundle', async (t) => {
+test('checkBundleAlreadyPublished() returns false when the latest version contents doesn’t match the given bundle', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.just('1.2.3'));
     const fetchTarball = fake.resolves(tarballWithOneFile);
     const emitter = emitterFactory({ fetchLatestVersion, fetchTarball });
@@ -168,10 +169,10 @@ test('checkBundleAlreadyPublished() returns false when the latest version conten
         }
     });
 
-    t.deepEqual(result, { alreadyPublishedAsLatest: false });
+    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
 });
 
-test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async (t) => {
+test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.just('1.2.3'));
     const fetchTarball = fake.resolves(emptyTarball);
     const emitter = emitterFactory({ fetchLatestVersion, fetchTarball });
@@ -192,10 +193,10 @@ test('checkBundleAlreadyPublished() returns true when the latest version content
         }
     });
 
-    t.deepEqual(result, { alreadyPublishedAsLatest: false });
+    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
 });
 
-test('publish() publishes the given bundle', async (t) => {
+test('publish() publishes the given bundle', async () => {
     const buildTarball = fake.resolves({ tarData: emptyTarball });
     const publishPackage = fake.resolves(undefined);
     const emitter = emitterFactory({ buildTarball, publishPackage });
@@ -216,6 +217,10 @@ test('publish() publishes the given bundle', async (t) => {
         }
     });
 
-    t.is(publishPackage.callCount, 1);
-    t.deepEqual(publishPackage.firstCall.args, [{ name: '', version: '' }, emptyTarball, { token: 'the-token' }]);
+    assert.strictEqual(publishPackage.callCount, 1);
+    assert.deepStrictEqual(publishPackage.firstCall.args, [
+        { name: '', version: '' },
+        emptyTarball,
+        { token: 'the-token' }
+    ]);
 });

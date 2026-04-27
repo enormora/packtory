@@ -1,70 +1,71 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test, type Func } from 'mocha';
 import { createDirectedGraph, type GraphEdge, type DirectedGraph } from './graph.ts';
 
-test('hasNode() returns false when there is no node for the given id', (t) => {
+test('hasNode() returns false when there is no node for the given id', () => {
     const graph = createDirectedGraph<string, string>();
-    t.is(graph.hasNode('foo'), false);
+    assert.strictEqual(graph.hasNode('foo'), false);
 });
 
-test('hasNode() returns true when there is a node for the given id', (t) => {
+test('hasNode() returns true when there is a node for the given id', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('foo', 'bar');
 
-    t.is(graph.hasNode('foo'), true);
+    assert.strictEqual(graph.hasNode('foo'), true);
 });
 
-test('addNode() throws when adding a node with an id that already exist', (t) => {
+test('addNode() throws when adding a node with an id that already exist', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('foo', 'bar');
 
     try {
         graph.addNode('foo', 'baz');
-        t.fail('Expected addNode() to fail but it did not');
+        assert.fail('Expected addNode() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "foo" already exists');
+        assert.strictEqual((error as Error).message, 'Node with id "foo" already exists');
     }
 });
 
-test('connect() throws when the from and to node don’t exist', (t) => {
+test('connect() throws when the from and to node don’t exist', () => {
     const graph = createDirectedGraph<string, string>();
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        t.fail('Expected connect() to fail but it did not');
+        assert.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "a" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('connect() throws when the from node doesn’t exist but the to node does', (t) => {
+test('connect() throws when the from node doesn’t exist but the to node does', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('b', 'bar');
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        t.fail('Expected connect() to fail but it did not');
+        assert.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "a" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('connect() throws when the to node doesn’t exist but the from node does', (t) => {
+test('connect() throws when the to node doesn’t exist but the from node does', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        t.fail('Expected connect() to fail but it did not');
+        assert.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "b" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
     }
 });
 
-test('connect() throws when both nodes exist but there is already a connection', (t) => {
+test('connect() throws when both nodes exist but there is already a connection', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -73,50 +74,50 @@ test('connect() throws when both nodes exist but there is already a connection',
 
     try {
         graph.connect({ from: 'a', to: 'b' });
-        t.fail('Expected connect() to fail but it did not');
+        assert.fail('Expected connect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Edge from "a" to "b" already exists');
+        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" already exists');
     }
 });
 
-test('disconnect() throws when the from and to node don’t exist', (t) => {
+test('disconnect() throws when the from and to node don’t exist', () => {
     const graph = createDirectedGraph<string, string>();
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        t.fail('Expected disconnect() to fail but it did not');
+        assert.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "a" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('disconnect() throws when the from node doesn’t exist but the to node does', (t) => {
+test('disconnect() throws when the from node doesn’t exist but the to node does', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('b', 'bar');
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        t.fail('Expected disconnect() to fail but it did not');
+        assert.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "a" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
     }
 });
 
-test('disconnect() throws when the to node doesn’t exist but the from node does', (t) => {
+test('disconnect() throws when the to node doesn’t exist but the from node does', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        t.fail('Expected disconnect() to fail but it did not');
+        assert.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "b" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
     }
 });
 
-test('disconnect() throws when both nodes exist but there is no connection', (t) => {
+test('disconnect() throws when both nodes exist but there is no connection', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
@@ -124,29 +125,29 @@ test('disconnect() throws when both nodes exist but there is no connection', (t)
 
     try {
         graph.disconnect({ from: 'a', to: 'b' });
-        t.fail('Expected disconnect() to fail but it did not');
+        assert.fail('Expected disconnect() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Edge from "a" to "b" does not exist');
+        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" does not exist');
     }
 });
 
-test('hasConnection() returns false when there is no connection for the given ids', (t) => {
+test('hasConnection() returns false when there is no connection for the given ids', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
     graph.addNode('b', 'bar');
 
-    t.is(graph.hasConnection({ from: 'a', to: 'b' }), false);
+    assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), false);
 });
 
-test('hasNode() returns true when there is a connection between the given nodes', (t) => {
+test('hasNode() returns true when there is a connection between the given nodes', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
     graph.addNode('b', 'bar');
     graph.connect({ from: 'a', to: 'b' });
 
-    t.is(graph.hasConnection({ from: 'a', to: 'b' }), true);
+    assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), true);
 });
 
 function collectFromGraph(graph: DirectedGraph<string, string>, startId: string): readonly string[] {
@@ -159,25 +160,25 @@ function collectFromGraph(graph: DirectedGraph<string, string>, startId: string)
     return collected;
 }
 
-test('throws when there is no node for the given start id', (t) => {
+test('throws when there is no node for the given start id', () => {
     const graph = createDirectedGraph<string, string>();
 
     try {
         collectFromGraph(graph, 'foo');
-        t.fail('Expected visitBreadthFirstSearch() to fail but it did not');
+        assert.fail('Expected visitBreadthFirstSearch() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "foo" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "foo" does not exist');
     }
 });
 
-test('visits the start node first', (t) => {
+test('visits the start node first', () => {
     const graph = createDirectedGraph<string, string>();
 
     graph.addNode('a', 'foo');
 
     const collected = collectFromGraph(graph, 'a');
 
-    t.deepEqual(collected, ['a']);
+    assert.deepStrictEqual(collected, ['a']);
 });
 
 type GraphWithNodesOptions = {
@@ -206,44 +207,51 @@ type NodeVisitingTestCase = GraphWithNodesOptions & {
     readonly expectedCollectedIds: string[];
 };
 
-const checkNodeVisiting = test.macro((t, testCase: Readonly<NodeVisitingTestCase>) => {
-    const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
-    const graph = createGraphWithNodes({ nodes, connections });
+function checkNodeVisiting(testCase: Readonly<NodeVisitingTestCase>): Func {
+    return () => {
+        const { nodes, connections, disconnections = [], expectedCollectedIds, startId } = testCase;
+        const graph = createGraphWithNodes({ nodes, connections });
 
-    disconnections.forEach((edge) => {
-        graph.disconnect(edge);
-    });
+        disconnections.forEach((edge) => {
+            graph.disconnect(edge);
+        });
 
-    const collected = collectFromGraph(graph, startId);
+        const collected = collectFromGraph(graph, startId);
 
-    t.deepEqual(collected, expectedCollectedIds);
-});
+        assert.deepStrictEqual(collected, expectedCollectedIds);
+    };
+}
 
-test('visits only the start node when there are multiple nodes but no connections', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar'],
-        ['c', 'baz']
-    ],
-    connections: [{ from: 'b', to: 'c' }],
-    startId: 'a',
-    expectedCollectedIds: ['a']
-});
+test(
+    'visits only the start node when there are multiple nodes but no connections',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz']
+        ],
+        connections: [{ from: 'b', to: 'c' }],
+        startId: 'a',
+        expectedCollectedIds: ['a']
+    })
+);
 
-test('visits the start node and all connected nodes', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar']
-    ],
-    connections: [{ from: 'a', to: 'b' }],
-    startId: 'a',
-    expectedCollectedIds: ['a', 'b']
-});
+test(
+    'visits the start node and all connected nodes',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [{ from: 'a', to: 'b' }],
+        startId: 'a',
+        expectedCollectedIds: ['a', 'b']
+    })
+);
 
 test(
     'visits ONLY the start node when there are two nodes but the start node is not connected to other but the other is connected to the start node',
-    checkNodeVisiting,
-    {
+    checkNodeVisiting({
         nodes: [
             ['a', 'foo'],
             ['b', 'bar']
@@ -251,116 +259,137 @@ test(
         connections: [{ from: 'b', to: 'a' }],
         startId: 'a',
         expectedCollectedIds: ['a']
-    }
+    })
 );
 
-test('visits the start node and multiple connected nodes', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar'],
-        ['c', 'baz']
-    ],
-    connections: [
-        { from: 'a', to: 'b' },
-        { from: 'a', to: 'c' }
-    ],
-    startId: 'a',
-    expectedCollectedIds: ['a', 'b', 'c']
-});
+test(
+    'visits the start node and multiple connected nodes',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' }
+        ],
+        startId: 'a',
+        expectedCollectedIds: ['a', 'b', 'c']
+    })
+);
 
-test('visits the start node and multiple connected nodes and their subsequent nodes', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar'],
-        ['c', 'baz'],
-        ['d', 'qux'],
-        ['e', 'quux']
-    ],
-    connections: [
-        { from: 'a', to: 'b' },
-        { from: 'a', to: 'c' },
-        { from: 'b', to: 'd' },
-        { from: 'd', to: 'e' }
-    ],
-    startId: 'a',
-    expectedCollectedIds: ['a', 'b', 'c', 'd', 'e']
-});
+test(
+    'visits the start node and multiple connected nodes and their subsequent nodes',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz'],
+            ['d', 'qux'],
+            ['e', 'quux']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' },
+            { from: 'b', to: 'd' },
+            { from: 'd', to: 'e' }
+        ],
+        startId: 'a',
+        expectedCollectedIds: ['a', 'b', 'c', 'd', 'e']
+    })
+);
 
-test('visits only the nodes that are still connected after disconnecting some', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar'],
-        ['c', 'baz'],
-        ['d', 'qux'],
-        ['e', 'quux']
-    ],
-    connections: [
-        { from: 'a', to: 'b' },
-        { from: 'a', to: 'c' },
-        { from: 'b', to: 'd' },
-        { from: 'd', to: 'e' }
-    ],
-    disconnections: [{ from: 'a', to: 'b' }],
-    startId: 'a',
-    expectedCollectedIds: ['a', 'c']
-});
+test(
+    'visits only the nodes that are still connected after disconnecting some',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz'],
+            ['d', 'qux'],
+            ['e', 'quux']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' },
+            { from: 'b', to: 'd' },
+            { from: 'd', to: 'e' }
+        ],
+        disconnections: [{ from: 'a', to: 'b' }],
+        startId: 'a',
+        expectedCollectedIds: ['a', 'c']
+    })
+);
 
-test('visits the two nodes that are connected to each other', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar']
-    ],
-    connections: [
-        { from: 'a', to: 'b' },
-        { from: 'b', to: 'a' }
-    ],
-    startId: 'a',
-    expectedCollectedIds: ['a', 'b']
-});
+test(
+    'visits the two nodes that are connected to each other',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' }
+        ],
+        startId: 'a',
+        expectedCollectedIds: ['a', 'b']
+    })
+);
 
-test('visits the three nodes which have a cyclic connection', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar'],
-        ['c', 'baz']
-    ],
-    connections: [
-        { from: 'a', to: 'b' },
-        { from: 'b', to: 'c' },
-        { from: 'c', to: 'a' }
-    ],
-    startId: 'a',
-    expectedCollectedIds: ['a', 'b', 'c']
-});
+test(
+    'visits the three nodes which have a cyclic connection',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'c' },
+            { from: 'c', to: 'a' }
+        ],
+        startId: 'a',
+        expectedCollectedIds: ['a', 'b', 'c']
+    })
+);
 
-test('visits ONLY the starting node when it is connected to itself', checkNodeVisiting, {
-    nodes: [['a', 'foo']],
-    connections: [{ from: 'a', to: 'a' }],
-    startId: 'a',
-    expectedCollectedIds: ['a']
-});
+test(
+    'visits ONLY the starting node when it is connected to itself',
+    checkNodeVisiting({
+        nodes: [['a', 'foo']],
+        connections: [{ from: 'a', to: 'a' }],
+        startId: 'a',
+        expectedCollectedIds: ['a']
+    })
+);
 
-test('visits only the nodes that are connected with the starting id', checkNodeVisiting, {
-    nodes: [
-        ['a', 'foo'],
-        ['b', 'bar'],
-        ['c', 'baz']
-    ],
-    connections: [
-        { from: 'a', to: 'b' },
-        { from: 'b', to: 'c' }
-    ],
-    startId: 'b',
-    expectedCollectedIds: ['b', 'c']
-});
+test(
+    'visits only the nodes that are connected with the starting id',
+    checkNodeVisiting({
+        nodes: [
+            ['a', 'foo'],
+            ['b', 'bar'],
+            ['c', 'baz']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'c' }
+        ],
+        startId: 'b',
+        expectedCollectedIds: ['b', 'c']
+    })
+);
 
-test('detectCycles() returns an empty array for an empty graph', (t) => {
+test('detectCycles() returns an empty array for an empty graph', () => {
     const graph = createDirectedGraph<string, string>();
 
-    t.deepEqual(graph.detectCycles(), []);
+    assert.deepStrictEqual(graph.detectCycles(), []);
 });
 
-test('detectCycles() returns an empty array for a non-cyclic graph', (t) => {
+test('detectCycles() returns an empty array for a non-cyclic graph', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', 'foo'],
@@ -369,19 +398,19 @@ test('detectCycles() returns an empty array for a non-cyclic graph', (t) => {
         connections: [{ from: 'a', to: 'b' }]
     });
 
-    t.deepEqual(graph.detectCycles(), []);
+    assert.deepStrictEqual(graph.detectCycles(), []);
 });
 
-test('detectCycles() returns the detected cycle when a node is referencing itself', (t) => {
+test('detectCycles() returns the detected cycle when a node is referencing itself', () => {
     const graph = createGraphWithNodes({
         nodes: [['a', 'foo']],
         connections: [{ from: 'a', to: 'a' }]
     });
 
-    t.deepEqual(graph.detectCycles(), [['a', 'a']]);
+    assert.deepStrictEqual(graph.detectCycles(), [['a', 'a']]);
 });
 
-test('detectCycles() returns the detected cycle when a node is indirectly referencing itself', (t) => {
+test('detectCycles() returns the detected cycle when a node is indirectly referencing itself', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', 'foo'],
@@ -393,10 +422,10 @@ test('detectCycles() returns the detected cycle when a node is indirectly refere
         ]
     });
 
-    t.deepEqual(graph.detectCycles(), [['a', 'b', 'a']]);
+    assert.deepStrictEqual(graph.detectCycles(), [['a', 'b', 'a']]);
 });
 
-test('detectCycles() detects multiple cycles in the same root node', (t) => {
+test('detectCycles() detects multiple cycles in the same root node', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', 'foo'],
@@ -413,13 +442,13 @@ test('detectCycles() detects multiple cycles in the same root node', (t) => {
         ]
     });
 
-    t.deepEqual(graph.detectCycles(), [
+    assert.deepStrictEqual(graph.detectCycles(), [
         ['a', 'b', 'a'],
         ['a', 'b', 'c', 'd', 'c']
     ]);
 });
 
-test('detectCycles() detects multiple cycles which are not connected', (t) => {
+test('detectCycles() detects multiple cycles which are not connected', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', 'foo'],
@@ -433,13 +462,13 @@ test('detectCycles() detects multiple cycles which are not connected', (t) => {
         ]
     });
 
-    t.deepEqual(graph.detectCycles(), [
+    assert.deepStrictEqual(graph.detectCycles(), [
         ['a', 'b', 'a'],
         ['c', 'c']
     ]);
 });
 
-test('detectCycles() returns an empty array for a non-cyclic graph even when adjacent nodes of the base node reference a certain node multiple times within the graph', (t) => {
+test('detectCycles() returns an empty array for a non-cyclic graph even when adjacent nodes of the base node reference a certain node multiple times within the graph', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -453,10 +482,10 @@ test('detectCycles() returns an empty array for a non-cyclic graph even when adj
         ]
     });
 
-    t.deepEqual(graph.detectCycles(), []);
+    assert.deepStrictEqual(graph.detectCycles(), []);
 });
 
-test('detectCycles() returns all detected cycles when one base node has multiple cycles in its adjacent nodes', (t) => {
+test('detectCycles() returns all detected cycles when one base node has multiple cycles in its adjacent nodes', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -476,7 +505,7 @@ test('detectCycles() returns all detected cycles when one base node has multiple
         ]
     });
 
-    t.deepEqual(graph.detectCycles(), [
+    assert.deepStrictEqual(graph.detectCycles(), [
         ['a', 'b', 'd', 'e', 'a'],
         ['a', 'b', 'd', 'e', 'c', 'd'],
         ['a', 'c', 'd', 'e', 'a'],
@@ -484,16 +513,16 @@ test('detectCycles() returns all detected cycles when one base node has multiple
     ]);
 });
 
-test('isCyclic() returns true when there is one cycle in the graph', (t) => {
+test('isCyclic() returns true when there is one cycle in the graph', () => {
     const graph = createGraphWithNodes({
         nodes: [['a', '']],
         connections: [{ from: 'a', to: 'a' }]
     });
 
-    t.is(graph.isCyclic(), true);
+    assert.strictEqual(graph.isCyclic(), true);
 });
 
-test('isCyclic() returns false when there is no cycle in the graph', (t) => {
+test('isCyclic() returns false when there is no cycle in the graph', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -502,10 +531,10 @@ test('isCyclic() returns false when there is no cycle in the graph', (t) => {
         connections: [{ from: 'a', to: 'b' }]
     });
 
-    t.is(graph.isCyclic(), false);
+    assert.strictEqual(graph.isCyclic(), false);
 });
 
-test('getTopologicalGenerations() throws when the graph is cyclic', (t) => {
+test('getTopologicalGenerations() throws when the graph is cyclic', () => {
     const graph = createGraphWithNodes({
         nodes: [['a', '']],
         connections: [{ from: 'a', to: 'a' }]
@@ -513,20 +542,23 @@ test('getTopologicalGenerations() throws when the graph is cyclic', (t) => {
 
     try {
         graph.getTopologicalGenerations();
-        t.fail('Expected getTopologicalGenerations() to fail but it did not');
+        assert.fail('Expected getTopologicalGenerations() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Failed to determine topological generations, current graph is cyclic');
+        assert.strictEqual(
+            (error as Error).message,
+            'Failed to determine topological generations, current graph is cyclic'
+        );
     }
 });
 
-test('getTopologicalGenerations() returns an empty array when the graph is empty', (t) => {
+test('getTopologicalGenerations() returns an empty array when the graph is empty', () => {
     const graph = createDirectedGraph<string, string>();
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, []);
+    assert.deepStrictEqual(generations, []);
 });
 
-test('getTopologicalGenerations() returns one generation when there is only one node', (t) => {
+test('getTopologicalGenerations() returns one generation when there is only one node', () => {
     const graph = createGraphWithNodes({
         nodes: [['a', '']],
         connections: []
@@ -534,10 +566,10 @@ test('getTopologicalGenerations() returns one generation when there is only one 
 
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, [['a']]);
+    assert.deepStrictEqual(generations, [['a']]);
 });
 
-test('getTopologicalGenerations() returns one generation when there are multiple non-connected nodes', (t) => {
+test('getTopologicalGenerations() returns one generation when there are multiple non-connected nodes', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -549,10 +581,10 @@ test('getTopologicalGenerations() returns one generation when there are multiple
 
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, [['a', 'b', 'c']]);
+    assert.deepStrictEqual(generations, [['a', 'b', 'c']]);
 });
 
-test('getTopologicalGenerations() returns two generations when there are two nodes which are connected', (t) => {
+test('getTopologicalGenerations() returns two generations when there are two nodes which are connected', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -563,10 +595,10 @@ test('getTopologicalGenerations() returns two generations when there are two nod
 
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, [['a'], ['b']]);
+    assert.deepStrictEqual(generations, [['a'], ['b']]);
 });
 
-test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with two roots', (t) => {
+test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with two roots', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -578,10 +610,10 @@ test('getTopologicalGenerations() returns two generations when there are three n
 
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, [['a', 'c'], ['b']]);
+    assert.deepStrictEqual(generations, [['a', 'c'], ['b']]);
 });
 
-test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with one root', (t) => {
+test('getTopologicalGenerations() returns two generations when there are three nodes which are connected with one root', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -596,10 +628,10 @@ test('getTopologicalGenerations() returns two generations when there are three n
 
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, [['a'], ['b', 'c']]);
+    assert.deepStrictEqual(generations, [['a'], ['b', 'c']]);
 });
 
-test('getTopologicalGenerations() returns multiple generations of two independent paths', (t) => {
+test('getTopologicalGenerations() returns multiple generations of two independent paths', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -615,13 +647,13 @@ test('getTopologicalGenerations() returns multiple generations of two independen
 
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, [
+    assert.deepStrictEqual(generations, [
         ['a', 'c'],
         ['b', 'd']
     ]);
 });
 
-test('getTopologicalGenerations() returns multiple generations of two dependent paths', (t) => {
+test('getTopologicalGenerations() returns multiple generations of two dependent paths', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -642,10 +674,10 @@ test('getTopologicalGenerations() returns multiple generations of two dependent 
 
     const generations = graph.getTopologicalGenerations();
 
-    t.deepEqual(generations, [['a', 'c'], ['d'], ['e'], ['b', 'f']]);
+    assert.deepStrictEqual(generations, [['a', 'c'], ['d'], ['e'], ['b', 'f']]);
 });
 
-test('reverse() returns a new graph with the edges reversed', (t) => {
+test('reverse() returns a new graph with the edges reversed', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', 'foo'],
@@ -656,13 +688,13 @@ test('reverse() returns a new graph with the edges reversed', (t) => {
     // eslint-disable-next-line unicorn/no-array-reverse -- false positive
     const reversedGraph = graph.reverse();
 
-    t.is(graph.hasConnection({ from: 'a', to: 'b' }), true);
-    t.is(graph.hasConnection({ from: 'b', to: 'a' }), false);
-    t.is(reversedGraph.hasConnection({ from: 'a', to: 'b' }), false);
-    t.is(reversedGraph.hasConnection({ from: 'b', to: 'a' }), true);
+    assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), true);
+    assert.strictEqual(graph.hasConnection({ from: 'b', to: 'a' }), false);
+    assert.strictEqual(reversedGraph.hasConnection({ from: 'a', to: 'b' }), false);
+    assert.strictEqual(reversedGraph.hasConnection({ from: 'b', to: 'a' }), true);
 });
 
-test('reverse() copies all nodes with their data', (t) => {
+test('reverse() copies all nodes with their data', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', 'foo'],
@@ -678,7 +710,7 @@ test('reverse() copies all nodes with their data', (t) => {
         collectedNodes.push(node);
     });
 
-    t.deepEqual(collectedNodes, [
+    assert.deepStrictEqual(collectedNodes, [
         {
             id: 'b',
             data: 'bar',
@@ -694,7 +726,7 @@ test('reverse() copies all nodes with their data', (t) => {
     ]);
 });
 
-test('getAdjacentIds() returns an empty Set if the requested node doesn’t have any connections', (t) => {
+test('getAdjacentIds() returns an empty Set if the requested node doesn’t have any connections', () => {
     const graph = createGraphWithNodes({
         nodes: [['a', '']],
         connections: []
@@ -702,10 +734,10 @@ test('getAdjacentIds() returns an empty Set if the requested node doesn’t have
 
     const adjacentIds = graph.getAdjacentIds('a');
 
-    t.deepEqual(Array.from(adjacentIds.values()), []);
+    assert.deepStrictEqual(Array.from(adjacentIds.values()), []);
 });
 
-test('getAdjacentIds() returns all connected ids for the requested node', (t) => {
+test('getAdjacentIds() returns all connected ids for the requested node', () => {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', ''],
@@ -724,10 +756,10 @@ test('getAdjacentIds() returns all connected ids for the requested node', (t) =>
 
     const adjacentIds = graph.getAdjacentIds('a');
 
-    t.deepEqual(Array.from(adjacentIds.values()), ['b', 'c', 'd']);
+    assert.deepStrictEqual(Array.from(adjacentIds.values()), ['b', 'c', 'd']);
 });
 
-test('getAdjacentIds() throws when the requested node doesn’t exist', (t) => {
+test('getAdjacentIds() throws when the requested node doesn’t exist', () => {
     const graph = createGraphWithNodes({
         nodes: [],
         connections: []
@@ -735,8 +767,8 @@ test('getAdjacentIds() throws when the requested node doesn’t exist', (t) => {
 
     try {
         graph.getAdjacentIds('a');
-        t.fail('Expected getAdjacentIds() to fail but it did not');
+        assert.fail('Expected getAdjacentIds() to fail but it did not');
     } catch (error: unknown) {
-        t.is((error as Error).message, 'Node with id "a" does not exist');
+        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
     }
 });

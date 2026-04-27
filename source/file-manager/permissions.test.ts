@@ -1,52 +1,53 @@
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { isExecutableFileMode } from './permissions.ts';
 
-test('returns false when the given mode is invalid', (t) => {
+test('returns false when the given mode is invalid', () => {
     const result = isExecutableFileMode(-1);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns false when the given mode is not executable at all', (t) => {
+test('returns false when the given mode is not executable at all', () => {
     const result = isExecutableFileMode(420);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns false when the given mode is only executable for the user', (t) => {
+test('returns false when the given mode is only executable for the user', () => {
     const result = isExecutableFileMode(484);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns false when the given mode is only executable for the group', (t) => {
+test('returns false when the given mode is only executable for the group', () => {
     const result = isExecutableFileMode(428);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns false when the given mode is only executable for others', (t) => {
+test('returns false when the given mode is only executable for others', () => {
     const result = isExecutableFileMode(421);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns false when the given mode is only executable for group and others', (t) => {
+test('returns false when the given mode is only executable for group and others', () => {
     const result = isExecutableFileMode(429);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns false when the given mode is only executable for user and others', (t) => {
+test('returns false when the given mode is only executable for user and others', () => {
     const result = isExecutableFileMode(485);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns false when the given mode is only executable for user and group', (t) => {
+test('returns false when the given mode is only executable for user and group', () => {
     const result = isExecutableFileMode(492);
-    t.is(result, false);
+    assert.strictEqual(result, false);
 });
 
-test('returns true when the given mode is executable for all user, group and others', (t) => {
+test('returns true when the given mode is executable for all user, group and others', () => {
     const result = isExecutableFileMode(493);
-    t.is(result, true);
+    assert.strictEqual(result, true);
 });
 
-test('returns true when the given mode is executable for all user, group and others, ignoring other permissions', (t) => {
+test('returns true when the given mode is executable for all user, group and others, ignoring other permissions', () => {
     const result = isExecutableFileMode(459);
-    t.is(result, true);
+    assert.strictEqual(result, true);
 });

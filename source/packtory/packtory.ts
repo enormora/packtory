@@ -9,7 +9,7 @@ import {
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { runChecks } from '../checks/check-runner.ts';
-import type { Scheduler, PartialError } from './scheduler.ts';
+import type { Scheduler as PacktoryScheduler, PartialError } from './scheduler.ts';
 import {
     configToBuildAndPublishOptions,
     configToResolveAndLinkOptions,
@@ -65,7 +65,7 @@ export type Packtory = {
 
 type PacktoryDependencies = {
     readonly packageProcessor: PackageProcessor;
-    readonly scheduler: Scheduler;
+    readonly scheduler: PacktoryScheduler;
 };
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const { packageProcessor, scheduler } = dependencies;

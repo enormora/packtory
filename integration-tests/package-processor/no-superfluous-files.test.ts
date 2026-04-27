@@ -1,9 +1,10 @@
 import path from 'node:path';
-import test from 'ava';
+import assert from 'node:assert';
+import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
-test('ignores superfluous local files and reference node modules', async (t) => {
+test('ignores superfluous local files and reference node modules', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/superfluous-files');
     const result = await packageProcessor.build({
         name: 'the-package-name',
@@ -19,7 +20,7 @@ test('ignores superfluous local files and reference node modules', async (t) => 
         additionalPackageJsonAttributes: {}
     });
 
-    t.deepEqual(result, {
+    assert.deepStrictEqual(result, {
         additionalAttributes: {},
         packageJson: {
             main: 'entry.js',
