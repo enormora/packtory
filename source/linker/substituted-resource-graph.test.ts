@@ -1,9 +1,12 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type -- small local test fixtures stay clearer without repetitive annotations */
 import assert from 'node:assert';
 import { test } from 'mocha';
+import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import { createSubstitutedResourceGraph } from './substituted-resource-graph.ts';
 
-function createFileDescription(sourceFilePath: string, targetFilePath = sourceFilePath.slice(1)) {
+function createFileDescription(
+    sourceFilePath: string,
+    targetFilePath = sourceFilePath.slice(1)
+): TransferableFileDescription {
     return {
         sourceFilePath,
         targetFilePath,

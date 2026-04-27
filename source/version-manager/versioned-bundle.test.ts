@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type -- small local test fixtures stay clearer without repetitive annotations */
 import assert from 'node:assert';
 import { test } from 'mocha';
+import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import { buildVersionedBundle } from './versioned-bundle.ts';
 
-function createLinkedBundle(overrides: Record<string, unknown> = {}) {
+function createLinkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundle {
     return {
         name: 'package-a',
         contents: [],

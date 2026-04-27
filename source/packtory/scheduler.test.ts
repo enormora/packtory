@@ -1,12 +1,12 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type, @typescript-eslint/no-shadow, @typescript-eslint/strict-void-return, max-statements, destructuring/in-params, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unnecessary-condition, no-throw-literal, @typescript-eslint/only-throw-error -- scheduler tests deliberately use compact fixtures and literal failures to exercise edge handling */
+/* eslint-disable @typescript-eslint/no-shadow, @typescript-eslint/strict-void-return, max-statements, destructuring/in-params, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unnecessary-condition, no-throw-literal, @typescript-eslint/only-throw-error -- scheduler tests deliberately use compact fixtures and literal failures to exercise edge handling */
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
-import { validateConfigWithoutRegistry } from '../config/validation.ts';
+import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import { createScheduler, type Scheduler } from './scheduler.ts';
 
-function createValidatedConfig(packages: readonly Record<string, unknown>[]) {
+function createValidatedConfig(packages: readonly Record<string, unknown>[]): ValidConfigWithoutRegistryResult {
     const result = validateConfigWithoutRegistry({
         commonPackageSettings: { sourcesFolder: '/src', mainPackageJson: {} },
         packages
@@ -19,7 +19,10 @@ function createValidatedConfig(packages: readonly Record<string, unknown>[]) {
     return result.value;
 }
 
-function createTestScheduler(emit: SinonSpy = fake()): { readonly scheduler: Scheduler; readonly emit: SinonSpy } {
+function createTestScheduler(emit: SinonSpy = fake()): {
+    readonly scheduler: Scheduler;
+    readonly emit: SinonSpy;
+} {
     return {
         scheduler: createScheduler({ progressBroadcastProvider: { emit } }),
         emit

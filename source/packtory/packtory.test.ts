@@ -1,8 +1,11 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type, max-statements, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/consistent-type-assertions, prettier/prettier, @stylistic/indent-binary-ops -- these orchestrator tests use broad inline fixtures to cover public control flow directly */
+/* eslint-disable max-statements, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/consistent-type-assertions, prettier/prettier -- these orchestrator tests use broad inline fixtures to cover public control flow directly */
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
+import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import {
     createPacktory,
     type PublishAllResult,
@@ -10,7 +13,7 @@ import {
     type ResolvedPackage
 } from './packtory.ts';
 
-function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`) {
+function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): LinkedBundle {
     return {
         name,
         contents: [
@@ -41,7 +44,7 @@ function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`) 
     };
 }
 
-function createVersionedBundle(name: string, version = '1.0.0') {
+function createVersionedBundle(name: string, version = '1.0.0'): VersionedBundleWithManifest {
     return {
         name,
         version,
@@ -61,7 +64,9 @@ function createVersionedBundle(name: string, version = '1.0.0') {
     };
 }
 
-function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}) {
+function createConfigWithoutRegistry(
+    overrides: Record<string, unknown> = {}
+): PacktoryConfigWithoutRegistry {
     return {
         commonPackageSettings: {
             sourcesFolder: '/src',
@@ -72,7 +77,7 @@ function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}) {
     };
 }
 
-function createConfig(overrides: Record<string, unknown> = {}) {
+function createConfig(overrides: Record<string, unknown> = {}): PacktoryConfig {
     return {
         registrySettings: { token: 'token' },
         ...createConfigWithoutRegistry(overrides)
@@ -96,8 +101,18 @@ type SchedulerOverrides = {
                 version: string;
                 status: 'already-published' | 'initial-version' | 'new-version';
             })
-              | undefined;
+            | undefined;
     }) => Promise<Result<readonly unknown[], unknown>>;
+};
+
+type PacktoryUnderTest = {
+    readonly packtory: ReturnType<typeof createPacktory>;
+    readonly resolveAndLink: SinonSpy;
+    readonly tryBuildAndPublish: SinonSpy;
+    readonly buildAndPublish: SinonSpy;
+    readonly scheduler: {
+        readonly runForEachScheduledPackage: SinonSpy;
+    };
 };
 
 function createPacktoryUnderTest(
@@ -106,7 +121,7 @@ function createPacktoryUnderTest(
         readonly tryBuildAndPublish?: SinonSpy;
         readonly buildAndPublish?: SinonSpy;
     } = {}
-) {
+): PacktoryUnderTest {
     const resolveAndLink =
         overrides.resolveAndLink ??
         fake(async (options: { name: string }) => {
@@ -136,9 +151,9 @@ function createPacktoryUnderTest(
                 version: string;
                 status: 'already-published' | 'initial-version' | 'new-version';
             })
-              | undefined;
+            | undefined;
         readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
-    }) => {
+    }): Promise<Result<unknown[], never>> => {
         const existing: unknown[] = [];
         const results: unknown[] = [];
 
@@ -173,7 +188,7 @@ function createPacktoryUnderTest(
                         version: string;
                         status: 'already-published' | 'initial-version' | 'new-version';
                     })
-                      | undefined;
+                    | undefined;
                 readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
             }) => {
                 if (params.emitScheduledEvents === false) {

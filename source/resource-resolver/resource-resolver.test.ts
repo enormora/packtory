@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type, destructuring/in-params, max-statements, functional/prefer-tacit -- resolver tests use compact inline stubs to cover the public API paths */
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, stub, type SinonSpy } from 'sinon';
@@ -10,7 +9,14 @@ import {
     type ResourceResolverDependencies
 } from './resource-resolver.ts';
 
-function createTransferableFile(sourceFilePath: string, targetFilePath = sourceFilePath.slice(1)) {
+type TransferableFile = {
+    readonly sourceFilePath: string;
+    readonly targetFilePath: string;
+    readonly content: string;
+    readonly isExecutable: boolean;
+};
+
+function createTransferableFile(sourceFilePath: string, targetFilePath = sourceFilePath.slice(1)): TransferableFile {
     return {
         sourceFilePath,
         targetFilePath,
@@ -19,15 +25,12 @@ function createTransferableFile(sourceFilePath: string, targetFilePath = sourceF
     };
 }
 
-function createGraph({
-    rootFile,
-    additionalLocalFiles = [],
-    externalDependencyName
-}: {
+function createGraph(params: {
     readonly rootFile: string;
     readonly additionalLocalFiles?: readonly string[];
     readonly externalDependencyName?: string;
-}) {
+}): ReturnType<typeof createDependencyGraph> {
+    const { rootFile, additionalLocalFiles = [], externalDependencyName } = params;
     const graph = createDependencyGraph();
     const project = {
         getProject: () => {
@@ -65,10 +68,7 @@ function createResolver(overrides: Overrides = {}): {
 } {
     const scan = overrides.scan ?? fake();
     const getTransferableFileDescriptionFromPath =
-        overrides.getTransferableFileDescriptionFromPath ??
-        fake(async (sourceFilePath: string, targetFilePath: string) => {
-            return createTransferableFile(sourceFilePath, targetFilePath);
-        });
+        overrides.getTransferableFileDescriptionFromPath ?? fake(createTransferableFile);
 
     const dependencies = {
         dependencyScanner: { scan },
@@ -80,6 +80,16 @@ function createResolver(overrides: Overrides = {}): {
         scan,
         getTransferableFileDescriptionFromPath
     };
+}
+
+function configureScanForJsAndDeclarationGraphs(
+    jsGraph: ReturnType<typeof createDependencyGraph>,
+    declarationGraph: ReturnType<typeof createDependencyGraph>
+): SinonSpy {
+    const scan = stub();
+    scan.onFirstCall().resolves(jsGraph);
+    scan.onSecondCall().resolves(declarationGraph);
+    return scan;
 }
 
 test('resolve() scans js entry points and additional files and returns their file descriptions', async () => {
@@ -119,9 +129,7 @@ test('resolve() scans declaration entry points separately and merges local and e
         additionalLocalFiles: ['/src/shared.js'],
         externalDependencyName: 'typescript'
     });
-    const scan = stub();
-    scan.onFirstCall().resolves(jsGraph);
-    scan.onSecondCall().resolves(declarationGraph);
+    const scan = configureScanForJsAndDeclarationGraphs(jsGraph, declarationGraph);
     const { resolver } = createResolver({ scan });
 
     const result = await resolver.resolve({

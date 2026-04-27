@@ -1,8 +1,10 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type, complexity, @typescript-eslint/no-unsafe-return -- helper-heavy tests use compact factories and direct spy inspection */
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { BuildAndPublishOptions, ResolveAndLinkOptions } from './map-config.ts';
 import {
     createPackageProcessor,
     type BuildAndPublishResult,
@@ -25,7 +27,7 @@ function createTransferableFile(filePath: string, targetFilePath = filePath.slic
     };
 }
 
-function createLinkedBundle(name = 'package-a') {
+function createLinkedBundle(name = 'package-a'): LinkedBundle {
     return {
         name,
         contents: [],
@@ -35,7 +37,7 @@ function createLinkedBundle(name = 'package-a') {
     };
 }
 
-function createVersionedBundle(name = 'package-a', version = '1.2.3') {
+function createVersionedBundle(name = 'package-a', version = '1.2.3'): VersionedBundleWithManifest {
     return {
         name,
         version,
@@ -61,7 +63,20 @@ type Overrides = {
     readonly publish?: SinonSpy;
 };
 
-function createProcessor(overrides: Overrides = {}) {
+type ProcessorContext = {
+    readonly processor: ReturnType<typeof createPackageProcessor>;
+    readonly emit: SinonSpy;
+    readonly resolve: SinonSpy;
+    readonly linkBundle: SinonSpy;
+    readonly determineCurrentVersion: SinonSpy;
+    readonly addVersion: SinonSpy;
+    readonly increaseVersion: SinonSpy;
+    readonly checkBundleAlreadyPublished: SinonSpy;
+    readonly publish: SinonSpy;
+};
+
+// eslint-disable-next-line complexity -- test dependency setup is intentionally centralized here
+function createProcessor(overrides: Overrides = {}): ProcessorContext {
     const {
         emit = fake(),
         resolve = fake.resolves(createLinkedBundle()),
@@ -93,7 +108,7 @@ function createProcessor(overrides: Overrides = {}) {
     };
 }
 
-function createResolveOptions() {
+function createResolveOptions(): ResolveAndLinkOptions {
     return {
         name: 'package-a',
         sourcesFolder: '/src',
@@ -108,7 +123,7 @@ function createResolveOptions() {
     };
 }
 
-function createBuildAndPublishOptions() {
+function createBuildAndPublishOptions(): BuildAndPublishOptions {
     return {
         ...createResolveOptions(),
         versioning: { automatic: true } as const,
@@ -116,6 +131,12 @@ function createBuildAndPublishOptions() {
         bundleDependencies: [createVersionedBundle('bundle-dependency', '1.0.0')],
         bundlePeerDependencies: [createVersionedBundle('peer-dependency', '2.0.0')]
     };
+}
+
+function getCallArgs(spy: SinonSpy): unknown[][] {
+    return spy.getCalls().map((call): unknown[] => {
+        return Array.from(call.args);
+    });
 }
 
 test('resolveAndLink() emits progress events and links the resolved bundle with all dependency bundles', async () => {
@@ -145,15 +166,10 @@ test('resolveAndLink() emits progress events and links the resolved bundle with 
             bundleDependencies: [...options.bundleDependencies, ...options.bundlePeerDependencies]
         }
     ]);
-    assert.deepStrictEqual(
-        emit.getCalls().map((call) => {
-            return call.args;
-        }),
-        [
-            ['resolving', { packageName: 'package-a' }],
-            ['linking', { packageName: 'package-a' }]
-        ]
-    );
+    assert.deepStrictEqual(getCallArgs(emit), [
+        ['resolving', { packageName: 'package-a' }],
+        ['linking', { packageName: 'package-a' }]
+    ]);
 });
 
 test('build() resolves, links, and forwards the mapped build options to versionManager.addVersion()', async () => {
@@ -195,12 +211,7 @@ test('tryBuildAndPublish() returns already-published when the emitted bundle alr
 
     assert.deepStrictEqual(result, { bundle: versionedBundle, status: 'already-published' });
     assert.strictEqual(increaseVersion.callCount, 0);
-    assert.deepStrictEqual(
-        emit.getCalls().map((call) => {
-            return call.args;
-        }),
-        [['building', { packageName: 'package-a', version: '0.0.0' }]]
-    );
+    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '0.0.0' }]]);
 });
 
 test('tryBuildAndPublish() rebuilds with an increased version for the first publish', async () => {
@@ -218,15 +229,10 @@ test('tryBuildAndPublish() rebuilds with an increased version for the first publ
     });
 
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'initial-version' });
-    assert.deepStrictEqual(
-        emit.getCalls().map((call) => {
-            return call.args;
-        }),
-        [
-            ['building', { packageName: 'package-a', version: '0.0.0' }],
-            ['rebuilding', { packageName: 'package-a', version: '0.0.0' }]
-        ]
-    );
+    assert.deepStrictEqual(getCallArgs(emit), [
+        ['building', { packageName: 'package-a', version: '0.0.0' }],
+        ['rebuilding', { packageName: 'package-a', version: '0.0.0' }]
+    ]);
 });
 
 test('tryBuildAndPublish() returns new-version when the package already has a published version', async () => {
@@ -266,12 +272,7 @@ test('buildAndPublish() returns immediately when the package is already publishe
 
     assert.deepStrictEqual(result, alreadyPublishedResult);
     assert.strictEqual(publish.callCount, 0);
-    assert.deepStrictEqual(
-        emit.getCalls().map((call) => {
-            return call.args;
-        }),
-        [['building', { packageName: 'package-a', version: '1.2.3' }]]
-    );
+    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '1.2.3' }]]);
 });
 
 test('buildAndPublish() publishes the rebuilt bundle and emits publishing progress', async () => {
@@ -292,14 +293,9 @@ test('buildAndPublish() publishes the rebuilt bundle and emits publishing progre
 
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'new-version' });
     assert.deepStrictEqual(publish.firstCall.args, [{ bundle: rebuiltBundle, registrySettings: { token: 'token' } }]);
-    assert.deepStrictEqual(
-        emit.getCalls().map((call) => {
-            return call.args;
-        }),
-        [
-            ['building', { packageName: 'package-a', version: '1.2.3' }],
-            ['rebuilding', { packageName: 'package-a', version: '1.2.3' }],
-            ['publishing', { packageName: 'package-a', version: '1.2.4' }]
-        ]
-    );
+    assert.deepStrictEqual(getCallArgs(emit), [
+        ['building', { packageName: 'package-a', version: '1.2.3' }],
+        ['rebuilding', { packageName: 'package-a', version: '1.2.3' }],
+        ['publishing', { packageName: 'package-a', version: '1.2.4' }]
+    ]);
 });

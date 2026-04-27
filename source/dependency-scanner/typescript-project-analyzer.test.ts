@@ -1,4 +1,3 @@
-/* eslint-disable max-statements -- these tests exercise several analyzer branches through one fixture-heavy setup */
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { stub, fake, type SinonSpy, type SinonStub } from 'sinon';
@@ -62,6 +61,26 @@ function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): Typescript
     } as unknown as TypescriptProjectAnalyzerDependencies;
 
     return createTypescriptProjectAnalyzer(fakeDependencies);
+}
+
+function createAnalyzedProjectForGetSourceFileTest(): {
+    readonly project: ReturnType<TypescriptProjectAnalyzer['analyzeProject']>;
+    readonly sourceFile: FakeSourceFile;
+    readonly getSourceFile: SinonSpy;
+} {
+    const sourceFile = createFakeSourceFile({ filePath: '/foo/source-file.ts' });
+    const getSourceFile = fake((filePath: string) => {
+        return filePath === '/foo/source-file.ts' ? sourceFile : undefined;
+    });
+    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+    const project = analyzer.analyzeProject('/foo', {
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        failOnCompileErrors: false
+    });
+
+    return { project, sourceFile, getSourceFile };
 }
 
 test('creates a project for all js files in the given folder with module resolution', () => {
@@ -257,18 +276,7 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
 });
 
 test('getSourceFile() returns the requested source file and throws when it does not exist', () => {
-    const sourceFile = createFakeSourceFile({ filePath: '/foo/source-file.ts' });
-    const getSourceFile = fake((filePath: string) => {
-        return filePath === '/foo/source-file.ts' ? sourceFile : undefined;
-    });
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
+    const { project, sourceFile, getSourceFile } = createAnalyzedProjectForGetSourceFileTest();
 
     assert.strictEqual(project.getSourceFile('/foo/source-file.ts'), sourceFile);
 
