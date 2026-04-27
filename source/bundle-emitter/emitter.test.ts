@@ -22,8 +22,6 @@ type Overrides = {
     readonly buildTarball?: SinonSpy;
     readonly publishPackage?: SinonSpy;
     readonly fetchLatestVersion?: SinonSpy;
-    readonly build?: SinonSpy;
-    readonly emit?: SinonSpy;
     readonly collectContents?: SinonSpy;
     readonly fetchTarball?: SinonSpy;
 };
@@ -40,7 +38,8 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
             }),
             collectContents: createSpy(overrides.collectContents, () => {
                 return fake.resolves([]);
-            })
+            }),
+            buildFolder: fake()
         },
         registryClient: {
             publishPackage: createSpy(overrides.publishPackage, fake),
@@ -48,14 +47,6 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
             fetchTarball: createSpy(overrides.fetchTarball, () => {
                 return fake.resolves(emptyTarball);
             })
-        },
-        bundler: {
-            build: createSpy(overrides.build, () => {
-                return fake.resolves({ packageJson: {} });
-            })
-        },
-        progressBroadcaster: {
-            emit: createSpy(overrides.emit, fake)
         }
     };
 

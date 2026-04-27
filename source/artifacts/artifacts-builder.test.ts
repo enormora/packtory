@@ -40,7 +40,8 @@ function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
             writeFile: createSpy(overrides.writeFile, fake),
             getFileMode: createSpy(overrides.getFileMode, () => {
                 return fake.resolves(-1);
-            })
+            }),
+            getTransferableFileDescriptionFromPath: fake()
         },
         tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder)
     };

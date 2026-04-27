@@ -39,7 +39,7 @@ function createTestScheduler(emit: SinonSpy = fake()): {
 
 function getEmitCallArguments(emit: SinonSpy): readonly EmitCallArguments[] {
     return emit.getCalls().map((call) => {
-        return call.args as EmitCallArguments;
+        return call.args as unknown as EmitCallArguments;
     });
 }
 

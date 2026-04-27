@@ -1,6 +1,5 @@
 import type _npmFetch from 'npm-registry-fetch';
 import type { publish as _publish } from 'libnpmpublish';
-import type { PackageJson } from '@npm/types';
 import { Maybe } from 'true-myth';
 import { z } from 'zod/mini';
 import { safeParse } from '@schema-hub/zod-error-formatter';
@@ -63,7 +62,7 @@ type PublishFunctionParametersManifestIndex = 0;
 type PublishManifest = Readonly<Parameters<PublishFunction>[PublishFunctionParametersManifestIndex]>;
 
 function toPublishManifest(manifest: Readonly<BundlePackageJson>): PublishManifest {
-    return { ...manifest } satisfies PackageJson;
+    return manifest as unknown as PublishManifest;
 }
 
 export function createRegistryClient(dependencies: Readonly<RegistryClientDependencies>): RegistryClient {

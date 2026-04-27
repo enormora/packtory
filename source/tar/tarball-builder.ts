@@ -19,6 +19,10 @@ function toBuffer(chunk: Buffer | string): Buffer {
     return Buffer.from(chunk);
 }
 
+function isBufferOrString(chunk: unknown): chunk is Buffer | string {
+    return typeof chunk === 'string' || Buffer.isBuffer(chunk);
+}
+
 const staticFileModificationTime = new Date(0);
 const executableFileMode = 493;
 const nonExecutableFileMode = 420;
@@ -53,6 +57,9 @@ export function createTarballBuilder(): TarballBuilder {
             const chunks: Buffer[] = [];
 
             for await (const chunk of tarballStream as AsyncIterable<unknown>) {
+                if (!isBufferOrString(chunk)) {
+                    throw new TypeError('Expected tarball stream chunks to be strings or buffers');
+                }
                 chunks.push(toBuffer(chunk));
             }
 

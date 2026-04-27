@@ -17,15 +17,14 @@ function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () =>
 }
 
 function fileManagerFactory(overrides: Overrides = {}): FileManager {
-    const dependencies: FileManagerDependencies = {
-        hostFileSystem: {
-            access: createSpy(overrides.access, fake),
-            mkdir: createSpy(overrides.mkdir, fake),
-            writeFile: createSpy(overrides.writeFile, fake),
-            readFile: createSpy(overrides.readFile, fake),
-            stat: createSpy(overrides.stat, fake)
-        }
-    };
+    const hostFileSystem = Object.assign(Object.create(fs.promises), {
+        access: createSpy(overrides.access, fake),
+        mkdir: createSpy(overrides.mkdir, fake),
+        writeFile: createSpy(overrides.writeFile, fake),
+        readFile: createSpy(overrides.readFile, fake),
+        stat: createSpy(overrides.stat, fake)
+    });
+    const dependencies: FileManagerDependencies = { hostFileSystem };
 
     return createFileManager(dependencies);
 }
