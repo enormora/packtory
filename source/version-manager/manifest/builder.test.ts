@@ -1,8 +1,9 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import type { VersionedBundle } from '../versioned-bundle.ts';
 import { buildPackageManifest } from './builder.ts';
 
-function createBundle(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function createBundle(overrides: Partial<VersionedBundle> = {}): VersionedBundle {
     return {
         name: 'package-a',
         version: '1.2.3',

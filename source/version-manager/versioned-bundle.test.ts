@@ -29,6 +29,10 @@ function createLinkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundle
     };
 }
 
+function createReferencedDependency(name: string) {
+    return { name, referencedFrom: ['/src/index.js'] as const };
+}
+
 test('buildVersionedBundle() uses the first entry point as the main and types files', () => {
     const result = buildVersionedBundle({
         bundle: createLinkedBundle(),
@@ -66,8 +70,8 @@ test('buildVersionedBundle() groups bundle dependencies and peer dependencies by
     const result = buildVersionedBundle({
         bundle: createLinkedBundle({
             linkedBundleDependencies: new Map([
-                ['bundle-dependency', { name: 'bundle-dependency', referencedFrom: [] }],
-                ['peer-dependency', { name: 'peer-dependency', referencedFrom: [] }]
+                ['bundle-dependency', createReferencedDependency('bundle-dependency')],
+                ['peer-dependency', createReferencedDependency('peer-dependency')]
             ])
         }),
         version: '1.2.3',
@@ -117,8 +121,8 @@ test('buildVersionedBundle() reads external dependency versions from dependencie
     const result = buildVersionedBundle({
         bundle: createLinkedBundle({
             externalDependencies: new Map([
-                ['left-pad', { name: 'left-pad', referencedFrom: [] }],
-                ['react', { name: 'react', referencedFrom: [] }]
+                ['left-pad', createReferencedDependency('left-pad')],
+                ['react', createReferencedDependency('react')]
             ])
         }),
         version: '1.2.3',
@@ -141,7 +145,7 @@ test('buildVersionedBundle() throws when a bundle dependency version is missing'
         buildVersionedBundle({
             bundle: createLinkedBundle({
                 linkedBundleDependencies: new Map([
-                    ['bundle-dependency', { name: 'bundle-dependency', referencedFrom: [] }]
+                    ['bundle-dependency', createReferencedDependency('bundle-dependency')]
                 ])
             }),
             version: '1.2.3',
@@ -163,7 +167,7 @@ test('buildVersionedBundle() throws when an external dependency version is missi
     try {
         buildVersionedBundle({
             bundle: createLinkedBundle({
-                externalDependencies: new Map([['left-pad', { name: 'left-pad', referencedFrom: [] }]])
+                externalDependencies: new Map([['left-pad', createReferencedDependency('left-pad')]])
             }),
             version: '1.2.3',
             mainPackageJson: { type: 'module' },
@@ -183,7 +187,7 @@ test('buildVersionedBundle() throws when an external dependency version is missi
 test('buildVersionedBundle() prefers peerDependencies over dependencies when the same external dependency exists in both', () => {
     const result = buildVersionedBundle({
         bundle: createLinkedBundle({
-            externalDependencies: new Map([['react', { name: 'react', referencedFrom: [] }]])
+            externalDependencies: new Map([['react', createReferencedDependency('react')]])
         }),
         version: '1.2.3',
         mainPackageJson: {
