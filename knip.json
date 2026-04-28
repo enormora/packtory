@@ -12,6 +12,6 @@
         "packtory.config.js"
     ],
     "project": ["source/**/*.ts!", "integration-tests/**/*.ts!", "*.js", "*.cjs", "!integration-tests/fixtures/**/*"],
-    "ignoreDependencies": ["c8", "eslint", "foo", "prettier"],
+    "ignoreDependencies": ["@ls-lint/ls-lint", "c8", "eslint", "foo", "prettier"],
     "ignoreBinaries": []
 }

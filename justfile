@@ -21,10 +21,13 @@ prettier-fix: (prettier '--write')
 lint-dependencies:
     depcruise --config dependency-cruiser.config.js './source/**/*.ts' './integration-tests/*.ts' './integration-tests/**/*.test.ts' './*.js' './*.cjs'
 
+lint-filename:
+    ls-lint
+
 lint-unused-code:
     knip
 
-lint: eslint prettier-check lint-dependencies lint-unused-code
+lint: eslint prettier-check lint-dependencies lint-filename lint-unused-code
 
 lint-fix: eslint-fix prettier-fix
 

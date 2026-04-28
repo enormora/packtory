@@ -1,0 +1,20 @@
+---
+ls:
+    .dir: kebab-case | regex:\.[a-z]+(-[a-z]+)*
+    .js: kebab-case
+    .json: kebab-case | regex:tsconfig(\.[a-z]+(-[a-z]+)*)?
+    .md: kebab-case
+    .test.ts: kebab-case
+    .ts: kebab-case
+    .github/workflows:
+        .yml: kebab-case
+    source:
+        .ts: kebab-case | regex:tsconfig(\.[a-z]+(-[a-z]+)*)?|[a-z]+(-[a-z]+)*\.entry-point
+    integration-tests:
+        .ts: kebab-case | regex:load-package-json|registry|tsconfig(\.[a-z]+(-[a-z]+)*)?
+
+ignore:
+    - .git
+    - node_modules
+    - target
+    - integration-tests/fixtures
