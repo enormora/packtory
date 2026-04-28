@@ -33,6 +33,26 @@ type PackageProcessorDependencies = {
     readonly resourceResolver: ResourceResolver;
 };
 
+function determineBuildVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): string {
+    if (currentVersion.isJust) {
+        return currentVersion.value;
+    }
+
+    if (!options.versioning.automatic) {
+        return options.versioning.version;
+    }
+
+    return options.versioning.minimumVersion ?? '0.0.0';
+}
+
+function shouldIncreaseVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): boolean {
+    if (!options.versioning.automatic) {
+        return false;
+    }
+
+    return currentVersion.isJust || options.versioning.minimumVersion === undefined;
+}
+
 export function createPackageProcessor(dependencies: PackageProcessorDependencies): PackageProcessor {
     const { progressBroadcaster, versionManager, bundleEmitter, linker, resourceResolver } = dependencies;
 
@@ -60,7 +80,7 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
             registrySettings: options.registrySettings,
             versioning: options.versioning
         });
-        const version = currentVersion.unwrapOr('0.0.0');
+        const version = determineBuildVersion(currentVersion, options);
         progressBroadcaster.emit('building', { packageName: options.name, version });
         const versionedBundle = versionManager.addVersion({ bundle: linkedBundle, ...options, version });
         return { versionedBundle, currentVersion, version };
@@ -74,6 +94,12 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         });
         if (result.alreadyPublishedAsLatest) {
             return { bundle: buildContext.versionedBundle, status: 'already-published' };
+        }
+        if (!shouldIncreaseVersion(buildContext.currentVersion, options.buildOptions)) {
+            return {
+                bundle: buildContext.versionedBundle,
+                status: buildContext.currentVersion.isJust ? 'new-version' : 'initial-version'
+            };
         }
         progressBroadcaster.emit('rebuilding', {
             packageName: options.buildOptions.name,

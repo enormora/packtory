@@ -267,6 +267,66 @@ test('tryBuildAndPublish() returns new-version when the package already has a pu
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'new-version' });
 });
 
+test('tryBuildAndPublish() keeps the configured manual version without rebuilding on the initial publish', async () => {
+    const manualBundle = createVersionedBundle('package-a', '3.2.1');
+    const { processor, increaseVersion, emit } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.nothing()),
+        addVersion: fake.returns(manualBundle)
+    });
+
+    const result = await processor.tryBuildAndPublish({
+        linkedBundle: createLinkedBundle(),
+        buildOptions: {
+            ...createBuildAndPublishOptions(),
+            versioning: { automatic: false, version: '3.2.1' }
+        }
+    });
+
+    assert.deepStrictEqual(result, { bundle: manualBundle, status: 'initial-version' });
+    assert.strictEqual(increaseVersion.callCount, 0);
+    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '3.2.1' }]]);
+});
+
+test('tryBuildAndPublish() uses minimumVersion for the first automatic publish without rebuilding', async () => {
+    const minimumVersionBundle = createVersionedBundle('package-a', '1.2.3');
+    const { processor, increaseVersion, emit } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.nothing()),
+        addVersion: fake.returns(minimumVersionBundle)
+    });
+
+    const result = await processor.tryBuildAndPublish({
+        linkedBundle: createLinkedBundle(),
+        buildOptions: {
+            ...createBuildAndPublishOptions(),
+            versioning: { automatic: true, minimumVersion: '1.2.3' }
+        }
+    });
+
+    assert.deepStrictEqual(result, { bundle: minimumVersionBundle, status: 'initial-version' });
+    assert.strictEqual(increaseVersion.callCount, 0);
+    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '1.2.3' }]]);
+});
+
+test('tryBuildAndPublish() keeps the configured manual version without rebuilding on a rerun', async () => {
+    const manualBundle = createVersionedBundle('package-a', '3.2.1');
+    const { processor, increaseVersion, emit } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('3.2.1')),
+        addVersion: fake.returns(manualBundle)
+    });
+
+    const result = await processor.tryBuildAndPublish({
+        linkedBundle: createLinkedBundle(),
+        buildOptions: {
+            ...createBuildAndPublishOptions(),
+            versioning: { automatic: false, version: '3.2.1' }
+        }
+    });
+
+    assert.deepStrictEqual(result, { bundle: manualBundle, status: 'new-version' });
+    assert.strictEqual(increaseVersion.callCount, 0);
+    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '3.2.1' }]]);
+});
+
 test('buildAndPublish() returns immediately when the package is already published', async () => {
     const publish = fake.resolves(undefined);
     const alreadyPublishedResult: BuildAndPublishResult = {
