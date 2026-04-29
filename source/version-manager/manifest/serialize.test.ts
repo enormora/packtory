@@ -69,3 +69,61 @@ test('sorts objects nested within array correctly', () => {
         '{\n    "foo": [\n        "f",\n        {\n            "a": "2",\n            "b": "1",\n            "d": [\n                2,\n                3\n            ]\n        },\n        "c"\n    ]\n}'
     );
 });
+
+test('sorts primitive array values so false stays before true and numbers stay ordered', () => {
+    const result = serializePackageJson({ foo: [true, false, 2, 1] });
+
+    assert.strictEqual(result, '{\n    "foo": [\n        false,\n        true,\n        1,\n        2\n    ]\n}');
+});
+
+test('keeps equal primitive values stable without collapsing them', () => {
+    const result = serializePackageJson({ foo: ['b', 'a', 'a'] });
+
+    assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "a",\n        "b"\n    ]\n}');
+});
+
+test('sorts descending string arrays into ascending order', () => {
+    const result = serializePackageJson({ foo: ['z', 'm', 'a'] });
+
+    assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "m",\n        "z"\n    ]\n}');
+});
+
+test('sorts descending numeric arrays into ascending order', () => {
+    const result = serializePackageJson({ foo: [3, 2, 1] });
+
+    assert.strictEqual(result, '{\n    "foo": [\n        1,\n        2,\n        3\n    ]\n}');
+});
+
+test('keeps object arrays in original order while sorting each object deeply', () => {
+    const result = serializePackageJson({
+        foo: [
+            { b: 2, a: 1 },
+            { d: 4, c: 3 }
+        ]
+    });
+
+    assert.strictEqual(
+        result,
+        '{\n    "foo": [\n        {\n            "a": 1,\n            "b": 2\n        },\n        {\n            "c": 3,\n            "d": 4\n        }\n    ]\n}'
+    );
+});
+
+test('serializes null values inside arrays and nested records without reordering record keys incorrectly', () => {
+    const result = serializePackageJson({
+        foo: [{ z: null, a: [null, 'b', 'a'] }]
+    });
+
+    assert.strictEqual(
+        result,
+        '{\n    "foo": [\n        {\n            "a": [\n                null,\n                "a",\n                "b"\n            ],\n            "z": null\n        }\n    ]\n}'
+    );
+});
+
+test('throws for circular arrays as well as circular records', () => {
+    const circularArray: JsonValue[] = [];
+    circularArray.push(circularArray as unknown as JsonValue);
+
+    assert.throws(() => {
+        serializePackageJson({ foo: circularArray });
+    }, /^Error: Circular structures are not supported$/);
+});

@@ -98,6 +98,47 @@ test('adds the sourcesFolder as a prefix to a js entryPoint when it is a relativ
     assert.deepStrictEqual(result.entryPoints, [{ js: 'the-source/the-entry-file' }]);
 });
 
+test('throws when a package has no entry points after config lookup', () => {
+    try {
+        configToBuildAndPublishOptions(
+            'foo',
+            new Map([['foo', { name: 'foo', sourcesFolder: 'the-source', entryPoints: [], mainPackageJson: {} }]]),
+            {
+                registrySettings: { token: '' },
+                packages: [{ name: 'foo', sourcesFolder: 'the-source', entryPoints: [], mainPackageJson: {} }]
+            } as unknown as Parameters<typeof configToBuildAndPublishOptions>[2],
+            []
+        );
+        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Config for package "foo" is missing entry points');
+    }
+});
+
+test('normalizes every remaining entry point after the first one', () => {
+    const packageConfig = {
+        name: 'foo',
+        sourcesFolder: 'the-source',
+        entryPoints: [{ js: 'first.js' }, { js: 'second.js', declarationFile: 'second.d.ts' }],
+        mainPackageJson: {}
+    } as const;
+
+    const result = configToBuildAndPublishOptions(
+        'foo',
+        new Map([['foo', packageConfig]]),
+        {
+            registrySettings: { token: '' },
+            packages: [packageConfig]
+        },
+        []
+    );
+
+    assert.deepStrictEqual(result.entryPoints, [
+        { js: 'the-source/first.js' },
+        { js: 'the-source/second.js', declarationFile: 'the-source/second.d.ts' }
+    ]);
+});
+
 test('doesn’t change declarationFile entryPoints when they are already absolute paths', () => {
     const packageConfig = {
         name: 'foo',
@@ -516,6 +557,91 @@ test('sets additionalPackageJsonAttributes to the value of the common settings',
     );
 
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
+});
+
+test('defaults moduleResolution to "module" when mainPackageJson.type is not set', () => {
+    const packageConfig = {
+        name: 'foo',
+        sourcesFolder: 'the-source',
+        entryPoints: [{ js: '' }],
+        mainPackageJson: {}
+    } as const;
+
+    const result = configToBuildAndPublishOptions(
+        'foo',
+        new Map([['foo', packageConfig]]),
+        {
+            registrySettings: { token: '' },
+            packages: [packageConfig]
+        },
+        []
+    );
+
+    assert.strictEqual(result.moduleResolution, 'module');
+});
+
+test('uses the module package type as moduleResolution when mainPackageJson.type is set', () => {
+    const packageConfig = {
+        name: 'foo',
+        sourcesFolder: 'the-source',
+        entryPoints: [{ js: '' }],
+        mainPackageJson: { type: 'module' }
+    } as const;
+
+    const result = configToBuildAndPublishOptions(
+        'foo',
+        new Map([['foo', packageConfig]]),
+        {
+            registrySettings: { token: '' },
+            packages: [packageConfig]
+        },
+        []
+    );
+
+    assert.strictEqual(result.moduleResolution, 'module');
+});
+
+test('defaults versioning to automatic when the package config does not specify it', () => {
+    const packageConfig = {
+        name: 'foo',
+        sourcesFolder: 'the-source',
+        entryPoints: [{ js: '' }],
+        mainPackageJson: {}
+    } as const;
+
+    const result = configToBuildAndPublishOptions(
+        'foo',
+        new Map([['foo', packageConfig]]),
+        {
+            registrySettings: { token: '' },
+            packages: [packageConfig]
+        },
+        []
+    );
+
+    assert.deepStrictEqual(result.versioning, { automatic: true });
+});
+
+test('preserves explicit package versioning settings', () => {
+    const packageConfig = {
+        name: 'foo',
+        sourcesFolder: 'the-source',
+        entryPoints: [{ js: '' }],
+        mainPackageJson: {},
+        versioning: { automatic: false, version: '2.3.4' }
+    } as const;
+
+    const result = configToBuildAndPublishOptions(
+        'foo',
+        new Map([['foo', packageConfig]]),
+        {
+            registrySettings: { token: '' },
+            packages: [packageConfig]
+        },
+        []
+    );
+
+    assert.deepStrictEqual(result.versioning, { automatic: false, version: '2.3.4' });
 });
 
 test('merges additionalPackageJsonAttributes from per package and common settings', () => {

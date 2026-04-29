@@ -78,6 +78,18 @@ test('writeFile() recursively creates the parent folder and then writes the give
     assert.deepStrictEqual(writeFile.args, [['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]]);
 });
 
+test('writeFile() does not create the parent folder when it is already readable', async () => {
+    const access = fake.resolves(undefined);
+    const writeFile = fake.resolves(undefined);
+    const mkdir = fake.resolves(undefined);
+    const fileManager = fileManagerFactory({ access, writeFile, mkdir });
+
+    await fileManager.writeFile('/foo/bar.txt', 'the-content');
+
+    assert.strictEqual(mkdir.callCount, 0);
+    assert.deepStrictEqual(writeFile.args, [['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]]);
+});
+
 test('readFile() reads the given file and returns its content', async () => {
     const readFile = fake.resolves('the-content');
     const fileManager = fileManagerFactory({ readFile });

@@ -118,6 +118,23 @@ test('resolve() scans js entry points and additional files and returns their fil
     ]);
 });
 
+test('resolve() keeps declarationFile undefined when an entry point does not define one', async () => {
+    const jsGraph = createGraph({ rootFile: '/src/index.js' });
+    const scan = fake.resolves(jsGraph);
+    const { resolver } = createResolver({ scan });
+
+    const result = await resolver.resolve({
+        name: 'package-a',
+        sourcesFolder: '/src',
+        entryPoints: [{ js: '/src/index.js' }],
+        includeSourceMapFiles: false,
+        additionalFiles: [],
+        moduleResolution: 'module'
+    });
+
+    assert.strictEqual(result.entryPoints[0].declarationFile, undefined);
+});
+
 test('resolve() scans declaration entry points separately and merges local and external dependencies', async () => {
     const jsGraph = createGraph({
         rootFile: '/src/index.js',

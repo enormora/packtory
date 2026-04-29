@@ -1,13 +1,60 @@
+import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { fake } from 'sinon';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
-import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './package-json.ts';
+import {
+    forbiddenAdditionalPackageJsonAttributeNames,
+    isForbiddenAdditionalPackageJsonAttributeName,
+    packageJsonDependencyFieldNames
+} from './package-json.ts';
+import { additionalPackageJsonAttributesSchema } from './additional-package-json-attributes-schema.ts';
+import { mainPackageJsonSchema } from './main-package-json-schema.ts';
+
+test('package.json dependency field names are exposed as runtime constants', () => {
+    assert.deepStrictEqual(packageJsonDependencyFieldNames, ['dependencies', 'devDependencies', 'peerDependencies']);
+});
+
+test('forbidden additional package.json attribute names are exposed as runtime constants', () => {
+    assert.deepStrictEqual(forbiddenAdditionalPackageJsonAttributeNames, [
+        'dependencies',
+        'devDependencies',
+        'peerDependencies',
+        'main',
+        'name',
+        'types',
+        'type',
+        'version'
+    ]);
+});
+
+test('forbidden additional package.json attribute helper identifies allowed and forbidden keys', () => {
+    assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('dependencies'), true);
+    assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('license'), false);
+});
+
+test('main package.json schema accepts type module', () => {
+    assert.strictEqual(mainPackageJsonSchema.safeParse({ type: 'module' }).success, true);
+});
+
+test('main package.json schema rejects type commonjs', () => {
+    assert.strictEqual(mainPackageJsonSchema.safeParse({ type: 'commonjs' }).success, false);
+});
+
+test('additional package.json attributes schema rejects dependencies', () => {
+    assert.strictEqual(additionalPackageJsonAttributesSchema.safeParse({ dependencies: {} }).success, false);
+});
+
+test('additional package.json attributes schema accepts license', () => {
+    assert.strictEqual(additionalPackageJsonAttributesSchema.safeParse({ license: 'MIT' }).success, true);
+});
 
 test(
     'main package.json: validation succeeds for an empty object',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: {}
+        data: {},
+        expectedData: {}
     })
 );
 
@@ -15,7 +62,8 @@ test(
     'main package.json: validation succeeds when type is given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { type: 'module' }
+        data: { type: 'module' },
+        expectedData: { type: 'module' }
     })
 );
 
@@ -23,7 +71,8 @@ test(
     'main package.json: validation succeeds when dependencies are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { dependencies: {} }
+        data: { dependencies: {} },
+        expectedData: { dependencies: {} }
     })
 );
 
@@ -31,7 +80,17 @@ test(
     'main package.json: validation succeeds when devDependencies are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { devDependencies: {} }
+        data: { devDependencies: {} },
+        expectedData: { devDependencies: {} }
+    })
+);
+
+test(
+    'main package.json: validation succeeds when peerDependencies are given',
+    checkValidationSuccess({
+        schema: mainPackageJsonSchema,
+        data: { peerDependencies: {} },
+        expectedData: { peerDependencies: {} }
     })
 );
 
@@ -39,7 +98,8 @@ test(
     'main package.json: validation succeeds when additional properties are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { foo: 'bar' }
+        data: { foo: 'bar' },
+        expectedData: {}
     })
 );
 
@@ -62,11 +122,29 @@ test(
 );
 
 test(
+    'main package.json: validation fails when type is null',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: { type: null },
+        expectedMessages: ['at type: invalid literal: expected "module", but got null']
+    })
+);
+
+test(
     'main package.json: validation fails when dependencies is not an object',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
         data: { dependencies: true },
         expectedMessages: ['at dependencies: expected record, but got boolean']
+    })
+);
+
+test(
+    'main package.json: validation fails when dependencies is null',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: { dependencies: null },
+        expectedMessages: ['at dependencies: expected record, but got null']
     })
 );
 
@@ -89,6 +167,15 @@ test(
 );
 
 test(
+    'main package.json: validation fails when peerDependencies is null',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: { peerDependencies: null },
+        expectedMessages: ['at peerDependencies: expected record, but got null']
+    })
+);
+
+test(
     'main package.json: validation fails when peerDependencies contains non-string values',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
@@ -107,6 +194,15 @@ test(
 );
 
 test(
+    'main package.json: validation fails when devDependencies is null',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: { devDependencies: null },
+        expectedMessages: ['at devDependencies: expected record, but got null']
+    })
+);
+
+test(
     'main package.json: validation fails when devDependencies contains non-string values',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
@@ -119,7 +215,8 @@ test(
     'additional attributes: validation succeeds for an empty object',
     checkValidationSuccess({
         schema: additionalPackageJsonAttributesSchema,
-        data: {}
+        data: {},
+        expectedData: {}
     })
 );
 
@@ -127,7 +224,8 @@ test(
     'additional attributes: validation succeeds for keys that are not forbidden',
     checkValidationSuccess({
         schema: additionalPackageJsonAttributesSchema,
-        data: { license: 123, foo: ['bar'], something: { nested: 'works' } }
+        data: { license: 123, foo: ['bar'], something: { nested: 'works' } },
+        expectedData: { license: 123, foo: ['bar'], something: { nested: 'works' } }
     })
 );
 
@@ -211,6 +309,25 @@ test(
         expectedMessages: ['at version: invalid key']
     })
 );
+
+test('additional attributes: every forbidden key is rejected by the key schema', async () => {
+    const schema = additionalPackageJsonAttributesSchema;
+
+    for (const key of [
+        'dependencies',
+        'peerDependencies',
+        'devDependencies',
+        'main',
+        'name',
+        'types',
+        'type',
+        'version'
+    ]) {
+        const result = safeParse(schema, { [key]: 'value' });
+        assert.strictEqual(result.success, false);
+        assert.deepStrictEqual(result.error.issues, [`at ${key}: invalid key`]);
+    }
+});
 
 test(
     'additional attributes: validation fails when forbidden value is given',

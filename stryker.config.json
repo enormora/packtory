@@ -5,13 +5,13 @@
     "tempDirName": "target/.stryker-tmp",
     "allowConsoleColors": false,
     "concurrency": 2,
-    "testFiles": ["source/**/*.test.ts"],
     "mochaOptions": {
         "no-package": true,
         "no-opts": true,
         "no-config": true,
         "ui": "tdd",
-        "extension": ["ts"]
+        "extension": ["ts"],
+        "spec": ["source/**/*.test.ts"]
     },
     "testRunnerNodeArgs": ["--experimental-strip-types", "--enable-source-maps"],
     "mutate": [
@@ -26,7 +26,7 @@
     "thresholds": {
         "high": 100,
         "low": 100,
-        "break": 88.08
+        "break": 100
     },
     "reporters": ["clear-text", "html", "json"],
     "clearTextReporter": {

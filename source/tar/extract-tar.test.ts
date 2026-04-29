@@ -67,6 +67,26 @@ test('returns the extracted entries when the given tar buffer has files which ar
     ]);
 });
 
+test('returns every extracted entry in tar order when the tarball contains multiple files', async () => {
+    const builder = createTarballBuilder();
+    const tar = await builder.build([
+        { filePath: 'first.txt', content: 'first', isExecutable: false },
+        { filePath: 'second.txt', content: 'second', isExecutable: false }
+    ]);
+
+    const entries = await extractTarEntries(tar);
+
+    assert.deepStrictEqual(
+        entries.map((entry) => {
+            return [entry.header.name, entry.content];
+        }),
+        [
+            ['first.txt', 'first'],
+            ['second.txt', 'second']
+        ]
+    );
+});
+
 test('rejects when the given buffer is not a valid gzip tarball', async () => {
     await assert.rejects(async () => {
         await extractTarEntries(Buffer.from('not-a-tarball'));
@@ -139,5 +159,48 @@ test('preserves Error instances when iteration rejects with an Error', async () 
         }, /^Error: boom$/);
     } finally {
         stub.restore();
+    }
+});
+
+test('registers the shared error event handler on the source stream', async () => {
+    const sourceOnce = sinon.spy();
+    const extractStream = {
+        once() {
+            return extractStream;
+        },
+        pipe() {
+            return extractStream;
+        },
+        [Symbol.asyncIterator](): AsyncIterator<unknown> {
+            return {
+                next: async (): Promise<IteratorResult<unknown>> => {
+                    return { done: true, value: undefined };
+                }
+            };
+        }
+    };
+    const gunzip = {
+        once() {
+            return gunzip;
+        },
+        pipe() {
+            return extractStream;
+        }
+    };
+    const source = {
+        once: sourceOnce,
+        pipe() {
+            return gunzip;
+        }
+    };
+    const readableStub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
+
+    try {
+        const entries = await extractTarEntries(Buffer.from('unused'));
+
+        assert.deepStrictEqual(entries, []);
+        assert.strictEqual(sourceOnce.firstCall.firstArg, 'error');
+    } finally {
+        readableStub.restore();
     }
 });

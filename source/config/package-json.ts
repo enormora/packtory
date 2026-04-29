@@ -1,38 +1,29 @@
-import { z } from 'zod/mini';
+import type { JsonValue } from 'type-fest';
 
-const stringRecordSchema = z.readonly(z.record(z.string(), z.string()));
-const optionalStringRecordSchema = z.optional(stringRecordSchema);
+export const packageJsonDependencyFieldNames = ['dependencies', 'devDependencies', 'peerDependencies'] as const;
 
-export const mainPackageJsonSchema = z.readonly(
-    z.object({
-        type: z.optional(z.literal('module')),
-        dependencies: optionalStringRecordSchema,
-        devDependencies: optionalStringRecordSchema,
-        peerDependencies: optionalStringRecordSchema
-    })
-);
-export type MainPackageJson = z.infer<typeof mainPackageJsonSchema>;
-
-const attributeValueSchema = z.json();
-
-const forbiddenAttributeNames = new Set([
-    'dependencies',
-    'peerDependencies',
-    'devDependencies',
+export const forbiddenAdditionalPackageJsonAttributeNames = [
+    ...packageJsonDependencyFieldNames,
     'main',
     'name',
     'types',
     'type',
     'version'
-]);
+] as const;
 
-const additionalPackageJsonAttributeNameSchema = z.string().check(
-    z.refine((value) => {
-        return !forbiddenAttributeNames.has(value);
-    })
-);
+const forbiddenAdditionalPackageJsonAttributeNameSet = new Set(forbiddenAdditionalPackageJsonAttributeNames);
 
-export const additionalPackageJsonAttributesSchema = z.readonly(
-    z.record(additionalPackageJsonAttributeNameSchema, attributeValueSchema)
-);
-export type AdditionalPackageJsonAttributes = z.infer<typeof additionalPackageJsonAttributesSchema>;
+export function isForbiddenAdditionalPackageJsonAttributeName(value: string): boolean {
+    return forbiddenAdditionalPackageJsonAttributeNameSet.has(
+        value as (typeof forbiddenAdditionalPackageJsonAttributeNames)[number]
+    );
+}
+
+export type MainPackageJson = {
+    readonly type?: 'module' | undefined;
+    readonly dependencies?: Readonly<Record<string, string>> | undefined;
+    readonly devDependencies?: Readonly<Record<string, string>> | undefined;
+    readonly peerDependencies?: Readonly<Record<string, string>> | undefined;
+};
+
+export type AdditionalPackageJsonAttributes = Readonly<Record<string, JsonValue>>;

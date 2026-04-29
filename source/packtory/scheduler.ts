@@ -1,5 +1,4 @@
 import { partition } from 'effect/ReadonlyArray';
-import { get } from 'effect/Struct';
 import { Result } from 'true-myth';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
@@ -33,9 +32,6 @@ function toError(error: unknown): Error {
 
     return new Error('Unknown error');
 }
-
-const getValue = get('value');
-const getReason = get('reason');
 
 type PackageExecutionContext<TNext, TConfig extends { packages: readonly PackageConfig[] }> = {
     readonly packageName: string;
@@ -105,14 +101,18 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
 
         const results = await Promise.allSettled(packageNames.map(executePackage));
         const [rejectedResults, fulfilledResults] = partition(results, isFulfilledResult);
-        const succeeded = fulfilledResults.map(getValue);
+        const succeeded = fulfilledResults.map((entry) => {
+            return entry.value;
+        });
 
         if (rejectedResults.length > 0) {
             return Result.err({
                 succeeded: succeeded.map((entry) => {
                     return entry.result;
                 }),
-                failures: rejectedResults.map(getReason)
+                failures: rejectedResults.map((entry) => {
+                    return toError(entry.reason);
+                })
             });
         }
 

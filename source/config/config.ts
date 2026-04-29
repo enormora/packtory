@@ -1,137 +1,53 @@
-import { z } from 'zod/mini';
-import { registrySettingsSchema } from './registry-settings.ts';
-import { nonEmptyStringSchema } from './base-validations.ts';
-import { versioningSettingsSchema } from './versioning-settings.ts';
-import { additionalPackageJsonAttributesSchema, mainPackageJsonSchema } from './package-json.ts';
-import { entryPointSchema } from './entry-point.ts';
-import { additionalFileDescriptionSchema } from './additional-files.ts';
+import type { AdditionalFileDescription } from './additional-files.ts';
+import type { EntryPoint } from './entry-point.ts';
+import type { AdditionalPackageJsonAttributes, MainPackageJson } from './package-json.ts';
+import type { RegistrySettings } from './registry-settings.ts';
+import type { VersioningSettings } from './versioning-settings.ts';
 
-const perPackageSettingsSchema = z.strictObject({
-    name: nonEmptyStringSchema,
-    entryPoints: z.readonly(z.tuple([entryPointSchema], entryPointSchema)),
-    versioning: z.optional(versioningSettingsSchema),
-    bundleDependencies: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
-    bundlePeerDependencies: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-});
+export type NoDuplicatedFilesSettings = {
+    readonly enabled: boolean;
+    readonly allowList?: readonly string[] | undefined;
+};
 
-const optionalCommonPackageSettingsSchema = z.strictObject({
-    sourcesFolder: z.optional(nonEmptyStringSchema),
-    mainPackageJson: z.optional(mainPackageJsonSchema)
-});
+export type ChecksSettings = {
+    readonly noDuplicatedFiles?: NoDuplicatedFilesSettings | undefined;
+};
 
-const requiredCommonPackageSettingsSchema = z.strictObject({
-    sourcesFolder: nonEmptyStringSchema,
-    mainPackageJson: mainPackageJsonSchema
-});
+export type PackageConfig = {
+    readonly name: string;
+    readonly entryPoints: readonly EntryPoint[];
+    readonly versioning?: VersioningSettings | undefined;
+    readonly bundleDependencies?: readonly string[] | undefined;
+    readonly bundlePeerDependencies?: readonly string[] | undefined;
+    readonly sourcesFolder?: string | undefined;
+    readonly mainPackageJson?: MainPackageJson | undefined;
+    readonly additionalFiles?: readonly AdditionalFileDescription[] | undefined;
+    readonly includeSourceMapFiles?: boolean | undefined;
+    readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
+};
 
-const commonPackageSettingsSourcesFolderRequiredSchema = z.strictObject({
-    sourcesFolder: nonEmptyStringSchema,
-    mainPackageJson: z.optional(mainPackageJsonSchema)
-});
+export const bundledDependencyPropertyNames = ['bundleDependencies', 'bundlePeerDependencies'] as const;
 
-const commonPackageSettingsMainPackageJsonRequiredSchema = z.strictObject({
-    sourcesFolder: z.optional(nonEmptyStringSchema),
-    mainPackageJson: mainPackageJsonSchema
-});
+export function getBundledDependencies(packageConfig: PackageConfig): readonly string[] {
+    return bundledDependencyPropertyNames.flatMap((propertyName) => {
+        return packageConfig[propertyName] ?? [];
+    });
+}
 
-const optionalPackageSettingsSchema = z.strictObject({
-    additionalFiles: z.optional(z.readonly(z.array(additionalFileDescriptionSchema))),
-    includeSourceMapFiles: z.optional(z.boolean()),
-    additionalPackageJsonAttributes: z.optional(additionalPackageJsonAttributesSchema)
-});
+export type CommonPackageSettings = {
+    readonly sourcesFolder?: string | undefined;
+    readonly mainPackageJson?: MainPackageJson | undefined;
+    readonly additionalFiles?: readonly AdditionalFileDescription[] | undefined;
+    readonly includeSourceMapFiles?: boolean | undefined;
+    readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
+};
 
-const noDuplicatedFilesSettingsSchema = z.strictObject({
-    enabled: z.boolean(),
-    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-});
+export type PacktoryConfigWithoutRegistry = {
+    readonly checks?: ChecksSettings | undefined;
+    readonly commonPackageSettings?: CommonPackageSettings | undefined;
+    readonly packages: readonly PackageConfig[];
+};
 
-const checksSchema = z.strictObject({
-    noDuplicatedFiles: z.optional(noDuplicatedFilesSettingsSchema)
-});
-
-export type NoDuplicatedFilesSettings = z.infer<typeof noDuplicatedFilesSettingsSchema>;
-
-export type ChecksSettings = z.infer<typeof checksSchema>;
-
-const packageSchemaWithAllCommonSettings = z.readonly(
-    z.extend(
-        z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
-        perPackageSettingsSchema.shape
-    )
-);
-
-const packageSchemaWithPartialCommonSettings = z.readonly(
-    z.extend(
-        z.extend(z.partial(requiredCommonPackageSettingsSchema), optionalPackageSettingsSchema.shape),
-        perPackageSettingsSchema.shape
-    )
-);
-
-const packageSchemaWithMandatorySourcesFolder = z.readonly(
-    z.extend(
-        z.extend(commonPackageSettingsSourcesFolderRequiredSchema, optionalPackageSettingsSchema.shape),
-        perPackageSettingsSchema.shape
-    )
-);
-
-const packageSchemaWithMandatoryMainPackageJson = z.extend(
-    z.extend(commonPackageSettingsMainPackageJsonRequiredSchema, optionalPackageSettingsSchema.shape),
-    perPackageSettingsSchema.shape
-);
-
-export const packtoryConfigWithoutRegistrySchema = z.union([
-    z.readonly(
-        z.object({
-            checks: z.optional(checksSchema),
-            commonPackageSettings: z.optional(
-                z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
-            ),
-            packages: z.readonly(z.tuple([packageSchemaWithAllCommonSettings], packageSchemaWithAllCommonSettings))
-        })
-    ),
-    z.readonly(
-        z.object({
-            checks: z.optional(checksSchema),
-            commonPackageSettings: z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
-            packages: z.readonly(
-                z.tuple([packageSchemaWithPartialCommonSettings], packageSchemaWithPartialCommonSettings)
-            )
-        })
-    ),
-    z.readonly(
-        z.object({
-            checks: z.optional(checksSchema),
-            commonPackageSettings: z.extend(
-                commonPackageSettingsMainPackageJsonRequiredSchema,
-                optionalPackageSettingsSchema.shape
-            ),
-            packages: z.readonly(
-                z.tuple([packageSchemaWithMandatorySourcesFolder], packageSchemaWithMandatorySourcesFolder)
-            )
-        })
-    ),
-    z.readonly(
-        z.object({
-            checks: z.optional(checksSchema),
-            commonPackageSettings: z.extend(
-                commonPackageSettingsSourcesFolderRequiredSchema,
-                optionalPackageSettingsSchema.shape
-            ),
-            packages: z.readonly(
-                z.tuple([packageSchemaWithMandatoryMainPackageJson], packageSchemaWithMandatoryMainPackageJson)
-            )
-        })
-    )
-]);
-
-export type PacktoryConfigWithoutRegistry = z.infer<typeof packtoryConfigWithoutRegistrySchema>;
-
-export const packtoryConfigSchema = z.intersection(
-    z.object({
-        registrySettings: registrySettingsSchema
-    }),
-    packtoryConfigWithoutRegistrySchema
-);
-
-export type PacktoryConfig = z.infer<typeof packtoryConfigSchema>;
-export type PackageConfig = PacktoryConfig['packages'][number];
+export type PacktoryConfig = PacktoryConfigWithoutRegistry & {
+    readonly registrySettings: RegistrySettings;
+};

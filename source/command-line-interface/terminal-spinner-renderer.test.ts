@@ -128,6 +128,17 @@ test('stop() stops the spinner with the given id with failure status and the giv
     assert.deepStrictEqual(failed.firstCall.args, ['foo']);
 });
 
+test('stop() keeps the stopped spinner instance addressable for later updates', () => {
+    const SpinnerClass = createFakeSpinnerClass();
+    const renderer = terminalSpinnerRendererFactory({ SpinnerClass });
+
+    renderer.add('the-id', '', '');
+    renderer.stop('the-id', 'success', 'foo');
+    renderer.updateMessage('the-id', 'updated');
+
+    assert.strictEqual(SpinnerClass.firstCall.returnValue.text, 'updated');
+});
+
 test('stop() stops only the correct corresponding spinners when having multiple', () => {
     const failed = fake();
     const SpinnerClass = createFakeSpinnerClass({ failed });

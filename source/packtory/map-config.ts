@@ -1,4 +1,3 @@
-import { map } from 'effect/ReadonlyArray';
 import type { PackageConfig, PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
@@ -10,6 +9,7 @@ import type { BundleSubstitutionSource } from '../linker/linked-bundle.ts';
 import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
 
 type ManifestOptionsSubset = Pick<BuildVersionedBundleOptions, 'additionalPackageJsonAttributes' | 'mainPackageJson'>;
+type SharedModuleResolution = ResourceResolveOptions['moduleResolution'];
 
 type SharedPackageOptions<TBundle extends { name: string }> = ManifestOptionsSubset &
     ResourceResolveOptions & {
@@ -32,10 +32,14 @@ function dependencyNamesToBundles<TBundle extends { name: string }>(
     dependencyNames: readonly string[],
     bundles: readonly TBundle[]
 ): readonly TBundle[] {
+    const bundlesByName = new Map(
+        bundles.map((bundle) => {
+            return [bundle.name, bundle] as const;
+        })
+    );
+
     return dependencyNames.map((dependencyName) => {
-        const matchingBundle = bundles.find((bundle) => {
-            return bundle.name === dependencyName;
-        });
+        const matchingBundle = bundlesByName.get(dependencyName);
         if (matchingBundle === undefined) {
             throw new Error(`Dependent bundle "${dependencyName}" not found`);
         }
@@ -146,15 +150,25 @@ function buildSharedOptions<TBundle extends { name: string }>(
     const mainPackageJson = resolveMainPackageJson(packageConfig, packtoryConfig);
     const bundleDependencies = resolveBundleDependencies(packageConfig, existingBundles);
 
+    const [firstEntryPoint, ...remainingEntryPoints] = packageConfig.entryPoints;
+    if (firstEntryPoint === undefined) {
+        throw new Error(`Config for package "${packageConfig.name}" is missing entry points`);
+    }
+
+    const entryPoints: ResourceResolveOptions['entryPoints'] = [
+        normalizeEntryPoint(firstEntryPoint, sourcesFolder),
+        ...remainingEntryPoints.map((entryPoint) => {
+            return normalizeEntryPoint(entryPoint, sourcesFolder);
+        })
+    ];
+
     return {
         name: packageConfig.name,
-        entryPoints: map(packageConfig.entryPoints, (entryPoint) => {
-            return normalizeEntryPoint(entryPoint, sourcesFolder);
-        }),
+        entryPoints,
         sourcesFolder,
         includeSourceMapFiles: resolveIncludeSourceMapFiles(packageConfig, packtoryConfig),
         additionalFiles: resolveAdditionalFiles(packageConfig, sourcesFolder, packtoryConfig),
-        moduleResolution: mainPackageJson.type ?? 'module',
+        moduleResolution: 'module' satisfies SharedModuleResolution,
         mainPackageJson,
         additionalPackageJsonAttributes: buildAdditionalPackageJsonAttributes(packageConfig, packtoryConfig),
         ...bundleDependencies

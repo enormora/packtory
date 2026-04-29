@@ -30,3 +30,18 @@ test('sortByFilePath() keeps equal paths grouped without throwing', () => {
         ['a.txt', 'a.txt']
     );
 });
+
+test('sortByFilePath() keeps equal paths in their original order', () => {
+    const result = sortByFilePath([
+        { filePath: 'a.txt', content: 'first', isExecutable: false },
+        { filePath: 'a.txt', content: 'second', isExecutable: false },
+        { filePath: 'b.txt', content: 'third', isExecutable: false }
+    ]);
+
+    assert.deepStrictEqual(
+        result.map((file) => {
+            return file.content;
+        }),
+        ['first', 'second', 'third']
+    );
+});

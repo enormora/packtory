@@ -139,6 +139,32 @@ test('returns array with the resolved source file using type import function', (
     assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
 });
 
+test('returns array with the resolved source file using multiple import styles in one file', () => {
+    const files = [
+        {
+            filePath: 'main.ts',
+            content: [
+                'import { foo } from "./foo";',
+                'export { bar } from "./bar";',
+                'type Baz = import("./baz").Baz;',
+                'void foo;'
+            ].join('\n')
+        },
+        { filePath: 'foo.ts', content: 'export const foo = 1;' },
+        { filePath: 'bar.ts', content: 'export const bar = 2;' },
+        { filePath: 'baz.ts', content: 'export type Baz = string;' }
+    ];
+    const project = createProject({ withFiles: files });
+
+    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
+
+    assert.deepStrictEqual(result, [
+        project.getSourceFileOrThrow('foo.ts'),
+        project.getSourceFileOrThrow('bar.ts'),
+        project.getSourceFileOrThrow('baz.ts')
+    ]);
+});
+
 test('returns array with the resolved source file using an import statement', () => {
     const files = [
         { filePath: 'main.ts', content: 'import {} from "./foo";' },
@@ -175,4 +201,21 @@ test('resolveSourceFileForLiteral() returns undefined when ts cannot resolve the
     const result = resolveSourceFileForLiteral(literal, sourceFile);
 
     assert.strictEqual(result, undefined);
+});
+
+test('resolveSourceFileForLiteral() resolves dynamic import literals directly', () => {
+    const files = [
+        { filePath: 'main.ts', content: 'async function load() { return import("./foo"); }' },
+        { filePath: 'foo.ts', content: 'export const foo = 1;' }
+    ];
+    const project = createProject({ withFiles: files });
+    const sourceFile = project.getSourceFileOrThrow('main.ts');
+    const [literal] = sourceFile.getImportStringLiterals();
+    if (literal === undefined) {
+        assert.fail('Expected an import literal to exist');
+    }
+
+    const result = resolveSourceFileForLiteral(literal, sourceFile);
+
+    assert.strictEqual(result, project.getSourceFileOrThrow('foo.ts'));
 });

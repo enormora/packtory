@@ -226,14 +226,21 @@ test('tryBuildAndPublish() returns already-published when the emitted bundle alr
 
     assert.deepStrictEqual(result, { bundle: versionedBundle, status: 'already-published' });
     assert.strictEqual(increaseVersion.callCount, 0);
+    assert.deepStrictEqual(checkBundleAlreadyPublished.firstCall.args, [
+        {
+            bundle: versionedBundle,
+            registrySettings: { token: 'token' }
+        }
+    ]);
     assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '0.0.0' }]]);
 });
 
 test('tryBuildAndPublish() rebuilds with an increased version for the first publish', async () => {
     const initialBundle = createVersionedBundle('package-a', '0.0.0');
     const rebuiltBundle = createVersionedBundle('package-a', '0.0.1');
+    const determineCurrentVersion = fake.resolves(Maybe.nothing());
     const { processor, emit } = createProcessor({
-        determineCurrentVersion: fake.resolves(Maybe.nothing()),
+        determineCurrentVersion,
         addVersion: fake.returns(initialBundle),
         increaseVersion: fake.returns(rebuiltBundle)
     });
@@ -244,6 +251,13 @@ test('tryBuildAndPublish() rebuilds with an increased version for the first publ
     });
 
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'initial-version' });
+    assert.deepStrictEqual(determineCurrentVersion.firstCall.args, [
+        {
+            name: 'package-a',
+            registrySettings: { token: 'token' },
+            versioning: { automatic: true }
+        }
+    ]);
     assert.deepStrictEqual(getCallArgs(emit), [
         ['building', { packageName: 'package-a', version: '0.0.0' }],
         ['rebuilding', { packageName: 'package-a', version: '0.0.0' }]
@@ -328,6 +342,28 @@ test('tryBuildAndPublish() uses minimumVersion for the first automatic publish w
     assert.deepStrictEqual(result, { bundle: minimumVersionBundle, status: 'initial-version' });
     assert.strictEqual(increaseVersion.callCount, 0);
     assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '1.2.3' }]]);
+});
+
+test('tryBuildAndPublish() forwards the fully built addVersion payload before publication checks', async () => {
+    const addVersion = fake.returns(createVersionedBundle('package-a', '1.2.3'));
+    const checkBundleAlreadyPublished = fake.resolves({ alreadyPublishedAsLatest: false });
+    const { processor } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+        addVersion,
+        checkBundleAlreadyPublished
+    });
+
+    const linkedBundle = createLinkedBundle();
+    const buildOptions = createBuildAndPublishOptions();
+    await processor.tryBuildAndPublish({ linkedBundle, buildOptions });
+
+    assert.deepStrictEqual(addVersion.firstCall.args, [
+        {
+            bundle: linkedBundle,
+            ...buildOptions,
+            version: '1.2.3'
+        }
+    ]);
 });
 
 test('tryBuildAndPublish() keeps the configured manual version without rebuilding on a rerun', async () => {

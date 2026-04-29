@@ -1,41 +1,5 @@
 import { isBuiltin } from 'node:module';
-import { Maybe } from 'true-myth/maybe';
-import { ts, Node as ASTNode, type SourceFile, type Symbol as TSSymbol, type StringLiteral } from 'ts-morph';
-
-function getReferencedSourceFileFromSymbol(symbol: TSSymbol | undefined): Readonly<Maybe<SourceFile>> {
-    if (symbol === undefined) {
-        return Maybe.nothing();
-    }
-
-    const firstDeclaration = symbol.getDeclarations().find(ASTNode.isSourceFile);
-    return Maybe.of(firstDeclaration);
-}
-
-function getSourceFileFromSymbol(
-    literal: StringLiteral,
-    parent: ASTNode,
-    grandParent: ASTNode | undefined
-): Readonly<Maybe<SourceFile>> {
-    if (ASTNode.isImportTypeNode(grandParent)) {
-        return getReferencedSourceFileFromSymbol(grandParent.getSymbol());
-    }
-    if (ASTNode.isCallExpression(parent)) {
-        return getReferencedSourceFileFromSymbol(literal.getSymbol());
-    }
-
-    return Maybe.nothing();
-}
-
-function getSourceFileForLiteral(literal: StringLiteral): Readonly<SourceFile | undefined> {
-    const parent = literal.getParentOrThrow();
-    const grandParent = parent.getParent();
-
-    if (ASTNode.isImportDeclaration(parent) || ASTNode.isExportDeclaration(parent)) {
-        return parent.getModuleSpecifierSourceFile();
-    }
-
-    return getSourceFileFromSymbol(literal, parent, grandParent).unwrapOr(undefined);
-}
+import { ts, type SourceFile, type StringLiteral } from 'ts-morph';
 
 export function resolveSourceFileForLiteral(
     literal: StringLiteral,
@@ -65,11 +29,7 @@ export function getReferencedSourceFiles(sourceFile: Readonly<SourceFile>): read
     const importStringLiterals = sourceFile.getImportStringLiterals();
     return importStringLiterals
         .map((literal) => {
-            let referencedSourceFile = getSourceFileForLiteral(literal);
-
-            if (referencedSourceFile === undefined) {
-                referencedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
-            }
+            const referencedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
 
             if (referencedSourceFile === undefined) {
                 const importValue = literal.getLiteralValue();

@@ -22,6 +22,7 @@
         "!source/**/*.test.ts!",
         "!source/test-libraries/**/*.ts!"
     ],
+    "ignoreIssues": {},
     "ignoreDependencies": ["@ls-lint/ls-lint", "c8", "eslint", "foo", "prettier"],
     "ignoreBinaries": []
 }

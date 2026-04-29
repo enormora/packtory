@@ -677,6 +677,91 @@ test('getTopologicalGenerations() returns multiple generations of two dependent 
     assert.deepStrictEqual(generations, [['a', 'c'], ['d'], ['e'], ['b', 'f']]);
 });
 
+test('getTopologicalGenerations() keeps a shared dependency in a later generation until all incoming edges are consumed', () => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', ''],
+            ['d', '']
+        ],
+        connections: [
+            { from: 'a', to: 'c' },
+            { from: 'b', to: 'c' },
+            { from: 'c', to: 'd' }
+        ]
+    });
+
+    const generations = graph.getTopologicalGenerations();
+
+    assert.deepStrictEqual(generations, [['a', 'b'], ['c'], ['d']]);
+});
+
+test('disconnect() updates incoming-edge counts used by topological generations', () => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', '']
+        ],
+        connections: [
+            { from: 'a', to: 'c' },
+            { from: 'b', to: 'c' }
+        ]
+    });
+
+    graph.disconnect({ from: 'b', to: 'c' });
+
+    assert.deepStrictEqual(graph.getTopologicalGenerations(), [['a', 'b'], ['c']]);
+
+    graph.disconnect({ from: 'a', to: 'c' });
+
+    assert.deepStrictEqual(graph.getTopologicalGenerations(), [['a', 'b', 'c']]);
+});
+
+test('traverse() visits each reachable node once across disconnected roots', () => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', 'first'],
+            ['b', 'second'],
+            ['c', 'third'],
+            ['d', 'fourth'],
+            ['e', 'fifth']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'c' },
+            { from: 'd', to: 'e' }
+        ]
+    });
+    const visited: string[] = [];
+
+    graph.traverse((node) => {
+        visited.push(`${node.id}:${node.incomingEdges}`);
+    });
+
+    assert.deepStrictEqual(visited, ['a:0', 'b:1', 'c:1', 'd:0', 'e:1']);
+});
+
+test('visitBreadthFirstSearch() visits shared descendants only once', () => {
+    const graph = createGraphWithNodes({
+        nodes: [
+            ['a', ''],
+            ['b', ''],
+            ['c', ''],
+            ['d', '']
+        ],
+        connections: [
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' },
+            { from: 'b', to: 'd' },
+            { from: 'c', to: 'd' }
+        ]
+    });
+
+    assert.deepStrictEqual(collectFromGraph(graph, 'a'), ['a', 'b', 'c', 'd']);
+});
+
 test('reverse() returns a new graph with the edges reversed', () => {
     const graph = createGraphWithNodes({
         nodes: [

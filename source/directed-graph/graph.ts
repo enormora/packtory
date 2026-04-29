@@ -1,3 +1,4 @@
+/* eslint-disable max-statements, no-continue -- graph traversal utilities are intentionally imperative */
 type GraphNodeId = number | string;
 
 type GraphNode<TId extends GraphNodeId, TData> = {
@@ -80,12 +81,9 @@ function decreaseIncomingEdges<TId extends GraphNodeId, TData>(
 }
 
 function getNonVisitedAdjacentIds<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>,
-    visited: ReadonlySet<TId>
+    node: Readonly<GraphNode<TId, TData>>
 ): readonly TId[] {
-    return Array.from(node.adjacentNodeIds).filter((id) => {
-        return !visited.has(id);
-    });
+    return Array.from(node.adjacentNodeIds);
 }
 
 export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedGraph<TId, TData> {
@@ -134,14 +132,14 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         visitedIds: readonly TId[]
     ): readonly (readonly TId[])[] {
         const newVisitedIds = [...visitedIds, baseNode.id];
-
-        if (visitedIds.includes(baseNode.id)) {
-            return [newVisitedIds];
-        }
-
         const cycles: (readonly TId[])[] = [];
 
         for (const id of baseNode.adjacentNodeIds) {
+            if (newVisitedIds.includes(id)) {
+                cycles.push([...newVisitedIds, id]);
+                continue;
+            }
+
             const cyclesInAdjacentNode = detectCyclesForNode(getNode(id), newVisitedIds);
             cycles.push(...cyclesInAdjacentNode);
         }
@@ -156,12 +154,9 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         for (const baseNode of nodes.values()) {
             if (!idsWithinCycles.has(baseNode.id)) {
                 const cyclesForNode = detectCyclesForNode(baseNode, []);
-
-                if (cyclesForNode.length > 0) {
-                    cycles.push(...cyclesForNode);
-                    for (const id of cyclesForNode.flat()) {
-                        idsWithinCycles.add(id);
-                    }
+                cycles.push(...cyclesForNode);
+                for (const id of cyclesForNode.flat()) {
+                    idsWithinCycles.add(id);
                 }
             }
         }
@@ -187,11 +182,11 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         }
 
         if (currentGeneration.length > 0) {
+            const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
             const newIncomingEdgesPerNode = decreaseIncomingEdgesPerNodeForAdjacentNodes(
                 incomingEdgesPerNode,
                 currentGeneration
             );
-            const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
             const generations = recursivelyGetTopologicalGenerations(currentlyDiscovered, newIncomingEdgesPerNode);
             return [currentGeneration, ...generations];
         }
@@ -205,9 +200,13 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         const visited = new Set<TId>();
 
         for (let head = queue.shift(); head !== undefined; head = queue.shift()) {
+            if (visited.has(head.id)) {
+                continue;
+            }
+
             visited.add(head.id);
             visitor(head);
-            const nonVisitedAdjacentIds = getNonVisitedAdjacentIds(head, visited);
+            const nonVisitedAdjacentIds = getNonVisitedAdjacentIds(head);
             for (const id of nonVisitedAdjacentIds) {
                 const adjacentNode = getNode(id);
                 queue.push(adjacentNode);

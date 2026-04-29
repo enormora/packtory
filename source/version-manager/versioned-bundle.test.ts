@@ -118,6 +118,20 @@ test('buildVersionedBundle() groups bundle dependencies and peer dependencies by
     assert.deepStrictEqual(result.peerDependencies, { 'peer-dependency': '3.0.0' });
 });
 
+test('buildVersionedBundle() defaults both dependency maps to empty objects when there are no dependencies', () => {
+    const result = buildVersionedBundle({
+        bundle: createLinkedBundle(),
+        version: '1.2.3',
+        mainPackageJson: { type: 'module' },
+        bundleDependencies: [],
+        bundlePeerDependencies: [],
+        additionalPackageJsonAttributes: {}
+    });
+
+    assert.deepStrictEqual(result.dependencies, {});
+    assert.deepStrictEqual(result.peerDependencies, {});
+});
+
 test('buildVersionedBundle() reads external dependency versions from dependencies and peerDependencies', () => {
     const result = buildVersionedBundle({
         bundle: createLinkedBundle({
