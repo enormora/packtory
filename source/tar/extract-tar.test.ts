@@ -1,5 +1,7 @@
 import assert from 'node:assert';
+import { Readable } from 'node:stream';
 import { test } from 'mocha';
+import sinon from 'sinon';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
@@ -63,4 +65,79 @@ test('returns the extracted entries when the given tar buffer has files which ar
             }
         }
     ]);
+});
+
+test('rejects when the given buffer is not a valid gzip tarball', async () => {
+    await assert.rejects(async () => {
+        await extractTarEntries(Buffer.from('not-a-tarball'));
+    }, Error);
+});
+
+test('rejects with an Error when iteration throws a non-Error value', async () => {
+    const throwingStream = {
+        [Symbol.asyncIterator](): AsyncIterator<unknown> {
+            return {
+                next: async (): Promise<IteratorResult<unknown>> => {
+                    // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- This test exercises non-Error rejection normalization.
+                    throw 'boom';
+                }
+            };
+        }
+    };
+    const intermediateStream = {
+        pipe() {
+            return throwingStream;
+        }
+    };
+    const source = {
+        once() {
+            return source;
+        },
+        pipe() {
+            return intermediateStream;
+        }
+    };
+    const stub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
+
+    try {
+        await assert.rejects(async () => {
+            await extractTarEntries(Buffer.from('unused'));
+        }, /^Error: boom$/);
+    } finally {
+        stub.restore();
+    }
+});
+
+test('preserves Error instances when iteration rejects with an Error', async () => {
+    const throwingStream = {
+        [Symbol.asyncIterator](): AsyncIterator<unknown> {
+            return {
+                next: async (): Promise<IteratorResult<unknown>> => {
+                    throw new Error('boom');
+                }
+            };
+        }
+    };
+    const intermediateStream = {
+        pipe() {
+            return throwingStream;
+        }
+    };
+    const source = {
+        once() {
+            return source;
+        },
+        pipe() {
+            return intermediateStream;
+        }
+    };
+    const stub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
+
+    try {
+        await assert.rejects(async () => {
+            await extractTarEntries(Buffer.from('unused'));
+        }, /^Error: boom$/);
+    } finally {
+        stub.restore();
+    }
 });

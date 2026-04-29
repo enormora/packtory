@@ -17,6 +17,7 @@
     "mutate": [
         "source/**/*.ts",
         "!source/**/*.test.ts",
+        "!source/**/*.property.ts",
         "!source/test-libraries/**/*.ts",
         "!source/packages/**/*.entry-point.ts"
     ],

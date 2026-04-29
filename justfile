@@ -32,13 +32,16 @@ lint: eslint prettier-check lint-dependencies lint-filename lint-unused-code
 
 lint-fix: eslint-fix prettier-fix
 
-test: test-unit-with-coverage test-integration
+test: test-unit-with-coverage test-unit-property test-integration
 
 test-unit:
     mocha --config mocha.config.unit-tests.cjs
 
 test-unit-with-coverage:
     c8 --config .c8rc.json mocha --config mocha.config.unit-tests.cjs
+
+test-unit-property:
+    mocha --config mocha.config.property-tests.cjs
 
 test-mutation:
     stryker run

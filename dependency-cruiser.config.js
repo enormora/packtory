@@ -7,7 +7,7 @@ const configFiles = [
 
 const entryPointFiles = ['^source/packages/.+/.+\\.entry-point\\.ts$'];
 
-const testFiles = ['\\.test\\.ts$', '^integration-tests/'];
+const testFiles = ['\\.(test|property)\\.ts$', '^integration-tests/'];
 const testLibraryFiles = ['^source/test-libraries/'];
 const excludedFiles = ['^(\\./)?integration-tests/fixtures/', '^(\\./)?target/'];
 
