@@ -268,23 +268,45 @@ test('tryBuildAndPublish() returns new-version when the package already has a pu
 });
 
 test('tryBuildAndPublish() keeps the configured manual version without rebuilding on the initial publish', async () => {
-    const manualBundle = createVersionedBundle('package-a', '3.2.1');
+    const manualBundle = createVersionedBundle('package-a', '4.5.6');
     const { processor, increaseVersion, emit } = createProcessor({
         determineCurrentVersion: fake.resolves(Maybe.nothing()),
         addVersion: fake.returns(manualBundle)
     });
 
+    const buildOptions: BuildAndPublishOptions = {
+        ...createBuildAndPublishOptions(),
+        versioning: { automatic: false, version: '4.5.6' }
+    };
     const result = await processor.tryBuildAndPublish({
         linkedBundle: createLinkedBundle(),
-        buildOptions: {
-            ...createBuildAndPublishOptions(),
-            versioning: { automatic: false, version: '3.2.1' }
-        }
+        buildOptions
     });
 
     assert.deepStrictEqual(result, { bundle: manualBundle, status: 'initial-version' });
     assert.strictEqual(increaseVersion.callCount, 0);
-    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '3.2.1' }]]);
+    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '4.5.6' }]]);
+});
+
+test('tryBuildAndPublish() keeps the current published version without rebuilding when automatic versioning is disabled', async () => {
+    const currentBundle = createVersionedBundle('package-a', '2.0.0');
+    const { processor, increaseVersion, emit } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('2.0.0')),
+        addVersion: fake.returns(currentBundle)
+    });
+
+    const buildOptions: BuildAndPublishOptions = {
+        ...createBuildAndPublishOptions(),
+        versioning: { automatic: false, version: '9.9.9' }
+    };
+    const result = await processor.tryBuildAndPublish({
+        linkedBundle: createLinkedBundle(),
+        buildOptions
+    });
+
+    assert.deepStrictEqual(result, { bundle: currentBundle, status: 'new-version' });
+    assert.strictEqual(increaseVersion.callCount, 0);
+    assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '2.0.0' }]]);
 });
 
 test('tryBuildAndPublish() uses minimumVersion for the first automatic publish without rebuilding', async () => {
@@ -294,12 +316,13 @@ test('tryBuildAndPublish() uses minimumVersion for the first automatic publish w
         addVersion: fake.returns(minimumVersionBundle)
     });
 
+    const buildOptions: BuildAndPublishOptions = {
+        ...createBuildAndPublishOptions(),
+        versioning: { automatic: true, minimumVersion: '1.2.3' }
+    };
     const result = await processor.tryBuildAndPublish({
         linkedBundle: createLinkedBundle(),
-        buildOptions: {
-            ...createBuildAndPublishOptions(),
-            versioning: { automatic: true, minimumVersion: '1.2.3' }
-        }
+        buildOptions
     });
 
     assert.deepStrictEqual(result, { bundle: minimumVersionBundle, status: 'initial-version' });

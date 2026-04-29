@@ -11,6 +11,7 @@
         "subrecord",
         "kleur",
         "cmds",
-        "htpasswd"
+        "htpasswd",
+        "sonarjs"
     ]
 }

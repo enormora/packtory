@@ -15,7 +15,7 @@ export default [
     },
     {
         ...mochaConfig,
-        files: ['**/*.test.ts', 'source/test-libraries/**/*.ts', 'integration-tests/**/*.ts']
+        files: ['**/*.test.ts', '**/*.property.ts', 'source/test-libraries/**/*.ts', 'integration-tests/**/*.ts']
     },
     {
         ...nodeConfigFileConfig,
@@ -25,11 +25,17 @@ export default [
             'mocha.config.base.cjs',
             'mocha.config.unit-tests.cjs',
             'mocha.config.integration-tests.cjs',
+            'mocha.config.property-tests.cjs',
             'packtory.config.js'
         ]
     },
     {
-        files: ['mocha.config.base.cjs', 'mocha.config.unit-tests.cjs', 'mocha.config.integration-tests.cjs'],
+        files: [
+            'mocha.config.base.cjs',
+            'mocha.config.unit-tests.cjs',
+            'mocha.config.integration-tests.cjs',
+            'mocha.config.property-tests.cjs'
+        ],
         rules: {
             'import/no-commonjs': 'off',
             'import/extensions': 'off',
@@ -79,15 +85,40 @@ export default [
         }
     },
     {
-        files: ['**/*.test.ts'],
+        files: ['**/*.test.ts', '**/*.property.ts'],
         rules: {
             '@typescript-eslint/no-magic-numbers': 'off',
-            'max-lines': 'off'
+            '@typescript-eslint/explicit-function-return-type': 'off',
+            '@typescript-eslint/no-non-null-assertion': 'off',
+            '@typescript-eslint/strict-boolean-expressions': 'off',
+            'arrow-body-style': 'off',
+            complexity: 'off',
+            'id-length': 'off',
+            'max-lines': 'off',
+            'max-statements': 'off',
+            'sonarjs/different-types-comparison': 'off',
+            'sonarjs/function-return-type': 'off',
+            'sonarjs/no-alphabetical-sort': 'off',
+            'unicorn/no-array-reverse': 'off',
+            'unicorn/no-array-sort': 'off'
         },
         settings: {
             mocha: {
                 interface: 'TDD'
             }
+        }
+    },
+    {
+        files: ['**/*.property.ts'],
+        rules: {
+            '@typescript-eslint/naming-convention': 'off',
+            '@typescript-eslint/no-unnecessary-condition': 'off',
+            '@typescript-eslint/no-unsafe-argument': 'off',
+            '@stylistic/indent': 'off',
+            'functional/prefer-tacit': 'off',
+            'prefer-named-capture-group': 'off',
+            'sonarjs/no-identical-functions': 'off',
+            'unicorn/number-literal-case': 'off'
         }
     }
 ];

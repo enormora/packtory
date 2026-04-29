@@ -82,7 +82,7 @@ function getRequiredValue<TValue>(value: TValue | undefined, message: string): T
 
 function resolveSourcesFolder(packageConfig: PackageConfig, packtoryConfig: PacktoryConfigWithoutRegistry): string {
     return getRequiredValue(
-        packtoryConfig.commonPackageSettings?.sourcesFolder ?? packageConfig.sourcesFolder,
+        packageConfig.sourcesFolder ?? packtoryConfig.commonPackageSettings?.sourcesFolder,
         `Config for package "${packageConfig.name}" is missing the sources folder`
     );
 }
@@ -92,7 +92,7 @@ function resolveMainPackageJson(
     packtoryConfig: PacktoryConfigWithoutRegistry
 ): MainPackageJson {
     return getRequiredValue(
-        packtoryConfig.commonPackageSettings?.mainPackageJson ?? packageConfig.mainPackageJson,
+        packageConfig.mainPackageJson ?? packtoryConfig.commonPackageSettings?.mainPackageJson,
         `Config for package "${packageConfig.name}" is missing the main package.json settings`
     );
 }
