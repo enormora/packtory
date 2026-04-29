@@ -66,7 +66,7 @@
         "dependency-cruiser": "17.3.10",
         "eslint": "10.2.1",
         "get-port": "7.2.0",
-        "knip": "6.7.0",
+        "knip": "6.8.0",
         "mocha": "11.7.5",
         "prettier": "3.8.3",
         "rust-just": "1.50.0",
