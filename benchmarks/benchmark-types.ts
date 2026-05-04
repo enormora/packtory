@@ -1,0 +1,74 @@
+/* eslint-disable perfectionist/sort-union-types -- Benchmark metadata is easier to scan in workflow order. */
+
+export const workloadSizes = ['small', 'medium', 'large'] as const;
+export const cliWorkloadSizes = ['medium', 'large'] as const;
+
+export type WorkloadSize = (typeof workloadSizes)[number];
+export type CliWorkloadSize = (typeof cliWorkloadSizes)[number];
+
+export type WorkloadDefinition = {
+    readonly clusterCount: number;
+    readonly packageCount: number;
+    readonly jsFileCount: number;
+    readonly declarationFileCount: number;
+    readonly sourceMapFileCount: number;
+    readonly maxImportFanOut: number;
+};
+
+export type CliWorkloadDefinition = {
+    readonly packageCount: number;
+    readonly jsFileCount: number;
+    readonly declarationFileCount: number;
+    readonly sourceMapFileCount: number;
+    readonly maxImportFanOut: number;
+};
+
+export type WorkloadsFile = {
+    readonly seedFixture: string;
+    readonly workloads: Record<WorkloadSize, WorkloadDefinition>;
+    readonly cliWorkloads: Record<CliWorkloadSize, CliWorkloadDefinition>;
+};
+
+export type ThroughputThreshold = {
+    readonly medianMs: number;
+};
+
+export type ResponsivenessThreshold = {
+    readonly p99Ms: number;
+    readonly maxMs: number;
+};
+
+export type ThresholdsFile = {
+    readonly normalization: {
+        readonly baselineMilliseconds: number;
+    };
+    readonly throughput: {
+        readonly 'resolve-and-link': Record<WorkloadSize, ThroughputThreshold>;
+        readonly 'build-artifacts': Record<WorkloadSize, ThroughputThreshold>;
+    };
+    readonly responsiveness: {
+        readonly 'publish-cli': {
+            readonly intervalMs: number;
+            readonly medium: ResponsivenessThreshold;
+            readonly large: ResponsivenessThreshold;
+        };
+    };
+};
+
+export type TinybenchMeasurement = {
+    readonly medianMs: number;
+    readonly sampleCount: number;
+};
+
+export type ThroughputBenchmarkMeasurement = TinybenchMeasurement & {
+    readonly benchmarkName: 'resolve-and-link' | 'build-artifacts';
+    readonly size: WorkloadSize;
+};
+
+export type CliResponsivenessMeasurement = TinybenchMeasurement & {
+    readonly benchmarkName: 'publish-cli';
+    readonly size: CliWorkloadSize;
+    readonly frameCount: number;
+    readonly p99FrameGapMs: number;
+    readonly maxFrameGapMs: number;
+};

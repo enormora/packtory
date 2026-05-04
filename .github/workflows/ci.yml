@@ -38,3 +38,17 @@ jobs:
               run: npm clean-install
             - name: Run mutation tests
               run: npx just test-mutation
+
+    benchmarks:
+        runs-on: ubuntu-latest
+        name: Benchmarks
+        steps:
+            - uses: actions/checkout@v6
+            - name: Use Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24.x
+            - name: Install dependencies
+              run: npm clean-install
+            - name: Run benchmarks
+              run: npx just benchmark || true

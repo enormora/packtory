@@ -48,3 +48,6 @@ test-mutation:
 
 test-integration:
     mocha --config mocha.config.integration-tests.cjs
+
+benchmark:
+    node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts

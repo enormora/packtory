@@ -1,0 +1,24 @@
+{
+    "normalization": {
+        "baselineMilliseconds": 150
+    },
+    "throughput": {
+        "resolve-and-link": {
+            "small": { "medianMs": 2500 },
+            "medium": { "medianMs": 8000 },
+            "large": { "medianMs": 20000 }
+        },
+        "build-artifacts": {
+            "small": { "medianMs": 3500 },
+            "medium": { "medianMs": 12000 },
+            "large": { "medianMs": 30000 }
+        }
+    },
+    "responsiveness": {
+        "publish-cli": {
+            "intervalMs": 80,
+            "medium": { "p99Ms": 240, "maxMs": 480 },
+            "large": { "p99Ms": 240, "maxMs": 480 }
+        }
+    }
+}
