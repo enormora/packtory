@@ -1,7 +1,8 @@
 import { resolveAndLinkAll } from '../source/packages/packtory/packtory.entry-point.ts';
 import type { ThroughputBenchmarkMeasurement, WorkloadsFile, WorkloadSize } from './benchmark-types.ts';
-import { createTemporaryDirectory, removeDirectory, runTinybenchTask } from './benchmark-helpers.ts';
+import { createTemporaryDirectory, removeDirectory } from './benchmark-filesystem.ts';
 import { generateWorkload } from './generate-workload.ts';
+import { measureAsyncTask } from './tinybench-measurement.ts';
 
 export async function runResolveAndLinkBenchmark(
     size: WorkloadSize,
@@ -12,7 +13,7 @@ export async function runResolveAndLinkBenchmark(
     try {
         const workload = await generateWorkload({ rootDirectory, size, workloads });
         const config = workload.createConfigWithoutRegistry();
-        const result = await runTinybenchTask(`resolve-and-link:${size}`, async () => {
+        const result = await measureAsyncTask(`resolve-and-link:${size}`, async () => {
             const runResult = await resolveAndLinkAll(config);
 
             if (runResult.isErr) {

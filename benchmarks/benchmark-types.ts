@@ -1,5 +1,3 @@
-/* eslint-disable perfectionist/sort-union-types -- Benchmark metadata is easier to scan in workflow order. */
-
 export const workloadSizes = ['small', 'medium', 'large'] as const;
 export const cliWorkloadSizes = ['medium', 'large'] as const;
 
@@ -61,7 +59,7 @@ export type TinybenchMeasurement = {
 };
 
 export type ThroughputBenchmarkMeasurement = TinybenchMeasurement & {
-    readonly benchmarkName: 'resolve-and-link' | 'build-artifacts';
+    readonly benchmarkName: 'build-artifacts' | 'resolve-and-link';
     readonly size: WorkloadSize;
 };
 

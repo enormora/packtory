@@ -1,57 +1,90 @@
-/* eslint-disable complexity, @typescript-eslint/no-shadow, max-statements, @typescript-eslint/no-magic-numbers, unicorn/numeric-separators-style, unicorn/prefer-type-error -- The normalization workload intentionally uses fixed numeric constants. */
+import assert from 'node:assert/strict';
+import { Bench } from 'tinybench';
 
-import { performance } from 'node:perf_hooks';
-import { calculatePercentile } from './benchmark-helpers.ts';
+const normalizationArrayLength = 65_536;
+const normalizationIterationCount = 192;
+const normalizationWarmupIterations = 5;
+const normalizationMeasuredIterations = 5;
+const leftModulus = 97;
+const leftOffset = 0.5;
+const rightModulus = 89;
+const rightOffset = 1.5;
+const leftScaleFactor = 1.000_000_1;
+const rightScaleFactor = 0.999_999_9;
+const normalizationRollover = 8192;
+const minimumFiniteAccumulator = 0;
 
-const normalizationSampleCount = 5;
-const arrayLength = 65_536;
-const iterationCount = 192;
+function createNormalizationArrays(): {
+    readonly left: Float64Array;
+    readonly right: Float64Array;
+} {
+    const left = new Float64Array(normalizationArrayLength);
+    const right = new Float64Array(normalizationArrayLength);
 
-function runNormalizationWorkload(): number {
-    const left = new Float64Array(arrayLength);
-    const right = new Float64Array(arrayLength);
-
-    for (let index = 0; index < arrayLength; index += 1) {
-        left[index] = (index % 97) + 0.5;
-        right[index] = (index % 89) + 1.5;
+    for (let index = 0; index < normalizationArrayLength; index += 1) {
+        left[index] = (index % leftModulus) + leftOffset;
+        right[index] = (index % rightModulus) + rightOffset;
     }
 
+    return { left, right };
+}
+
+function updateNormalizationValue(left: Float64Array, right: Float64Array, index: number): number {
+    const workingLeft = left;
+    const leftValue = workingLeft[index];
+    const rightValue = right[index];
+
+    assert.ok(
+        leftValue !== undefined && rightValue !== undefined,
+        `Expected typed-array values for normalization index ${index}`
+    );
+
+    workingLeft[index] = (leftValue * leftScaleFactor + rightValue * rightScaleFactor) % normalizationRollover;
+    return workingLeft[index];
+}
+
+function updateAccumulator(left: Float64Array, right: Float64Array): number {
+    const mutableLeft = left;
     let accumulator = 0;
-    const startedAt = performance.now();
 
-    for (let iteration = 0; iteration < iterationCount; iteration += 1) {
-        for (let index = 0; index < arrayLength; index += 1) {
-            const leftValue = left[index];
-            const rightValue = right[index];
-
-            if (leftValue === undefined || rightValue === undefined) {
-                throw new Error(`Expected typed-array values for normalization index ${index}`);
-            }
-
-            left[index] = (leftValue * 1.0000001 + rightValue * 0.9999999) % 8192;
-            const value = left[index];
-
-            if (value === undefined) {
-                throw new Error(`Expected left[${index}] to be defined`);
-            }
-
-            accumulator += value;
+    for (let iteration = 0; iteration < normalizationIterationCount; iteration += 1) {
+        for (let index = 0; index < normalizationArrayLength; index += 1) {
+            accumulator += updateNormalizationValue(mutableLeft, right, index);
         }
     }
 
-    if (!Number.isFinite(accumulator)) {
-        throw new Error('Normalization workload produced a non-finite value');
-    }
-
-    return performance.now() - startedAt;
+    return accumulator;
 }
 
-export function measureNormalization(): number {
-    const samples: number[] = [];
+function runNormalizationWorkload(): void {
+    const { left, right } = createNormalizationArrays();
+    const accumulator = updateAccumulator(left, right);
 
-    for (let sampleIndex = 0; sampleIndex < normalizationSampleCount; sampleIndex += 1) {
-        samples.push(runNormalizationWorkload());
+    if (!Number.isFinite(accumulator) || accumulator < minimumFiniteAccumulator) {
+        throw new TypeError('Normalization workload produced a non-finite value');
     }
+}
 
-    return calculatePercentile(samples, 0.5);
+export async function measureNormalization(): Promise<number> {
+    const bench = new Bench({
+        name: 'normalization',
+        iterations: normalizationMeasuredIterations,
+        time: 0,
+        warmup: true,
+        warmupIterations: normalizationWarmupIterations,
+        warmupTime: 0,
+        throws: true
+    });
+
+    bench.add('normalization', runNormalizationWorkload);
+    await bench.run();
+
+    const [task] = bench.tasks;
+    assert.ok(task !== undefined, 'Normalization benchmark task is missing');
+    assert.ok(
+        task.result.state === 'completed' || task.result.state === 'aborted-with-statistics',
+        'Normalization benchmark did not complete successfully'
+    );
+
+    return task.result.latency.p50;
 }

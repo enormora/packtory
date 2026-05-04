@@ -1,19 +1,20 @@
-/* eslint-disable node/no-process-env, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/prefer-destructuring, unicorn/prefer-type-error -- Benchmark registry setup is a script-oriented test utility. */
-
+import assert from 'node:assert/strict';
 import path from 'node:path';
-import fs from 'node:fs/promises';
-import os from 'node:os';
 import type { Server } from 'node:http';
 import getPort from 'get-port';
 import { runServer } from 'verdaccio';
 import type { RegistrySettings } from '../source/config/registry-settings.ts';
+import { createTemporaryDirectory, removeDirectory } from './benchmark-filesystem.ts';
 
 const userName = 'foo';
 const password = 'top-secret';
 
-function getEnvironmentVariable(variableName: string): string | undefined {
-    const environment = process.env[variableName];
-    return typeof environment === 'string' ? environment : undefined;
+function isServerNotRunningError(error: Error): boolean {
+    return 'code' in error && error.code === 'ERR_SERVER_NOT_RUNNING';
+}
+
+function isServer(value: unknown): value is Server {
+    return typeof value === 'object' && value !== null && 'listen' in value && 'close' in value;
 }
 
 async function startServer(server: Server, port: number): Promise<void> {
@@ -26,18 +27,13 @@ async function startServer(server: Server, port: number): Promise<void> {
 async function stopServer(server: Server): Promise<void> {
     return new Promise((resolve, reject) => {
         server.close((error) => {
-            if (error === undefined || (error as { code?: string }).code === 'ERR_SERVER_NOT_RUNNING') {
+            if (error === undefined || isServerNotRunningError(error)) {
                 resolve();
             } else {
                 reject(error);
             }
         });
     });
-}
-
-async function createTemporaryDirectory(): Promise<string> {
-    const tempRootDirectory = getEnvironmentVariable('RUNNER_TEMP') ?? os.tmpdir();
-    return fs.mkdtemp(path.join(tempRootDirectory, 'packtory-benchmark-registry-'));
 }
 
 async function createRegistryServer(storageDirectory: string): Promise<Server> {
@@ -76,7 +72,16 @@ async function createRegistryServer(storageDirectory: string): Promise<Server> {
         }
     } as const;
 
-    return (await runServer(configuration)) as Server;
+    const server: unknown = await runServer(configuration);
+    assert.ok(isServer(server), 'Verdaccio did not return an HTTP server instance');
+    return server;
+}
+
+function getRegistryToken(responseBody: unknown): string {
+    assert.ok(typeof responseBody === 'object' && responseBody !== null, 'Registry token response must be an object');
+    const token: unknown = Reflect.get(responseBody, 'token');
+    assert.ok(typeof token === 'string', 'Could not create a registry token for the benchmark registry');
+    return token;
 }
 
 async function createToken(registryUrl: string): Promise<string> {
@@ -94,14 +99,8 @@ async function createToken(registryUrl: string): Promise<string> {
         }
     });
 
-    const body = (await response.json()) as Record<string, unknown>;
-    const token = body.token;
-
-    if (typeof token !== 'string') {
-        throw new Error('Could not create a registry token for the benchmark registry');
-    }
-
-    return token;
+    const body: unknown = await response.json();
+    return getRegistryToken(body);
 }
 
 export type RegistryHandle = {
@@ -110,7 +109,7 @@ export type RegistryHandle = {
 };
 
 export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
-    const storageDirectory = await createTemporaryDirectory();
+    const storageDirectory = await createTemporaryDirectory('packtory-benchmark-registry-');
     const server = await createRegistryServer(storageDirectory);
     const port = await getPort();
     const registryUrl = `http://localhost:${port}`;
@@ -127,7 +126,7 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
             try {
                 await stopServer(server);
             } finally {
-                await fs.rm(storageDirectory, { recursive: true, force: true });
+                await removeDirectory(storageDirectory);
             }
         }
     };

@@ -1,8 +1,9 @@
 import { buildAndPublishAll } from '../source/packages/packtory/packtory.entry-point.ts';
 import type { ThroughputBenchmarkMeasurement, WorkloadsFile, WorkloadSize } from './benchmark-types.ts';
-import { createTemporaryDirectory, removeDirectory, runTinybenchTask } from './benchmark-helpers.ts';
+import { createTemporaryDirectory, removeDirectory } from './benchmark-filesystem.ts';
 import { startBenchmarkRegistry } from './benchmark-registry.ts';
 import { generateWorkload } from './generate-workload.ts';
+import { measureAsyncTask } from './tinybench-measurement.ts';
 
 export async function runBuildArtifactsBenchmark(
     size: WorkloadSize,
@@ -14,7 +15,7 @@ export async function runBuildArtifactsBenchmark(
     try {
         const workload = await generateWorkload({ rootDirectory, size, workloads });
         const config = workload.createConfig(registry.settings);
-        const result = await runTinybenchTask(`build-artifacts:${size}`, async () => {
+        const result = await measureAsyncTask(`build-artifacts:${size}`, async () => {
             const runResult = await buildAndPublishAll(config, { dryRun: true });
 
             if (runResult.isErr) {

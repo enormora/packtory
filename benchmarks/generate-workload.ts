@@ -1,5 +1,4 @@
-/* eslint-disable @stylistic/max-len, @typescript-eslint/no-magic-numbers, prettier/prettier, @typescript-eslint/no-unnecessary-condition, sonarjs/different-types-comparison -- Workload generation is deterministic benchmark scaffolding, not production logic. */
-
+import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../source/config/config.ts';
@@ -11,9 +10,15 @@ import type {
     WorkloadsFile,
     WorkloadSize
 } from './benchmark-types.ts';
-import { assert } from './benchmark-helpers.ts';
 
 type BenchmarkPackage = NonNullable<PacktoryConfigWithoutRegistry['packages']>[number];
+
+const jsonIndentationSpaces = 4;
+const packagesPerCluster = 3;
+const clusterJavaScriptFileCount = 6;
+const clusterDeclarationFileCount = 5;
+const clusterSourceMapFileCount = 6;
+const clusterSourceMapVersion = 3;
 
 const sharedMainPackageJson = {
     name: 'test-fixture',
@@ -55,7 +60,16 @@ type GenerateCliWorkloadParams = {
 };
 
 function createSourceMap(fileName: string, sourceName: string): string {
-    return `{"version":3,"file":"${fileName}","sourceRoot":"","sources":["./src/${sourceName}"],"names":[],"mappings":""}\n`;
+    const sourceMap = {
+        version: clusterSourceMapVersion,
+        file: fileName,
+        sourceRoot: '',
+        sources: [`./src/${sourceName}`],
+        names: [],
+        mappings: ''
+    };
+
+    return `${JSON.stringify(sourceMap)}\n`;
 }
 
 function createClusterSourceFiles(): Record<string, string> {
@@ -93,15 +107,24 @@ function createCliPackageSourceFiles(): Record<string, string> {
     sourceFiles['index.js.map'] = createSourceMap('index.js', 'index.ts');
     sourceFiles['index.d.ts'] = featureNames
         .map((featureName) => {
-            return `export declare const feature${featureName.toUpperCase()}: import('./feature-${featureName}.js').Feature${featureName.toUpperCase()};`;
+            const upperCaseFeatureName = featureName.toUpperCase();
+            return (
+                `export declare const feature${upperCaseFeatureName}: ` +
+                `import('./feature-${featureName}.js').Feature${upperCaseFeatureName};`
+            );
         })
         .join('\n')
         .concat('\n');
 
     sharedNames.forEach((sharedName) => {
         sourceFiles[`shared-${sharedName}.js`] =
-            `export const shared${sharedName.toUpperCase()} = 'shared-${sharedName}';\n//# sourceMappingURL=shared-${sharedName}.js.map\n`;
-        sourceFiles[`shared-${sharedName}.js.map`] = createSourceMap(`shared-${sharedName}.js`, `shared-${sharedName}.ts`);
+            `export const shared${sharedName.toUpperCase()} = ` +
+            `'shared-${sharedName}';\n` +
+            `//# sourceMappingURL=shared-${sharedName}.js.map\n`;
+        sourceFiles[`shared-${sharedName}.js.map`] = createSourceMap(
+            `shared-${sharedName}.js`,
+            `shared-${sharedName}.ts`
+        );
         sourceFiles[`shared-${sharedName}.d.ts`] = `export type Shared${sharedName.toUpperCase()} = string;\n`;
     });
 
@@ -114,14 +137,17 @@ function createCliPackageSourceFiles(): Record<string, string> {
         sourceFiles[`feature-${featureName}.js`] =
             `import { internal${featureName.toUpperCase()} } from './internal-${featureName}.js';\n` +
             `import { shared${sharedName.toUpperCase()} } from './shared-${sharedName}.js';\n` +
-            `export const feature${featureName.toUpperCase()} = internal${featureName.toUpperCase()} + ':' + shared${sharedName.toUpperCase()};\n` +
+            `export const feature${featureName.toUpperCase()} = ` +
+            `internal${featureName.toUpperCase()} + ':' + ` +
+            `shared${sharedName.toUpperCase()};\n` +
             `//# sourceMappingURL=feature-${featureName}.js.map\n`;
         sourceFiles[`feature-${featureName}.js.map`] = createSourceMap(
             `feature-${featureName}.js`,
             `feature-${featureName}.ts`
         );
         sourceFiles[`feature-${featureName}.d.ts`] =
-            `export type Feature${featureName.toUpperCase()} = import('./shared-${sharedName}.js').Shared${sharedName.toUpperCase()};\n`;
+            `export type Feature${featureName.toUpperCase()} = ` +
+            `import('./shared-${sharedName}.js').Shared${sharedName.toUpperCase()};\n`;
         sourceFiles[`internal-${featureName}.js`] =
             `export const internal${featureName.toUpperCase()} = 'benchmark-${featureName}';\n` +
             `//# sourceMappingURL=internal-${featureName}.js.map\n`;
@@ -165,11 +191,9 @@ async function writeCliPackageFiles(packageRootDirectory: string): Promise<void>
 }
 
 function countFanOut(sourceFileContents: string): number {
-    const importCount = sourceFileContents
-        .split('\n')
-        .filter((line) => {
-            return line.startsWith('import ');
-        }).length;
+    const importCount = sourceFileContents.split('\n').filter((line) => {
+        return line.startsWith('import ');
+    }).length;
     const sourceMapCount = sourceFileContents.includes('//# sourceMappingURL=') ? 1 : 0;
     return importCount + sourceMapCount;
 }
@@ -218,11 +242,7 @@ function createConfigWithoutRegistry(rootDirectory: string, clusterCount: number
     };
 }
 
-function createConfig(
-    rootDirectory: string,
-    clusterCount: number,
-    registrySettings: RegistrySettings
-): PacktoryConfig {
+function createConfig(rootDirectory: string, clusterCount: number, registrySettings: RegistrySettings): PacktoryConfig {
     return {
         registrySettings,
         ...createConfigWithoutRegistry(rootDirectory, clusterCount)
@@ -271,36 +291,71 @@ function gatherCounts(clusterCount: number): GeneratedCounts {
     const clusterSources = Object.values(createClusterSourceFiles());
 
     return {
-        packageCount: clusterCount * 3,
-        jsFileCount: clusterCount * 6,
-        declarationFileCount: clusterCount * 5,
-        sourceMapFileCount: clusterCount * 6,
+        packageCount: clusterCount * packagesPerCluster,
+        jsFileCount: clusterCount * clusterJavaScriptFileCount,
+        declarationFileCount: clusterCount * clusterDeclarationFileCount,
+        sourceMapFileCount: clusterCount * clusterSourceMapFileCount,
         maxImportFanOut: clusterSources.reduce((currentMaximum, sourceFileContents) => {
             return Math.max(currentMaximum, countFanOut(sourceFileContents));
         }, 0)
     };
 }
 
+function createGeneratedWorkloadCountMismatchMessage(
+    size: WorkloadSize,
+    actualCount: number,
+    expectedCount: number,
+    fileKind: string
+): string {
+    return [`Generated workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}`].join(' ');
+}
+
+function createGeneratedWorkloadFanOutMismatchMessage(
+    size: WorkloadSize,
+    actualFanOut: number,
+    expectedFanOut: number
+): string {
+    return [
+        `Generated workload "${size}" produced max import fan-out ${actualFanOut},`,
+        `expected at most ${expectedFanOut}`
+    ].join(' ');
+}
+
 function validateGeneratedWorkload(definition: WorkloadDefinition, counts: GeneratedCounts, size: WorkloadSize): void {
-    assert(
+    assert.ok(
         counts.packageCount === definition.packageCount,
         `Generated workload "${size}" produced ${counts.packageCount} packages, expected ${definition.packageCount}`
     );
-    assert(
+    assert.ok(
         counts.jsFileCount === definition.jsFileCount,
-        `Generated workload "${size}" produced ${counts.jsFileCount} JavaScript files, expected ${definition.jsFileCount}`
+        createGeneratedWorkloadCountMismatchMessage(
+            size,
+            counts.jsFileCount,
+            definition.jsFileCount,
+            'JavaScript files'
+        )
     );
-    assert(
+    assert.ok(
         counts.declarationFileCount === definition.declarationFileCount,
-        `Generated workload "${size}" produced ${counts.declarationFileCount} declaration files, expected ${definition.declarationFileCount}`
+        createGeneratedWorkloadCountMismatchMessage(
+            size,
+            counts.declarationFileCount,
+            definition.declarationFileCount,
+            'declaration files'
+        )
     );
-    assert(
+    assert.ok(
         counts.sourceMapFileCount === definition.sourceMapFileCount,
-        `Generated workload "${size}" produced ${counts.sourceMapFileCount} source maps, expected ${definition.sourceMapFileCount}`
+        createGeneratedWorkloadCountMismatchMessage(
+            size,
+            counts.sourceMapFileCount,
+            definition.sourceMapFileCount,
+            'source maps'
+        )
     );
-    assert(
+    assert.ok(
         counts.maxImportFanOut <= definition.maxImportFanOut,
-        `Generated workload "${size}" produced max import fan-out ${counts.maxImportFanOut}, expected at most ${definition.maxImportFanOut}`
+        createGeneratedWorkloadFanOutMismatchMessage(size, counts.maxImportFanOut, definition.maxImportFanOut)
     );
 }
 
@@ -310,19 +365,47 @@ function gatherCliCounts(packageCount: number): GeneratedCounts {
 
     return {
         packageCount,
-        jsFileCount: packageCount * filePaths.filter((filePath) => {
-            return filePath.endsWith('.js');
-        }).length,
-        declarationFileCount: packageCount * filePaths.filter((filePath) => {
-            return filePath.endsWith('.d.ts');
-        }).length,
-        sourceMapFileCount: packageCount * filePaths.filter((filePath) => {
-            return filePath.endsWith('.js.map');
-        }).length,
+        jsFileCount:
+            packageCount *
+            filePaths.filter((filePath) => {
+                return filePath.endsWith('.js');
+            }).length,
+        declarationFileCount:
+            packageCount *
+            filePaths.filter((filePath) => {
+                return filePath.endsWith('.d.ts');
+            }).length,
+        sourceMapFileCount:
+            packageCount *
+            filePaths.filter((filePath) => {
+                return filePath.endsWith('.js.map');
+            }).length,
         maxImportFanOut: Object.values(packageSources).reduce((currentMaximum, sourceFileContents) => {
             return Math.max(currentMaximum, countFanOut(sourceFileContents));
         }, 0)
     };
+}
+
+function createGeneratedCliWorkloadCountMismatchMessage(
+    size: CliWorkloadSize,
+    actualCount: number,
+    expectedCount: number,
+    fileKind: string
+): string {
+    return [`Generated CLI workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}`].join(
+        ' '
+    );
+}
+
+function createGeneratedCliWorkloadFanOutMismatchMessage(
+    size: CliWorkloadSize,
+    actualFanOut: number,
+    expectedFanOut: number
+): string {
+    return [
+        `Generated CLI workload "${size}" produced max import fan-out ${actualFanOut},`,
+        `expected at most ${expectedFanOut}`
+    ].join(' ');
 }
 
 function validateGeneratedCliWorkload(
@@ -330,31 +413,45 @@ function validateGeneratedCliWorkload(
     counts: GeneratedCounts,
     size: CliWorkloadSize
 ): void {
-    assert(
+    assert.ok(
         counts.packageCount === definition.packageCount,
         `Generated CLI workload "${size}" produced ${counts.packageCount} packages, expected ${definition.packageCount}`
     );
-    assert(
+    assert.ok(
         counts.jsFileCount === definition.jsFileCount,
-        `Generated CLI workload "${size}" produced ${counts.jsFileCount} JavaScript files, expected ${definition.jsFileCount}`
+        createGeneratedCliWorkloadCountMismatchMessage(
+            size,
+            counts.jsFileCount,
+            definition.jsFileCount,
+            'JavaScript files'
+        )
     );
-    assert(
+    assert.ok(
         counts.declarationFileCount === definition.declarationFileCount,
-        `Generated CLI workload "${size}" produced ${counts.declarationFileCount} declaration files, expected ${definition.declarationFileCount}`
+        createGeneratedCliWorkloadCountMismatchMessage(
+            size,
+            counts.declarationFileCount,
+            definition.declarationFileCount,
+            'declaration files'
+        )
     );
-    assert(
+    assert.ok(
         counts.sourceMapFileCount === definition.sourceMapFileCount,
-        `Generated CLI workload "${size}" produced ${counts.sourceMapFileCount} source maps, expected ${definition.sourceMapFileCount}`
+        createGeneratedCliWorkloadCountMismatchMessage(
+            size,
+            counts.sourceMapFileCount,
+            definition.sourceMapFileCount,
+            'source maps'
+        )
     );
-    assert(
+    assert.ok(
         counts.maxImportFanOut <= definition.maxImportFanOut,
-        `Generated CLI workload "${size}" produced max import fan-out ${counts.maxImportFanOut}, expected at most ${definition.maxImportFanOut}`
+        createGeneratedCliWorkloadFanOutMismatchMessage(size, counts.maxImportFanOut, definition.maxImportFanOut)
     );
 }
 
 export async function generateWorkload(params: GenerateWorkloadParams): Promise<GeneratedWorkload> {
     const definition = params.workloads.workloads[params.size];
-    assert(definition !== undefined, `Missing workload definition for "${params.size}"`);
 
     for (let clusterIndex = 1; clusterIndex <= definition.clusterCount; clusterIndex += 1) {
         await writeClusterFiles(path.join(params.rootDirectory, `cluster-${clusterIndex}`));
@@ -375,7 +472,7 @@ export async function generateWorkload(params: GenerateWorkloadParams): Promise<
         },
         createConfigModuleText(registrySettings) {
             const config = createConfig(params.rootDirectory, definition.clusterCount, registrySettings);
-            return `export const config = ${JSON.stringify(config, null, 4)};\n`;
+            return `export const config = ${JSON.stringify(config, null, jsonIndentationSpaces)};\n`;
         }
     };
 }
@@ -389,7 +486,6 @@ export async function generateCliWorkload(params: GenerateCliWorkloadParams): Pr
     createConfigModuleText: (registrySettings: RegistrySettings) => string;
 }> {
     const definition = params.workloads.cliWorkloads[params.size];
-    assert(definition !== undefined, `Missing CLI workload definition for "${params.size}"`);
 
     for (let packageIndex = 1; packageIndex <= definition.packageCount; packageIndex += 1) {
         await writeCliPackageFiles(path.join(params.rootDirectory, `package-${packageIndex}`));
@@ -410,7 +506,7 @@ export async function generateCliWorkload(params: GenerateCliWorkloadParams): Pr
         },
         createConfigModuleText(registrySettings) {
             const config = createCliConfig(params.rootDirectory, definition.packageCount, registrySettings);
-            return `export const config = ${JSON.stringify(config, null, 4)};\n`;
+            return `export const config = ${JSON.stringify(config, null, jsonIndentationSpaces)};\n`;
         }
     };
 }
