@@ -26,7 +26,7 @@ export type PackageConfig = {
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
 };
 
-export const bundledDependencyPropertyNames = ['bundleDependencies', 'bundlePeerDependencies'] as const;
+const bundledDependencyPropertyNames = ['bundleDependencies', 'bundlePeerDependencies'] as const;
 
 export function getBundledDependencies(packageConfig: PackageConfig): readonly string[] {
     return bundledDependencyPropertyNames.flatMap((propertyName) => {

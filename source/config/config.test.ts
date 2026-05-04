@@ -1,13 +1,9 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
-import { bundledDependencyPropertyNames, getBundledDependencies } from './config.ts';
+import { getBundledDependencies } from './config.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
 import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
-
-test('bundled dependency property names are exposed as runtime constants', () => {
-    assert.deepStrictEqual(bundledDependencyPropertyNames, ['bundleDependencies', 'bundlePeerDependencies']);
-});
 
 test('getBundledDependencies combines direct and peer bundled dependencies', () => {
     assert.deepStrictEqual(

@@ -2,7 +2,7 @@ import type { JsonValue } from 'type-fest';
 
 export const packageJsonDependencyFieldNames = ['dependencies', 'devDependencies', 'peerDependencies'] as const;
 
-export const forbiddenAdditionalPackageJsonAttributeNames = [
+const forbiddenAdditionalPackageJsonAttributeNames = [
     ...packageJsonDependencyFieldNames,
     'main',
     'name',
@@ -11,12 +11,10 @@ export const forbiddenAdditionalPackageJsonAttributeNames = [
     'version'
 ] as const;
 
-const forbiddenAdditionalPackageJsonAttributeNameSet = new Set(forbiddenAdditionalPackageJsonAttributeNames);
+const forbiddenAdditionalPackageJsonAttributeNameSet = new Set<string>(forbiddenAdditionalPackageJsonAttributeNames);
 
 export function isForbiddenAdditionalPackageJsonAttributeName(value: string): boolean {
-    return forbiddenAdditionalPackageJsonAttributeNameSet.has(
-        value as (typeof forbiddenAdditionalPackageJsonAttributeNames)[number]
-    );
+    return forbiddenAdditionalPackageJsonAttributeNameSet.has(value);
 }
 
 export type MainPackageJson = {

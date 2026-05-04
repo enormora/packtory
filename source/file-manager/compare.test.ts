@@ -102,8 +102,14 @@ test('returns not-equal when both file lists have multiple elements where some a
 test('returns not-equal when a file list reports a length that does not match its iterator output', () => {
     const fileDescriptionsA = {
         length: 1,
-        *[Symbol.iterator]() {
-            yield { filePath: 'a', content: 'a', isExecutable: false };
+        [Symbol.iterator](): Iterator<{ filePath: string; content: string; isExecutable: boolean }> {
+            return [
+                {
+                    filePath: 'a',
+                    content: 'a',
+                    isExecutable: false
+                }
+            ][Symbol.iterator]();
         }
     } as unknown as readonly {
         readonly filePath: string;
@@ -112,7 +118,9 @@ test('returns not-equal when a file list reports a length that does not match it
     }[];
     const fileDescriptionsB = {
         length: 1,
-        *[Symbol.iterator]() {}
+        [Symbol.iterator](): Iterator<{ filePath: string; content: string; isExecutable: boolean }> {
+            return [][Symbol.iterator]();
+        }
     } as unknown as readonly {
         readonly filePath: string;
         readonly content: string;

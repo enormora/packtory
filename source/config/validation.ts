@@ -1,8 +1,12 @@
 import { Result } from 'true-myth';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
-import { getBundledDependencies } from './config.ts';
-import type { PacktoryConfig, PackageConfig, PacktoryConfigWithoutRegistry } from './config.ts';
+import {
+    getBundledDependencies,
+    type PacktoryConfig,
+    type PackageConfig,
+    type PacktoryConfigWithoutRegistry
+} from './config.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
 import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 

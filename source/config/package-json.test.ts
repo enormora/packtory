@@ -3,11 +3,7 @@ import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { fake } from 'sinon';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
-import {
-    forbiddenAdditionalPackageJsonAttributeNames,
-    isForbiddenAdditionalPackageJsonAttributeName,
-    packageJsonDependencyFieldNames
-} from './package-json.ts';
+import { isForbiddenAdditionalPackageJsonAttributeName, packageJsonDependencyFieldNames } from './package-json.ts';
 import { additionalPackageJsonAttributesSchema } from './additional-package-json-attributes-schema.ts';
 import { mainPackageJsonSchema } from './main-package-json-schema.ts';
 
@@ -15,21 +11,9 @@ test('package.json dependency field names are exposed as runtime constants', () 
     assert.deepStrictEqual(packageJsonDependencyFieldNames, ['dependencies', 'devDependencies', 'peerDependencies']);
 });
 
-test('forbidden additional package.json attribute names are exposed as runtime constants', () => {
-    assert.deepStrictEqual(forbiddenAdditionalPackageJsonAttributeNames, [
-        'dependencies',
-        'devDependencies',
-        'peerDependencies',
-        'main',
-        'name',
-        'types',
-        'type',
-        'version'
-    ]);
-});
-
 test('forbidden additional package.json attribute helper identifies allowed and forbidden keys', () => {
     assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('dependencies'), true);
+    assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('version'), true);
     assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('license'), false);
 });
 
