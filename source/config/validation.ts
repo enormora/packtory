@@ -2,12 +2,13 @@ import { Result } from 'true-myth';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
 import {
+    getBundledDependencies,
     type PacktoryConfig,
-    packtoryConfigSchema,
     type PackageConfig,
-    type PacktoryConfigWithoutRegistry,
-    packtoryConfigWithoutRegistrySchema
+    type PacktoryConfigWithoutRegistry
 } from './config.ts';
+import { packtoryConfigSchema } from './packtory-config-schema.ts';
+import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 
 function buildPackageGraph(packages: ReadonlyMap<string, PackageConfig>): DirectedGraph<string, undefined> {
     const graph = createDirectedGraph<string, undefined>();
@@ -17,12 +18,7 @@ function buildPackageGraph(packages: ReadonlyMap<string, PackageConfig>): Direct
     }
 
     for (const packageConfig of packages.values()) {
-        const allDependencies = [
-            ...(packageConfig.bundleDependencies ?? []),
-            ...(packageConfig.bundlePeerDependencies ?? [])
-        ];
-
-        for (const dependency of allDependencies) {
+        for (const dependency of getBundledDependencies(packageConfig)) {
             graph.connect({ from: packageConfig.name, to: dependency });
         }
     }

@@ -1,12 +1,26 @@
+import assert from 'node:assert';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { versioningSettingsSchema } from './versioning-settings.ts';
+
+test('schema accepts the automatic versioning branch', () => {
+    assert.strictEqual(versioningSettingsSchema.safeParse({ automatic: true, minimumVersion: 'foo' }).success, true);
+});
+
+test('schema accepts the manual versioning branch', () => {
+    assert.strictEqual(versioningSettingsSchema.safeParse({ automatic: false, version: '1' }).success, true);
+});
+
+test('schema rejects mixing automatic with manual-only fields', () => {
+    assert.strictEqual(versioningSettingsSchema.safeParse({ automatic: true, version: '1' }).success, false);
+});
 
 test(
     'validation succeeds when valid automatic versioning settings are given',
     checkValidationSuccess({
         schema: versioningSettingsSchema,
-        data: { automatic: true }
+        data: { automatic: true },
+        expectedData: { automatic: true }
     })
 );
 
@@ -14,7 +28,8 @@ test(
     'validation succeeds when valid automatic versioning settings are given with a minimumVersion',
     checkValidationSuccess({
         schema: versioningSettingsSchema,
-        data: { automatic: true, minimumVersion: 'foo' }
+        data: { automatic: true, minimumVersion: 'foo' },
+        expectedData: { automatic: true, minimumVersion: 'foo' }
     })
 );
 
@@ -22,7 +37,8 @@ test(
     'validation succeeds when valid manual versioning settings are given',
     checkValidationSuccess({
         schema: versioningSettingsSchema,
-        data: { automatic: false, version: '1' }
+        data: { automatic: false, version: '1' },
+        expectedData: { automatic: false, version: '1' }
     })
 );
 
@@ -54,6 +70,24 @@ test(
 );
 
 test(
+    'validation fails when automatic is undefined',
+    checkValidationFailure({
+        schema: versioningSettingsSchema,
+        data: { automatic: undefined },
+        expectedMessages: ['at automatic: invalid value doesn’t match expected union']
+    })
+);
+
+test(
+    'validation fails when automatic is null',
+    checkValidationFailure({
+        schema: versioningSettingsSchema,
+        data: { automatic: null },
+        expectedMessages: ['at automatic: invalid value doesn’t match expected union']
+    })
+);
+
+test(
     'validation fails when automatic is true and version is given',
     checkValidationFailure({
         schema: versioningSettingsSchema,
@@ -66,7 +100,8 @@ test(
     'validation succeeds when automatic is true and minimumVersion is undefined',
     checkValidationSuccess({
         schema: versioningSettingsSchema,
-        data: { automatic: true, minimumVersion: undefined }
+        data: { automatic: true, minimumVersion: undefined },
+        expectedData: { automatic: true, minimumVersion: undefined }
     })
 );
 
@@ -85,6 +120,15 @@ test(
         schema: versioningSettingsSchema,
         data: { automatic: true, minimumVersion: 42 },
         expectedMessages: ['at minimumVersion: expected string, but got number']
+    })
+);
+
+test(
+    'validation fails when automatic is true and minimumVersion is null',
+    checkValidationFailure({
+        schema: versioningSettingsSchema,
+        data: { automatic: true, minimumVersion: null },
+        expectedMessages: ['at minimumVersion: expected string, but got null']
     })
 );
 
@@ -120,6 +164,24 @@ test(
         schema: versioningSettingsSchema,
         data: { automatic: false, version: 42 },
         expectedMessages: ['at version: expected string, but got number']
+    })
+);
+
+test(
+    'validation fails when automatic is false and version is undefined',
+    checkValidationFailure({
+        schema: versioningSettingsSchema,
+        data: { automatic: false, version: undefined },
+        expectedMessages: ['at version: expected string, but got undefined']
+    })
+);
+
+test(
+    'validation fails when automatic is false and version is null',
+    checkValidationFailure({
+        schema: versioningSettingsSchema,
+        data: { automatic: false, version: null },
+        expectedMessages: ['at version: expected string, but got null']
     })
 );
 

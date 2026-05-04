@@ -66,6 +66,15 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
         return matchingResource.fileDescription;
     }
 
+    function resolveDeclarationFileResource(
+        declarationFilePath: string | undefined,
+        contents: BundleResource[]
+    ): TransferableFileDescription | undefined {
+        return contents.find((resource) => {
+            return resource.fileDescription.sourceFilePath === declarationFilePath;
+        })?.fileDescription;
+    }
+
     return {
         async resolve(options) {
             const resolvedDependencies = await resolveDependenciesForAllEntrypoints(options);
@@ -102,10 +111,10 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
                         throw new Error(`Failed to resolve resource for entry point ${entryPoint.js}`);
                     }
 
-                    const declarationFileResource =
-                        entryPoint.declarationFile === undefined
-                            ? undefined
-                            : findFileDescriptionBySourcePath(entryPoint.declarationFile, contents);
+                    const declarationFileResource = resolveDeclarationFileResource(
+                        entryPoint.declarationFile,
+                        contents
+                    );
 
                     return { js: jsResource, declarationFile: declarationFileResource };
                 })

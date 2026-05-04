@@ -67,8 +67,26 @@ test('addVersion() creates the versioned bundle and manifest file', () => {
         dependencies: { 'bundle-dependency': '4.5.6', 'left-pad': '^1.0.0' },
         publishConfig: { access: 'public' }
     });
-    assert.strictEqual(result.manifestFile.filePath, 'package.json');
-    assert.strictEqual(result.manifestFile.isExecutable, false);
+    assert.deepStrictEqual(result.manifestFile, {
+        filePath: 'package.json',
+        isExecutable: false,
+        content: [
+            '{',
+            '    "dependencies": {',
+            '        "bundle-dependency": "4.5.6",',
+            '        "left-pad": "^1.0.0"',
+            '    },',
+            '    "main": "index.js",',
+            '    "name": "package-a",',
+            '    "publishConfig": {',
+            '        "access": "public"',
+            '    },',
+            '    "type": "module",',
+            '    "types": "index.d.ts",',
+            '    "version": "1.2.3"',
+            '}'
+        ].join('\n')
+    });
 });
 
 test('increaseVersion() bumps the patch version and rebuilds the package manifest', () => {
@@ -105,6 +123,25 @@ test('increaseVersion() bumps the patch version and rebuilds the package manifes
         type: 'module',
         dependencies: { dep: '^1.0.0' },
         peerDependencies: { react: '^19.0.0' }
+    });
+    assert.deepStrictEqual(result.manifestFile, {
+        filePath: 'package.json',
+        isExecutable: false,
+        content: [
+            '{',
+            '    "dependencies": {',
+            '        "dep": "^1.0.0"',
+            '    },',
+            '    "main": "index.js",',
+            '    "name": "package-a",',
+            '    "peerDependencies": {',
+            '        "react": "^19.0.0"',
+            '    },',
+            '    "type": "module",',
+            '    "types": "index.d.ts",',
+            '    "version": "1.2.4"',
+            '}'
+        ].join('\n')
     });
 });
 

@@ -42,9 +42,7 @@ export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceG
 
     for (const resource of bundle.contents) {
         for (const directDependency of resource.directDependencies) {
-            if (!graph.hasConnection({ from: resource.fileDescription.sourceFilePath, to: directDependency })) {
-                graph.connect({ from: resource.fileDescription.sourceFilePath, to: directDependency });
-            }
+            graph.connect({ from: resource.fileDescription.sourceFilePath, to: directDependency });
         }
     }
 

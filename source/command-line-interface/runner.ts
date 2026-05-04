@@ -23,10 +23,6 @@ export type CommandLineInterfaceRunner = {
 
 type CommandParseResult = Awaited<ReturnType<typeof runSafely>>;
 
-const errorSymbol = kleur.bold().red('✖');
-const successSymbol = kleur.bold().green('✔');
-const warningSymbol = kleur.yellow('⚠');
-
 type PublishFlags = {
     noDryRun: boolean;
 };
@@ -44,13 +40,25 @@ function hasCommandParseError(result: CommandParseResult): result is CommandPars
     return 'error' in result;
 }
 
+function getErrorSymbol(): string {
+    return kleur.bold().red('✖');
+}
+
+function getSuccessSymbol(): string {
+    return kleur.bold().green('✔');
+}
+
+function getWarningSymbol(): string {
+    return kleur.yellow('⚠');
+}
+
 function printDryRunNote(log: (message: string) => void, flags: PublishFlags): void {
     if (flags.noDryRun) {
         return;
     }
 
     log(
-        `${warningSymbol} ${kleur.dim(
+        `${getWarningSymbol()} ${kleur.dim(
             ` Note: dry-run mode was enabled, so there was nothing really published; add the ${kleur.bold(
                 '--no-dry-run'
             )} flag to disable dry-run mode`
@@ -59,24 +67,22 @@ function printDryRunNote(log: (message: string) => void, flags: PublishFlags): v
 }
 
 function printInvalidConfigErrors(log: (message: string) => void, issues: readonly string[]): void {
-    const title = `${errorSymbol} The provided config is invalid, there are ${issues.length} issue(s)`;
+    const title = `${getErrorSymbol()} The provided config is invalid, there are ${issues.length} issue(s)`;
     const message = `${title}\n\n- ${issues.join('\n- ')}`;
     log(message);
 }
 
 function printCheckErrors(log: (message: string) => void, issues: readonly string[]): void {
-    const title = `${errorSymbol} Checks failed, there are ${issues.length} issue(s)`;
+    const title = `${getErrorSymbol()} Checks failed, there are ${issues.length} issue(s)`;
     const message = `${title}\n\n- ${issues.join('\n- ')}`;
     log(message);
 }
 
 function printPartialErrorSummary(log: (message: string) => void, error: PublishPartialError): void {
     const total = error.succeeded.length + error.failures.length;
-    log(
-        `${errorSymbol} ${kleur.red(error.failures.length)} from ${kleur.bold(total)} package(s) failed; ${kleur.green(
-            error.succeeded.length
-        )} succeeded`
-    );
+    const failureCount = kleur.red(error.failures.length);
+    const successCount = kleur.green(error.succeeded.length);
+    log(`${getErrorSymbol()} ${failureCount} from ${kleur.bold(total)} package(s) failed; ${successCount} succeeded`);
 }
 
 function printPublishFailure(log: (message: string) => void, error: PublishFailure): void {
@@ -90,7 +96,7 @@ function printPublishFailure(log: (message: string) => void, error: PublishFailu
 }
 
 function printSuccessSummary(log: (message: string) => void, results: readonly BuildAndPublishResult[]): void {
-    log(`${successSymbol} Success: all ${results.length} package(s) have been published`);
+    log(`${getSuccessSymbol()} Success: all ${results.length} package(s) have been published`);
 }
 
 function registerProgressListeners(
@@ -143,11 +149,12 @@ export function createCommandLineInterfaceRunner(
 ): CommandLineInterfaceRunner {
     const { log, packtory, progressBroadcaster, spinnerRenderer, configLoader } = dependencies;
     let exitCode = 0;
+    const publishCommandName = 'publish';
     const baseCommand = subcommands({
         name: 'packtory',
         cmds: {
-            publish: command({
-                name: 'publish',
+            [publishCommandName]: command({
+                name: publishCommandName,
                 description: 'Builds and publishes all packages (dry-run enabled by default).',
                 args: {
                     noDryRun: flag({ long: 'no-dry-run' })

@@ -57,6 +57,19 @@ test('normalizes object-form additional files and marks them as explicitly inclu
     ]);
 });
 
+test('marks string-form additional files as explicitly included', () => {
+    const result = combineAllBundleFiles('/src', [], ['readme.md']);
+
+    assert.deepStrictEqual(result, [
+        {
+            sourceFilePath: '/src/readme.md',
+            targetFilePath: 'readme.md',
+            directDependencies: new Set(),
+            isExplicitlyIncluded: true
+        }
+    ]);
+});
+
 test('throws when an object-form additional file uses an absolute target path', () => {
     try {
         combineAllBundleFiles('/src', [], [{ sourceFilePath: 'file.txt', targetFilePath: '/absolute/file.txt' }]);

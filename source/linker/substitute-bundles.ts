@@ -58,52 +58,48 @@ export function substituteDependencies(
     const outstandingConnections: { from: string; to: string }[] = [];
 
     resourceGraph.traverse((node) => {
-        if (!substitutedGraph.isKnown(node.id)) {
-            const directDependencies = Array.from(node.adjacentNodeIds);
-            const replacements = findAllPathReplacements(directDependencies, bundleDependencies);
+        const directDependencies = Array.from(node.adjacentNodeIds);
+        const replacements = findAllPathReplacements(directDependencies, bundleDependencies);
 
-            for (const file of directDependencies) {
-                if (!replacements.importPathReplacements.has(file)) {
-                    outstandingConnections.push({ from: node.id, to: file });
-                }
+        for (const file of directDependencies) {
+            if (!replacements.importPathReplacements.has(file)) {
+                outstandingConnections.push({ from: node.id, to: file });
             }
+        }
 
-            if (replacements.importPathReplacements.size > 0) {
-                const substitutionContent = replaceImportPaths(
-                    node.data.project,
-                    node.data.fileDescription.sourceFilePath,
-                    node.data.fileDescription.content,
-                    replacements.importPathReplacements
-                );
+        if (replacements.importPathReplacements.size > 0) {
+            const substitutionContent = replaceImportPaths(
+                node.data.project,
+                node.data.fileDescription.sourceFilePath,
+                node.data.fileDescription.content,
+                replacements.importPathReplacements
+            );
 
-                substitutedGraph.add(node.id, {
-                    fileDescription: {
-                        sourceFilePath: node.data.fileDescription.sourceFilePath,
-                        targetFilePath: node.data.fileDescription.targetFilePath,
-                        isExecutable: node.data.fileDescription.isExecutable,
-                        content: substitutionContent
-                    },
-                    externalDependencies: node.data.externalDependencies,
-                    bundleDependencies: replacements.bundleDependencies,
-                    isSubstituted: true,
-                    isExplicitlyIncluded: node.data.isExplicitlyIncluded
-                });
-            } else {
-                substitutedGraph.add(node.id, {
-                    fileDescription: node.data.fileDescription,
-                    externalDependencies: node.data.externalDependencies,
-                    bundleDependencies: [],
-                    isSubstituted: false,
-                    isExplicitlyIncluded: node.data.isExplicitlyIncluded
-                });
-            }
+            substitutedGraph.add(node.id, {
+                fileDescription: {
+                    sourceFilePath: node.data.fileDescription.sourceFilePath,
+                    targetFilePath: node.data.fileDescription.targetFilePath,
+                    isExecutable: node.data.fileDescription.isExecutable,
+                    content: substitutionContent
+                },
+                externalDependencies: node.data.externalDependencies,
+                bundleDependencies: replacements.bundleDependencies,
+                isSubstituted: true,
+                isExplicitlyIncluded: node.data.isExplicitlyIncluded
+            });
+        } else {
+            substitutedGraph.add(node.id, {
+                fileDescription: node.data.fileDescription,
+                externalDependencies: node.data.externalDependencies,
+                bundleDependencies: [],
+                isSubstituted: false,
+                isExplicitlyIncluded: node.data.isExplicitlyIncluded
+            });
         }
     });
 
     for (const connection of outstandingConnections) {
-        if (!substitutedGraph.hasConnection(connection.from, connection.to)) {
-            substitutedGraph.connect(connection.from, connection.to);
-        }
+        substitutedGraph.connect(connection.from, connection.to);
     }
 
     return substitutedGraph;

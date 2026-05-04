@@ -169,6 +169,91 @@ test('fetchLatestVersion() throws when npmFetch resolves with an invalid respons
     }
 });
 
+test('fetchLatestVersion() throws when npmFetch resolves to a non-object value', async () => {
+    const npmFetchJson = fake.resolves('invalid');
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
+test('fetchLatestVersion() throws when npmFetch resolves with a non-object dist-tags value', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': 'latest',
+        versions: {}
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
+test('fetchLatestVersion() returns nothing when the registry response has no latest tag', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': {},
+        versions: {}
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    const result = await registryClient.fetchLatestVersion('@the/name', { token: '' });
+
+    assert.deepStrictEqual(result, Maybe.nothing());
+});
+
+test('fetchLatestVersion() throws when npmFetch resolves without the package name field', async () => {
+    const npmFetchJson = fake.resolves({
+        'dist-tags': { latest: '1' },
+        versions: { 1: { dist: { shasum: 'abc', tarball: 'the-tarball' } } }
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
+test('fetchLatestVersion() throws when npmFetch resolves without dist-tags.latest version details', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': { latest: '1' }
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
+test('fetchLatestVersion() throws when npmFetch resolves without a dist shasum', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': { latest: '1' },
+        versions: { 1: { dist: { tarball: 'the-tarball' } } }
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
+test('fetchLatestVersion() throws when npmFetch resolves without a dist tarball url', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': { latest: '1' },
+        versions: { 1: { dist: { shasum: 'abc' } } }
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
 test('fetchLatestVersion() throws when npmFetch resolves with inconsistent data', async () => {
     const npmFetchJson = fake.resolves({
         name: '',
@@ -194,6 +279,137 @@ test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error wi
 
     const result = await registryClient.fetchLatestVersion('@the/name', { token: '' });
     assert.deepStrictEqual(result, Maybe.nothing());
+});
+
+test('fetchLatestVersion() rethrows object-like errors that do not have a statusCode', async () => {
+    const error = { message: 'fetch-error' };
+    const npmFetchJson = fake(async () => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- intentional passthrough test
+        throw error;
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    try {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
+    } catch (caughtError: unknown) {
+        assert.deepStrictEqual(caughtError, error);
+    }
+});
+
+test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 403', async () => {
+    const error = new Error('fetch-error');
+    // @ts-expect-error -- test error shape
+    error.statusCode = 403;
+    const npmFetchJson = fake.rejects(error);
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    const result = await registryClient.fetchLatestVersion('@the/name', { token: '' });
+
+    assert.deepStrictEqual(result, Maybe.nothing());
+});
+
+test('fetchLatestVersion() rethrows non-object errors even when they look falsy', async () => {
+    const npmFetchJson = fake(async () => {
+        // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- intentional passthrough test
+        throw '';
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    try {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
+    } catch (caughtError: unknown) {
+        assert.strictEqual(caughtError, '');
+    }
+});
+
+test('fetchLatestVersion() throws when dist-tags.latest is not a string', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': { latest: 1 },
+        versions: { 1: { dist: { shasum: 'abc', tarball: 'the-tarball' } } }
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
+test('fetchLatestVersion() throws when version data dist is missing entirely', async () => {
+    const npmFetchJson = fake.resolves({
+        name: '',
+        'dist-tags': { latest: '1' },
+        versions: { 1: {} }
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    await assert.rejects(async () => {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+    }, /^Error: Got an invalid response from registry API$/);
+});
+
+test('fetchLatestVersion() rethrows thrown strings unchanged', async () => {
+    const npmFetchJson = fake(async () => {
+        // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- intentional passthrough test
+        throw 'fetch-error';
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    try {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
+    } catch (caughtError: unknown) {
+        assert.strictEqual(caughtError, 'fetch-error');
+    }
+});
+
+test('fetchLatestVersion() rethrows thrown null values unchanged', async () => {
+    const npmFetchJson = fake(async () => {
+        // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- intentional passthrough test
+        throw null;
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    try {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
+    } catch (caughtError: unknown) {
+        assert.strictEqual(caughtError, null);
+    }
+});
+
+test('fetchLatestVersion() rethrows thrown symbols unchanged', async () => {
+    const error = Symbol('fetch-error');
+    const npmFetchJson = fake(async () => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- intentional passthrough test
+        throw error;
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    try {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
+    } catch (caughtError: unknown) {
+        assert.strictEqual(caughtError, error);
+    }
+});
+
+test('fetchLatestVersion() rethrows errors with non-404/403 statusCode-like values', async () => {
+    const error = { statusCode: '404', message: 'fetch-error' };
+    const npmFetchJson = fake(async () => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- intentional passthrough test
+        throw error;
+    });
+    const registryClient = registryClientFactory({ npmFetchJson });
+
+    try {
+        await registryClient.fetchLatestVersion('@the/name', { token: '' });
+        assert.fail('Expected fetchLatestVersion() to throw but it did not');
+    } catch (caughtError: unknown) {
+        assert.deepStrictEqual(caughtError, error);
+    }
 });
 
 test('fetchLatestVersion() returns nothing when npmFetch throws a fetch error with status code 403', async () => {

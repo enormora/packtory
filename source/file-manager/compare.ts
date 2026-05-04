@@ -16,14 +16,14 @@ export function compareFileDescriptions(
 
     const sortedFileDescriptionsA = sortByFilePath(fileDescriptionsA);
     const sortedFileDescriptionsB = sortByFilePath(fileDescriptionsB);
-    const areAllFileDescriptionsEqual = sortedFileDescriptionsA.every((fileDescriptionA, index) => {
-        const fileDescriptionB = sortedFileDescriptionsB[index];
-        return fileDescriptionB !== undefined && areFileDescriptionEqual(fileDescriptionA, fileDescriptionB);
-    });
 
-    if (areAllFileDescriptionsEqual) {
-        return { status: 'equal' };
+    for (const [index, fileDescriptionA] of sortedFileDescriptionsA.entries()) {
+        const fileDescriptionB = sortedFileDescriptionsB[index];
+
+        if (fileDescriptionB === undefined || !areFileDescriptionEqual(fileDescriptionA, fileDescriptionB)) {
+            return { status: 'not-equal' };
+        }
     }
 
-    return { status: 'not-equal' };
+    return { status: 'equal' };
 }

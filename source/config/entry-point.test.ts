@@ -1,12 +1,24 @@
+import assert from 'node:assert';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { entryPointSchema } from './entry-point.ts';
+
+test('schema accepts an entry point with js only', () => {
+    assert.strictEqual(entryPointSchema.safeParse({ js: 'foo' }).success, true);
+});
+
+test('schema rejects an entry point without js', () => {
+    assert.strictEqual(entryPointSchema.safeParse({ declarationFile: 'bar' }).success, false);
+});
 
 test(
     'validation succeeds when a minimal entryPoint is given',
     checkValidationSuccess({
         schema: entryPointSchema,
         data: {
+            js: 'foo'
+        },
+        expectedData: {
             js: 'foo'
         }
     })
@@ -17,6 +29,10 @@ test(
     checkValidationSuccess({
         schema: entryPointSchema,
         data: {
+            js: 'foo',
+            declarationFile: 'bar'
+        },
+        expectedData: {
             js: 'foo',
             declarationFile: 'bar'
         }
@@ -45,7 +61,26 @@ test(
     'validation succeeds when declarationFile is undefined',
     checkValidationSuccess({
         schema: entryPointSchema,
-        data: { declarationFile: undefined, js: 'foo' }
+        data: { declarationFile: undefined, js: 'foo' },
+        expectedData: { declarationFile: undefined, js: 'foo' }
+    })
+);
+
+test(
+    'validation fails when declarationFile is null',
+    checkValidationFailure({
+        schema: entryPointSchema,
+        data: { declarationFile: null, js: 'foo' },
+        expectedMessages: ['at declarationFile: expected string, but got null']
+    })
+);
+
+test(
+    'validation fails when an additional property is given',
+    checkValidationFailure({
+        schema: entryPointSchema,
+        data: { js: 'foo', extra: 'bar' },
+        expectedMessages: ['unexpected additional property: "extra"']
     })
 );
 
@@ -73,6 +108,24 @@ test(
         schema: entryPointSchema,
         data: { js: 42 },
         expectedMessages: ['at js: expected string, but got number']
+    })
+);
+
+test(
+    'validation fails when js is undefined',
+    checkValidationFailure({
+        schema: entryPointSchema,
+        data: { js: undefined },
+        expectedMessages: ['at js: expected string, but got undefined']
+    })
+);
+
+test(
+    'validation fails when js is null',
+    checkValidationFailure({
+        schema: entryPointSchema,
+        data: { js: null },
+        expectedMessages: ['at js: expected string, but got null']
     })
 );
 

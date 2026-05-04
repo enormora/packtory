@@ -51,15 +51,15 @@ type GroupedDependencies = {
 };
 
 function mergeDependencyGroups(...groups: Readonly<GroupedDependencies>[]): Readonly<GroupedDependencies> {
-    return groups.reduce<GroupedDependencies>(
-        (accumulator, group) => {
-            return {
-                dependencies: { ...accumulator.dependencies, ...group.dependencies },
-                peerDependencies: { ...accumulator.peerDependencies, ...group.peerDependencies }
-            };
-        },
-        { dependencies: {}, peerDependencies: {} }
-    );
+    const dependencies: Record<string, string> = {};
+    const peerDependencies: Record<string, string> = {};
+
+    for (const group of groups) {
+        Object.assign(dependencies, group.dependencies);
+        Object.assign(peerDependencies, group.peerDependencies);
+    }
+
+    return { dependencies, peerDependencies };
 }
 
 function groupBundleDependencies(

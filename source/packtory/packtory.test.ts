@@ -454,6 +454,62 @@ test('buildAndPublishAll() uses buildAndPublish() outside dry-run mode', async (
     assert.strictEqual(buildAndPublish.callCount, 1);
 });
 
+test('buildAndPublishAll() passes selectNext and createProgressEvent that expose the published bundle and status', async () => {
+    const observed: {
+        readonly selected: unknown[];
+        readonly progressEvents: unknown[];
+    } = {
+        selected: [],
+        progressEvents: []
+    };
+    const { packtory } = createPacktoryUnderTest({
+        publishStage: async (params) => {
+            const options = params.createOptions({
+                packageName: 'package-a',
+                existing: [],
+                config: params.config
+            });
+            const result = await params.execute(options);
+            observed.selected.push(params.selectNext({ result, options }));
+            observed.progressEvents.push(
+                params.createProgressEvent?.({ packageName: 'package-a', result, options }) ?? null
+            );
+
+            return Result.ok([result]);
+        }
+    });
+
+    const result = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
+
+    assert.deepStrictEqual(result, Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'new-version' }]));
+    assert.deepStrictEqual(observed.selected, [createVersionedBundle('package-a')]);
+    assert.deepStrictEqual(observed.progressEvents, [{ version: '1.0.0', status: 'new-version' }]);
+});
+
+test('resolveAndLinkAll() unwraps partial scheduler errors without converting check failures', async () => {
+    const { packtory } = createPacktoryUnderTest({
+        resolveStage: async () => {
+            return Result.err({
+                succeeded: [createLinkedBundle('package-a')],
+                failures: [new Error('resolve failed')]
+            });
+        }
+    });
+
+    const result = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
+
+    assert.deepStrictEqual(
+        result,
+        Result.err({
+            type: 'partial',
+            error: {
+                succeeded: [createLinkedBundle('package-a')],
+                failures: [new Error('resolve failed')]
+            }
+        })
+    );
+});
+
 test('buildAndPublishAll() returns partial publish failures from the publish stage', async () => {
     const { packtory } = createPacktoryUnderTest({
         publishStage: async () => {

@@ -52,6 +52,25 @@ test('reports duplicate files when the rule is enabled', () => {
     assert.deepStrictEqual(issues, ['File "shared.ts" is included in multiple packages: a, b']);
 });
 
+test('runChecks() executes the configured rule set instead of returning a static empty array', () => {
+    const issues = runChecks({
+        settings: { noDuplicatedFiles: { enabled: true } },
+        bundles: [createBundle('b', ['shared.ts']), createBundle('a', ['shared.ts'])]
+    });
+
+    assert.strictEqual(issues.length, 1);
+    assert.strictEqual(issues[0], 'File "shared.ts" is included in multiple packages: a, b');
+});
+
+test('returns the duplicate-file issues only from the configured rule set', () => {
+    const issues = runChecks({
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['ignored.ts'] } },
+        bundles: [createBundle('a', ['ignored.ts', 'shared.ts']), createBundle('b', ['ignored.ts', 'shared.ts'])]
+    });
+
+    assert.deepStrictEqual(issues, ['File "shared.ts" is included in multiple packages: a, b']);
+});
+
 test('ignores duplicate files when the rule is disabled', () => {
     const issues = runChecks({
         settings: {},

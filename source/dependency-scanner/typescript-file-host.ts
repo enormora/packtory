@@ -1,17 +1,12 @@
 import type { FileSystemHost } from 'ts-morph';
 
-const declarationFileExtensions = new Set(['.d.ts', '.d.cts', '.d.mts']);
-
 function isDeclarationFile(filePath: string): boolean {
     const lowerCasedFilePath = filePath.toLowerCase();
-
-    for (const declarationFileExtension of declarationFileExtensions) {
-        if (lowerCasedFilePath.endsWith(declarationFileExtension)) {
-            return true;
-        }
-    }
-
-    return false;
+    return (
+        lowerCasedFilePath.endsWith('.d.ts') ||
+        lowerCasedFilePath.endsWith('.d.cts') ||
+        lowerCasedFilePath.endsWith('.d.mts')
+    );
 }
 
 function isTypesRootFolder(directoryPath: string): boolean {

@@ -1,31 +1,13 @@
 import type { PackageJson } from 'type-fest';
+import { compareValues, type ComparisonResult } from './sort-values.ts';
 
 const indentationSize = 4;
 
 type UnknownRecord = Record<string, unknown>;
 type UnknownRecordEntry = readonly [key: string, value: unknown];
 
-type ComparisonResult = -1 | 0 | 1;
-
-function isPrimitive(value: unknown): value is boolean | number | string {
-    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
-}
-
 function isArray(value: unknown): value is unknown[] {
     return Array.isArray(value);
-}
-
-function compareValues(valueA: unknown, valueB: unknown): ComparisonResult {
-    if (isPrimitive(valueA) && isPrimitive(valueB)) {
-        if (valueA < valueB) {
-            return -1;
-        }
-        if (valueA > valueB) {
-            return 1;
-        }
-    }
-
-    return 0;
 }
 
 function compareEntryKeys(entryA: UnknownRecordEntry, entryB: UnknownRecordEntry): ComparisonResult {
@@ -39,27 +21,34 @@ function isRecord(value: unknown): value is UnknownRecord {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function deepSortValue(value: unknown, visitedObjects: readonly unknown[]): unknown {
+function assertNoCircularStructures(value: unknown): void {
+    const visitedObjects = new Set<unknown>();
+
+    JSON.stringify(value, (_key, currentValue: unknown) => {
+        if (typeof currentValue === 'object' && currentValue !== null) {
+            if (visitedObjects.has(currentValue)) {
+                throw new Error('Circular structures are not supported');
+            }
+
+            visitedObjects.add(currentValue);
+        }
+
+        return currentValue;
+    });
+}
+
+function deepSortValue(value: unknown): unknown {
     if (isArray(value)) {
-        return value
-            .map((item) => {
-                return deepSortValue(item, visitedObjects);
-            })
-            .toSorted(compareValues);
+        return value.map(deepSortValue).toSorted(compareValues);
     }
 
     if (isRecord(value)) {
-        if (visitedObjects.includes(value)) {
-            throw new Error('Circular structures are not supported');
-        }
-
-        const nextVisitedObjects = [...visitedObjects, value];
         const entries = Object.entries(value);
         entries.sort(compareEntryKeys);
 
         return Object.fromEntries(
             entries.map(([propertyName, propertyValue]) => {
-                return [propertyName, deepSortValue(propertyValue, nextVisitedObjects)];
+                return [propertyName, deepSortValue(propertyValue)];
             })
         );
     }
@@ -68,6 +57,7 @@ function deepSortValue(value: unknown, visitedObjects: readonly unknown[]): unkn
 }
 
 export function serializePackageJson(data: Readonly<PackageJson>): string {
-    const sortedData = deepSortValue(data, []);
+    assertNoCircularStructures(data);
+    const sortedData = deepSortValue(data);
     return JSON.stringify(sortedData, null, indentationSize);
 }

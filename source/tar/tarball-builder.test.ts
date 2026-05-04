@@ -1,5 +1,7 @@
 import assert from 'node:assert';
+import zlib from 'node:zlib';
 import { test } from 'mocha';
+import sinon from 'sinon';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
@@ -125,4 +127,17 @@ test('creates a tarball with many nested files', async () => {
             content: '4'
         }
     ]);
+});
+
+test('creates gzip streams with the maximum compression level', async () => {
+    const createGzip = sinon.spy(zlib, 'createGzip');
+
+    try {
+        const builder = createTarballBuilder();
+        await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
+
+        assert.deepStrictEqual(createGzip.firstCall.args, [{ level: 9 }]);
+    } finally {
+        createGzip.restore();
+    }
 });

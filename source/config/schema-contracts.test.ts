@@ -1,0 +1,266 @@
+import assert from 'node:assert';
+import { test } from 'mocha';
+import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
+
+test('leaf config schemas keep their expected object keys and strict object behavior', async () => {
+    const result = await runNodeProbe(`
+        import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
+        import { entryPointSchema } from './source/config/entry-point.ts';
+        import { mainPackageJsonSchema } from './source/config/main-package-json-schema.ts';
+        import { registrySettingsSchema } from './source/config/registry-settings.ts';
+
+        console.log(JSON.stringify({
+            additionalFileShape: Object.keys(additionalFileDescriptionSchema._zod.def.innerType.def.shape),
+            entryPointShape: Object.keys(entryPointSchema._zod.def.innerType.def.shape),
+            registrySettingsShape: Object.keys(registrySettingsSchema._zod.def.innerType.def.shape),
+            mainPackageJsonShape: Object.keys(mainPackageJsonSchema._zod.def.innerType.def.shape),
+            additionalFileCatchallType: additionalFileDescriptionSchema._zod.def.innerType.def.catchall.type,
+            entryPointCatchallType: entryPointSchema._zod.def.innerType.def.catchall.type,
+            registrySettingsCatchallType: registrySettingsSchema._zod.def.innerType.def.catchall.type
+        }));
+    `);
+
+    assert.deepStrictEqual(result, {
+        additionalFileShape: ['sourceFilePath', 'targetFilePath'],
+        entryPointShape: ['js', 'declarationFile'],
+        registrySettingsShape: ['registryUrl', 'token'],
+        mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies'],
+        additionalFileCatchallType: 'never',
+        entryPointCatchallType: 'never',
+        registrySettingsCatchallType: 'never'
+    });
+});
+
+test('versioning schema keeps the discriminant and both branches', async () => {
+    const result = await runNodeProbe(`
+        import { versioningSettingsSchema } from './source/config/versioning-settings.ts';
+
+        const unionDef = versioningSettingsSchema._zod.def.innerType.def;
+
+        console.log(JSON.stringify({
+            discriminator: unionDef.discriminator,
+            optionCount: unionDef.options.length,
+            branchKeys: unionDef.options.map((option) => Object.keys(option.def.innerType.def.shape)),
+            branchLiterals: unionDef.options.map((option) => option.def.innerType.def.shape.automatic.def.values[0]),
+            automaticSuccess: versioningSettingsSchema.safeParse({
+                automatic: true,
+                minimumVersion: '1.0.0'
+            }).success,
+            manualSuccess: versioningSettingsSchema.safeParse({ automatic: false, version: '1.0.0' }).success,
+            invalidAutomaticBranchSuccess: versioningSettingsSchema.safeParse({
+                automatic: true,
+                version: '1.0.0'
+            }).success,
+            invalidManualBranchSuccess: versioningSettingsSchema.safeParse({
+                automatic: false,
+                minimumVersion: '1.0.0'
+            }).success
+        }));
+    `);
+
+    assert.deepStrictEqual(result, {
+        discriminator: 'automatic',
+        optionCount: 2,
+        branchKeys: [
+            ['automatic', 'minimumVersion'],
+            ['automatic', 'version']
+        ],
+        branchLiterals: [true, false],
+        automaticSuccess: true,
+        manualSuccess: true,
+        invalidAutomaticBranchSuccess: false,
+        invalidManualBranchSuccess: false
+    });
+});
+
+test('package json schemas keep their runtime structure and forbidden key behavior', async () => {
+    const result = await runNodeProbe(`
+        import {
+            additionalPackageJsonAttributesSchema
+        } from './source/config/additional-package-json-attributes-schema.ts';
+        import { mainPackageJsonSchema } from './source/config/main-package-json-schema.ts';
+
+        const mainShape = mainPackageJsonSchema._zod.def.innerType.def.shape;
+        const forbiddenKeySuccesses = [
+            'dependencies',
+            'peerDependencies',
+            'devDependencies',
+            'main',
+            'name',
+            'types',
+            'type',
+            'version'
+        ].map((key) => additionalPackageJsonAttributesSchema.safeParse({ [key]: '1.0.0' }).success);
+
+        console.log(JSON.stringify({
+            mainShape: Object.keys(mainShape),
+            typeLiteral: mainShape.type.def.innerType.def.values[0],
+            dependencyRecordType: mainShape.dependencies.def.innerType.def.innerType.def.type,
+            devDependencyRecordType: mainShape.devDependencies.def.innerType.def.innerType.def.type,
+            peerDependencyRecordType: mainShape.peerDependencies.def.innerType.def.innerType.def.type,
+            validMainSuccess: mainPackageJsonSchema.safeParse({
+                type: 'module',
+                dependencies: { dep: '1.0.0' }
+            }).success,
+            forbiddenKeySuccesses
+        }));
+    `);
+
+    assert.deepStrictEqual(result, {
+        mainShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies'],
+        typeLiteral: 'module',
+        dependencyRecordType: 'record',
+        devDependencyRecordType: 'record',
+        peerDependencyRecordType: 'record',
+        validMainSuccess: true,
+        forbiddenKeySuccesses: [false, false, false, false, false, false, false, false]
+    });
+});
+
+test('packtory config schemas keep their union and package tuple structure', async () => {
+    const result = await runNodeProbe(`
+        import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
+        import {
+            packtoryConfigWithoutRegistrySchema
+        } from './source/config/packtory-config-without-registry-schema.ts';
+
+        const withoutRegistryOptions = packtoryConfigWithoutRegistrySchema._zod.def.options;
+        const firstOptionShape = withoutRegistryOptions[0].def.innerType.def.shape;
+        const packageTuple = firstOptionShape.packages._zod.def.innerType.def;
+        const packageShape = packageTuple.items[0].def.innerType.def.shape;
+        const checksShape = firstOptionShape.checks.def.innerType.def.shape;
+        const commonShape = firstOptionShape.commonPackageSettings.def.innerType.def.shape;
+
+        console.log(JSON.stringify({
+            optionCount: withoutRegistryOptions.length,
+            topLevelKeys: withoutRegistryOptions.map((option) => Object.keys(option.def.innerType.def.shape)),
+            packageTupleItemCounts: withoutRegistryOptions.map((option) =>
+                option.def.innerType.def.shape.packages._zod.def.innerType.def.items.length
+            ),
+            packageTupleHasRest: withoutRegistryOptions.map((option) =>
+                option.def.innerType.def.shape.packages._zod.def.innerType.def.rest !== undefined
+            ),
+            packageShapeKeys: Object.keys(packageShape),
+            checksShapeKeys: Object.keys(checksShape),
+            commonShapeKeys: Object.keys(commonShape),
+            configIntersectionLeftKeys: Object.keys(
+                packtoryConfigSchema._zod.def.left.def.shape
+            ),
+            validWithoutRegistrySuccess: packtoryConfigWithoutRegistrySchema.safeParse({
+                packages: [
+                    {
+                        name: 'pkg',
+                        sourcesFolder: 'src',
+                        mainPackageJson: {},
+                        entryPoints: [{ js: 'index.js' }]
+                    }
+                ]
+            }).success
+        }));
+    `);
+
+    assert.deepStrictEqual(result, {
+        optionCount: 4,
+        topLevelKeys: [
+            ['checks', 'commonPackageSettings', 'packages'],
+            ['checks', 'commonPackageSettings', 'packages'],
+            ['checks', 'commonPackageSettings', 'packages'],
+            ['checks', 'commonPackageSettings', 'packages']
+        ],
+        packageTupleItemCounts: [1, 1, 1, 1],
+        packageTupleHasRest: [true, true, true, true],
+        packageShapeKeys: [
+            'sourcesFolder',
+            'mainPackageJson',
+            'additionalFiles',
+            'includeSourceMapFiles',
+            'additionalPackageJsonAttributes',
+            'name',
+            'entryPoints',
+            'versioning',
+            'bundleDependencies',
+            'bundlePeerDependencies'
+        ],
+        checksShapeKeys: ['noDuplicatedFiles'],
+        commonShapeKeys: [
+            'sourcesFolder',
+            'mainPackageJson',
+            'additionalFiles',
+            'includeSourceMapFiles',
+            'additionalPackageJsonAttributes'
+        ],
+        configIntersectionLeftKeys: ['registrySettings'],
+        validWithoutRegistrySuccess: true
+    });
+});
+
+test('schema source modules still validate representative valid and invalid inputs', async () => {
+    const result = await runNodeProbe(`
+        import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
+        import { entryPointSchema } from './source/config/entry-point.ts';
+        import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
+        import { registrySettingsSchema } from './source/config/registry-settings.ts';
+
+        console.log(JSON.stringify({
+            validAdditionalFileSuccess: additionalFileDescriptionSchema.safeParse({
+                sourceFilePath: 'README.md',
+                targetFilePath: 'README.md'
+            }).success,
+            missingAdditionalFileSourceSuccess: additionalFileDescriptionSchema.safeParse({
+                targetFilePath: 'README.md'
+            }).success,
+            validEntryPointSuccess: entryPointSchema.safeParse({
+                js: 'index.js',
+                declarationFile: 'index.d.ts'
+            }).success,
+            missingEntryPointJsSuccess: entryPointSchema.safeParse({
+                declarationFile: 'index.d.ts'
+            }).success,
+            extraEntryPointPropertySuccess: entryPointSchema.safeParse({
+                js: 'index.js',
+                extra: 'nope'
+            }).success,
+            validRegistrySuccess: registrySettingsSchema.safeParse({
+                token: 'secret',
+                registryUrl: 'https://example.test'
+            }).success,
+            missingRegistryTokenSuccess: registrySettingsSchema.safeParse({
+                registryUrl: 'https://example.test'
+            }).success,
+            validConfigSuccess: packtoryConfigSchema.safeParse({
+                registrySettings: { token: 'secret' },
+                packages: [{
+                    sourcesFolder: 'src',
+                    mainPackageJson: {},
+                    name: 'pkg',
+                    entryPoints: [{ js: 'index.js' }]
+                }]
+            }).success,
+            missingConfigRegistrySuccess: packtoryConfigSchema.safeParse({
+                packages: [{
+                    sourcesFolder: 'src',
+                    mainPackageJson: {},
+                    name: 'pkg',
+                    entryPoints: [{ js: 'index.js' }]
+                }]
+            }).success,
+            emptyConfigPackagesSuccess: packtoryConfigSchema.safeParse({
+                registrySettings: { token: 'secret' },
+                packages: []
+            }).success
+        }));
+    `);
+
+    assert.deepStrictEqual(result, {
+        validAdditionalFileSuccess: true,
+        missingAdditionalFileSourceSuccess: false,
+        validEntryPointSuccess: true,
+        missingEntryPointJsSuccess: false,
+        extraEntryPointPropertySuccess: false,
+        validRegistrySuccess: true,
+        missingRegistryTokenSuccess: false,
+        validConfigSuccess: true,
+        missingConfigRegistrySuccess: false,
+        emptyConfigPackagesSuccess: false
+    });
+});

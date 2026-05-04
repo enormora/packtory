@@ -90,6 +90,18 @@ test(
 );
 
 test(
+    'fileSystemHostFilteringDeclarationFiles.fileExists treats declaration file extensions case-insensitively',
+    checkWrappedFileHostMethod({
+        method: 'fileExists',
+        adapter: 'fileSystemHostFilteringDeclarationFiles',
+        pathToCheck: 'foo/BAR.D.TS',
+        upstreamMethodReturnValue: true,
+        expectedResult: false,
+        expectedUpstreamCalls: []
+    })
+);
+
+test(
     'fileSystemHostFilteringDeclarationFiles.fileExists returns the same value from the wrapped fileSystemHost when it is not a declaration file',
     checkWrappedFileHostMethod({
         method: 'fileExists',
@@ -131,6 +143,18 @@ test(
         method: 'fileExistsSync',
         adapter: 'fileSystemHostFilteringDeclarationFiles',
         pathToCheck: 'foo/bar.d.mts',
+        upstreamMethodReturnValue: true,
+        expectedResult: false,
+        expectedUpstreamCalls: []
+    })
+);
+
+test(
+    'fileSystemHostFilteringDeclarationFiles.fileExistsSync treats declaration file extensions case-insensitively',
+    checkWrappedFileHostMethod({
+        method: 'fileExistsSync',
+        adapter: 'fileSystemHostFilteringDeclarationFiles',
+        pathToCheck: 'foo/BAR.D.MTS',
         upstreamMethodReturnValue: true,
         expectedResult: false,
         expectedUpstreamCalls: []

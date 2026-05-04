@@ -131,7 +131,8 @@ test('checkBundleAlreadyPublished() fetches the latest version', async () => {
 
 test('checkBundleAlreadyPublished() returns false when there is no latest version in the registry', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const emitter = emitterFactory({ fetchLatestVersion });
+    const collectContents = fake.returns([]);
+    const emitter = emitterFactory({ fetchLatestVersion, collectContents });
 
     const result = await emitter.checkBundleAlreadyPublished({
         registrySettings: { token: 'the-token' },
@@ -150,12 +151,16 @@ test('checkBundleAlreadyPublished() returns false when there is no latest versio
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
+    assert.strictEqual(collectContents.callCount, 0);
 });
 
 test('checkBundleAlreadyPublished() returns false when the latest version contents doesn’t match the given bundle', async () => {
-    const fetchLatestVersion = fake.resolves(Maybe.just('1.2.3'));
+    const fetchLatestVersion = fake.resolves(
+        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz', shasum: 'def' })
+    );
     const fetchTarball = fake.resolves(tarballWithOneFile);
-    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball });
+    const collectContents = fake.returns([]);
+    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
 
     const result = await emitter.checkBundleAlreadyPublished({
         registrySettings: { token: 'the-token' },
@@ -174,12 +179,31 @@ test('checkBundleAlreadyPublished() returns false when the latest version conten
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
+    assert.deepStrictEqual(collectContents.firstCall.args, [
+        {
+            name: 'the-name',
+            contents: [],
+            version: '',
+            dependencies: {},
+            peerDependencies: {},
+            additionalAttributes: {},
+            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
+            packageType: 'module',
+            manifestFile: { content: '', isExecutable: false, filePath: '' },
+            packageJson: { name: '', version: '' }
+        },
+        'package'
+    ]);
+    assert.deepStrictEqual(fetchTarball.firstCall.args, ['https://registry.example.test/package.tgz', 'def']);
 });
 
 test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async () => {
-    const fetchLatestVersion = fake.resolves(Maybe.just('1.2.3'));
+    const fetchLatestVersion = fake.resolves(
+        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz', shasum: 'abc' })
+    );
     const fetchTarball = fake.resolves(emptyTarball);
-    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball });
+    const collectContents = fake.returns([]);
+    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
 
     const result = await emitter.checkBundleAlreadyPublished({
         registrySettings: { token: 'the-token' },
@@ -197,7 +221,9 @@ test('checkBundleAlreadyPublished() returns true when the latest version content
         }
     });
 
-    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
+    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: true });
+    assert.deepStrictEqual(collectContents.firstCall.args.at(-1), 'package');
+    assert.deepStrictEqual(fetchTarball.firstCall.args, ['https://registry.example.test/package.tgz', 'abc']);
 });
 
 test('publish() publishes the given bundle', async () => {

@@ -16,15 +16,16 @@ export async function extractTarEntries(buffer: Buffer): Promise<TarEntry[]> {
     const source = Readable.from(buffer);
     const gunzip = createGunzip();
     const stream = source.pipe(gunzip).pipe(extractStream);
+    const errorEventName = 'error';
 
     return new Promise<TarEntry[]>((resolve, reject) => {
         const rejectOnError = (error: Error): void => {
             reject(error);
         };
 
-        source.once('error', rejectOnError);
-        gunzip.once('error', rejectOnError);
-        extractStream.once('error', rejectOnError);
+        source.once(errorEventName, rejectOnError);
+        gunzip.once(errorEventName, rejectOnError);
+        extractStream.once(errorEventName, rejectOnError);
 
         // eslint-disable-next-line no-void -- The async reader resolves via resolve/reject above.
         void (async (): Promise<void> => {

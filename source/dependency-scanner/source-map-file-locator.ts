@@ -10,7 +10,16 @@ export type SourceMapFileLocator = {
     locate: (sourceFile: string) => Promise<Maybe<string>>;
 };
 
-const sourceMappingUrlPattern = /^\/\/# sourceMappingURL=(?<url>.+)$/m;
+function getSourceMappingUrl(fileContent: string): string | undefined {
+    for (const line of fileContent.split('\n')) {
+        if (line.startsWith('//# sourceMappingURL=')) {
+            const sourceMappingUrl = line.slice('//# sourceMappingURL='.length);
+            return sourceMappingUrl === '' ? undefined : sourceMappingUrl;
+        }
+    }
+
+    return undefined;
+}
 
 export function createSourceMapFileLocator(
     dependencies: Readonly<SourceMapFileLocatorDependencies>
@@ -20,8 +29,7 @@ export function createSourceMapFileLocator(
     return {
         async locate(sourceFile) {
             const fileContent = await fileManager.readFile(sourceFile);
-            const result = sourceMappingUrlPattern.exec(fileContent);
-            const sourceMappingUrl = result?.groups?.url;
+            const sourceMappingUrl = getSourceMappingUrl(fileContent);
 
             if (sourceMappingUrl !== undefined) {
                 const folder = path.dirname(sourceFile);

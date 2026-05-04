@@ -26,15 +26,12 @@ type PublishedPackage = {
 type PackageConfig = PacktoryConfig['packages'][number];
 type PackageConfigList = readonly [PackageConfig, ...(readonly PackageConfig[])];
 type CommonPackageSettings = NonNullable<PacktoryConfig['commonPackageSettings']>;
-type PublishConfig = Extract<
-    PacktoryConfig,
-    {
-        commonPackageSettings: {
-            sourcesFolder: string;
-            mainPackageJson: NonNullable<CommonPackageSettings['mainPackageJson']>;
-        };
-    }
->;
+type PublishConfig = PacktoryConfig & {
+    readonly commonPackageSettings: CommonPackageSettings & {
+        readonly sourcesFolder: string;
+        readonly mainPackageJson: NonNullable<CommonPackageSettings['mainPackageJson']>;
+    };
+};
 type CreatePublishConfigParams = {
     readonly fixturePath: string;
     readonly registryDetails: RegistryDetails;

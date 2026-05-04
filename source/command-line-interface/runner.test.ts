@@ -130,12 +130,54 @@ test('returns exit code 1 when publish command has errors', async () => {
 
 test('returns exit code 1 instead of exiting the process when command parsing fails', async () => {
     const buildAndPublishAll = fake.resolves(Result.ok([]));
-    const runner = runnerFactory({ buildAndPublishAll });
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
 
     const exitCode = await runner.run(['foo', 'bar', 'not-a-command']);
 
     assert.strictEqual(exitCode, 1);
     assert.strictEqual(buildAndPublishAll.callCount, 0);
+    assert.strictEqual(log.callCount, 1);
+    assert.match(String(log.firstCall.args[0]), /packtory --help/);
+});
+
+test('returns exit code 1 when the publish command name is misspelled', async () => {
+    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    const exitCode = await runner.run(['foo', 'bar', 'publis']);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(buildAndPublishAll.callCount, 0);
+});
+
+test('prints command help that includes the publish command name and description', async () => {
+    const log = fake();
+    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    const exitCode = await runner.run(['foo', 'bar', '--help']);
+
+    assert.strictEqual(exitCode, 0);
+    assert.ok(
+        String(log.firstCall.args[0]).includes('publish'),
+        'Expected help output to include the publish command name'
+    );
+    assert.ok(
+        String(log.firstCall.args[0]).includes('Builds and publishes all packages (dry-run enabled by default).'),
+        'Expected help output to include the publish command description'
+    );
+});
+
+test('prints subcommand help that includes the full publish command path', async () => {
+    const log = fake();
+    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    const exitCode = await runner.run(['foo', 'bar', 'publish', '--help']);
+
+    assert.strictEqual(exitCode, 0);
+    assert.match(String(log.firstCall.args[0]), /packtory publish/);
 });
 
 test('rethrows the error when buildAndPublishAll() throws', async () => {
@@ -161,6 +203,18 @@ test('prints error summary when publish command encounters config errors', async
     assert.deepStrictEqual(log.firstCall.args, ['✖ The provided config is invalid, there are 1 issue(s)\n\n- foo']);
 });
 
+test('prints every config issue on its own bullet line', async () => {
+    const buildAndPublishAll = fake.resolves(Result.err({ type: 'config', issues: ['foo', 'bar'] }));
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    await runner.run(['foo', 'bar', 'publish']);
+
+    assert.deepStrictEqual(log.firstCall.args, [
+        '✖ The provided config is invalid, there are 2 issue(s)\n\n- foo\n- bar'
+    ]);
+});
+
 test('prints error summary when publish command encounters check errors', async () => {
     const buildAndPublishAll = fake.resolves(Result.err({ type: 'checks', issues: ['foo'] }));
     const log = fake();
@@ -170,6 +224,16 @@ test('prints error summary when publish command encounters check errors', async 
 
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✖ Checks failed, there are 1 issue(s)\n\n- foo']);
+});
+
+test('prints every check issue on its own bullet line', async () => {
+    const buildAndPublishAll = fake.resolves(Result.err({ type: 'checks', issues: ['foo', 'bar'] }));
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    await runner.run(['foo', 'bar', 'publish']);
+
+    assert.deepStrictEqual(log.firstCall.args, ['✖ Checks failed, there are 2 issue(s)\n\n- foo\n- bar']);
 });
 
 test('prints error summary and dry-run note when publish command encounters partial errors', async () => {

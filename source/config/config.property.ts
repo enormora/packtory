@@ -1,9 +1,10 @@
 import assert from 'node:assert';
-import fc from 'fast-check';
 import { safeParse } from '@schema-hub/zod-error-formatter';
+import fc from 'fast-check';
 import { test } from 'mocha';
 import { configToResolveAndLinkOptions } from '../packtory/map-config.ts';
-import { packtoryConfigSchema, type PacktoryConfig } from './config.ts';
+import type { PacktoryConfig } from './config.ts';
+import { packtoryConfigSchema } from './packtory-config-schema.ts';
 import type { AdditionalPackageJsonAttributes } from './package-json.ts';
 
 const packageNameArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}$/);

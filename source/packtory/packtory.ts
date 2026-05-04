@@ -213,9 +213,6 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
 
         const result = await resolveAndLinkAllValidated(validation.value);
         if (result.isErr) {
-            if (result.error.type === 'partial') {
-                return Result.err({ type: 'partial', error: result.error.error });
-            }
             return Result.err(result.error);
         }
         return Result.ok(result.value);

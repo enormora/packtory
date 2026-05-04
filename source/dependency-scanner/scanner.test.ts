@@ -91,6 +91,18 @@ test('passes the moduleResolution option to the project analyzer', async () => {
     ]);
 });
 
+test('defaults the moduleResolution option to "module" when not provided', async () => {
+    const analyzeProject = createFakeAnalyzeProject();
+    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+
+    await dependencyScanner.scan('/foo/bar.js', '/foo');
+
+    assert.deepStrictEqual(analyzeProject.firstCall.args, [
+        '/foo',
+        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: false }
+    ]);
+});
+
 test('scans the dependencies of the given entryPoint file', async () => {
     const getReferencedSourceFilePaths = fake.returns([]);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
@@ -264,6 +276,20 @@ test('returns all detected node_modules dependencies with its corresponding vers
     assert.deepStrictEqual(
         result.externalDependencies,
         new Map([['any-module', { name: 'any-module', referencedFrom: ['/dir/entry.js'] }]])
+    );
+});
+
+test('returns the scoped package name for scoped node_modules dependencies', async () => {
+    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/@scope/any-module/foo.js']);
+    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
+    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
+    const result = graph.flatten('/dir/entry.js');
+
+    assert.deepStrictEqual(
+        result.externalDependencies,
+        new Map([['@scope/any-module', { name: '@scope/any-module', referencedFrom: ['/dir/entry.js'] }]])
     );
 });
 

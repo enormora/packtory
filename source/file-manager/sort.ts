@@ -1,20 +1,39 @@
 import type { FileDescription } from './file-description.ts';
 
-type LowerThan = -1;
-type Equals = 0;
-type GreaterThan = 1;
-type ComparisonResult = Equals | GreaterThan | LowerThan;
+function shouldShiftFileDescription(
+    previousFileDescription: FileDescription | undefined,
+    currentFileDescription: FileDescription
+): previousFileDescription is FileDescription {
+    return previousFileDescription !== undefined && previousFileDescription.filePath > currentFileDescription.filePath;
+}
 
-function compareFilePath(first: FileDescription, second: FileDescription): ComparisonResult {
-    if (first.filePath < second.filePath) {
-        return -1;
+function insertFileDescription(
+    sortedFileDescriptions: readonly FileDescription[],
+    index: number,
+    currentFileDescription: FileDescription
+): FileDescription[] {
+    const nextSortedFileDescriptions = Array.from(sortedFileDescriptions);
+    let insertionIndex = index;
+    let previousFileDescription = nextSortedFileDescriptions[insertionIndex - 1];
+
+    while (shouldShiftFileDescription(previousFileDescription, currentFileDescription)) {
+        nextSortedFileDescriptions[insertionIndex] = previousFileDescription;
+        insertionIndex -= 1;
+        previousFileDescription = nextSortedFileDescriptions[insertionIndex - 1];
     }
-    if (first.filePath > second.filePath) {
-        return 1;
-    }
-    return 0;
+
+    nextSortedFileDescriptions[insertionIndex] = currentFileDescription;
+    return nextSortedFileDescriptions;
 }
 
 export function sortByFilePath(fileDescriptions: readonly FileDescription[]): readonly FileDescription[] {
-    return Array.from(fileDescriptions).toSorted(compareFilePath);
+    let sortedFileDescriptions = Array.from(fileDescriptions);
+    let index = 1;
+
+    for (const currentFileDescription of sortedFileDescriptions.slice(1)) {
+        sortedFileDescriptions = insertFileDescription(sortedFileDescriptions, index, currentFileDescription);
+        index += 1;
+    }
+
+    return sortedFileDescriptions;
 }

@@ -7,4 +7,5 @@ export const entryPointSchema = z.readonly(
         declarationFile: z.optional(nonEmptyStringSchema)
     })
 );
+
 export type EntryPoint = z.infer<typeof entryPointSchema>;

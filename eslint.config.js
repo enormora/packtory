@@ -15,7 +15,7 @@ export default [
     },
     {
         ...mochaConfig,
-        files: ['**/*.test.ts', '**/*.property.ts', 'source/test-libraries/**/*.ts', 'integration-tests/**/*.ts']
+        files: ['**/*.test.ts', '**/*.property.ts', 'integration-tests/**/*.ts']
     },
     {
         ...nodeConfigFileConfig,
@@ -85,7 +85,7 @@ export default [
         }
     },
     {
-        files: ['**/*.test.ts', '**/*.property.ts'],
+        files: ['**/*.test.ts', '**/*.property.ts', 'source/test-libraries/**/*.ts'],
         rules: {
             '@typescript-eslint/no-magic-numbers': 'off',
             '@typescript-eslint/explicit-function-return-type': 'off',

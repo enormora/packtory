@@ -1,21 +1,9 @@
 import { z } from 'zod/mini';
-import { nonEmptyStringSchema } from './base-validations.ts';
-
-const automaticVersioningSettingsSchema = z.readonly(
-    z.strictObject({
-        automatic: z.literal(true),
-        minimumVersion: z.optional(nonEmptyStringSchema)
-    })
-);
-
-const manualVersioningSettingsSchema = z.readonly(
-    z.strictObject({
-        automatic: z.literal(false),
-        version: nonEmptyStringSchema
-    })
-);
+import { automaticVersioningSettingsSchema } from './automatic-versioning-settings.ts';
+import { manualVersioningSettingsSchema } from './manual-versioning-settings.ts';
 
 export const versioningSettingsSchema = z.readonly(
     z.discriminatedUnion('automatic', [automaticVersioningSettingsSchema, manualVersioningSettingsSchema])
 );
+
 export type VersioningSettings = z.infer<typeof versioningSettingsSchema>;
