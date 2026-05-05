@@ -4,9 +4,16 @@ import type { AdditionalPackageJsonAttributes, MainPackageJson } from './package
 import type { RegistrySettings } from './registry-settings.ts';
 import type { VersioningSettings } from './versioning-settings.ts';
 
+export type ScopedAllowListEntry = {
+    readonly filePath: string;
+    readonly packages: readonly string[];
+};
+
+export type AllowListEntry = ScopedAllowListEntry | string;
+
 export type NoDuplicatedFilesSettings = {
     readonly enabled: boolean;
-    readonly allowList?: readonly string[] | undefined;
+    readonly allowList?: readonly AllowListEntry[] | undefined;
 };
 
 export type ChecksSettings = {

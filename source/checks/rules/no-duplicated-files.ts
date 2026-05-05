@@ -1,5 +1,5 @@
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
-import type { ChecksSettings } from '../../config/config.ts';
+import type { AllowListEntry, ChecksSettings } from '../../config/config.ts';
 import type { CheckContext } from '../rule.ts';
 
 function collectFileOwnership(bundles: readonly LinkedBundle[]): Map<string, Set<string>> {
@@ -17,14 +17,39 @@ function collectFileOwnership(bundles: readonly LinkedBundle[]): Map<string, Set
     return fileOwnership;
 }
 
-function getAllowList(settings: ChecksSettings | undefined): ReadonlySet<string> {
+function getAllowList(settings: ChecksSettings | undefined): readonly AllowListEntry[] | undefined {
     const option = settings?.noDuplicatedFiles;
 
     if (option?.enabled !== true) {
-        return new Set();
+        return undefined;
     }
 
-    return new Set(option.allowList);
+    return option.allowList;
+}
+
+function isAllowed(
+    filePath: string,
+    owners: ReadonlySet<string>,
+    allowList: readonly AllowListEntry[] | undefined
+): boolean {
+    if (allowList === undefined) {
+        return false;
+    }
+
+    return allowList.some((entry) => {
+        if (typeof entry === 'string') {
+            return entry === filePath;
+        }
+
+        if (entry.filePath !== filePath) {
+            return false;
+        }
+
+        const allowedOwners = new Set(entry.packages);
+        return Array.from(owners).every((owner) => {
+            return allowedOwners.has(owner);
+        });
+    });
 }
 
 export function isNoDuplicatedFilesRuleEnabled(settings: ChecksSettings | undefined): boolean {
@@ -46,7 +71,7 @@ export function runNoDuplicatedFilesRule(
     const allowList = getAllowList(settings);
 
     for (const [filePath, owners] of fileOwnership.entries()) {
-        if (owners.size > 1 && !allowList.has(filePath)) {
+        if (owners.size > 1 && !isAllowed(filePath, owners, allowList)) {
             const ownerList = Array.from(owners)
                 .toSorted((left, right) => {
                     return left.localeCompare(right);
