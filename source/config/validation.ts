@@ -3,6 +3,7 @@ import { safeParse } from '@schema-hub/zod-error-formatter';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
 import {
     getBundledDependencies,
+    type ChecksSettings,
     type PacktoryConfig,
     type PackageConfig,
     type PacktoryConfigWithoutRegistry
@@ -70,6 +71,28 @@ function packageListToMap(packages: readonly PackageConfig[]): Map<string, Packa
     }, new Map<string, PackageConfig>());
 }
 
+function validateNoDuplicatedFilesAllowList(
+    packageConfigs: ReadonlyMap<string, PackageConfig>,
+    checks: ChecksSettings | undefined
+): readonly string[] {
+    const allowList = checks?.noDuplicatedFiles?.allowList;
+    if (allowList === undefined) {
+        return [];
+    }
+    return allowList.flatMap((entry) => {
+        if (typeof entry === 'string') {
+            return [];
+        }
+        return entry.packages
+            .filter((name) => {
+                return !packageConfigs.has(name);
+            })
+            .map((name) => {
+                return `Allow list entry for "${entry.filePath}" references unknown package "${name}"`;
+            });
+    });
+}
+
 function validateDuplicatePackages(packages: readonly PackageConfig[]): readonly string[] {
     const knownPackageNames = new Set<string>();
     const issues: string[] = [];
@@ -113,10 +136,12 @@ function validatePreGraphGeneration(
     const packtoryConfig = schemaValidationResult.data;
     const packageConfigs = packageListToMap(packtoryConfig.packages);
 
-    const missingDependenciesIssues = validateDependenciesExist(packageConfigs);
-    if (missingDependenciesIssues.length > 0) {
-        const issues = Array.from(validateDuplicatePackages(packtoryConfig.packages));
-        return Result.err([...issues, ...missingDependenciesIssues]);
+    const preGraphIssues = [
+        ...validateDependenciesExist(packageConfigs),
+        ...validateNoDuplicatedFilesAllowList(packageConfigs, packtoryConfig.checks)
+    ];
+    if (preGraphIssues.length > 0) {
+        return Result.err([...validateDuplicatePackages(packtoryConfig.packages), ...preGraphIssues]);
     }
 
     return Result.ok({
@@ -137,10 +162,12 @@ function validatePreGraphGenerationWithoutRegistry(
     const packtoryConfig = schemaValidationResult.data;
     const packageConfigs = packageListToMap(packtoryConfig.packages);
 
-    const missingDependenciesIssues = validateDependenciesExist(packageConfigs);
-    if (missingDependenciesIssues.length > 0) {
-        const issues = Array.from(validateDuplicatePackages(packtoryConfig.packages));
-        return Result.err([...issues, ...missingDependenciesIssues]);
+    const preGraphIssues = [
+        ...validateDependenciesExist(packageConfigs),
+        ...validateNoDuplicatedFilesAllowList(packageConfigs, packtoryConfig.checks)
+    ];
+    if (preGraphIssues.length > 0) {
+        return Result.err([...validateDuplicatePackages(packtoryConfig.packages), ...preGraphIssues]);
     }
 
     return Result.ok({

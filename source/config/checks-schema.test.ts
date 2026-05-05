@@ -94,3 +94,83 @@ test(
         expectedMessages: ['at noDuplicatedFiles: unexpected additional property: "extra"']
     })
 );
+
+test(
+    'allow list: validation succeeds with a scoped entry naming two packages',
+    checkValidationSuccess({
+        schema: checksSchema,
+        data: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
+            }
+        },
+        expectedData: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
+            }
+        }
+    })
+);
+
+test(
+    'allow list: validation succeeds with a mix of plain string and scoped entries',
+    checkValidationSuccess({
+        schema: checksSchema,
+        data: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: ['LICENSE', { filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
+            }
+        },
+        expectedData: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: ['LICENSE', { filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
+            }
+        }
+    })
+);
+
+test(
+    'allow list: validation fails when a scoped entry has fewer than two packages',
+    checkValidationFailure({
+        schema: checksSchema,
+        data: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a'] }]
+            }
+        },
+        expectedMessages: ['at noDuplicatedFiles.allowList[0].packages: array must contain at least 2 elements']
+    })
+);
+
+test(
+    'allow list: validation fails when a scoped entry omits filePath',
+    checkValidationFailure({
+        schema: checksSchema,
+        data: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ packages: ['a', 'b'] }]
+            }
+        },
+        expectedMessages: ['at noDuplicatedFiles.allowList[0]: invalid value doesn’t match expected union']
+    })
+);
+
+test(
+    'allow list: validation fails when a scoped entry has an unknown extra property',
+    checkValidationFailure({
+        schema: checksSchema,
+        data: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'], extra: true }]
+            }
+        },
+        expectedMessages: ['at noDuplicatedFiles.allowList[0]: invalid value doesn’t match expected union']
+    })
+);

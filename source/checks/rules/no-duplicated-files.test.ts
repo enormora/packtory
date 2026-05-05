@@ -101,3 +101,68 @@ test('run() ignores the allow list when the rule is disabled', () => {
 
     assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
 });
+
+test('run() suppresses a duplicate when a scoped allow-list entry covers all owners', () => {
+    const result = runNoDuplicatedFilesRule(
+        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
+        {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'shared.ts', packages: ['a', 'b'] }]
+            }
+        }
+    );
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('run() reports a duplicate when a scoped allow-list entry omits one of the actual owners', () => {
+    const result = runNoDuplicatedFilesRule(
+        {
+            bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts'), createBundle('c', 'shared.ts')]
+        },
+        {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'shared.ts', packages: ['a', 'b'] }]
+            }
+        }
+    );
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b, c']);
+});
+
+test('run() does not match a scoped entry when the file path differs', () => {
+    const result = runNoDuplicatedFilesRule(
+        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
+        {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'other.ts', packages: ['a', 'b'] }]
+            }
+        }
+    );
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});
+
+test('run() supports a mix of plain string and scoped allow-list entries', () => {
+    const result = runNoDuplicatedFilesRule(
+        {
+            bundles: [
+                createBundle('a', 'shared.ts'),
+                createBundle('b', 'shared.ts'),
+                createBundle('c', 'license'),
+                createBundle('d', 'license')
+            ]
+        },
+        {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: ['license', { filePath: 'shared.ts', packages: ['a', 'b'] }]
+            }
+        }
+    );
+
+    assert.deepStrictEqual(result, []);
+});

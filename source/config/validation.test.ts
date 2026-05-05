@@ -200,10 +200,135 @@ test('doesn’t report cyclic dependency issues when there is also a missing dep
     assert.deepStrictEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
 });
 
+test('returns an issue when a scoped allow-list entry references an unknown package', () => {
+    const result = validateConfig({
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        checks: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'ghost'] }]
+            }
+        },
+        packages: [
+            { name: 'a', entryPoints: [{ js: 'foo' }] },
+            { name: 'b', entryPoints: [{ js: 'foo' }] }
+        ]
+    });
+
+    assert.deepStrictEqual(
+        result,
+        Result.err(['Allow list entry for "src/shared/util.ts" references unknown package "ghost"'])
+    );
+});
+
+test('returns one issue per unknown package in a scoped allow-list entry', () => {
+    const result = validateConfig({
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        checks: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['ghost', 'phantom'] }]
+            }
+        },
+        packages: [
+            { name: 'a', entryPoints: [{ js: 'foo' }] },
+            { name: 'b', entryPoints: [{ js: 'foo' }] }
+        ]
+    });
+
+    assert.deepStrictEqual(
+        result,
+        Result.err([
+            'Allow list entry for "src/shared/util.ts" references unknown package "ghost"',
+            'Allow list entry for "src/shared/util.ts" references unknown package "phantom"'
+        ])
+    );
+});
+
+test('accepts a config where checks is defined but noDuplicatedFiles is omitted', () => {
+    const result = validateConfig({
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        checks: {},
+        packages: [{ name: 'a', entryPoints: [{ js: 'foo' }] }]
+    });
+
+    assert.strictEqual(result.isOk, true);
+});
+
+test('accepts a config where checks.noDuplicatedFiles is defined without an allowList', () => {
+    const result = validateConfig({
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        checks: { noDuplicatedFiles: { enabled: true } },
+        packages: [{ name: 'a', entryPoints: [{ js: 'foo' }] }]
+    });
+
+    assert.strictEqual(result.isOk, true);
+});
+
+test('does not report unknown-package issues for plain string allow-list entries', () => {
+    const result = validateConfig({
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        checks: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: ['LICENSE']
+            }
+        },
+        packages: [{ name: 'a', entryPoints: [{ js: 'foo' }] }]
+    });
+
+    assert.strictEqual(result.isOk, true);
+});
+
+test('accepts a scoped allow-list entry when all referenced packages exist', () => {
+    const result = validateConfig({
+        registrySettings: { token: 'foo' },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        checks: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
+            }
+        },
+        packages: [
+            { name: 'a', entryPoints: [{ js: 'foo' }] },
+            { name: 'b', entryPoints: [{ js: 'foo' }] }
+        ]
+    });
+
+    assert.strictEqual(result.isOk, true);
+});
+
 test('validateConfigWithoutRegistry() returns schema issues when the config is invalid', () => {
     const result = validateConfigWithoutRegistry({ not: 'valid' });
 
     assert.deepStrictEqual(result, Result.err(['invalid value doesn’t match expected union']));
+});
+
+test('validateConfigWithoutRegistry() returns an issue for unknown packages in a scoped allow-list entry', () => {
+    const result = validateConfigWithoutRegistry({
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        checks: {
+            noDuplicatedFiles: {
+                enabled: true,
+                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'ghost'] }]
+            }
+        },
+        packages: [
+            { name: 'a', entryPoints: [{ js: 'foo' }] },
+            { name: 'b', entryPoints: [{ js: 'foo' }] }
+        ]
+    });
+
+    assert.deepStrictEqual(
+        result,
+        Result.err(['Allow list entry for "src/shared/util.ts" references unknown package "ghost"'])
+    );
 });
 
 test('validateConfigWithoutRegistry() returns duplicate and missing dependency issues', () => {
