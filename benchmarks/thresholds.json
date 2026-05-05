@@ -17,8 +17,8 @@
     "responsiveness": {
         "publish-cli": {
             "intervalMs": 80,
-            "medium": { "p99Ms": 240, "maxMs": 480 },
-            "large": { "p99Ms": 240, "maxMs": 480 }
+            "medium": { "p99Ms": 120, "maxMs": 200 },
+            "large": { "p99Ms": 120, "maxMs": 200 }
         }
     }
 }
