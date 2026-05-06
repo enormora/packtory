@@ -6,14 +6,9 @@ import type { SpinnerRuntime, WorkerSpawnRequest } from './spinner-worker-backen
 
 const bootModulePath = fileURLToPath(import.meta.url);
 const bootModuleExtension = path.extname(bootModulePath);
-const workerModulePath = path.join(
-    path.dirname(bootModulePath),
-    `spinner-worker.entry-point${bootModuleExtension}`
-);
+const workerModulePath = path.join(path.dirname(bootModulePath), `spinner-worker.entry-point${bootModuleExtension}`);
 const workerExecArgv =
-    bootModuleExtension === '.ts'
-        ? ['--experimental-strip-types', '--enable-source-maps']
-        : ['--enable-source-maps'];
+    bootModuleExtension === '.ts' ? ['--experimental-strip-types', '--enable-source-maps'] : ['--enable-source-maps'];
 
 function spawnWorker(request: WorkerSpawnRequest): void {
     const worker = new WorkerThread(workerModulePath, {
