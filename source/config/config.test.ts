@@ -31,7 +31,7 @@ test('getBundledDependencies returns an empty list when no bundled dependencies 
 test('config schema accepts a valid config', () => {
     assert.strictEqual(
         safeParse(packtoryConfigSchema, {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
         }).success,
         true
@@ -56,7 +56,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {},
             packages: [
                 {
@@ -68,7 +68,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {},
             packages: [
                 {
@@ -105,7 +105,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: []
         },
         expectedMessages: ['invalid value doesn’t match expected union']
@@ -117,7 +117,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'source',
@@ -136,7 +136,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     allowList: ['foo/bar.ts']
@@ -160,7 +160,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     enabled: true,
@@ -185,7 +185,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     enabled: true,
@@ -202,7 +202,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     enabled: true,
@@ -226,7 +226,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     enabled: true,
@@ -243,7 +243,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     enabled: true,
@@ -267,7 +267,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 includeSourceMapFiles: true,
                 additionalFiles: [],
@@ -283,7 +283,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 includeSourceMapFiles: true,
                 additionalFiles: [],
@@ -305,7 +305,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'source',
@@ -316,7 +316,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'source',
@@ -334,7 +334,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {}
@@ -347,7 +347,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {}
@@ -367,7 +367,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {}
@@ -382,7 +382,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {}
@@ -404,7 +404,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source'
             },
@@ -417,7 +417,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source'
             },
@@ -437,7 +437,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source'
             },
@@ -451,7 +451,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source'
             },
@@ -472,7 +472,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 mainPackageJson: {}
             },
@@ -485,7 +485,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 mainPackageJson: {}
             },
@@ -505,7 +505,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 mainPackageJson: {}
             },
@@ -519,7 +519,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 mainPackageJson: {}
             },
@@ -540,7 +540,7 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {},
@@ -564,7 +564,7 @@ test(
             ]
         },
         expectedData: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {},
@@ -613,7 +613,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'source',
@@ -631,7 +631,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: []
         },
         expectedMessages: ['invalid value doesn’t match expected union']
@@ -643,7 +643,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'source',
@@ -662,7 +662,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     allowList: ['foo/bar.ts']
@@ -686,7 +686,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
                     enabled: true,
@@ -711,7 +711,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {},
             packages: [
                 {
@@ -729,7 +729,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 mainPackageJson: {}
             },
@@ -749,7 +749,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: undefined,
             packages: [
                 {
@@ -768,7 +768,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'foo'
             },
@@ -788,7 +788,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'foo',
@@ -806,7 +806,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'foo',
@@ -825,7 +825,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'foo',
@@ -843,7 +843,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'foo',
@@ -862,7 +862,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'foo',
@@ -881,7 +881,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             packages: [
                 {
                     sourcesFolder: 'foo',
@@ -900,7 +900,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {},
@@ -922,7 +922,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {},
@@ -944,7 +944,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {},
@@ -966,7 +966,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {}
@@ -988,7 +988,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {}
@@ -1010,7 +1010,7 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 'foo' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
                 mainPackageJson: {}
@@ -1177,7 +1177,9 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            registrySettings: { token: 42 },
+            registrySettings: {
+                auth: { type: 'bearer-token', token: 42 }
+            },
             packages: [
                 {
                     sourcesFolder: 'source',
@@ -1187,6 +1189,6 @@ test(
                 }
             ]
         },
-        expectedMessages: ['at registrySettings.token: expected string, but got number']
+        expectedMessages: ['at registrySettings.auth: invalid value doesn’t match expected union']
     })
 );

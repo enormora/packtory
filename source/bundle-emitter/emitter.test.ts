@@ -5,6 +5,8 @@ import { Maybe } from 'true-myth';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
 
+const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
+
 function namedBundle(): ReturnType<typeof versionedBundleWithManifest> {
     return versionedBundleWithManifest({ name: 'the-name' });
 }
@@ -64,12 +66,12 @@ test('determineCurrentVersion() fetches the latest version when automatic versio
 
     await emitter.determineCurrentVersion({
         name: 'the-name',
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         versioning: { automatic: true }
     });
 
     assert.strictEqual(fetchLatestVersion.callCount, 1);
-    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
+    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
 });
 
 test('determineCurrentVersion() returns the fetched version when automatic versioning is enabled', async () => {
@@ -78,7 +80,7 @@ test('determineCurrentVersion() returns the fetched version when automatic versi
 
     const result = await emitter.determineCurrentVersion({
         name: 'the-name',
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         versioning: { automatic: true }
     });
 
@@ -91,7 +93,7 @@ test('determineCurrentVersion() doesn’t fetches the latest version when manual
 
     await emitter.determineCurrentVersion({
         name: 'the-name',
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         versioning: { automatic: false, version: '' }
     });
 
@@ -103,7 +105,7 @@ test('determineCurrentVersion() returns the given version when manual versioning
 
     const result = await emitter.determineCurrentVersion({
         name: 'the-name',
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         versioning: { automatic: false, version: 'manual-version' }
     });
 
@@ -115,12 +117,12 @@ test('checkBundleAlreadyPublished() fetches the latest version', async () => {
     const emitter = emitterFactory({ fetchLatestVersion });
 
     await emitter.checkBundleAlreadyPublished({
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         bundle: namedBundle()
     });
 
     assert.strictEqual(fetchLatestVersion.callCount, 1);
-    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', { token: 'the-token' }]);
+    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
 });
 
 test('checkBundleAlreadyPublished() returns false when there is no latest version in the registry', async () => {
@@ -129,7 +131,7 @@ test('checkBundleAlreadyPublished() returns false when there is no latest versio
     const emitter = emitterFactory({ fetchLatestVersion, collectContents });
 
     const result = await emitter.checkBundleAlreadyPublished({
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         bundle: namedBundle()
     });
 
@@ -147,13 +149,17 @@ test('checkBundleAlreadyPublished() returns false when the latest version conten
 
     const bundle = namedBundle();
     const result = await emitter.checkBundleAlreadyPublished({
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         bundle
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
     assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package']);
-    assert.deepStrictEqual(fetchTarball.firstCall.args, ['https://registry.example.test/package.tgz', 'def']);
+    assert.deepStrictEqual(fetchTarball.firstCall.args, [
+        'https://registry.example.test/package.tgz',
+        'def',
+        registrySettings
+    ]);
 });
 
 test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async () => {
@@ -165,13 +171,17 @@ test('checkBundleAlreadyPublished() returns true when the latest version content
     const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
 
     const result = await emitter.checkBundleAlreadyPublished({
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         bundle: namedBundle()
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: true });
     assert.deepStrictEqual(collectContents.firstCall.args.at(-1), 'package');
-    assert.deepStrictEqual(fetchTarball.firstCall.args, ['https://registry.example.test/package.tgz', 'abc']);
+    assert.deepStrictEqual(fetchTarball.firstCall.args, [
+        'https://registry.example.test/package.tgz',
+        'abc',
+        registrySettings
+    ]);
 });
 
 test('publish() publishes the given bundle', async () => {
@@ -180,14 +190,10 @@ test('publish() publishes the given bundle', async () => {
     const emitter = emitterFactory({ buildTarball, publishPackage });
 
     await emitter.publish({
-        registrySettings: { token: 'the-token' },
+        registrySettings,
         bundle: namedBundle()
     });
 
     assert.strictEqual(publishPackage.callCount, 1);
-    assert.deepStrictEqual(publishPackage.firstCall.args, [
-        { name: '', version: '' },
-        emptyTarball,
-        { token: 'the-token' }
-    ]);
+    assert.deepStrictEqual(publishPackage.firstCall.args, [{ name: '', version: '' }, emptyTarball, registrySettings]);
 });

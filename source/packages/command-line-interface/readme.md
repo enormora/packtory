@@ -27,3 +27,9 @@ packtory <command> [options]
 **Configuration:**
 
 Create a `packtory.config.js` file in your project to define the configuration. Refer to the [full documentation](https://github.com/enormora/packtory/blob/main/readme.md) for detailed configuration options.
+
+**One-time-password support:**
+
+- If the registry challenges a publish with a one-time password, the CLI prompts for it when running in an interactive TTY.
+- The prompt times out after 90 seconds.
+- Non-interactive runs cannot answer a one-time-password challenge. For CI, prefer an auth method that does not require live one-time-password entry, such as npm trusted publishing / OIDC or a suitable registry token setup.

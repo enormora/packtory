@@ -60,7 +60,8 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
             const artifactContents = artifactsBuilder.collectContents(bundle, 'package');
             const tarball = await registryClient.fetchTarball(
                 latestVersion.value.tarballUrl,
-                latestVersion.value.shasum
+                latestVersion.value.shasum,
+                registrySettings
             );
             const latestVersionArtifactContents = await extractPackageTarball(tarball);
             const result = compareFileDescriptions(artifactContents, latestVersionArtifactContents);

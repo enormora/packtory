@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'tstyche';
 import type { Result } from 'true-myth';
+import type { MetadataAuthMode, PublishAuthStrategy, RegistryAuthConfig } from '../../config/registry-settings.ts';
 import type {
     buildAndPublishAll,
     progressBroadcastConsumer,
@@ -58,7 +59,9 @@ describe('progressBroadcastConsumer', () => {
 describe('PacktoryConfig — accepted shapes', () => {
     test('accepts a minimum valid configuration (registrySettings and packages)', () => {
         expect<PacktoryConfig>().type.toBeAssignableFrom<{
-            readonly registrySettings: { readonly token: 'any-token' };
+            readonly registrySettings: {
+                readonly auth: { readonly type: 'bearer-token'; readonly token: 'any-token' };
+            };
             readonly packages: readonly [
                 { readonly name: 'pkg'; readonly entryPoints: readonly [{ readonly js: 'index.js' }] }
             ];
@@ -68,8 +71,15 @@ describe('PacktoryConfig — accepted shapes', () => {
     test('accepts a fully populated configuration with all optional fields', () => {
         expect<PacktoryConfig>().type.toBeAssignableFrom<{
             readonly registrySettings: {
-                readonly token: 'any-token';
                 readonly registryUrl: 'https://registry.example';
+                readonly auth: {
+                    readonly publish: {
+                        readonly type: 'basic';
+                        readonly username: 'user';
+                        readonly password: 'secret';
+                    };
+                    readonly metadata: 'auto';
+                };
             };
             readonly checks: { readonly noDuplicatedFiles: { readonly enabled: true } };
             readonly commonPackageSettings: { readonly sourcesFolder: 'src'; readonly includeSourceMapFiles: true };
@@ -97,11 +107,13 @@ describe('PacktoryConfig — rejected shapes', () => {
 
     test('rejects a configuration without packages', () => {
         expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
-            readonly registrySettings: { readonly token: 'tok' };
+            readonly registrySettings: {
+                readonly auth: { readonly type: 'bearer-token'; readonly token: 'tok' };
+            };
         }>();
     });
 
-    test('rejects a registrySettings without a token', () => {
+    test('rejects a registrySettings without auth', () => {
         expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
             readonly registrySettings: { readonly registryUrl: 'https://registry.example' };
             readonly packages: readonly [];
@@ -110,11 +122,15 @@ describe('PacktoryConfig — rejected shapes', () => {
 
     test('rejects a package without name or entryPoints', () => {
         expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
-            readonly registrySettings: { readonly token: 'tok' };
+            readonly registrySettings: {
+                readonly auth: { readonly type: 'bearer-token'; readonly token: 'tok' };
+            };
             readonly packages: readonly [{ readonly entryPoints: readonly [{ readonly js: 'index.js' }] }];
         }>();
         expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
-            readonly registrySettings: { readonly token: 'tok' };
+            readonly registrySettings: {
+                readonly auth: { readonly type: 'bearer-token'; readonly token: 'tok' };
+            };
             readonly packages: readonly [{ readonly name: 'pkg' }];
         }>();
     });
@@ -131,9 +147,12 @@ describe('PacktoryConfig — exposed structure', () => {
         expect<PacktoryConfig['packages']>().type.toBe<readonly PackageConfig[]>();
     });
 
-    test('registrySettings has a required token and an optional registryUrl', () => {
-        expect<PacktoryConfig['registrySettings']['token']>().type.toBe<string>();
+    test('registrySettings exposes the documented auth fields', () => {
         expect<PacktoryConfig['registrySettings']['registryUrl']>().type.toBe<string | undefined>();
+        expect<PacktoryConfig['registrySettings']['auth']>().type.toBe<RegistryAuthConfig>();
+        type ExpandedAuth = Extract<RegistryAuthConfig, { publish: unknown }>;
+        expect<ExpandedAuth['publish']>().type.toBe<PublishAuthStrategy>();
+        expect<ExpandedAuth['metadata']>().type.toBe<MetadataAuthMode | undefined>();
     });
 
     test('PackageConfig requires name and entryPoints', () => {

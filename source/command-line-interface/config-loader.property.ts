@@ -3,6 +3,15 @@ import fc from 'fast-check';
 import { test } from 'mocha';
 import { createConfigLoader } from './config-loader.ts';
 
+async function expectFailure(action: () => Promise<unknown>): Promise<void> {
+    try {
+        await action();
+        assert.fail('Expected the action to throw an error');
+    } catch (error: unknown) {
+        assert.ok(error instanceof Error);
+    }
+}
+
 function createLoader(moduleValue: unknown) {
     return createConfigLoader({
         currentWorkingDirectory: '/workspace',
@@ -24,9 +33,9 @@ test('load() rejects malformed module export shapes', async () => {
                 fc.array(fc.anything())
             ),
             async (moduleValue) => {
-                await assert.rejects(async () => {
+                await expectFailure(async () => {
                     await createLoader(moduleValue).load();
-                }, Error);
+                });
             }
         )
     );
@@ -39,9 +48,9 @@ test('load() rejects objects without config and buildConfig exports', async () =
                 return;
             }
 
-            await assert.rejects(async () => {
+            await expectFailure(async () => {
                 await createLoader(moduleValue).load();
-            }, Error);
+            });
         })
     );
 });
@@ -53,9 +62,9 @@ test('load() rejects non-function buildConfig exports when config is absent', as
                 return typeof value !== 'function';
             }),
             async (buildConfig) => {
-                await assert.rejects(async () => {
+                await expectFailure(async () => {
                     await createLoader({ buildConfig }).load();
-                }, Error);
+                });
             }
         )
     );

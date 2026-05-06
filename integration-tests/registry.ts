@@ -86,8 +86,10 @@ async function createRegistryServer(storageDirectory: string): Promise<Server> {
 }
 
 export type RegistryDetails = {
-    registryUrl: string;
-    token: string;
+    readonly registryUrl: string;
+    readonly token: string;
+    readonly username: string;
+    readonly password: string;
 };
 
 async function startRegistry(server: Server): Promise<RegistryDetails> {
@@ -113,7 +115,7 @@ async function startRegistry(server: Server): Promise<RegistryDetails> {
         throw new Error('Couldn’t create a token');
     }
 
-    return { registryUrl, token };
+    return { registryUrl, token, username: userName, password };
 }
 
 export function checkWithRegistry(callback: (registryDetails: RegistryDetails) => Promise<void>): AsyncFunc {

@@ -7,12 +7,21 @@ const nonGzipBufferArbitrary = fc.uint8Array({ maxLength: 256 }).filter((data) =
     return data.length < 2 || data[0] !== 0x1f || data[1] !== 0x8b;
 });
 
+async function expectFailure(action: () => Promise<unknown>): Promise<void> {
+    try {
+        await action();
+        assert.fail('Expected the action to throw an error');
+    } catch (error: unknown) {
+        assert.ok(error instanceof Error);
+    }
+}
+
 test('extractTarEntries() rejects malformed non-gzip buffers explicitly', async () => {
     await fc.assert(
         fc.asyncProperty(nonGzipBufferArbitrary, async (data) => {
-            await assert.rejects(async () => {
+            await expectFailure(async () => {
                 await extractTarEntries(Buffer.from(data));
-            }, Error);
+            });
         }),
         { numRuns: 50 }
     );

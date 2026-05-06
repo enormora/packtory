@@ -18,11 +18,24 @@ import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress
 import { createResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
+import { createClock, type Clock } from '../common/clock.ts';
+import { createNpmOidcIdTokenResolver, type NpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
 
 export type PackageProcessorComposition = {
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
 };
+
+export type PackageProcessorCompositionOptions = {
+    readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
+    readonly clock?: Clock | undefined;
+    readonly resolveIdToken?: NpmOidcIdTokenResolver | undefined;
+};
+
+function getEnvironmentVariable(variableName: string): string | undefined {
+    const environment = process.env[variableName];
+    return environment === undefined || environment.length === 0 ? undefined : environment;
+}
 
 function createDependencyScannerWith(fileManager: FileManager): DependencyScanner {
     const sourceMapFileLocator = createSourceMapFileLocator({ fileManager });
@@ -35,10 +48,25 @@ function createDependencyScannerWith(fileManager: FileManager): DependencyScanne
     return createDependencyScanner({ sourceMapFileLocator, typescriptProjectAnalyzer });
 }
 
-export function buildPackageProcessorComposition(): PackageProcessorComposition {
+export function buildPackageProcessorComposition(
+    options: PackageProcessorCompositionOptions = {}
+): PackageProcessorComposition {
+    const clock = options.clock ?? createClock();
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
     const dependencyScanner = createDependencyScannerWith(fileManager);
-    const registryClient = createRegistryClient({ npmFetch, publish });
+    const registryClient = createRegistryClient({
+        npmFetch,
+        publish,
+        fetch: globalThis.fetch,
+        clock,
+        resolveIdToken:
+            options.resolveIdToken ??
+            createNpmOidcIdTokenResolver({
+                fetch: globalThis.fetch,
+                getEnvironmentVariable
+            }),
+        promptForOneTimePassword: options.promptForOneTimePassword
+    });
     const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
     const progressBroadcaster = createProgressBroadcaster();
     const bundleEmitter = createBundleEmitter({ registryClient, artifactsBuilder });

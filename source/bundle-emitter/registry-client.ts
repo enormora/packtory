@@ -2,23 +2,78 @@
 import type _npmFetch from 'npm-registry-fetch';
 import type { publish as _publish } from 'libnpmpublish';
 import { Maybe } from 'true-myth';
-import type { RegistrySettings } from '../config/registry-settings.ts';
+import { z } from 'zod/mini';
+import type { Clock } from '../common/clock.ts';
+import type {
+    MetadataAuthMode,
+    MetadataAuthStrategy,
+    PublishAuthStrategy,
+    RegistrySettings
+} from '../config/registry-settings.ts';
 import type { BundlePackageJson } from '../version-manager/versioned-bundle.ts';
 
 type PublishFunction = typeof _publish;
 const notFoundStatusCode = 404;
+const unauthorizedStatusCode = 401;
 const forbiddenStatusCode = 403;
+const npmRegistryUrl = 'https://registry.npmjs.org/';
+const oidcExchangeRefreshThresholdInMilliseconds = 60_000;
+
+type OidcExchangeResponse = {
+    readonly token_type: string;
+    readonly token: string;
+    readonly created: string;
+    readonly expires: string;
+};
+
+type OidcExchangeToken = {
+    readonly token: string;
+    readonly expiresAt: number;
+};
 
 export type RegistryClientDependencies = {
     readonly npmFetch: typeof _npmFetch;
     readonly publish: PublishFunction;
+    readonly fetch: typeof globalThis.fetch;
+    readonly clock: Clock;
+    readonly resolveIdToken: (auth: Extract<PublishAuthStrategy, { type: 'npm-oidc' }>) => Promise<string>;
+    readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
 };
 
 export type RegistryClient = {
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
     publishPackage: (manifest: Readonly<BundlePackageJson>, tarData: Buffer, config: RegistrySettings) => Promise<void>;
-    fetchTarball: (tarballUrl: string, shasum: string) => Promise<Buffer>;
+    fetchTarball: (tarballUrl: string, shasum: string, config: RegistrySettings) => Promise<Buffer>;
 };
+
+type NpmFetchOptions = Parameters<typeof _npmFetch>[1];
+type AuthResolution = {
+    readonly allowsAutomaticRetry: boolean;
+    readonly registry: string | undefined;
+    readonly options: NpmFetchOptions;
+};
+
+const packageVersionDetailsSchema = z.object({
+    dist: z.object({
+        shasum: z.string(),
+        tarball: z.string()
+    })
+});
+
+const abbreviatedPackageResponseSchema = z.object({
+    name: z.string(),
+    'dist-tags': z.object({
+        latest: z.optional(z.string())
+    }),
+    versions: z.record(z.string(), packageVersionDetailsSchema)
+});
+
+const oidcExchangeResponseSchema = z.object({
+    token_type: z.string(),
+    token: z.string(),
+    created: z.string(),
+    expires: z.string()
+});
 
 function encodePackageName(name: string): string {
     return name.replace('/', '%2F');
@@ -39,44 +94,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseAbbreviatedPackageResponse(response: unknown): AbbreviatedPackageResponse | undefined {
-    const responseRecord = isRecord(response) ? response : undefined;
-
-    if (typeof responseRecord?.name !== 'string') {
-        return undefined;
-    }
-
-    const distTags = responseRecord['dist-tags'];
-    if (!isRecord(distTags)) {
-        return undefined;
-    }
-
-    if (distTags.latest !== undefined && typeof distTags.latest !== 'string') {
-        return undefined;
-    }
-
-    if (!isRecord(responseRecord.versions)) {
-        return undefined;
-    }
-
-    const versions: Record<string, { dist: { shasum: string; tarball: string } }> = {};
-
-    for (const [version, value] of Object.entries(responseRecord.versions)) {
-        if (!isRecord(value) || !isRecord(value.dist)) {
-            return undefined;
-        }
-
-        if (typeof value.dist.shasum !== 'string' || typeof value.dist.tarball !== 'string') {
-            return undefined;
-        }
-
-        versions[version] = { dist: { shasum: value.dist.shasum, tarball: value.dist.tarball } };
-    }
-
-    return {
-        name: responseRecord.name,
-        'dist-tags': { latest: distTags.latest },
-        versions
-    };
+    const result = abbreviatedPackageResponseSchema.safeParse(response);
+    return result.success ? result.data : undefined;
 }
 
 export type PackageVersionDetails = {
@@ -92,22 +111,229 @@ function toPublishManifest(manifest: Readonly<BundlePackageJson>): PublishManife
     return manifest as unknown as PublishManifest;
 }
 
+function resolveRegistryUrl(registrySettings: Readonly<RegistrySettings>): string | undefined {
+    return registrySettings.registryUrl;
+}
+
+function isNpmRegistry(registry: string | undefined): boolean {
+    return new URL(registry ?? npmRegistryUrl).href === npmRegistryUrl;
+}
+
+function normalizeAuthConfig(registrySettings: Readonly<RegistrySettings>): {
+    readonly publish: PublishAuthStrategy;
+    readonly metadata: MetadataAuthMode | undefined;
+} {
+    if ('type' in registrySettings.auth) {
+        return {
+            publish: registrySettings.auth,
+            metadata: undefined
+        };
+    }
+
+    return {
+        publish: registrySettings.auth.publish,
+        metadata: registrySettings.auth.metadata
+    };
+}
+
+function resolvePublishAuth(registrySettings: Readonly<RegistrySettings>): PublishAuthStrategy {
+    return normalizeAuthConfig(registrySettings).publish;
+}
+
+function createBaseOptions(registrySettings: Readonly<RegistrySettings>): NpmFetchOptions {
+    return {
+        alwaysAuth: true,
+        registry: resolveRegistryUrl(registrySettings)
+    };
+}
+
+function buildAuthOptions(auth: MetadataAuthStrategy, registrySettings: Readonly<RegistrySettings>): AuthResolution {
+    const registry = resolveRegistryUrl(registrySettings);
+    const options = createBaseOptions(registrySettings);
+
+    if (auth.type === 'bearer-token') {
+        return {
+            allowsAutomaticRetry: false,
+            registry,
+            options: {
+                ...options,
+                forceAuth: {
+                    token: auth.token
+                }
+            }
+        };
+    }
+
+    return {
+        allowsAutomaticRetry: false,
+        registry,
+        options: {
+            ...options,
+            forceAuth: {
+                _auth: Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
+            },
+            ...(auth.email === undefined ? {} : { email: auth.email })
+        }
+    };
+}
+
+function createAnonymousAuthResolution(registrySettings: Readonly<RegistrySettings>): AuthResolution {
+    return {
+        allowsAutomaticRetry: false,
+        registry: resolveRegistryUrl(registrySettings),
+        options: createBaseOptions(registrySettings)
+    };
+}
+
+function parseOidcExchangeResponse(response: unknown): OidcExchangeResponse | undefined {
+    const result = oidcExchangeResponseSchema.safeParse(response);
+    return result.success ? result.data : undefined;
+}
+
+async function parseJsonResponse(response: Response): Promise<unknown> {
+    return response.json() as Promise<unknown>;
+}
+
 export function createRegistryClient(dependencies: Readonly<RegistryClientDependencies>): RegistryClient {
-    const { npmFetch, publish } = dependencies;
+    const {
+        npmFetch,
+        publish,
+        fetch: fetchImplementation,
+        clock,
+        promptForOneTimePassword,
+        resolveIdToken
+    } = dependencies;
+    const oidcExchangeTokenCache = new Map<string, OidcExchangeToken>();
+
+    async function exchangeOidcToken(
+        packageName: string,
+        registrySettings: Readonly<RegistrySettings>,
+        auth: Extract<PublishAuthStrategy, { type: 'npm-oidc' }>
+    ): Promise<string> {
+        const cacheKey = `${resolveRegistryUrl(registrySettings) ?? npmRegistryUrl}::${packageName}`;
+        const cachedToken = oidcExchangeTokenCache.get(cacheKey);
+        const currentTime = clock.getCurrentTimeInMilliseconds();
+        if (
+            cachedToken !== undefined &&
+            cachedToken.expiresAt - currentTime > oidcExchangeRefreshThresholdInMilliseconds
+        ) {
+            return cachedToken.token;
+        }
+
+        if (!isNpmRegistry(resolveRegistryUrl(registrySettings))) {
+            throw new Error('npm-oidc auth is only supported with the npmjs.org registry');
+        }
+
+        const idToken = await resolveIdToken(auth);
+        const exchangeResponse = await fetchImplementation(
+            `${npmRegistryUrl}-/npm/v1/oidc/token/exchange/package/${encodePackageName(packageName)}`,
+            {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${idToken}` }
+            } satisfies RequestInit
+        );
+
+        if (!exchangeResponse.ok) {
+            throw new Error(`OIDC token exchange failed with status ${exchangeResponse.status}`);
+        }
+
+        const body = parseOidcExchangeResponse(await parseJsonResponse(exchangeResponse));
+        if (body === undefined) {
+            throw new TypeError('OIDC token exchange returned an invalid response');
+        }
+
+        const expiresAt = Date.parse(body.expires);
+        if (!Number.isFinite(expiresAt)) {
+            throw new TypeError('OIDC token exchange returned an invalid expiry timestamp');
+        }
+
+        oidcExchangeTokenCache.set(cacheKey, {
+            token: body.token,
+            expiresAt
+        });
+
+        return body.token;
+    }
+
+    async function resolveWriteAuthOptions(
+        packageName: string,
+        registrySettings: Readonly<RegistrySettings>
+    ): Promise<NpmFetchOptions> {
+        const auth = resolvePublishAuth(registrySettings);
+        if (auth.type !== 'npm-oidc') {
+            return buildAuthOptions(auth, registrySettings).options;
+        }
+
+        const token = await exchangeOidcToken(packageName, registrySettings, auth);
+        return {
+            ...createBaseOptions(registrySettings),
+            forceAuth: {
+                token
+            }
+        };
+    }
+
+    function resolveMetadataAuthOptions(registrySettings: Readonly<RegistrySettings>): AuthResolution {
+        const { metadata: metadataMode, publish: publishAuth } = normalizeAuthConfig(registrySettings);
+        if (metadataMode === undefined || metadataMode === 'inherit-publish-auth') {
+            if (publishAuth.type === 'npm-oidc') {
+                return createAnonymousAuthResolution(registrySettings);
+            }
+
+            return buildAuthOptions(publishAuth, registrySettings);
+        }
+
+        if (metadataMode === 'auto') {
+            return {
+                ...createAnonymousAuthResolution(registrySettings),
+                allowsAutomaticRetry: true
+            };
+        }
+
+        if (typeof metadataMode !== 'object') {
+            return createAnonymousAuthResolution(registrySettings);
+        }
+
+        return buildAuthOptions(metadataMode, registrySettings);
+    }
+
+    async function retryAutoMetadataAuth<T>(
+        registrySettings: Readonly<RegistrySettings>,
+        auth: AuthResolution,
+        run: (options: NpmFetchOptions) => Promise<T>
+    ): Promise<T> {
+        try {
+            return await run(auth.options);
+        } catch (error: unknown) {
+            const statusCode = isRecord(error) ? error.statusCode : undefined;
+            if (
+                !auth.allowsAutomaticRetry ||
+                (statusCode !== forbiddenStatusCode && statusCode !== unauthorizedStatusCode)
+            ) {
+                throw error;
+            }
+
+            const publishAuth = resolvePublishAuth(registrySettings);
+            if (publishAuth.type === 'npm-oidc') {
+                throw error;
+            }
+
+            return run(buildAuthOptions(publishAuth, registrySettings).options);
+        }
+    }
 
     async function fetchRegistryEndpoint(
         endpoint: string,
         registrySettings: Readonly<RegistrySettings>
     ): Promise<unknown> {
         const acceptHeaderForFetchingAbbreviatedResponse = 'application/vnd.npm.install-v1+json';
+        const auth = resolveMetadataAuthOptions(registrySettings);
 
-        return npmFetch.json(endpoint, {
-            forceAuth: {
-                alwaysAuth: true,
-                token: registrySettings.token
-            },
-            registry: registrySettings.registryUrl,
-            headers: { accept: acceptHeaderForFetchingAbbreviatedResponse }
+        return retryAutoMetadataAuth(registrySettings, auth, async (options) => {
+            return npmFetch.json(endpoint, {
+                ...options,
+                headers: { accept: acceptHeaderForFetchingAbbreviatedResponse }
+            });
         });
     }
 
@@ -136,19 +362,20 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
     }
 
     return {
-        async fetchTarball(tarballUrl) {
-            const response = await npmFetch(tarballUrl);
+        async fetchTarball(tarballUrl, _shasum, registrySettings) {
+            const auth = resolveMetadataAuthOptions(registrySettings);
+            const response = await retryAutoMetadataAuth(registrySettings, auth, async (options) => {
+                return npmFetch(tarballUrl, options);
+            });
             return response.buffer();
         },
 
         async publishPackage(manifest, tarData, registrySettings) {
+            const authOptions = await resolveWriteAuthOptions(manifest.name, registrySettings);
             await publish(toPublishManifest(manifest), tarData, {
                 defaultTag: 'latest',
-                forceAuth: {
-                    alwaysAuth: true,
-                    token: registrySettings.token
-                },
-                registry: registrySettings.registryUrl
+                ...authOptions,
+                ...(promptForOneTimePassword === undefined ? {} : { otpPrompt: promptForOneTimePassword })
             });
         },
 

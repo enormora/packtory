@@ -17,7 +17,7 @@ export async function buildConfig() {
     }
 
     return {
-        registrySettings: { token: npmToken },
+        registrySettings: { auth: { type: 'bearer-token', token: npmToken } },
         checks: {
             noDuplicatedFiles: {
                 enabled: true,

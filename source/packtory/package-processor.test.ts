@@ -142,7 +142,7 @@ function createBuildAndPublishOptions(): BuildAndPublishOptions {
     return {
         ...createResolveOptions(),
         versioning: { automatic: true } as const,
-        registrySettings: { token: 'token' },
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         bundleDependencies: [createVersionedBundle('bundle-dependency', '1.0.0')],
         bundlePeerDependencies: [createVersionedBundle('peer-dependency', '2.0.0')]
     };
@@ -238,7 +238,7 @@ test('tryBuildAndPublish() returns already-published when the emitted bundle alr
     assert.deepStrictEqual(checkBundleAlreadyPublished.firstCall.args, [
         {
             bundle: versionedBundle,
-            registrySettings: { token: 'token' }
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
         }
     ]);
     assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '0.0.0' }]]);
@@ -260,7 +260,7 @@ test('tryBuildAndPublish() rebuilds with an increased version for the first publ
     assert.deepStrictEqual(determineCurrentVersion.firstCall.args, [
         {
             name: 'package-a',
-            registrySettings: { token: 'token' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             versioning: { automatic: true }
         }
     ]);
@@ -429,7 +429,9 @@ test('buildAndPublish() publishes the rebuilt bundle and emits publishing progre
     const result = await processor.buildAndPublish(options);
 
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'new-version' });
-    assert.deepStrictEqual(publish.firstCall.args, [{ bundle: rebuiltBundle, registrySettings: { token: 'token' } }]);
+    assert.deepStrictEqual(publish.firstCall.args, [
+        { bundle: rebuiltBundle, registrySettings: { auth: { type: 'bearer-token', token: 'token' } } }
+    ]);
     assert.deepStrictEqual(getCallArgs(emit), [
         ['building', { packageName: 'package-a', version: '1.2.3' }],
         ['rebuilding', { packageName: 'package-a', version: '1.2.3' }],
