@@ -1,0 +1,11 @@
+{
+    "extends": "../tsconfig.base.json",
+    "compilerOptions": {
+        "tsBuildInfoFile": "../target/buildcache/type-tests.tsbuildinfo",
+        "rootDir": "..",
+        "noEmit": true,
+        "types": ["node"]
+    },
+    "references": [{ "path": "./tsconfig.sources.json" }],
+    "include": ["./**/*.type-test.ts"]
+}

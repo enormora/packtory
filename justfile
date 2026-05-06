@@ -32,7 +32,7 @@ lint: eslint prettier-check lint-dependencies lint-filename lint-unused-code
 
 lint-fix: eslint-fix prettier-fix
 
-test: test-unit-with-coverage test-unit-property test-integration
+test: test-unit-with-coverage test-unit-property test-types test-integration
 
 test-unit:
     mocha --config mocha.config.unit-tests.cjs
@@ -42,6 +42,9 @@ test-unit-with-coverage:
 
 test-unit-property:
     mocha --config mocha.config.property-tests.cjs
+
+test-types:
+    tstyche
 
 test-mutation:
     stryker run

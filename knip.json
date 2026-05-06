@@ -6,13 +6,15 @@
         "source/**/*.entry-point.ts!",
         "source/**/*.test.ts",
         "source/**/*.property.ts",
+        "source/**/*.type-test.ts",
         "integration-tests/**/*.ts",
         "dependency-cruiser.config.js",
         "mocha.config.base.cjs",
         "mocha.config.property-tests.cjs",
         "mocha.config.unit-tests.cjs",
         "mocha.config.integration-tests.cjs",
-        "packtory.config.js"
+        "packtory.config.js",
+        "tstyche.json"
     ],
     "project": [
         "benchmarks/**/*.ts",
