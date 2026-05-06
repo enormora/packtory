@@ -1,18 +1,19 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { versioningSettingsSchema } from './versioning-settings.ts';
 
 test('schema accepts the automatic versioning branch', () => {
-    assert.strictEqual(versioningSettingsSchema.safeParse({ automatic: true, minimumVersion: 'foo' }).success, true);
+    assert.strictEqual(safeParse(versioningSettingsSchema, { automatic: true, minimumVersion: 'foo' }).success, true);
 });
 
 test('schema accepts the manual versioning branch', () => {
-    assert.strictEqual(versioningSettingsSchema.safeParse({ automatic: false, version: '1' }).success, true);
+    assert.strictEqual(safeParse(versioningSettingsSchema, { automatic: false, version: '1' }).success, true);
 });
 
 test('schema rejects mixing automatic with manual-only fields', () => {
-    assert.strictEqual(versioningSettingsSchema.safeParse({ automatic: true, version: '1' }).success, false);
+    assert.strictEqual(safeParse(versioningSettingsSchema, { automatic: true, version: '1' }).success, false);
 });
 
 test(

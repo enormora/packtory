@@ -1,14 +1,15 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { mainPackageJsonSchema } from './main-package-json-schema.ts';
 
 test('schema accepts type module', () => {
-    assert.strictEqual(mainPackageJsonSchema.safeParse({ type: 'module' }).success, true);
+    assert.strictEqual(safeParse(mainPackageJsonSchema, { type: 'module' }).success, true);
 });
 
 test('schema rejects type commonjs', () => {
-    assert.strictEqual(mainPackageJsonSchema.safeParse({ type: 'commonjs' }).success, false);
+    assert.strictEqual(safeParse(mainPackageJsonSchema, { type: 'commonjs' }).success, false);
 });
 
 test(

@@ -33,6 +33,7 @@ test('leaf config schemas keep their expected object keys and strict object beha
 
 test('versioning schema keeps the discriminant and both branches', async () => {
     const result = await runNodeProbe(`
+        import { safeParse } from '@schema-hub/zod-error-formatter';
         import { versioningSettingsSchema } from './source/config/versioning-settings.ts';
 
         const unionDef = versioningSettingsSchema._zod.def.innerType.def;
@@ -42,16 +43,16 @@ test('versioning schema keeps the discriminant and both branches', async () => {
             optionCount: unionDef.options.length,
             branchKeys: unionDef.options.map((option) => Object.keys(option.def.innerType.def.shape)),
             branchLiterals: unionDef.options.map((option) => option.def.innerType.def.shape.automatic.def.values[0]),
-            automaticSuccess: versioningSettingsSchema.safeParse({
+            automaticSuccess: safeParse(versioningSettingsSchema, {
                 automatic: true,
                 minimumVersion: '1.0.0'
             }).success,
-            manualSuccess: versioningSettingsSchema.safeParse({ automatic: false, version: '1.0.0' }).success,
-            invalidAutomaticBranchSuccess: versioningSettingsSchema.safeParse({
+            manualSuccess: safeParse(versioningSettingsSchema, { automatic: false, version: '1.0.0' }).success,
+            invalidAutomaticBranchSuccess: safeParse(versioningSettingsSchema, {
                 automatic: true,
                 version: '1.0.0'
             }).success,
-            invalidManualBranchSuccess: versioningSettingsSchema.safeParse({
+            invalidManualBranchSuccess: safeParse(versioningSettingsSchema, {
                 automatic: false,
                 minimumVersion: '1.0.0'
             }).success
@@ -75,6 +76,7 @@ test('versioning schema keeps the discriminant and both branches', async () => {
 
 test('package json schemas keep their runtime structure and forbidden key behavior', async () => {
     const result = await runNodeProbe(`
+        import { safeParse } from '@schema-hub/zod-error-formatter';
         import {
             additionalPackageJsonAttributesSchema
         } from './source/config/additional-package-json-attributes-schema.ts';
@@ -90,7 +92,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
             'types',
             'type',
             'version'
-        ].map((key) => additionalPackageJsonAttributesSchema.safeParse({ [key]: '1.0.0' }).success);
+        ].map((key) => safeParse(additionalPackageJsonAttributesSchema, { [key]: '1.0.0' }).success);
 
         console.log(JSON.stringify({
             mainShape: Object.keys(mainShape),
@@ -98,7 +100,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
             dependencyRecordType: mainShape.dependencies.def.innerType.def.innerType.def.type,
             devDependencyRecordType: mainShape.devDependencies.def.innerType.def.innerType.def.type,
             peerDependencyRecordType: mainShape.peerDependencies.def.innerType.def.innerType.def.type,
-            validMainSuccess: mainPackageJsonSchema.safeParse({
+            validMainSuccess: safeParse(mainPackageJsonSchema, {
                 type: 'module',
                 dependencies: { dep: '1.0.0' }
             }).success,
@@ -119,6 +121,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
 
 test('packtory config schemas keep their union and package tuple structure', async () => {
     const result = await runNodeProbe(`
+        import { safeParse } from '@schema-hub/zod-error-formatter';
         import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
         import {
             packtoryConfigWithoutRegistrySchema
@@ -146,7 +149,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
             configIntersectionLeftKeys: Object.keys(
                 packtoryConfigSchema._zod.def.left.def.shape
             ),
-            validWithoutRegistrySuccess: packtoryConfigWithoutRegistrySchema.safeParse({
+            validWithoutRegistrySuccess: safeParse(packtoryConfigWithoutRegistrySchema, {
                 packages: [
                     {
                         name: 'pkg',
@@ -196,38 +199,39 @@ test('packtory config schemas keep their union and package tuple structure', asy
 
 test('schema source modules still validate representative valid and invalid inputs', async () => {
     const result = await runNodeProbe(`
+        import { safeParse } from '@schema-hub/zod-error-formatter';
         import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
         import { entryPointSchema } from './source/config/entry-point.ts';
         import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
         import { registrySettingsSchema } from './source/config/registry-settings.ts';
 
         console.log(JSON.stringify({
-            validAdditionalFileSuccess: additionalFileDescriptionSchema.safeParse({
+            validAdditionalFileSuccess: safeParse(additionalFileDescriptionSchema, {
                 sourceFilePath: 'README.md',
                 targetFilePath: 'README.md'
             }).success,
-            missingAdditionalFileSourceSuccess: additionalFileDescriptionSchema.safeParse({
+            missingAdditionalFileSourceSuccess: safeParse(additionalFileDescriptionSchema, {
                 targetFilePath: 'README.md'
             }).success,
-            validEntryPointSuccess: entryPointSchema.safeParse({
+            validEntryPointSuccess: safeParse(entryPointSchema, {
                 js: 'index.js',
                 declarationFile: 'index.d.ts'
             }).success,
-            missingEntryPointJsSuccess: entryPointSchema.safeParse({
+            missingEntryPointJsSuccess: safeParse(entryPointSchema, {
                 declarationFile: 'index.d.ts'
             }).success,
-            extraEntryPointPropertySuccess: entryPointSchema.safeParse({
+            extraEntryPointPropertySuccess: safeParse(entryPointSchema, {
                 js: 'index.js',
                 extra: 'nope'
             }).success,
-            validRegistrySuccess: registrySettingsSchema.safeParse({
+            validRegistrySuccess: safeParse(registrySettingsSchema, {
                 token: 'secret',
                 registryUrl: 'https://example.test'
             }).success,
-            missingRegistryTokenSuccess: registrySettingsSchema.safeParse({
+            missingRegistryTokenSuccess: safeParse(registrySettingsSchema, {
                 registryUrl: 'https://example.test'
             }).success,
-            validConfigSuccess: packtoryConfigSchema.safeParse({
+            validConfigSuccess: safeParse(packtoryConfigSchema, {
                 registrySettings: { token: 'secret' },
                 packages: [{
                     sourcesFolder: 'src',
@@ -236,7 +240,7 @@ test('schema source modules still validate representative valid and invalid inpu
                     entryPoints: [{ js: 'index.js' }]
                 }]
             }).success,
-            missingConfigRegistrySuccess: packtoryConfigSchema.safeParse({
+            missingConfigRegistrySuccess: safeParse(packtoryConfigSchema, {
                 packages: [{
                     sourcesFolder: 'src',
                     mainPackageJson: {},
@@ -244,7 +248,7 @@ test('schema source modules still validate representative valid and invalid inpu
                     entryPoints: [{ js: 'index.js' }]
                 }]
             }).success,
-            emptyConfigPackagesSuccess: packtoryConfigSchema.safeParse({
+            emptyConfigPackagesSuccess: safeParse(packtoryConfigSchema, {
                 registrySettings: { token: 'secret' },
                 packages: []
             }).success

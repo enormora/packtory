@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
@@ -9,12 +10,12 @@ const validConfig = {
 };
 
 test('packtory config schema accepts a valid config', () => {
-    assert.strictEqual(packtoryConfigSchema.safeParse(validConfig).success, true);
+    assert.strictEqual(safeParse(packtoryConfigSchema, validConfig).success, true);
 });
 
 test('packtory config schema rejects configs without registrySettings', () => {
     assert.strictEqual(
-        packtoryConfigSchema.safeParse({
+        safeParse(packtoryConfigSchema, {
             packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
         }).success,
         false

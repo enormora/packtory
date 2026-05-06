@@ -18,19 +18,19 @@ test('forbidden additional package.json attribute helper identifies allowed and 
 });
 
 test('main package.json schema accepts type module', () => {
-    assert.strictEqual(mainPackageJsonSchema.safeParse({ type: 'module' }).success, true);
+    assert.strictEqual(safeParse(mainPackageJsonSchema, { type: 'module' }).success, true);
 });
 
 test('main package.json schema rejects type commonjs', () => {
-    assert.strictEqual(mainPackageJsonSchema.safeParse({ type: 'commonjs' }).success, false);
+    assert.strictEqual(safeParse(mainPackageJsonSchema, { type: 'commonjs' }).success, false);
 });
 
 test('additional package.json attributes schema rejects dependencies', () => {
-    assert.strictEqual(additionalPackageJsonAttributesSchema.safeParse({ dependencies: {} }).success, false);
+    assert.strictEqual(safeParse(additionalPackageJsonAttributesSchema, { dependencies: {} }).success, false);
 });
 
 test('additional package.json attributes schema accepts license', () => {
-    assert.strictEqual(additionalPackageJsonAttributesSchema.safeParse({ license: 'MIT' }).success, true);
+    assert.strictEqual(safeParse(additionalPackageJsonAttributesSchema, { license: 'MIT' }).success, true);
 });
 
 test(

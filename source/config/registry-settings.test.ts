@@ -1,14 +1,15 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { registrySettingsSchema } from './registry-settings.ts';
 
 test('schema accepts registry settings with token only', () => {
-    assert.strictEqual(registrySettingsSchema.safeParse({ token: 'foo' }).success, true);
+    assert.strictEqual(safeParse(registrySettingsSchema, { token: 'foo' }).success, true);
 });
 
 test('schema rejects registry settings without token', () => {
-    assert.strictEqual(registrySettingsSchema.safeParse({ registryUrl: 'bar' }).success, false);
+    assert.strictEqual(safeParse(registrySettingsSchema, { registryUrl: 'bar' }).success, false);
 });
 
 test(

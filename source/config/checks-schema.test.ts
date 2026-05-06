@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import {
     checkValidationFailure,
@@ -10,21 +11,21 @@ import { checksSchema } from './checks-schema.ts';
 
 test('schema accepts valid noDuplicatedFiles settings', () => {
     assert.strictEqual(
-        checksSchema.safeParse({ noDuplicatedFiles: { enabled: true, allowList: ['src/index.ts'] } }).success,
+        safeParse(checksSchema, { noDuplicatedFiles: { enabled: true, allowList: ['src/index.ts'] } }).success,
         true
     );
 });
 
 test('schema rejects noDuplicatedFiles settings without enabled', () => {
-    assert.strictEqual(checksSchema.safeParse({ noDuplicatedFiles: { allowList: ['src/index.ts'] } }).success, false);
+    assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: { allowList: ['src/index.ts'] } }).success, false);
 });
 
 test('schema accepts empty checks settings', () => {
-    assert.strictEqual(checksSchema.safeParse({}).success, true);
+    assert.strictEqual(safeParse(checksSchema, {}).success, true);
 });
 
 test('schema rejects non-object noDuplicatedFiles settings', () => {
-    assert.strictEqual(checksSchema.safeParse({ noDuplicatedFiles: true }).success, false);
+    assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: true }).success, false);
 });
 
 const validNoDuplicatedFilesSettings = { enabled: true, allowList: ['src/index.ts'] };

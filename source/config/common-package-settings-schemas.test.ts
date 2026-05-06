@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import {
     checkValidationFailure,
@@ -14,34 +15,34 @@ import {
 } from './common-package-settings-schemas.ts';
 
 test('optional common settings schema accepts an empty object', () => {
-    assert.strictEqual(optionalCommonPackageSettingsSchema.safeParse({}).success, true);
+    assert.strictEqual(safeParse(optionalCommonPackageSettingsSchema, {}).success, true);
 });
 
 test('required common settings schema accepts both required properties', () => {
     assert.strictEqual(
-        requiredCommonPackageSettingsSchema.safeParse({ sourcesFolder: 'src', mainPackageJson: {} }).success,
+        safeParse(requiredCommonPackageSettingsSchema, { sourcesFolder: 'src', mainPackageJson: {} }).success,
         true
     );
 });
 
 test('required common settings schema rejects missing sourcesFolder', () => {
-    assert.strictEqual(requiredCommonPackageSettingsSchema.safeParse({ mainPackageJson: {} }).success, false);
+    assert.strictEqual(safeParse(requiredCommonPackageSettingsSchema, { mainPackageJson: {} }).success, false);
 });
 
 test('required common settings schema rejects missing mainPackageJson', () => {
-    assert.strictEqual(requiredCommonPackageSettingsSchema.safeParse({ sourcesFolder: 'src' }).success, false);
+    assert.strictEqual(safeParse(requiredCommonPackageSettingsSchema, { sourcesFolder: 'src' }).success, false);
 });
 
 test('sourcesFolder-required common settings schema accepts sourcesFolder only', () => {
     assert.strictEqual(
-        commonPackageSettingsSourcesFolderRequiredSchema.safeParse({ sourcesFolder: 'src' }).success,
+        safeParse(commonPackageSettingsSourcesFolderRequiredSchema, { sourcesFolder: 'src' }).success,
         true
     );
 });
 
 test('mainPackageJson-required common settings schema accepts mainPackageJson only', () => {
     assert.strictEqual(
-        commonPackageSettingsMainPackageJsonRequiredSchema.safeParse({ mainPackageJson: {} }).success,
+        safeParse(commonPackageSettingsMainPackageJsonRequiredSchema, { mainPackageJson: {} }).success,
         true
     );
 });
