@@ -10,35 +10,35 @@
             "maxImportFanOut": 2
         },
         "medium": {
-            "clusterCount": 3,
-            "packageCount": 9,
-            "jsFileCount": 18,
-            "declarationFileCount": 15,
-            "sourceMapFileCount": 18,
+            "clusterCount": 2,
+            "packageCount": 6,
+            "jsFileCount": 12,
+            "declarationFileCount": 10,
+            "sourceMapFileCount": 12,
             "maxImportFanOut": 2
         },
         "large": {
-            "clusterCount": 6,
-            "packageCount": 18,
-            "jsFileCount": 36,
-            "declarationFileCount": 30,
-            "sourceMapFileCount": 36,
+            "clusterCount": 4,
+            "packageCount": 12,
+            "jsFileCount": 24,
+            "declarationFileCount": 20,
+            "sourceMapFileCount": 24,
             "maxImportFanOut": 2
         }
     },
     "cliWorkloads": {
         "medium": {
-            "packageCount": 12,
-            "jsFileCount": 372,
-            "declarationFileCount": 228,
-            "sourceMapFileCount": 372,
+            "packageCount": 8,
+            "jsFileCount": 248,
+            "declarationFileCount": 152,
+            "sourceMapFileCount": 248,
             "maxImportFanOut": 13
         },
         "large": {
-            "packageCount": 24,
-            "jsFileCount": 744,
-            "declarationFileCount": 456,
-            "sourceMapFileCount": 744,
+            "packageCount": 17,
+            "jsFileCount": 527,
+            "declarationFileCount": 323,
+            "sourceMapFileCount": 527,
             "maxImportFanOut": 13
         }
     }
