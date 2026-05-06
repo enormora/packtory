@@ -36,12 +36,18 @@ function formatThroughputRow(measurement: ThroughputBenchmarkMeasurement, effect
     ].join(' ');
 }
 
-function formatCliRow(measurement: CliResponsivenessMeasurement): string {
+function formatCliRow(
+    measurement: CliResponsivenessMeasurement,
+    effectiveP99Threshold: number,
+    effectiveMaxThreshold: number
+): string {
+    const p99Threshold = formatMilliseconds(effectiveP99Threshold);
+    const maxThreshold = formatMilliseconds(effectiveMaxThreshold);
     return [
         `- ${measurement.benchmarkName}/${measurement.size}:`,
         `median ${formatMilliseconds(measurement.medianMs)}`,
-        `p99 gap ${formatMilliseconds(measurement.p99FrameGapMs)}`,
-        `max gap ${formatMilliseconds(measurement.maxFrameGapMs)}`,
+        `p99 gap ${formatMilliseconds(measurement.p99FrameGapMs)} (threshold ${p99Threshold})`,
+        `max gap ${formatMilliseconds(measurement.maxFrameGapMs)} (threshold ${maxThreshold})`,
         `loop p99 ${formatMilliseconds(measurement.eventLoopHistogramP99Ms)}`,
         `loop max ${formatMilliseconds(measurement.eventLoopHistogramMaxMs)}`,
         `loop block ${formatMilliseconds(measurement.eventLoopSampledMaxBlockMs)}`,
@@ -126,7 +132,7 @@ async function runBuildBenchmarks(thresholdMultiplier: number, benchmarkFiles: B
     }
 }
 
-async function runCliBenchmarks(benchmarkFiles: BenchmarkFiles): Promise<void> {
+async function runCliBenchmarks(thresholdMultiplier: number, benchmarkFiles: BenchmarkFiles): Promise<void> {
     const { thresholds, workloads } = benchmarkFiles;
 
     writeHeading('CLI Responsiveness Benchmarks');
@@ -135,9 +141,11 @@ async function runCliBenchmarks(benchmarkFiles: BenchmarkFiles): Promise<void> {
     for (const size of cliWorkloadSizes) {
         const measurement = await runCliResponsivenessBenchmark(size, workloads);
         const configuredThresholds = thresholds.responsiveness['publish-cli'][size];
+        const scaledP99Ms = configuredThresholds.p99Ms * thresholdMultiplier;
+        const scaledMaxMs = configuredThresholds.maxMs * thresholdMultiplier;
 
-        writeLine(formatCliRow(measurement));
-        validateCliMeasurement(measurement, configuredThresholds.p99Ms, configuredThresholds.maxMs);
+        writeLine(formatCliRow(measurement, scaledP99Ms, scaledMaxMs));
+        validateCliMeasurement(measurement, scaledP99Ms, scaledMaxMs);
     }
 }
 
@@ -159,7 +167,7 @@ async function main(): Promise<void> {
     printNormalization(normalizationMs, thresholdMultiplier);
     await runResolveBenchmarks(thresholdMultiplier, benchmarkFiles);
     await runBuildBenchmarks(thresholdMultiplier, benchmarkFiles);
-    await runCliBenchmarks(benchmarkFiles);
+    await runCliBenchmarks(thresholdMultiplier, benchmarkFiles);
 }
 
 await main().catch((error: unknown) => {
