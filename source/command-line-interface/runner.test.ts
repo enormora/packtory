@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { stripVTControlCharacters } from 'node:util';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
@@ -64,7 +65,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             })
         },
         log: (message) => {
-            log(message);
+            log(stripVTControlCharacters(message));
         },
         configLoader: {
             load: createSpy(overrides.loadConfig, () => {

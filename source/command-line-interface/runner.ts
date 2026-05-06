@@ -1,5 +1,5 @@
 import { command, subcommands, flag, binary, runSafely } from 'cmd-ts';
-import kleur from 'kleur';
+import { bold, red, green, yellow, dim } from 'yoctocolors';
 import type { Packtory, PublishFailure } from '../packtory/packtory.ts';
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
@@ -41,15 +41,15 @@ function hasCommandParseError(result: CommandParseResult): result is CommandPars
 }
 
 function getErrorSymbol(): string {
-    return kleur.bold().red('✖');
+    return bold(red('✖'));
 }
 
 function getSuccessSymbol(): string {
-    return kleur.bold().green('✔');
+    return bold(green('✔'));
 }
 
 function getWarningSymbol(): string {
-    return kleur.yellow('⚠');
+    return yellow('⚠');
 }
 
 function printDryRunNote(log: (message: string) => void, flags: PublishFlags): void {
@@ -58,8 +58,8 @@ function printDryRunNote(log: (message: string) => void, flags: PublishFlags): v
     }
 
     log(
-        `${getWarningSymbol()} ${kleur.dim(
-            ` Note: dry-run mode was enabled, so there was nothing really published; add the ${kleur.bold(
+        `${getWarningSymbol()} ${dim(
+            ` Note: dry-run mode was enabled, so there was nothing really published; add the ${bold(
                 '--no-dry-run'
             )} flag to disable dry-run mode`
         )}`
@@ -80,9 +80,9 @@ function printCheckErrors(log: (message: string) => void, issues: readonly strin
 
 function printPartialErrorSummary(log: (message: string) => void, error: PublishPartialError): void {
     const total = error.succeeded.length + error.failures.length;
-    const failureCount = kleur.red(error.failures.length);
-    const successCount = kleur.green(error.succeeded.length);
-    log(`${getErrorSymbol()} ${failureCount} from ${kleur.bold(total)} package(s) failed; ${successCount} succeeded`);
+    const failureCount = red(String(error.failures.length));
+    const successCount = green(String(error.succeeded.length));
+    log(`${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ${successCount} succeeded`);
 }
 
 function printPublishFailure(log: (message: string) => void, error: PublishFailure): void {

@@ -1,4 +1,4 @@
-import kleur from 'kleur';
+import { bold, green, red } from 'yoctocolors';
 import {
     createSpinnerSharedAccessors,
     createSpinnerSharedLayout,
@@ -7,8 +7,8 @@ import {
 } from './spinner-shared-state.ts';
 
 const spinnerFrames = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
-const successSymbol = kleur.bold().green('✔');
-const failureSymbol = kleur.bold().red('✖');
+const successSymbol = bold(green('✔'));
+const failureSymbol = bold(red('✖'));
 
 const cursorUp = (lines: number): string => {
     return `[${lines}A`;
