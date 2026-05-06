@@ -39,17 +39,29 @@ test('connect() throws when the from and to node don’t exist', () => {
     }
 });
 
-test('connect() throws when the from node doesn’t exist but the to node does', () => {
+function expectGraphMethodToThrow(
+    method: 'connect' | 'disconnect',
+    setup: (graph: DirectedGraph<string, string>) => void,
+    expectedMessage: string
+): void {
     const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('b', 'bar');
-
+    setup(graph);
     try {
-        graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
+        graph[method]({ from: 'a', to: 'b' });
+        assert.fail(`Expected ${method}() to fail but it did not`);
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
+        assert.strictEqual((error as Error).message, expectedMessage);
     }
+}
+
+test('connect() throws when the from node doesn’t exist but the to node does', () => {
+    expectGraphMethodToThrow(
+        'connect',
+        (graph) => {
+            graph.addNode('b', 'bar');
+        },
+        'Node with id "a" does not exist'
+    );
 });
 
 test('connect() throws when the to node doesn’t exist but the from node does', () => {
@@ -92,16 +104,13 @@ test('disconnect() throws when the from and to node don’t exist', () => {
 });
 
 test('disconnect() throws when the from node doesn’t exist but the to node does', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('b', 'bar');
-
-    try {
-        graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
-    }
+    expectGraphMethodToThrow(
+        'disconnect',
+        (graph) => {
+            graph.addNode('b', 'bar');
+        },
+        'Node with id "a" does not exist'
+    );
 });
 
 test('disconnect() throws when the to node doesn’t exist but the from node does', () => {
@@ -182,8 +191,8 @@ test('visits the start node first', () => {
 });
 
 type GraphWithNodesOptions = {
-    readonly nodes: [id: string, data: string][];
-    readonly connections: GraphEdge<string>[];
+    readonly nodes: readonly (readonly [id: string, data: string])[];
+    readonly connections: readonly GraphEdge<string>[];
 };
 
 function createGraphWithNodes(options: GraphWithNodesOptions): DirectedGraph<string, string> {
@@ -279,22 +288,32 @@ test(
     })
 );
 
+const fiveNodes: readonly (readonly [string, string])[] = [
+    ['a', 'foo'],
+    ['b', 'bar'],
+    ['c', 'baz'],
+    ['d', 'qux'],
+    ['e', 'quux']
+];
+const fiveNodeConnections: readonly GraphEdge<string>[] = [
+    { from: 'a', to: 'b' },
+    { from: 'a', to: 'c' },
+    { from: 'b', to: 'd' },
+    { from: 'd', to: 'e' }
+];
+
+const fourEmptyNodes: readonly (readonly [string, string])[] = [
+    ['a', ''],
+    ['b', ''],
+    ['c', ''],
+    ['d', '']
+];
+
 test(
     'visits the start node and multiple connected nodes and their subsequent nodes',
     checkNodeVisiting({
-        nodes: [
-            ['a', 'foo'],
-            ['b', 'bar'],
-            ['c', 'baz'],
-            ['d', 'qux'],
-            ['e', 'quux']
-        ],
-        connections: [
-            { from: 'a', to: 'b' },
-            { from: 'a', to: 'c' },
-            { from: 'b', to: 'd' },
-            { from: 'd', to: 'e' }
-        ],
+        nodes: fiveNodes,
+        connections: fiveNodeConnections,
         startId: 'a',
         expectedCollectedIds: ['a', 'b', 'c', 'd', 'e']
     })
@@ -303,19 +322,8 @@ test(
 test(
     'visits only the nodes that are still connected after disconnecting some',
     checkNodeVisiting({
-        nodes: [
-            ['a', 'foo'],
-            ['b', 'bar'],
-            ['c', 'baz'],
-            ['d', 'qux'],
-            ['e', 'quux']
-        ],
-        connections: [
-            { from: 'a', to: 'b' },
-            { from: 'a', to: 'c' },
-            { from: 'b', to: 'd' },
-            { from: 'd', to: 'e' }
-        ],
+        nodes: fiveNodes,
+        connections: fiveNodeConnections,
         disconnections: [{ from: 'a', to: 'b' }],
         startId: 'a',
         expectedCollectedIds: ['a', 'c']
@@ -633,12 +641,7 @@ test('getTopologicalGenerations() returns two generations when there are three n
 
 test('getTopologicalGenerations() returns multiple generations of two independent paths', () => {
     const graph = createGraphWithNodes({
-        nodes: [
-            ['a', ''],
-            ['b', ''],
-            ['c', ''],
-            ['d', '']
-        ],
+        nodes: fourEmptyNodes,
         connections: [
             { from: 'a', to: 'b' },
             { from: 'c', to: 'd' }
@@ -679,12 +682,7 @@ test('getTopologicalGenerations() returns multiple generations of two dependent 
 
 test('getTopologicalGenerations() keeps a shared dependency in a later generation until all incoming edges are consumed', () => {
     const graph = createGraphWithNodes({
-        nodes: [
-            ['a', ''],
-            ['b', ''],
-            ['c', ''],
-            ['d', '']
-        ],
+        nodes: fourEmptyNodes,
         connections: [
             { from: 'a', to: 'c' },
             { from: 'b', to: 'c' },
@@ -745,12 +743,7 @@ test('traverse() visits each reachable node once across disconnected roots', () 
 
 test('visitBreadthFirstSearch() visits shared descendants only once', () => {
     const graph = createGraphWithNodes({
-        nodes: [
-            ['a', ''],
-            ['b', ''],
-            ['c', ''],
-            ['d', '']
-        ],
+        nodes: fourEmptyNodes,
         connections: [
             { from: 'a', to: 'b' },
             { from: 'a', to: 'c' },
@@ -762,7 +755,10 @@ test('visitBreadthFirstSearch() visits shared descendants only once', () => {
     assert.deepStrictEqual(collectFromGraph(graph, 'a'), ['a', 'b', 'c', 'd']);
 });
 
-test('reverse() returns a new graph with the edges reversed', () => {
+function buildSimpleAToBGraphWithReverse(): {
+    readonly graph: DirectedGraph<string, string>;
+    readonly reversedGraph: DirectedGraph<string, string>;
+} {
     const graph = createGraphWithNodes({
         nodes: [
             ['a', 'foo'],
@@ -770,8 +766,11 @@ test('reverse() returns a new graph with the edges reversed', () => {
         ],
         connections: [{ from: 'a', to: 'b' }]
     });
-    const reverseGraph = graph.reverse.bind(graph);
-    const reversedGraph = reverseGraph();
+    return { graph, reversedGraph: graph.reverse() };
+}
+
+test('reverse() returns a new graph with the edges reversed', () => {
+    const { graph, reversedGraph } = buildSimpleAToBGraphWithReverse();
 
     assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), true);
     assert.strictEqual(graph.hasConnection({ from: 'b', to: 'a' }), false);
@@ -780,15 +779,7 @@ test('reverse() returns a new graph with the edges reversed', () => {
 });
 
 test('reverse() copies all nodes with their data', () => {
-    const graph = createGraphWithNodes({
-        nodes: [
-            ['a', 'foo'],
-            ['b', 'bar']
-        ],
-        connections: [{ from: 'a', to: 'b' }]
-    });
-    const reverseGraph = graph.reverse.bind(graph);
-    const reversedGraph = reverseGraph();
+    const { reversedGraph } = buildSimpleAToBGraphWithReverse();
     const collectedNodes: unknown[] = [];
 
     reversedGraph.visitBreadthFirstSearch('b', (node) => {

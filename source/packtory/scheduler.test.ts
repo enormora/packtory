@@ -3,6 +3,7 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import { getErrResult } from '../test-libraries/result-helpers.ts';
 import { createScheduler, type Scheduler as SchedulerType } from './scheduler.ts';
 
 type EmitCallArguments = readonly [string, unknown];
@@ -41,15 +42,6 @@ function getEmitCallArguments(emit: SinonSpy): readonly EmitCallArguments[] {
     return emit.getCalls().map((call) => {
         return call.args as unknown as EmitCallArguments;
     });
-}
-
-function getErrResult<TValue, TError>(result: Result<TValue, TError>, message: string): TError {
-    if (result.isErr) {
-        return result.error;
-    }
-
-    assert.fail(message);
-    throw new Error(message);
 }
 
 function createPackageExecutionSnapshots(config: ValidConfigWithoutRegistryResult): {

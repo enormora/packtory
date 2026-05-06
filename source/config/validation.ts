@@ -1,5 +1,6 @@
 import { Result } from 'true-myth';
 import { safeParse } from '@schema-hub/zod-error-formatter';
+import type { ZodMiniType } from 'zod/mini';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
 import {
     getBundledDependencies,
@@ -124,42 +125,17 @@ type ConfigWithGraphInternal<TConfig extends { packages: readonly PackageConfig[
         readonly packageGraph: DirectedGraph<string, undefined>;
     };
 
-function validatePreGraphGeneration(
+function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWithoutRegistry>(
+    schema: ZodMiniType<TConfig>,
     config: unknown
-): Result<GraphGenerationPossibleResult<PacktoryConfig>, readonly string[]> {
-    const schemaValidationResult = safeParse(packtoryConfigSchema, config);
+): Result<GraphGenerationPossibleResult<TConfig>, readonly string[]> {
+    const schemaValidationResult = safeParse(schema, config);
 
     if (!schemaValidationResult.success) {
         return Result.err(schemaValidationResult.error.issues);
     }
 
-    const packtoryConfig = schemaValidationResult.data;
-    const packageConfigs = packageListToMap(packtoryConfig.packages);
-
-    const preGraphIssues = [
-        ...validateDependenciesExist(packageConfigs),
-        ...validateNoDuplicatedFilesAllowList(packageConfigs, packtoryConfig.checks)
-    ];
-    if (preGraphIssues.length > 0) {
-        return Result.err([...validateDuplicatePackages(packtoryConfig.packages), ...preGraphIssues]);
-    }
-
-    return Result.ok({
-        packtoryConfig,
-        packageConfigs
-    });
-}
-
-function validatePreGraphGenerationWithoutRegistry(
-    config: unknown
-): Result<GraphGenerationPossibleResult<PacktoryConfigWithoutRegistry>, readonly string[]> {
-    const schemaValidationResult = safeParse(packtoryConfigWithoutRegistrySchema, config);
-
-    if (!schemaValidationResult.success) {
-        return Result.err(schemaValidationResult.error.issues);
-    }
-
-    const packtoryConfig = schemaValidationResult.data;
+    const packtoryConfig: TConfig = schemaValidationResult.data;
     const packageConfigs = packageListToMap(packtoryConfig.packages);
 
     const preGraphIssues = [
@@ -205,13 +181,16 @@ export type ValidConfigResult = ConfigWithGraph<PacktoryConfig>;
 export type ValidConfigWithoutRegistryResult = ConfigWithGraph<PacktoryConfigWithoutRegistry>;
 
 export function validateConfig(config: unknown): Result<ValidConfigResult, readonly string[]> {
-    const result = validatePreGraphGeneration(config);
+    const result = validatePreGraphGenerationWithSchema<PacktoryConfig>(packtoryConfigSchema, config);
     return finalizeValidation(result);
 }
 
 export function validateConfigWithoutRegistry(
     config: unknown
 ): Result<ValidConfigWithoutRegistryResult, readonly string[]> {
-    const result = validatePreGraphGenerationWithoutRegistry(config);
+    const result = validatePreGraphGenerationWithSchema<PacktoryConfigWithoutRegistry>(
+        packtoryConfigWithoutRegistrySchema,
+        config
+    );
     return finalizeValidation(result);
 }

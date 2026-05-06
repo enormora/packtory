@@ -50,7 +50,7 @@ export default [
     },
     {
         ...nodeEntryPointFileConfig,
-        files: ['source/packages/**/*.entry-point.ts']
+        files: ['source/packages/**/*.entry-point.ts', 'source/packages/**/*.composition.ts']
     },
     {
         files: ['**/*.ts'],

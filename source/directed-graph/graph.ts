@@ -58,26 +58,28 @@ function removeAdjacentNodeId<TId extends GraphNodeId, TData>(
     };
 }
 
-function increaseIncomingEdges<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>
+function withAdjustedIncomingEdges<TId extends GraphNodeId, TData>(
+    node: Readonly<GraphNode<TId, TData>>,
+    delta: number
 ): Readonly<GraphNode<TId, TData>> {
     return {
         id: node.id,
         data: node.data,
         adjacentNodeIds: node.adjacentNodeIds,
-        incomingEdges: node.incomingEdges + 1
+        incomingEdges: node.incomingEdges + delta
     };
+}
+
+function increaseIncomingEdges<TId extends GraphNodeId, TData>(
+    node: Readonly<GraphNode<TId, TData>>
+): Readonly<GraphNode<TId, TData>> {
+    return withAdjustedIncomingEdges(node, 1);
 }
 
 function decreaseIncomingEdges<TId extends GraphNodeId, TData>(
     node: Readonly<GraphNode<TId, TData>>
 ): Readonly<GraphNode<TId, TData>> {
-    return {
-        id: node.id,
-        data: node.data,
-        adjacentNodeIds: node.adjacentNodeIds,
-        incomingEdges: node.incomingEdges - 1
-    };
+    return withAdjustedIncomingEdges(node, -1);
 }
 
 function getNonVisitedAdjacentIds<TId extends GraphNodeId, TData>(

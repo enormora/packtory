@@ -1,347 +1,163 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { Project } from 'ts-morph';
+import { bundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { substituteDependencies } from './substitute-bundles.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
+import { substituteDependencies } from './substitute-bundles.ts';
 
-test('doesn’t substitute anything when the given dependencies are empty', () => {
-    const inputGraph = createGraphFromResolvedBundle({
-        contents: [
-            {
-                fileDescription: {
-                    content: 'import "./foo.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js'
-                },
-                directDependencies: new Set(['/foo.js']),
-                isExplicitlyIncluded: false
-            },
-            {
-                fileDescription: {
-                    content: 'true',
-                    isExecutable: false,
-                    sourceFilePath: '/foo.js',
-                    targetFilePath: 'foo.js'
-                },
-                directDependencies: new Set(),
-                isExplicitlyIncluded: false
-            }
-        ],
+type ResolvedContentDescription = {
+    readonly source: string;
+    readonly content: string;
+    readonly directDependencies?: readonly string[];
+    readonly project?: Project;
+};
+
+function buildInputGraph(
+    contents: readonly ResolvedContentDescription[],
+    entryPath = '/entry.js'
+): ReturnType<typeof createGraphFromResolvedBundle> {
+    return createGraphFromResolvedBundle({
+        contents: contents.map((entry) => {
+            return {
+                ...bundleResource(entry.source, {
+                    content: entry.content,
+                    directDependencies: new Set(entry.directDependencies)
+                }),
+                project: entry.project
+            };
+        }),
         entryPoints: [
             {
-                js: { content: '', isExecutable: false, sourceFilePath: '/entry.js', targetFilePath: 'entry.js' },
+                js: { content: '', isExecutable: false, sourceFilePath: entryPath, targetFilePath: 'entry.js' },
                 declarationFile: undefined
             }
         ],
         externalDependencies: new Map(),
         name: 'test-bundle'
     });
+}
+
+function bundleSource(packageName: string, sourceFilePath: string, isSubstituted = false): VersionedBundleWithManifest {
+    const targetFilePath = sourceFilePath.replace(/^\//u, '');
+    return versionedBundleWithManifest({
+        name: packageName,
+        version: '21',
+        contents: [
+            {
+                ...bundleResource(sourceFilePath, { targetFilePath }),
+                isSubstituted
+            }
+        ],
+        packageJson: { name: packageName, version: '21' },
+        mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
+        manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
+    });
+}
+
+const entryWithFooImport = {
+    directDependencies: new Set(['/foo.js']),
+    fileDescription: {
+        content: 'import "./foo.js";',
+        isExecutable: false,
+        sourceFilePath: '/entry.js',
+        targetFilePath: 'entry.js'
+    },
+    isSubstituted: false,
+    isExplicitlyIncluded: false
+} as const;
+
+const fooFileResult = {
+    directDependencies: new Set<string>(),
+    fileDescription: {
+        content: 'true',
+        isExecutable: false,
+        sourceFilePath: '/foo.js',
+        targetFilePath: 'foo.js'
+    },
+    isSubstituted: false,
+    isExplicitlyIncluded: false
+} as const;
+
+const entryFooSetup = [
+    { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'] },
+    { source: '/foo.js', content: 'true' }
+] as const;
+
+function substitutedEntryResult(packageName: string): unknown {
+    return {
+        contents: [
+            {
+                directDependencies: new Set(),
+                fileDescription: {
+                    sourceFilePath: '/entry.js',
+                    isExecutable: false,
+                    targetFilePath: 'entry.js',
+                    content: `import "${packageName}/foo.js";`
+                },
+                isSubstituted: true,
+                isExplicitlyIncluded: false
+            }
+        ],
+        externalDependencies: new Map(),
+        linkedBundleDependencies: new Map([[packageName, { name: packageName, referencedFrom: ['/entry.js'] }]])
+    };
+}
+
+function buildEntryFooProject(): Project {
+    return createProject({
+        withFiles: [
+            { filePath: '/entry.js', content: 'import "./foo.js";' },
+            { filePath: '/foo.js', content: 'true;' }
+        ]
+    });
+}
+
+const passthroughResult = {
+    contents: [entryWithFooImport, fooFileResult],
+    externalDependencies: new Map(),
+    linkedBundleDependencies: new Map()
+} as const;
+
+test('doesn’t substitute anything when the given dependencies are empty', () => {
+    const inputGraph = buildInputGraph(entryFooSetup);
     const substitutedGraph = substituteDependencies(inputGraph, []);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    assert.deepStrictEqual(result, {
-        contents: [
-            {
-                directDependencies: new Set(['/foo.js']),
-                fileDescription: {
-                    content: 'import "./foo.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js'
-                },
-                isSubstituted: false,
-                isExplicitlyIncluded: false
-            },
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    content: 'true',
-                    isExecutable: false,
-                    sourceFilePath: '/foo.js',
-                    targetFilePath: 'foo.js'
-                },
-                isSubstituted: false,
-                isExplicitlyIncluded: false
-            }
-        ],
-        externalDependencies: new Map(),
-        linkedBundleDependencies: new Map()
-    });
+    assert.deepStrictEqual(result, passthroughResult);
 });
 
 test('doesn’t substitute anything when the given dependencies has only files that don’t match', () => {
-    const inputGraph = createGraphFromResolvedBundle({
-        contents: [
-            {
-                fileDescription: {
-                    content: 'import "./foo.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js'
-                },
-                directDependencies: new Set(['/foo.js']),
-                isExplicitlyIncluded: false
-            },
-            {
-                fileDescription: {
-                    content: 'true',
-                    isExecutable: false,
-                    sourceFilePath: '/foo.js',
-                    targetFilePath: 'foo.js'
-                },
-                directDependencies: new Set(),
-                isExplicitlyIncluded: false
-            }
-        ],
-        entryPoints: [
-            {
-                js: { content: '', isExecutable: false, sourceFilePath: '/entry.js', targetFilePath: 'entry.js' },
-                declarationFile: undefined
-            }
-        ],
-        externalDependencies: new Map(),
-        name: 'test-bundle'
-    });
-    const bundleDependencies: VersionedBundleWithManifest[] = [
-        {
-            contents: [
-                {
-                    fileDescription: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/bar.js',
-                        targetFilePath: 'bar.js'
-                    },
-                    directDependencies: new Set(),
-                    isSubstituted: false,
-                    isExplicitlyIncluded: false
-                }
-            ],
-            packageJson: { name: 'first-package', version: '21' },
-            name: 'first-package',
-            version: '21',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
-            typesMainFile: undefined,
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
-        }
-    ];
-    const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
+    const inputGraph = buildInputGraph(entryFooSetup);
+    const substitutedGraph = substituteDependencies(inputGraph, [bundleSource('first-package', '/bar.js')]);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    assert.deepStrictEqual(result, {
-        contents: [
-            {
-                directDependencies: new Set(['/foo.js']),
-                fileDescription: {
-                    content: 'import "./foo.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js'
-                },
-                isSubstituted: false,
-                isExplicitlyIncluded: false
-            },
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    content: 'true',
-                    isExecutable: false,
-                    sourceFilePath: '/foo.js',
-                    targetFilePath: 'foo.js'
-                },
-                isSubstituted: false,
-                isExplicitlyIncluded: false
-            }
-        ],
-        externalDependencies: new Map(),
-        linkedBundleDependencies: new Map()
-    });
+    assert.deepStrictEqual(result, passthroughResult);
 });
 
 test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', () => {
-    const project = createProject({
-        withFiles: [
-            { filePath: '/entry.js', content: 'import "./foo.js";' },
-            { filePath: '/foo.js', content: 'true;' }
-        ]
-    });
-    const inputGraph = createGraphFromResolvedBundle({
-        contents: [
-            {
-                fileDescription: {
-                    content: 'import "./foo.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js'
-                },
-                directDependencies: new Set(['/foo.js']),
-                project,
-                isExplicitlyIncluded: false
-            },
-            {
-                fileDescription: {
-                    content: 'true',
-                    isExecutable: false,
-                    sourceFilePath: '/foo.js',
-                    targetFilePath: 'foo.js'
-                },
-                directDependencies: new Set(),
-                project,
-                isExplicitlyIncluded: false
-            }
-        ],
-        entryPoints: [
-            {
-                js: { content: '', isExecutable: false, sourceFilePath: '/entry.js', targetFilePath: 'entry.js' },
-                declarationFile: undefined
-            }
-        ],
-        externalDependencies: new Map(),
-        name: 'test-bundle'
-    });
-    const bundleDependencies: VersionedBundleWithManifest[] = [
-        {
-            contents: [
-                {
-                    fileDescription: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/foo.js',
-                        targetFilePath: 'foo.js'
-                    },
-                    directDependencies: new Set(),
-                    isSubstituted: false,
-                    isExplicitlyIncluded: false
-                }
-            ],
-            packageJson: { name: 'the-package', version: '21' },
-            name: 'the-package',
-            version: '21',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
-            typesMainFile: undefined,
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
-        }
-    ];
-    const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
+    const project = buildEntryFooProject();
+    const inputGraph = buildInputGraph([
+        { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'], project },
+        { source: '/foo.js', content: 'true', project }
+    ]);
+    const substitutedGraph = substituteDependencies(inputGraph, [bundleSource('the-package', '/foo.js')]);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    assert.deepStrictEqual(result, {
-        contents: [
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    sourceFilePath: '/entry.js',
-                    isExecutable: false,
-                    targetFilePath: 'entry.js',
-                    content: 'import "the-package/foo.js";'
-                },
-                isSubstituted: true,
-                isExplicitlyIncluded: false
-            }
-        ],
-        externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([['the-package', { name: 'the-package', referencedFrom: ['/entry.js'] }]])
-    });
+    assert.deepStrictEqual(result, substitutedEntryResult('the-package'));
 });
 
 test('substitutes a file which matches an already substituted file from a dependency', () => {
-    const project = createProject({
-        withFiles: [
-            { filePath: '/entry.js', content: 'import "./foo.js";' },
-            { filePath: '/foo.js', content: 'true;' }
-        ]
-    });
-    const inputGraph = createGraphFromResolvedBundle({
-        contents: [
-            {
-                fileDescription: {
-                    content: 'import "./foo.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js'
-                },
-                directDependencies: new Set(['/foo.js']),
-                project,
-                isExplicitlyIncluded: false
-            },
-            {
-                fileDescription: {
-                    content: 'true',
-                    isExecutable: false,
-                    sourceFilePath: '/foo.js',
-                    targetFilePath: 'foo.js'
-                },
-                directDependencies: new Set(),
-                project,
-                isExplicitlyIncluded: false
-            }
-        ],
-        entryPoints: [
-            {
-                js: { content: '', isExecutable: false, sourceFilePath: '/entry.js', targetFilePath: 'entry.js' },
-                declarationFile: undefined
-            }
-        ],
-        externalDependencies: new Map(),
-        name: 'test-bundle'
-    });
-    const bundleDependencies: VersionedBundleWithManifest[] = [
-        {
-            contents: [
-                {
-                    fileDescription: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/foo.js',
-                        targetFilePath: 'foo.js'
-                    },
-                    directDependencies: new Set(),
-                    isSubstituted: true,
-                    isExplicitlyIncluded: false
-                }
-            ],
-            packageJson: { name: 'first-package', version: '21' },
-            name: 'first-package',
-            version: '21',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
-            typesMainFile: undefined,
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
-        }
-    ];
-    const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
+    const project = buildEntryFooProject();
+    const inputGraph = buildInputGraph([
+        { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'], project },
+        { source: '/foo.js', content: 'true', project }
+    ]);
+    const substitutedGraph = substituteDependencies(inputGraph, [bundleSource('first-package', '/foo.js', true)]);
     const result = substitutedGraph.flatten(['/entry.js']);
 
-    assert.deepStrictEqual(result, {
-        contents: [
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    sourceFilePath: '/entry.js',
-                    isExecutable: false,
-                    targetFilePath: 'entry.js',
-                    content: 'import "first-package/foo.js";'
-                },
-                isSubstituted: true,
-                isExplicitlyIncluded: false
-            }
-        ],
-        externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([['first-package', { name: 'first-package', referencedFrom: ['/entry.js'] }]])
-    });
+    assert.deepStrictEqual(result, substitutedEntryResult('first-package'));
 });
 
 test('substitutes multiple matching files in the given dependencies', () => {
@@ -353,116 +169,21 @@ test('substitutes multiple matching files in the given dependencies', () => {
             { filePath: '/baz.js', content: 'true;' }
         ]
     });
-    const inputGraph = createGraphFromResolvedBundle({
-        contents: [
-            {
-                fileDescription: {
-                    content: 'import "./foo.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js'
-                },
-                directDependencies: new Set(['/foo.js']),
-                project,
-                isExplicitlyIncluded: false
-            },
-            {
-                fileDescription: {
-                    content: 'import "./bar.js"; import "./baz.js";',
-                    isExecutable: false,
-                    sourceFilePath: '/foo.js',
-                    targetFilePath: 'foo.js'
-                },
-                directDependencies: new Set(['/bar.js', '/baz.js']),
-                project,
-                isExplicitlyIncluded: false
-            },
-            {
-                fileDescription: {
-                    content: 'true;',
-                    isExecutable: false,
-                    sourceFilePath: '/bar.js',
-                    targetFilePath: 'bar.js'
-                },
-                directDependencies: new Set(),
-                project,
-                isExplicitlyIncluded: false
-            },
-            {
-                fileDescription: {
-                    content: 'true;',
-                    isExecutable: false,
-                    sourceFilePath: '/baz.js',
-                    targetFilePath: 'baz.js'
-                },
-                directDependencies: new Set(),
-                project,
-                isExplicitlyIncluded: false
-            }
-        ],
-        entryPoints: [
-            {
-                js: { content: '', isExecutable: false, sourceFilePath: '/entry.js', targetFilePath: 'entry.js' },
-                declarationFile: undefined
-            }
-        ],
-        externalDependencies: new Map(),
-        name: 'test-bundle'
-    });
-
-    const bundleDependencies: VersionedBundleWithManifest[] = [
+    const inputGraph = buildInputGraph([
+        { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'], project },
         {
-            contents: [
-                {
-                    fileDescription: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/bar.js',
-                        targetFilePath: 'bar.js'
-                    },
-                    directDependencies: new Set(),
-                    isSubstituted: false,
-                    isExplicitlyIncluded: false
-                }
-            ],
-            packageJson: { name: 'first-package', version: '21' },
-            name: 'first-package',
-            version: '21',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
-            typesMainFile: undefined,
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
+            source: '/foo.js',
+            content: 'import "./bar.js"; import "./baz.js";',
+            directDependencies: ['/bar.js', '/baz.js'],
+            project
         },
-        {
-            contents: [
-                {
-                    fileDescription: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/baz.js',
-                        targetFilePath: 'baz.js'
-                    },
-                    directDependencies: new Set(),
-                    isSubstituted: false,
-                    isExplicitlyIncluded: false
-                }
-            ],
-            packageJson: { name: 'second-package', version: '21' },
-            name: 'second-package',
-            version: '21',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '/baz.js', targetFilePath: 'baz.js' },
-            typesMainFile: undefined,
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '/baz.js' }
-        }
-    ];
-    const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies);
+        { source: '/bar.js', content: 'true;', project },
+        { source: '/baz.js', content: 'true;', project }
+    ]);
+    const substitutedGraph = substituteDependencies(inputGraph, [
+        bundleSource('first-package', '/bar.js'),
+        bundleSource('second-package', '/baz.js')
+    ]);
     const result = substitutedGraph.flatten(['/entry.js']);
 
     assert.deepStrictEqual(result, {

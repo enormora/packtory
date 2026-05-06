@@ -1,33 +1,13 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import { externalDependency, linkedBundle, versionedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createVersionManager } from './manager.ts';
 
-function createLinkedBundle(): LinkedBundle {
-    return {
-        name: 'package-a',
-        contents: [],
-        entryPoints: [
-            {
-                js: {
-                    sourceFilePath: '/src/index.js',
-                    targetFilePath: 'index.js',
-                    content: '',
-                    isExecutable: false
-                },
-                declarationFile: {
-                    sourceFilePath: '/src/index.d.ts',
-                    targetFilePath: 'index.d.ts',
-                    content: '',
-                    isExecutable: false
-                }
-            }
-        ] as const,
-        linkedBundleDependencies: new Map([
-            ['bundle-dependency', { name: 'bundle-dependency', referencedFrom: ['/src/index.js'] as const }]
-        ]),
-        externalDependencies: new Map([['left-pad', { name: 'left-pad', referencedFrom: ['/src/index.js'] as const }]])
-    };
+function createLinkedBundle(): ReturnType<typeof linkedBundle> {
+    return linkedBundle({
+        linkedBundleDependencies: new Map([['bundle-dependency', externalDependency('bundle-dependency')]]),
+        externalDependencies: new Map([['left-pad', externalDependency('left-pad')]])
+    });
 }
 
 test('addVersion() creates the versioned bundle and manifest file', () => {
@@ -38,21 +18,11 @@ test('addVersion() creates the versioned bundle and manifest file', () => {
         version: '1.2.3',
         mainPackageJson: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
         bundleDependencies: [
-            {
+            versionedBundle({
                 name: 'bundle-dependency',
                 version: '4.5.6',
-                contents: [],
-                dependencies: {},
-                peerDependencies: {},
-                additionalAttributes: {},
-                mainFile: {
-                    sourceFilePath: '/src/dep.js',
-                    targetFilePath: 'dep.js',
-                    content: '',
-                    isExecutable: false
-                },
-                packageType: 'module'
-            }
+                mainFile: { sourceFilePath: '/src/dep.js', targetFilePath: 'dep.js' }
+            })
         ],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: { publishConfig: { access: 'public' } }

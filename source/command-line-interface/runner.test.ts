@@ -181,111 +181,100 @@ test('prints subcommand help that includes the full publish command path', async
     assert.match(String(log.firstCall.args[0]), /packtory publish/);
 });
 
-test('rethrows the error when buildAndPublishAll() throws', async () => {
-    const buildAndPublishAll = fake.rejects(new Error('foo'));
-    const runner = runnerFactory({ buildAndPublishAll });
-
+async function expectRunnerToRethrow(overrides: Overrides, expectedMessage: string): Promise<void> {
+    const runner = runnerFactory(overrides);
     try {
         await runner.run(['foo', 'bar', 'publish']);
         assert.fail('Expected run() should fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'foo');
+        assert.strictEqual((error as Error).message, expectedMessage);
     }
+}
+
+test('rethrows the error when buildAndPublishAll() throws', async () => {
+    await expectRunnerToRethrow({ buildAndPublishAll: fake.rejects(new Error('foo')) }, 'foo');
 });
 
-test('prints error summary when publish command encounters config errors', async () => {
-    const buildAndPublishAll = fake.resolves(Result.err({ type: 'config', issues: ['foo'] }));
+async function runWithIssues(
+    type: 'checks' | 'config',
+    issues: readonly string[]
+): Promise<{ readonly log: SinonSpy }> {
+    const buildAndPublishAll = fake.resolves(Result.err({ type, issues }));
     const log = fake();
     const runner = runnerFactory({ buildAndPublishAll, log });
 
     await runner.run(['foo', 'bar', 'publish']);
+    return { log };
+}
 
+test('prints error summary when publish command encounters config errors', async () => {
+    const { log } = await runWithIssues('config', ['foo']);
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✖ The provided config is invalid, there are 1 issue(s)\n\n- foo']);
 });
 
 test('prints every config issue on its own bullet line', async () => {
-    const buildAndPublishAll = fake.resolves(Result.err({ type: 'config', issues: ['foo', 'bar'] }));
-    const log = fake();
-    const runner = runnerFactory({ buildAndPublishAll, log });
-
-    await runner.run(['foo', 'bar', 'publish']);
-
+    const { log } = await runWithIssues('config', ['foo', 'bar']);
     assert.deepStrictEqual(log.firstCall.args, [
         '✖ The provided config is invalid, there are 2 issue(s)\n\n- foo\n- bar'
     ]);
 });
 
 test('prints error summary when publish command encounters check errors', async () => {
-    const buildAndPublishAll = fake.resolves(Result.err({ type: 'checks', issues: ['foo'] }));
-    const log = fake();
-    const runner = runnerFactory({ buildAndPublishAll, log });
-
-    await runner.run(['foo', 'bar', 'publish']);
-
+    const { log } = await runWithIssues('checks', ['foo']);
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✖ Checks failed, there are 1 issue(s)\n\n- foo']);
 });
 
 test('prints every check issue on its own bullet line', async () => {
-    const buildAndPublishAll = fake.resolves(Result.err({ type: 'checks', issues: ['foo', 'bar'] }));
-    const log = fake();
-    const runner = runnerFactory({ buildAndPublishAll, log });
-
-    await runner.run(['foo', 'bar', 'publish']);
-
+    const { log } = await runWithIssues('checks', ['foo', 'bar']);
     assert.deepStrictEqual(log.firstCall.args, ['✖ Checks failed, there are 2 issue(s)\n\n- foo\n- bar']);
 });
 
-test('prints error summary and dry-run note when publish command encounters partial errors', async () => {
-    const buildAndPublishAll = fake.resolves(
-        Result.err({ type: 'partial', succeeded: ['foo'], failures: [new Error('first'), new Error('second')] })
-    );
+const dryRunNote =
+    '⚠  Note: dry-run mode was enabled, so there was nothing really published; add the --no-dry-run flag to disable dry-run mode';
+
+async function runPublishCapturingLog(
+    buildAndPublishAll: SinonSpy,
+    extraArgs: readonly string[] = []
+): Promise<SinonSpy> {
     const log = fake();
     const runner = runnerFactory({ buildAndPublishAll, log });
+    await runner.run(['foo', 'bar', 'publish', ...extraArgs]);
+    return log;
+}
 
-    await runner.run(['foo', 'bar', 'publish']);
+const partialResultWithTwoFailures = Result.err({
+    type: 'partial' as const,
+    succeeded: ['foo'],
+    failures: [new Error('first'), new Error('second')]
+});
+
+test('prints error summary and dry-run note when publish command encounters partial errors', async () => {
+    const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures));
 
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded']);
-    assert.deepStrictEqual(log.secondCall.args, [
-        '⚠  Note: dry-run mode was enabled, so there was nothing really published; add the --no-dry-run flag to disable dry-run mode'
-    ]);
+    assert.deepStrictEqual(log.secondCall.args, [dryRunNote]);
 });
 
 test('prints error summary without dry-run note when publish command encounters partial errors and dry-run mode is disabled', async () => {
-    const buildAndPublishAll = fake.resolves(
-        Result.err({ type: 'partial', succeeded: ['foo'], failures: [new Error('first'), new Error('second')] })
-    );
-    const log = fake();
-    const runner = runnerFactory({ buildAndPublishAll, log });
-
-    await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
+    const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures), ['--no-dry-run']);
 
     assert.strictEqual(log.callCount, 1);
     assert.deepStrictEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded']);
 });
 
 test('prints success summary and dry-run note when publish command had no errors', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok(['foo', 'bar']));
-    const log = fake();
-    const runner = runnerFactory({ buildAndPublishAll, log });
-
-    await runner.run(['foo', 'bar', 'publish']);
+    const log = await runPublishCapturingLog(fake.resolves(Result.ok(['foo', 'bar'])));
 
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);
-    assert.deepStrictEqual(log.secondCall.args, [
-        '⚠  Note: dry-run mode was enabled, so there was nothing really published; add the --no-dry-run flag to disable dry-run mode'
-    ]);
+    assert.deepStrictEqual(log.secondCall.args, [dryRunNote]);
 });
 
 test('prints success summary without dry-run note when publish command had no errors and dry-run mode is disabled', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok(['foo', 'bar']));
-    const log = fake();
-    const runner = runnerFactory({ buildAndPublishAll, log });
-
-    await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
+    const log = await runPublishCapturingLog(fake.resolves(Result.ok(['foo', 'bar'])), ['--no-dry-run']);
 
     assert.strictEqual(log.callCount, 1);
     assert.deepStrictEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);
@@ -293,15 +282,10 @@ test('prints success summary without dry-run note when publish command had no er
 
 test('stops all spinners when buildAndPublishAll throws', async () => {
     const stopAll = fake();
-    const buildAndPublishAll = fake.rejects(new Error('foo'));
-    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stopAll } });
-
-    try {
-        await runner.run(['foo', 'bar', 'publish']);
-        assert.fail('Expected run() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'foo');
-    }
+    await expectRunnerToRethrow(
+        { buildAndPublishAll: fake.rejects(new Error('foo')), spinnerRenderer: { stopAll } },
+        'foo'
+    );
     assert.strictEqual(stopAll.callCount, 1);
 });
 
@@ -327,14 +311,23 @@ test('adds a spinner when progressBroadcaster receives a "scheduled" event', asy
     assert.deepStrictEqual(add.firstCall.args, ['foo', 'foo', 'Scheduled …']);
 });
 
-test('stops a running spinner with failure status when progressBroadcaster receives an "error" event', async () => {
-    const stop = fake();
+async function runWithProgressEvent(
+    spinnerRenderer: NonNullable<Overrides['spinnerRenderer']>,
+    eventName: string,
+    eventPayload: unknown
+): Promise<ProgressBroadcaster> {
     const buildAndPublishAll = fake.resolves(Result.ok([]));
     const progressBroadcaster = createProgressBroadcaster();
-    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stop }, progressBroadcaster });
+    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer, progressBroadcaster });
 
     await runner.run(['foo', 'bar', 'publish']);
-    progressBroadcaster.provider.emit('error', { packageName: 'foo', error: new Error('bar') });
+    progressBroadcaster.provider.emit(eventName as never, eventPayload as never);
+    return progressBroadcaster;
+}
+
+test('stops a running spinner with failure status when progressBroadcaster receives an "error" event', async () => {
+    const stop = fake();
+    await runWithProgressEvent({ stop }, 'error', { packageName: 'foo', error: new Error('bar') });
 
     assert.strictEqual(stop.callCount, 1);
     assert.deepStrictEqual(stop.firstCall.args, ['foo', 'failure', 'bar']);
@@ -342,12 +335,7 @@ test('stops a running spinner with failure status when progressBroadcaster recei
 
 test('stops a running spinner with success status when progressBroadcaster receives an "done" event and already-published status', async () => {
     const stop = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
-    const progressBroadcaster = createProgressBroadcaster();
-    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stop }, progressBroadcaster });
-
-    await runner.run(['foo', 'bar', 'publish']);
-    progressBroadcaster.provider.emit('done', { packageName: 'foo', version: '1', status: 'already-published' });
+    await runWithProgressEvent({ stop }, 'done', { packageName: 'foo', version: '1', status: 'already-published' });
 
     assert.strictEqual(stop.callCount, 1);
     assert.deepStrictEqual(stop.firstCall.args, [
@@ -359,12 +347,7 @@ test('stops a running spinner with success status when progressBroadcaster recei
 
 test('stops a running spinner with success status when progressBroadcaster receives an "done" event and initial-version status', async () => {
     const stop = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
-    const progressBroadcaster = createProgressBroadcaster();
-    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stop }, progressBroadcaster });
-
-    await runner.run(['foo', 'bar', 'publish']);
-    progressBroadcaster.provider.emit('done', { packageName: 'foo', version: '1', status: 'initial-version' });
+    await runWithProgressEvent({ stop }, 'done', { packageName: 'foo', version: '1', status: 'initial-version' });
 
     assert.strictEqual(stop.callCount, 1);
     assert.deepStrictEqual(stop.firstCall.args, ['foo', 'success', 'First version 1 has been published']);
@@ -372,12 +355,7 @@ test('stops a running spinner with success status when progressBroadcaster recei
 
 test('stops a running spinner with success status when progressBroadcaster receives an "done" event and new-version status', async () => {
     const stop = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
-    const progressBroadcaster = createProgressBroadcaster();
-    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stop }, progressBroadcaster });
-
-    await runner.run(['foo', 'bar', 'publish']);
-    progressBroadcaster.provider.emit('done', { packageName: 'foo', version: '1', status: 'new-version' });
+    await runWithProgressEvent({ stop }, 'done', { packageName: 'foo', version: '1', status: 'new-version' });
 
     assert.strictEqual(stop.callCount, 1);
     assert.deepStrictEqual(stop.firstCall.args, ['foo', 'success', 'New version 1 published']);
@@ -385,12 +363,7 @@ test('stops a running spinner with success status when progressBroadcaster recei
 
 test('updates a running spinner message when a "building" event is received', async () => {
     const updateMessage = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
-    const progressBroadcaster = createProgressBroadcaster();
-    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { updateMessage }, progressBroadcaster });
-
-    await runner.run(['foo', 'bar', 'publish']);
-    progressBroadcaster.provider.emit('building', { packageName: 'foo', version: '1' });
+    await runWithProgressEvent({ updateMessage }, 'building', { packageName: 'foo', version: '1' });
 
     assert.strictEqual(updateMessage.callCount, 1);
     assert.deepStrictEqual(updateMessage.firstCall.args, ['foo', 'Building package with version 1']);
@@ -398,12 +371,7 @@ test('updates a running spinner message when a "building" event is received', as
 
 test('updates a running spinner message when a "rebuilding" event is received', async () => {
     const updateMessage = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
-    const progressBroadcaster = createProgressBroadcaster();
-    const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { updateMessage }, progressBroadcaster });
-
-    await runner.run(['foo', 'bar', 'publish']);
-    progressBroadcaster.provider.emit('rebuilding', { packageName: 'foo', version: '1' });
+    await runWithProgressEvent({ updateMessage }, 'rebuilding', { packageName: 'foo', version: '1' });
 
     assert.strictEqual(updateMessage.callCount, 1);
     assert.deepStrictEqual(updateMessage.firstCall.args, ['foo', 'Rebuilding package with version 1']);

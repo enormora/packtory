@@ -3,8 +3,8 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { bundleResource, linkedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { getErrResult, getOkResult } from '../test-libraries/result-helpers.ts';
 import type { PackageProcessor } from './package-processor.ts';
 import {
     createPacktory,
@@ -13,55 +13,22 @@ import {
     type ResolvedPackage
 } from './packtory.ts';
 
-function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): LinkedBundle {
-    return {
+function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): ReturnType<typeof linkedBundle> {
+    return linkedBundle({
         name,
-        contents: [
-            {
-                fileDescription: {
-                    sourceFilePath,
-                    targetFilePath: 'index.js',
-                    content: '',
-                    isExecutable: false
-                },
-                directDependencies: new Set<string>(),
-                isSubstituted: false,
-                isExplicitlyIncluded: false
-            }
-        ],
-        entryPoints: [
-            {
-                js: {
-                    sourceFilePath,
-                    targetFilePath: 'index.js',
-                    content: '',
-                    isExecutable: false
-                }
-            }
-        ] as const,
-        linkedBundleDependencies: new Map(),
-        externalDependencies: new Map()
-    };
+        contents: [{ ...bundleResource(sourceFilePath, { targetFilePath: 'index.js' }), isSubstituted: false }],
+        entryPoints: [{ js: { sourceFilePath, targetFilePath: 'index.js', content: '', isExecutable: false } }]
+    });
 }
 
-function createVersionedBundle(name: string, version = '1.0.0'): VersionedBundleWithManifest {
-    return {
+function createVersionedBundle(name: string, version = '1.0.0'): ReturnType<typeof versionedBundleWithManifest> {
+    return versionedBundleWithManifest({
         name,
         version,
-        contents: [],
-        dependencies: {},
-        peerDependencies: {},
-        additionalAttributes: {},
-        mainFile: {
-            sourceFilePath: `/${name}/index.js`,
-            targetFilePath: 'index.js',
-            content: '',
-            isExecutable: false
-        },
-        packageType: 'module' as const,
+        mainFile: { sourceFilePath: `/${name}/index.js`, targetFilePath: 'index.js' },
         packageJson: { name, version },
-        manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false }
-    };
+        manifestFile: { filePath: 'package.json', content: '{}' }
+    });
 }
 
 function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): PacktoryConfigWithoutRegistry {
@@ -107,6 +74,18 @@ type SchedulerOverrides = {
     }) => Promise<Result<readonly unknown[], unknown>>;
 };
 
+type StageParams = {
+    readonly createOptions: (context: {
+        packageName: string;
+        existing: readonly unknown[];
+        config: unknown;
+    }) => unknown;
+    readonly execute: (options: unknown) => Promise<unknown>;
+    readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
+    readonly createProgressEvent?: CreateProgressEvent | undefined;
+    readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
+};
+
 type PacktoryUnderTest = {
     readonly packtory: ReturnType<typeof createPacktory>;
     readonly resolveAndLink: SinonSpy;
@@ -117,22 +96,24 @@ type PacktoryUnderTest = {
     };
 };
 
-function getErrResult<TValue, TError>(result: Result<TValue, TError>, message: string): TError {
-    if (result.isErr) {
-        return result.error;
-    }
+// helpers re-exported for backwards compatibility within this module
 
-    assert.fail(message);
-    throw new Error(message);
-}
+const twoPackageEntries: readonly {
+    readonly name: string;
+    readonly entryPoints: readonly { readonly js: string }[];
+}[] = [
+    { name: 'package-a', entryPoints: [{ js: 'package-a/index.js' }] },
+    { name: 'package-b', entryPoints: [{ js: 'package-b/index.js' }] }
+];
 
-function getOkResult<TValue, TError>(result: Result<TValue, TError>, message: string): TValue {
-    if (result.isOk) {
-        return result.value;
-    }
-
-    assert.fail(message);
-    throw new Error(message);
+function partialResolveFailure(packageName: string): {
+    readonly succeeded: ReturnType<typeof createLinkedBundle>[];
+    readonly failures: Error[];
+} {
+    return {
+        succeeded: [createLinkedBundle(packageName)],
+        failures: [new Error('resolve failed')]
+    };
 }
 
 function recordStageSuccess(params: {
@@ -202,17 +183,7 @@ function createPacktoryUnderTest(
             return { bundle: createVersionedBundle(options.buildOptions.name), status: 'new-version' as const };
         });
 
-    const defaultRunStage = async (params: {
-        readonly createOptions: (context: {
-            packageName: string;
-            existing: readonly unknown[];
-            config: unknown;
-        }) => unknown;
-        readonly execute: (options: unknown) => Promise<unknown>;
-        readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-        readonly createProgressEvent?: CreateProgressEvent | undefined;
-        readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
-    }): Promise<Result<unknown[], never>> => {
+    const defaultRunStage = async (params: StageParams): Promise<Result<unknown[], never>> => {
         const existing: unknown[] = [];
         const results: unknown[] = [];
 
@@ -232,33 +203,20 @@ function createPacktoryUnderTest(
     };
 
     const scheduler = {
-        runForEachScheduledPackage: fake(
-            async (params: {
-                readonly emitScheduledEvents?: boolean;
-                readonly createOptions: (context: {
-                    packageName: string;
-                    existing: readonly unknown[];
-                    config: unknown;
-                }) => unknown;
-                readonly execute: (options: unknown) => Promise<unknown>;
-                readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-                readonly createProgressEvent?: CreateProgressEvent | undefined;
-                readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
-            }) => {
-                if (params.emitScheduledEvents === false) {
-                    if (overrides.publishStage !== undefined) {
-                        return overrides.publishStage(params as never);
-                    }
-                    return defaultRunStage(params);
+        runForEachScheduledPackage: fake(async (params: StageParams & { readonly emitScheduledEvents?: boolean }) => {
+            if (params.emitScheduledEvents === false) {
+                if (overrides.publishStage !== undefined) {
+                    return overrides.publishStage(params as never);
                 }
-
-                if (overrides.resolveStage !== undefined) {
-                    return overrides.resolveStage(params as never);
-                }
-
                 return defaultRunStage(params);
             }
-        )
+
+            if (overrides.resolveStage !== undefined) {
+                return overrides.resolveStage(params as never);
+            }
+
+            return defaultRunStage(params);
+        })
     };
     const packageProcessor: PackageProcessor = {
         resolveAndLink,
@@ -318,10 +276,7 @@ test('resolveAndLinkAll() returns check failures after the linked bundles were b
     const result = await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             checks: { noDuplicatedFiles: { enabled: true } },
-            packages: [
-                { name: 'package-a', entryPoints: [{ js: 'package-a/index.js' }] },
-                { name: 'package-b', entryPoints: [{ js: 'package-b/index.js' }] }
-            ]
+            packages: twoPackageEntries
         })
     );
 
@@ -378,10 +333,7 @@ test('buildAndPublishAll() returns config issues when the config with registry i
 test('buildAndPublishAll() converts resolve-stage partial failures into a partial publish result with no succeeded items', async () => {
     const { packtory } = createPacktoryUnderTest({
         resolveStage: async () => {
-            return Result.err({
-                succeeded: [createLinkedBundle('package-a')],
-                failures: [new Error('resolve failed')]
-            });
+            return Result.err(partialResolveFailure('package-a'));
         }
     });
 
@@ -411,10 +363,7 @@ test('buildAndPublishAll() returns check failures without entering publish mode'
     const result = await packtory.buildAndPublishAll(
         createConfig({
             checks: { noDuplicatedFiles: { enabled: true } },
-            packages: [
-                { name: 'package-a', entryPoints: [{ js: 'package-a/index.js' }] },
-                { name: 'package-b', entryPoints: [{ js: 'package-b/index.js' }] }
-            ]
+            packages: twoPackageEntries
         }),
         { dryRun: false }
     );
@@ -489,10 +438,7 @@ test('buildAndPublishAll() passes selectNext and createProgressEvent that expose
 test('resolveAndLinkAll() unwraps partial scheduler errors without converting check failures', async () => {
     const { packtory } = createPacktoryUnderTest({
         resolveStage: async () => {
-            return Result.err({
-                succeeded: [createLinkedBundle('package-a')],
-                failures: [new Error('resolve failed')]
-            });
+            return Result.err(partialResolveFailure('package-a'));
         }
     });
 
@@ -502,10 +448,7 @@ test('resolveAndLinkAll() unwraps partial scheduler errors without converting ch
         result,
         Result.err({
             type: 'partial',
-            error: {
-                succeeded: [createLinkedBundle('package-a')],
-                failures: [new Error('resolve failed')]
-            }
+            error: partialResolveFailure('package-a')
         })
     );
 });
@@ -557,15 +500,7 @@ test('buildAndPublishAll() returns a partial failure when a linked bundle is mis
         publishStage: runPublishStageUntilFailure
     });
 
-    const result = await packtory.buildAndPublishAll(
-        createConfig({
-            packages: [
-                { name: 'package-a', entryPoints: [{ js: 'package-a/index.js' }] },
-                { name: 'package-b', entryPoints: [{ js: 'package-b/index.js' }] }
-            ]
-        }),
-        { dryRun: false }
-    );
+    const result = await packtory.buildAndPublishAll(createConfig({ packages: twoPackageEntries }), { dryRun: false });
 
     assert.deepStrictEqual(
         result,

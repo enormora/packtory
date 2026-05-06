@@ -55,88 +55,71 @@ test('throws when the given source contains an import to a node-builtin look-a-l
     }
 });
 
+function expectMainResolvesToFoo(
+    files: { readonly filePath: string; readonly content: string }[],
+    options: { readonly module?: ModuleKind } = {}
+): void {
+    const project = createProject({ withFiles: files, ...options });
+    const mainPath = files[0]?.filePath ?? '';
+    const fooPath = files[1]?.filePath ?? '';
+    const result = getReferencedSourceFiles(project.getSourceFileOrThrow(mainPath));
+
+    assert.deepStrictEqual(result, [project.getSourceFileOrThrow(fooPath)]);
+}
+
 test('returns array with the resolved source file using an import from statement', () => {
-    const files = [
+    expectMainResolvesToFoo([
         { filePath: 'main.ts', content: 'import {foo} from "./foo"' },
         { filePath: 'foo.ts', content: 'export const foo = "";' }
-    ];
-    const project = createProject({ withFiles: files });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
+    ]);
 });
 
 test('returns array with the resolved source file using an export from statement', () => {
-    const files = [
+    expectMainResolvesToFoo([
         { filePath: 'main.ts', content: 'export {foo} from "./foo"' },
         { filePath: 'foo.ts', content: 'export const foo = "";' }
-    ];
-    const project = createProject({ withFiles: files });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
+    ]);
 });
 
 test('returns array with the resolved source file using CommonJS', () => {
-    const files = [
-        { filePath: 'main.js', content: 'const foo = require("./foo");' },
-        { filePath: 'foo.js', content: 'module.exports = {};' }
-    ];
-    const project = createProject({ withFiles: files, module: ModuleKind.CommonJS });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.js'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.js')]);
+    expectMainResolvesToFoo(
+        [
+            { filePath: 'main.js', content: 'const foo = require("./foo");' },
+            { filePath: 'foo.js', content: 'module.exports = {};' }
+        ],
+        { module: ModuleKind.CommonJS }
+    );
 });
 
 test('returns array with the resolved source file using import equals syntax', () => {
-    const files = [
-        { filePath: 'main.ts', content: 'import foo = require("./foo");' },
-        { filePath: 'foo.ts', content: 'export const foo = "";' }
-    ];
-    const project = createProject({ withFiles: files, module: ModuleKind.CommonJS });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
+    expectMainResolvesToFoo(
+        [
+            { filePath: 'main.ts', content: 'import foo = require("./foo");' },
+            { filePath: 'foo.ts', content: 'export const foo = "";' }
+        ],
+        { module: ModuleKind.CommonJS }
+    );
 });
 
 test('returns array with the resolved source file using dynamic imports', () => {
-    const files = [
+    expectMainResolvesToFoo([
         { filePath: 'main.ts', content: 'async function foo() { await import("./foo"); }' },
         { filePath: 'foo.ts', content: '' }
-    ];
-    const project = createProject({ withFiles: files });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
+    ]);
 });
 
 test('returns array with the resolved source file using type from import', () => {
-    const files = [
+    expectMainResolvesToFoo([
         { filePath: 'main.ts', content: 'import type { Foo } from "./foo.ts"' },
         { filePath: 'foo.ts', content: '' }
-    ];
-    const project = createProject({ withFiles: files });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
+    ]);
 });
 
 test('returns array with the resolved source file using type import function', () => {
-    const files = [
+    expectMainResolvesToFoo([
         { filePath: 'main.ts', content: 'type Foo = import("./foo").Foo' },
         { filePath: 'foo.ts', content: '' }
-    ];
-    const project = createProject({ withFiles: files });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
+    ]);
 });
 
 test('returns array with the resolved source file using multiple import styles in one file', () => {
@@ -166,56 +149,43 @@ test('returns array with the resolved source file using multiple import styles i
 });
 
 test('returns array with the resolved source file using an import statement', () => {
-    const files = [
+    expectMainResolvesToFoo([
         { filePath: 'main.ts', content: 'import {} from "./foo";' },
         { filePath: 'foo.ts', content: 'parseInt("", 42)' }
-    ];
-    const project = createProject({ withFiles: files });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.ts')]);
+    ]);
 });
 
 test('works with JS files', () => {
-    const files = [
+    expectMainResolvesToFoo([
         { filePath: 'main.js', content: 'import {} from "./foo";' },
         { filePath: 'foo.js', content: 'parseInt("", 42)' }
-    ];
-    const project = createProject({ withFiles: files });
-
-    const result = getReferencedSourceFiles(project.getSourceFileOrThrow('main.js'));
-
-    assert.deepStrictEqual(result, [project.getSourceFileOrThrow('foo.js')]);
+    ]);
 });
 
-test('resolveSourceFileForLiteral() returns undefined when ts cannot resolve the module', () => {
-    const files = [{ filePath: 'main.ts', content: 'import {} from "not-resolved";' }];
+function resolveFirstImportLiteral(files: { readonly filePath: string; readonly content: string }[]): {
+    readonly project: ReturnType<typeof createProject>;
+    readonly result: ReturnType<typeof resolveSourceFileForLiteral>;
+} {
     const project = createProject({ withFiles: files });
     const sourceFile = project.getSourceFileOrThrow('main.ts');
     const [literal] = sourceFile.getImportStringLiterals();
     if (literal === undefined) {
         assert.fail('Expected an import literal to exist');
     }
+    return { project, result: resolveSourceFileForLiteral(literal, sourceFile) };
+}
 
-    const result = resolveSourceFileForLiteral(literal, sourceFile);
+test('resolveSourceFileForLiteral() returns undefined when ts cannot resolve the module', () => {
+    const { result } = resolveFirstImportLiteral([{ filePath: 'main.ts', content: 'import {} from "not-resolved";' }]);
 
     assert.strictEqual(result, undefined);
 });
 
 test('resolveSourceFileForLiteral() resolves dynamic import literals directly', () => {
-    const files = [
+    const { project, result } = resolveFirstImportLiteral([
         { filePath: 'main.ts', content: 'async function load() { return import("./foo"); }' },
         { filePath: 'foo.ts', content: 'export const foo = 1;' }
-    ];
-    const project = createProject({ withFiles: files });
-    const sourceFile = project.getSourceFileOrThrow('main.ts');
-    const [literal] = sourceFile.getImportStringLiterals();
-    if (literal === undefined) {
-        assert.fail('Expected an import literal to exist');
-    }
-
-    const result = resolveSourceFileForLiteral(literal, sourceFile);
+    ]);
 
     assert.strictEqual(result, project.getSourceFileOrThrow('foo.ts'));
 });

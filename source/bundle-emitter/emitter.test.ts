@@ -2,7 +2,12 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
+
+function namedBundle(): ReturnType<typeof versionedBundleWithManifest> {
+    return versionedBundleWithManifest({ name: 'the-name' });
+}
 
 const emptyTarball = Buffer.from([
     31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 99, 96, 24, 5, 163, 96, 20, 140, 84, 0, 0, 46, 175, 181, 239, 0, 4, 0, 0
@@ -111,18 +116,7 @@ test('checkBundleAlreadyPublished() fetches the latest version', async () => {
 
     await emitter.checkBundleAlreadyPublished({
         registrySettings: { token: 'the-token' },
-        bundle: {
-            name: 'the-name',
-            contents: [],
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '' },
-            packageJson: { name: '', version: '' }
-        }
+        bundle: namedBundle()
     });
 
     assert.strictEqual(fetchLatestVersion.callCount, 1);
@@ -136,18 +130,7 @@ test('checkBundleAlreadyPublished() returns false when there is no latest versio
 
     const result = await emitter.checkBundleAlreadyPublished({
         registrySettings: { token: 'the-token' },
-        bundle: {
-            name: 'the-name',
-            contents: [],
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '' },
-            packageJson: { name: '', version: '' }
-        }
+        bundle: namedBundle()
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
@@ -162,38 +145,14 @@ test('checkBundleAlreadyPublished() returns false when the latest version conten
     const collectContents = fake.returns([]);
     const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
 
+    const bundle = namedBundle();
     const result = await emitter.checkBundleAlreadyPublished({
         registrySettings: { token: 'the-token' },
-        bundle: {
-            name: 'the-name',
-            contents: [],
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '' },
-            packageJson: { name: '', version: '' }
-        }
+        bundle
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
-    assert.deepStrictEqual(collectContents.firstCall.args, [
-        {
-            name: 'the-name',
-            contents: [],
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '' },
-            packageJson: { name: '', version: '' }
-        },
-        'package'
-    ]);
+    assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package']);
     assert.deepStrictEqual(fetchTarball.firstCall.args, ['https://registry.example.test/package.tgz', 'def']);
 });
 
@@ -207,18 +166,7 @@ test('checkBundleAlreadyPublished() returns true when the latest version content
 
     const result = await emitter.checkBundleAlreadyPublished({
         registrySettings: { token: 'the-token' },
-        bundle: {
-            name: 'the-name',
-            contents: [],
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '' },
-            packageJson: { name: '', version: '' }
-        }
+        bundle: namedBundle()
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: true });
@@ -233,18 +181,7 @@ test('publish() publishes the given bundle', async () => {
 
     await emitter.publish({
         registrySettings: { token: 'the-token' },
-        bundle: {
-            name: 'the-name',
-            contents: [],
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '', isExecutable: false, filePath: '' },
-            packageJson: { name: '', version: '' }
-        }
+        bundle: namedBundle()
     });
 
     assert.strictEqual(publishPackage.callCount, 1);
