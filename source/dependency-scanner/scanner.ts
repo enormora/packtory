@@ -1,5 +1,5 @@
 import { Maybe } from 'true-myth/maybe';
-import { uniqueList } from '../list/unique-list.ts';
+import { unique } from 'remeda';
 import type { SourceMapFileLocator } from './source-map-file-locator.ts';
 import type { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.ts';
 import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.ts';
@@ -39,7 +39,7 @@ function determineLocalDependencies(dependencies: readonly string[]): readonly s
 function determineExternalDependencies(dependencies: readonly string[]): readonly string[] {
     const modulePaths = dependencies.filter(isNodeModulesPath);
     const moduleNames = modulePaths.map(extractModuleName);
-    const uniqueModuleNames = uniqueList(moduleNames);
+    const uniqueModuleNames = unique(moduleNames);
 
     return uniqueModuleNames;
 }

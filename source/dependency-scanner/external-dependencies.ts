@@ -1,4 +1,4 @@
-import { uniqueList } from '../list/unique-list.ts';
+import { unique } from 'remeda';
 
 export type ExternalDependency = {
     readonly name: string;
@@ -21,7 +21,7 @@ export function mergeExternalDependencies(
         } else {
             mergedDependencies.set(dependencyA.name, {
                 name: dependencyA.name,
-                referencedFrom: uniqueList([...dependencyA.referencedFrom, ...dependencyB.referencedFrom])
+                referencedFrom: unique([...dependencyA.referencedFrom, ...dependencyB.referencedFrom])
             });
         }
     }

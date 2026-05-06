@@ -1,6 +1,6 @@
+import { sortBy } from 'remeda';
 import { areFileDescriptionEqual } from './equal.ts';
 import type { FileDescription } from './file-description.ts';
-import { sortByFilePath } from './sort.ts';
 
 type FileDescriptionsComparisonResult = {
     status: 'equal' | 'not-equal';
@@ -14,8 +14,11 @@ export function compareFileDescriptions(
         return { status: 'not-equal' };
     }
 
-    const sortedFileDescriptionsA = sortByFilePath(fileDescriptionsA);
-    const sortedFileDescriptionsB = sortByFilePath(fileDescriptionsB);
+    const byFilePath = (fileDescription: FileDescription): string => {
+        return fileDescription.filePath;
+    };
+    const sortedFileDescriptionsA = sortBy(fileDescriptionsA, byFilePath);
+    const sortedFileDescriptionsB = sortBy(fileDescriptionsB, byFilePath);
 
     for (const [index, fileDescriptionA] of sortedFileDescriptionsA.entries()) {
         const fileDescriptionB = sortedFileDescriptionsB[index];

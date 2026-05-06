@@ -1,7 +1,7 @@
 import type { Maybe } from 'true-myth';
 import type { Project } from 'ts-morph';
+import { unique } from 'remeda';
 import { createDirectedGraph } from '../directed-graph/graph.ts';
-import { uniqueList } from '../list/unique-list.ts';
 import {
     mergeExternalDependencies,
     type ExternalDependencies,
@@ -120,7 +120,7 @@ export function createDependencyGraph(): DependencyGraph {
                     } else {
                         externalDependencies.set(externalDependencyName, {
                             name: externalDependencyName,
-                            referencedFrom: uniqueList([...externalDependency.referencedFrom, node.id])
+                            referencedFrom: unique([...externalDependency.referencedFrom, node.id])
                         });
                     }
                 }

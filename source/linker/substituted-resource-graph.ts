@@ -1,7 +1,7 @@
+import { unique } from 'remeda';
 import type { Except } from 'type-fest';
 import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import { createDirectedGraph } from '../directed-graph/graph.ts';
-import { uniqueList } from '../list/unique-list.ts';
 import type { LinkedBundle, LinkedBundleResource } from './linked-bundle.ts';
 import type { ResourceGraphNodeData } from './resource-graph.ts';
 
@@ -31,7 +31,7 @@ function addOrCreateReference(
 
     return {
         name: externalDependencyName,
-        referencedFrom: uniqueList([...externalDependency.referencedFrom, reference])
+        referencedFrom: unique([...externalDependency.referencedFrom, reference])
     };
 }
 
