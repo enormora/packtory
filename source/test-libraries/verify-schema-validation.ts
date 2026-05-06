@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test, type Func } from 'mocha';
+import { isPlainObject, omit } from 'remeda';
 import type { $ZodType } from 'zod/v4/core';
 
 const invalidNumberValue = 2;
@@ -59,10 +60,6 @@ function pathDotNotationToBracketNotation(path: string): string {
     return path.replaceAll(/\.(?<index>\d+)(?=\.|$)/g, '[$<index>]');
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
 function parsePathSegment(pathSegment: string): PathSegment {
     return /^\d+$/.test(pathSegment) ? Number(pathSegment) : pathSegment;
 }
@@ -84,11 +81,7 @@ function setArrayValue(array: readonly unknown[], index: number, value: unknown)
 }
 
 function removeRecordKey(record: Readonly<Record<string, unknown>>, key: string): Record<string, unknown> {
-    return Object.fromEntries(
-        Object.entries(record).filter(([entryKey]) => {
-            return entryKey !== key;
-        })
-    );
+    return omit(record, [key]);
 }
 
 function setRecordValue(
@@ -134,7 +127,7 @@ function updateLeafValue(
         return updateLeafArrayValue(current, pathSegment, modification, value);
     }
 
-    if (isRecord(current) && typeof pathSegment === 'string') {
+    if (isPlainObject(current) && typeof pathSegment === 'string') {
         return updateLeafRecordValue(current, pathSegment, modification, value);
     }
 
@@ -165,7 +158,7 @@ function updateNestedValue(
         );
     }
 
-    if (isRecord(current) && typeof pathSegment === 'string') {
+    if (isPlainObject(current) && typeof pathSegment === 'string') {
         return setRecordValue(
             current,
             pathSegment,

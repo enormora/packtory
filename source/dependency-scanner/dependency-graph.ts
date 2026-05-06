@@ -1,6 +1,6 @@
 import type { Maybe } from 'true-myth';
 import type { Project } from 'ts-morph';
-import { unique } from 'remeda';
+import { indexBy, unique, values } from 'remeda';
 import { createDirectedGraph } from '../directed-graph/graph.ts';
 import {
     mergeExternalDependencies,
@@ -35,14 +35,12 @@ export function mergeDependencyFiles(
     first: Readonly<DependencyFiles>,
     second: Readonly<DependencyFiles>
 ): Readonly<DependencyFiles> {
-    const mergedLocalFiles = new Map<string, LocalFile>();
-
-    for (const localFile of [...first.localFiles, ...second.localFiles]) {
-        mergedLocalFiles.set(localFile.filePath, localFile);
-    }
-
     return {
-        localFiles: Array.from(mergedLocalFiles.values()),
+        localFiles: values(
+            indexBy([...first.localFiles, ...second.localFiles], (localFile) => {
+                return localFile.filePath;
+            })
+        ),
         externalDependencies: mergeExternalDependencies(first.externalDependencies, second.externalDependencies)
     };
 }

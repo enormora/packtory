@@ -1,4 +1,5 @@
 import { Result } from 'true-myth';
+import { mapToObj } from 'remeda';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import {
     validateConfig,
@@ -134,10 +135,11 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         resolvedPackages: readonly ResolvedPackage[],
         options: Options
     ): Promise<Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>> {
-        const linkedBundlesByName = new Map<string, LinkedBundle>(
-            resolvedPackages.map((resolvedPackage) => {
+        const linkedBundlesByName: Readonly<Record<string, LinkedBundle>> = mapToObj(
+            resolvedPackages,
+            (resolvedPackage) => {
                 return [resolvedPackage.name, resolvedPackage.linkedBundle];
-            })
+            }
         );
 
         return scheduler.runForEachScheduledPackage<
@@ -157,7 +159,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
                 );
             },
             execute: async (buildOptions) => {
-                const linkedBundle = linkedBundlesByName.get(buildOptions.name);
+                const linkedBundle = linkedBundlesByName[buildOptions.name];
                 if (linkedBundle === undefined) {
                     throw new Error(`Linked bundle for package "${buildOptions.name}" is missing`);
                 }

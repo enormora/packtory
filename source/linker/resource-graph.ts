@@ -1,4 +1,5 @@
 import type { Project } from 'ts-morph';
+import { filter, map, pipe } from 'remeda';
 import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
@@ -17,13 +18,15 @@ function collectResourceSpecificExternalDependencies(
     resource: BundleResource,
     externalDependencies: ExternalDependencies
 ): readonly string[] {
-    return Array.from(externalDependencies.values())
-        .filter((dependency) => {
+    return pipe(
+        Array.from(externalDependencies.values()),
+        filter((dependency) => {
             return dependency.referencedFrom.includes(resource.fileDescription.sourceFilePath);
-        })
-        .map((dependency) => {
+        }),
+        map((dependency) => {
             return dependency.name;
-        });
+        })
+    );
 }
 
 export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceGraph {

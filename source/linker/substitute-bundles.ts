@@ -35,19 +35,25 @@ function findAllPathReplacements(
     files: readonly string[],
     bundleDependencies: readonly BundleSubstitutionSource[]
 ): Replacements {
-    const allReplacements = new Map<string, string>();
-    const usedBundleDependencies: string[] = [];
-
-    for (const file of files) {
+    const matched = files.flatMap((file) => {
         const result = findReplacement(file, bundleDependencies);
-        if (result.isJust) {
-            const { targetPath, packageName } = result.value;
-            allReplacements.set(file, targetPath);
-            usedBundleDependencies.push(packageName);
+        if (!result.isJust) {
+            return [];
         }
-    }
+        const { targetPath, packageName } = result.value;
+        return [{ file, targetPath, packageName }];
+    });
 
-    return { importPathReplacements: allReplacements, bundleDependencies: usedBundleDependencies };
+    return {
+        importPathReplacements: new Map(
+            matched.map((entry) => {
+                return [entry.file, entry.targetPath];
+            })
+        ),
+        bundleDependencies: matched.map((entry) => {
+            return entry.packageName;
+        })
+    };
 }
 
 export function substituteDependencies(

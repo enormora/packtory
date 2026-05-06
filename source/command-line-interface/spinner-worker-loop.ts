@@ -1,3 +1,4 @@
+import { times } from 'remeda';
 import { bold, green, red } from 'yoctocolors';
 import {
     createSpinnerSharedAccessors,
@@ -71,11 +72,9 @@ function formatLine(snapshot: SlotSnapshot, frameIndex: number, columns: number)
 }
 
 function readAllSnapshots(accessors: SpinnerSharedAccessors): SlotSnapshot[] {
-    const snapshots: SlotSnapshot[] = [];
-    for (let slotIndex = 0; slotIndex < accessors.layout.slotCount; slotIndex += 1) {
-        snapshots.push(readSlotSnapshot(accessors, slotIndex));
-    }
-    return snapshots;
+    return times(accessors.layout.slotCount, (slotIndex) => {
+        return readSlotSnapshot(accessors, slotIndex);
+    });
 }
 
 function findHighestActiveSlotIndex(snapshots: readonly SlotSnapshot[]): number {

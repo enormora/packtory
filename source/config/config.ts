@@ -33,6 +33,8 @@ export type PackageConfig = {
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
 };
 
+export type PackageConfigsByName = Readonly<Record<string, PackageConfig>>;
+
 const bundledDependencyPropertyNames = ['bundleDependencies', 'bundlePeerDependencies'] as const;
 
 export function getBundledDependencies(packageConfig: PackageConfig): readonly string[] {

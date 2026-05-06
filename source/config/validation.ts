@@ -1,5 +1,6 @@
 import { Result } from 'true-myth';
 import { safeParse } from '@schema-hub/zod-error-formatter';
+import { indexBy } from 'remeda';
 import type { ZodMiniType } from 'zod/mini';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
 import {
@@ -7,19 +8,20 @@ import {
     type ChecksSettings,
     type PacktoryConfig,
     type PackageConfig,
+    type PackageConfigsByName,
     type PacktoryConfigWithoutRegistry
 } from './config.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
 import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 
-function buildPackageGraph(packages: ReadonlyMap<string, PackageConfig>): DirectedGraph<string, undefined> {
+function buildPackageGraph(packages: PackageConfigsByName): DirectedGraph<string, undefined> {
     const graph = createDirectedGraph<string, undefined>();
 
-    for (const packageConfig of packages.values()) {
+    for (const packageConfig of Object.values(packages)) {
         graph.addNode(packageConfig.name, undefined);
     }
 
-    for (const packageConfig of packages.values()) {
+    for (const packageConfig of Object.values(packages)) {
         for (const dependency of getBundledDependencies(packageConfig)) {
             graph.connect({ from: packageConfig.name, to: dependency });
         }
@@ -45,9 +47,9 @@ function validateDependenciesExistForSinglePackage(
         });
 }
 
-function validateDependenciesExist(packageConfigs: Map<string, PackageConfig>): readonly string[] {
-    const knownPackageNames = Array.from(packageConfigs.keys());
-    return Array.from(packageConfigs.values()).flatMap((packageConfig) => {
+function validateDependenciesExist(packageConfigs: PackageConfigsByName): readonly string[] {
+    const knownPackageNames = Object.keys(packageConfigs);
+    return Object.values(packageConfigs).flatMap((packageConfig) => {
         return [
             ...validateDependenciesExistForSinglePackage(
                 packageConfig.name,
@@ -65,15 +67,14 @@ function validateDependenciesExist(packageConfigs: Map<string, PackageConfig>): 
     });
 }
 
-function packageListToMap(packages: readonly PackageConfig[]): Map<string, PackageConfig> {
-    return packages.reduce((map, packageConfig) => {
-        map.set(packageConfig.name, packageConfig);
-        return map;
-    }, new Map<string, PackageConfig>());
+function packageListToRecord(packages: readonly PackageConfig[]): PackageConfigsByName {
+    return indexBy(packages, (packageConfig) => {
+        return packageConfig.name;
+    });
 }
 
 function validateNoDuplicatedFilesAllowList(
-    packageConfigs: ReadonlyMap<string, PackageConfig>,
+    packageConfigs: PackageConfigsByName,
     checks: ChecksSettings | undefined
 ): readonly string[] {
     const allowList = checks?.noDuplicatedFiles?.allowList;
@@ -86,7 +87,7 @@ function validateNoDuplicatedFilesAllowList(
         }
         return entry.packages
             .filter((name) => {
-                return !packageConfigs.has(name);
+                return !Object.hasOwn(packageConfigs, name);
             })
             .map((name) => {
                 return `Allow list entry for "${entry.filePath}" references unknown package "${name}"`;
@@ -117,7 +118,7 @@ function validateCyclicDependencies(packageGraph: DirectedGraph<string, undefine
 
 type GraphGenerationPossibleResult<TConfig extends { packages: readonly PackageConfig[] }> = {
     readonly packtoryConfig: TConfig;
-    readonly packageConfigs: Map<string, PackageConfig>;
+    readonly packageConfigs: PackageConfigsByName;
 };
 
 type ConfigWithGraphInternal<TConfig extends { packages: readonly PackageConfig[] }> =
@@ -136,7 +137,7 @@ function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWith
     }
 
     const packtoryConfig: TConfig = schemaValidationResult.data;
-    const packageConfigs = packageListToMap(packtoryConfig.packages);
+    const packageConfigs = packageListToRecord(packtoryConfig.packages);
 
     const preGraphIssues = [
         ...validateDependenciesExist(packageConfigs),

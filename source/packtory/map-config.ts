@@ -1,4 +1,10 @@
-import type { PackageConfig, PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import { indexBy, values } from 'remeda';
+import type {
+    PackageConfig,
+    PackageConfigsByName,
+    PacktoryConfig,
+    PacktoryConfigWithoutRegistry
+} from '../config/config.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
 import type { RegistrySettings } from '../config/registry-settings.ts';
@@ -32,14 +38,12 @@ function dependencyNamesToBundles<TBundle extends { name: string }>(
     dependencyNames: readonly string[],
     bundles: readonly TBundle[]
 ): readonly TBundle[] {
-    const bundlesByName = new Map(
-        bundles.map((bundle) => {
-            return [bundle.name, bundle] as const;
-        })
-    );
+    const bundlesByName = indexBy(bundles, (bundle) => {
+        return bundle.name;
+    });
 
     return dependencyNames.map((dependencyName) => {
-        const matchingBundle = bundlesByName.get(dependencyName);
+        const matchingBundle = bundlesByName[dependencyName];
         if (matchingBundle === undefined) {
             throw new Error(`Dependent bundle "${dependencyName}" not found`);
         }
@@ -51,14 +55,11 @@ function mergeAdditionalFiles(
     firstFiles: readonly AdditionalFileDescription[] = [],
     secondFiles: readonly AdditionalFileDescription[] = []
 ): readonly AdditionalFileDescription[] {
-    const filesWithUniqueTargetPath = new Map<string, AdditionalFileDescription>();
-    for (const file of firstFiles) {
-        filesWithUniqueTargetPath.set(file.targetFilePath, file);
-    }
-    for (const file of secondFiles) {
-        filesWithUniqueTargetPath.set(file.targetFilePath, file);
-    }
-    return Array.from(filesWithUniqueTargetPath.values());
+    return values(
+        indexBy([...firstFiles, ...secondFiles], (file) => {
+            return file.targetFilePath;
+        })
+    );
 }
 
 type PreparedPackageOptions<TBundle extends { name: string }> = {
@@ -66,8 +67,8 @@ type PreparedPackageOptions<TBundle extends { name: string }> = {
     readonly versioning: VersioningSettings;
 };
 
-function getPackageConfig(packageName: string, packageConfigs: Map<string, PackageConfig>): PackageConfig {
-    const packageConfig = packageConfigs.get(packageName);
+function getPackageConfig(packageName: string, packageConfigs: PackageConfigsByName): PackageConfig {
+    const packageConfig = packageConfigs[packageName];
 
     if (packageConfig === undefined) {
         throw new Error(`Config for package "${packageName}" is missing`);
@@ -177,7 +178,7 @@ function buildSharedOptions<TBundle extends { name: string }>(
 
 function preparePackageOptions<TBundle extends { name: string }>(
     packageName: string,
-    packageConfigs: Map<string, PackageConfig>,
+    packageConfigs: PackageConfigsByName,
     packtoryConfig: PacktoryConfigWithoutRegistry,
     existingBundles: readonly TBundle[]
 ): PreparedPackageOptions<TBundle> {
@@ -190,7 +191,7 @@ function preparePackageOptions<TBundle extends { name: string }>(
 
 export function configToBuildAndPublishOptions(
     packageName: string,
-    packageConfigs: Map<string, PackageConfig>,
+    packageConfigs: PackageConfigsByName,
     packtoryConfig: PacktoryConfig,
     existingBundles: readonly VersionedBundleWithManifest[]
 ): BuildAndPublishOptions {
@@ -210,7 +211,7 @@ export function configToBuildAndPublishOptions(
 
 export function configToResolveAndLinkOptions(
     packageName: string,
-    packageConfigs: Map<string, PackageConfig>,
+    packageConfigs: PackageConfigsByName,
     packtoryConfig: PacktoryConfigWithoutRegistry,
     existingBundles: readonly BundleSubstitutionSource[]
 ): ResolveAndLinkOptions {

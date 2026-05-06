@@ -195,7 +195,7 @@ test('configToResolveAndLinkOptions() keeps package-specific overrides over inhe
 
             const result = configToResolveAndLinkOptions(
                 packageConfig.name,
-                new Map(
+                Object.fromEntries(
                     typedConfig.packages.map((entry) => {
                         return [entry.name, entry];
                     })

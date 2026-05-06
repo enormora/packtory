@@ -1,5 +1,6 @@
 import type { PackageJson, SetRequired } from 'type-fest';
 import { oneLine } from 'common-tags';
+import { mergeAll } from 'remeda';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
@@ -51,15 +52,18 @@ type GroupedDependencies = {
 };
 
 function mergeDependencyGroups(...groups: Readonly<GroupedDependencies>[]): Readonly<GroupedDependencies> {
-    const dependencies: Record<string, string> = {};
-    const peerDependencies: Record<string, string> = {};
-
-    for (const group of groups) {
-        Object.assign(dependencies, group.dependencies);
-        Object.assign(peerDependencies, group.peerDependencies);
-    }
-
-    return { dependencies, peerDependencies };
+    return {
+        dependencies: mergeAll(
+            groups.map((group) => {
+                return group.dependencies;
+            })
+        ),
+        peerDependencies: mergeAll(
+            groups.map((group) => {
+                return group.peerDependencies;
+            })
+        )
+    };
 }
 
 function groupBundleDependencies(

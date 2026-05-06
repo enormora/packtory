@@ -1,24 +1,11 @@
 import type { PackageJson } from 'type-fest';
-import { compareValues, type ComparisonResult } from './sort-values.ts';
+import { entries, fromEntries, isPlainObject, mapValues, pipe, sortBy } from 'remeda';
+import { compareValues } from './sort-values.ts';
 
 const indentationSize = 4;
 
-type UnknownRecord = Record<string, unknown>;
-type UnknownRecordEntry = readonly [key: string, value: unknown];
-
 function isArray(value: unknown): value is unknown[] {
     return Array.isArray(value);
-}
-
-function compareEntryKeys(entryA: UnknownRecordEntry, entryB: UnknownRecordEntry): ComparisonResult {
-    const [keyA] = entryA;
-    const [keyB] = entryB;
-
-    return compareValues(keyA, keyB);
-}
-
-function isRecord(value: unknown): value is UnknownRecord {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function assertNoCircularStructures(value: unknown): void {
@@ -42,14 +29,15 @@ function deepSortValue(value: unknown): unknown {
         return value.map(deepSortValue).toSorted(compareValues);
     }
 
-    if (isRecord(value)) {
-        const entries = Object.entries(value);
-        entries.sort(compareEntryKeys);
-
-        return Object.fromEntries(
-            entries.map(([propertyName, propertyValue]) => {
-                return [propertyName, deepSortValue(propertyValue)];
-            })
+    if (isPlainObject(value)) {
+        return pipe(
+            value,
+            mapValues(deepSortValue),
+            entries(),
+            sortBy((entry) => {
+                return entry[0];
+            }),
+            fromEntries()
         );
     }
 

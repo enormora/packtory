@@ -1,4 +1,5 @@
 import { isBuiltin } from 'node:module';
+import { isDefined } from 'remeda';
 import { ts, type SourceFile, type StringLiteral } from 'ts-morph';
 
 export function resolveSourceFileForLiteral(
@@ -19,10 +20,6 @@ export function resolveSourceFileForLiteral(
     }
 
     return undefined;
-}
-
-function isDefined<T>(value: T): value is Exclude<T, undefined> {
-    return value !== undefined;
 }
 
 export function getReferencedSourceFiles(sourceFile: Readonly<SourceFile>): readonly Readonly<SourceFile>[] {
