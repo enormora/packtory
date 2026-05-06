@@ -148,6 +148,15 @@ function createBuildAndPublishOptions(): BuildAndPublishOptions {
     };
 }
 
+async function tryBuildAndPublishDefault(
+    processor: ReturnType<typeof createPackageProcessor>
+): ReturnType<ReturnType<typeof createPackageProcessor>['tryBuildAndPublish']> {
+    return processor.tryBuildAndPublish({
+        linkedBundle: createLinkedBundle(),
+        buildOptions: createBuildAndPublishOptions()
+    });
+}
+
 function getCallArgs(spy: SinonSpy): unknown[][] {
     return spy.getCalls().map((call): unknown[] => {
         return Array.from(call.args);
@@ -245,10 +254,7 @@ test('tryBuildAndPublish() rebuilds with an increased version for the first publ
         increaseVersion: fake.returns(rebuiltBundle)
     });
 
-    const result = await processor.tryBuildAndPublish({
-        linkedBundle: createLinkedBundle(),
-        buildOptions: createBuildAndPublishOptions()
-    });
+    const result = await tryBuildAndPublishDefault(processor);
 
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'initial-version' });
     assert.deepStrictEqual(determineCurrentVersion.firstCall.args, [
@@ -273,10 +279,7 @@ test('tryBuildAndPublish() returns new-version when the package already has a pu
         increaseVersion: fake.returns(rebuiltBundle)
     });
 
-    const result = await processor.tryBuildAndPublish({
-        linkedBundle: createLinkedBundle(),
-        buildOptions: createBuildAndPublishOptions()
-    });
+    const result = await tryBuildAndPublishDefault(processor);
 
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'new-version' });
 });

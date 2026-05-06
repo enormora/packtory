@@ -30,26 +30,22 @@ function fileManagerFactory(overrides: Overrides = {}): FileManager {
     return createFileManager(dependencies);
 }
 
-test('checkReadability() returns isReadable true when access() resolves', async () => {
-    const access = fake.resolves(undefined);
+async function expectCheckReadability(access: SinonSpy, expectedReadable: boolean): Promise<void> {
     const fileManager = fileManagerFactory({ access });
 
     const result = await fileManager.checkReadability('/foo/bar.txt');
 
     assert.strictEqual(access.callCount, 1);
     assert.deepStrictEqual(access.firstCall.args, ['/foo/bar.txt', fs.constants.R_OK]);
-    assert.deepStrictEqual(result, { isReadable: true });
+    assert.deepStrictEqual(result, { isReadable: expectedReadable });
+}
+
+test('checkReadability() returns isReadable true when access() resolves', async () => {
+    await expectCheckReadability(fake.resolves(undefined), true);
 });
 
 test('checkReadability() returns isReadable false when access() rejects', async () => {
-    const access = fake.rejects(undefined);
-    const fileManager = fileManagerFactory({ access });
-
-    const result = await fileManager.checkReadability('/foo/bar.txt');
-
-    assert.strictEqual(access.callCount, 1);
-    assert.deepStrictEqual(access.firstCall.args, ['/foo/bar.txt', fs.constants.R_OK]);
-    assert.deepStrictEqual(result, { isReadable: false });
+    await expectCheckReadability(fake.rejects(undefined), false);
 });
 
 test('writeFile() writes the given content to the given file when the parent folder exists', async () => {
@@ -65,13 +61,18 @@ test('writeFile() writes the given content to the given file when the parent fol
     assert.deepStrictEqual(writeFile.firstCall.args, ['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]);
 });
 
-test('writeFile() recursively creates the parent folder and then writes the given content to the given file when the parent folder does not exist', async () => {
-    const access = fake.rejects(undefined);
+async function runWriteFile(access: SinonSpy): Promise<{ readonly writeFile: SinonSpy; readonly mkdir: SinonSpy }> {
     const writeFile = fake.resolves(undefined);
     const mkdir = fake.resolves(undefined);
     const fileManager = fileManagerFactory({ access, writeFile, mkdir });
 
     await fileManager.writeFile('/foo/bar.txt', 'the-content');
+    return { writeFile, mkdir };
+}
+
+test('writeFile() recursively creates the parent folder and then writes the given content to the given file when the parent folder does not exist', async () => {
+    const access = fake.rejects(undefined);
+    const { writeFile, mkdir } = await runWriteFile(access);
 
     assert.deepStrictEqual(access.args, [['/foo', fs.constants.R_OK]]);
     assert.deepStrictEqual(mkdir.args, [['/foo', { recursive: true }]]);
@@ -79,12 +80,7 @@ test('writeFile() recursively creates the parent folder and then writes the give
 });
 
 test('writeFile() does not create the parent folder when it is already readable', async () => {
-    const access = fake.resolves(undefined);
-    const writeFile = fake.resolves(undefined);
-    const mkdir = fake.resolves(undefined);
-    const fileManager = fileManagerFactory({ access, writeFile, mkdir });
-
-    await fileManager.writeFile('/foo/bar.txt', 'the-content');
+    const { writeFile, mkdir } = await runWriteFile(fake.resolves(undefined));
 
     assert.strictEqual(mkdir.callCount, 0);
     assert.deepStrictEqual(writeFile.args, [['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]]);

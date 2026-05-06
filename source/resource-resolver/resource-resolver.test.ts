@@ -82,6 +82,15 @@ function createResolver(overrides: Overrides = {}): {
     };
 }
 
+const baseResolveOptions = {
+    name: 'package-a',
+    sourcesFolder: '/src',
+    entryPoints: [{ js: '/src/index.js' }] as const,
+    includeSourceMapFiles: false,
+    additionalFiles: [] as readonly string[],
+    moduleResolution: 'module' as const
+};
+
 function configureScanForJsAndDeclarationGraphs(
     jsGraph: ReturnType<typeof createDependencyGraph>,
     declarationGraph: ReturnType<typeof createDependencyGraph>
@@ -98,12 +107,9 @@ test('resolve() scans js entry points and additional files and returns their fil
     const { resolver } = createResolver({ scan });
 
     const result = await resolver.resolve({
-        name: 'package-a',
-        sourcesFolder: '/src',
-        entryPoints: [{ js: '/src/index.js' }],
+        ...baseResolveOptions,
         includeSourceMapFiles: true,
-        additionalFiles: ['readme.md'],
-        moduleResolution: 'module'
+        additionalFiles: ['readme.md']
     });
 
     assert.deepStrictEqual(scan.firstCall.args, [
@@ -123,14 +129,7 @@ test('resolve() keeps declarationFile undefined when an entry point does not def
     const scan = fake.resolves(jsGraph);
     const { resolver } = createResolver({ scan });
 
-    const result = await resolver.resolve({
-        name: 'package-a',
-        sourcesFolder: '/src',
-        entryPoints: [{ js: '/src/index.js' }],
-        includeSourceMapFiles: false,
-        additionalFiles: [],
-        moduleResolution: 'module'
-    });
+    const result = await resolver.resolve(baseResolveOptions);
 
     assert.strictEqual(result.entryPoints[0].declarationFile, undefined);
 });

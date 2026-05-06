@@ -8,6 +8,7 @@
         "source/**/*.type-test.ts",
         "source/test-libraries/**/*.ts",
         "source/**/*.entry-point.ts",
+        "source/packages/**/*.composition.ts",
         "integration-tests/**",
         "target/**"
     ],

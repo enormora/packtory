@@ -2,11 +2,24 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
+import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import {
     type ArtifactsBuilder,
     type ArtifactsBuilderDependencies,
     createArtifactsBuilder
 } from './artifacts-builder.ts';
+
+function bundleWithContents(
+    contents: readonly LinkedBundleResource[],
+    manifestFilePath = ''
+): ReturnType<typeof versionedBundleWithManifest> {
+    return versionedBundleWithManifest({
+        contents,
+        packageJson: { name: 'the-name', version: 'the-version' },
+        name: manifestFilePath === '' ? '' : 'the-name',
+        manifestFile: { content: manifestFilePath === '' ? '' : '{}', isExecutable: false, filePath: manifestFilePath }
+    });
+}
 
 type Overrides = {
     readonly readFile?: SinonSpy;
@@ -49,21 +62,24 @@ function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
     return createArtifactsBuilder(dependencies);
 }
 
+function makeContent(targetFilePath: string, content: string, isSubstituted = false): LinkedBundleResource {
+    return {
+        isSubstituted,
+        isExplicitlyIncluded: false,
+        directDependencies: new Set(),
+        fileDescription: {
+            content,
+            isExecutable: false,
+            sourceFilePath: '/foo/bar.txt',
+            targetFilePath
+        }
+    };
+}
+
 test('buildTarball() returns the tarData and its shasum', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([42])) };
     const builder = artifactsBuilderFactory({ tarballBuilder });
-    const result = await builder.buildTarball({
-        contents: [],
-        packageJson: { name: 'the-name', version: 'the-version' },
-        name: 'the-name',
-        version: '',
-        dependencies: {},
-        peerDependencies: {},
-        additionalAttributes: {},
-        mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-        packageType: 'module',
-        manifestFile: { content: '', isExecutable: false, filePath: '' }
-    });
+    const result = await builder.buildTarball(bundleWithContents([]));
 
     assert.deepStrictEqual(result, {
         tarData: Buffer.from([42]),
@@ -75,52 +91,11 @@ test('buildTarball() passes all given contents to the tarballBuilder', async () 
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
     const builder = artifactsBuilderFactory({ tarballBuilder });
     const contents: LinkedBundleResource[] = [
-        {
-            isSubstituted: false,
-            isExplicitlyIncluded: false,
-            directDependencies: new Set(),
-            fileDescription: {
-                content: 'bar',
-                isExecutable: false,
-                sourceFilePath: '/foo/bar.txt',
-                targetFilePath: 'bar.txt'
-            }
-        },
-        {
-            isSubstituted: false,
-            isExplicitlyIncluded: false,
-            directDependencies: new Set(),
-            fileDescription: {
-                content: 'baz',
-                isExecutable: false,
-                sourceFilePath: '/foo/bar.txt',
-                targetFilePath: 'baz.txt'
-            }
-        },
-        {
-            isSubstituted: true,
-            isExplicitlyIncluded: false,
-            directDependencies: new Set(),
-            fileDescription: {
-                content: 'qux',
-                isExecutable: false,
-                sourceFilePath: '/foo/bar.txt',
-                targetFilePath: 'qux.txt'
-            }
-        }
+        makeContent('bar.txt', 'bar'),
+        makeContent('baz.txt', 'baz'),
+        makeContent('qux.txt', 'qux', true)
     ];
-    await builder.buildTarball({
-        contents,
-        packageJson: { name: 'the-name', version: 'the-version' },
-        name: 'the-name',
-        version: '',
-        dependencies: {},
-        peerDependencies: {},
-        additionalAttributes: {},
-        mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-        packageType: 'module',
-        manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
-    });
+    await builder.buildTarball(bundleWithContents(contents, 'package.json'));
 
     assert.strictEqual(tarballBuilder.build.callCount, 1);
     assert.deepStrictEqual(tarballBuilder.build.firstCall.args, [
@@ -138,21 +113,7 @@ test('buildFolder() writes only the manifest when the given bundle has no conten
     const checkReadability = fake.resolves({ isReadable: false });
     const builder = artifactsBuilderFactory({ writeFile, checkReadability });
 
-    await builder.buildFolder(
-        {
-            contents: [],
-            packageJson: { name: 'the-name', version: 'the-version' },
-            name: '',
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
-        },
-        '/the/target/folder'
-    );
+    await builder.buildFolder(bundleWithContents([], 'package.json'), '/the/target/folder');
 
     assert.strictEqual(writeFile.callCount, 1);
     assert.deepStrictEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
@@ -163,21 +124,7 @@ test('buildFolder() throws when the target folder already exists', async () => {
     const builder = artifactsBuilderFactory({ checkReadability });
 
     try {
-        await builder.buildFolder(
-            {
-                contents: [],
-                packageJson: { name: 'the-name', version: 'the-version' },
-                name: '',
-                version: '',
-                dependencies: {},
-                peerDependencies: {},
-                additionalAttributes: {},
-                mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-                packageType: 'module',
-                manifestFile: { content: '', isExecutable: false, filePath: '' }
-            },
-            '/the/target/folder'
-        );
+        await builder.buildFolder(bundleWithContents([]), '/the/target/folder');
         assert.fail('Expected buildFolder() to throw but it did not');
     } catch (error: unknown) {
         assert.strictEqual(checkReadability.callCount, 1);
@@ -190,34 +137,8 @@ test('buildFolder() writes the source of a source bundle content to the given ta
     const writeFile = fake.resolves(undefined);
     const checkReadability = fake.resolves({ isReadable: false });
     const builder = artifactsBuilderFactory({ writeFile, checkReadability });
-    const contents: LinkedBundleResource[] = [
-        {
-            isSubstituted: false,
-            isExplicitlyIncluded: false,
-            directDependencies: new Set(),
-            fileDescription: {
-                content: 'the-content',
-                isExecutable: false,
-                sourceFilePath: '/foo/bar.txt',
-                targetFilePath: 'bar/baz.txt'
-            }
-        }
-    ];
-    await builder.buildFolder(
-        {
-            contents,
-            packageJson: { name: 'the-name', version: 'the-version' },
-            name: '',
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            packageType: 'module',
-            manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
-        },
-        '/the/target/folder'
-    );
+    const contents: LinkedBundleResource[] = [makeContent('bar/baz.txt', 'the-content')];
+    await builder.buildFolder(bundleWithContents(contents, 'package.json'), '/the/target/folder');
 
     assert.strictEqual(writeFile.callCount, 2);
     assert.deepStrictEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
@@ -228,52 +149,11 @@ test('collectContents() returns the list of file descriptions of the given bundl
     const readFile = fake.resolves('bar');
     const builder = artifactsBuilderFactory({ readFile });
     const contents: LinkedBundleResource[] = [
-        {
-            isSubstituted: false,
-            isExplicitlyIncluded: false,
-            directDependencies: new Set(),
-            fileDescription: {
-                content: 'bar',
-                isExecutable: false,
-                sourceFilePath: '/foo/bar.txt',
-                targetFilePath: 'bar.txt'
-            }
-        },
-        {
-            isSubstituted: false,
-            isExplicitlyIncluded: false,
-            directDependencies: new Set(),
-            fileDescription: {
-                content: 'baz',
-                isExecutable: false,
-                sourceFilePath: '/foo/bar.txt',
-                targetFilePath: 'baz.txt'
-            }
-        },
-        {
-            isSubstituted: true,
-            isExplicitlyIncluded: false,
-            directDependencies: new Set(),
-            fileDescription: {
-                content: 'qux',
-                isExecutable: false,
-                sourceFilePath: '/foo/bar.txt',
-                targetFilePath: 'qux.txt'
-            }
-        }
+        makeContent('bar.txt', 'bar'),
+        makeContent('baz.txt', 'baz'),
+        makeContent('qux.txt', 'qux', true)
     ];
-    const result = builder.collectContents({
-        contents,
-        packageJson: { name: 'the-name', version: 'the-version' },
-        name: '',
-        version: '',
-        dependencies: {},
-        peerDependencies: {},
-        additionalAttributes: {},
-        mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-        packageType: 'module',
-        manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
-    });
+    const result = builder.collectContents(bundleWithContents(contents, 'package.json'));
 
     assert.deepStrictEqual(result, [
         { filePath: 'package.json', content: '{}', isExecutable: false },

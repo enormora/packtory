@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { stub, fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import type { DependencyFiles } from './dependency-graph.ts';
 import { createDependencyScanner, type DependencyScanner, type DependencyScannerDependencies } from './scanner.ts';
 
 type ProjectOverrides = {
@@ -114,18 +115,25 @@ test('scans the dependencies of the given entryPoint file', async () => {
     assert.deepStrictEqual(getReferencedSourceFilePaths.firstCall.args, ['/foo/bar.js']);
 });
 
-test('returns no dependencies if the given file doesn’t have any dependencies', async () => {
+async function expectScanReturnsOnlyEntry(scanArgs: Parameters<DependencyScanner['scan']>): Promise<void> {
     const getReferencedSourceFilePaths = fake.returns([]);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+    const dependencyScanner = dependencyScannerFactory({
+        analyzeProject,
+        locate: fake.resolves(Maybe.just('/dir/foo.map'))
+    });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir');
+    const graph = await dependencyScanner.scan(...scanArgs);
     const result = graph.flatten('/dir/entry.js');
 
     assert.deepStrictEqual(result, {
         localFiles: [{ directDependencies: new Set(), filePath: '/dir/entry.js', project: {} }],
         externalDependencies: new Map()
     });
+}
+
+test('returns no dependencies if the given file doesn’t have any dependencies', async () => {
+    await expectScanReturnsOnlyEntry(['/dir/entry.js', '/dir']);
 });
 
 test('doesn’t try to locate source map files by default', async () => {
@@ -157,14 +165,18 @@ test('tries to locate source map files for all local files when includeSourceMap
     assert.deepStrictEqual(locate.thirdCall.args, ['/dir/bar.js']);
 });
 
-test('returns no additional dependencies for source maps if they don’t exist', async () => {
-    const locate = fake.resolves(Maybe.nothing());
+async function scanWithSourceMapLocate(locate: SinonSpy): Promise<DependencyFiles> {
     const getReferencedSourceFilePaths = fake.returns([]);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject, locate });
 
     const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { includeSourceMapFiles: true });
-    const result = graph.flatten('/dir/entry.js');
+    return graph.flatten('/dir/entry.js');
+}
+
+test('returns no additional dependencies for source maps if they don’t exist', async () => {
+    const locate = fake.resolves(Maybe.nothing());
+    const result = await scanWithSourceMapLocate(locate);
 
     assert.strictEqual(locate.callCount, 1);
     assert.deepStrictEqual(result, {
@@ -174,13 +186,7 @@ test('returns no additional dependencies for source maps if they don’t exist',
 });
 
 test('returns additional dependencies for source maps if they exist', async () => {
-    const locate = fake.resolves(Maybe.just('/dir/foo.map'));
-    const getReferencedSourceFilePaths = fake.returns([]);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject, locate });
-
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { includeSourceMapFiles: true });
-    const result = graph.flatten('/dir/entry.js');
+    const result = await scanWithSourceMapLocate(fake.resolves(Maybe.just('/dir/foo.map')));
 
     assert.deepStrictEqual(result, {
         localFiles: [
@@ -192,18 +198,7 @@ test('returns additional dependencies for source maps if they exist', async () =
 });
 
 test('returns no additional dependencies for source maps if they exist, but includeSourceMapFiles is false', async () => {
-    const locate = fake.resolves(Maybe.just('/dir/foo.map'));
-    const getReferencedSourceFilePaths = fake.returns([]);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject, locate });
-
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { includeSourceMapFiles: false });
-    const result = graph.flatten('/dir/entry.js');
-
-    assert.deepStrictEqual(result, {
-        localFiles: [{ directDependencies: new Set(), filePath: '/dir/entry.js', project: {} }],
-        externalDependencies: new Map()
-    });
+    await expectScanReturnsOnlyEntry(['/dir/entry.js', '/dir', { includeSourceMapFiles: false }]);
 });
 
 test('returns the local dependency files', async () => {
@@ -251,46 +246,43 @@ test('returns the local dependency files found in subsequent dependencies', asyn
     ]);
 });
 
-test('doesn’t include any files from node_modules in localFiles', async () => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/foo.js', '/dir/node_modules/any-module/bar.js']);
+async function scanWithReferencedPaths(referencedPaths: readonly string[]): Promise<DependencyFiles> {
+    const getReferencedSourceFilePaths = fake.returns(referencedPaths);
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
     const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
-    const result = graph.flatten('/dir/entry.js');
+    return graph.flatten('/dir/entry.js');
+}
+
+async function expectLocalFilesContainOnlyFoo(referencedPaths: readonly string[]): Promise<void> {
+    const result = await scanWithReferencedPaths(referencedPaths);
 
     assert.deepStrictEqual(result.localFiles, [
         { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/entry.js', project: {} },
         { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/foo.js', project: {} }
     ]);
+}
+
+test('doesn’t include any files from node_modules in localFiles', async () => {
+    await expectLocalFilesContainOnlyFoo(['/dir/foo.js', '/dir/node_modules/any-module/bar.js']);
 });
 
-test('returns all detected node_modules dependencies with its corresponding version', async () => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/any-module/foo.js']);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
-    const result = graph.flatten('/dir/entry.js');
+async function expectExternalDependency(scannedPath: string, expectedName: string): Promise<void> {
+    const result = await scanWithReferencedPaths([scannedPath]);
 
     assert.deepStrictEqual(
         result.externalDependencies,
-        new Map([['any-module', { name: 'any-module', referencedFrom: ['/dir/entry.js'] }]])
+        new Map([[expectedName, { name: expectedName, referencedFrom: ['/dir/entry.js'] }]])
     );
+}
+
+test('returns all detected node_modules dependencies with its corresponding version', async () => {
+    await expectExternalDependency('/dir/node_modules/any-module/foo.js', 'any-module');
 });
 
 test('returns the scoped package name for scoped node_modules dependencies', async () => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/node_modules/@scope/any-module/foo.js']);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
-    const result = graph.flatten('/dir/entry.js');
-
-    assert.deepStrictEqual(
-        result.externalDependencies,
-        new Map([['@scope/any-module', { name: '@scope/any-module', referencedFrom: ['/dir/entry.js'] }]])
-    );
+    await expectExternalDependency('/dir/node_modules/@scope/any-module/foo.js', '@scope/any-module');
 });
 
 test('throws an error when an invalid node_modules path is returned', async () => {
@@ -310,15 +302,5 @@ test('throws an error when an invalid node_modules path is returned', async () =
 });
 
 test('doesn’t include the same dependency twice', async () => {
-    const getReferencedSourceFilePaths = fake.returns(['/dir/foo.js', '/dir/foo.js']);
-    const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
-    const result = graph.flatten('/dir/entry.js');
-
-    assert.deepStrictEqual(result.localFiles, [
-        { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/entry.js', project: {} },
-        { directDependencies: new Set(['/dir/foo.js']), filePath: '/dir/foo.js', project: {} }
-    ]);
+    await expectLocalFilesContainOnlyFoo(['/dir/foo.js', '/dir/foo.js']);
 });

@@ -1,6 +1,64 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { fooPackageConfigFactory } from '../test-libraries/config-fixtures.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { configToBuildAndPublishOptions } from './map-config.ts';
+
+type ConfigArgs = Parameters<typeof configToBuildAndPublishOptions>;
+type PackageConfigInput = ConfigArgs[1] extends Map<string, infer V> ? V : never;
+type PacktoryConfigInput = ConfigArgs[2];
+
+const placeholderPackage = fooPackageConfigFactory.build({ name: '', sourcesFolder: '' });
+
+function fooPackageWithAdditionalFiles(
+    additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string }[]
+): ReturnType<typeof fooPackageConfigFactory.build> & {
+    readonly additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string }[];
+} {
+    return { ...fooPackageConfigFactory.build(), additionalFiles };
+}
+
+function runMapConfig(
+    packageConfig: PackageConfigInput,
+    options: {
+        readonly commonPackageSettings?: PacktoryConfigInput['commonPackageSettings'];
+        readonly bundleDependencies?: readonly VersionedBundleWithManifest[];
+        readonly packageName?: string;
+        readonly extraConfig?: Partial<PacktoryConfigInput>;
+        readonly extraPackages?: readonly PackageConfigInput[];
+    } = {}
+): ReturnType<typeof configToBuildAndPublishOptions> {
+    const packageName = options.packageName ?? 'foo';
+    const additionalPackages = options.extraPackages ?? [placeholderPackage];
+    const baseConfig = {
+        registrySettings: { token: '' },
+        ...options.extraConfig,
+        ...(options.commonPackageSettings === undefined
+            ? {}
+            : { commonPackageSettings: options.commonPackageSettings }),
+        packages: [packageConfig, ...additionalPackages]
+    } as unknown as PacktoryConfigInput;
+    return configToBuildAndPublishOptions(
+        packageName,
+        new Map([[packageName, packageConfig]]),
+        baseConfig,
+        options.bundleDependencies ?? []
+    );
+}
+
+function runMapConfigExpectingError(
+    packageConfig: PackageConfigInput,
+    expectedMessage: string,
+    options: Parameters<typeof runMapConfig>[1] = {}
+): void {
+    try {
+        runMapConfig(packageConfig, options);
+        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, expectedMessage);
+    }
+}
 
 test('throws when the given packageName doesn’t exist in the configs', () => {
     try {
@@ -20,118 +78,53 @@ test('throws when the given packageName doesn’t exist in the configs', () => {
 });
 
 test('throws when the sourcesFolder is missing after config merging', () => {
-    try {
-        configToBuildAndPublishOptions(
-            'foo',
-            new Map([['foo', { name: 'foo', entryPoints: [{ js: '' }], mainPackageJson: {} }]]),
-            {
-                registrySettings: { token: '' },
-                packages: [{ name: 'foo', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-            } as unknown as Parameters<typeof configToBuildAndPublishOptions>[2],
-            []
-        );
-        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Config for package "foo" is missing the sources folder');
-    }
+    runMapConfigExpectingError(
+        { name: 'foo', entryPoints: [{ js: '' }], mainPackageJson: {} } as unknown as PackageConfigInput,
+        'Config for package "foo" is missing the sources folder'
+    );
 });
 
 test('throws when the main package.json settings are missing after config merging', () => {
-    try {
-        configToBuildAndPublishOptions(
-            'foo',
-            new Map([['foo', { name: 'foo', sourcesFolder: '/src', entryPoints: [{ js: '' }] }]]),
-            {
-                registrySettings: { token: '' },
-                packages: [{ name: 'foo', sourcesFolder: '/src', entryPoints: [{ js: '' }] }]
-            } as unknown as Parameters<typeof configToBuildAndPublishOptions>[2],
-            []
-        );
-        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual(
-            (error as Error).message,
-            'Config for package "foo" is missing the main package.json settings'
-        );
-    }
+    runMapConfigExpectingError(
+        { name: 'foo', sourcesFolder: '/src', entryPoints: [{ js: '' }] } as unknown as PackageConfigInput,
+        'Config for package "foo" is missing the main package.json settings'
+    );
 });
 
 test('doesn’t change js entryPoints when they are already absolute paths', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '/the-entry-file' }],
-        mainPackageJson: {}
-    } as const;
+    const packageConfig = fooPackageConfigFactory.build({ entryPoints: [{ js: '/the-entry-file' }] });
 
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
 
     assert.deepStrictEqual(result.entryPoints, [{ js: '/the-entry-file' }]);
 });
 
 test('adds the sourcesFolder as a prefix to a js entryPoint when it is a relative path', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: 'the-entry-file' }],
-        mainPackageJson: {}
-    } as const;
+    const packageConfig = fooPackageConfigFactory.build({ entryPoints: [{ js: 'the-entry-file' }] });
 
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
 
     assert.deepStrictEqual(result.entryPoints, [{ js: 'the-source/the-entry-file' }]);
 });
 
 test('throws when a package has no entry points after config lookup', () => {
-    try {
-        configToBuildAndPublishOptions(
-            'foo',
-            new Map([['foo', { name: 'foo', sourcesFolder: 'the-source', entryPoints: [], mainPackageJson: {} }]]),
-            {
-                registrySettings: { token: '' },
-                packages: [{ name: 'foo', sourcesFolder: 'the-source', entryPoints: [], mainPackageJson: {} }]
-            } as unknown as Parameters<typeof configToBuildAndPublishOptions>[2],
-            []
-        );
-        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Config for package "foo" is missing entry points');
-    }
+    runMapConfigExpectingError(
+        {
+            name: 'foo',
+            sourcesFolder: 'the-source',
+            entryPoints: [],
+            mainPackageJson: {}
+        } as unknown as PackageConfigInput,
+        'Config for package "foo" is missing entry points'
+    );
 });
 
 test('normalizes every remaining entry point after the first one', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: 'first.js' }, { js: 'second.js', declarationFile: 'second.d.ts' }],
-        mainPackageJson: {}
-    } as const;
+    const packageConfig = fooPackageConfigFactory.build({
+        entryPoints: [{ js: 'first.js' }, { js: 'second.js', declarationFile: 'second.d.ts' }]
+    });
 
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
 
     assert.deepStrictEqual(result.entryPoints, [
         { js: 'the-source/first.js' },
@@ -140,277 +133,95 @@ test('normalizes every remaining entry point after the first one', () => {
 });
 
 test('doesn’t change declarationFile entryPoints when they are already absolute paths', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '/js-file', declarationFile: '/declaration-file' }],
-        mainPackageJson: {}
-    } as const;
+    const packageConfig = fooPackageConfigFactory.build({
+        entryPoints: [{ js: '/js-file', declarationFile: '/declaration-file' }]
+    });
 
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
 
     assert.deepStrictEqual(result.entryPoints, [{ js: '/js-file', declarationFile: '/declaration-file' }]);
 });
 
 test('adds the sourcesFolder as a prefix to a declarationFile entryPoint when it is a relative path', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '/js-file', declarationFile: 'declaration-file' }],
-        mainPackageJson: {}
-    } as const;
+    const packageConfig = fooPackageConfigFactory.build({
+        entryPoints: [{ js: '/js-file', declarationFile: 'declaration-file' }]
+    });
 
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
 
     assert.deepStrictEqual(result.entryPoints, [{ js: '/js-file', declarationFile: 'the-source/declaration-file' }]);
 });
 
 test('doesn’t change an additionalFile sourcePathFile when it is already an absolute path', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalFiles: [{ sourceFilePath: '/foo', targetFilePath: 'bar' }]
-    } as const;
+    const packageConfig = fooPackageWithAdditionalFiles([{ sourceFilePath: '/foo', targetFilePath: 'bar' }]);
 
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
 
     assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: '/foo', targetFilePath: 'bar' }]);
 });
 
 test('adds the sourceFolder as prefix to an additionalFile sourcePathFile when it is a relative path', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalFiles: [{ sourceFilePath: 'foo', targetFilePath: 'bar' }]
-    } as const;
+    const packageConfig = fooPackageWithAdditionalFiles([{ sourceFilePath: 'foo', targetFilePath: 'bar' }]);
 
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
 
     assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
 });
 
 test('throws an error when a bundle dependency does not exist', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        bundleDependencies: ['bar']
-    } as const;
-
-    try {
-        configToBuildAndPublishOptions(
-            'foo',
-            new Map([['foo', packageConfig]]),
-            {
-                registrySettings: { token: '' },
-                packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-            },
-            []
-        );
-        assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Dependent bundle "bar" not found');
-    }
+    runMapConfigExpectingError(
+        { ...fooPackageConfigFactory.build(), bundleDependencies: ['bar'] },
+        'Dependent bundle "bar" not found'
+    );
 });
 
 test('maps the bundle dependency names correctly to the VersionedBundleWithManifest objects when it exists', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        bundleDependencies: ['bar']
-    } as const;
-
-    const options = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-        },
-        [
-            {
-                contents: [],
-                packageJson: { name: 'bar', version: '' },
-                name: 'bar',
-                version: '',
-                dependencies: {},
-                peerDependencies: {},
-                additionalAttributes: {},
-                mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-                packageType: 'module',
-                manifestFile: { content: '', isExecutable: false, filePath: '' }
-            }
-        ]
+    const bundleDependency = versionedBundleWithManifest({
+        name: 'bar',
+        packageJson: { name: 'bar', version: '' }
+    });
+    const options = runMapConfig(
+        { ...fooPackageConfigFactory.build(), bundleDependencies: ['bar'] },
+        { bundleDependencies: [bundleDependency] }
     );
 
-    assert.deepStrictEqual(options.bundleDependencies, [
-        {
-            contents: [],
-            packageJson: { name: 'bar', version: '' },
-            name: 'bar',
-            version: '',
-            dependencies: {},
-            peerDependencies: {},
-            additionalAttributes: {},
-            mainFile: { content: '', isExecutable: false, sourceFilePath: '', targetFilePath: '' },
-            manifestFile: { content: '', filePath: '', isExecutable: false },
-            packageType: 'module'
-        }
-    ]);
+    assert.deepStrictEqual(options.bundleDependencies, [bundleDependency]);
 });
 
 test('defaults the includeSourceMapFiles option to false when it is not in the package config nor in common settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {}
-    } as const;
+    const result = runMapConfig(fooPackageConfigFactory.build());
 
-    const options = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-        },
-        []
-    );
-
-    assert.strictEqual(options.includeSourceMapFiles, false);
+    assert.strictEqual(result.includeSourceMapFiles, false);
 });
 
 test('sets the includeSourceMapFiles option to true when it is true in the per package config and not set in common settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        includeSourceMapFiles: true
-    } as const;
+    const result = runMapConfig({ ...fooPackageConfigFactory.build(), includeSourceMapFiles: true });
 
-    const options = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-        },
-        []
-    );
-
-    assert.strictEqual(options.includeSourceMapFiles, true);
+    assert.strictEqual(result.includeSourceMapFiles, true);
 });
 
 test('sets the includeSourceMapFiles option to true when it is not set in the per package config but set in common settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {}
-    } as const;
+    const result = runMapConfig(fooPackageConfigFactory.build(), {
+        commonPackageSettings: { includeSourceMapFiles: true }
+    });
 
-    const options = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                includeSourceMapFiles: true
-            },
-            packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-        },
-        []
-    );
-
-    assert.strictEqual(options.includeSourceMapFiles, true);
+    assert.strictEqual(result.includeSourceMapFiles, true);
 });
 
 test('sets the includeSourceMapFiles option to false when it is set to false the per package config and set to true in the common settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        includeSourceMapFiles: false
-    } as const;
-
-    const options = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                includeSourceMapFiles: true
-            },
-            packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
-        },
-        []
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), includeSourceMapFiles: false },
+        { commonPackageSettings: { includeSourceMapFiles: true } }
     );
 
-    assert.strictEqual(options.includeSourceMapFiles, false);
+    assert.strictEqual(result.includeSourceMapFiles, false);
 });
 
 test('merges the additional files if they are set both in common settings and per package settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalFiles: [{ sourceFilePath: 'foo', targetFilePath: 'bar' }]
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'qux' }]
-            },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageWithAdditionalFiles([{ sourceFilePath: 'foo', targetFilePath: 'bar' }]), {
+        commonPackageSettings: { additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'qux' }] },
+        extraPackages: []
+    });
 
     assert.deepStrictEqual(result.additionalFiles, [
         { sourceFilePath: 'the-source/baz', targetFilePath: 'qux' },
@@ -419,276 +230,107 @@ test('merges the additional files if they are set both in common settings and pe
 });
 
 test('overwrites the additional files from common settings when a per package setting defines a file with the same target', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalFiles: [{ sourceFilePath: 'foo', targetFilePath: 'bar' }]
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'bar' }]
-            },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageWithAdditionalFiles([{ sourceFilePath: 'foo', targetFilePath: 'bar' }]), {
+        commonPackageSettings: { additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'bar' }] },
+        extraPackages: []
+    });
 
     assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
 });
 
 test('uses only the additionalFiles from common settings when the per package settings don’t have additional files specified', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {}
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'bar' }]
-            },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageConfigFactory.build(), {
+        commonPackageSettings: { additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'bar' }] },
+        extraPackages: []
+    });
 
     assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
 });
 
 test('removes additional files which are duplicated by picking the last one', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalFiles: [
+    const result = runMapConfig(
+        fooPackageWithAdditionalFiles([
             { sourceFilePath: 'foo', targetFilePath: 'bar' },
             { sourceFilePath: 'baz', targetFilePath: 'bar' }
-        ]
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
+        ]),
+        { extraPackages: [] }
     );
 
     assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
 });
 
 test('sets additionalPackageJsonAttributes to an empty object when they are not defined at all', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {}
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
 
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, {});
 });
 
 test('sets additionalPackageJsonAttributes to the value of the per package settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalPackageJsonAttributes: { foo: 'bar' }
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), additionalPackageJsonAttributes: { foo: 'bar' } },
+        { extraPackages: [] }
     );
 
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
 });
 
 test('sets additionalPackageJsonAttributes to the value of the common settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {}
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                additionalPackageJsonAttributes: { foo: 'bar' }
-            },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageConfigFactory.build(), {
+        commonPackageSettings: { additionalPackageJsonAttributes: { foo: 'bar' } },
+        extraPackages: []
+    });
 
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
 });
 
 test('defaults moduleResolution to "module" when mainPackageJson.type is not set', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {}
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
 
     assert.strictEqual(result.moduleResolution, 'module');
 });
 
 test('uses the module package type as moduleResolution when mainPackageJson.type is set', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: { type: 'module' }
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageConfigFactory.build({ mainPackageJson: { type: 'module' } }), {
+        extraPackages: []
+    });
 
     assert.strictEqual(result.moduleResolution, 'module');
 });
 
 test('defaults versioning to automatic when the package config does not specify it', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {}
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
-    );
+    const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
 
     assert.deepStrictEqual(result.versioning, { automatic: true });
 });
 
 test('preserves explicit package versioning settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        versioning: { automatic: false, version: '2.3.4' }
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
-        {
-            registrySettings: { token: '' },
-            packages: [packageConfig]
-        },
-        []
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), versioning: { automatic: false, version: '2.3.4' } },
+        { extraPackages: [] }
     );
 
     assert.deepStrictEqual(result.versioning, { automatic: false, version: '2.3.4' });
 });
 
 test('merges additionalPackageJsonAttributes from per package and common settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalPackageJsonAttributes: { baz: 'qux' }
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), additionalPackageJsonAttributes: { baz: 'qux' } },
         {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                additionalPackageJsonAttributes: { foo: 'bar' }
-            },
-            packages: [packageConfig]
-        },
-        []
+            commonPackageSettings: { additionalPackageJsonAttributes: { foo: 'bar' } },
+            extraPackages: []
+        }
     );
 
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar', baz: 'qux' });
 });
 
 test('overwrites additionalPackageJsonAttributes from common settings when there are also defined in per package settings', () => {
-    const packageConfig = {
-        name: 'foo',
-        sourcesFolder: 'the-source',
-        entryPoints: [{ js: '' }],
-        mainPackageJson: {},
-        additionalPackageJsonAttributes: { foo: 'qux' }
-    } as const;
-
-    const result = configToBuildAndPublishOptions(
-        'foo',
-        new Map([['foo', packageConfig]]),
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), additionalPackageJsonAttributes: { foo: 'qux' } },
         {
-            registrySettings: { token: '' },
-            commonPackageSettings: {
-                additionalPackageJsonAttributes: { foo: 'bar' }
-            },
-            packages: [packageConfig]
-        },
-        []
+            commonPackageSettings: { additionalPackageJsonAttributes: { foo: 'bar' } },
+            extraPackages: []
+        }
     );
 
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'qux' });

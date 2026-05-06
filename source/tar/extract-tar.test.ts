@@ -13,12 +13,8 @@ test('returns an empty array when the given tar buffer has no files', async () =
     assert.deepStrictEqual(entries, []);
 });
 
-test('returns the extracted entries when the given tar buffer has files', async () => {
-    const builder = createTarballBuilder();
-    const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: false }]);
-    const entries = await extractTarEntries(tar);
-
-    assert.deepStrictEqual(entries, [
+function expectedSingleFileEntry(mode: number): unknown[] {
+    return [
         {
             content: 'bar',
             header: {
@@ -27,7 +23,7 @@ test('returns the extracted entries when the given tar buffer has files', async 
                 gid: 0,
                 gname: '',
                 linkname: null,
-                mode: 420,
+                mode,
                 mtime: new Date(0),
                 name: 'foo',
                 pax: null,
@@ -37,7 +33,15 @@ test('returns the extracted entries when the given tar buffer has files', async 
                 uname: ''
             }
         }
-    ]);
+    ];
+}
+
+test('returns the extracted entries when the given tar buffer has files', async () => {
+    const builder = createTarballBuilder();
+    const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: false }]);
+    const entries = await extractTarEntries(tar);
+
+    assert.deepStrictEqual(entries, expectedSingleFileEntry(420));
 });
 
 test('returns the extracted entries when the given tar buffer has files which are executable', async () => {
@@ -45,26 +49,7 @@ test('returns the extracted entries when the given tar buffer has files which ar
     const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: true }]);
     const entries = await extractTarEntries(tar);
 
-    assert.deepStrictEqual(entries, [
-        {
-            content: 'bar',
-            header: {
-                devmajor: 0,
-                devminor: 0,
-                gid: 0,
-                gname: '',
-                linkname: null,
-                mode: 493,
-                mtime: new Date(0),
-                name: 'foo',
-                pax: null,
-                size: 3,
-                type: 'file',
-                uid: 0,
-                uname: ''
-            }
-        }
-    ]);
+    assert.deepStrictEqual(entries, expectedSingleFileEntry(493));
 });
 
 test('returns every extracted entry in tar order when the tarball contains multiple files', async () => {
@@ -93,73 +78,45 @@ test('rejects when the given buffer is not a valid gzip tarball', async () => {
     }, Error);
 });
 
-test('rejects with an Error when iteration throws a non-Error value', async () => {
+async function runWithThrowingStream(thrown: () => never, expectedError: RegExp): Promise<void> {
     const throwingStream = {
         [Symbol.asyncIterator](): AsyncIterator<unknown> {
             return {
-                next: async (): Promise<IteratorResult<unknown>> => {
-                    // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- This test exercises non-Error rejection normalization.
-                    throw 'boom';
+                async next(): Promise<IteratorResult<unknown>> {
+                    thrown();
                 }
             };
         }
     };
-    const intermediateStream = {
-        pipe() {
-            return throwingStream;
-        }
-    };
+    const intermediateStream = { pipe: () => throwingStream };
     const source = {
         once() {
             return source;
         },
-        pipe() {
-            return intermediateStream;
-        }
+        pipe: () => intermediateStream
     };
     const stub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
 
     try {
         await assert.rejects(async () => {
             await extractTarEntries(Buffer.from('unused'));
-        }, /^Error: boom$/);
+        }, expectedError);
     } finally {
         stub.restore();
     }
+}
+
+test('rejects with an Error when iteration throws a non-Error value', async () => {
+    await runWithThrowingStream(() => {
+        // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- This test exercises non-Error rejection normalization.
+        throw 'boom';
+    }, /^Error: boom$/u);
 });
 
 test('preserves Error instances when iteration rejects with an Error', async () => {
-    const throwingStream = {
-        [Symbol.asyncIterator](): AsyncIterator<unknown> {
-            return {
-                next: async (): Promise<IteratorResult<unknown>> => {
-                    throw new Error('boom');
-                }
-            };
-        }
-    };
-    const intermediateStream = {
-        pipe() {
-            return throwingStream;
-        }
-    };
-    const source = {
-        once() {
-            return source;
-        },
-        pipe() {
-            return intermediateStream;
-        }
-    };
-    const stub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
-
-    try {
-        await assert.rejects(async () => {
-            await extractTarEntries(Buffer.from('unused'));
-        }, /^Error: boom$/);
-    } finally {
-        stub.restore();
-    }
+    await runWithThrowingStream(() => {
+        throw new Error('boom');
+    }, /^Error: boom$/u);
 });
 
 test('registers the shared error event handler on the source stream', async () => {

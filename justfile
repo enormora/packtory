@@ -28,7 +28,10 @@ lint-unused-code:
     knip
     knip --production
 
-lint: eslint prettier-check lint-dependencies lint-filename lint-unused-code
+lint-duplication *OPTIONS:
+    jscpd source --config jscpd.json {{OPTIONS}}
+
+lint: eslint prettier-check lint-dependencies lint-filename lint-unused-code lint-duplication
 
 lint-fix: eslint-fix prettier-fix
 

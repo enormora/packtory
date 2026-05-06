@@ -124,6 +124,11 @@ test('walk() visits the start node and all its connections', () => {
     ]);
 });
 
+const fooBarLocalFiles = [
+    { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
+    { directDependencies: new Set(), filePath: 'bar.js', project: {} }
+];
+
 test('flatten() collects all nodes and returns a single list for all local files', () => {
     const graph = createDependencyGraph();
 
@@ -133,10 +138,7 @@ test('flatten() collects all nodes and returns a single list for all local files
     const result = graph.flatten('foo.js');
 
     assert.deepStrictEqual(result, {
-        localFiles: [
-            { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
-            { directDependencies: new Set(), filePath: 'bar.js', project: {} }
-        ],
+        localFiles: fooBarLocalFiles,
         externalDependencies: new Map()
     });
 });
@@ -144,26 +146,13 @@ test('flatten() collects all nodes and returns a single list for all local files
 test('flatten() collects all nodes and returns a single map for topLevelDependencies eliminating duplicates', () => {
     const graph = createDependencyGraph();
 
-    graph.addDependency(
-        'foo.js',
-        dependencyGraphNodeDataFactory({
-            topLevelDependencies: ['a', 'b']
-        })
-    );
-    graph.addDependency(
-        'bar.js',
-        dependencyGraphNodeDataFactory({
-            topLevelDependencies: ['b', 'c']
-        })
-    );
+    graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ topLevelDependencies: ['a', 'b'] }));
+    graph.addDependency('bar.js', dependencyGraphNodeDataFactory({ topLevelDependencies: ['b', 'c'] }));
     graph.connect('foo.js', 'bar.js');
     const result = graph.flatten('foo.js');
 
     assert.deepStrictEqual(result, {
-        localFiles: [
-            { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
-            { directDependencies: new Set(), filePath: 'bar.js', project: {} }
-        ],
+        localFiles: fooBarLocalFiles,
         externalDependencies: new Map([
             ['a', { name: 'a', referencedFrom: ['foo.js'] }],
             ['b', { name: 'b', referencedFrom: ['foo.js', 'bar.js'] }],

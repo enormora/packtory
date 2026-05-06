@@ -1,38 +1,11 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import {
+    externalDependency as createReferencedDependency,
+    linkedBundle as createLinkedBundle,
+    versionedBundle
+} from '../test-libraries/bundle-fixtures.ts';
 import { buildVersionedBundle } from './versioned-bundle.ts';
-
-function createLinkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundle {
-    return {
-        name: 'package-a',
-        contents: [],
-        entryPoints: [
-            {
-                js: {
-                    sourceFilePath: '/src/index.js',
-                    targetFilePath: 'index.js',
-                    content: '',
-                    isExecutable: false
-                },
-                declarationFile: {
-                    sourceFilePath: '/src/index.d.ts',
-                    targetFilePath: 'index.d.ts',
-                    content: '',
-                    isExecutable: false
-                }
-            }
-        ] as const,
-        linkedBundleDependencies: new Map(),
-        externalDependencies: new Map(),
-        ...overrides
-    };
-}
-
-function createReferencedDependency(name: string): ExternalDependency {
-    return { name, referencedFrom: ['/src/index.js'] as const };
-}
 
 test('buildVersionedBundle() uses the first entry point as the main and types files', () => {
     const result = buildVersionedBundle({
@@ -78,38 +51,18 @@ test('buildVersionedBundle() groups bundle dependencies and peer dependencies by
         version: '1.2.3',
         mainPackageJson: { type: 'module' },
         bundleDependencies: [
-            {
+            versionedBundle({
                 name: 'bundle-dependency',
                 version: '2.0.0',
-                contents: [],
-                dependencies: {},
-                peerDependencies: {},
-                additionalAttributes: {},
-                mainFile: {
-                    sourceFilePath: '/src/dep.js',
-                    targetFilePath: 'dep.js',
-                    content: '',
-                    isExecutable: false
-                },
-                packageType: 'module'
-            }
+                mainFile: { sourceFilePath: '/src/dep.js', targetFilePath: 'dep.js' }
+            })
         ],
         bundlePeerDependencies: [
-            {
+            versionedBundle({
                 name: 'peer-dependency',
                 version: '3.0.0',
-                contents: [],
-                dependencies: {},
-                peerDependencies: {},
-                additionalAttributes: {},
-                mainFile: {
-                    sourceFilePath: '/src/peer.js',
-                    targetFilePath: 'peer.js',
-                    content: '',
-                    isExecutable: false
-                },
-                packageType: 'module'
-            }
+                mainFile: { sourceFilePath: '/src/peer.js', targetFilePath: 'peer.js' }
+            })
         ],
         additionalPackageJsonAttributes: {}
     });
@@ -155,14 +108,13 @@ test('buildVersionedBundle() reads external dependency versions from dependencie
     assert.deepStrictEqual(result.peerDependencies, { react: '^19.0.0' });
 });
 
-test('buildVersionedBundle() throws when a bundle dependency version is missing', () => {
+function expectBuildVersionedBundleToThrow(
+    bundle: ReturnType<typeof createLinkedBundle>,
+    expectedMessage: string
+): void {
     try {
         buildVersionedBundle({
-            bundle: createLinkedBundle({
-                linkedBundleDependencies: new Map([
-                    ['bundle-dependency', createReferencedDependency('bundle-dependency')]
-                ])
-            }),
+            bundle,
             version: '1.2.3',
             mainPackageJson: { type: 'module' },
             bundleDependencies: [],
@@ -171,32 +123,26 @@ test('buildVersionedBundle() throws when a bundle dependency version is missing'
         });
         assert.fail('Expected buildVersionedBundle() should fail but it did not');
     } catch (error: unknown) {
-        assert.strictEqual(
-            (error as Error).message,
-            'Couldn’t determine version number of bundle dependency bundle-dependency'
-        );
+        assert.strictEqual((error as Error).message, expectedMessage);
     }
+}
+
+test('buildVersionedBundle() throws when a bundle dependency version is missing', () => {
+    expectBuildVersionedBundleToThrow(
+        createLinkedBundle({
+            linkedBundleDependencies: new Map([['bundle-dependency', createReferencedDependency('bundle-dependency')]])
+        }),
+        'Couldn’t determine version number of bundle dependency bundle-dependency'
+    );
 });
 
 test('buildVersionedBundle() throws when an external dependency version is missing from the main package.json', () => {
-    try {
-        buildVersionedBundle({
-            bundle: createLinkedBundle({
-                externalDependencies: new Map([['left-pad', createReferencedDependency('left-pad')]])
-            }),
-            version: '1.2.3',
-            mainPackageJson: { type: 'module' },
-            bundleDependencies: [],
-            bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {}
-        });
-        assert.fail('Expected buildVersionedBundle() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual(
-            (error as Error).message,
-            'Couldn’t determine version number of left-pad, because it is not listed in the main package.json'
-        );
-    }
+    expectBuildVersionedBundleToThrow(
+        createLinkedBundle({
+            externalDependencies: new Map([['left-pad', createReferencedDependency('left-pad')]])
+        }),
+        'Couldn’t determine version number of left-pad, because it is not listed in the main package.json'
+    );
 });
 
 test('buildVersionedBundle() prefers peerDependencies over dependencies when the same external dependency exists in both', () => {

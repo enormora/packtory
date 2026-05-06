@@ -181,36 +181,33 @@ function extractGlyph(chunk: string): string {
     return chunk.charAt(start + marker.length);
 }
 
-test('startSpinnerWorker draws a glyph from the spinner animation set for running slots', () => {
+function setupRunningSlotHarnessAndTick(): {
+    readonly harness: ReturnType<typeof createHarness>;
+    readonly written: string;
+} {
     const harness = createHarness(1);
     harness.accessors.setColumns(80);
     harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
 
     harness.tick();
 
-    const written = harness.writes().join('');
+    return { harness, written: harness.writes().join('') };
+}
+
+test('startSpinnerWorker draws a glyph from the spinner animation set for running slots', () => {
+    const { written } = setupRunningSlotHarnessAndTick();
     const glyph = extractGlyph(written);
     assert.ok(expectedSpinnerFrames.includes(glyph), `Expected glyph to be a spinner frame, got "${glyph}"`);
 });
 
 test('startSpinnerWorker uses neither the success nor failure symbol while a slot is running', () => {
-    const harness = createHarness(1);
-    harness.accessors.setColumns(80);
-    harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
-
-    harness.tick();
-
-    const written = harness.writes().join('');
+    const { written } = setupRunningSlotHarnessAndTick();
     assert.doesNotMatch(written, successSymbolPattern);
     assert.doesNotMatch(written, failureSymbolPattern);
 });
 
 test('startSpinnerWorker advances to a different spinner frame on the second tick', () => {
-    const harness = createHarness(1);
-    harness.accessors.setColumns(80);
-    harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
-
-    harness.tick();
+    const { harness } = setupRunningSlotHarnessAndTick();
     harness.tick();
 
     const writes = harness.writes();
@@ -279,11 +276,7 @@ test('startSpinnerWorker skips writing to stdout while there is nothing to rende
 });
 
 test('startSpinnerWorker rewinds the cursor up by the previously rendered line count before redrawing', () => {
-    const harness = createHarness(1);
-    harness.accessors.setColumns(80);
-    harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
-
-    harness.tick();
+    const { harness } = setupRunningSlotHarnessAndTick();
     harness.tick();
 
     const lastChunk = harness.writes().at(-1) ?? '';

@@ -20,7 +20,8 @@
         "!source/**/*.property.ts",
         "!source/**/*.type-test.ts",
         "!source/test-libraries/**/*.ts",
-        "!source/**/*.entry-point.ts"
+        "!source/**/*.entry-point.ts",
+        "!source/packages/**/*.composition.ts"
     ],
     "ignorePatterns": ["node_modules", "target", ".git", "integration-tests"],
     "disableTypeChecks": true,

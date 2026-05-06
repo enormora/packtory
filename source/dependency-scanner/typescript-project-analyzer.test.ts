@@ -83,82 +83,87 @@ function createAnalyzedProjectForGetSourceFileTest(): {
     return { project, sourceFile, getSourceFile };
 }
 
-test('creates a project for all js files in the given folder with module resolution', () => {
-    const addSourceFilesAtPaths = fake();
-    const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
-    const analyzer = typescriptProjectAnalyzerFactory({
-        TSMorphProject,
-        fileSystemAdapters: {
-            fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files'
-        }
-    });
-
-    analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
-
-    assert.strictEqual(TSMorphProject.callCount, 1);
-    assert.strictEqual(TSMorphProject.calledWithNew(), true);
-    assert.deepStrictEqual(TSMorphProject.firstCall.args, [
+function expectedProjectConstruction(args: {
+    readonly module: number;
+    readonly fileSystem: string;
+    readonly extra?: Record<string, unknown> | undefined;
+}): unknown[] {
+    return [
         {
             compilerOptions: {
                 allowJs: true,
-                module: 100,
+                module: args.module,
                 esModuleInterop: true,
                 maxNodeModuleJsDepth: 1,
                 noEmit: true,
                 moduleResolution: 3,
                 noLib: true,
                 skipLibCheck: true,
-                typeRoots: [],
-                types: []
+                ...args.extra
             },
-            fileSystem: 'filtering-declaration-files'
+            fileSystem: args.fileSystem
         }
-    ]);
+    ];
+}
+
+function runAnalyzeProjectExpectingArgs(testArgs: {
+    readonly moduleResolution: 'common-js' | 'module';
+    readonly resolveDeclarationFiles: boolean;
+    readonly fileSystemAdapters: Record<string, unknown>;
+    readonly expectedModule: number;
+    readonly expectedFileSystem: string;
+    readonly expectedFilesGlob: string;
+    readonly expectedExtra?: Record<string, unknown>;
+}): void {
+    const addSourceFilesAtPaths = fake();
+    const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
+    const analyzer = typescriptProjectAnalyzerFactory({
+        TSMorphProject,
+        fileSystemAdapters: testArgs.fileSystemAdapters
+    });
+
+    analyzer.analyzeProject('/foo', {
+        moduleResolution: testArgs.moduleResolution,
+        resolveDeclarationFiles: testArgs.resolveDeclarationFiles,
+        failOnCompileErrors: false
+    });
+
+    assert.strictEqual(TSMorphProject.callCount, 1);
+    assert.strictEqual(TSMorphProject.calledWithNew(), true);
+    assert.deepStrictEqual(
+        TSMorphProject.firstCall.args,
+        expectedProjectConstruction({
+            module: testArgs.expectedModule,
+            fileSystem: testArgs.expectedFileSystem,
+            extra: testArgs.expectedExtra
+        })
+    );
     assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
-    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.js']]);
+    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [[testArgs.expectedFilesGlob]]);
+}
+
+test('creates a project for all js files in the given folder with module resolution', () => {
+    runAnalyzeProjectExpectingArgs({
+        moduleResolution: 'module',
+        resolveDeclarationFiles: false,
+        fileSystemAdapters: { fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files' },
+        expectedModule: 100,
+        expectedFileSystem: 'filtering-declaration-files',
+        expectedFilesGlob: '/foo/**/*.js',
+        expectedExtra: { typeRoots: [], types: [] }
+    });
 });
 
 test('creates a project for all js files in the given folder with commonjs resolution', () => {
-    const addSourceFilesAtPaths = fake();
-    const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
-    const analyzer = typescriptProjectAnalyzerFactory({
-        TSMorphProject,
-        fileSystemAdapters: {
-            fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files'
-        }
-    });
-
-    analyzer.analyzeProject('/foo', {
+    runAnalyzeProjectExpectingArgs({
         moduleResolution: 'common-js',
         resolveDeclarationFiles: false,
-        failOnCompileErrors: false
+        fileSystemAdapters: { fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files' },
+        expectedModule: 1,
+        expectedFileSystem: 'filtering-declaration-files',
+        expectedFilesGlob: '/foo/**/*.js',
+        expectedExtra: { typeRoots: [], types: [] }
     });
-
-    assert.strictEqual(TSMorphProject.callCount, 1);
-    assert.strictEqual(TSMorphProject.calledWithNew(), true);
-    assert.deepStrictEqual(TSMorphProject.firstCall.args, [
-        {
-            compilerOptions: {
-                allowJs: true,
-                module: 1,
-                esModuleInterop: true,
-                maxNodeModuleJsDepth: 1,
-                noEmit: true,
-                moduleResolution: 3,
-                noLib: true,
-                skipLibCheck: true,
-                typeRoots: [],
-                types: []
-            },
-            fileSystem: 'filtering-declaration-files'
-        }
-    ]);
-    assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
-    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.js']]);
 });
 
 test('creates a project for all d.ts files in the given folder', () => {
@@ -177,21 +182,10 @@ test('creates a project for all d.ts files in the given folder', () => {
 
     assert.strictEqual(TSMorphProject.callCount, 1);
     assert.strictEqual(TSMorphProject.calledWithNew(), true);
-    assert.deepStrictEqual(TSMorphProject.firstCall.args, [
-        {
-            compilerOptions: {
-                allowJs: true,
-                module: 100,
-                esModuleInterop: true,
-                maxNodeModuleJsDepth: 1,
-                noEmit: true,
-                moduleResolution: 3,
-                noLib: true,
-                skipLibCheck: true
-            },
-            fileSystem: 'no-filtering'
-        }
-    ]);
+    assert.deepStrictEqual(
+        TSMorphProject.firstCall.args,
+        expectedProjectConstruction({ module: 100, fileSystem: 'no-filtering' })
+    );
     assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
     assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.d.ts']]);
 });
