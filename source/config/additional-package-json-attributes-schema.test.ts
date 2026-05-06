@@ -5,11 +5,11 @@ import { checkValidationFailure, checkValidationSuccess } from '../test-librarie
 import { additionalPackageJsonAttributesSchema } from './additional-package-json-attributes-schema.ts';
 
 test('additional attributes schema accepts allowed keys', () => {
-    assert.strictEqual(additionalPackageJsonAttributesSchema.safeParse({ license: 'MIT' }).success, true);
+    assert.strictEqual(safeParse(additionalPackageJsonAttributesSchema, { license: 'MIT' }).success, true);
 });
 
 test('additional attributes schema rejects forbidden object keys', () => {
-    assert.strictEqual(additionalPackageJsonAttributesSchema.safeParse({ dependencies: {} }).success, false);
+    assert.strictEqual(safeParse(additionalPackageJsonAttributesSchema, { dependencies: {} }).success, false);
 });
 
 test(

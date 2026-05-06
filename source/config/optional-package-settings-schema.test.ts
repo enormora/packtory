@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import {
     checkValidationFailure,
@@ -14,11 +15,11 @@ const validOptionalPackageSettings = {
 };
 
 test('optional package settings schema accepts an empty object', () => {
-    assert.strictEqual(optionalPackageSettingsSchema.safeParse({}).success, true);
+    assert.strictEqual(safeParse(optionalPackageSettingsSchema, {}).success, true);
 });
 
 test('optional package settings schema rejects an invalid includeSourceMapFiles value', () => {
-    assert.strictEqual(optionalPackageSettingsSchema.safeParse({ includeSourceMapFiles: 'yes' }).success, false);
+    assert.strictEqual(safeParse(optionalPackageSettingsSchema, { includeSourceMapFiles: 'yes' }).success, false);
 });
 
 createTestCasesForOptionalField({

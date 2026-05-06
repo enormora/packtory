@@ -1,14 +1,15 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { manualVersioningSettingsSchema } from './manual-versioning-settings.ts';
 
 test('manual versioning schema accepts automatic false', () => {
-    assert.strictEqual(manualVersioningSettingsSchema.safeParse({ automatic: false, version: '1.0.0' }).success, true);
+    assert.strictEqual(safeParse(manualVersioningSettingsSchema, { automatic: false, version: '1.0.0' }).success, true);
 });
 
 test('manual versioning schema rejects automatic true', () => {
-    assert.strictEqual(manualVersioningSettingsSchema.safeParse({ automatic: true, version: '1.0.0' }).success, false);
+    assert.strictEqual(safeParse(manualVersioningSettingsSchema, { automatic: true, version: '1.0.0' }).success, false);
 });
 
 test(

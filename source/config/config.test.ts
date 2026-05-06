@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { getBundledDependencies } from './config.ts';
@@ -29,7 +30,7 @@ test('getBundledDependencies returns an empty list when no bundled dependencies 
 
 test('config schema accepts a valid config', () => {
     assert.strictEqual(
-        packtoryConfigSchema.safeParse({
+        safeParse(packtoryConfigSchema, {
             registrySettings: { token: 'foo' },
             packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
         }).success,
@@ -39,7 +40,7 @@ test('config schema accepts a valid config', () => {
 
 test('config schema rejects configs without registrySettings', () => {
     assert.strictEqual(
-        packtoryConfigSchema.safeParse({
+        safeParse(packtoryConfigSchema, {
             packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
         }).success,
         false
@@ -47,7 +48,7 @@ test('config schema rejects configs without registrySettings', () => {
 });
 
 test('config without registry schema rejects an empty packages tuple', () => {
-    assert.strictEqual(packtoryConfigWithoutRegistrySchema.safeParse({ packages: [] }).success, false);
+    assert.strictEqual(safeParse(packtoryConfigWithoutRegistrySchema, { packages: [] }).success, false);
 });
 
 test(

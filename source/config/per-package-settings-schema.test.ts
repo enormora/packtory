@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import {
     checkValidationFailure,
@@ -17,12 +18,12 @@ const validPerPackageSettings = {
 };
 
 test('per-package settings schema accepts a valid package definition', () => {
-    assert.strictEqual(perPackageSettingsSchema.safeParse(validPerPackageSettings).success, true);
+    assert.strictEqual(safeParse(perPackageSettingsSchema, validPerPackageSettings).success, true);
 });
 
 test('per-package settings schema rejects empty entryPoints', () => {
     assert.strictEqual(
-        perPackageSettingsSchema.safeParse({ ...validPerPackageSettings, entryPoints: [] }).success,
+        safeParse(perPackageSettingsSchema, { ...validPerPackageSettings, entryPoints: [] }).success,
         false
     );
 });

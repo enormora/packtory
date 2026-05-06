@@ -1,17 +1,18 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { additionalFileDescriptionSchema } from './additional-files.ts';
 
 test('schema accepts a valid additional file description', () => {
     assert.strictEqual(
-        additionalFileDescriptionSchema.safeParse({ sourceFilePath: 'foo', targetFilePath: 'bar' }).success,
+        safeParse(additionalFileDescriptionSchema, { sourceFilePath: 'foo', targetFilePath: 'bar' }).success,
         true
     );
 });
 
 test('schema rejects an additional file description without targetFilePath', () => {
-    assert.strictEqual(additionalFileDescriptionSchema.safeParse({ sourceFilePath: 'foo' }).success, false);
+    assert.strictEqual(safeParse(additionalFileDescriptionSchema, { sourceFilePath: 'foo' }).success, false);
 });
 
 test(

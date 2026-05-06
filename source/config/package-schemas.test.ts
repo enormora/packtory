@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import {
@@ -10,7 +11,7 @@ import {
 
 test('package schema with all common settings accepts a valid package', () => {
     assert.strictEqual(
-        packageSchemaWithAllCommonSettings.safeParse({
+        safeParse(packageSchemaWithAllCommonSettings, {
             sourcesFolder: 'src',
             mainPackageJson: {},
             name: 'pkg',
@@ -22,7 +23,7 @@ test('package schema with all common settings accepts a valid package', () => {
 
 test('package schema with all common settings rejects empty entryPoints', () => {
     assert.strictEqual(
-        packageSchemaWithAllCommonSettings.safeParse({
+        safeParse(packageSchemaWithAllCommonSettings, {
             sourcesFolder: 'src',
             mainPackageJson: {},
             name: 'pkg',
@@ -34,7 +35,7 @@ test('package schema with all common settings rejects empty entryPoints', () => 
 
 test('package schema with partial common settings accepts package-specific settings only', () => {
     assert.strictEqual(
-        packageSchemaWithPartialCommonSettings.safeParse({
+        safeParse(packageSchemaWithPartialCommonSettings, {
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
         }).success,
@@ -44,7 +45,7 @@ test('package schema with partial common settings accepts package-specific setti
 
 test('package schema with mandatory sourcesFolder rejects packages without it', () => {
     assert.strictEqual(
-        packageSchemaWithMandatorySourcesFolder.safeParse({
+        safeParse(packageSchemaWithMandatorySourcesFolder, {
             mainPackageJson: {},
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
@@ -55,7 +56,7 @@ test('package schema with mandatory sourcesFolder rejects packages without it', 
 
 test('package schema with mandatory mainPackageJson rejects packages without it', () => {
     assert.strictEqual(
-        packageSchemaWithMandatoryMainPackageJson.safeParse({
+        safeParse(packageSchemaWithMandatoryMainPackageJson, {
             sourcesFolder: 'src',
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
