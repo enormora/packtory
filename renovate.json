@@ -9,17 +9,13 @@
         "enabled": true,
         "automerge": true
     },
+    "automerge": true,
+    "automergeType": "pr",
     "packageRules": [
         {
             "matchPackagePatterns": ["^@enormora/eslint-config"],
             "groupName": "@enormora/eslint-config",
             "groupSlug": "enormora-eslint-config"
-        },
-        {
-            "matchDepTypes": ["dependencies", "devDependencies"],
-            "matchUpdateTypes": ["minor", "patch"],
-            "automerge": true,
-            "automergeType": "pr"
         }
     ]
 }
