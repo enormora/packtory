@@ -73,6 +73,7 @@
         "rust-just": "1.50.0",
         "sinon": "21.1.2",
         "tinybench": "6.0.1",
+        "tstyche": "7.1.0",
         "typescript": "6.0.3",
         "verdaccio": "6.5.2"
     },

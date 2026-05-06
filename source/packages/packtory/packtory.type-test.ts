@@ -1,0 +1,215 @@
+import { describe, test, expect } from 'tstyche';
+import type { Result } from 'true-myth';
+import type {
+    buildAndPublishAll,
+    progressBroadcastConsumer,
+    resolveAndLinkAll,
+    PacktoryConfig,
+    PublishAllResult,
+    ResolveAndLinkAllResult,
+    ResolveAndLinkFailure,
+    ResolvedPackage
+} from './packtory.entry-point.ts';
+
+type ProgressEventName =
+    | 'building'
+    | 'done'
+    | 'error'
+    | 'linking'
+    | 'publishing'
+    | 'rebuilding'
+    | 'resolving'
+    | 'scheduled';
+
+type PackageConfig = PacktoryConfig['packages'][number];
+type EntryPoint = PackageConfig['entryPoints'][number];
+type OkVariant<TResult> = Extract<TResult, { isOk: true }>;
+type ErrVariant<TResult> = Extract<TResult, { isErr: true }>;
+type PublishOk = OkVariant<PublishAllResult>['value'];
+type PublishErr = ErrVariant<PublishAllResult>['error'];
+type BuildAndPublishResult = PublishOk[number];
+
+describe('public functions', () => {
+    test('buildAndPublishAll takes an unknown config and a dry-run option and returns a PublishAllResult', () => {
+        expect<typeof buildAndPublishAll>().type.toBe<
+            (config: unknown, options: { readonly dryRun: boolean }) => Promise<PublishAllResult>
+        >();
+    });
+
+    test('resolveAndLinkAll takes an unknown config and returns a ResolveAndLinkAllResult', () => {
+        expect<typeof resolveAndLinkAll>().type.toBe<(config: unknown) => Promise<ResolveAndLinkAllResult>>();
+    });
+});
+
+describe('progressBroadcastConsumer', () => {
+    test('on accepts the documented event names', () => {
+        expect<Parameters<typeof progressBroadcastConsumer.on>[0]>().type.toBe<ProgressEventName>();
+    });
+
+    test('off accepts the documented event names', () => {
+        expect<Parameters<typeof progressBroadcastConsumer.off>[0]>().type.toBe<ProgressEventName>();
+    });
+
+    test('exposes only on and off', () => {
+        expect<keyof typeof progressBroadcastConsumer>().type.toBe<'off' | 'on'>();
+    });
+});
+
+describe('PacktoryConfig — accepted shapes', () => {
+    test('accepts a minimum valid configuration (registrySettings and packages)', () => {
+        expect<PacktoryConfig>().type.toBeAssignableFrom<{
+            readonly registrySettings: { readonly token: 'any-token' };
+            readonly packages: readonly [
+                { readonly name: 'pkg'; readonly entryPoints: readonly [{ readonly js: 'index.js' }] }
+            ];
+        }>();
+    });
+
+    test('accepts a fully populated configuration with all optional fields', () => {
+        expect<PacktoryConfig>().type.toBeAssignableFrom<{
+            readonly registrySettings: {
+                readonly token: 'any-token';
+                readonly registryUrl: 'https://registry.example';
+            };
+            readonly checks: { readonly noDuplicatedFiles: { readonly enabled: true } };
+            readonly commonPackageSettings: { readonly sourcesFolder: 'src'; readonly includeSourceMapFiles: true };
+            readonly packages: readonly [
+                {
+                    readonly name: 'pkg';
+                    readonly entryPoints: readonly [
+                        { readonly js: 'index.js'; readonly declarationFile: 'index.d.ts' }
+                    ];
+                    readonly bundleDependencies: readonly ['effect'];
+                    readonly bundlePeerDependencies: readonly ['react'];
+                    readonly includeSourceMapFiles: false;
+                }
+            ];
+        }>();
+    });
+});
+
+describe('PacktoryConfig — rejected shapes', () => {
+    test('rejects a configuration without registrySettings', () => {
+        expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
+            readonly packages: readonly [];
+        }>();
+    });
+
+    test('rejects a configuration without packages', () => {
+        expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
+            readonly registrySettings: { readonly token: 'tok' };
+        }>();
+    });
+
+    test('rejects a registrySettings without a token', () => {
+        expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
+            readonly registrySettings: { readonly registryUrl: 'https://registry.example' };
+            readonly packages: readonly [];
+        }>();
+    });
+
+    test('rejects a package without name or entryPoints', () => {
+        expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
+            readonly registrySettings: { readonly token: 'tok' };
+            readonly packages: readonly [{ readonly entryPoints: readonly [{ readonly js: 'index.js' }] }];
+        }>();
+        expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
+            readonly registrySettings: { readonly token: 'tok' };
+            readonly packages: readonly [{ readonly name: 'pkg' }];
+        }>();
+    });
+});
+
+describe('PacktoryConfig — exposed structure', () => {
+    test('exposes the documented top-level keys', () => {
+        expect<keyof PacktoryConfig>().type.toBe<
+            'checks' | 'commonPackageSettings' | 'packages' | 'registrySettings'
+        >();
+    });
+
+    test('packages is a readonly array', () => {
+        expect<PacktoryConfig['packages']>().type.toBe<readonly PackageConfig[]>();
+    });
+
+    test('registrySettings has a required token and an optional registryUrl', () => {
+        expect<PacktoryConfig['registrySettings']['token']>().type.toBe<string>();
+        expect<PacktoryConfig['registrySettings']['registryUrl']>().type.toBe<string | undefined>();
+    });
+
+    test('PackageConfig requires name and entryPoints', () => {
+        expect<PackageConfig['name']>().type.toBe<string>();
+        expect<PackageConfig['entryPoints']>().type.toBe<readonly EntryPoint[]>();
+    });
+
+    test('EntryPoint requires a js path and allows an optional declarationFile', () => {
+        expect<EntryPoint['js']>().type.toBe<string>();
+        expect<EntryPoint['declarationFile']>().type.toBe<string | undefined>();
+    });
+
+    test('checks.noDuplicatedFiles toggles via an `enabled` boolean and an optional allow-list', () => {
+        type Checks = NonNullable<PacktoryConfig['checks']>;
+        type NoDuplicates = NonNullable<Checks['noDuplicatedFiles']>;
+        expect<NoDuplicates['enabled']>().type.toBe<boolean>();
+        expect<NoDuplicates['allowList']>().type.toBeAssignableTo<
+            readonly (string | { readonly filePath: string; readonly packages: readonly string[] })[] | undefined
+        >();
+    });
+});
+
+describe('PublishAllResult', () => {
+    test('is a true-myth Result whose ok value is a readonly array', () => {
+        expect<PublishAllResult>().type.toBeAssignableTo<Result<readonly unknown[], unknown>>();
+    });
+
+    test('the ok value is a readonly array of build-and-publish results', () => {
+        expect<PublishOk>().type.toBe<readonly BuildAndPublishResult[]>();
+    });
+
+    test('each result element exposes status and bundle', () => {
+        expect<BuildAndPublishResult>().type.toHaveProperty('status');
+        expect<BuildAndPublishResult>().type.toHaveProperty('bundle');
+    });
+
+    test('the status field is a fixed string union', () => {
+        expect<BuildAndPublishResult['status']>().type.toBe<'already-published' | 'initial-version' | 'new-version'>();
+    });
+
+    test('the failure variant is a discriminated union keyed by `type`', () => {
+        expect<PublishErr['type']>().type.toBe<'checks' | 'config' | 'partial'>();
+    });
+
+    test('a checks failure exposes a readonly issues array of strings', () => {
+        type ChecksFailure = Extract<PublishErr, { type: 'checks' }>;
+        expect<ChecksFailure['issues']>().type.toBe<readonly string[]>();
+    });
+
+    test('a config failure exposes a readonly issues array of strings', () => {
+        type ConfigFailure = Extract<PublishErr, { type: 'config' }>;
+        expect<ConfigFailure['issues']>().type.toBe<readonly string[]>();
+    });
+
+    test('a partial failure carries succeeded results and a list of errors', () => {
+        type PartialFailure = Extract<PublishErr, { type: 'partial' }>;
+        expect<PartialFailure['succeeded']>().type.toBe<readonly BuildAndPublishResult[]>();
+        expect<PartialFailure['failures']>().type.toBe<readonly Error[]>();
+    });
+});
+
+describe('ResolveAndLinkAllResult', () => {
+    test('is a Result of readonly ResolvedPackage entries with ResolveAndLinkFailure', () => {
+        expect<ResolveAndLinkAllResult>().type.toBe<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>();
+    });
+
+    test('the failure variant is a discriminated union keyed by `type`', () => {
+        expect<ResolveAndLinkFailure['type']>().type.toBe<'checks' | 'config' | 'partial'>();
+    });
+});
+
+describe('ResolvedPackage', () => {
+    test('exposes name, linkedBundle, and resolveOptions', () => {
+        expect<ResolvedPackage>().type.toHaveProperty('name');
+        expect<ResolvedPackage>().type.toHaveProperty('linkedBundle');
+        expect<ResolvedPackage>().type.toHaveProperty('resolveOptions');
+        expect<ResolvedPackage['name']>().type.toBe<string>();
+    });
+});

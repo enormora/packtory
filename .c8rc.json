@@ -5,6 +5,7 @@
     "exclude": [
         "source/**/*.test.ts",
         "source/**/*.property.ts",
+        "source/**/*.type-test.ts",
         "source/test-libraries/**/*.ts",
         "source/**/*.entry-point.ts",
         "integration-tests/**",
