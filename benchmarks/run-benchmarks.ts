@@ -42,6 +42,9 @@ function formatCliRow(measurement: CliResponsivenessMeasurement): string {
         `median ${formatMilliseconds(measurement.medianMs)}`,
         `p99 gap ${formatMilliseconds(measurement.p99FrameGapMs)}`,
         `max gap ${formatMilliseconds(measurement.maxFrameGapMs)}`,
+        `loop p99 ${formatMilliseconds(measurement.eventLoopHistogramP99Ms)}`,
+        `loop max ${formatMilliseconds(measurement.eventLoopHistogramMaxMs)}`,
+        `loop block ${formatMilliseconds(measurement.eventLoopSampledMaxBlockMs)}`,
         `frames ${measurement.frameCount}`,
         `samples ${measurement.sampleCount}`
     ].join(' ');

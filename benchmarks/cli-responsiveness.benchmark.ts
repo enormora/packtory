@@ -6,10 +6,21 @@ import { createTemporaryDirectory, removeDirectory } from './benchmark-filesyste
 import { startBenchmarkRegistry } from './benchmark-registry.ts';
 import { generateCliWorkload } from './generate-workload.ts';
 import { measureAsyncTask } from './tinybench-measurement.ts';
-import { calculateFrameGaps, collectWorstPerPackageGapMetrics } from './cli-spinner-metrics.ts';
-import { ensureNodePtyHelperIsExecutable, runCliPublish } from './cli-publish-process.ts';
+import { summarizeWorstPerPackageGaps } from './cli-spinner-metrics.ts';
+import {
+    ensureNodePtyHelperIsExecutable,
+    runCliPublish,
+    type CliPublishMeasurement,
+    type EventLoopProbeReport
+} from './cli-publish-process.ts';
 
-function createMeasuredFrameTimestampMap(packageNames: readonly string[]): Map<string, number[]> {
+type EventLoopAggregate = {
+    readonly histogramP99Ms: number;
+    readonly histogramMaxMs: number;
+    readonly sampledMaxBlockMs: number;
+};
+
+function createPerPackageGapAccumulator(packageNames: readonly string[]): Map<string, number[]> {
     return new Map(
         packageNames.map((packageName) => {
             return [packageName, [] as number[]] as const;
@@ -17,17 +28,41 @@ function createMeasuredFrameTimestampMap(packageNames: readonly string[]): Map<s
     );
 }
 
-function recordMeasuredFrames(
-    measuredPerPackageFrameTimestamps: Map<string, number[]>,
-    measurement: Awaited<ReturnType<typeof runCliPublish>>
+function appendPerPackageGaps(
+    accumulator: Map<string, number[]>,
+    perRunGaps: ReadonlyMap<string, readonly number[]>
 ): void {
-    measurement.perPackageFrameGapTimestamps.forEach((timestamps, packageName) => {
-        const packageTimestamps = measuredPerPackageFrameTimestamps.get(packageName);
+    perRunGaps.forEach((gaps, packageName) => {
+        const target = accumulator.get(packageName);
 
-        if (packageTimestamps !== undefined) {
-            packageTimestamps.push(...timestamps);
+        if (target !== undefined) {
+            target.push(...gaps);
         }
     });
+}
+
+function recordEventLoopReport(reports: EventLoopProbeReport[], report: EventLoopProbeReport | undefined): void {
+    if (report === undefined) {
+        return;
+    }
+    reports.push(report);
+}
+
+function aggregateEventLoopReports(reports: readonly EventLoopProbeReport[]): EventLoopAggregate {
+    let histogramP99Ms = 0;
+    let histogramMaxMs = 0;
+    let sampledMaxBlockMs = 0;
+
+    for (const report of reports) {
+        histogramP99Ms = Math.max(histogramP99Ms, report.histogram.p99);
+        histogramMaxMs = Math.max(histogramMaxMs, report.histogram.max);
+
+        for (const block of report.sampledBlocks) {
+            sampledMaxBlockMs = Math.max(sampledMaxBlockMs, block.gapMs);
+        }
+    }
+
+    return { histogramP99Ms, histogramMaxMs, sampledMaxBlockMs };
 }
 
 async function writeBenchmarkConfig(rootDirectory: string, configModuleText: string): Promise<void> {
@@ -52,27 +87,35 @@ async function measureCliResponsiveness(
     readonly frameCount: number;
     readonly p99FrameGapMs: number;
     readonly maxFrameGapMs: number;
+    readonly eventLoop: EventLoopAggregate;
     readonly result: Awaited<ReturnType<typeof measureAsyncTask>>;
 }> {
-    const measuredFrameGaps: number[] = [];
-    const measuredPerPackageFrameTimestamps = createMeasuredFrameTimestampMap(packageNames);
-    let latestFrameCount = 0;
-    const result = await measureAsyncTask(`publish-cli:${size}`, async () => {
-        const measurement = await runCliPublish(rootDirectory, packageNames);
+    const perPackageFrameGaps = createPerPackageGapAccumulator(packageNames);
+    const eventLoopReports: EventLoopProbeReport[] = [];
+    let totalFrameCount = 0;
+    let observedAnyGap = false;
 
-        measuredFrameGaps.push(...calculateFrameGaps(measurement.allFrameGapTimestamps));
-        recordMeasuredFrames(measuredPerPackageFrameTimestamps, measurement);
-        latestFrameCount = measurement.frameCount;
+    const result = await measureAsyncTask(`publish-cli:${size}`, async () => {
+        const measurement: CliPublishMeasurement = await runCliPublish(rootDirectory, packageNames);
+
+        if (measurement.allFrameGaps.length > 0) {
+            observedAnyGap = true;
+        }
+        appendPerPackageGaps(perPackageFrameGaps, measurement.perPackageFrameGaps);
+        totalFrameCount += measurement.frameCount;
+        recordEventLoopReport(eventLoopReports, measurement.eventLoopReport);
     });
 
-    assert.ok(measuredFrameGaps.length > 0, `CLI benchmark for "${size}" did not record any frame gaps`);
+    assert.ok(observedAnyGap, `CLI benchmark for "${size}" did not record any frame gaps`);
 
-    const worstPerPackageGaps = collectWorstPerPackageGapMetrics(measuredPerPackageFrameTimestamps);
+    const worstPerPackageGaps = summarizeWorstPerPackageGaps(perPackageFrameGaps);
+    const eventLoop = aggregateEventLoopReports(eventLoopReports);
 
     return {
-        frameCount: latestFrameCount,
+        frameCount: totalFrameCount,
         p99FrameGapMs: worstPerPackageGaps.p99FrameGapMs,
         maxFrameGapMs: worstPerPackageGaps.maxFrameGapMs,
+        eventLoop,
         result
     };
 }
@@ -95,6 +138,9 @@ export async function runCliResponsivenessBenchmark(
             frameCount: measurement.frameCount,
             p99FrameGapMs: measurement.p99FrameGapMs,
             maxFrameGapMs: measurement.maxFrameGapMs,
+            eventLoopHistogramP99Ms: measurement.eventLoop.histogramP99Ms,
+            eventLoopHistogramMaxMs: measurement.eventLoop.histogramMaxMs,
+            eventLoopSampledMaxBlockMs: measurement.eventLoop.sampledMaxBlockMs,
             ...measurement.result
         };
     } finally {

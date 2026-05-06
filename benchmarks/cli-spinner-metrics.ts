@@ -8,12 +8,15 @@ const spinnerFrames = new Set(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', 
 const packageNameCaptureIndex = 2;
 const spinnerGlyphCaptureIndex = 1;
 
+export type FrameRecorderResult = {
+    readonly allFrameGaps: readonly number[];
+    readonly perPackageFrameGaps: ReadonlyMap<string, readonly number[]>;
+    readonly frameCount: number;
+};
+
 export type FrameRecorder = {
     recordWrite: (data: string) => void;
-    finish: () => Promise<{
-        readonly allFrameGapTimestamps: readonly number[];
-        readonly perPackageFrameGapTimestamps: ReadonlyMap<string, readonly number[]>;
-    }>;
+    finish: () => Promise<FrameRecorderResult>;
 };
 
 function escapePackageName(packageName: string): string {
@@ -78,39 +81,63 @@ function collectSpinnerFramePackages(
     return matchedSpinnerLine;
 }
 
-function flushPendingPackages(
-    allFrameGapTimestamps: number[],
-    perPackageFrameGapTimestamps: Map<string, number[]>,
-    pendingFramePackages: Set<string>
-): void {
-    const timestamp = currentPerformance.now();
+type FrameRecorderState = {
+    readonly allFrameGaps: number[];
+    readonly perPackageFrameGaps: Map<string, number[]>;
+    readonly lastTimestampByPackage: Map<string, number>;
+    readonly previousGlyphByPackage: Map<string, string>;
+    readonly pendingFramePackages: Set<string>;
+    readonly spinnerLinePattern: RegExp;
+    lastFlushAtMs: number | undefined;
+    pendingFlush: boolean;
+    frameCount: number;
+};
 
-    if (pendingFramePackages.size === 0) {
-        return;
-    }
-
-    allFrameGapTimestamps.push(timestamp);
-    pendingFramePackages.forEach((packageName) => {
-        const packageTimestamps = perPackageFrameGapTimestamps.get(packageName);
-
-        if (packageTimestamps !== undefined) {
-            packageTimestamps.push(timestamp);
-        }
-    });
-    pendingFramePackages.clear();
+function createFrameRecorderState(packageNames: readonly string[]): FrameRecorderState {
+    return {
+        allFrameGaps: [],
+        perPackageFrameGaps: new Map(
+            packageNames.map((packageName) => {
+                return [packageName, [] as number[]] as const;
+            })
+        ),
+        lastTimestampByPackage: new Map<string, number>(),
+        previousGlyphByPackage: new Map<string, string>(),
+        pendingFramePackages: new Set<string>(),
+        spinnerLinePattern: createSpinnerLinePattern(packageNames),
+        lastFlushAtMs: undefined,
+        pendingFlush: false,
+        frameCount: 0
+    };
 }
 
 export function createFrameRecorder(packageNames: readonly string[]): FrameRecorder {
-    const allFrameGapTimestamps: number[] = [];
-    const perPackageFrameGapTimestamps = new Map(
-        packageNames.map((packageName) => {
-            return [packageName, [] as number[]] as const;
-        })
-    );
-    const previousGlyphByPackage = new Map<string, string>();
-    const pendingFramePackages = new Set<string>();
-    const spinnerLinePattern = createSpinnerLinePattern(packageNames);
-    let pendingFlush = false;
+    const state = createFrameRecorderState(packageNames);
+
+    function flushPending(): void {
+        if (state.pendingFramePackages.size === 0) {
+            return;
+        }
+
+        const timestamp = currentPerformance.now();
+
+        if (state.lastFlushAtMs !== undefined) {
+            state.allFrameGaps.push(timestamp - state.lastFlushAtMs);
+        }
+        state.lastFlushAtMs = timestamp;
+        state.frameCount += 1;
+
+        state.pendingFramePackages.forEach((packageName) => {
+            const gaps = state.perPackageFrameGaps.get(packageName);
+            const previous = state.lastTimestampByPackage.get(packageName);
+
+            if (gaps !== undefined && previous !== undefined) {
+                gaps.push(timestamp - previous);
+            }
+            state.lastTimestampByPackage.set(packageName, timestamp);
+        });
+        state.pendingFramePackages.clear();
+    }
 
     return {
         recordWrite(data) {
@@ -121,64 +148,49 @@ export function createFrameRecorder(packageNames: readonly string[]): FrameRecor
 
             const matchedSpinnerLine = collectSpinnerFramePackages(
                 visibleText,
-                spinnerLinePattern,
-                previousGlyphByPackage,
-                pendingFramePackages
+                state.spinnerLinePattern,
+                state.previousGlyphByPackage,
+                state.pendingFramePackages
             );
 
-            if (!matchedSpinnerLine || pendingFlush) {
+            if (!matchedSpinnerLine || state.pendingFlush) {
                 return;
             }
 
-            pendingFlush = true;
+            state.pendingFlush = true;
             scheduleImmediate(() => {
-                flushPendingPackages(allFrameGapTimestamps, perPackageFrameGapTimestamps, pendingFramePackages);
-                pendingFlush = false;
+                flushPending();
+                state.pendingFlush = false;
             });
         },
         async finish() {
-            if (pendingFlush) {
+            if (state.pendingFlush) {
                 await new Promise<void>((resolve) => {
                     scheduleImmediate(resolve);
                 });
             }
 
             return {
-                allFrameGapTimestamps,
-                perPackageFrameGapTimestamps
+                allFrameGaps: state.allFrameGaps,
+                perPackageFrameGaps: state.perPackageFrameGaps,
+                frameCount: state.frameCount
             };
         }
     };
 }
 
-export function calculateFrameGaps(timestamps: readonly number[]): readonly number[] {
-    const frameGaps: number[] = [];
-
-    for (let index = 1; index < timestamps.length; index += 1) {
-        const currentTimestamp = timestamps[index];
-        const previousTimestamp = timestamps[index - 1];
-
-        assert.ok(
-            currentTimestamp !== undefined && previousTimestamp !== undefined,
-            `Expected timestamps for frame gap index ${index}`
-        );
-        frameGaps.push(currentTimestamp - previousTimestamp);
-    }
-
-    return frameGaps;
-}
-
-export function collectWorstPerPackageGapMetrics(
-    perPackageFrameGapTimestamps: ReadonlyMap<string, readonly number[]>
-): {
+export type WorstPerPackageGapMetrics = {
     readonly p99FrameGapMs: number;
     readonly maxFrameGapMs: number;
-} {
+};
+
+export function summarizeWorstPerPackageGaps(
+    perPackageFrameGaps: ReadonlyMap<string, readonly number[]>
+): WorstPerPackageGapMetrics {
     let worstP99FrameGapMs = 0;
     let worstMaxFrameGapMs = 0;
 
-    perPackageFrameGapTimestamps.forEach((timestamps) => {
-        const gaps = calculateFrameGaps(timestamps);
+    perPackageFrameGaps.forEach((gaps) => {
         if (gaps.length === 0) {
             return;
         }

@@ -3,7 +3,7 @@
     "exclude": ["types"],
     "entry": [
         "benchmarks/**/*.ts",
-        "source/packages/**/*.entry-point.ts!",
+        "source/**/*.entry-point.ts!",
         "source/**/*.test.ts",
         "source/**/*.property.ts",
         "integration-tests/**/*.ts",

@@ -69,4 +69,7 @@ export type CliResponsivenessMeasurement = TinybenchMeasurement & {
     readonly frameCount: number;
     readonly p99FrameGapMs: number;
     readonly maxFrameGapMs: number;
+    readonly eventLoopHistogramP99Ms: number;
+    readonly eventLoopHistogramMaxMs: number;
+    readonly eventLoopSampledMaxBlockMs: number;
 };

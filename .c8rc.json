@@ -6,9 +6,7 @@
         "source/**/*.test.ts",
         "source/**/*.property.ts",
         "source/test-libraries/**/*.ts",
-        "source/packages/command-line-interface/command-line-interface.entry-point.ts",
-        "source/packages/package-processor/package-processor.entry-point.ts",
-        "source/packages/packtory/packtory.entry-point.ts",
+        "source/**/*.entry-point.ts",
         "integration-tests/**",
         "target/**"
     ],

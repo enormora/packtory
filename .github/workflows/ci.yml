@@ -51,4 +51,4 @@ jobs:
             - name: Install dependencies
               run: npm clean-install
             - name: Run benchmarks
-              run: npx just benchmark || true
+              run: npx just benchmark
