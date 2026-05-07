@@ -25,11 +25,13 @@ test('resolves files in a nested folder structure correctly', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            type: 'module',
             version: '42.0.0'
         },
         manifestFile: {
             isExecutable: false,
-            content: '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "version": "42.0.0"\n}',
+            content:
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -85,7 +87,7 @@ test('resolves files in a nested folder structure correctly', async () => {
             targetFilePath: 'entry.js'
         },
         dependencies: {},
-        packageType: undefined,
+        packageType: 'module',
         peerDependencies: {},
         name: 'the-package-name',
         typesMainFile: undefined,

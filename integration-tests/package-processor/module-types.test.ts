@@ -4,71 +4,25 @@ import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
-test('correctly resolves CommonJS files', async () => {
+test('rejects packages whose mainPackageJson.type is not "module"', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-cjs');
-    const result = await packageProcessor.build({
-        name: 'the-package-name',
-        version: '42.0.0',
-        sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
-        mainPackageJson: await loadPackageJson(fixture),
-        includeSourceMapFiles: false,
-        additionalFiles: [],
-        moduleResolution: 'module',
-        bundleDependencies: [],
-        bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
-    });
 
-    assert.deepStrictEqual(result, {
-        additionalAttributes: {},
-        packageJson: {
-            main: 'entry.js',
+    await assert.rejects(
+        packageProcessor.build({
             name: 'the-package-name',
-            version: '42.0.0'
-        },
-        manifestFile: {
-            isExecutable: false,
-            content: '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "version": "42.0.0"\n}',
-            filePath: 'package.json'
-        },
-        contents: [
-            {
-                directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
-                fileDescription: {
-                    content: "'use strict';\nconst { foo } = require('./foo');\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                isExplicitlyIncluded: false,
-                isSubstituted: false
-            },
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    content: "module.exports = { foo: 'foo' };\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/foo.js'),
-                    targetFilePath: 'foo.js'
-                },
-                isExplicitlyIncluded: false,
-                isSubstituted: false
-            }
-        ],
-        dependencies: {},
-        mainFile: {
-            content: "'use strict';\nconst { foo } = require('./foo');\n",
-            isExecutable: false,
-            sourceFilePath: path.join(fixture, 'src/entry.js'),
-            targetFilePath: 'entry.js'
-        },
-        name: 'the-package-name',
-        packageType: undefined,
-        peerDependencies: {},
-        typesMainFile: undefined,
-        version: '42.0.0'
-    });
+            version: '42.0.0',
+            sourcesFolder: path.join(fixture, 'src'),
+            entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+            mainPackageJson: await loadPackageJson(fixture),
+            includeSourceMapFiles: false,
+            additionalFiles: [],
+            moduleResolution: 'module',
+            bundleDependencies: [],
+            bundlePeerDependencies: [],
+            additionalPackageJsonAttributes: {}
+        }),
+        { message: 'mainPackageJson.type must be "module"' }
+    );
 });
 
 test('correctly resolves ESM files', async () => {

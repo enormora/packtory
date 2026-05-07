@@ -9,7 +9,7 @@ function createValidPackage(name: string) {
     return {
         name,
         sourcesFolder: `/src/${name}`,
-        mainPackageJson: {},
+        mainPackageJson: { type: 'module' },
         entryPoints: [{ js: `${name}.js` }]
     };
 }

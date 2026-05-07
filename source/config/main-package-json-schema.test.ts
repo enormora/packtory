@@ -13,20 +13,20 @@ test('schema rejects type commonjs', () => {
 });
 
 test(
-    'main package json schema: validation succeeds for an empty object',
-    checkValidationSuccess({
-        schema: mainPackageJsonSchema,
-        data: {},
-        expectedData: {}
-    })
-);
-
-test(
     'main package json schema: validation succeeds for module type',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
         data: { type: 'module' },
         expectedData: { type: 'module' }
+    })
+);
+
+test(
+    'main package json schema: validation fails when type is missing',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: {},
+        expectedMessages: ['at type: missing property']
     })
 );
 
@@ -43,7 +43,7 @@ test(
     'main package json schema: validation fails when dependencies contain non-string values',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { dependencies: { foo: 123 } },
+        data: { type: 'module', dependencies: { foo: 123 } },
         expectedMessages: ['at dependencies.foo: expected string, but got number']
     })
 );

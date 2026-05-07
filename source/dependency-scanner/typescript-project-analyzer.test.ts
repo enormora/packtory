@@ -107,7 +107,7 @@ function expectedProjectConstruction(args: {
 }
 
 function runAnalyzeProjectExpectingArgs(testArgs: {
-    readonly moduleResolution: 'common-js' | 'module';
+    readonly moduleResolution: 'module';
     readonly resolveDeclarationFiles: boolean;
     readonly fileSystemAdapters: Record<string, unknown>;
     readonly expectedModule: number;
@@ -148,18 +148,6 @@ test('creates a project for all js files in the given folder with module resolut
         resolveDeclarationFiles: false,
         fileSystemAdapters: { fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files' },
         expectedModule: 100,
-        expectedFileSystem: 'filtering-declaration-files',
-        expectedFilesGlob: '/foo/**/*.js',
-        expectedExtra: { typeRoots: [], types: [] }
-    });
-});
-
-test('creates a project for all js files in the given folder with commonjs resolution', () => {
-    runAnalyzeProjectExpectingArgs({
-        moduleResolution: 'common-js',
-        resolveDeclarationFiles: false,
-        fileSystemAdapters: { fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files' },
-        expectedModule: 1,
         expectedFileSystem: 'filtering-declaration-files',
         expectedFilesGlob: '/foo/**/*.js',
         expectedExtra: { typeRoots: [], types: [] }

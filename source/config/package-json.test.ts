@@ -34,15 +34,6 @@ test('additional package.json attributes schema accepts license', () => {
 });
 
 test(
-    'main package.json: validation succeeds for an empty object',
-    checkValidationSuccess({
-        schema: mainPackageJsonSchema,
-        data: {},
-        expectedData: {}
-    })
-);
-
-test(
     'main package.json: validation succeeds when type is given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
@@ -52,29 +43,29 @@ test(
 );
 
 test(
-    'main package.json: validation succeeds when dependencies are given',
+    'main package.json: validation succeeds when type and dependencies are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { dependencies: {} },
-        expectedData: { dependencies: {} }
+        data: { type: 'module', dependencies: {} },
+        expectedData: { type: 'module', dependencies: {} }
     })
 );
 
 test(
-    'main package.json: validation succeeds when devDependencies are given',
+    'main package.json: validation succeeds when type and devDependencies are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { devDependencies: {} },
-        expectedData: { devDependencies: {} }
+        data: { type: 'module', devDependencies: {} },
+        expectedData: { type: 'module', devDependencies: {} }
     })
 );
 
 test(
-    'main package.json: validation succeeds when peerDependencies are given',
+    'main package.json: validation succeeds when type and peerDependencies are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { peerDependencies: {} },
-        expectedData: { peerDependencies: {} }
+        data: { type: 'module', peerDependencies: {} },
+        expectedData: { type: 'module', peerDependencies: {} }
     })
 );
 
@@ -82,8 +73,8 @@ test(
     'main package.json: validation succeeds when additional properties are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
-        data: { foo: 'bar' },
-        expectedData: {}
+        data: { type: 'module', foo: 'bar' },
+        expectedData: { type: 'module' }
     })
 );
 
@@ -93,6 +84,15 @@ test(
         schema: mainPackageJsonSchema,
         data: 'foo',
         expectedMessages: ['expected object, but got string']
+    })
+);
+
+test(
+    'main package.json: validation fails when type is missing',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: {},
+        expectedMessages: ['at type: missing property']
     })
 );
 
@@ -118,7 +118,7 @@ test(
     'main package.json: validation fails when dependencies is not an object',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { dependencies: true },
+        data: { type: 'module', dependencies: true },
         expectedMessages: ['at dependencies: expected record, but got boolean']
     })
 );
@@ -127,7 +127,7 @@ test(
     'main package.json: validation fails when dependencies is null',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { dependencies: null },
+        data: { type: 'module', dependencies: null },
         expectedMessages: ['at dependencies: expected record, but got null']
     })
 );
@@ -136,7 +136,7 @@ test(
     'main package.json: validation fails when dependencies contains non-string values',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { dependencies: { foo: 123 } },
+        data: { type: 'module', dependencies: { foo: 123 } },
         expectedMessages: ['at dependencies.foo: expected string, but got number']
     })
 );
@@ -145,7 +145,7 @@ test(
     'main package.json: validation fails when peerDependencies is not an object',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { peerDependencies: true },
+        data: { type: 'module', peerDependencies: true },
         expectedMessages: ['at peerDependencies: expected record, but got boolean']
     })
 );
@@ -154,7 +154,7 @@ test(
     'main package.json: validation fails when peerDependencies is null',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { peerDependencies: null },
+        data: { type: 'module', peerDependencies: null },
         expectedMessages: ['at peerDependencies: expected record, but got null']
     })
 );
@@ -163,7 +163,7 @@ test(
     'main package.json: validation fails when peerDependencies contains non-string values',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { peerDependencies: { foo: 123 } },
+        data: { type: 'module', peerDependencies: { foo: 123 } },
         expectedMessages: ['at peerDependencies.foo: expected string, but got number']
     })
 );
@@ -172,7 +172,7 @@ test(
     'main package.json: validation fails when devDependencies is not an object',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { devDependencies: true },
+        data: { type: 'module', devDependencies: true },
         expectedMessages: ['at devDependencies: expected record, but got boolean']
     })
 );
@@ -181,7 +181,7 @@ test(
     'main package.json: validation fails when devDependencies is null',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { devDependencies: null },
+        data: { type: 'module', devDependencies: null },
         expectedMessages: ['at devDependencies: expected record, but got null']
     })
 );
@@ -190,7 +190,7 @@ test(
     'main package.json: validation fails when devDependencies contains non-string values',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
-        data: { devDependencies: { foo: 123 } },
+        data: { type: 'module', devDependencies: { foo: 123 } },
         expectedMessages: ['at devDependencies.foo: expected string, but got number']
     })
 );

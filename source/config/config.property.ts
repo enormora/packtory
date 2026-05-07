@@ -52,6 +52,7 @@ const validConfigArbitrary = fc
     .filter((config) => {
         return (
             (config.commonSourcesFolder !== undefined || config.packageSourcesFolder !== undefined) &&
+            (config.commonMainType !== undefined || config.packageMainType !== undefined) &&
             config.dependencyNames.every((dependencyName) => {
                 return dependencyName !== config.packageName;
             })
@@ -60,7 +61,7 @@ const validConfigArbitrary = fc
     .map((config) => {
         const commonPackageSettings = {
             ...(config.commonSourcesFolder === undefined ? {} : { sourcesFolder: config.commonSourcesFolder }),
-            mainPackageJson: config.commonMainType === undefined ? {} : { type: config.commonMainType },
+            ...(config.commonMainType === undefined ? {} : { mainPackageJson: { type: config.commonMainType } }),
             ...(config.commonIncludeSourceMaps === undefined
                 ? {}
                 : { includeSourceMapFiles: config.commonIncludeSourceMaps }),
@@ -92,7 +93,9 @@ const validConfigArbitrary = fc
                     ...(config.packageSourcesFolder === undefined
                         ? {}
                         : { sourcesFolder: config.packageSourcesFolder }),
-                    mainPackageJson: config.packageMainType === undefined ? {} : { type: config.packageMainType },
+                    ...(config.packageMainType === undefined
+                        ? {}
+                        : { mainPackageJson: { type: config.packageMainType } }),
                     ...(config.packageIncludeSourceMaps === undefined
                         ? {}
                         : { includeSourceMapFiles: config.packageIncludeSourceMaps }),
@@ -119,7 +122,7 @@ const validConfigArbitrary = fc
                         name: dependencyName,
                         entryPoints: [{ js: `${dependencyName}.js` }],
                         sourcesFolder: config.commonSourcesFolder ?? config.packageSourcesFolder ?? 'source',
-                        mainPackageJson: {}
+                        mainPackageJson: { type: 'module' }
                     };
                 })
             ]

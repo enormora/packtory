@@ -39,6 +39,8 @@ npm install -D @packtory/cli
 
 Create a configuration file named `packtory.config.js` in your project's root:
 
+Your root `package.json` must declare `"type": "module"`. `packtory` only supports ESM package manifests.
+
 ```js
 import path from 'node:path';
 import fs from 'node:fs';
@@ -154,6 +156,7 @@ The configuration for `packtory` is an object with the following properties:
 
     - **`mainPackageJson`** (Required):
         - The parsed content of the project's `package.json`.
+        - It must contain `"type": "module"`.
         - Needed to obtain version numbers of third-party dependencies.
 
     - **`entryPoints`** (Required, Array of Objects):

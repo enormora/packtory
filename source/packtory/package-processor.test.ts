@@ -4,7 +4,8 @@ import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import type { BuildAndPublishOptions, ResolveAndLinkOptions } from './map-config.ts';
+import type { MainPackageJson } from '../config/package-json.ts';
+import type { BuildAndPublishOptions, BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 import {
     createPackageProcessor,
     type BuildAndPublishResult,
@@ -197,6 +198,22 @@ test('resolveAndLink() emits progress events and links the resolved bundle with 
     ]);
 });
 
+test('resolveAndLink() rejects non-ESM mainPackageJson values', async () => {
+    const { processor } = createProcessor();
+    const invalidMainPackageJson = {};
+    const options: ResolveAndLinkOptions = {
+        ...createResolveOptions(),
+        mainPackageJson: invalidMainPackageJson as MainPackageJson
+    };
+
+    try {
+        await processor.resolveAndLink(options);
+        assert.fail('Expected processor.resolveAndLink() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'mainPackageJson.type must be "module"');
+    }
+});
+
 test('build() resolves, links, and forwards the mapped build options to versionManager.addVersion()', async () => {
     const linkedBundle = createLinkedBundle();
     const linkBundle = fake.resolves(linkedBundle);
@@ -219,6 +236,23 @@ test('build() resolves, links, and forwards the mapped build options to versionM
             additionalPackageJsonAttributes: { publishConfig: { access: 'public' } }
         }
     ]);
+});
+
+test('build() rejects non-ESM mainPackageJson values', async () => {
+    const { processor } = createProcessor();
+    const invalidMainPackageJson = {};
+    const options: BuildOptions = {
+        ...createBuildAndPublishOptions(),
+        version: '3.4.5',
+        mainPackageJson: invalidMainPackageJson as MainPackageJson
+    };
+
+    try {
+        await processor.build(options);
+        assert.fail('Expected processor.build() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'mainPackageJson.type must be "module"');
+    }
 });
 
 test('tryBuildAndPublish() returns already-published when the emitted bundle already matches the latest version', async () => {

@@ -20,13 +20,19 @@ test('optional common settings schema accepts an empty object', () => {
 
 test('required common settings schema accepts both required properties', () => {
     assert.strictEqual(
-        safeParse(requiredCommonPackageSettingsSchema, { sourcesFolder: 'src', mainPackageJson: {} }).success,
+        safeParse(requiredCommonPackageSettingsSchema, {
+            sourcesFolder: 'src',
+            mainPackageJson: { type: 'module' }
+        }).success,
         true
     );
 });
 
 test('required common settings schema rejects missing sourcesFolder', () => {
-    assert.strictEqual(safeParse(requiredCommonPackageSettingsSchema, { mainPackageJson: {} }).success, false);
+    assert.strictEqual(
+        safeParse(requiredCommonPackageSettingsSchema, { mainPackageJson: { type: 'module' } }).success,
+        false
+    );
 });
 
 test('required common settings schema rejects missing mainPackageJson', () => {
@@ -42,12 +48,12 @@ test('sourcesFolder-required common settings schema accepts sourcesFolder only',
 
 test('mainPackageJson-required common settings schema accepts mainPackageJson only', () => {
     assert.strictEqual(
-        safeParse(commonPackageSettingsMainPackageJsonRequiredSchema, { mainPackageJson: {} }).success,
+        safeParse(commonPackageSettingsMainPackageJsonRequiredSchema, { mainPackageJson: { type: 'module' } }).success,
         true
     );
 });
 
-const validRequiredCommonSettings = { sourcesFolder: 'src', mainPackageJson: {} };
+const validRequiredCommonSettings = { sourcesFolder: 'src', mainPackageJson: { type: 'module' } };
 
 createTestCasesForOptionalField({
     schema: optionalCommonPackageSettingsSchema,
@@ -90,7 +96,7 @@ test(
     'required common package settings: validation fails when sourcesFolder is missing',
     checkValidationFailure({
         schema: requiredCommonPackageSettingsSchema,
-        data: { mainPackageJson: {} },
+        data: { mainPackageJson: { type: 'module' } },
         expectedMessages: ['at sourcesFolder: missing property']
     })
 );
@@ -117,8 +123,8 @@ test(
     'main-package-json-required common package settings: validation succeeds without sourcesFolder',
     checkValidationSuccess({
         schema: commonPackageSettingsMainPackageJsonRequiredSchema,
-        data: { mainPackageJson: {} },
-        expectedData: { mainPackageJson: {} }
+        data: { mainPackageJson: { type: 'module' } },
+        expectedData: { mainPackageJson: { type: 'module' } }
     })
 );
 

@@ -25,11 +25,13 @@ test('ignores superfluous local files and reference node modules', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            type: 'module',
             version: '42.0.0'
         },
         manifestFile: {
             isExecutable: false,
-            content: '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "version": "42.0.0"\n}',
+            content:
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -64,7 +66,7 @@ test('ignores superfluous local files and reference node modules', async () => {
             targetFilePath: 'entry.js'
         },
         name: 'the-package-name',
-        packageType: undefined,
+        packageType: 'module',
         peerDependencies: {},
         version: '42.0.0',
         typesMainFile: undefined

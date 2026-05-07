@@ -5,6 +5,26 @@ import { checkValidationFailure, checkValidationSuccess } from '../test-librarie
 import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 
 const publicPublishSettings = { access: 'public' } as const;
+const packageWithoutPublishSettings = {
+    sourcesFolder: 'src',
+    mainPackageJson: { type: 'module' },
+    name: 'pkg',
+    entryPoints: [{ js: 'index.js' }]
+} as const;
+const configWithPackageSpecificPublishSettings = {
+    commonPackageSettings: {
+        sourcesFolder: 'src',
+        mainPackageJson: { type: 'module' },
+        publishSettings: publicPublishSettings
+    },
+    packages: [
+        {
+            name: 'pkg',
+            entryPoints: [{ js: 'index.js' }],
+            publishSettings: { access: 'restricted' }
+        }
+    ]
+} as const;
 
 test('config without registry schema accepts package configs with optional common settings', () => {
     assert.strictEqual(
@@ -12,7 +32,7 @@ test('config without registry schema accepts package configs with optional commo
             packages: [
                 {
                     sourcesFolder: 'src',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'pkg',
                     entryPoints: [{ js: 'index.js' }],
                     publishSettings: publicPublishSettings
@@ -28,7 +48,7 @@ test('config without registry schema accepts required common package settings', 
         safeParse(packtoryConfigWithoutRegistrySchema, {
             commonPackageSettings: {
                 sourcesFolder: 'src',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 publishSettings: publicPublishSettings
             },
             packages: [{ name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
@@ -40,7 +60,7 @@ test('config without registry schema accepts required common package settings', 
 test('config without registry schema accepts required mainPackageJson', () => {
     assert.strictEqual(
         safeParse(packtoryConfigWithoutRegistrySchema, {
-            commonPackageSettings: { mainPackageJson: {}, publishSettings: publicPublishSettings },
+            commonPackageSettings: { mainPackageJson: { type: 'module' }, publishSettings: publicPublishSettings },
             packages: [{ sourcesFolder: 'src', name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
         }).success,
         true
@@ -51,7 +71,7 @@ test('config without registry schema accepts required sourcesFolder', () => {
     assert.strictEqual(
         safeParse(packtoryConfigWithoutRegistrySchema, {
             commonPackageSettings: { sourcesFolder: 'src', publishSettings: publicPublishSettings },
-            packages: [{ mainPackageJson: {}, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
         }).success,
         true
     );
@@ -66,7 +86,7 @@ test('required common settings branch rejects an empty packages tuple', () => {
         safeParse(packtoryConfigWithoutRegistrySchema, {
             commonPackageSettings: {
                 sourcesFolder: 'src',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 publishSettings: publicPublishSettings
             },
             packages: []
@@ -78,7 +98,7 @@ test('required common settings branch rejects an empty packages tuple', () => {
 test('required mainPackageJson branch rejects an empty packages tuple', () => {
     assert.strictEqual(
         safeParse(packtoryConfigWithoutRegistrySchema, {
-            commonPackageSettings: { mainPackageJson: {}, publishSettings: publicPublishSettings },
+            commonPackageSettings: { mainPackageJson: { type: 'module' }, publishSettings: publicPublishSettings },
             packages: []
         }).success,
         false
@@ -103,7 +123,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'src',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'pkg',
                     entryPoints: [{ js: 'index.js' }],
                     publishSettings: publicPublishSettings
@@ -114,7 +134,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'src',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'pkg',
                     entryPoints: [{ js: 'index.js' }],
                     publishSettings: publicPublishSettings
@@ -131,7 +151,7 @@ test(
         data: {
             commonPackageSettings: {
                 sourcesFolder: 'src',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 publishSettings: publicPublishSettings
             },
             packages: [{ name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
@@ -139,7 +159,7 @@ test(
         expectedData: {
             commonPackageSettings: {
                 sourcesFolder: 'src',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 publishSettings: publicPublishSettings
             },
             packages: [{ name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
@@ -152,11 +172,11 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigWithoutRegistrySchema,
         data: {
-            commonPackageSettings: { mainPackageJson: {}, publishSettings: publicPublishSettings },
+            commonPackageSettings: { mainPackageJson: { type: 'module' }, publishSettings: publicPublishSettings },
             packages: [{ sourcesFolder: 'src', name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
         },
         expectedData: {
-            commonPackageSettings: { mainPackageJson: {}, publishSettings: publicPublishSettings },
+            commonPackageSettings: { mainPackageJson: { type: 'module' }, publishSettings: publicPublishSettings },
             packages: [{ sourcesFolder: 'src', name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
         }
     })
@@ -168,11 +188,11 @@ test(
         schema: packtoryConfigWithoutRegistrySchema,
         data: {
             commonPackageSettings: { sourcesFolder: 'src', publishSettings: publicPublishSettings },
-            packages: [{ mainPackageJson: {}, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
         },
         expectedData: {
             commonPackageSettings: { sourcesFolder: 'src', publishSettings: publicPublishSettings },
-            packages: [{ mainPackageJson: {}, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
         }
     })
 );
@@ -190,34 +210,8 @@ test(
     'config without registry: validation succeeds when per-package publishSettings overrides the common default',
     checkValidationSuccess({
         schema: packtoryConfigWithoutRegistrySchema,
-        data: {
-            commonPackageSettings: {
-                sourcesFolder: 'src',
-                mainPackageJson: {},
-                publishSettings: publicPublishSettings
-            },
-            packages: [
-                {
-                    name: 'pkg',
-                    entryPoints: [{ js: 'index.js' }],
-                    publishSettings: { access: 'restricted' }
-                }
-            ]
-        },
-        expectedData: {
-            commonPackageSettings: {
-                sourcesFolder: 'src',
-                mainPackageJson: {},
-                publishSettings: publicPublishSettings
-            },
-            packages: [
-                {
-                    name: 'pkg',
-                    entryPoints: [{ js: 'index.js' }],
-                    publishSettings: { access: 'restricted' }
-                }
-            ]
-        }
+        data: configWithPackageSpecificPublishSettings,
+        expectedData: configWithPackageSpecificPublishSettings
     })
 );
 
@@ -226,10 +220,10 @@ test(
     checkValidationSuccess({
         schema: packtoryConfigWithoutRegistrySchema,
         data: {
-            packages: [{ sourcesFolder: 'src', mainPackageJson: {}, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [packageWithoutPublishSettings]
         },
         expectedData: {
-            packages: [{ sourcesFolder: 'src', mainPackageJson: {}, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [packageWithoutPublishSettings]
         }
     })
 );
