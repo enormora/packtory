@@ -86,9 +86,14 @@ test('publishPackage() uses shorthand bearer auth and one-time-password prompt w
     const registryClient = registryClientFactory({ publish, promptForOneTimePassword });
     const tarData = Buffer.from([1, 2, 3, 4]);
 
-    await registryClient.publishPackage({ name: 'the-name', version: 'the-version' }, tarData, {
-        auth: { type: 'bearer-token', token: 'the-token' }
-    });
+    await registryClient.publishPackage(
+        { name: 'the-name', version: 'the-version' },
+        tarData,
+        {
+            auth: { type: 'bearer-token', token: 'the-token' }
+        },
+        { access: 'public' }
+    );
 
     assert.deepStrictEqual(publish.firstCall.args, [
         { name: 'the-name', version: 'the-version' },
@@ -97,6 +102,7 @@ test('publishPackage() uses shorthand bearer auth and one-time-password prompt w
             defaultTag: 'latest',
             alwaysAuth: true,
             registry: undefined,
+            access: 'public',
             forceAuth: { token: 'the-token' },
             otpPrompt: promptForOneTimePassword
         }
@@ -107,19 +113,25 @@ test('publishPackage() uses explicit basic auth when configured', async () => {
     const publish = fake.resolves(undefined);
     const registryClient = registryClientFactory({ publish });
 
-    await registryClient.publishPackage({ name: 'the-name', version: 'the-version' }, Buffer.from([]), {
-        registryUrl: 'https://registry.example.test',
-        auth: {
-            type: 'basic',
-            username: 'user',
-            password: 'secret'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: 'the-name', version: 'the-version' },
+        Buffer.from([]),
+        {
+            registryUrl: 'https://registry.example.test',
+            auth: {
+                type: 'basic',
+                username: 'user',
+                password: 'secret'
+            }
+        },
+        { access: 'public' }
+    );
 
     assert.deepStrictEqual(publish.firstCall.args.at(-1), {
         defaultTag: 'latest',
         alwaysAuth: true,
         registry: 'https://registry.example.test',
+        access: 'public',
         forceAuth: {
             _auth: Buffer.from('user:secret', 'utf8').toString('base64')
         }
@@ -639,12 +651,17 @@ test('publishPackage() resolves and exchanges npm oidc id tokens', async () => {
         resolveIdToken
     });
 
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.0' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'github-actions' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'github-actions' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
     assert.deepStrictEqual(resolveIdToken.firstCall.args, [{ type: 'npm-oidc', provider: 'github-actions' }]);
     assert.deepStrictEqual((fetchSpy as unknown as SinonSpy).firstCall.args, [
@@ -677,18 +694,28 @@ test('publishPackage() exchanges npm oidc tokens and caches the exchange token p
         resolveIdToken: fake.resolves('upstream-id-token')
     });
 
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.0' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.1' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.1' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
     assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 1);
     assert.deepStrictEqual((fetchSpy as unknown as SinonSpy).firstCall.args, [
@@ -721,9 +748,14 @@ test('publishPackage() passes shorthand npm oidc auth through to the id token re
         resolveIdToken
     });
 
-    await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-        auth: { type: 'npm-oidc' }
-    });
+    await registryClient.publishPackage(
+        { name: 'the-name', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: { type: 'npm-oidc' }
+        },
+        { access: 'public' }
+    );
 
     assert.deepStrictEqual(resolveIdToken.firstCall.args, [{ type: 'npm-oidc' }]);
     assert.strictEqual(getPublishedToken(publish), 'oidc-exchange-token');
@@ -749,21 +781,31 @@ test('publishPackage() refreshes the exchanged npm oidc token after expiry', asy
         resolveIdToken: fake.resolves('upstream-id-token')
     });
 
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.0' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
     clock.tick(61_000);
 
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.1' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.1' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
     assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 2);
 });
@@ -788,19 +830,29 @@ test('publishPackage() refreshes the exchanged npm oidc token when exactly 60 se
         resolveIdToken: fake.resolves('upstream-id-token')
     });
 
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.0' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.1' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.1' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
     assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 2);
 });
@@ -823,18 +875,28 @@ test('publishPackage() caches exchanged npm oidc tokens per package name', async
         resolveIdToken: fake.resolves('upstream-id-token')
     });
 
-    await registryClient.publishPackage({ name: '@scope/first-package', version: '1.0.0' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
-    await registryClient.publishPackage({ name: '@scope/second-package', version: '1.0.0' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/first-package', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
+    await registryClient.publishPackage(
+        { name: '@scope/second-package', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
     assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 2);
     assert.deepStrictEqual((fetchSpy as unknown as SinonSpy).firstCall.args, [
@@ -871,19 +933,29 @@ test('publishPackage() reuses exchanged npm oidc tokens between implicit and exp
         resolveIdToken: fake.resolves('upstream-id-token')
     });
 
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.0' }, Buffer.from([]), {
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
-    await registryClient.publishPackage({ name: '@scope/the-name', version: '1.0.1' }, Buffer.from([]), {
-        registryUrl: 'https://registry.npmjs.org/',
-        auth: {
-            publish: { type: 'npm-oidc', provider: 'env' },
-            metadata: 'anonymous'
-        }
-    });
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.0' },
+        Buffer.from([]),
+        {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
+    await registryClient.publishPackage(
+        { name: '@scope/the-name', version: '1.0.1' },
+        Buffer.from([]),
+        {
+            registryUrl: 'https://registry.npmjs.org/',
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env' },
+                metadata: 'anonymous'
+            }
+        },
+        { access: 'public' }
+    );
 
     assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 1);
 });
@@ -894,13 +966,18 @@ test('publishPackage() rejects npm oidc auth for non-npm registries', async () =
     });
 
     await expectFailure(async () => {
-        await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-            registryUrl: 'https://registry.example.test',
-            auth: {
-                publish: { type: 'npm-oidc', provider: 'env' },
-                metadata: 'anonymous'
-            }
-        });
+        await registryClient.publishPackage(
+            { name: 'the-name', version: '1.0.0' },
+            Buffer.from([]),
+            {
+                registryUrl: 'https://registry.example.test',
+                auth: {
+                    publish: { type: 'npm-oidc', provider: 'env' },
+                    metadata: 'anonymous'
+                }
+            },
+            { access: 'public' }
+        );
     }, /^Error: npm-oidc auth is only supported with the npmjs.org registry$/u);
 });
 
@@ -916,12 +993,17 @@ test('publishPackage() rejects an invalid OIDC exchange response body', async ()
     });
 
     await expectFailure(async () => {
-        await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-            auth: {
-                publish: { type: 'npm-oidc', provider: 'env' },
-                metadata: 'anonymous'
-            }
-        });
+        await registryClient.publishPackage(
+            { name: 'the-name', version: '1.0.0' },
+            Buffer.from([]),
+            {
+                auth: {
+                    publish: { type: 'npm-oidc', provider: 'env' },
+                    metadata: 'anonymous'
+                }
+            },
+            { access: 'public' }
+        );
     }, /^TypeError: OIDC token exchange returned an invalid response$/u);
 });
 
@@ -937,12 +1019,17 @@ test('publishPackage() rejects a non-object OIDC exchange response body', async 
     });
 
     await expectFailure(async () => {
-        await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-            auth: {
-                publish: { type: 'npm-oidc', provider: 'env' },
-                metadata: 'anonymous'
-            }
-        });
+        await registryClient.publishPackage(
+            { name: 'the-name', version: '1.0.0' },
+            Buffer.from([]),
+            {
+                auth: {
+                    publish: { type: 'npm-oidc', provider: 'env' },
+                    metadata: 'anonymous'
+                }
+            },
+            { access: 'public' }
+        );
     }, /^TypeError: OIDC token exchange returned an invalid response$/u);
 });
 
@@ -958,12 +1045,17 @@ test('publishPackage() rejects a null OIDC exchange response body', async () => 
     });
 
     await expectFailure(async () => {
-        await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-            auth: {
-                publish: { type: 'npm-oidc', provider: 'env' },
-                metadata: 'anonymous'
-            }
-        });
+        await registryClient.publishPackage(
+            { name: 'the-name', version: '1.0.0' },
+            Buffer.from([]),
+            {
+                auth: {
+                    publish: { type: 'npm-oidc', provider: 'env' },
+                    metadata: 'anonymous'
+                }
+            },
+            { access: 'public' }
+        );
     }, /^TypeError: OIDC token exchange returned an invalid response$/u);
 });
 
@@ -979,12 +1071,17 @@ test('publishPackage() rejects a failing OIDC exchange request', async () => {
     });
 
     await expectFailure(async () => {
-        await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-            auth: {
-                publish: { type: 'npm-oidc', provider: 'env' },
-                metadata: 'anonymous'
-            }
-        });
+        await registryClient.publishPackage(
+            { name: 'the-name', version: '1.0.0' },
+            Buffer.from([]),
+            {
+                auth: {
+                    publish: { type: 'npm-oidc', provider: 'env' },
+                    metadata: 'anonymous'
+                }
+            },
+            { access: 'public' }
+        );
     }, /^Error: OIDC token exchange failed with status 502$/u);
 });
 
@@ -1005,12 +1102,17 @@ test('publishPackage() rejects an invalid OIDC exchange expiry timestamp', async
     });
 
     await expectFailure(async () => {
-        await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-            auth: {
-                publish: { type: 'npm-oidc', provider: 'env' },
-                metadata: 'anonymous'
-            }
-        });
+        await registryClient.publishPackage(
+            { name: 'the-name', version: '1.0.0' },
+            Buffer.from([]),
+            {
+                auth: {
+                    publish: { type: 'npm-oidc', provider: 'env' },
+                    metadata: 'anonymous'
+                }
+            },
+            { access: 'public' }
+        );
     }, /^TypeError: OIDC token exchange returned an invalid expiry timestamp$/u);
 });
 
@@ -1049,12 +1151,17 @@ for (const [testName, response] of [
         });
 
         await expectFailure(async () => {
-            await registryClient.publishPackage({ name: 'the-name', version: '1.0.0' }, Buffer.from([]), {
-                auth: {
-                    publish: { type: 'npm-oidc', provider: 'env' },
-                    metadata: 'anonymous'
-                }
-            });
+            await registryClient.publishPackage(
+                { name: 'the-name', version: '1.0.0' },
+                Buffer.from([]),
+                {
+                    auth: {
+                        publish: { type: 'npm-oidc', provider: 'env' },
+                        metadata: 'anonymous'
+                    }
+                },
+                { access: 'public' }
+            );
         }, /^TypeError: OIDC token exchange returned an invalid response$/u);
     });
 }
@@ -1215,4 +1322,42 @@ test('fetchLatestVersion() rethrows object unexpected errors without statusCode'
             auth: { type: 'bearer-token', token: 'the-token' }
         });
     }, /^Error: unexpected-failure$/u);
+});
+
+test('publishPackage() forwards the access and provenance options resolved from publishSettings to libnpmpublish', async () => {
+    const publish = fake.resolves(undefined);
+    const registryClient = registryClientFactory({ publish });
+
+    await registryClient.publishPackage(
+        { name: 'the-name', version: '1.0.0' },
+        Buffer.from([]),
+        { auth: { type: 'bearer-token', token: 'the-token' } },
+        { access: 'public', provenance: { type: 'auto' } }
+    );
+
+    const publishOptions = publish.firstCall.args.at(-1) as Record<string, unknown>;
+    assert.strictEqual(publishOptions.access, 'public');
+    assert.strictEqual(publishOptions.provenance, true);
+});
+
+test('publishPackage() rewrites a libnpmpublish error through the publish-settings bridge', async () => {
+    const original = Object.assign(new Error('Automatic provenance generation not supported for provider: jenkins'), {
+        code: 'EUSAGE'
+    });
+    const publish = fake.rejects(original);
+    const registryClient = registryClientFactory({ publish });
+
+    try {
+        await registryClient.publishPackage(
+            { name: 'the-name', version: '1.0.0' },
+            Buffer.from([]),
+            { auth: { type: 'bearer-token', token: 'the-token' } },
+            { access: 'public', provenance: { type: 'auto' } }
+        );
+        assert.fail('Expected publishPackage() to throw');
+    } catch (error: unknown) {
+        assert.ok(error instanceof Error, 'Expected the thrown value to be an Error');
+        assert.match(error.message, /^Provenance auto mode requires GitHub Actions or GitLab CI/u);
+        assert.strictEqual(error.cause, original);
+    }
 });

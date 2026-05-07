@@ -188,12 +188,19 @@ test('publish() publishes the given bundle', async () => {
     const buildTarball = fake.resolves({ tarData: emptyTarball });
     const publishPackage = fake.resolves(undefined);
     const emitter = emitterFactory({ buildTarball, publishPackage });
+    const publishSettings = { access: 'public' } as const;
 
     await emitter.publish({
         registrySettings,
-        bundle: namedBundle()
+        bundle: namedBundle(),
+        publishSettings
     });
 
     assert.strictEqual(publishPackage.callCount, 1);
-    assert.deepStrictEqual(publishPackage.firstCall.args, [{ name: '', version: '' }, emptyTarball, registrySettings]);
+    assert.deepStrictEqual(publishPackage.firstCall.args, [
+        { name: '', version: '' },
+        emptyTarball,
+        registrySettings,
+        publishSettings
+    ]);
 });

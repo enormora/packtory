@@ -31,17 +31,25 @@ function runMapConfig(
 ): ReturnType<typeof configToBuildAndPublishOptions> {
     const packageName = options.packageName ?? 'foo';
     const additionalPackages = options.extraPackages ?? [placeholderPackage];
+    const commonProvidesPublishSettings = options.commonPackageSettings?.publishSettings !== undefined;
+    const packageProvidesPublishSettings = packageConfig.publishSettings !== undefined;
+    const needsPublishSettingsFallback = !commonProvidesPublishSettings && !packageProvidesPublishSettings;
+    const fallbackPackage: PackageConfigInput = {
+        publishSettings: { access: 'public' },
+        ...packageConfig
+    };
+    const packageWithFallback = needsPublishSettingsFallback ? fallbackPackage : packageConfig;
     const baseConfig = {
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         ...options.extraConfig,
         ...(options.commonPackageSettings === undefined
             ? {}
             : { commonPackageSettings: options.commonPackageSettings }),
-        packages: [packageConfig, ...additionalPackages]
+        packages: [packageWithFallback, ...additionalPackages]
     } as unknown as PacktoryConfigInput;
     return configToBuildAndPublishOptions(
         packageName,
-        { [packageName]: packageConfig },
+        { [packageName]: packageWithFallback },
         baseConfig,
         options.bundleDependencies ?? []
     );
@@ -334,4 +342,40 @@ test('overwrites additionalPackageJsonAttributes from common settings when there
     );
 
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'qux' });
+});
+
+test('uses the common publishSettings when the package config does not override it', () => {
+    const result = runMapConfig(fooPackageConfigFactory.build(), {
+        commonPackageSettings: { publishSettings: { access: 'public', provenance: { type: 'auto' } } },
+        extraPackages: []
+    });
+
+    assert.deepStrictEqual(result.publishSettings, { access: 'public', provenance: { type: 'auto' } });
+});
+
+test('prefers the per-package publishSettings over the common default', () => {
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), publishSettings: { access: 'restricted' } },
+        {
+            commonPackageSettings: { publishSettings: { access: 'public' } },
+            extraPackages: []
+        }
+    );
+
+    assert.deepStrictEqual(result.publishSettings, { access: 'restricted' });
+});
+
+test('throws a "missing publish settings" error when neither commonPackageSettings nor the package supplies one', () => {
+    const packageWithoutPublishSettings = fooPackageConfigFactory.build();
+    const config = {
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        packages: [packageWithoutPublishSettings]
+    } as unknown as PacktoryConfigInput;
+
+    assert.throws(
+        () => {
+            configToBuildAndPublishOptions('foo', { foo: packageWithoutPublishSettings }, config, []);
+        },
+        { message: 'Config for package "foo" is missing publish settings' }
+    );
 });

@@ -178,6 +178,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'additionalFiles',
             'includeSourceMapFiles',
             'additionalPackageJsonAttributes',
+            'publishSettings',
             'name',
             'entryPoints',
             'versioning',
@@ -190,7 +191,8 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'mainPackageJson',
             'additionalFiles',
             'includeSourceMapFiles',
-            'additionalPackageJsonAttributes'
+            'additionalPackageJsonAttributes',
+            'publishSettings'
         ],
         configIntersectionLeftKeys: ['registrySettings'],
         validWithoutRegistrySuccess: true

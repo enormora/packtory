@@ -41,7 +41,8 @@ export async function buildConfig() {
                 author: packageJson.author,
                 contributors: packageJson.contributors,
                 engines: packageJson.engines
-            }
+            },
+            publishSettings: { access: 'public' }
         },
         packages: [
             {

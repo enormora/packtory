@@ -143,6 +143,7 @@ function createBuildAndPublishOptions(): BuildAndPublishOptions {
         ...createResolveOptions(),
         versioning: { automatic: true } as const,
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        publishSettings: { access: 'public' } as const,
         bundleDependencies: [createVersionedBundle('bundle-dependency', '1.0.0')],
         bundlePeerDependencies: [createVersionedBundle('peer-dependency', '2.0.0')]
     };
@@ -430,7 +431,11 @@ test('buildAndPublish() publishes the rebuilt bundle and emits publishing progre
 
     assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'new-version' });
     assert.deepStrictEqual(publish.firstCall.args, [
-        { bundle: rebuiltBundle, registrySettings: { auth: { type: 'bearer-token', token: 'token' } } }
+        {
+            bundle: rebuiltBundle,
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            publishSettings: { access: 'public' }
+        }
     ]);
     assert.deepStrictEqual(getCallArgs(emit), [
         ['building', { packageName: 'package-a', version: '1.2.3' }],

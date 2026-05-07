@@ -126,6 +126,19 @@ type ConfigWithGraphInternal<TConfig extends { packages: readonly PackageConfig[
         readonly packageGraph: DirectedGraph<string, undefined>;
     };
 
+function validatePublishSettingsArePlaced(packtoryConfig: Readonly<PacktoryConfigWithoutRegistry>): readonly string[] {
+    if (packtoryConfig.commonPackageSettings?.publishSettings !== undefined) {
+        return [];
+    }
+    const everyPackageHasIt = packtoryConfig.packages.every((packageConfig) => {
+        return packageConfig.publishSettings !== undefined;
+    });
+    if (everyPackageHasIt) {
+        return [];
+    }
+    return ['publishSettings must be set in commonPackageSettings or in every package'];
+}
+
 function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWithoutRegistry>(
     schema: ZodMiniType<TConfig>,
     config: unknown
@@ -140,6 +153,7 @@ function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWith
     const packageConfigs = packageListToRecord(packtoryConfig.packages);
 
     const preGraphIssues = [
+        ...validatePublishSettingsArePlaced(packtoryConfig),
         ...validateDependenciesExist(packageConfigs),
         ...validateNoDuplicatedFilesAllowList(packageConfigs, packtoryConfig.checks)
     ];

@@ -52,7 +52,8 @@ export const config = {
     // Common settings shared among packages
     commonPackageSettings: {
         sourcesFolder: path.join(process.cwd(), 'dist/'),
-        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' })
+        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+        publishSettings: { access: 'public' }
     },
 
     // Define your packages
@@ -138,7 +139,7 @@ The configuration for `packtory` is an object with the following properties:
 
 2. **`commonPackageSettings`** (Optional):
     - Defines settings that can be shared for all packages.
-    - Allowed settings: `sourcesFolder`, `mainPackageJson`, `includeSourceMapFiles`, `additionalFiles`, `additionalPackageJsonAttributes`.
+    - Allowed settings: `sourcesFolder`, `mainPackageJson`, `includeSourceMapFiles`, `additionalFiles`, `additionalPackageJsonAttributes`, `publishSettings`.
 
 3. **`packages`** (Required, Array):
     - An array of per-package configurations.
@@ -178,6 +179,16 @@ The configuration for `packtory` is an object with the following properties:
     - **`bundlePeerDependencies`** (Optional, Array of Strings):
         - Similar to `bundleDependencies` but represented as `peerDependencies` in the generated `package.json`.
 
+    - **`publishSettings`** (Required somewhere):
+        - Controls how the package is published. Must be set in `commonPackageSettings` (as a default for every package), in every package entry, or both. If neither is set, validation rejects the config with `publishSettings must be set in commonPackageSettings or in every package`.
+        - A discriminated union on `access`:
+            - `{ access: 'public' }` — publishes the package as public on the registry. Only `'public'` allows provenance.
+            - `{ access: 'restricted' }` — publishes the package as restricted (paid feature on npmjs.org for scoped packages). Provenance is not allowed in this mode.
+        - When `access: 'public'`, an optional `provenance` field enables sigstore-signed [npm provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
+            - `provenance: { type: 'auto' }` — let `libnpmpublish` detect the CI environment and generate the provenance statement. Currently supported CIs: GitHub Actions and GitLab CI.
+            - `provenance: { type: 'file', path: './build/pkg.sigstore' }` — pass a pre-generated sigstore bundle. Use this for any CI not natively supported by `auto` mode (e.g. CircleCI, Jenkins, BuildKite). The bundle must have been signed against the exact tarball packtory builds; mismatches are rejected with a clear error.
+        - Per-package `publishSettings` replaces the whole common-level block (no field-level merging) so the `access` ↔ `provenance` constraint stays internally consistent at every scope.
+
 **Note**: Per-package settings override or merge with common settings when both are defined.
 
 This comprehensive configuration allows fine-tuning for individual packages and provides flexibility in defining dependencies and additional files.
@@ -196,7 +207,8 @@ export const config = {
     },
     commonPackageSettings: {
         sourcesFolder: path.join(process.cwd(), 'dist/'),
-        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' })
+        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+        publishSettings: { access: 'public' }
     },
     packages: [
         {
@@ -224,7 +236,8 @@ export const config = {
     },
     commonPackageSettings: {
         sourcesFolder: path.join(process.cwd(), 'src/'),
-        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' })
+        mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+        publishSettings: { access: 'public' }
     },
     packages: [
         {
@@ -293,5 +306,100 @@ registrySettings: {
 - Try metadata requests without authentication first.
 - If the registry responds with an authentication challenge such as `401` or `403`, retry using the publish auth.
 - Keep in mind that `404` can be ambiguous on some registries because it may mean either "not found" or "not visible without auth".
+
+### Publish settings examples
+
+Set a uniform default for every package in `commonPackageSettings`:
+
+```javascript
+commonPackageSettings: {
+    sourcesFolder: path.join(process.cwd(), 'dist/'),
+    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+    publishSettings: { access: 'public' }
+}
+```
+
+Override per package — e.g. a monorepo where the public CLI lives next to a restricted internal helper:
+
+```javascript
+commonPackageSettings: {
+    sourcesFolder: path.join(process.cwd(), 'dist/'),
+    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+    publishSettings: { access: 'public' }
+},
+packages: [
+    {
+        name: 'image-resizer-cli',
+        entryPoints: [{ js: 'cli.js' }]
+    },
+    {
+        name: '@my-org/image-resizer-internal',
+        entryPoints: [{ js: 'internal.js' }],
+        publishSettings: { access: 'restricted' }
+    }
+]
+```
+
+Enable [npm provenance](https://docs.npmjs.com/generating-provenance-statements) automatically when running on GitHub Actions or GitLab CI:
+
+```javascript
+commonPackageSettings: {
+    sourcesFolder: path.join(process.cwd(), 'dist/'),
+    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+    publishSettings: {
+        access: 'public',
+        provenance: { type: 'auto' }
+    }
+}
+```
+
+Pre-built provenance bundle (works on any CI):
+
+```javascript
+commonPackageSettings: {
+    sourcesFolder: path.join(process.cwd(), 'dist/'),
+    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
+    publishSettings: {
+        access: 'public',
+        provenance: {
+            type: 'file',
+            path: './build/my-package.sigstore'
+        }
+    }
+}
+```
+
+When using `provenance: { type: 'auto' }`, your CI workflow needs to expose an OIDC ID token to the publish step. For GitHub Actions, that means granting `id-token: write` on the workflow job:
+
+```yaml
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+            contents: read
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+            - run: npm ci
+            - run: npx packtory publish --no-dry-run
+```
+
+For GitLab CI, declare an [`id_tokens`](https://docs.gitlab.com/ee/ci/secrets/id_token_authentication.html) entry with audience `sigstore` exposed as `SIGSTORE_ID_TOKEN`:
+
+```yaml
+publish:
+    image: node:24
+    id_tokens:
+        SIGSTORE_ID_TOKEN:
+            aud: sigstore
+    script:
+        - npm ci
+        - npx packtory publish --no-dry-run
+```
+
+Other CIs (CircleCI, Jenkins, BuildKite, etc.) are supported via the `provenance: { type: 'file', path }` escape hatch — generate the sigstore bundle with the attestation tooling of your choice and point packtory at it.
 
 These examples demonstrate how `packtory` adapts to different project structures and facilitates the efficient bundling and publishing of packages with varying dependencies.

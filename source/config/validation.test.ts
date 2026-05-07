@@ -9,7 +9,7 @@ type ConfigInput = Record<string, unknown>;
 function withRegistry(extra: ConfigInput): ConfigInput {
     return {
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {}, publishSettings: { access: 'public' } },
         ...extra
     };
 }
@@ -274,7 +274,7 @@ test('validateConfigWithoutRegistry() returns schema issues when the config is i
 
 test('validateConfigWithoutRegistry() returns an issue for unknown packages in a scoped allow-list entry', () => {
     const result = validateConfigWithoutRegistry({
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {}, publishSettings: { access: 'public' } },
         ...configWithGhostAllowList(['a', 'ghost'])
     });
 
@@ -286,9 +286,70 @@ test('validateConfigWithoutRegistry() returns an issue for unknown packages in a
 
 test('validateConfigWithoutRegistry() returns duplicate and missing dependency issues', () => {
     const result = validateConfigWithoutRegistry({
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {}, publishSettings: { access: 'public' } },
         packages: duplicateCAndMissingBPackages
     });
 
     assert.deepStrictEqual(result, Result.err(duplicateCAndMissingBErrors));
+});
+
+function withCommonWithoutPublishSettings(packages: readonly ConfigInput[]): ConfigInput {
+    return {
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        packages
+    };
+}
+
+const placementErrorMessage = 'publishSettings must be set in commonPackageSettings or in every package';
+
+test('returns an issue when publishSettings is missing from both commonPackageSettings and every package', () => {
+    const result = validateConfig(withCommonWithoutPublishSettings([{ name: 'foo', entryPoints: [{ js: 'foo' }] }]));
+
+    assert.deepStrictEqual(result, Result.err([placementErrorMessage]));
+});
+
+test('returns an issue when publishSettings is missing for at least one package and not provided in common', () => {
+    const result = validateConfig(
+        withCommonWithoutPublishSettings([
+            { name: 'foo', entryPoints: [{ js: 'foo' }], publishSettings: { access: 'public' } },
+            { name: 'bar', entryPoints: [{ js: 'bar' }] }
+        ])
+    );
+
+    assert.deepStrictEqual(result, Result.err([placementErrorMessage]));
+});
+
+test('accepts a config when publishSettings is set only in commonPackageSettings', () => {
+    const result = validateConfig(withRegistry({ packages: [{ name: 'foo', entryPoints: [{ js: 'foo' }] }] }));
+
+    assert.strictEqual(result.isOk, true);
+});
+
+test('accepts a config when publishSettings is set only on every package', () => {
+    const result = validateConfig(
+        withCommonWithoutPublishSettings([
+            { name: 'foo', entryPoints: [{ js: 'foo' }], publishSettings: { access: 'public' } },
+            { name: 'bar', entryPoints: [{ js: 'bar' }], publishSettings: { access: 'restricted' } }
+        ])
+    );
+
+    assert.strictEqual(result.isOk, true);
+});
+
+test('accepts a config when no commonPackageSettings is provided and every package supplies its own publishSettings', () => {
+    const result = validateConfig({
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        packages: [
+            {
+                sourcesFolder: 'foo',
+                mainPackageJson: {},
+                name: 'foo',
+                entryPoints: [{ js: 'foo' }],
+                publishSettings: { access: 'public' }
+            }
+        ]
+    });
+
+    assert.strictEqual(result.isOk, true);
 });

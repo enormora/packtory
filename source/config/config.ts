@@ -1,6 +1,7 @@
 import type { AdditionalFileDescription } from './additional-files.ts';
 import type { EntryPoint } from './entry-point.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from './package-json.ts';
+import type { PublishSettings } from './publish-settings.ts';
 import type { RegistrySettings } from './registry-settings.ts';
 import type { VersioningSettings } from './versioning-settings.ts';
 
@@ -31,6 +32,7 @@ export type PackageConfig = {
     readonly additionalFiles?: readonly AdditionalFileDescription[] | undefined;
     readonly includeSourceMapFiles?: boolean | undefined;
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
+    readonly publishSettings?: PublishSettings | undefined;
 };
 
 export type PackageConfigsByName = Readonly<Record<string, PackageConfig>>;
@@ -49,6 +51,7 @@ export type CommonPackageSettings = {
     readonly additionalFiles?: readonly AdditionalFileDescription[] | undefined;
     readonly includeSourceMapFiles?: boolean | undefined;
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
+    readonly publishSettings?: PublishSettings | undefined;
 };
 
 export type PacktoryConfigWithoutRegistry = {

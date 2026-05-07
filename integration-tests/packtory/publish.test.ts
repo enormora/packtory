@@ -219,6 +219,7 @@ function createStandardPackages(fixturePath: string): PackageConfigList {
 async function createPublishConfig(params: CreatePublishConfigParams): Promise<PublishConfig> {
     const { fixturePath, registryDetails, packages, commonPackageSettings } = params;
     const mergedCommonPackageSettings: PublishConfig['commonPackageSettings'] = {
+        publishSettings: { access: 'public' },
         ...commonPackageSettings,
         sourcesFolder: path.join(fixturePath, 'src'),
         mainPackageJson: await loadPackageJson(fixturePath)

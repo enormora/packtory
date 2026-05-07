@@ -9,7 +9,8 @@ async function createBaseConfig(fixturePath: string): Promise<PacktoryConfigWith
     return {
         commonPackageSettings: {
             sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath)
+            mainPackageJson: await loadPackageJson(fixturePath),
+            publishSettings: { access: 'public' }
         },
         packages: [
             {
