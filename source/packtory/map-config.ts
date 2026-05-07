@@ -14,6 +14,7 @@ import type { BuildVersionedBundleOptions, VersionedBundleWithManifest } from '.
 import type { BundleSubstitutionSource } from '../linker/linked-bundle.ts';
 import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
 
+type PublishSettings = NonNullable<PackageConfig['publishSettings']>;
 type ManifestOptionsSubset = Pick<BuildVersionedBundleOptions, 'additionalPackageJsonAttributes' | 'mainPackageJson'>;
 type SharedModuleResolution = ResourceResolveOptions['moduleResolution'];
 
@@ -29,6 +30,7 @@ export type BuildOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
 
 export type BuildAndPublishOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
     readonly registrySettings: RegistrySettings;
+    readonly publishSettings: PublishSettings;
     readonly versioning: VersioningSettings;
 };
 
@@ -99,6 +101,16 @@ function resolveMainPackageJson(
     return getRequiredValue(
         packageConfig.mainPackageJson ?? packtoryConfig.commonPackageSettings?.mainPackageJson,
         `Config for package "${packageConfig.name}" is missing the main package.json settings`
+    );
+}
+
+function resolvePublishSettings(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): PublishSettings {
+    return getRequiredValue(
+        packageConfig.publishSettings ?? packtoryConfig.commonPackageSettings?.publishSettings,
+        `Config for package "${packageConfig.name}" is missing publish settings`
     );
 }
 
@@ -201,11 +213,13 @@ export function configToBuildAndPublishOptions(
         packtoryConfig,
         existingBundles
     );
+    const packageConfig = getPackageConfig(packageName, packageConfigs);
 
     return {
         ...sharedOptions,
         versioning,
-        registrySettings: packtoryConfig.registrySettings
+        registrySettings: packtoryConfig.registrySettings,
+        publishSettings: resolvePublishSettings(packageConfig, packtoryConfig)
     };
 }
 

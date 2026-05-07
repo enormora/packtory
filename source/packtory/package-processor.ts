@@ -162,7 +162,8 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
             });
             await bundleEmitter.publish({
                 bundle: result.bundle,
-                registrySettings: options.buildOptions.registrySettings
+                registrySettings: options.buildOptions.registrySettings,
+                publishSettings: options.buildOptions.publishSettings
             });
 
             return result;

@@ -1,5 +1,6 @@
 import { Maybe } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
+import type { PublishSettings } from '../config/publish-settings.ts';
 import type { RegistrySettings } from '../config/registry-settings.ts';
 import type { VersioningSettings } from '../config/versioning-settings.ts';
 import { compareFileDescriptions } from '../file-manager/compare.ts';
@@ -13,6 +14,12 @@ export type BundleEmitterDependencies = {
 };
 
 export type PublishOptions = {
+    readonly bundle: VersionedBundleWithManifest;
+    readonly registrySettings: RegistrySettings;
+    readonly publishSettings: PublishSettings;
+};
+
+export type AlreadyPublishedCheckOptions = {
     readonly bundle: VersionedBundleWithManifest;
     readonly registrySettings: RegistrySettings;
 };
@@ -30,7 +37,7 @@ type BundlePublishedCheckResult = {
 export type BundleEmitter = {
     publish: (options: PublishOptions) => Promise<void>;
     determineCurrentVersion: (options: CurrentVersionLookupOptions) => Promise<Maybe<string>>;
-    checkBundleAlreadyPublished: (options: PublishOptions) => Promise<BundlePublishedCheckResult>;
+    checkBundleAlreadyPublished: (options: AlreadyPublishedCheckOptions) => Promise<BundlePublishedCheckResult>;
 };
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
@@ -71,7 +78,12 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
         async publish(options) {
             const tarball = await artifactsBuilder.buildTarball(options.bundle);
 
-            await registryClient.publishPackage(options.bundle.packageJson, tarball.tarData, options.registrySettings);
+            await registryClient.publishPackage(
+                options.bundle.packageJson,
+                tarball.tarData,
+                options.registrySettings,
+                options.publishSettings
+            );
         }
     };
 }

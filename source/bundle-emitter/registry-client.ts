@@ -4,6 +4,7 @@ import type { publish as _publish } from 'libnpmpublish';
 import { Maybe } from 'true-myth';
 import { z } from 'zod/mini';
 import type { Clock } from '../common/clock.ts';
+import type { PublishSettings } from '../config/publish-settings.ts';
 import type {
     MetadataAuthMode,
     MetadataAuthStrategy,
@@ -11,6 +12,7 @@ import type {
     RegistrySettings
 } from '../config/registry-settings.ts';
 import type { BundlePackageJson } from '../version-manager/versioned-bundle.ts';
+import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
 
 type PublishFunction = typeof _publish;
 const notFoundStatusCode = 404;
@@ -42,7 +44,12 @@ export type RegistryClientDependencies = {
 
 export type RegistryClient = {
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
-    publishPackage: (manifest: Readonly<BundlePackageJson>, tarData: Buffer, config: RegistrySettings) => Promise<void>;
+    publishPackage: (
+        manifest: Readonly<BundlePackageJson>,
+        tarData: Buffer,
+        config: RegistrySettings,
+        publishSettings: PublishSettings
+    ) => Promise<void>;
     fetchTarball: (tarballUrl: string, shasum: string, config: RegistrySettings) => Promise<Buffer>;
 };
 
@@ -370,13 +377,19 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
             return response.buffer();
         },
 
-        async publishPackage(manifest, tarData, registrySettings) {
+        async publishPackage(manifest, tarData, registrySettings, publishSettings) {
             const authOptions = await resolveWriteAuthOptions(manifest.name, registrySettings);
-            await publish(toPublishManifest(manifest), tarData, {
-                defaultTag: 'latest',
-                ...authOptions,
-                ...(promptForOneTimePassword === undefined ? {} : { otpPrompt: promptForOneTimePassword })
-            });
+            const publishOptionsFromSettings = buildPublishOptionsForPublishSettings(publishSettings);
+            try {
+                await publish(toPublishManifest(manifest), tarData, {
+                    defaultTag: 'latest',
+                    ...authOptions,
+                    ...publishOptionsFromSettings,
+                    ...(promptForOneTimePassword === undefined ? {} : { otpPrompt: promptForOneTimePassword })
+                });
+            } catch (error: unknown) {
+                throw remapPublishError(error, publishSettings);
+            }
         },
 
         async fetchLatestVersion(packageName, registrySettings) {

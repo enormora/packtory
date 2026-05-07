@@ -6,7 +6,15 @@ import { packtoryConfigSchema } from './packtory-config-schema.ts';
 
 const validConfig = {
     registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-    packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
+    packages: [
+        {
+            sourcesFolder: 'source',
+            mainPackageJson: {},
+            name: 'foo',
+            entryPoints: [{ js: 'foo' }],
+            publishSettings: { access: 'public' }
+        }
+    ]
 };
 
 test('packtory config schema accepts a valid config', () => {
@@ -16,7 +24,15 @@ test('packtory config schema accepts a valid config', () => {
 test('packtory config schema rejects configs without registrySettings', () => {
     assert.strictEqual(
         safeParse(packtoryConfigSchema, {
-            packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
+            packages: [
+                {
+                    sourcesFolder: 'source',
+                    mainPackageJson: {},
+                    name: 'foo',
+                    entryPoints: [{ js: 'foo' }],
+                    publishSettings: { access: 'public' }
+                }
+            ]
         }).success,
         false
     );
@@ -36,8 +52,58 @@ test(
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
-            packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
+            packages: [
+                {
+                    sourcesFolder: 'source',
+                    mainPackageJson: {},
+                    name: 'foo',
+                    entryPoints: [{ js: 'foo' }],
+                    publishSettings: { access: 'public' }
+                }
+            ]
         },
         expectedMessages: ['at registrySettings: missing property']
+    })
+);
+
+test(
+    'packtory config schema: accepts a config with publishSettings declared in commonPackageSettings only',
+    checkValidationSuccess({
+        schema: packtoryConfigSchema,
+        data: {
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            commonPackageSettings: {
+                sourcesFolder: 'source',
+                mainPackageJson: {},
+                publishSettings: { access: 'public', provenance: { type: 'auto' } }
+            },
+            packages: [{ name: 'foo', entryPoints: [{ js: 'foo' }] }]
+        }
+    })
+);
+
+test(
+    'packtory config schema: accepts a config with mixed common default and per-package override',
+    checkValidationSuccess({
+        schema: packtoryConfigSchema,
+        data: {
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            commonPackageSettings: {
+                sourcesFolder: 'source',
+                mainPackageJson: {},
+                publishSettings: { access: 'public' }
+            },
+            packages: [
+                {
+                    name: 'foo',
+                    entryPoints: [{ js: 'foo' }]
+                },
+                {
+                    name: 'bar',
+                    entryPoints: [{ js: 'bar' }],
+                    publishSettings: { access: 'restricted' }
+                }
+            ]
+        }
     })
 );

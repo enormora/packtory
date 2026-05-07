@@ -35,7 +35,8 @@ function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): P
     return {
         commonPackageSettings: {
             sourcesFolder: '/src',
-            mainPackageJson: { type: 'module' }
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' }
         },
         packages: [{ name: 'package-a', entryPoints: [{ js: 'package-a/index.js' }] }],
         ...overrides

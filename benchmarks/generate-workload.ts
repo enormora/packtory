@@ -236,7 +236,8 @@ function createConfigWithoutRegistry(rootDirectory: string, clusterCount: number
         commonPackageSettings: {
             mainPackageJson: sharedMainPackageJson,
             includeSourceMapFiles: true,
-            additionalFiles: [{ sourceFilePath: '../docs/common.txt', targetFilePath: 'docs/common.txt' }]
+            additionalFiles: [{ sourceFilePath: '../docs/common.txt', targetFilePath: 'docs/common.txt' }],
+            publishSettings: { access: 'public' }
         },
         packages: createPackageConfigs(rootDirectory, clusterCount)
     };
@@ -270,7 +271,8 @@ function createCliConfigWithoutRegistry(rootDirectory: string, packageCount: num
     return {
         commonPackageSettings: {
             mainPackageJson: sharedMainPackageJson,
-            includeSourceMapFiles: true
+            includeSourceMapFiles: true,
+            publishSettings: { access: 'public' }
         },
         packages: createCliPackageConfigs(rootDirectory, packageCount)
     };

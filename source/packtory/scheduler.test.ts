@@ -11,7 +11,11 @@ type PackageNameResult = { readonly packageName: string };
 
 function createValidatedConfig(packages: readonly Record<string, unknown>[]): ValidConfigWithoutRegistryResult {
     const result = validateConfigWithoutRegistry({
-        commonPackageSettings: { sourcesFolder: '/src', mainPackageJson: {} },
+        commonPackageSettings: {
+            sourcesFolder: '/src',
+            mainPackageJson: {},
+            publishSettings: { access: 'public' }
+        },
         packages
     });
 
