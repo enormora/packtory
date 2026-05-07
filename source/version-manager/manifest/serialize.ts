@@ -1,11 +1,15 @@
 import type { PackageJson } from 'type-fest';
-import { entries, fromEntries, isPlainObject, mapValues, pipe, sortBy } from 'remeda';
 import { compareValues } from './sort-values.ts';
 
 const indentationSize = 4;
+type RecordEntry = readonly [string, unknown];
 
 function isArray(value: unknown): value is unknown[] {
     return Array.isArray(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function assertNoCircularStructures(value: unknown): void {
@@ -29,15 +33,15 @@ function deepSortValue(value: unknown): unknown {
         return value.map(deepSortValue).toSorted(compareValues);
     }
 
-    if (isPlainObject(value)) {
-        return pipe(
-            value,
-            mapValues(deepSortValue),
-            entries(),
-            sortBy((entry) => {
-                return entry[0];
-            }),
-            fromEntries()
+    if (isRecord(value)) {
+        return Object.fromEntries(
+            Object.entries(value)
+                .map<RecordEntry>(([key, nestedValue]) => {
+                    return [key, deepSortValue(nestedValue)];
+                })
+                .toSorted(([leftKey]: RecordEntry, [rightKey]: RecordEntry) => {
+                    return compareValues(leftKey, rightKey);
+                })
         );
     }
 
