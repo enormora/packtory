@@ -5,7 +5,7 @@ import { checkValidationFailure, checkValidationSuccess } from '../test-librarie
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
 
 const validConfig = {
-    registrySettings: { token: 'foo' },
+    registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
     packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
 };
 

@@ -8,7 +8,7 @@ type ConfigInput = Record<string, unknown>;
 
 function withRegistry(extra: ConfigInput): ConfigInput {
     return {
-        registrySettings: { token: 'foo' },
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
         ...extra
     };

@@ -5,6 +5,20 @@ import sinon from 'sinon';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
+async function expectFailure(action: () => Promise<unknown>, expectedError: RegExp | 'error'): Promise<void> {
+    try {
+        await action();
+        assert.fail('Expected the action to throw an error');
+    } catch (error: unknown) {
+        if (expectedError === 'error') {
+            assert.ok(error instanceof Error);
+            return;
+        }
+
+        assert.match(String(error), expectedError);
+    }
+}
+
 test('returns an empty array when the given tar buffer has no files', async () => {
     const builder = createTarballBuilder();
     const tar = await builder.build([]);
@@ -73,9 +87,9 @@ test('returns every extracted entry in tar order when the tarball contains multi
 });
 
 test('rejects when the given buffer is not a valid gzip tarball', async () => {
-    await assert.rejects(async () => {
+    await expectFailure(async () => {
         await extractTarEntries(Buffer.from('not-a-tarball'));
-    }, Error);
+    }, 'error');
 });
 
 async function runWithThrowingStream(thrown: () => never, expectedError: RegExp): Promise<void> {
@@ -98,7 +112,7 @@ async function runWithThrowingStream(thrown: () => never, expectedError: RegExp)
     const stub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
 
     try {
-        await assert.rejects(async () => {
+        await expectFailure(async () => {
             await extractTarEntries(Buffer.from('unused'));
         }, expectedError);
     } finally {

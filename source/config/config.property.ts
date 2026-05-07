@@ -83,7 +83,7 @@ const validConfigArbitrary = fc
         };
 
         return {
-            registrySettings: { token: 'token' },
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings,
             packages: [
                 {

@@ -32,7 +32,7 @@ test('validateConfig() rejects configs with missing bundle dependencies', () => 
             fc.pre(packageName !== missingDependencyName);
 
             const result = validateConfig({
-                registrySettings: { token: 'token' },
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 packages: [
                     {
                         ...createValidPackage(packageName),
@@ -52,13 +52,13 @@ test('validateConfig() rejects duplicate package definitions and cyclic dependen
             fc.pre(firstName !== secondName);
 
             const duplicateResult = validateConfig({
-                registrySettings: { token: 'token' },
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 packages: [createValidPackage(firstName), createValidPackage(firstName)]
             });
             assert.strictEqual(duplicateResult.isErr, true);
 
             const cyclicResult = validateConfig({
-                registrySettings: { token: 'token' },
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 packages: [
                     {
                         ...createValidPackage(firstName),

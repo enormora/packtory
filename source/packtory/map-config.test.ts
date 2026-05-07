@@ -32,7 +32,7 @@ function runMapConfig(
     const packageName = options.packageName ?? 'foo';
     const additionalPackages = options.extraPackages ?? [placeholderPackage];
     const baseConfig = {
-        registrySettings: { token: '' },
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         ...options.extraConfig,
         ...(options.commonPackageSettings === undefined
             ? {}
@@ -66,7 +66,7 @@ test('throws when the given packageName doesn’t exist in the configs', () => {
             'foo',
             new Map(),
             {
-                registrySettings: { token: '' },
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
             },
             []

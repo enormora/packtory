@@ -13,7 +13,23 @@ import {
 import { createRegistryClient } from '../../source/bundle-emitter/registry-client.ts';
 import { extractPackageTarball } from '../../source/bundle-emitter/extract-package-tarball.ts';
 
-const registryClient = createRegistryClient({ npmFetch, publish });
+const timers = process.getBuiltinModule('node:timers');
+
+const registryClient = createRegistryClient({
+    npmFetch,
+    publish,
+    fetch: globalThis.fetch,
+    clock: {
+        getCurrentTimeInMilliseconds: () => {
+            return Date.now();
+        },
+        setTimeout: timers.setTimeout,
+        clearTimeout: timers.clearTimeout
+    },
+    resolveIdToken: async () => {
+        throw new Error('OIDC id tokens are not used in this integration test');
+    }
+});
 
 type PublishedFile = Awaited<ReturnType<typeof extractPackageTarball>>[number];
 
@@ -43,7 +59,32 @@ type PublishFixturePackagesParams = {
     readonly registryDetails: RegistryDetails;
     readonly packages?: PackageConfigList;
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
+    readonly authMode?: 'basic' | 'bearer';
 };
+
+function createRegistrySettings(
+    registryDetails: RegistryDetails,
+    authMode: PublishFixturePackagesParams['authMode'] = 'bearer'
+): PublishConfig['registrySettings'] {
+    if (authMode === 'basic') {
+        return {
+            registryUrl: registryDetails.registryUrl,
+            auth: {
+                type: 'basic',
+                username: registryDetails.username,
+                password: registryDetails.password
+            }
+        };
+    }
+
+    return {
+        registryUrl: registryDetails.registryUrl,
+        auth: {
+            type: 'bearer-token',
+            token: registryDetails.token
+        }
+    };
+}
 
 const expectedFirstPackageVersion = {
     version: '0.0.1',
@@ -184,10 +225,7 @@ async function createPublishConfig(params: CreatePublishConfigParams): Promise<P
     };
 
     return {
-        registrySettings: {
-            registryUrl: registryDetails.registryUrl,
-            token: registryDetails.token
-        },
+        registrySettings: createRegistrySettings(registryDetails),
         commonPackageSettings: mergedCommonPackageSettings,
         packages
     };
@@ -201,8 +239,9 @@ async function publishFixturePackages(params: PublishFixturePackagesParams): Pro
         ...(params.commonPackageSettings === undefined ? {} : { commonPackageSettings: params.commonPackageSettings })
     };
     const config = await createPublishConfig(configParams);
+    const registrySettings = createRegistrySettings(params.registryDetails, params.authMode);
 
-    return buildAndPublishAll(config, { dryRun: false });
+    return buildAndPublishAll({ ...config, registrySettings }, { dryRun: false });
 }
 
 function assertPublishSucceeded(result: PublishAllResult): void {
@@ -210,14 +249,15 @@ function assertPublishSucceeded(result: PublishAllResult): void {
 }
 
 async function fetchPublishedPackage(packageName: string, registryDetails: RegistryDetails): Promise<PublishedPackage> {
-    const versionDetails = await registryClient.fetchLatestVersion(packageName, registryDetails);
+    const registrySettings = createRegistrySettings(registryDetails);
+    const versionDetails = await registryClient.fetchLatestVersion(packageName, registrySettings);
 
     if (versionDetails.isNothing) {
         assert.fail(`Expected package "${packageName}" to be published`);
     }
 
     const { version, tarballUrl, shasum } = versionDetails.value;
-    const tarballData = await registryClient.fetchTarball(tarballUrl, shasum);
+    const tarballData = await registryClient.fetchTarball(tarballUrl, shasum, registrySettings);
     const files = await extractPackageTarball(tarballData);
     const manifestFile = files.find((file) => {
         return file.filePath === 'package/package.json';
@@ -335,6 +375,23 @@ test(
 
         assert.strictEqual(publishedPackage.version, '3.2.1');
         assert.strictEqual(publishedPackage.manifest.version, '3.2.1');
+    })
+);
+
+test(
+    'publishes successfully with explicit basic auth against the registry',
+    checkWithRegistry(async (registryDetails) => {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
+        const packages = createPackageConfigList(createPackageConfig(fixturePath, 'first', 'entry1'));
+
+        assertPublishSucceeded(
+            await publishFixturePackages({ fixturePath, registryDetails, packages, authMode: 'basic' })
+        );
+
+        const publishedPackage = await fetchPublishedPackage('first', registryDetails);
+
+        assert.strictEqual(publishedPackage.version, '0.0.1');
+        assert.strictEqual(publishedPackage.manifest.version, '0.0.1');
     })
 );
 

@@ -4,38 +4,122 @@ import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { registrySettingsSchema } from './registry-settings.ts';
 
-test('schema accepts registry settings with token only', () => {
-    assert.strictEqual(safeParse(registrySettingsSchema, { token: 'foo' }).success, true);
+const bearerTokenAuth = { type: 'bearer-token', token: 'foo' } as const;
+
+test('schema accepts registry settings with shorthand auth', () => {
+    assert.strictEqual(safeParse(registrySettingsSchema, { auth: bearerTokenAuth }).success, true);
 });
 
-test('schema rejects registry settings without token', () => {
+test('schema rejects registry settings without auth', () => {
     assert.strictEqual(safeParse(registrySettingsSchema, { registryUrl: 'bar' }).success, false);
 });
 
 test(
-    'validation succeeds when no url is given',
+    'validation succeeds when shorthand auth is given',
     checkValidationSuccess({
         schema: registrySettingsSchema,
         data: {
-            token: 'foo'
+            auth: bearerTokenAuth
         },
         expectedData: {
-            token: 'foo'
+            auth: bearerTokenAuth
         }
     })
 );
 
 test(
-    'validation succeeds when url is given',
+    'validation succeeds when explicit publish and metadata auth are given',
     checkValidationSuccess({
         schema: registrySettingsSchema,
         data: {
-            token: 'foo',
-            registryUrl: 'bar'
+            registryUrl: 'https://registry.example',
+            auth: {
+                publish: { type: 'basic', username: 'foo', password: 'bar', email: 'foo@example.test' },
+                metadata: 'auto'
+            }
         },
         expectedData: {
-            token: 'foo',
-            registryUrl: 'bar'
+            registryUrl: 'https://registry.example',
+            auth: {
+                publish: { type: 'basic', username: 'foo', password: 'bar', email: 'foo@example.test' },
+                metadata: 'auto'
+            }
+        }
+    })
+);
+
+test(
+    'validation succeeds when explicit metadata auth inherits separate basic credentials',
+    checkValidationSuccess({
+        schema: registrySettingsSchema,
+        data: {
+            auth: {
+                publish: { type: 'bearer-token', token: 'writer-token' },
+                metadata: { type: 'basic', username: 'reader', password: 'secret' }
+            }
+        },
+        expectedData: {
+            auth: {
+                publish: { type: 'bearer-token', token: 'writer-token' },
+                metadata: { type: 'basic', username: 'reader', password: 'secret' }
+            }
+        }
+    })
+);
+
+test(
+    'validation accepts npm oidc publish auth',
+    checkValidationSuccess({
+        schema: registrySettingsSchema,
+        data: {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env', idTokenEnvVar: 'CUSTOM_ID_TOKEN' },
+                metadata: 'anonymous'
+            }
+        },
+        expectedData: {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'env', idTokenEnvVar: 'CUSTOM_ID_TOKEN' },
+                metadata: 'anonymous'
+            }
+        }
+    })
+);
+
+test(
+    'validation accepts npm oidc publish auth for the auto provider',
+    checkValidationSuccess({
+        schema: registrySettingsSchema,
+        data: {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'auto' },
+                metadata: 'anonymous'
+            }
+        },
+        expectedData: {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'auto' },
+                metadata: 'anonymous'
+            }
+        }
+    })
+);
+
+test(
+    'validation accepts npm oidc publish auth for the GitHub Actions provider',
+    checkValidationSuccess({
+        schema: registrySettingsSchema,
+        data: {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'github-actions' },
+                metadata: 'anonymous'
+            }
+        },
+        expectedData: {
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'github-actions' },
+                metadata: 'anonymous'
+            }
         }
     })
 );
@@ -54,52 +138,32 @@ test(
     checkValidationFailure({
         schema: registrySettingsSchema,
         data: {},
-        expectedMessages: ['at token: missing property']
+        expectedMessages: ['at auth: missing property']
     })
 );
 
 test(
-    'validation fails when token is not a string',
+    'validation fails when shorthand auth uses an empty token',
     checkValidationFailure({
         schema: registrySettingsSchema,
-        data: { token: 42 },
-        expectedMessages: ['at token: expected string, but got number']
+        data: { auth: { type: 'bearer-token', token: '' } },
+        expectedMessages: ['at auth.token: string must contain at least 1 character']
     })
 );
 
 test(
-    'validation fails when token is undefined',
+    'validation fails when metadata auth uses npm oidc',
     checkValidationFailure({
         schema: registrySettingsSchema,
-        data: { token: undefined },
-        expectedMessages: ['at token: expected string, but got undefined']
-    })
-);
-
-test(
-    'validation fails when token is null',
-    checkValidationFailure({
-        schema: registrySettingsSchema,
-        data: { token: null },
-        expectedMessages: ['at token: expected string, but got null']
-    })
-);
-
-test(
-    'validation fails when token is an empty string',
-    checkValidationFailure({
-        schema: registrySettingsSchema,
-        data: { token: '' },
-        expectedMessages: ['at token: string must contain at least 1 character']
-    })
-);
-
-test(
-    'validation succeeds when registryUrl is undefined',
-    checkValidationSuccess({
-        schema: registrySettingsSchema,
-        data: { token: 'foo', registryUrl: undefined },
-        expectedData: { token: 'foo', registryUrl: undefined }
+        data: {
+            auth: {
+                publish: bearerTokenAuth,
+                metadata: { type: 'npm-oidc' }
+            }
+        },
+        expectedMessages: [
+            'at auth: invalid value: expected one of "auto", "anonymous" or "inherit-publish-auth", but got object'
+        ]
     })
 );
 
@@ -107,17 +171,8 @@ test(
     'validation fails when registryUrl is null',
     checkValidationFailure({
         schema: registrySettingsSchema,
-        data: { token: 'foo', registryUrl: null },
+        data: { auth: bearerTokenAuth, registryUrl: null },
         expectedMessages: ['at registryUrl: expected string, but got null']
-    })
-);
-
-test(
-    'validation fails when registryUrl is an empty string',
-    checkValidationFailure({
-        schema: registrySettingsSchema,
-        data: { token: 'foo', registryUrl: '' },
-        expectedMessages: ['at registryUrl: string must contain at least 1 character']
     })
 );
 
@@ -125,7 +180,7 @@ test(
     'validation fails when an additional property is given',
     checkValidationFailure({
         schema: registrySettingsSchema,
-        data: { token: 'foo', extra: 'bar' },
+        data: { auth: bearerTokenAuth, extra: 'bar' },
         expectedMessages: ['unexpected additional property: "extra"']
     })
 );

@@ -45,7 +45,9 @@ import fs from 'node:fs';
 
 export const config = {
     // Customize your registry settings, if needed
-    registrySettings: { token: process.env.NPM_TOKEN },
+    registrySettings: {
+        auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
+    },
 
     // Common settings shared among packages
     commonPackageSettings: {
@@ -57,13 +59,12 @@ export const config = {
     packages: [
         {
             name: 'first-package',
-            entryPoints: [ { js: 'first.js' } ],
+            entryPoints: [{ js: 'first.js' }]
         },
         {
             name: 'second-package',
-            entryPoints: [ { js: 'second.js' } ],
-            entryPoints: ,
-            bundleDependencies: ['first']
+            entryPoints: [{ js: 'second.js' }],
+            bundleDependencies: ['first-package']
         }
     ]
 };
@@ -119,8 +120,21 @@ This explanation provides a comprehensive overview of the bundling and publishin
 The configuration for `packtory` is an object with the following properties:
 
 1. **`registrySettings`** (Required):
-    - An object with at least a required `token` for authentication.
-    - Optionally, you can provide a custom `registryUrl` for non-default registries.
+    - An object with a required `auth` configuration.
+    - Optionally, you can provide a custom `registryUrl`.
+    - Supported publish auth strategies:
+        - `type: 'bearer-token'` with a `token`
+        - `type: 'basic'` with `username` and `password`
+        - `type: 'npm-oidc'` for npm trusted publishing token exchange
+    - `auth` supports two forms:
+        - Shorthand: one auth strategy used for both publish and metadata access
+        - Expanded: `{ publish, metadata }`
+    - Supported metadata modes:
+        - `'inherit-publish-auth'`
+        - `'anonymous'`
+        - `'auto'`
+        - explicit bearer/basic auth
+    - `packtory` does not read `.npmrc`; provide auth explicitly in `packtory.config.js`.
 
 2. **`commonPackageSettings`** (Optional):
     - Defines settings that can be shared for all packages.
@@ -177,7 +191,9 @@ Suppose you have a project with a utility library (`image-resizer-lib`) and a co
 ```javascript
 // packtory.config.js
 export const config = {
-    registrySettings: { token: process.env.NPM_TOKEN },
+    registrySettings: {
+        auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
+    },
     commonPackageSettings: {
         sourcesFolder: path.join(process.cwd(), 'dist/'),
         mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' })
@@ -203,7 +219,9 @@ Consider a scenario where you have an ecosystem of packages like `awesome-logger
 ```javascript
 // packtory.config.js
 export const config = {
-    registrySettings: { token: process.env.NPM_TOKEN },
+    registrySettings: {
+        auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
+    },
     commonPackageSettings: {
         sourcesFolder: path.join(process.cwd(), 'src/'),
         mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' })
@@ -226,5 +244,54 @@ export const config = {
     ]
 };
 ```
+
+### Auth examples
+
+Use a bearer token:
+
+```javascript
+registrySettings: {
+    auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
+}
+```
+
+Use explicit basic auth for registries such as Azure Artifacts or Artifactory:
+
+```javascript
+registrySettings: {
+    registryUrl: 'https://registry.example.test/',
+    auth: { type: 'basic', username: process.env.NPM_USERNAME, password: process.env.NPM_PASSWORD }
+}
+```
+
+Use npm trusted publishing / OIDC on npmjs.org:
+
+```javascript
+registrySettings: {
+    auth: {
+        publish: { type: 'npm-oidc', provider: 'auto' },
+        metadata: 'auto'
+    }
+}
+```
+
+If the registry challenges a publish with a one-time password, the CLI prompts interactively when running in a TTY. Non-interactive runs should use a token or OIDC flow that does not require a live one-time-password entry.
+
+Use metadata auto mode:
+
+```javascript
+registrySettings: {
+    auth: {
+        publish: { type: 'bearer-token', token: process.env.NPM_TOKEN },
+        metadata: 'auto'
+    }
+}
+```
+
+`metadata: 'auto'` means:
+
+- Try metadata requests without authentication first.
+- If the registry responds with an authentication challenge such as `401` or `403`, retry using the publish auth.
+- Keep in mind that `404` can be ambiguous on some registries because it may mean either "not found" or "not visible without auth".
 
 These examples demonstrate how `packtory` adapts to different project structures and facilitates the efficient bundling and publishing of packages with varying dependencies.

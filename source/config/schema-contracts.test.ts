@@ -23,7 +23,7 @@ test('leaf config schemas keep their expected object keys and strict object beha
     assert.deepStrictEqual(result, {
         additionalFileShape: ['sourceFilePath', 'targetFilePath'],
         entryPointShape: ['js', 'declarationFile'],
-        registrySettingsShape: ['registryUrl', 'token'],
+        registrySettingsShape: ['registryUrl', 'auth'],
         mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies'],
         additionalFileCatchallType: 'never',
         entryPointCatchallType: 'never',
@@ -225,14 +225,14 @@ test('schema source modules still validate representative valid and invalid inpu
                 extra: 'nope'
             }).success,
             validRegistrySuccess: safeParse(registrySettingsSchema, {
-                token: 'secret',
+                auth: { type: 'bearer-token', token: 'secret' },
                 registryUrl: 'https://example.test'
             }).success,
             missingRegistryTokenSuccess: safeParse(registrySettingsSchema, {
                 registryUrl: 'https://example.test'
             }).success,
             validConfigSuccess: safeParse(packtoryConfigSchema, {
-                registrySettings: { token: 'secret' },
+                registrySettings: { auth: { type: 'bearer-token', token: 'secret' } },
                 packages: [{
                     sourcesFolder: 'src',
                     mainPackageJson: {},
@@ -249,7 +249,7 @@ test('schema source modules still validate representative valid and invalid inpu
                 }]
             }).success,
             emptyConfigPackagesSuccess: safeParse(packtoryConfigSchema, {
-                registrySettings: { token: 'secret' },
+                registrySettings: { auth: { type: 'bearer-token', token: 'secret' } },
                 packages: []
             }).success
         }));

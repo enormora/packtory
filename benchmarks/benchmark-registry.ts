@@ -120,7 +120,10 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
     return {
         settings: {
             registryUrl,
-            token
+            auth: {
+                type: 'bearer-token',
+                token
+            }
         },
         async close() {
             try {

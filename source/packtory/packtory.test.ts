@@ -44,7 +44,7 @@ function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): P
 
 function createConfig(overrides: Record<string, unknown> = {}): PacktoryConfig {
     return {
-        registrySettings: { token: 'token' },
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         ...createConfigWithoutRegistry(overrides)
     };
 }
