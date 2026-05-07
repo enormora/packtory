@@ -38,7 +38,11 @@ function createLinkedBundle(name = 'package-a'): LinkedBundle {
     };
 }
 
-function createVersionedBundle(name = 'package-a', version = '1.2.3'): VersionedBundleWithManifest {
+function createVersionedBundle(
+    name = 'package-a',
+    version = '1.2.3',
+    overrides: { readonly dependencies?: Record<string, string> } = {}
+): VersionedBundleWithManifest {
     return {
         name,
         version,
@@ -48,7 +52,11 @@ function createVersionedBundle(name = 'package-a', version = '1.2.3'): Versioned
         additionalAttributes: {},
         mainFile: createTransferableFile('/entry.js'),
         packageType: 'module' as const,
-        packageJson: { name, version },
+        packageJson: {
+            name,
+            version,
+            ...(overrides.dependencies === undefined ? {} : { dependencies: overrides.dependencies })
+        },
         manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false }
     };
 }
@@ -62,6 +70,7 @@ type Overrides = {
     readonly increaseVersion?: SinonSpy;
     readonly checkBundleAlreadyPublished?: SinonSpy;
     readonly publish?: SinonSpy;
+    readonly generateSbom?: SinonSpy;
 };
 
 type ProcessorContext = {
@@ -74,6 +83,7 @@ type ProcessorContext = {
     readonly increaseVersion: SinonSpy;
     readonly checkBundleAlreadyPublished: SinonSpy;
     readonly publish: SinonSpy;
+    readonly generateSbom: SinonSpy;
 };
 
 function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
@@ -103,12 +113,16 @@ function createProcessor(overrides: Overrides = {}): ProcessorContext {
     const publish = createSpy(overrides.publish, () => {
         return fake.resolves(undefined);
     });
+    const generateSbom = createSpy(overrides.generateSbom, () => {
+        return fake.resolves(undefined);
+    });
     const dependencies = {
         progressBroadcaster: { emit },
         resourceResolver: { resolve },
         linker: { linkBundle },
         bundleEmitter: { determineCurrentVersion, checkBundleAlreadyPublished, publish },
-        versionManager: { addVersion, increaseVersion }
+        versionManager: { addVersion, increaseVersion },
+        sbomFileBuilder: { generate: generateSbom }
     } as const;
 
     return {
@@ -120,7 +134,8 @@ function createProcessor(overrides: Overrides = {}): ProcessorContext {
         addVersion,
         increaseVersion,
         checkBundleAlreadyPublished,
-        publish
+        publish,
+        generateSbom
     };
 }
 
@@ -144,7 +159,7 @@ function createBuildAndPublishOptions(): BuildAndPublishOptions {
         ...createResolveOptions(),
         versioning: { automatic: true } as const,
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        publishSettings: { access: 'public' } as const,
+        publishSettings: { access: 'public', sbom: { enabled: false } } as const,
         bundleDependencies: [createVersionedBundle('bundle-dependency', '1.0.0')],
         bundlePeerDependencies: [createVersionedBundle('peer-dependency', '2.0.0')]
     };
@@ -468,12 +483,92 @@ test('buildAndPublish() publishes the rebuilt bundle and emits publishing progre
         {
             bundle: rebuiltBundle,
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            publishSettings: { access: 'public' }
+            publishSettings: { access: 'public', sbom: { enabled: false } }
         }
     ]);
     assert.deepStrictEqual(getCallArgs(emit), [
         ['building', { packageName: 'package-a', version: '1.2.3' }],
         ['rebuilding', { packageName: 'package-a', version: '1.2.3' }],
         ['publishing', { packageName: 'package-a', version: '1.2.4' }]
+    ]);
+});
+
+function setupSbomScenario(
+    sbomResult: readonly { filePath: string; content: string; isExecutable: boolean }[] | undefined
+): {
+    readonly bundle: VersionedBundleWithManifest;
+    readonly linkedBundle: LinkedBundle;
+    readonly generateSbom: SinonSpy;
+    readonly checkBundleAlreadyPublished: SinonSpy;
+    readonly processor: ReturnType<typeof createPackageProcessor>;
+} {
+    const bundle = createVersionedBundle('package-a', '1.2.3');
+    const linkedBundle = createLinkedBundle();
+    const generateSbom = fake.resolves(sbomResult);
+    const checkBundleAlreadyPublished = fake.resolves({ alreadyPublishedAsLatest: false });
+    const { processor } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+        addVersion: fake.returns(bundle),
+        checkBundleAlreadyPublished,
+        generateSbom
+    });
+    return { bundle, linkedBundle, generateSbom, checkBundleAlreadyPublished, processor };
+}
+
+test('tryBuildAndPublish() invokes the sbomFileBuilder with the resolved bundle, siblings, and publish settings', async () => {
+    const sbomFile = { filePath: 'sbom.cdx.json', content: '{"sbom":"stub"}', isExecutable: false };
+    const { bundle, linkedBundle, generateSbom, checkBundleAlreadyPublished, processor } = setupSbomScenario([
+        sbomFile
+    ]);
+
+    const buildOptions: BuildAndPublishOptions = {
+        ...createBuildAndPublishOptions(),
+        publishSettings: { access: 'public', sbom: { enabled: true } }
+    };
+    await processor.tryBuildAndPublish({ linkedBundle, buildOptions });
+
+    assert.strictEqual(generateSbom.callCount, 1);
+    const expectedSiblings = [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
+    assert.deepStrictEqual(generateSbom.firstCall.args, [
+        bundle,
+        expectedSiblings,
+        { access: 'public', sbom: { enabled: true } }
+    ]);
+    const checkArgs = checkBundleAlreadyPublished.firstCall.args[0] as { extraFiles: readonly unknown[] };
+    assert.deepStrictEqual(checkArgs.extraFiles, [sbomFile]);
+});
+
+test('tryBuildAndPublish() omits extraFiles when sbomFileBuilder returns undefined', async () => {
+    const { linkedBundle, checkBundleAlreadyPublished, processor } = setupSbomScenario(undefined);
+
+    await processor.tryBuildAndPublish({ linkedBundle, buildOptions: createBuildAndPublishOptions() });
+
+    const checkArgs = checkBundleAlreadyPublished.firstCall.args[0] as Record<string, unknown>;
+    assert.strictEqual('extraFiles' in checkArgs, false);
+});
+
+test('buildAndPublish() forwards extraFiles from sbomFileBuilder to publish', async () => {
+    const rebuiltBundle = createVersionedBundle('package-a', '1.2.4');
+    const publish = fake.resolves(undefined);
+    const generateSbom = fake.resolves([
+        { filePath: 'sbom.cdx.json', content: '{"sbom":"stub"}', isExecutable: false }
+    ]);
+    const { processor } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+        addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+        increaseVersion: fake.returns(rebuiltBundle),
+        publish,
+        generateSbom
+    });
+
+    const options: DetermineVersionAndPublishOptions = {
+        linkedBundle: createLinkedBundle(),
+        buildOptions: { ...createBuildAndPublishOptions(), publishSettings: { access: 'public' } }
+    };
+    await processor.buildAndPublish(options);
+
+    const publishArgs = publish.firstCall.args[0] as { extraFiles: readonly unknown[] };
+    assert.deepStrictEqual(publishArgs.extraFiles, [
+        { filePath: 'sbom.cdx.json', content: '{"sbom":"stub"}', isExecutable: false }
     ]);
 });

@@ -115,3 +115,39 @@ test(
         expectedMessages: ['unexpected additional property: "extra"']
     })
 );
+
+test(
+    'validation succeeds with public access and sbom enabled true',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'public', sbom: { enabled: true } },
+        expectedData: { access: 'public', sbom: { enabled: true } }
+    })
+);
+
+test(
+    'validation succeeds with public access and sbom enabled false',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'public', sbom: { enabled: false } },
+        expectedData: { access: 'public', sbom: { enabled: false } }
+    })
+);
+
+test(
+    'validation succeeds with restricted access and sbom enabled true',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'restricted', sbom: { enabled: true } },
+        expectedData: { access: 'restricted', sbom: { enabled: true } }
+    })
+);
+
+test(
+    'validation fails when sbom carries an unknown property',
+    checkValidationFailure({
+        schema: publishSettingsSchema,
+        data: { access: 'public', sbom: { enabled: true, extra: 1 } },
+        expectedMessages: ['at sbom: unexpected additional property: "extra"']
+    })
+);

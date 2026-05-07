@@ -16,34 +16,54 @@ export type TarballArtifact = {
 };
 
 export type ArtifactsBuilder = {
-    collectContents: (bundle: VersionedBundleWithManifest, prefix?: string) => readonly FileDescription[];
-    buildTarball: (bundle: VersionedBundleWithManifest) => Promise<TarballArtifact>;
-    buildFolder: (bundle: VersionedBundleWithManifest, targetFolder: string) => Promise<void>;
+    collectContents: (
+        bundle: VersionedBundleWithManifest,
+        prefix?: string,
+        extraFiles?: readonly FileDescription[]
+    ) => readonly FileDescription[];
+    buildTarball: (
+        bundle: VersionedBundleWithManifest,
+        extraFiles?: readonly FileDescription[]
+    ) => Promise<TarballArtifact>;
+    buildFolder: (
+        bundle: VersionedBundleWithManifest,
+        targetFolder: string,
+        extraFiles?: readonly FileDescription[]
+    ) => Promise<void>;
 };
 
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
     const { fileManager, tarballBuilder } = artifactsBuilderDependencies;
 
-    function collectContents(bundle: VersionedBundleWithManifest, prefix?: string): readonly FileDescription[] {
+    function applyPrefix(filePath: string, prefix: string | undefined): string {
+        return prefix === undefined ? filePath : path.join(prefix, filePath);
+    }
+
+    function collectContents(
+        bundle: VersionedBundleWithManifest,
+        prefix?: string,
+        extraFiles: readonly FileDescription[] = []
+    ): readonly FileDescription[] {
         const artifactContents: FileDescription[] = [
             {
                 ...bundle.manifestFile,
-                filePath:
-                    prefix === undefined
-                        ? bundle.manifestFile.filePath
-                        : path.join(prefix, bundle.manifestFile.filePath)
+                filePath: applyPrefix(bundle.manifestFile.filePath, prefix)
             }
         ];
 
         for (const entry of bundle.contents) {
-            const targetFilePath =
-                prefix === undefined
-                    ? entry.fileDescription.targetFilePath
-                    : path.join(prefix, entry.fileDescription.targetFilePath);
             artifactContents.push({
-                filePath: targetFilePath,
+                filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
                 content: entry.fileDescription.content,
                 isExecutable: entry.fileDescription.isExecutable
+            });
+        }
+
+        for (const extraFile of extraFiles) {
+            artifactContents.push({
+                filePath: applyPrefix(extraFile.filePath, prefix),
+                content: extraFile.content,
+                isExecutable: extraFile.isExecutable
             });
         }
 
@@ -53,8 +73,8 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
     return {
         collectContents,
 
-        async buildTarball(bundle) {
-            const contents = collectContents(bundle, 'package');
+        async buildTarball(bundle, extraFiles) {
+            const contents = collectContents(bundle, 'package', extraFiles);
             const tarData = await tarballBuilder.build(contents);
 
             return {
@@ -63,14 +83,14 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
             };
         },
 
-        async buildFolder(bundle, targetFolder) {
+        async buildFolder(bundle, targetFolder, extraFiles) {
             const readability = await fileManager.checkReadability(targetFolder);
 
             if (readability.isReadable) {
                 throw new Error(`Folder ${targetFolder} already exists`);
             }
 
-            const contents = collectContents(bundle);
+            const contents = collectContents(bundle, undefined, extraFiles);
 
             for (const entry of contents) {
                 const targetFilePath = path.join(targetFolder, entry.filePath);
