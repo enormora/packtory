@@ -1,3 +1,4 @@
+import { isEmpty } from 'remeda';
 import type { VersionedBundle, BundlePackageJson } from '../versioned-bundle.ts';
 
 export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson {
@@ -5,8 +6,8 @@ export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson
         name: bundle.name,
         version: bundle.version,
         main: bundle.mainFile.targetFilePath,
-        ...(Object.keys(bundle.dependencies).length > 0 ? { dependencies: bundle.dependencies } : {}),
-        ...(Object.keys(bundle.peerDependencies).length > 0 ? { peerDependencies: bundle.peerDependencies } : {}),
+        ...(isEmpty(bundle.dependencies) ? {} : { dependencies: bundle.dependencies }),
+        ...(isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies }),
         ...(bundle.packageType === undefined ? {} : { type: bundle.packageType }),
         ...(bundle.typesMainFile === undefined ? {} : { types: bundle.typesMainFile.targetFilePath })
     };

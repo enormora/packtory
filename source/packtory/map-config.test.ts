@@ -6,7 +6,7 @@ import type { VersionedBundleWithManifest } from '../version-manager/versioned-b
 import { configToBuildAndPublishOptions } from './map-config.ts';
 
 type ConfigArgs = Parameters<typeof configToBuildAndPublishOptions>;
-type PackageConfigInput = ConfigArgs[1] extends Map<string, infer V> ? V : never;
+type PackageConfigInput = ConfigArgs[1] extends Readonly<Record<string, infer V>> ? V : never;
 type PacktoryConfigInput = ConfigArgs[2];
 
 const placeholderPackage = fooPackageConfigFactory.build({ name: '', sourcesFolder: '' });
@@ -41,7 +41,7 @@ function runMapConfig(
     } as unknown as PacktoryConfigInput;
     return configToBuildAndPublishOptions(
         packageName,
-        new Map([[packageName, packageConfig]]),
+        { [packageName]: packageConfig },
         baseConfig,
         options.bundleDependencies ?? []
     );
@@ -64,7 +64,7 @@ test('throws when the given packageName doesn’t exist in the configs', () => {
     try {
         configToBuildAndPublishOptions(
             'foo',
-            new Map(),
+            {},
             {
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
