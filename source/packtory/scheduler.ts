@@ -1,4 +1,4 @@
-import { partition } from 'effect/ReadonlyArray';
+import { partition } from 'remeda';
 import { Result } from 'true-myth';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
@@ -100,7 +100,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         };
 
         const results = await Promise.allSettled(packageNames.map(executePackage));
-        const [rejectedResults, fulfilledResults] = partition(results, isFulfilledResult);
+        const [fulfilledResults, rejectedResults] = partition(results, isFulfilledResult);
         const succeeded = fulfilledResults.map((entry) => {
             return entry.value;
         });

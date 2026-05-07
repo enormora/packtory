@@ -1,4 +1,4 @@
-import { map } from 'effect/ReadonlyArray';
+import { map } from 'remeda';
 import type { DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { type DependencyFiles, mergeDependencyFiles } from '../dependency-scanner/dependency-graph.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';

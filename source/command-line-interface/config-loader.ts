@@ -1,6 +1,5 @@
 import path from 'node:path';
-import { isReadonlyRecord } from 'effect/Predicate';
-import { has, type ReadonlyRecord } from 'effect/ReadonlyRecord';
+import { isPlainObject } from 'remeda';
 
 export type ConfigLoaderDependencies = {
     readonly currentWorkingDirectory: string;
@@ -17,14 +16,21 @@ function isFunction(value: unknown): value is UnknownFunction {
     return typeof value === 'function';
 }
 
+function hasOwn<K extends PropertyKey>(
+    value: Readonly<Record<PropertyKey, unknown>>,
+    key: K
+): value is Readonly<Record<K, unknown> & Record<PropertyKey, unknown>> {
+    return Object.hasOwn(value, key);
+}
+
 export function createConfigLoader(dependencies: ConfigLoaderDependencies): ConfigLoader {
     const { currentWorkingDirectory, importModule } = dependencies;
 
-    async function importConfigModule(): Promise<ReadonlyRecord<unknown>> {
+    async function importConfigModule(): Promise<Readonly<Record<PropertyKey, unknown>>> {
         const configFilePath = path.join(currentWorkingDirectory, 'packtory.config.js');
         const module = await importModule(configFilePath);
 
-        if (!isReadonlyRecord(module)) {
+        if (!isPlainObject(module)) {
             throw new Error('Invalid config file');
         }
 
@@ -35,11 +41,11 @@ export function createConfigLoader(dependencies: ConfigLoaderDependencies): Conf
         async load() {
             const module = await importConfigModule();
 
-            if (has(module, 'config')) {
+            if (hasOwn(module, 'config')) {
                 return module.config;
             }
 
-            if (has(module, 'buildConfig')) {
+            if (hasOwn(module, 'buildConfig')) {
                 const { buildConfig } = module;
                 if (isFunction(buildConfig)) {
                     return buildConfig();
