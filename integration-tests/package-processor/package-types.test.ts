@@ -20,7 +20,8 @@ test('includes all required local files and references correct node modules but 
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {
@@ -104,7 +105,8 @@ test('includes peer dependencies correctly', async () => {
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {

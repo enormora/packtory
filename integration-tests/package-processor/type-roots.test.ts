@@ -19,7 +19,8 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {

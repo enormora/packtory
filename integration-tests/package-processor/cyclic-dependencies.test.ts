@@ -17,7 +17,8 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {

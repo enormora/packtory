@@ -19,7 +19,8 @@ test('adds declaration files correctly to the bundle', async () => {
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {

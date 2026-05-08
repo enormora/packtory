@@ -149,6 +149,7 @@ function createResolveOptions(): ResolveAndLinkOptions {
         moduleResolution: 'module' as const,
         mainPackageJson: { type: 'module' as const, dependencies: { dep: '^1.0.0' } },
         additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
+        allowMutableSpecifiers: [],
         bundleDependencies: [{ name: 'bundle-dependency', contents: [] }],
         bundlePeerDependencies: [{ name: 'peer-dependency', contents: [] }]
     };
@@ -248,7 +249,8 @@ test('build() resolves, links, and forwards the mapped build options to versionM
             mainPackageJson: { type: 'module', dependencies: { dep: '^1.0.0' } },
             bundleDependencies: [createVersionedBundle('bundle-dependency', '1.0.0')],
             bundlePeerDependencies: [createVersionedBundle('peer-dependency', '2.0.0')],
-            additionalPackageJsonAttributes: { publishConfig: { access: 'public' } }
+            additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
+            allowMutableSpecifiers: []
         }
     ]);
 });

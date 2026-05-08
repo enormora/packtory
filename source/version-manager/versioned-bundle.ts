@@ -4,6 +4,14 @@ import { mergeAll } from 'remeda';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
+import { classifySpecifier } from './specifier-classifier.ts';
+import {
+    renderMalformedSpecifierMessage,
+    renderMutableSpecifierMessage,
+    renderUnusedAllowListMessage,
+    type MalformedOffender,
+    type MutableOffender
+} from './specifier-errors.ts';
 
 export type BundlePackageJson = Readonly<SetRequired<PackageJson, 'name' | 'version'>>;
 
@@ -29,6 +37,7 @@ export type BuildVersionedBundleOptions = {
     readonly bundleDependencies: readonly VersionedBundle[];
     readonly bundlePeerDependencies: readonly VersionedBundle[];
     readonly additionalPackageJsonAttributes: AdditionalPackageJsonAttributes;
+    readonly allowMutableSpecifiers: readonly string[];
 };
 
 function getVersionFromDependencies(
@@ -87,57 +96,127 @@ function groupBundleDependencies(
     return grouped;
 }
 
-function groupExternalDependencies(
-    bundle: LinkedBundle,
+type ExternalDependencyEntry = {
+    readonly name: string;
+    readonly version: string;
+    readonly kind: 'dependencies' | 'peerDependencies';
+};
+
+function resolveExternalDependencyEntry(
+    dependencyName: string,
     mainPackageJson: MainPackageJson
-): Readonly<GroupedDependencies> {
-    const grouped: GroupedDependencies = { dependencies: {}, peerDependencies: {} };
-    for (const dependencyName of bundle.externalDependencies.keys()) {
-        if (mainPackageJson.peerDependencies?.[dependencyName] === undefined) {
-            if (mainPackageJson.dependencies?.[dependencyName] === undefined) {
-                throw new Error(
-                    oneLine`Couldn’t determine version number of ${dependencyName},
-                        because it is not listed in the main package.json`
-                );
-            }
-            const version = getVersionFromDependencies(dependencyName, mainPackageJson, 'dependencies');
-            grouped.dependencies[dependencyName] = version;
+): ExternalDependencyEntry {
+    const isPeer = mainPackageJson.peerDependencies?.[dependencyName] !== undefined;
+    const isDirect = mainPackageJson.dependencies?.[dependencyName] !== undefined;
+
+    if (!isPeer && !isDirect) {
+        throw new Error(
+            oneLine`Couldn’t determine version number of ${dependencyName},
+                because it is not listed in the main package.json`
+        );
+    }
+
+    const kind = isPeer ? 'peerDependencies' : 'dependencies';
+    return {
+        name: dependencyName,
+        version: getVersionFromDependencies(dependencyName, mainPackageJson, kind),
+        kind
+    };
+}
+
+type SpecifierAccumulator = {
+    readonly mutableOffenders: MutableOffender[];
+    readonly malformedOffenders: MalformedOffender[];
+    readonly usedAllowListEntries: Set<string>;
+};
+
+function recordClassification(
+    entry: ExternalDependencyEntry,
+    allowMutableSpecifiers: readonly string[],
+    accumulator: SpecifierAccumulator
+): void {
+    const classification = classifySpecifier(entry.name, entry.version);
+    if (classification.kind === 'malformed') {
+        accumulator.malformedOffenders.push({
+            name: entry.name,
+            specifier: entry.version,
+            reason: classification.reason
+        });
+        return;
+    }
+    if (classification.kind === 'mutable') {
+        if (allowMutableSpecifiers.includes(entry.name)) {
+            accumulator.usedAllowListEntries.add(entry.name);
         } else {
-            const version = getVersionFromDependencies(dependencyName, mainPackageJson, 'peerDependencies');
-            grouped.peerDependencies[dependencyName] = version;
+            accumulator.mutableOffenders.push({
+                name: entry.name,
+                specifier: entry.version,
+                npaType: classification.npaType
+            });
         }
     }
+}
+
+function throwHighestPriorityFailure(
+    accumulator: SpecifierAccumulator,
+    allowMutableSpecifiers: readonly string[]
+): void {
+    if (accumulator.malformedOffenders.length > 0) {
+        throw new Error(renderMalformedSpecifierMessage(accumulator.malformedOffenders));
+    }
+    if (accumulator.mutableOffenders.length > 0) {
+        throw new Error(renderMutableSpecifierMessage(accumulator.mutableOffenders));
+    }
+    const unusedAllowListEntries = allowMutableSpecifiers.filter((entry) => {
+        return !accumulator.usedAllowListEntries.has(entry);
+    });
+    if (unusedAllowListEntries.length > 0) {
+        throw new Error(renderUnusedAllowListMessage(unusedAllowListEntries));
+    }
+}
+
+function groupExternalDependencies(
+    bundle: LinkedBundle,
+    mainPackageJson: MainPackageJson,
+    allowMutableSpecifiers: readonly string[]
+): Readonly<GroupedDependencies> {
+    const grouped: GroupedDependencies = { dependencies: {}, peerDependencies: {} };
+    const accumulator: SpecifierAccumulator = {
+        mutableOffenders: [],
+        malformedOffenders: [],
+        usedAllowListEntries: new Set<string>()
+    };
+
+    for (const dependencyName of bundle.externalDependencies.keys()) {
+        const entry = resolveExternalDependencyEntry(dependencyName, mainPackageJson);
+        recordClassification(entry, allowMutableSpecifiers, accumulator);
+        grouped[entry.kind][entry.name] = entry.version;
+    }
+
+    throwHighestPriorityFailure(accumulator, allowMutableSpecifiers);
+
     return grouped;
 }
 
-function distributeDependencies(
-    bundle: LinkedBundle,
-    mainPackageJson: MainPackageJson,
-    bundlePeerDependencies: readonly VersionedBundle[],
-    bundleDependencies: readonly VersionedBundle[]
-): Readonly<GroupedDependencies> {
-    const bundleGrouped = groupBundleDependencies(bundle, bundlePeerDependencies, bundleDependencies);
-    const externalGrouped = groupExternalDependencies(bundle, mainPackageJson);
+function distributeDependencies(options: BuildVersionedBundleOptions): Readonly<GroupedDependencies> {
+    const bundleGrouped = groupBundleDependencies(
+        options.bundle,
+        options.bundlePeerDependencies,
+        options.bundleDependencies
+    );
+    const externalGrouped = groupExternalDependencies(
+        options.bundle,
+        options.mainPackageJson,
+        options.allowMutableSpecifiers
+    );
     return mergeDependencyGroups(bundleGrouped, externalGrouped);
 }
 
 export function buildVersionedBundle(options: BuildVersionedBundleOptions): VersionedBundle {
-    const {
-        bundle,
-        version,
-        mainPackageJson,
-        additionalPackageJsonAttributes,
-        bundlePeerDependencies,
-        bundleDependencies
-    } = options;
+    const { bundle, version, mainPackageJson, additionalPackageJsonAttributes } = options;
     const [firstEntryPoint] = bundle.entryPoints;
 
-    const distributedDependencies = distributeDependencies(
-        bundle,
-        mainPackageJson,
-        bundlePeerDependencies,
-        bundleDependencies
-    );
+    const distributedDependencies = distributeDependencies(options);
 
     return {
         name: bundle.name,

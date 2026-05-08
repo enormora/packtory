@@ -19,7 +19,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
     const secondBundle = await packageProcessor.build({
         name: 'second',
@@ -34,7 +35,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
         additionalFiles: [],
-        moduleResolution: 'module'
+        moduleResolution: 'module',
+        allowMutableSpecifiers: []
     });
     const thirdBundle = await packageProcessor.build({
         name: 'third',
@@ -49,7 +51,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
         bundlePeerDependencies: [secondBundle],
         additionalPackageJsonAttributes: {},
         additionalFiles: [],
-        moduleResolution: 'module'
+        moduleResolution: 'module',
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(firstBundle, {

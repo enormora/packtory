@@ -53,6 +53,7 @@ type CreatePublishConfigParams = {
     readonly registryDetails: RegistryDetails;
     readonly packages: PackageConfigList;
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
+    readonly mainPackageJsonOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageJson']>>;
 };
 type PublishFixturePackagesParams = {
     readonly fixturePath: string;
@@ -60,6 +61,7 @@ type PublishFixturePackagesParams = {
     readonly packages?: PackageConfigList;
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
     readonly authMode?: 'basic' | 'bearer';
+    readonly mainPackageJsonOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageJson']>>;
 };
 
 function createRegistrySettings(
@@ -217,12 +219,14 @@ function createStandardPackages(fixturePath: string): PackageConfigList {
 }
 
 async function createPublishConfig(params: CreatePublishConfigParams): Promise<PublishConfig> {
-    const { fixturePath, registryDetails, packages, commonPackageSettings } = params;
+    const { fixturePath, registryDetails, packages, commonPackageSettings, mainPackageJsonOverrides } = params;
+    const baseMainPackageJson = await loadPackageJson(fixturePath);
+    const mergedMainPackageJson = { ...baseMainPackageJson, ...mainPackageJsonOverrides };
     const mergedCommonPackageSettings: PublishConfig['commonPackageSettings'] = {
         publishSettings: { access: 'public', sbom: { enabled: false } },
         ...commonPackageSettings,
         sourcesFolder: path.join(fixturePath, 'src'),
-        mainPackageJson: await loadPackageJson(fixturePath)
+        mainPackageJson: mergedMainPackageJson
     };
 
     return {
@@ -237,7 +241,10 @@ async function publishFixturePackages(params: PublishFixturePackagesParams): Pro
         fixturePath: params.fixturePath,
         registryDetails: params.registryDetails,
         packages: params.packages ?? createStandardPackages(params.fixturePath),
-        ...(params.commonPackageSettings === undefined ? {} : { commonPackageSettings: params.commonPackageSettings })
+        ...(params.commonPackageSettings === undefined ? {} : { commonPackageSettings: params.commonPackageSettings }),
+        ...(params.mainPackageJsonOverrides === undefined
+            ? {}
+            : { mainPackageJsonOverrides: params.mainPackageJsonOverrides })
     };
     const config = await createPublishConfig(configParams);
     const registrySettings = createRegistrySettings(params.registryDetails, params.authMode);
@@ -536,6 +543,85 @@ test(
             getPublishedFile(firstRun, 'package/sbom.cdx.json').content
         );
         assert.strictEqual(secondRun.version, firstRun.version);
+    })
+);
+
+test(
+    'rejects publishing a bundle whose external dependency uses a mutable git+https specifier',
+    checkWithRegistry(async (registryDetails) => {
+        const fixturePath = path.join(
+            process.cwd(),
+            'integration-tests/fixtures/with-local-builtin-and-node-module-dependencies'
+        );
+        const packages = createPackageConfigList({
+            name: 'mutable-rejection-fixture',
+            entryPoints: [{ js: path.join(fixturePath, 'src/entry.js') }]
+        });
+
+        const result = await publishFixturePackages({
+            fixturePath,
+            registryDetails,
+            packages,
+            mainPackageJsonOverrides: {
+                dependencies: { 'example-module': 'git+https://github.com/our-fork/example-module#v1.0.0' }
+            }
+        });
+
+        if (result.isOk) {
+            assert.fail('Expected publish to fail');
+        }
+        if (result.error.type !== 'partial') {
+            assert.fail(`Expected partial failure, got ${result.error.type}`);
+        }
+        const failureMessages = result.error.failures.map((failure) => {
+            return failure.message;
+        });
+        assert.ok(
+            failureMessages.some((message) => {
+                return message.includes('uses a mutable specifier') && message.includes('example-module');
+            }),
+            `Expected a mutable-specifier failure, got: ${failureMessages.join(' | ')}`
+        );
+
+        const versionDetails = await registryClient.fetchLatestVersion(
+            'mutable-rejection-fixture',
+            createRegistrySettings(registryDetails)
+        );
+        assert.strictEqual(versionDetails.isNothing, true);
+    })
+);
+
+test(
+    'allows a mutable git+https specifier when the dep is allow-listed and preserves it in the published manifest',
+    checkWithRegistry(async (registryDetails) => {
+        const fixturePath = path.join(
+            process.cwd(),
+            'integration-tests/fixtures/with-local-builtin-and-node-module-dependencies'
+        );
+        const packages = createPackageConfigList({
+            name: 'mutable-allow-list-fixture',
+            entryPoints: [{ js: path.join(fixturePath, 'src/entry.js') }]
+        });
+
+        assertPublishSucceeded(
+            await publishFixturePackages({
+                fixturePath,
+                registryDetails,
+                packages,
+                mainPackageJsonOverrides: {
+                    dependencies: { 'example-module': 'git+https://github.com/our-fork/example-module#v1.0.0' }
+                },
+                commonPackageSettings: {
+                    dependencyPolicy: { allowMutableSpecifiers: ['example-module'] }
+                }
+            })
+        );
+
+        const publishedPackage = await fetchPublishedPackage('mutable-allow-list-fixture', registryDetails);
+
+        assert.deepStrictEqual(publishedPackage.manifest.dependencies, {
+            'example-module': 'git+https://github.com/our-fork/example-module#v1.0.0'
+        });
     })
 );
 
