@@ -152,9 +152,7 @@ test(
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
-                noDuplicatedFiles: {
-                    allowList: ['foo/bar.ts']
-                }
+                noDuplicatedFiles: {}
             },
             packages: [
                 {
@@ -170,15 +168,14 @@ test(
 );
 
 test(
-    'validation fails when checks.noDuplicatedFiles.allowList contains an empty path',
+    'validation fails when a per-package noDuplicatedFiles.allowList contains an empty path',
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
                 noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: ['']
+                    enabled: true
                 }
             },
             packages: [
@@ -186,49 +183,48 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    entryPoints: [{ js: 'foo' }],
+                    checks: { noDuplicatedFiles: { allowList: [''] } }
                 }
             ]
         },
-        expectedMessages: ['at checks.noDuplicatedFiles.allowList[0]: string must contain at least 1 character']
+        expectedMessages: [
+            'at packages[0].checks.noDuplicatedFiles.allowList[0]: string must contain at least 1 character'
+        ]
     })
 );
 
 test(
-    'validation succeeds when checks.noDuplicatedFiles specifies an allow list',
+    'validation succeeds when a package declares a per-package noDuplicatedFiles allowList',
     checkValidationSuccess({
         schema: packtoryConfigSchema,
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
-                noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: ['foo/bar.ts']
-                }
+                noDuplicatedFiles: { enabled: true }
             },
             packages: [
                 {
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    entryPoints: [{ js: 'foo' }],
+                    checks: { noDuplicatedFiles: { allowList: ['foo/bar.ts'] } }
                 }
             ]
         },
         expectedData: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
-                noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: ['foo/bar.ts']
-                }
+                noDuplicatedFiles: { enabled: true }
             },
             packages: [
                 {
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    entryPoints: [{ js: 'foo' }],
+                    checks: { noDuplicatedFiles: { allowList: ['foo/bar.ts'] } }
                 }
             ]
         }
@@ -242,10 +238,7 @@ test(
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
-                noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: ['foo/bar.ts']
-                }
+                noDuplicatedFiles: { enabled: true }
             },
             packages: [
                 {
@@ -259,10 +252,7 @@ test(
         expectedData: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
-                noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: ['foo/bar.ts']
-                }
+                noDuplicatedFiles: { enabled: true }
             },
             packages: [
                 {
@@ -678,9 +668,7 @@ test(
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
-                noDuplicatedFiles: {
-                    allowList: ['foo/bar.ts']
-                }
+                noDuplicatedFiles: {}
             },
             packages: [
                 {
@@ -696,27 +684,27 @@ test(
 );
 
 test(
-    'validation fails when checks.noDuplicatedFiles.allowList contains an empty path',
+    'validation fails when a per-package noDuplicatedFiles.allowList contains an empty path (registry config)',
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             checks: {
-                noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: ['']
-                }
+                noDuplicatedFiles: { enabled: true }
             },
             packages: [
                 {
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    entryPoints: [{ js: 'foo' }],
+                    checks: { noDuplicatedFiles: { allowList: [''] } }
                 }
             ]
         },
-        expectedMessages: ['at checks.noDuplicatedFiles.allowList[0]: string must contain at least 1 character']
+        expectedMessages: [
+            'at packages[0].checks.noDuplicatedFiles.allowList[0]: string must contain at least 1 character'
+        ]
     })
 );
 

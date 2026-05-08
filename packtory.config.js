@@ -16,13 +16,13 @@ export async function buildConfig() {
         throw new Error('Missing NPM_TOKEN environment variable');
     }
 
+    const sharedLicensePath = path.join(projectFolder, 'LICENSE');
+    const licenseConsent = { noDuplicatedFiles: { allowList: [sharedLicensePath] } };
+
     return {
         registrySettings: { token: npmToken },
         checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [path.join(projectFolder, 'LICENSE')]
-            }
+            noDuplicatedFiles: { enabled: true }
         },
         commonPackageSettings: {
             sourcesFolder,
@@ -30,7 +30,7 @@ export async function buildConfig() {
             includeSourceMapFiles: true,
             additionalFiles: [
                 {
-                    sourceFilePath: path.join(projectFolder, 'LICENSE'),
+                    sourceFilePath: sharedLicensePath,
                     targetFilePath: 'LICENSE'
                 }
             ],
@@ -60,7 +60,8 @@ export async function buildConfig() {
                         sourceFilePath: path.join(projectFolder, 'source/packages/packtory/readme.md'),
                         targetFilePath: 'readme.md'
                     }
-                ]
+                ],
+                checks: licenseConsent
             },
             {
                 name: '@packtory/cli',
@@ -83,7 +84,8 @@ export async function buildConfig() {
                         targetFilePath: 'readme.md'
                     }
                 ],
-                bundleDependencies: ['packtory']
+                bundleDependencies: ['packtory'],
+                checks: licenseConsent
             }
         ]
     };

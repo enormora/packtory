@@ -81,8 +81,14 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         config: PacktoryConfigWithoutRegistry,
         resolvedPackages: readonly ResolvedPackage[]
     ): Result<readonly ResolvedPackage[], CheckError> {
+        const perPackageSettings = new Map(
+            config.packages.map((packageConfig) => {
+                return [packageConfig.name, packageConfig.checks];
+            })
+        );
         const checkIssues = runChecks({
             settings: config.checks ?? {},
+            perPackageSettings,
             bundles: resolvedPackages.map((resolvedPackage) => {
                 return resolvedPackage.linkedBundle;
             })

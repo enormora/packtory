@@ -1,6 +1,21 @@
+import { z } from 'zod/mini';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
-import type { AllowListEntry, ChecksSettings } from '../../config/config.ts';
-import type { CheckContext } from '../rule.ts';
+import { nonEmptyStringSchema } from '../../config/base-validations.ts';
+import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+
+const ruleName = 'noDuplicatedFiles';
+
+const globalSchema = z.strictObject({
+    enabled: z.boolean()
+});
+
+const perPackageSchema = z.strictObject({
+    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
+});
+
+type GlobalConfig = z.infer<typeof globalSchema>;
+type PerPackageConfig = z.infer<typeof perPackageSchema>;
+type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function collectFileOwnership(bundles: readonly LinkedBundle[]): Map<string, Set<string>> {
     const fileOwnership = new Map<string, Set<string>>();
@@ -17,69 +32,61 @@ function collectFileOwnership(bundles: readonly LinkedBundle[]): Map<string, Set
     return fileOwnership;
 }
 
-function getAllowList(settings: ChecksSettings | undefined): readonly AllowListEntry[] | undefined {
-    const option = settings?.noDuplicatedFiles;
-
-    if (option?.enabled !== true) {
-        return undefined;
-    }
-
-    return option.allowList;
-}
-
-function isAllowed(
+function everyOwnerConsents(
     filePath: string,
     owners: ReadonlySet<string>,
-    allowList: readonly AllowListEntry[] | undefined
+    perPackageConfigByBundle: ReadonlyMap<string, PerPackageConfig>
 ): boolean {
-    if (allowList === undefined) {
-        return false;
-    }
-
-    return allowList.some((entry) => {
-        if (typeof entry === 'string') {
-            return entry === filePath;
-        }
-
-        if (entry.filePath !== filePath) {
-            return false;
-        }
-
-        const allowedOwners = new Set(entry.packages);
-        return Array.from(owners).every((owner) => {
-            return allowedOwners.has(owner);
-        });
+    return Array.from(owners).every((owner) => {
+        const allowList = perPackageConfigByBundle.get(owner)?.allowList ?? [];
+        return allowList.includes(filePath);
     });
 }
 
-export function isNoDuplicatedFilesRuleEnabled(settings: ChecksSettings | undefined): boolean {
-    const option = settings?.noDuplicatedFiles;
-
-    if (option === undefined) {
-        return false;
-    }
-
-    return option.enabled;
+function formatOwners(owners: ReadonlySet<string>): string {
+    return Array.from(owners)
+        .toSorted((left, right) => {
+            return left.localeCompare(right);
+        })
+        .join(', ');
 }
 
-export function runNoDuplicatedFilesRule(
-    context: CheckContext,
-    settings: ChecksSettings | undefined
+function buildPerPackageConfigByBundle(
+    perPackageSettings: RunParams['perPackageSettings']
+): ReadonlyMap<string, PerPackageConfig> {
+    return new Map(
+        Array.from(perPackageSettings.entries()).flatMap(([bundleName, packageChecks]) => {
+            const ruleConfig = packageChecks?.noDuplicatedFiles;
+            return ruleConfig === undefined ? [] : [[bundleName, ruleConfig] as const];
+        })
+    );
+}
+
+function findDuplicateIssues(
+    bundles: readonly LinkedBundle[],
+    perPackageConfigByBundle: ReadonlyMap<string, PerPackageConfig>
 ): readonly string[] {
-    const fileOwnership = collectFileOwnership(context.bundles);
-    const issues: string[] = [];
-    const allowList = getAllowList(settings);
-
-    for (const [filePath, owners] of fileOwnership.entries()) {
-        if (owners.size > 1 && !isAllowed(filePath, owners, allowList)) {
-            const ownerList = Array.from(owners)
-                .toSorted((left, right) => {
-                    return left.localeCompare(right);
-                })
-                .join(', ');
-            issues.push(`File "${filePath}" is included in multiple packages: ${ownerList}`);
+    return Array.from(collectFileOwnership(bundles).entries()).flatMap(([filePath, owners]) => {
+        const isDuplicate = owners.size > 1;
+        const consented = everyOwnerConsents(filePath, owners, perPackageConfigByBundle);
+        if (isDuplicate && !consented) {
+            return [`File "${filePath}" is included in multiple packages: ${formatOwners(owners)}`];
         }
-    }
-
-    return issues;
+        return [];
+    });
 }
+
+function run(params: RunParams): readonly string[] {
+    const globalConfig = params.settings?.noDuplicatedFiles;
+    if (globalConfig?.enabled !== true) {
+        return [];
+    }
+    return findDuplicateIssues(params.bundles, buildPerPackageConfigByBundle(params.perPackageSettings));
+}
+
+export const noDuplicatedFilesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+    name: ruleName,
+    globalSchema,
+    perPackageSchema,
+    run
+};

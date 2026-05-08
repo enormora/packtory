@@ -164,13 +164,16 @@ describe('PacktoryConfig — exposed structure', () => {
         expect<EntryPoint['declarationFile']>().type.toBe<string | undefined>();
     });
 
-    test('checks.noDuplicatedFiles toggles via an `enabled` boolean and an optional allow-list', () => {
+    test('checks.noDuplicatedFiles is toggled at the top level via `enabled`', () => {
         type Checks = NonNullable<PacktoryConfig['checks']>;
         type NoDuplicates = NonNullable<Checks['noDuplicatedFiles']>;
         expect<NoDuplicates['enabled']>().type.toBe<boolean>();
-        expect<NoDuplicates['allowList']>().type.toBeAssignableTo<
-            readonly (string | { readonly filePath: string; readonly packages: readonly string[] })[] | undefined
-        >();
+    });
+
+    test('PackageConfig.checks.noDuplicatedFiles carries the per-package allowList', () => {
+        type PackageChecks = NonNullable<PackageConfig['checks']>;
+        type NoDuplicates = NonNullable<PackageChecks['noDuplicatedFiles']>;
+        expect<NoDuplicates['allowList']>().type.toBe<readonly string[] | undefined>();
     });
 });
 

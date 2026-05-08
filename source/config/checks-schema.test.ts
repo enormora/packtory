@@ -7,17 +7,21 @@ import {
     createTestCasesForOptionalField,
     createTestCasesForRequiredField
 } from '../test-libraries/verify-schema-validation.ts';
-import { checksSchema } from './checks-schema.ts';
+import { checksPerPackageSchema, checksSchema } from './checks-schema.ts';
 
-test('schema accepts valid noDuplicatedFiles settings', () => {
+test('schema accepts valid noDuplicatedFiles settings at the top level', () => {
+    assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: { enabled: true } }).success, true);
+});
+
+test('top-level schema rejects an allowList field on noDuplicatedFiles', () => {
     assert.strictEqual(
         safeParse(checksSchema, { noDuplicatedFiles: { enabled: true, allowList: ['src/index.ts'] } }).success,
-        true
+        false
     );
 });
 
 test('schema rejects noDuplicatedFiles settings without enabled', () => {
-    assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: { allowList: ['src/index.ts'] } }).success, false);
+    assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: {} }).success, false);
 });
 
 test('schema accepts empty checks settings', () => {
@@ -28,35 +32,28 @@ test('schema rejects non-object noDuplicatedFiles settings', () => {
     assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: true }).success, false);
 });
 
-const validNoDuplicatedFilesSettings = { enabled: true, allowList: ['src/index.ts'] };
+const validNoDuplicatedFilesGlobal = { enabled: true };
 
 createTestCasesForOptionalField({
     schema: checksSchema,
-    data: { noDuplicatedFiles: validNoDuplicatedFilesSettings },
+    data: { noDuplicatedFiles: validNoDuplicatedFilesGlobal },
     path: 'noDuplicatedFiles',
     expectedFieldType: 'object'
 });
 
 createTestCasesForRequiredField({
     schema: checksSchema,
-    data: { noDuplicatedFiles: validNoDuplicatedFilesSettings },
+    data: { noDuplicatedFiles: validNoDuplicatedFilesGlobal },
     path: 'noDuplicatedFiles.enabled',
     expectedFieldType: 'boolean'
 });
 
-createTestCasesForOptionalField({
-    schema: checksSchema,
-    data: { noDuplicatedFiles: validNoDuplicatedFilesSettings },
-    path: 'noDuplicatedFiles.allowList',
-    expectedFieldType: 'array'
-});
-
 test(
-    'no duplicated files settings: validation succeeds with enabled and allow list',
+    'no duplicated files settings: validation succeeds with enabled at the top level',
     checkValidationSuccess({
         schema: checksSchema,
-        data: { noDuplicatedFiles: { enabled: true, allowList: ['src/index.ts'] } },
-        expectedData: { noDuplicatedFiles: { enabled: true, allowList: ['src/index.ts'] } }
+        data: { noDuplicatedFiles: { enabled: true } },
+        expectedData: { noDuplicatedFiles: { enabled: true } }
     })
 );
 
@@ -64,7 +61,7 @@ test(
     'no duplicated files settings: validation fails when enabled is missing',
     checkValidationFailure({
         schema: checksSchema,
-        data: { noDuplicatedFiles: { allowList: ['src/index.ts'] } },
+        data: { noDuplicatedFiles: {} },
         expectedMessages: ['at noDuplicatedFiles.enabled: missing property']
     })
 );
@@ -91,87 +88,44 @@ test(
     'no duplicated files settings: validation fails when an additional property is given',
     checkValidationFailure({
         schema: checksSchema,
-        data: { noDuplicatedFiles: { ...validNoDuplicatedFilesSettings, extra: true } },
+        data: { noDuplicatedFiles: { ...validNoDuplicatedFilesGlobal, extra: true } },
         expectedMessages: ['at noDuplicatedFiles: unexpected additional property: "extra"']
     })
 );
 
-test(
-    'allow list: validation succeeds with a scoped entry naming two packages',
-    checkValidationSuccess({
-        schema: checksSchema,
-        data: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
-            }
-        },
-        expectedData: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
-            }
-        }
-    })
-);
+test('per-package schema accepts an empty noDuplicatedFiles object', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { noDuplicatedFiles: {} }).success, true);
+});
+
+test('per-package schema accepts an allowList of file paths', () => {
+    assert.strictEqual(
+        safeParse(checksPerPackageSchema, { noDuplicatedFiles: { allowList: ['src/shared/util.ts'] } }).success,
+        true
+    );
+});
+
+test('per-package schema rejects an enabled flag', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { noDuplicatedFiles: { enabled: true } }).success, false);
+});
+
+test('per-package schema rejects an empty string in the allowList', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { noDuplicatedFiles: { allowList: [''] } }).success, false);
+});
 
 test(
-    'allow list: validation succeeds with a mix of plain string and scoped entries',
-    checkValidationSuccess({
-        schema: checksSchema,
-        data: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: ['LICENSE', { filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
-            }
-        },
-        expectedData: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: ['LICENSE', { filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
-            }
-        }
-    })
-);
-
-test(
-    'allow list: validation fails when a scoped entry has fewer than two packages',
+    'per-package: validation fails when allowList contains an empty path',
     checkValidationFailure({
-        schema: checksSchema,
-        data: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a'] }]
-            }
-        },
-        expectedMessages: ['at noDuplicatedFiles.allowList[0].packages: array must contain at least 2 elements']
+        schema: checksPerPackageSchema,
+        data: { noDuplicatedFiles: { allowList: [''] } },
+        expectedMessages: ['at noDuplicatedFiles.allowList[0]: string must contain at least 1 character']
     })
 );
 
 test(
-    'allow list: validation fails when a scoped entry omits filePath',
+    'per-package: validation fails when an unknown extra property is given',
     checkValidationFailure({
-        schema: checksSchema,
-        data: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ packages: ['a', 'b'] }]
-            }
-        },
-        expectedMessages: ['at noDuplicatedFiles.allowList[0]: invalid value doesn’t match expected union']
-    })
-);
-
-test(
-    'allow list: validation fails when a scoped entry has an unknown extra property',
-    checkValidationFailure({
-        schema: checksSchema,
-        data: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'], extra: true }]
-            }
-        },
-        expectedMessages: ['at noDuplicatedFiles.allowList[0]: invalid value doesn’t match expected union']
+        schema: checksPerPackageSchema,
+        data: { noDuplicatedFiles: { allowList: ['LICENSE'], extra: true } },
+        expectedMessages: ['at noDuplicatedFiles: unexpected additional property: "extra"']
     })
 );

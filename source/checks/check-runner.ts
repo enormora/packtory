@@ -1,17 +1,15 @@
-import type { ChecksSettings } from '../config/config.ts';
-import type { CheckContext } from './rule.ts';
-import { isNoDuplicatedFilesRuleEnabled, runNoDuplicatedFilesRule } from './rules/no-duplicated-files.ts';
+import type { ChecksSettings, PackageChecksSettings } from '../config/config.ts';
+import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import { allRules } from './rules/registry.ts';
 
-export type CheckRunnerParams = CheckContext & {
+export type CheckRunnerParams = {
+    readonly bundles: readonly LinkedBundle[];
     readonly settings: ChecksSettings | undefined;
+    readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings | undefined>;
 };
 
 export function runChecks(params: CheckRunnerParams): readonly string[] {
-    const { settings, bundles: packages } = params;
-
-    if (!isNoDuplicatedFilesRuleEnabled(settings)) {
-        return [];
-    }
-
-    return runNoDuplicatedFilesRule({ bundles: packages }, settings);
+    return allRules.flatMap((rule) => {
+        return rule.run(params);
+    });
 }

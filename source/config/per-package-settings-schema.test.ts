@@ -63,6 +63,13 @@ createTestCasesForOptionalField({
     expectedFieldType: 'array'
 });
 
+createTestCasesForOptionalField({
+    schema: perPackageSettingsSchema,
+    data: validPerPackageSettings,
+    path: 'checks',
+    expectedFieldType: 'object'
+});
+
 test(
     'per package settings schema: validation succeeds with required fields',
     checkValidationSuccess({
