@@ -69,7 +69,7 @@ function createPublishedBundleScenario(): {
     readonly fetchTarball: SinonSpy;
 } {
     const fetchLatestVersion = fake.resolves(
-        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz', shasum: 'def' })
+        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
     );
     const fetchTarball = fake.resolves(tarballWithOneFile);
     const collectContents = fake.returns([]);
@@ -161,7 +161,7 @@ test('checkBundleAlreadyPublished() returns false when there is no latest versio
 
 test('checkBundleAlreadyPublished() returns false when the latest version contents doesn’t match the given bundle', async () => {
     const fetchLatestVersion = fake.resolves(
-        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz', shasum: 'def' })
+        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
     );
     const fetchTarball = fake.resolves(tarballWithOneFile);
     const collectContents = fake.returns([]);
@@ -177,7 +177,6 @@ test('checkBundleAlreadyPublished() returns false when the latest version conten
     assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package', undefined]);
     assert.deepStrictEqual(fetchTarball.firstCall.args, [
         'https://registry.example.test/package.tgz',
-        'def',
         registrySettings
     ]);
 });
@@ -197,7 +196,7 @@ test('checkBundleAlreadyPublished() forwards extra files to collectContents', as
 
 test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async () => {
     const fetchLatestVersion = fake.resolves(
-        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz', shasum: 'abc' })
+        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
     );
     const fetchTarball = fake.resolves(emptyTarball);
     const collectContents = fake.returns([]);
@@ -212,7 +211,6 @@ test('checkBundleAlreadyPublished() returns true when the latest version content
     assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
     assert.deepStrictEqual(fetchTarball.firstCall.args, [
         'https://registry.example.test/package.tgz',
-        'abc',
         registrySettings
     ]);
 });
