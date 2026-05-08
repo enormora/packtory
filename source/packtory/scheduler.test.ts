@@ -13,7 +13,7 @@ function createValidatedConfig(packages: readonly Record<string, unknown>[]): Va
     const result = validateConfigWithoutRegistry({
         commonPackageSettings: {
             sourcesFolder: '/src',
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             publishSettings: { access: 'public' }
         },
         packages

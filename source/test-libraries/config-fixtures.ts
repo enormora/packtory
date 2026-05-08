@@ -10,10 +10,10 @@ const minimalEntryPointFactory = createFactory<EntryPointShape>(() => {
     return { js: 'foo' };
 });
 
-type MainPackageJsonShape = { readonly type?: 'module' | undefined };
+type MainPackageJsonShape = { readonly type: 'module' };
 
 const mainPackageJsonFactory = createFactory<MainPackageJsonShape>(() => {
-    return {};
+    return { type: 'module' };
 });
 
 type FooPackageConfigShape = {

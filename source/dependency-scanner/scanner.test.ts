@@ -79,19 +79,6 @@ test('passes the resolveDeclarationFiles option to the project analyzer', async 
     ]);
 });
 
-test('passes the moduleResolution option to the project analyzer', async () => {
-    const analyzeProject = createFakeAnalyzeProject();
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    await dependencyScanner.scan('/foo/bar.js', '/foo', { moduleResolution: 'common-js' });
-
-    assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: false, moduleResolution: 'common-js', resolveDeclarationFiles: false }
-    ]);
-});
-
 test('defaults the moduleResolution option to "module" when not provided', async () => {
     const analyzeProject = createFakeAnalyzeProject();
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });

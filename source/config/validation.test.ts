@@ -9,7 +9,11 @@ type ConfigInput = Record<string, unknown>;
 function withRegistry(extra: ConfigInput): ConfigInput {
     return {
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {}, publishSettings: { access: 'public' } },
+        commonPackageSettings: {
+            sourcesFolder: 'foo',
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' }
+        },
         ...extra
     };
 }
@@ -274,7 +278,11 @@ test('validateConfigWithoutRegistry() returns schema issues when the config is i
 
 test('validateConfigWithoutRegistry() returns an issue for unknown packages in a scoped allow-list entry', () => {
     const result = validateConfigWithoutRegistry({
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {}, publishSettings: { access: 'public' } },
+        commonPackageSettings: {
+            sourcesFolder: 'foo',
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' }
+        },
         ...configWithGhostAllowList(['a', 'ghost'])
     });
 
@@ -286,7 +294,11 @@ test('validateConfigWithoutRegistry() returns an issue for unknown packages in a
 
 test('validateConfigWithoutRegistry() returns duplicate and missing dependency issues', () => {
     const result = validateConfigWithoutRegistry({
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {}, publishSettings: { access: 'public' } },
+        commonPackageSettings: {
+            sourcesFolder: 'foo',
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' }
+        },
         packages: duplicateCAndMissingBPackages
     });
 
@@ -296,12 +308,16 @@ test('validateConfigWithoutRegistry() returns duplicate and missing dependency i
 function withCommonWithoutPublishSettings(packages: readonly ConfigInput[]): ConfigInput {
     return {
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: {} },
+        commonPackageSettings: { sourcesFolder: 'foo', mainPackageJson: { type: 'module' } },
         packages
     };
 }
 
 const placementErrorMessage = 'publishSettings must be set in commonPackageSettings or in every package';
+const packageSpecificPublishSettings = [
+    { name: 'foo', entryPoints: [{ js: 'foo' }], publishSettings: { access: 'public' } },
+    { name: 'bar', entryPoints: [{ js: 'bar' }], publishSettings: { access: 'restricted' } }
+] as const;
 
 test('returns an issue when publishSettings is missing from both commonPackageSettings and every package', () => {
     const result = validateConfig(withCommonWithoutPublishSettings([{ name: 'foo', entryPoints: [{ js: 'foo' }] }]));
@@ -327,12 +343,7 @@ test('accepts a config when publishSettings is set only in commonPackageSettings
 });
 
 test('accepts a config when publishSettings is set only on every package', () => {
-    const result = validateConfig(
-        withCommonWithoutPublishSettings([
-            { name: 'foo', entryPoints: [{ js: 'foo' }], publishSettings: { access: 'public' } },
-            { name: 'bar', entryPoints: [{ js: 'bar' }], publishSettings: { access: 'restricted' } }
-        ])
-    );
+    const result = validateConfig(withCommonWithoutPublishSettings(packageSpecificPublishSettings));
 
     assert.strictEqual(result.isOk, true);
 });
@@ -343,7 +354,7 @@ test('accepts a config when no commonPackageSettings is provided and every packa
         packages: [
             {
                 sourcesFolder: 'foo',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 name: 'foo',
                 entryPoints: [{ js: 'foo' }],
                 publishSettings: { access: 'public' }

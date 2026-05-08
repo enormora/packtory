@@ -8,7 +8,7 @@ import {
 } from 'ts-morph';
 import type { FileSystemAdapters } from './typescript-file-host.ts';
 
-export type ModuleResolution = 'common-js' | 'module';
+export type ModuleResolution = 'module';
 
 export type TypescriptProjectAnalyzerDependencies = {
     readonly Project: typeof _Project;
@@ -39,7 +39,7 @@ export function getSourcePathFromSourceFile(sourceFile: Readonly<SourceFile>): s
 }
 
 function analyzationOptionsToCompilerOptions(options: AnalyzationOptions): CompilerOptions {
-    const { moduleResolution, resolveDeclarationFiles } = options;
+    const { resolveDeclarationFiles } = options;
 
     const compilerOptions: CompilerOptions = {
         moduleResolution: ModuleResolutionKind.Node16,
@@ -49,7 +49,7 @@ function analyzationOptionsToCompilerOptions(options: AnalyzationOptions): Compi
         allowJs: true,
         noLib: true,
         skipLibCheck: true,
-        module: moduleResolution === 'module' ? ModuleKind.Node16 : ModuleKind.CommonJS
+        module: ModuleKind.Node16
     };
 
     if (!resolveDeclarationFiles) {

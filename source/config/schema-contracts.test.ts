@@ -96,7 +96,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
 
         console.log(JSON.stringify({
             mainShape: Object.keys(mainShape),
-            typeLiteral: mainShape.type.def.innerType.def.values[0],
+            typeLiteral: mainShape.type.def.values[0],
             dependencyRecordType: mainShape.dependencies.def.innerType.def.innerType.def.type,
             devDependencyRecordType: mainShape.devDependencies.def.innerType.def.innerType.def.type,
             peerDependencyRecordType: mainShape.peerDependencies.def.innerType.def.innerType.def.type,
@@ -154,7 +154,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
                     {
                         name: 'pkg',
                         sourcesFolder: 'src',
-                        mainPackageJson: {},
+                        mainPackageJson: { type: 'module' },
                         entryPoints: [{ js: 'index.js' }]
                     }
                 ]
@@ -237,7 +237,7 @@ test('schema source modules still validate representative valid and invalid inpu
                 registrySettings: { auth: { type: 'bearer-token', token: 'secret' } },
                 packages: [{
                     sourcesFolder: 'src',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'pkg',
                     entryPoints: [{ js: 'index.js' }]
                 }]
@@ -245,7 +245,7 @@ test('schema source modules still validate representative valid and invalid inpu
             missingConfigRegistrySuccess: safeParse(packtoryConfigSchema, {
                 packages: [{
                     sourcesFolder: 'src',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'pkg',
                     entryPoints: [{ js: 'index.js' }]
                 }]

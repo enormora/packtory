@@ -32,7 +32,14 @@ test('config schema accepts a valid config', () => {
     assert.strictEqual(
         safeParse(packtoryConfigSchema, {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
+            packages: [
+                {
+                    sourcesFolder: 'source',
+                    mainPackageJson: { type: 'module' },
+                    name: 'foo',
+                    entryPoints: [{ js: 'foo' }]
+                }
+            ]
         }).success,
         true
     );
@@ -41,7 +48,14 @@ test('config schema accepts a valid config', () => {
 test('config schema rejects configs without registrySettings', () => {
     assert.strictEqual(
         safeParse(packtoryConfigSchema, {
-            packages: [{ sourcesFolder: 'source', mainPackageJson: {}, name: 'foo', entryPoints: [{ js: 'foo' }] }]
+            packages: [
+                {
+                    sourcesFolder: 'source',
+                    mainPackageJson: { type: 'module' },
+                    name: 'foo',
+                    entryPoints: [{ js: 'foo' }]
+                }
+            ]
         }).success,
         false
     );
@@ -61,7 +75,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -73,7 +87,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -90,7 +104,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -121,7 +135,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: []
                 }
@@ -145,7 +159,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -170,7 +184,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -195,7 +209,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -212,7 +226,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -236,7 +250,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -253,7 +267,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -276,7 +290,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -292,7 +306,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -309,7 +323,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -320,7 +334,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -337,7 +351,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -350,7 +364,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -370,12 +384,12 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -385,12 +399,12 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -410,7 +424,7 @@ test(
             },
             packages: [
                 {
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -423,7 +437,7 @@ test(
             },
             packages: [
                 {
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -444,7 +458,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -458,7 +472,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -474,7 +488,7 @@ test(
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -487,7 +501,7 @@ test(
         expectedData: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -507,12 +521,12 @@ test(
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -521,12 +535,12 @@ test(
         expectedData: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -543,7 +557,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 additionalFiles: [{ sourceFilePath: 'foo', targetFilePath: 'foo' }],
                 includeSourceMapFiles: true,
                 additionalPackageJsonAttributes: { license: 'foo' }
@@ -551,7 +565,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }],
                     versioning: { automatic: true },
@@ -567,7 +581,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 additionalFiles: [{ sourceFilePath: 'foo', targetFilePath: 'foo' }],
                 includeSourceMapFiles: true,
                 additionalPackageJsonAttributes: { license: 'foo' }
@@ -575,7 +589,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }],
                     versioning: { automatic: true },
@@ -647,7 +661,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: []
                 }
@@ -671,7 +685,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -696,7 +710,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -731,7 +745,7 @@ test(
         data: {
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -753,7 +767,7 @@ test(
             commonPackageSettings: undefined,
             packages: [
                 {
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -792,7 +806,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'foo',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     entryPoints: [{ js: 'foo' }]
                 }
             ]
@@ -810,7 +824,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'foo',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 42,
                     entryPoints: [{ js: 'foo' }]
                 }
@@ -829,7 +843,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'foo',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo'
                 }
             ]
@@ -847,7 +861,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'foo',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: 'foo'
                 }
@@ -866,7 +880,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'foo',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: []
                 }
@@ -885,7 +899,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'foo',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ foo: 'bar' }]
                 }
@@ -903,7 +917,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 additionalFiles: 'foo'
             },
             packages: [
@@ -925,7 +939,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 includeSourceMapFiles: 'foo'
             },
             packages: [
@@ -947,7 +961,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 additionalPackageJsonAttributes: 'foo'
             },
             packages: [
@@ -969,7 +983,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -991,7 +1005,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -1013,7 +1027,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {}
+                mainPackageJson: { type: 'module' }
             },
             packages: [
                 {
@@ -1035,7 +1049,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'index.js' }]
                 }
@@ -1045,7 +1059,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'index.js' }]
                 }
@@ -1063,7 +1077,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'index.js' }]
                 }
@@ -1082,7 +1096,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'index.js' }]
                 }
@@ -1125,7 +1139,7 @@ test(
         data: {
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 additionalPackageJsonAttributes: { dependencies: '1.0.0' }
             },
             packages: [{ name: 'foo', entryPoints: [{ js: 'index.js' }] }]
@@ -1142,7 +1156,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'index.js' }],
                     additionalFiles: [{ sourceFilePath: 'asset.txt' }]
@@ -1161,7 +1175,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'index.js' }],
                     additionalPackageJsonAttributes: { version: '1.0.0' }
@@ -1183,7 +1197,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'index.js' }]
                 }

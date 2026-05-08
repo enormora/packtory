@@ -13,7 +13,7 @@ test('package schema with all common settings accepts a valid package', () => {
     assert.strictEqual(
         safeParse(packageSchemaWithAllCommonSettings, {
             sourcesFolder: 'src',
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
         }).success,
@@ -25,7 +25,7 @@ test('package schema with all common settings rejects empty entryPoints', () => 
     assert.strictEqual(
         safeParse(packageSchemaWithAllCommonSettings, {
             sourcesFolder: 'src',
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'pkg',
             entryPoints: []
         }).success,
@@ -46,7 +46,7 @@ test('package schema with partial common settings accepts package-specific setti
 test('package schema with mandatory sourcesFolder rejects packages without it', () => {
     assert.strictEqual(
         safeParse(packageSchemaWithMandatorySourcesFolder, {
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
         }).success,
@@ -71,13 +71,13 @@ test(
         schema: packageSchemaWithAllCommonSettings,
         data: {
             sourcesFolder: 'src',
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
         },
         expectedData: {
             sourcesFolder: 'src',
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
         }
@@ -90,7 +90,7 @@ test(
         schema: packageSchemaWithAllCommonSettings,
         data: {
             sourcesFolder: 'src',
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'pkg',
             entryPoints: []
         },
@@ -118,7 +118,7 @@ test(
     checkValidationFailure({
         schema: packageSchemaWithMandatorySourcesFolder,
         data: {
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'pkg',
             entryPoints: [{ js: 'index.js' }]
         },

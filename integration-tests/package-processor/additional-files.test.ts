@@ -32,11 +32,13 @@ test('includes additional files in the bundle contents', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'additional-files-package',
+            type: 'module',
             version: '1.0.0'
         },
         manifestFile: {
             isExecutable: false,
-            content: '{\n    "main": "entry.js",\n    "name": "additional-files-package",\n    "version": "1.0.0"\n}',
+            content:
+                '{\n    "main": "entry.js",\n    "name": "additional-files-package",\n    "type": "module",\n    "version": "1.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -84,7 +86,7 @@ test('includes additional files in the bundle contents', async () => {
             targetFilePath: 'entry.js'
         },
         name: 'additional-files-package',
-        packageType: undefined,
+        packageType: 'module',
         peerDependencies: {},
         version: '1.0.0',
         typesMainFile: undefined

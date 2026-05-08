@@ -9,7 +9,7 @@ const validConfig = {
     packages: [
         {
             sourcesFolder: 'source',
-            mainPackageJson: {},
+            mainPackageJson: { type: 'module' },
             name: 'foo',
             entryPoints: [{ js: 'foo' }],
             publishSettings: { access: 'public' }
@@ -27,7 +27,7 @@ test('packtory config schema rejects configs without registrySettings', () => {
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }],
                     publishSettings: { access: 'public' }
@@ -55,7 +55,7 @@ test(
             packages: [
                 {
                     sourcesFolder: 'source',
-                    mainPackageJson: {},
+                    mainPackageJson: { type: 'module' },
                     name: 'foo',
                     entryPoints: [{ js: 'foo' }],
                     publishSettings: { access: 'public' }
@@ -74,7 +74,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 publishSettings: { access: 'public', provenance: { type: 'auto' } }
             },
             packages: [{ name: 'foo', entryPoints: [{ js: 'foo' }] }]
@@ -90,7 +90,7 @@ test(
             registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
             commonPackageSettings: {
                 sourcesFolder: 'source',
-                mainPackageJson: {},
+                mainPackageJson: { type: 'module' },
                 publishSettings: { access: 'public' }
             },
             packages: [

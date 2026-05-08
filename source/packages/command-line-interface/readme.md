@@ -27,6 +27,7 @@ packtory <command> [options]
 **Configuration:**
 
 Create a `packtory.config.js` file in your project to define the configuration. Refer to the [full documentation](https://github.com/enormora/packtory/blob/main/readme.md) for detailed configuration options.
+Your root `package.json` must declare `"type": "module"`.
 
 **One-time-password support:**
 

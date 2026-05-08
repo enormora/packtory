@@ -7,7 +7,7 @@ const [dependenciesFieldName, devDependenciesFieldName, peerDependenciesFieldNam
 
 export const mainPackageJsonSchema = z.readonly(
     z.object({
-        type: z.optional(z.literal('module')),
+        type: z.literal('module'),
         [dependenciesFieldName]: optionalStringRecordSchema,
         [devDependenciesFieldName]: optionalStringRecordSchema,
         [peerDependenciesFieldName]: optionalStringRecordSchema

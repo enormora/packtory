@@ -75,7 +75,14 @@ test('throws when the given packageName doesn’t exist in the configs', () => {
             {},
             {
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-                packages: [{ name: '', sourcesFolder: '', entryPoints: [{ js: '' }], mainPackageJson: {} }]
+                packages: [
+                    {
+                        name: '',
+                        sourcesFolder: '',
+                        entryPoints: [{ js: '' }],
+                        mainPackageJson: { type: 'module' }
+                    }
+                ]
             },
             []
         );
@@ -87,7 +94,11 @@ test('throws when the given packageName doesn’t exist in the configs', () => {
 
 test('throws when the sourcesFolder is missing after config merging', () => {
     runMapConfigExpectingError(
-        { name: 'foo', entryPoints: [{ js: '' }], mainPackageJson: {} } as unknown as PackageConfigInput,
+        {
+            name: 'foo',
+            entryPoints: [{ js: '' }],
+            mainPackageJson: { type: 'module' }
+        } as unknown as PackageConfigInput,
         'Config for package "foo" is missing the sources folder'
     );
 });
@@ -121,7 +132,7 @@ test('throws when a package has no entry points after config lookup', () => {
             name: 'foo',
             sourcesFolder: 'the-source',
             entryPoints: [],
-            mainPackageJson: {}
+            mainPackageJson: { type: 'module' }
         } as unknown as PackageConfigInput,
         'Config for package "foo" is missing entry points'
     );
@@ -291,7 +302,7 @@ test('sets additionalPackageJsonAttributes to the value of the common settings',
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
 });
 
-test('defaults moduleResolution to "module" when mainPackageJson.type is not set', () => {
+test('sets moduleResolution to "module"', () => {
     const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
 
     assert.strictEqual(result.moduleResolution, 'module');

@@ -29,12 +29,13 @@ test('includes all required local files and references correct node modules but 
             dependencies: { 'example-module': '1.2.3' },
             main: 'entry.js',
             name: 'the-package-name',
+            type: 'module',
             version: '42.0.0'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "dependencies": {\n        "example-module": "1.2.3"\n    },\n    "main": "entry.js",\n    "name": "the-package-name",\n    "version": "42.0.0"\n}',
+                '{\n    "dependencies": {\n        "example-module": "1.2.3"\n    },\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -83,7 +84,7 @@ test('includes all required local files and references correct node modules but 
             targetFilePath: 'entry.js'
         },
         name: 'the-package-name',
-        packageType: undefined,
+        packageType: 'module',
         peerDependencies: {},
         typesMainFile: undefined,
         version: '42.0.0'
@@ -112,12 +113,13 @@ test('includes peer dependencies correctly', async () => {
             peerDependencies: { 'example-module': '1.2.3' },
             main: 'entry.js',
             name: 'the-package-name',
+            type: 'module',
             version: '42.0.0'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "peerDependencies": {\n        "example-module": "1.2.3"\n    },\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "peerDependencies": {\n        "example-module": "1.2.3"\n    },\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -141,7 +143,7 @@ test('includes peer dependencies correctly', async () => {
             targetFilePath: 'entry.js'
         },
         name: 'the-package-name',
-        packageType: undefined,
+        packageType: 'module',
         peerDependencies: {
             'example-module': '1.2.3'
         },

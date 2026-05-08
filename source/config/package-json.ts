@@ -18,7 +18,7 @@ export function isForbiddenAdditionalPackageJsonAttributeName(value: string): bo
 }
 
 export type MainPackageJson = {
-    readonly type?: 'module' | undefined;
+    readonly type: 'module';
     readonly dependencies?: Readonly<Record<string, string>> | undefined;
     readonly devDependencies?: Readonly<Record<string, string>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, string>> | undefined;
