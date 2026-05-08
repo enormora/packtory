@@ -6,9 +6,9 @@ export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson
         name: bundle.name,
         version: bundle.version,
         main: bundle.mainFile.targetFilePath,
+        type: bundle.packageType,
         ...(isEmpty(bundle.dependencies) ? {} : { dependencies: bundle.dependencies }),
         ...(isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies }),
-        ...(bundle.packageType === undefined ? {} : { type: bundle.packageType }),
         ...(bundle.typesMainFile === undefined ? {} : { types: bundle.typesMainFile.targetFilePath })
     };
 

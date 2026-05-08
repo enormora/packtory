@@ -17,7 +17,7 @@ function createBundle(overrides: Partial<VersionedBundle> = {}): VersionedBundle
         },
         additionalAttributes: {},
         contents: [],
-        packageType: undefined,
+        packageType: 'module',
         ...overrides
     };
 }
@@ -28,7 +28,8 @@ test('buildPackageManifest() omits optional fields when they are empty or undefi
     assert.deepStrictEqual(result, {
         name: 'package-a',
         version: '1.2.3',
-        main: 'index.js'
+        main: 'index.js',
+        type: 'module'
     });
 });
 
@@ -69,6 +70,7 @@ test('buildPackageManifest() passes through a scripts block from additional attr
         name: 'package-a',
         version: '1.2.3',
         main: 'index.js',
+        type: 'module',
         scripts: { postinstall: 'echo hi' }
     });
 });
@@ -88,6 +90,7 @@ test('buildPackageManifest() lets generated manifest fields override conflicting
         name: 'package-a',
         version: '1.2.3',
         main: 'index.js',
+        type: 'module',
         customField: true
     });
 });

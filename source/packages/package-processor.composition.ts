@@ -44,7 +44,7 @@ export type PackageProcessorComposition = {
 
 export type PackageProcessorCompositionOptions = {
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
-    readonly ciEnvironment?: CiEnvironment | undefined;
+    readonly ciEnvironment: CiEnvironment;
 };
 
 function getEnvironmentVariable(variableName: string): string | undefined {
@@ -106,7 +106,7 @@ function buildBundleEmitter(
 }
 
 export function buildPackageProcessorComposition(
-    options: PackageProcessorCompositionOptions = {}
+    options: PackageProcessorCompositionOptions
 ): PackageProcessorComposition {
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
     const dependencyScanner = createDependencyScannerWith(fileManager);

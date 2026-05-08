@@ -35,12 +35,6 @@ type PackageProcessorDependencies = {
     readonly sbomFileBuilder: SbomFileBuilder;
 };
 
-function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | undefined }): void {
-    if (mainPackageJson.type !== 'module') {
-        throw new Error('mainPackageJson.type must be "module"');
-    }
-}
-
 function determineBuildVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): string {
     if (currentVersion.isJust) {
         return currentVersion.value;
@@ -66,7 +60,6 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         dependencies;
 
     async function resolveAndLink(options: ResolveAndLinkOptions): Promise<LinkedBundle> {
-        assertEsmMainPackageJson(options.mainPackageJson);
         progressBroadcaster.emit('resolving', { packageName: options.name });
         const resolvedBundle = await resourceResolver.resolve(options);
         progressBroadcaster.emit('linking', { packageName: options.name });
@@ -135,7 +128,6 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
     return {
         resolveAndLink,
         async build(options) {
-            assertEsmMainPackageJson(options.mainPackageJson);
             const {
                 bundleDependencies,
                 bundlePeerDependencies,
@@ -172,7 +164,6 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         tryBuildAndPublish,
 
         async buildAndPublish(options) {
-            assertEsmMainPackageJson(options.buildOptions.mainPackageJson);
             const result = await tryBuildAndPublish(options);
             if (result.status === 'already-published') {
                 return result;

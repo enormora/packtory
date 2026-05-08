@@ -133,7 +133,7 @@ test('increaseVersion() throws when the given version is invalid', () => {
                 content: '',
                 isExecutable: false
             },
-            packageType: undefined
+            packageType: 'module'
         });
         assert.fail('Expected increaseVersion() should fail but it did not');
     } catch (error: unknown) {

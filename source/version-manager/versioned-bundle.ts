@@ -22,7 +22,7 @@ export type VersionedBundle = Pick<LinkedBundle, 'contents' | 'name'> & {
     readonly additionalAttributes: AdditionalPackageJsonAttributes;
     readonly mainFile: TransferableFileDescription;
     readonly typesMainFile?: TransferableFileDescription | undefined;
-    readonly packageType: PackageJson['type'];
+    readonly packageType: 'module';
 };
 
 export type VersionedBundleWithManifest = VersionedBundle & {

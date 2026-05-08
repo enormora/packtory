@@ -147,10 +147,6 @@ test('normalizeRepositoryUrl() lowercases self-hosted urls', () => {
     );
 });
 
-test('getCiRepositoryUrl() returns undefined when no environment is provided', () => {
-    assert.strictEqual(getCiRepositoryUrl(undefined), undefined);
-});
-
 test('getCiRepositoryUrl() returns undefined when no env vars are set', () => {
     const env: CiEnvironment = {
         githubServerUrl: undefined,

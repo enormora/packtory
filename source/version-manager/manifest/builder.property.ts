@@ -41,7 +41,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
         dependencies: dependencyRecordArbitrary,
         peerDependencies: dependencyRecordArbitrary,
         additionalAttributes: additionalAttributesArbitrary,
-        packageType: fc.option(fc.constant<'module'>('module'), { nil: undefined }),
+        packageType: fc.constant<'module'>('module'),
         mainTargetFilePath: filePathArbitrary,
         typesTargetFilePath: fc.option(fc.stringMatching(/^[a-z][\da-z-]{0,7}\.d\.ts$/), { nil: undefined })
     })
