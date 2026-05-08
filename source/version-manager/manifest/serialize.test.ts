@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { JsonValue } from 'type-fest';
+import type { JsonValue, PackageJson } from 'type-fest';
 import { serializePackageJson } from './serialize.ts';
 
 test('serializes the given data with 4 spaces indentation', () => {
@@ -117,6 +117,12 @@ test('serializes null values inside arrays and nested records without reordering
         result,
         '{\n    "foo": [\n        {\n            "a": [\n                null,\n                "a",\n                "b"\n            ],\n            "z": null\n        }\n    ]\n}'
     );
+});
+
+test('preserves own __proto__ keys while sorting nested objects', () => {
+    const result = serializePackageJson(JSON.parse('{ "": [{ "__proto__": {} }] }') as Readonly<PackageJson>);
+
+    assert.strictEqual(result, '{\n    "": [\n        {\n            "__proto__": {}\n        }\n    ]\n}');
 });
 
 test('throws for circular arrays as well as circular records', () => {

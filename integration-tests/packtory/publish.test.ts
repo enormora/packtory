@@ -219,7 +219,7 @@ function createStandardPackages(fixturePath: string): PackageConfigList {
 async function createPublishConfig(params: CreatePublishConfigParams): Promise<PublishConfig> {
     const { fixturePath, registryDetails, packages, commonPackageSettings } = params;
     const mergedCommonPackageSettings: PublishConfig['commonPackageSettings'] = {
-        publishSettings: { access: 'public' },
+        publishSettings: { access: 'public', sbom: { enabled: false } },
         ...commonPackageSettings,
         sourcesFolder: path.join(fixturePath, 'src'),
         mainPackageJson: await loadPackageJson(fixturePath)
@@ -442,6 +442,100 @@ test(
             getPublishedFile(publishedPackage, 'package/entry3.d.ts').content,
             "export declare const foo: import('first/foo.js').Foo;\n"
         );
+    })
+);
+
+test(
+    'includes a CycloneDX SBOM next to the manifest when SBOM is enabled',
+    checkWithRegistry(async (registryDetails) => {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
+        const packages = createPackageConfigList(
+            createPackageConfig(fixturePath, 'first', 'entry1', {
+                publishSettings: { access: 'public', sbom: { enabled: true } }
+            }),
+            createPackageConfig(fixturePath, 'second', 'entry2', {
+                bundleDependencies: ['first'],
+                publishSettings: { access: 'public', sbom: { enabled: true } }
+            })
+        );
+
+        assertPublishSucceeded(await publishFixturePackages({ fixturePath, registryDetails, packages }));
+
+        const firstPackage = await fetchPublishedPackage('first', registryDetails);
+        const sbomFile = getPublishedFile(firstPackage, 'package/sbom.cdx.json');
+        const sbom = JSON.parse(sbomFile.content) as Record<string, unknown>;
+
+        assert.strictEqual(sbom.bomFormat, 'CycloneDX');
+        assert.strictEqual(sbom.specVersion, '1.6');
+        const metadata = sbom.metadata as { component: { 'bom-ref': string; name: string; version: string } };
+        assert.strictEqual(metadata.component['bom-ref'], 'pkg:npm/first@0.0.1');
+        assert.strictEqual(metadata.component.name, 'first');
+        assert.strictEqual(metadata.component.version, '0.0.1');
+        assert.deepStrictEqual(sbom.components, []);
+    })
+);
+
+test(
+    'lists every dependency from the published manifest as an SBOM component',
+    checkWithRegistry(async (registryDetails) => {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
+        const packages = createPackageConfigList(
+            createPackageConfig(fixturePath, 'first', 'entry1', {
+                publishSettings: { access: 'public', sbom: { enabled: true } }
+            }),
+            createPackageConfig(fixturePath, 'second', 'entry2', {
+                bundleDependencies: ['first'],
+                publishSettings: { access: 'public', sbom: { enabled: true } }
+            })
+        );
+
+        assertPublishSucceeded(await publishFixturePackages({ fixturePath, registryDetails, packages }));
+
+        const secondPackage = await fetchPublishedPackage('second', registryDetails);
+        const sbomFile = getPublishedFile(secondPackage, 'package/sbom.cdx.json');
+        const sbom = JSON.parse(sbomFile.content) as {
+            components: readonly { name: string; version: string; 'bom-ref': string; scope: string }[];
+            dependencies: readonly { ref: string; dependsOn?: readonly string[] }[];
+        };
+
+        assert.deepStrictEqual(sbom.components, [
+            {
+                type: 'library',
+                name: 'first',
+                version: '0.0.1',
+                'bom-ref': 'pkg:npm/first@0.0.1',
+                scope: 'required',
+                purl: 'pkg:npm/first@0.0.1'
+            }
+        ]);
+        const rootDep = sbom.dependencies.find((entry) => {
+            return entry.ref === 'pkg:npm/second@0.0.1';
+        });
+        assert.deepStrictEqual(rootDep?.dependsOn, ['pkg:npm/first@0.0.1']);
+    })
+);
+
+test(
+    'produces byte-identical SBOMs across two unchanged publish runs',
+    checkWithRegistry(async (registryDetails) => {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/multiple-packages-with-substitution');
+        const packages = createPackageConfigList(
+            createPackageConfig(fixturePath, 'first', 'entry1', {
+                publishSettings: { access: 'public', sbom: { enabled: true } }
+            })
+        );
+
+        assertPublishSucceeded(await publishFixturePackages({ fixturePath, registryDetails, packages }));
+        const firstRun = await fetchPublishedPackage('first', registryDetails);
+
+        assertPublishSucceeded(await publishFixturePackages({ fixturePath, registryDetails, packages }));
+        const secondRun = await fetchPublishedPackage('first', registryDetails);
+
+        assert.strictEqual(
+            getPublishedFile(secondRun, 'package/sbom.cdx.json').content,
+            getPublishedFile(firstRun, 'package/sbom.cdx.json').content
+        );
+        assert.strictEqual(secondRun.version, firstRun.version);
     })
 );
 

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
@@ -20,6 +21,20 @@ import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
 import { createNpmOidcIdTokenResolver, type NpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
+import { createLicenseResolver } from '../sbom/license-resolver.ts';
+import { createSbomFileBuilder } from '../sbom/sbom-file.ts';
+import { createSbomSerializer } from '../sbom/sbom-serializer.ts';
+import { createPacktoryToolVersionResolver } from '../sbom/tool-version.ts';
+
+const localRequire = createRequire(import.meta.url);
+
+function tryResolvePackagePath(specifier: string): string | undefined {
+    try {
+        return localRequire.resolve(specifier);
+    } catch {
+        return undefined;
+    }
+}
 
 export type PackageProcessorComposition = {
     readonly packageProcessor: PackageProcessor;
@@ -30,6 +45,7 @@ export type PackageProcessorCompositionOptions = {
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
     readonly clock?: Clock | undefined;
     readonly resolveIdToken?: NpmOidcIdTokenResolver | undefined;
+    readonly projectFolder?: string | undefined;
 };
 
 function getEnvironmentVariable(variableName: string): string | undefined {
@@ -48,13 +64,11 @@ function createDependencyScannerWith(fileManager: FileManager): DependencyScanne
     return createDependencyScanner({ sourceMapFileLocator, typescriptProjectAnalyzer });
 }
 
-export function buildPackageProcessorComposition(
-    options: PackageProcessorCompositionOptions = {}
-): PackageProcessorComposition {
-    const clock = options.clock ?? createClock();
-    const fileManager = createFileManager({ hostFileSystem: fs.promises });
-    const dependencyScanner = createDependencyScannerWith(fileManager);
-    const registryClient = createRegistryClient({
+function buildRegistryClient(
+    options: PackageProcessorCompositionOptions,
+    clock: Clock
+): ReturnType<typeof createRegistryClient> {
+    return createRegistryClient({
         npmFetch,
         publish,
         fetch: globalThis.fetch,
@@ -67,17 +81,49 @@ export function buildPackageProcessorComposition(
             }),
         promptForOneTimePassword: options.promptForOneTimePassword
     });
+}
+
+function buildSbomFileBuilder(
+    options: PackageProcessorCompositionOptions,
+    fileManager: FileManager
+): ReturnType<typeof createSbomFileBuilder> {
+    return createSbomFileBuilder({
+        licenseResolver: createLicenseResolver({ fileManager }),
+        sbomSerializer: createSbomSerializer(),
+        toolVersionProvider: createPacktoryToolVersionResolver({
+            fileManager,
+            resolvePackagePath: tryResolvePackagePath
+        }),
+        projectFolder: options.projectFolder ?? process.cwd()
+    });
+}
+
+function buildBundleEmitter(
+    options: PackageProcessorCompositionOptions,
+    fileManager: FileManager
+): ReturnType<typeof createBundleEmitter> {
+    const registryClient = buildRegistryClient(options, options.clock ?? createClock());
     const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
+    return createBundleEmitter({ registryClient, artifactsBuilder });
+}
+
+export function buildPackageProcessorComposition(
+    options: PackageProcessorCompositionOptions = {}
+): PackageProcessorComposition {
+    const fileManager = createFileManager({ hostFileSystem: fs.promises });
+    const dependencyScanner = createDependencyScannerWith(fileManager);
     const progressBroadcaster = createProgressBroadcaster();
-    const bundleEmitter = createBundleEmitter({ registryClient, artifactsBuilder });
+    const bundleEmitter = buildBundleEmitter(options, fileManager);
     const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
+    const sbomFileBuilder = buildSbomFileBuilder(options, fileManager);
 
     const packageProcessor = createPackageProcessor({
         progressBroadcaster: progressBroadcaster.provider,
         versionManager: createVersionManager(),
         bundleEmitter,
         linker: createBundleLinker(),
-        resourceResolver
+        resourceResolver,
+        sbomFileBuilder
     });
 
     return { packageProcessor, progressBroadcaster };

@@ -6,6 +6,7 @@ import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
 import type { BuildAndPublishOptions, BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 
 export type BuildAndPublishResult = {
@@ -31,6 +32,7 @@ type PackageProcessorDependencies = {
     readonly bundleEmitter: BundleEmitter;
     readonly linker: BundleLinker;
     readonly resourceResolver: ResourceResolver;
+    readonly sbomFileBuilder: SbomFileBuilder;
 };
 
 function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | undefined }): void {
@@ -60,7 +62,8 @@ function shouldIncreaseVersion(currentVersion: Maybe<string>, options: BuildAndP
 }
 
 export function createPackageProcessor(dependencies: PackageProcessorDependencies): PackageProcessor {
-    const { progressBroadcaster, versionManager, bundleEmitter, linker, resourceResolver } = dependencies;
+    const { progressBroadcaster, versionManager, bundleEmitter, linker, resourceResolver, sbomFileBuilder } =
+        dependencies;
 
     async function resolveAndLink(options: ResolveAndLinkOptions): Promise<LinkedBundle> {
         assertEsmMainPackageJson(options.mainPackageJson);
@@ -93,11 +96,21 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         return { versionedBundle, currentVersion, version };
     }
 
+    function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly VersionedBundleWithManifest[] {
+        return [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
+    }
+
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
         const buildContext = await buildVersionedBundle(options.linkedBundle, options.buildOptions);
+        const extraFiles = await sbomFileBuilder.generate(
+            buildContext.versionedBundle,
+            siblingsFromOptions(options.buildOptions),
+            options.buildOptions.publishSettings
+        );
         const result = await bundleEmitter.checkBundleAlreadyPublished({
             bundle: buildContext.versionedBundle,
-            registrySettings: options.buildOptions.registrySettings
+            registrySettings: options.buildOptions.registrySettings,
+            ...(extraFiles === undefined ? {} : { extraFiles })
         });
         if (result.alreadyPublishedAsLatest) {
             return { bundle: buildContext.versionedBundle, status: 'already-published' };
@@ -169,10 +182,16 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
                 packageName: options.buildOptions.name,
                 version: result.bundle.version
             });
+            const extraFiles = await sbomFileBuilder.generate(
+                result.bundle,
+                siblingsFromOptions(options.buildOptions),
+                options.buildOptions.publishSettings
+            );
             await bundleEmitter.publish({
                 bundle: result.bundle,
                 registrySettings: options.buildOptions.registrySettings,
-                publishSettings: options.buildOptions.publishSettings
+                publishSettings: options.buildOptions.publishSettings,
+                ...(extraFiles === undefined ? {} : { extraFiles })
             });
 
             return result;

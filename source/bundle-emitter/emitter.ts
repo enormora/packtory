@@ -3,6 +3,7 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import type { RegistrySettings } from '../config/registry-settings.ts';
 import type { VersioningSettings } from '../config/versioning-settings.ts';
+import type { FileDescription } from '../file-manager/file-description.ts';
 import { compareFileDescriptions } from '../file-manager/compare.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { extractPackageTarball } from './extract-package-tarball.ts';
@@ -17,11 +18,13 @@ export type PublishOptions = {
     readonly bundle: VersionedBundleWithManifest;
     readonly registrySettings: RegistrySettings;
     readonly publishSettings: PublishSettings;
+    readonly extraFiles?: readonly FileDescription[];
 };
 
 export type AlreadyPublishedCheckOptions = {
     readonly bundle: VersionedBundleWithManifest;
     readonly registrySettings: RegistrySettings;
+    readonly extraFiles?: readonly FileDescription[];
 };
 
 type CurrentVersionLookupOptions = {
@@ -58,13 +61,13 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
         },
 
         async checkBundleAlreadyPublished(options) {
-            const { bundle, registrySettings } = options;
+            const { bundle, registrySettings, extraFiles } = options;
             const latestVersion = await registryClient.fetchLatestVersion(bundle.name, registrySettings);
             if (latestVersion.isNothing) {
                 return { alreadyPublishedAsLatest: false };
             }
 
-            const artifactContents = artifactsBuilder.collectContents(bundle, 'package');
+            const artifactContents = artifactsBuilder.collectContents(bundle, 'package', extraFiles);
             const tarball = await registryClient.fetchTarball(
                 latestVersion.value.tarballUrl,
                 latestVersion.value.shasum,
@@ -76,7 +79,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
         },
 
         async publish(options) {
-            const tarball = await artifactsBuilder.buildTarball(options.bundle);
+            const tarball = await artifactsBuilder.buildTarball(options.bundle, options.extraFiles);
 
             await registryClient.publishPackage(
                 options.bundle.packageJson,

@@ -162,3 +162,46 @@ test('collectContents() returns the list of file descriptions of the given bundl
         { filePath: 'qux.txt', content: 'qux', isExecutable: false }
     ]);
 });
+
+test('collectContents() appends extra files after the bundle contents and applies the prefix to them', () => {
+    const builder = artifactsBuilderFactory();
+    const result = builder.collectContents(bundleWithContents([], 'package.json'), 'package', [
+        { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+    ]);
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package/package.json', content: '{}', isExecutable: false },
+        { filePath: 'package/sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+    ]);
+});
+
+test('buildTarball() forwards extra files to the tarball builder alongside the bundle contents', async () => {
+    const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
+    const builder = artifactsBuilderFactory({ tarballBuilder });
+    await builder.buildTarball(bundleWithContents([makeContent('bar.txt', 'bar')], 'package.json'), [
+        { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+    ]);
+
+    assert.deepStrictEqual(tarballBuilder.build.firstCall.args, [
+        [
+            { filePath: 'package/package.json', content: '{}', isExecutable: false },
+            { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
+            { filePath: 'package/sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+        ]
+    ]);
+});
+
+test('buildFolder() writes extra files alongside the bundle contents into the target folder', async () => {
+    const writeable = { writeFile: fake.resolves(undefined), checkReadability: fake.resolves({ isReadable: false }) };
+    const builder = artifactsBuilderFactory(writeable);
+
+    await builder.buildFolder(bundleWithContents([], 'package.json'), '/the/target/folder', [
+        { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+    ]);
+
+    assert.strictEqual(writeable.writeFile.callCount, 2);
+    assert.deepStrictEqual(writeable.writeFile.secondCall.args, [
+        '/the/target/folder/sbom.cdx.json',
+        '{"bomFormat":"CycloneDX"}'
+    ]);
+});

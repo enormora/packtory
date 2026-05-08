@@ -60,6 +60,23 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
     return createBundleEmitter(dependencies);
 }
 
+function createPublishedBundleScenario(): {
+    readonly emitter: BundleEmitter;
+    readonly collectContents: SinonSpy;
+    readonly fetchTarball: SinonSpy;
+} {
+    const fetchLatestVersion = fake.resolves(
+        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz', shasum: 'def' })
+    );
+    const fetchTarball = fake.resolves(tarballWithOneFile);
+    const collectContents = fake.returns([]);
+    return {
+        emitter: emitterFactory({ fetchLatestVersion, fetchTarball, collectContents }),
+        collectContents,
+        fetchTarball
+    };
+}
+
 test('determineCurrentVersion() fetches the latest version when automatic versioning is enabled', async () => {
     const fetchLatestVersion = fake.resolves(Maybe.nothing());
     const emitter = emitterFactory({ fetchLatestVersion });
@@ -154,12 +171,25 @@ test('checkBundleAlreadyPublished() returns false when the latest version conten
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
-    assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package']);
+    assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package', undefined]);
     assert.deepStrictEqual(fetchTarball.firstCall.args, [
         'https://registry.example.test/package.tgz',
         'def',
         registrySettings
     ]);
+});
+
+test('checkBundleAlreadyPublished() forwards extra files to collectContents', async () => {
+    const checkScenario = createPublishedBundleScenario();
+    const bundle = namedBundle();
+    const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
+    await checkScenario.emitter.checkBundleAlreadyPublished({
+        registrySettings,
+        bundle,
+        extraFiles: [extraFile]
+    });
+
+    assert.deepStrictEqual(checkScenario.collectContents.firstCall.args, [bundle, 'package', [extraFile]]);
 });
 
 test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async () => {
@@ -176,7 +206,7 @@ test('checkBundleAlreadyPublished() returns true when the latest version content
     });
 
     assert.deepStrictEqual(result, { alreadyPublishedAsLatest: true });
-    assert.deepStrictEqual(collectContents.firstCall.args.at(-1), 'package');
+    assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
     assert.deepStrictEqual(fetchTarball.firstCall.args, [
         'https://registry.example.test/package.tgz',
         'abc',
@@ -203,4 +233,20 @@ test('publish() publishes the given bundle', async () => {
         registrySettings,
         publishSettings
     ]);
+});
+
+test('publish() forwards extra files to buildTarball', async () => {
+    const buildTarball = fake.resolves({ tarData: emptyTarball });
+    const emitter = emitterFactory({ buildTarball });
+    const bundle = namedBundle();
+    const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
+
+    await emitter.publish({
+        registrySettings,
+        bundle,
+        publishSettings: { access: 'public' },
+        extraFiles: [extraFile]
+    });
+
+    assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, [extraFile]]);
 });

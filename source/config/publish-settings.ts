@@ -1,5 +1,6 @@
 import { z } from 'zod/mini';
 import { nonEmptyStringSchema } from './base-validations.ts';
+import { sbomSettingsSchema } from './sbom-settings.ts';
 
 const provenanceConfigSchema = z.readonly(
     z.discriminatedUnion('type', [
@@ -17,10 +18,12 @@ export const publishSettingsSchema = z.readonly(
     z.discriminatedUnion('access', [
         z.strictObject({
             access: z.literal('public'),
-            provenance: z.optional(provenanceConfigSchema)
+            provenance: z.optional(provenanceConfigSchema),
+            sbom: z.optional(sbomSettingsSchema)
         }),
         z.strictObject({
-            access: z.literal('restricted')
+            access: z.literal('restricted'),
+            sbom: z.optional(sbomSettingsSchema)
         })
     ])
 );
