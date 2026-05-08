@@ -43,7 +43,7 @@ export type BuildVersionedBundleOptions = {
 function getVersionFromDependencies(
     moduleName: string,
     mainPackageJson: MainPackageJson,
-    kind: 'dependencies' | 'devDependencies' | 'peerDependencies'
+    kind: 'dependencies' | 'peerDependencies'
 ): string {
     const dependencies = { ...mainPackageJson[kind] };
     return String(dependencies[moduleName]);

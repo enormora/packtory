@@ -26,7 +26,6 @@ type Overrides = {
     readonly checkReadability?: SinonSpy;
     readonly copyFile?: SinonSpy;
     readonly writeFile?: SinonSpy;
-    readonly getFileMode?: SinonSpy;
     readonly tarballBuilder?: { readonly build?: SinonSpy };
 };
 
@@ -51,9 +50,6 @@ function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
             checkReadability: createSpy(overrides.checkReadability, fake),
             copyFile: createSpy(overrides.copyFile, fake),
             writeFile: createSpy(overrides.writeFile, fake),
-            getFileMode: createSpy(overrides.getFileMode, () => {
-                return fake.resolves(-1);
-            }),
             getTransferableFileDescriptionFromPath: fake()
         },
         tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder)

@@ -7,20 +7,14 @@ import { createDependencyScanner, type DependencyScanner, type DependencyScanner
 
 type ProjectOverrides = {
     readonly getReferencedSourceFilePaths?: SinonSpy;
-    readonly getSourceFile?: SinonSpy;
     readonly getProject?: SinonSpy;
 };
 
 function createFakeAnalyzeProject(overrides: ProjectOverrides = {}): Readonly<SinonSpy> {
-    const {
-        getReferencedSourceFilePaths = fake.returns([]),
-        getSourceFile = fake.returns({}),
-        getProject = fake.returns({})
-    } = overrides;
+    const { getReferencedSourceFilePaths = fake.returns([]), getProject = fake.returns({}) } = overrides;
 
     return fake.returns({
         getReferencedSourceFilePaths,
-        getSourceFile,
         getProject
     });
 }

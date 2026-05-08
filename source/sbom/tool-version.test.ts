@@ -27,7 +27,6 @@ function createFileManager(readFile: SinonSpy): FileManager {
         checkReadability: fake.resolves({ isReadable: true }),
         writeFile: fake(),
         copyFile: fake(),
-        getFileMode: fake.resolves(0),
         getTransferableFileDescriptionFromPath: fake()
     };
 }

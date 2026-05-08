@@ -21,7 +21,6 @@ type AnalyzationOptions = {
 
 export type TypescriptProject = {
     getReferencedSourceFilePaths: (containingSourceFilePath: string) => readonly string[];
-    getSourceFile: (filePath: string) => SourceFile;
     getProject: () => _Project;
 };
 
@@ -95,16 +94,6 @@ export function createTypescriptProjectAnalyzer(
                         getReferencedSourceFiles(currentSourceFile).map(getSourcePathFromSourceFile);
 
                     return referencedSourceFilePaths;
-                },
-
-                getSourceFile(filePath) {
-                    const sourceFile = project.getSourceFile(filePath);
-
-                    if (sourceFile === undefined) {
-                        throw new Error(`Failed to find source file for "${filePath}"`);
-                    }
-
-                    return sourceFile;
                 },
 
                 getProject() {

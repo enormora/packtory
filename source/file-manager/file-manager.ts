@@ -16,7 +16,6 @@ export type FileManager = {
     readFile: (filePath: string) => Promise<string>;
     writeFile: (filePath: string, content: string) => Promise<void>;
     copyFile: (from: string, to: string) => Promise<void>;
-    getFileMode: (filePath: string) => Promise<number>;
     getTransferableFileDescriptionFromPath: (
         sourceFilePath: string,
         targetFilePath: string
@@ -61,8 +60,6 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         writeFile,
 
         readFile,
-
-        getFileMode,
 
         async getTransferableFileDescriptionFromPath(sourceFilePath, targetFilePath) {
             const mode = await getFileMode(sourceFilePath);
