@@ -16,7 +16,6 @@ test('adds declaration files correctly to the bundle', async () => {
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
-        moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},

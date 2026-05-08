@@ -14,7 +14,6 @@ test('adds map files to the bundle when enabled', async () => {
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: true,
         additionalFiles: [],
-        moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},

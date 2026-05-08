@@ -19,7 +19,6 @@ type ManifestOptionsSubset = Pick<
     BuildVersionedBundleOptions,
     'additionalPackageJsonAttributes' | 'allowMutableSpecifiers' | 'mainPackageJson'
 >;
-type SharedModuleResolution = ResourceResolveOptions['moduleResolution'];
 
 type SharedPackageOptions<TBundle extends { name: string }> = ManifestOptionsSubset &
     ResourceResolveOptions & {
@@ -192,7 +191,6 @@ function buildSharedOptions<TBundle extends { name: string }>(
         sourcesFolder,
         includeSourceMapFiles: resolveIncludeSourceMapFiles(packageConfig, packtoryConfig),
         additionalFiles: resolveAdditionalFiles(packageConfig, sourcesFolder, packtoryConfig),
-        moduleResolution: 'module' satisfies SharedModuleResolution,
         mainPackageJson,
         additionalPackageJsonAttributes: buildAdditionalPackageJsonAttributes(packageConfig, packtoryConfig),
         allowMutableSpecifiers: resolveAllowMutableSpecifiers(packageConfig, packtoryConfig),

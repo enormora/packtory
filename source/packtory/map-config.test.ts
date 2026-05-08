@@ -302,20 +302,6 @@ test('sets additionalPackageJsonAttributes to the value of the common settings',
     assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'bar' });
 });
 
-test('sets moduleResolution to "module"', () => {
-    const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
-
-    assert.strictEqual(result.moduleResolution, 'module');
-});
-
-test('uses the module package type as moduleResolution when mainPackageJson.type is set', () => {
-    const result = runMapConfig(fooPackageConfigFactory.build({ mainPackageJson: { type: 'module' } }), {
-        extraPackages: []
-    });
-
-    assert.strictEqual(result.moduleResolution, 'module');
-});
-
 test('defaults versioning to automatic when the package config does not specify it', () => {
     const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
 

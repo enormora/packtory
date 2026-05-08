@@ -21,7 +21,6 @@ test('includes additional files in the bundle contents', async () => {
                 targetFilePath: 'docs/additional-info.txt'
             }
         ],
-        moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},

@@ -1,12 +1,11 @@
 import { Maybe } from 'true-myth/maybe';
 import { unique } from 'remeda';
 import type { SourceMapFileLocator } from './source-map-file-locator.ts';
-import type { ModuleResolution, TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.ts';
+import type { TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.ts';
 import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.ts';
 
 type ScanOptions = {
     readonly includeSourceMapFiles: boolean;
-    readonly moduleResolution: ModuleResolution;
     readonly resolveDeclarationFiles: boolean;
     readonly failOnCompileErrors?: boolean;
 };
@@ -104,21 +103,18 @@ export function createDependencyScanner(
             const {
                 resolveDeclarationFiles = false,
                 includeSourceMapFiles = false,
-                moduleResolution = 'module',
                 failOnCompileErrors = false
             } = options;
             const scanOptions = {
                 includeSourceMapFiles,
                 resolveDeclarationFiles,
-                moduleResolution,
                 failOnCompileErrors
             };
 
             const graph = createDependencyGraph();
             const project = typescriptProjectAnalyzer.analyzeProject(folder, {
                 resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
-                failOnCompileErrors: scanOptions.failOnCompileErrors,
-                moduleResolution: scanOptions.moduleResolution
+                failOnCompileErrors: scanOptions.failOnCompileErrors
             });
 
             await scanDependenciesOfSourceFile(project, entryPointFile, graph, scanOptions);

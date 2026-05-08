@@ -8,8 +8,6 @@ import {
 } from 'ts-morph';
 import type { FileSystemAdapters } from './typescript-file-host.ts';
 
-export type ModuleResolution = 'module';
-
 export type TypescriptProjectAnalyzerDependencies = {
     readonly Project: typeof _Project;
     readonly fileSystemAdapters: FileSystemAdapters;
@@ -17,7 +15,6 @@ export type TypescriptProjectAnalyzerDependencies = {
 };
 
 type AnalyzationOptions = {
-    readonly moduleResolution: ModuleResolution;
     readonly failOnCompileErrors: boolean;
     readonly resolveDeclarationFiles: boolean;
 };

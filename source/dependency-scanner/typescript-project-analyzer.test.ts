@@ -75,7 +75,6 @@ function createAnalyzedProjectForGetSourceFileTest(): {
     const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
     const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
         resolveDeclarationFiles: false,
         failOnCompileErrors: false
     });
@@ -107,7 +106,6 @@ function expectedProjectConstruction(args: {
 }
 
 function runAnalyzeProjectExpectingArgs(testArgs: {
-    readonly moduleResolution: 'module';
     readonly resolveDeclarationFiles: boolean;
     readonly fileSystemAdapters: Record<string, unknown>;
     readonly expectedModule: number;
@@ -123,7 +121,6 @@ function runAnalyzeProjectExpectingArgs(testArgs: {
     });
 
     analyzer.analyzeProject('/foo', {
-        moduleResolution: testArgs.moduleResolution,
         resolveDeclarationFiles: testArgs.resolveDeclarationFiles,
         failOnCompileErrors: false
     });
@@ -144,7 +141,6 @@ function runAnalyzeProjectExpectingArgs(testArgs: {
 
 test('creates a project for all js files in the given folder with module resolution', () => {
     runAnalyzeProjectExpectingArgs({
-        moduleResolution: 'module',
         resolveDeclarationFiles: false,
         fileSystemAdapters: { fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files' },
         expectedModule: 100,
@@ -163,7 +159,6 @@ test('creates a project for all d.ts files in the given folder', () => {
     });
 
     analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
         resolveDeclarationFiles: true,
         failOnCompileErrors: false
     });
@@ -184,7 +179,6 @@ test('creates a project and doesn’t throw when there are pre-emit diagnostics 
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
     analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
         resolveDeclarationFiles: false,
         failOnCompileErrors: false
     });
@@ -198,7 +192,6 @@ test('creates a project and doesn’t throw when there are no pre-emit diagnosti
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
     analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
         resolveDeclarationFiles: false,
         failOnCompileErrors: true
     });
@@ -213,7 +206,6 @@ test('throws when there are pre-emit diagnostics and failOnCompileErrors is true
 
     try {
         analyzer.analyzeProject('/foo', {
-            moduleResolution: 'module',
             resolveDeclarationFiles: false,
             failOnCompileErrors: true
         });
@@ -229,7 +221,6 @@ test('getReferencedSourceFilePaths() returns an empty array when the source file
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
     const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
         resolveDeclarationFiles: false,
         failOnCompileErrors: false
     });
@@ -248,7 +239,6 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
 
     const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
         resolveDeclarationFiles: false,
         failOnCompileErrors: false
     });

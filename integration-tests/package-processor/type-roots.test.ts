@@ -16,7 +16,6 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
-        moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
