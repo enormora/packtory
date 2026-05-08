@@ -17,14 +17,14 @@ export type BundleEmitterDependencies = {
     readonly ciRepositoryUrl: string | undefined;
 };
 
-export type PublishOptions = {
+type PublishOptions = {
     readonly bundle: VersionedBundleWithManifest;
     readonly registrySettings: RegistrySettings;
     readonly publishSettings: PublishSettings;
     readonly extraFiles?: readonly FileDescription[];
 };
 
-export type AlreadyPublishedCheckOptions = {
+type AlreadyPublishedCheckOptions = {
     readonly bundle: VersionedBundleWithManifest;
     readonly registrySettings: RegistrySettings;
     readonly extraFiles?: readonly FileDescription[];

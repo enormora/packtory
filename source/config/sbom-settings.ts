@@ -5,5 +5,3 @@ export const sbomSettingsSchema = z.readonly(
         enabled: z.optional(z.boolean())
     })
 );
-
-export type SbomSettings = z.infer<typeof sbomSettingsSchema>;

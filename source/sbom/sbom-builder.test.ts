@@ -1,7 +1,9 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import { buildSbom, type SbomBuilderOptions } from './sbom-builder.ts';
+import { buildSbom } from './sbom-builder.ts';
 import { createSbomSerializer } from './sbom-serializer.ts';
+
+type SbomBuilderOptions = Parameters<typeof buildSbom>[0];
 
 const serializer = createSbomSerializer();
 

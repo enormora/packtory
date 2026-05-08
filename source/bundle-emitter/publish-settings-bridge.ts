@@ -2,7 +2,7 @@ import type { PublishSettings } from '../config/publish-settings.ts';
 
 type PublishProvenanceOptions = { readonly provenance: true } | { readonly provenanceFile: string };
 
-export type PublishOptionsForLibnpmpublish = Partial<PublishProvenanceOptions> & {
+type PublishOptionsForLibnpmpublish = Partial<PublishProvenanceOptions> & {
     readonly access: 'public' | 'restricted';
 };
 

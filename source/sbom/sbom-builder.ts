@@ -1,7 +1,7 @@
 import * as cdx from '@cyclonedx/cyclonedx-library';
 import spdxParse from 'spdx-expression-parse';
 
-export type SbomRootComponent = {
+type SbomRootComponent = {
     readonly name: string;
     readonly version: string;
 };
@@ -15,7 +15,7 @@ export type SbomDependency = {
     readonly license: string | undefined;
 };
 
-export type SbomBuilderOptions = {
+type SbomBuilderOptions = {
     readonly toolVersion: string;
     readonly rootComponent: SbomRootComponent;
     readonly dependencies: readonly SbomDependency[];

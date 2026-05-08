@@ -30,5 +30,4 @@ export const publishSettingsSchema = z.readonly(
     ])
 );
 
-export type ProvenanceConfig = z.infer<typeof provenanceConfigSchema>;
 export type PublishSettings = z.infer<typeof publishSettingsSchema>;

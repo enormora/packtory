@@ -16,7 +16,7 @@ export type TypescriptProjectAnalyzerDependencies = {
     getReferencedSourceFiles: (sourceFile: Readonly<SourceFile>) => readonly Readonly<SourceFile>[];
 };
 
-export type AnalyzationOptions = {
+type AnalyzationOptions = {
     readonly moduleResolution: ModuleResolution;
     readonly failOnCompileErrors: boolean;
     readonly resolveDeclarationFiles: boolean;

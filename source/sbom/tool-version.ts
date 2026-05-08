@@ -5,7 +5,7 @@ const candidatePackageNames = ['@packtory/cli', 'packtory'] as const;
 const nodeModulesSegment = 'node_modules';
 const pathSeparators = /[/\\]/u;
 
-export type ToolVersionResolverDependencies = {
+type ToolVersionResolverDependencies = {
     readonly fileManager: FileManager;
     readonly resolvePackagePath: (specifier: string) => string | undefined;
 };

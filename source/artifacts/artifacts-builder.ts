@@ -9,7 +9,7 @@ export type ArtifactsBuilderDependencies = {
     readonly tarballBuilder: TarballBuilder;
 };
 
-export type TarballArtifact = {
+type TarballArtifact = {
     readonly tarData: Buffer;
 };
 

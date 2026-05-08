@@ -102,7 +102,7 @@ function parseAbbreviatedPackageResponse(response: unknown): AbbreviatedPackageR
     return result.success ? result.data : undefined;
 }
 
-export type PackageVersionDetails = {
+type PackageVersionDetails = {
     readonly version: string;
     readonly tarballUrl: string;
 };

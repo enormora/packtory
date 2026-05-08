@@ -8,16 +8,16 @@ import { buildSbom, type SbomDependency, type SbomDependencyKind } from './sbom-
 
 const sbomFilePath = 'sbom.cdx.json';
 
-export type ToolVersionProvider = () => Promise<string>;
+type ToolVersionProvider = () => Promise<string>;
 
-export type SbomFileBuilderDependencies = {
+type SbomFileBuilderDependencies = {
     readonly licenseResolver: LicenseResolver;
     readonly sbomSerializer: SbomSerializer;
     readonly toolVersionProvider: ToolVersionProvider;
     readonly projectFolder: string;
 };
 
-export type SbomSibling = Pick<VersionedBundleWithManifest, 'name' | 'packageJson'>;
+type SbomSibling = Pick<VersionedBundleWithManifest, 'name' | 'packageJson'>;
 
 export type SbomFileBuilder = {
     generate: (
