@@ -7,8 +7,8 @@ import { loadPackageJson } from '../load-package-json.ts';
 test('rejects packages whose mainPackageJson.type is not "module"', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-cjs');
 
-    await assert.rejects(
-        packageProcessor.build({
+    try {
+        await packageProcessor.build({
             name: 'the-package-name',
             version: '42.0.0',
             sourcesFolder: path.join(fixture, 'src'),
@@ -20,9 +20,11 @@ test('rejects packages whose mainPackageJson.type is not "module"', async () => 
             bundlePeerDependencies: [],
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: []
-        }),
-        { message: 'mainPackageJson.type must be "module"' }
-    );
+        });
+        assert.fail('Expected packageProcessor.build() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'mainPackageJson.type must be "module"');
+    }
 });
 
 test('correctly resolves ESM files', async () => {
