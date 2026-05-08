@@ -25,20 +25,14 @@ function createFakeSourceFile(overrides: FakeSourceFileOverrides = {}): FakeSour
 type TSMorphProjectOverrides = {
     readonly addSourceFilesAtPaths?: SinonSpy;
     readonly getSourceFile?: SinonSpy;
-    readonly getPreEmitDiagnostics?: SinonSpy;
 };
 
 function createFakeTSMorphProject(overrides: TSMorphProjectOverrides = {}): Readonly<SinonStub> {
-    const {
-        addSourceFilesAtPaths = fake(),
-        getSourceFile = fake.returns(createFakeSourceFile()),
-        getPreEmitDiagnostics = fake.returns([])
-    } = overrides;
+    const { addSourceFilesAtPaths = fake(), getSourceFile = fake.returns(createFakeSourceFile()) } = overrides;
 
     return stub().returns({
         addSourceFilesAtPaths,
-        getSourceFile,
-        getPreEmitDiagnostics
+        getSourceFile
     });
 }
 
@@ -102,8 +96,7 @@ function runAnalyzeProjectExpectingArgs(testArgs: {
     });
 
     analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: testArgs.resolveDeclarationFiles,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: testArgs.resolveDeclarationFiles
     });
 
     assert.strictEqual(TSMorphProject.callCount, 1);
@@ -140,8 +133,7 @@ test('creates a project for all d.ts files in the given folder', () => {
     });
 
     analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: true,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: true
     });
 
     assert.strictEqual(TSMorphProject.callCount, 1);
@@ -154,56 +146,13 @@ test('creates a project for all d.ts files in the given folder', () => {
     assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.d.ts']]);
 });
 
-test('creates a project and doesn’t throw when there are pre-emit diagnostics and failOnCompileErrors is false', () => {
-    const getPreEmitDiagnostics = fake.returns([{}]);
-    const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
-
-    assert.strictEqual(getPreEmitDiagnostics.callCount, 0);
-});
-
-test('creates a project and doesn’t throw when there are no pre-emit diagnostics and failOnCompileErrors is true', () => {
-    const getPreEmitDiagnostics = fake.returns([]);
-    const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: true
-    });
-
-    assert.strictEqual(getPreEmitDiagnostics.callCount, 1);
-});
-
-test('throws when there are pre-emit diagnostics and failOnCompileErrors is true', () => {
-    const getPreEmitDiagnostics = fake.returns([{}]);
-    const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    try {
-        analyzer.analyzeProject('/foo', {
-            resolveDeclarationFiles: false,
-            failOnCompileErrors: true
-        });
-        assert.fail('Expected analyzeProject() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Failed to analyze source files');
-    }
-});
-
 test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', () => {
     const getSourceFile = fake.returns(undefined);
     const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
     const project = analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: false
     });
     const result = project.getReferencedSourceFilePaths('/foo/bar.js');
 
@@ -220,8 +169,7 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
 
     const project = analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: false
     });
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 

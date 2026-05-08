@@ -12,7 +12,6 @@ import {
 
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
-    readonly resolveAndLinkAll?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
     progressBroadcaster?: ProgressBroadcaster;
@@ -60,9 +59,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
                 return fake.resolves(undefined);
             }),
-            resolveAndLinkAll: createSpy(overrides.resolveAndLinkAll, () => {
-                return fake.resolves(Result.ok([]));
-            })
+            resolveAndLinkAll: fake.resolves(Result.ok([]))
         },
         log: (message) => {
             log(stripVTControlCharacters(message));

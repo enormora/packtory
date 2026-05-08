@@ -15,7 +15,6 @@ export type TypescriptProjectAnalyzerDependencies = {
 };
 
 type AnalyzationOptions = {
-    readonly failOnCompileErrors: boolean;
     readonly resolveDeclarationFiles: boolean;
 };
 
@@ -73,14 +72,6 @@ export function createTypescriptProjectAnalyzer(
             const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.js';
             const filesPattern = path.join(folder, `**/*${fileExtension}`);
             project.addSourceFilesAtPaths([filesPattern]);
-
-            if (options.failOnCompileErrors) {
-                const diagnostics = project.getPreEmitDiagnostics();
-
-                if (diagnostics.length > 0) {
-                    throw new Error('Failed to analyze source files');
-                }
-            }
 
             return {
                 getReferencedSourceFilePaths(containingSourceFilePath) {

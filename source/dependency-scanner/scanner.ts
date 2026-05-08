@@ -7,7 +7,6 @@ import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGra
 type ScanOptions = {
     readonly includeSourceMapFiles: boolean;
     readonly resolveDeclarationFiles: boolean;
-    readonly failOnCompileErrors?: boolean;
 };
 
 function isNodeModulesPath(filePath: string): boolean {
@@ -100,21 +99,15 @@ export function createDependencyScanner(
 
     return {
         async scan(entryPointFile, folder, options = {}) {
-            const {
-                resolveDeclarationFiles = false,
-                includeSourceMapFiles = false,
-                failOnCompileErrors = false
-            } = options;
+            const { resolveDeclarationFiles = false, includeSourceMapFiles = false } = options;
             const scanOptions = {
                 includeSourceMapFiles,
-                resolveDeclarationFiles,
-                failOnCompileErrors
+                resolveDeclarationFiles
             };
 
             const graph = createDependencyGraph();
             const project = typescriptProjectAnalyzer.analyzeProject(folder, {
-                resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
-                failOnCompileErrors: scanOptions.failOnCompileErrors
+                resolveDeclarationFiles: scanOptions.resolveDeclarationFiles
             });
 
             await scanDependenciesOfSourceFile(project, entryPointFile, graph, scanOptions);

@@ -41,23 +41,7 @@ test('analyzes the given entryPoint file in the given folder as a typescript pro
     await dependencyScanner.scan('/foo/bar.js', '/foo', {});
 
     assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: false, resolveDeclarationFiles: false }
-    ]);
-});
-
-test('passes the failOnCompileErrors option to the project analyzer', async () => {
-    const analyzeProject = createFakeAnalyzeProject();
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    await dependencyScanner.scan('/foo/bar.js', '/foo', { failOnCompileErrors: true });
-
-    assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: true, resolveDeclarationFiles: false }
-    ]);
+    assert.deepStrictEqual(analyzeProject.firstCall.args, ['/foo', { resolveDeclarationFiles: false }]);
 });
 
 test('passes the resolveDeclarationFiles option to the project analyzer', async () => {
@@ -67,10 +51,7 @@ test('passes the resolveDeclarationFiles option to the project analyzer', async 
     await dependencyScanner.scan('/foo/bar.js', '/foo', { resolveDeclarationFiles: true });
 
     assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: false, resolveDeclarationFiles: true }
-    ]);
+    assert.deepStrictEqual(analyzeProject.firstCall.args, ['/foo', { resolveDeclarationFiles: true }]);
 });
 
 test('scans the dependencies of the given entryPoint file', async () => {

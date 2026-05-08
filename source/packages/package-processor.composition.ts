@@ -21,7 +21,7 @@ import { createResourceResolver } from '../resource-resolver/resource-resolver.t
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
-import { createNpmOidcIdTokenResolver, type NpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
+import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
 import { createLicenseResolver } from '../sbom/license-resolver.ts';
 import { createSbomFileBuilder } from '../sbom/sbom-file.ts';
 import { createSbomSerializer } from '../sbom/sbom-serializer.ts';
@@ -44,9 +44,6 @@ export type PackageProcessorComposition = {
 
 export type PackageProcessorCompositionOptions = {
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
-    readonly clock?: Clock | undefined;
-    readonly resolveIdToken?: NpmOidcIdTokenResolver | undefined;
-    readonly projectFolder?: string | undefined;
     readonly ciEnvironment?: CiEnvironment | undefined;
 };
 
@@ -75,20 +72,15 @@ function buildRegistryClient(
         publish,
         fetch: globalThis.fetch,
         clock,
-        resolveIdToken:
-            options.resolveIdToken ??
-            createNpmOidcIdTokenResolver({
-                fetch: globalThis.fetch,
-                getEnvironmentVariable
-            }),
+        resolveIdToken: createNpmOidcIdTokenResolver({
+            fetch: globalThis.fetch,
+            getEnvironmentVariable
+        }),
         promptForOneTimePassword: options.promptForOneTimePassword
     });
 }
 
-function buildSbomFileBuilder(
-    options: PackageProcessorCompositionOptions,
-    fileManager: FileManager
-): ReturnType<typeof createSbomFileBuilder> {
+function buildSbomFileBuilder(fileManager: FileManager): ReturnType<typeof createSbomFileBuilder> {
     return createSbomFileBuilder({
         licenseResolver: createLicenseResolver({ fileManager }),
         sbomSerializer: createSbomSerializer(),
@@ -96,7 +88,7 @@ function buildSbomFileBuilder(
             fileManager,
             resolvePackagePath: tryResolvePackagePath
         }),
-        projectFolder: options.projectFolder ?? process.cwd()
+        projectFolder: process.cwd()
     });
 }
 
@@ -104,7 +96,7 @@ function buildBundleEmitter(
     options: PackageProcessorCompositionOptions,
     fileManager: FileManager
 ): ReturnType<typeof createBundleEmitter> {
-    const registryClient = buildRegistryClient(options, options.clock ?? createClock());
+    const registryClient = buildRegistryClient(options, createClock());
     const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
     return createBundleEmitter({
         registryClient,
@@ -121,7 +113,7 @@ export function buildPackageProcessorComposition(
     const progressBroadcaster = createProgressBroadcaster();
     const bundleEmitter = buildBundleEmitter(options, fileManager);
     const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
-    const sbomFileBuilder = buildSbomFileBuilder(options, fileManager);
+    const sbomFileBuilder = buildSbomFileBuilder(fileManager);
 
     const packageProcessor = createPackageProcessor({
         progressBroadcaster: progressBroadcaster.provider,
