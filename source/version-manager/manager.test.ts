@@ -25,7 +25,8 @@ test('addVersion() creates the versioned bundle and manifest file', () => {
             })
         ],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: { publishConfig: { access: 'public' } }
+        additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result.packageJson, {

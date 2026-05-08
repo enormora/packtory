@@ -19,7 +19,8 @@ test('rejects packages whose mainPackageJson.type is not "module"', async () => 
             moduleResolution: 'module',
             bundleDependencies: [],
             bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {}
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: []
         }),
         { message: 'mainPackageJson.type must be "module"' }
     );
@@ -38,7 +39,8 @@ test('correctly resolves ESM files', async () => {
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {
@@ -107,7 +109,8 @@ test('correctly resolves ESM files with export from statements', async () => {
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {
@@ -176,7 +179,8 @@ test('correctly resolves ESM files with plain import statements', async () => {
         moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {}
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: []
     });
 
     assert.deepStrictEqual(result, {

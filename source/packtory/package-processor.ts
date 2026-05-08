@@ -155,6 +155,7 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
                 moduleResolution,
                 mainPackageJson: options.mainPackageJson,
                 additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
+                allowMutableSpecifiers: options.allowMutableSpecifiers,
                 bundleDependencies,
                 bundlePeerDependencies
             });
@@ -165,7 +166,8 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
                 mainPackageJson: options.mainPackageJson,
                 bundleDependencies: options.bundleDependencies,
                 bundlePeerDependencies: options.bundlePeerDependencies,
-                additionalPackageJsonAttributes: options.additionalPackageJsonAttributes
+                additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
+                allowMutableSpecifiers: options.allowMutableSpecifiers
             });
         },
 

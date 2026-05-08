@@ -376,6 +376,42 @@ test('prefers the per-package publishSettings over the common default', () => {
     assert.deepStrictEqual(result.publishSettings, { access: 'restricted' });
 });
 
+test('defaults allowMutableSpecifiers to an empty array when no dependencyPolicy is configured', () => {
+    const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
+
+    assert.deepStrictEqual(result.allowMutableSpecifiers, []);
+});
+
+test('uses the per-package dependencyPolicy.allowMutableSpecifiers when set', () => {
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), dependencyPolicy: { allowMutableSpecifiers: ['react'] } },
+        { extraPackages: [] }
+    );
+
+    assert.deepStrictEqual(result.allowMutableSpecifiers, ['react']);
+});
+
+test('falls back to the common dependencyPolicy.allowMutableSpecifiers when the package does not set it', () => {
+    const result = runMapConfig(fooPackageConfigFactory.build(), {
+        commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: ['shared-fork'] } },
+        extraPackages: []
+    });
+
+    assert.deepStrictEqual(result.allowMutableSpecifiers, ['shared-fork']);
+});
+
+test('per-package dependencyPolicy fully replaces the common dependencyPolicy', () => {
+    const result = runMapConfig(
+        { ...fooPackageConfigFactory.build(), dependencyPolicy: { allowMutableSpecifiers: ['only-this'] } },
+        {
+            commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: ['common-only'] } },
+            extraPackages: []
+        }
+    );
+
+    assert.deepStrictEqual(result.allowMutableSpecifiers, ['only-this']);
+});
+
 test('throws a "missing publish settings" error when neither commonPackageSettings nor the package supplies one', () => {
     const packageWithoutPublishSettings = fooPackageConfigFactory.build();
     const config = {

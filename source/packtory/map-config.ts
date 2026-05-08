@@ -15,7 +15,10 @@ import type { BundleSubstitutionSource } from '../linker/linked-bundle.ts';
 import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
 
 type PublishSettings = NonNullable<PackageConfig['publishSettings']>;
-type ManifestOptionsSubset = Pick<BuildVersionedBundleOptions, 'additionalPackageJsonAttributes' | 'mainPackageJson'>;
+type ManifestOptionsSubset = Pick<
+    BuildVersionedBundleOptions,
+    'additionalPackageJsonAttributes' | 'allowMutableSpecifiers' | 'mainPackageJson'
+>;
 type SharedModuleResolution = ResourceResolveOptions['moduleResolution'];
 
 type SharedPackageOptions<TBundle extends { name: string }> = ManifestOptionsSubset &
@@ -114,6 +117,14 @@ function resolvePublishSettings(
     );
 }
 
+function resolveAllowMutableSpecifiers(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): readonly string[] {
+    const dependencyPolicy = packageConfig.dependencyPolicy ?? packtoryConfig.commonPackageSettings?.dependencyPolicy;
+    return dependencyPolicy?.allowMutableSpecifiers ?? [];
+}
+
 function buildAdditionalPackageJsonAttributes(
     packageConfig: PackageConfig,
     packtoryConfig: PacktoryConfigWithoutRegistry
@@ -184,6 +195,7 @@ function buildSharedOptions<TBundle extends { name: string }>(
         moduleResolution: 'module' satisfies SharedModuleResolution,
         mainPackageJson,
         additionalPackageJsonAttributes: buildAdditionalPackageJsonAttributes(packageConfig, packtoryConfig),
+        allowMutableSpecifiers: resolveAllowMutableSpecifiers(packageConfig, packtoryConfig),
         ...bundleDependencies
     };
 }
