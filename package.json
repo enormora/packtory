@@ -60,7 +60,7 @@
         "@stryker-mutator/core": "9.6.1",
         "@stryker-mutator/mocha-runner": "9.6.1",
         "@types/mocha": "10.0.10",
-        "@types/node": "24.12.2",
+        "@types/node": "24.12.3",
         "@types/semver": "7.7.1",
         "@types/sinon": "21.0.1",
         "@types/spdx-expression-parse": "4.0.0",
