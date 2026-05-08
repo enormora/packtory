@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import { stub } from 'sinon';
 import {
     createSpinnerSharedAccessors,
     createSpinnerSharedLayout,
@@ -173,6 +174,39 @@ test('requestShutdown does not change the stored columns or interval', () => {
 
     assert.strictEqual(accessors.getColumns(), 120);
     assert.strictEqual(accessors.getIntervalMs(), 50);
+});
+
+test('readSlot retries when the slot generation moves between the bracketing samples', () => {
+    const accessors = createAccessors();
+    accessors.writeSlot(0, 'running', 'pending-label', 'pending-message');
+    accessors.bumpSlotGeneration(0);
+
+    const realLoad = Atomics.load.bind(Atomics);
+    const loadStub = stub(Atomics, 'load');
+    loadStub.callsFake((typedArray, index) => {
+        const result = realLoad(typedArray, index);
+        if (loadStub.callCount === 1) {
+            accessors.writeSlot(0, 'succeeded', 'final-label', 'final-message');
+            accessors.bumpSlotGeneration(0);
+        }
+        return result;
+    });
+
+    try {
+        const slot = accessors.readSlot(0);
+
+        assert.deepStrictEqual(slot, {
+            state: 'succeeded',
+            label: 'final-label',
+            message: 'final-message'
+        });
+        assert.ok(
+            loadStub.callCount >= 3,
+            `expected the seqlock retry path to read the generation at least three times, got ${loadStub.callCount}`
+        );
+    } finally {
+        loadStub.restore();
+    }
 });
 
 test('writeSlot then readSlot round-trips strings that contain multi-byte UTF-8 characters', () => {

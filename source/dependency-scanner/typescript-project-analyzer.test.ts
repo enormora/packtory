@@ -159,6 +159,15 @@ test('getReferencedSourceFilePaths() returns an empty array when the source file
     assert.deepStrictEqual(result, []);
 });
 
+test('getProject() exposes the underlying ts-morph project instance', () => {
+    const TSMorphProject = createFakeTSMorphProject();
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+
+    const project = analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false });
+
+    assert.strictEqual(project.getProject(), TSMorphProject.firstCall.returnValue);
+});
+
 test('getReferencedSourceFilePaths() returns the referenced source file paths', () => {
     const getReferencedSourceFiles = fake.returns([
         createFakeSourceFile({ filePath: '/foo/b.d.ts', isDeclarationFile: true }),
