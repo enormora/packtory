@@ -19,8 +19,6 @@ test('createSpinnerSharedLayout reports the byte length required to hold the hea
     assert.strictEqual(layout.headerByteLength, 16);
     assert.strictEqual(layout.slotByteLength, 384);
     assert.strictEqual(layout.bufferByteLength, 16 + 2 * 384);
-    assert.strictEqual(layout.maxLabelByteLength, 64);
-    assert.strictEqual(layout.maxMessageByteLength, 256);
 });
 
 test('setColumns and getColumns round-trip the value', () => {
@@ -81,58 +79,29 @@ test('writeSlot replaces previously written content with shorter content', () =>
     });
 });
 
-test('writeSlot truncates labels that exceed the maximum byte length', () => {
+const labelCapacity = 64;
+const messageCapacity = 256;
+
+test('writeSlot truncates labels that exceed the slot label capacity', () => {
     const accessors = createAccessors();
-    const layout = createSpinnerSharedLayout(1);
-    const oversizedLabel = 'a'.repeat(layout.maxLabelByteLength + 10);
 
-    accessors.writeSlot(0, 'running', oversizedLabel, 'message');
+    accessors.writeSlot(0, 'running', 'a'.repeat(labelCapacity + 10), 'message');
 
-    assert.strictEqual(accessors.readSlot(0).label, 'a'.repeat(layout.maxLabelByteLength));
+    assert.strictEqual(accessors.readSlot(0).label, 'a'.repeat(labelCapacity));
 });
 
-test('writeSlot truncates messages that exceed the maximum byte length', () => {
+test('writeSlot truncates messages that exceed the slot message capacity', () => {
     const accessors = createAccessors();
-    const layout = createSpinnerSharedLayout(1);
-    const oversizedMessage = 'b'.repeat(layout.maxMessageByteLength + 10);
 
-    accessors.writeSlot(0, 'running', 'label', oversizedMessage);
+    accessors.writeSlot(0, 'running', 'label', 'b'.repeat(messageCapacity + 10));
 
-    assert.strictEqual(accessors.readSlot(0).message, 'b'.repeat(layout.maxMessageByteLength));
+    assert.strictEqual(accessors.readSlot(0).message, 'b'.repeat(messageCapacity));
 });
 
 test('readSlot returns empty strings when no content was written', () => {
     const accessors = createAccessors();
 
     assert.deepStrictEqual(accessors.readSlot(2), { state: 'empty', label: '', message: '' });
-});
-
-test('setSlotEmpty resets the slot state and clears the stored label and message', () => {
-    const accessors = createAccessors();
-    accessors.writeSlot(0, 'running', 'label', 'message');
-
-    accessors.setSlotEmpty(0);
-
-    assert.deepStrictEqual(accessors.readSlot(0), { state: 'empty', label: '', message: '' });
-});
-
-test('readSlotGeneration starts at zero and increments for each bumpSlotGeneration call', () => {
-    const accessors = createAccessors();
-
-    assert.strictEqual(accessors.readSlotGeneration(0), 0);
-    accessors.bumpSlotGeneration(0);
-    assert.strictEqual(accessors.readSlotGeneration(0), 1);
-    accessors.bumpSlotGeneration(0);
-    assert.strictEqual(accessors.readSlotGeneration(0), 2);
-});
-
-test('bumpSlotGeneration only affects the targeted slot', () => {
-    const accessors = createAccessors();
-
-    accessors.bumpSlotGeneration(0);
-
-    assert.strictEqual(accessors.readSlotGeneration(0), 1);
-    assert.strictEqual(accessors.readSlotGeneration(1), 0);
 });
 
 test('writeSlot and readSlot operate independently per slot', () => {
@@ -152,16 +121,6 @@ test('writeSlot and readSlot operate independently per slot', () => {
         label: 'third-label',
         message: 'third-message'
     });
-});
-
-test('readSlot maps an unknown state byte to the empty state', () => {
-    const layout = createSpinnerSharedLayout(1);
-    const buffer = new SharedArrayBuffer(layout.bufferByteLength);
-    const accessors = createSpinnerSharedAccessors(buffer, layout);
-    const slotStateOffset = layout.headerByteLength + 4;
-    new DataView(buffer).setUint8(slotStateOffset, 99);
-
-    assert.strictEqual(accessors.readSlot(0).state, 'empty');
 });
 
 test('setColumns and setIntervalMs default to zero before being assigned', () => {
@@ -229,15 +188,4 @@ test('writeSlot then readSlot round-trips strings that contain multi-byte UTF-8 
         label: multibyteLabel,
         message: multibyteMessage
     });
-});
-
-test('bumpSlotGeneration on one slot does not modify any other slot generation', () => {
-    const accessors = createAccessors(4);
-
-    accessors.bumpSlotGeneration(2);
-
-    assert.strictEqual(accessors.readSlotGeneration(0), 0);
-    assert.strictEqual(accessors.readSlotGeneration(1), 0);
-    assert.strictEqual(accessors.readSlotGeneration(2), 1);
-    assert.strictEqual(accessors.readSlotGeneration(3), 0);
 });

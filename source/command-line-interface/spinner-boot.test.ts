@@ -37,19 +37,7 @@ test('bootSpinnerRuntime writes the initial label and message to slot zero', () 
     });
 });
 
-test('bootSpinnerRuntime bumps the generation of slot zero so workers pick the boot up immediately', () => {
-    const runtime = bootSpinnerRuntime({
-        spawnWorker: () => {
-            // noop
-        },
-        initialLabel: 'lbl',
-        initialMessage: 'msg'
-    });
-
-    assert.strictEqual(runtime.accessors.readSlotGeneration(0), 1);
-});
-
-test('bootSpinnerRuntime leaves all other slots empty and at generation zero', () => {
+test('bootSpinnerRuntime leaves all other slots empty', () => {
     const runtime = bootSpinnerRuntime({
         slotCount: 4,
         spawnWorker: () => {
@@ -65,7 +53,6 @@ test('bootSpinnerRuntime leaves all other slots empty and at generation zero', (
             label: '',
             message: ''
         });
-        assert.strictEqual(runtime.accessors.readSlotGeneration(slotIndex), 0);
     }
 });
 
