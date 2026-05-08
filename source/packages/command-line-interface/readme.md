@@ -26,7 +26,7 @@ packtory <command> [options]
 
 **Configuration:**
 
-Create a `packtory.config.js` file in your project to define the configuration. Refer to the [full documentation](https://github.com/enormora/packtory/blob/main/readme.md) for detailed configuration options.
+Create a `packtory.config.js` file in your project to define the configuration. Refer to the [full documentation](../../../readme.md) for detailed configuration options.
 Your root `package.json` must declare `"type": "module"`.
 
 **One-time-password support:**
@@ -37,6 +37,6 @@ Your root `package.json` must declare `"type": "module"`.
 
 **Publish settings:**
 
-Every package needs a `publishSettings` value, either set in `commonPackageSettings` as a default or on each package entry directly. If neither is set, the CLI exits with `publishSettings must be set in commonPackageSettings or in every package`. See the [main configuration docs](https://github.com/enormora/packtory/blob/main/readme.md) for the full shape and the access ↔ provenance constraint.
+Every package needs a `publishSettings` value, either set in `commonPackageSettings` as a default or on each package entry directly. If neither is set, the CLI exits with `publishSettings must be set in commonPackageSettings or in every package`. See the [main configuration docs](../../../readme.md) for the full shape and the access ↔ provenance constraint.
 
-For the full list of publish-time errors and remediation, see [Supply Chain → CLI error reference](https://github.com/enormora/packtory/blob/main/documentation/supply-chain.md#cli-error-reference).
+For the full list of publish-time errors and remediation, see [Supply Chain → CLI error reference](../../../documentation/supply-chain.md#cli-error-reference).
