@@ -12,7 +12,7 @@ export type ResolvedContent = BundleResource & {
     readonly project?: Project | undefined;
 };
 
-export type EntryPointFileDescription = {
+type EntryPointFileDescription = {
     js: TransferableFileDescription;
     declarationFile?: TransferableFileDescription | undefined;
 };
