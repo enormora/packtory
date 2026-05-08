@@ -151,3 +151,66 @@ test(
         expectedMessages: ['at sbom: unexpected additional property: "extra"']
     })
 );
+
+test(
+    'validation succeeds with public access and allowScripts true',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'public', allowScripts: true },
+        expectedData: { access: 'public', allowScripts: true }
+    })
+);
+
+test(
+    'validation succeeds with public access and allowScripts false',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'public', allowScripts: false },
+        expectedData: { access: 'public', allowScripts: false }
+    })
+);
+
+test(
+    'validation succeeds with public access and allowScripts undefined',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'public', allowScripts: undefined },
+        expectedData: { access: 'public', allowScripts: undefined }
+    })
+);
+
+test(
+    'validation succeeds with restricted access and allowScripts true',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'restricted', allowScripts: true },
+        expectedData: { access: 'restricted', allowScripts: true }
+    })
+);
+
+test(
+    'validation succeeds with restricted access and allowScripts false',
+    checkValidationSuccess({
+        schema: publishSettingsSchema,
+        data: { access: 'restricted', allowScripts: false },
+        expectedData: { access: 'restricted', allowScripts: false }
+    })
+);
+
+test(
+    'validation fails when allowScripts is not a boolean on public access',
+    checkValidationFailure({
+        schema: publishSettingsSchema,
+        data: { access: 'public', allowScripts: 'yes' },
+        expectedMessages: ['at allowScripts: expected boolean, but got string']
+    })
+);
+
+test(
+    'validation fails when allowScripts is not a boolean on restricted access',
+    checkValidationFailure({
+        schema: publishSettingsSchema,
+        data: { access: 'restricted', allowScripts: 1 },
+        expectedMessages: ['at allowScripts: expected boolean, but got number']
+    })
+);

@@ -19,11 +19,13 @@ export const publishSettingsSchema = z.readonly(
         z.strictObject({
             access: z.literal('public'),
             provenance: z.optional(provenanceConfigSchema),
-            sbom: z.optional(sbomSettingsSchema)
+            sbom: z.optional(sbomSettingsSchema),
+            allowScripts: z.optional(z.boolean())
         }),
         z.strictObject({
             access: z.literal('restricted'),
-            sbom: z.optional(sbomSettingsSchema)
+            sbom: z.optional(sbomSettingsSchema),
+            allowScripts: z.optional(z.boolean())
         })
     ])
 );
