@@ -23,7 +23,13 @@ const fileDescriptionFactory = createFactory<FileDescription>(() => {
     };
 });
 
-const bundlePackageJsonFactory = createFactory<{ readonly name: string; readonly version: string }>(() => {
+type BundlePackageJsonFixture = {
+    readonly name: string;
+    readonly version: string;
+    readonly repository?: string | { readonly type: string; readonly url: string; readonly directory?: string };
+};
+
+const bundlePackageJsonFactory = createFactory<BundlePackageJsonFixture>(() => {
     return {
         name: '',
         version: ''
@@ -104,7 +110,7 @@ export function versionedBundle(overrides: VersionedBundleOverrides = {}): Versi
 
 type VersionedBundleWithManifestOverrides = VersionedBundleOverrides & {
     readonly manifestFile?: Partial<FileDescription>;
-    readonly packageJson?: { readonly name?: string; readonly version?: string };
+    readonly packageJson?: Partial<BundlePackageJsonFixture>;
 };
 
 export function versionedBundleWithManifest(

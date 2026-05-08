@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- the publish/check flow legitimately depends on registry, artifacts, file-manager, and provenance helpers */
 import { Maybe } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { PublishSettings } from '../config/publish-settings.ts';
@@ -8,10 +9,12 @@ import { compareFileDescriptions } from '../file-manager/compare.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { extractPackageTarball } from './extract-package-tarball.ts';
 import type { RegistryClient } from './registry-client.ts';
+import { assertRepositoryCoherence } from './repository-coherence.ts';
 
 export type BundleEmitterDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly registryClient: RegistryClient;
+    readonly ciRepositoryUrl: string | undefined;
 };
 
 export type PublishOptions = {
@@ -44,7 +47,7 @@ export type BundleEmitter = {
 };
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
-    const { artifactsBuilder, registryClient } = dependencies;
+    const { artifactsBuilder, registryClient, ciRepositoryUrl } = dependencies;
 
     return {
         async determineCurrentVersion(options) {
@@ -79,6 +82,10 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
         },
 
         async publish(options) {
+            if (options.publishSettings.access === 'public' && options.publishSettings.provenance?.type === 'auto') {
+                assertRepositoryCoherence(options.bundle.packageJson, ciRepositoryUrl);
+            }
+
             const tarball = await artifactsBuilder.buildTarball(options.bundle, options.extraFiles);
 
             await registryClient.publishPackage(
