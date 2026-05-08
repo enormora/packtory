@@ -345,66 +345,8 @@ packages: [
 ]
 ```
 
-Enable [npm provenance](https://docs.npmjs.com/generating-provenance-statements) automatically when running on GitHub Actions or GitLab CI:
+### Security & Trust
 
-```javascript
-commonPackageSettings: {
-    sourcesFolder: path.join(process.cwd(), 'dist/'),
-    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
-    publishSettings: {
-        access: 'public',
-        provenance: { type: 'auto' }
-    }
-}
-```
-
-Pre-built provenance bundle (works on any CI):
-
-```javascript
-commonPackageSettings: {
-    sourcesFolder: path.join(process.cwd(), 'dist/'),
-    mainPackageJson: fs.readFileSync('./package.json', { encoding: 'utf8' }),
-    publishSettings: {
-        access: 'public',
-        provenance: {
-            type: 'file',
-            path: './build/my-package.sigstore'
-        }
-    }
-}
-```
-
-When using `provenance: { type: 'auto' }`, your CI workflow needs to expose an OIDC ID token to the publish step. For GitHub Actions, that means granting `id-token: write` on the workflow job:
-
-```yaml
-jobs:
-    publish:
-        runs-on: ubuntu-latest
-        permissions:
-            id-token: write
-            contents: read
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 24
-            - run: npm ci
-            - run: npx packtory publish --no-dry-run
-```
-
-For GitLab CI, declare an [`id_tokens`](https://docs.gitlab.com/ee/ci/secrets/id_token_authentication.html) entry with audience `sigstore` exposed as `SIGSTORE_ID_TOKEN`:
-
-```yaml
-publish:
-    image: node:24
-    id_tokens:
-        SIGSTORE_ID_TOKEN:
-            aud: sigstore
-    script:
-        - npm ci
-        - npx packtory publish --no-dry-run
-```
-
-Other CIs (CircleCI, Jenkins, BuildKite, etc.) are supported via the `provenance: { type: 'file', path }` escape hatch — generate the sigstore bundle with the attestation tooling of your choice and point packtory at it.
+packtory ships several supply-chain trust features by default and adds opt-in npm provenance attestations on top. First-class GitHub Actions support is built in, with GitLab CI and pre-built sigstore bundles for other environments. See [Supply Chain](./documentation/supply-chain.md) for the full story — what's protecting you out of the box, how to enable provenance, the configurable opt-outs, and what every packtory publish actually produces.
 
 These examples demonstrate how `packtory` adapts to different project structures and facilitates the efficient bundling and publishing of packages with varying dependencies.
