@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import type { PublishSettings } from '../config/publish-settings.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
 
@@ -31,6 +32,7 @@ type Overrides = {
     readonly fetchLatestVersion?: SinonSpy;
     readonly collectContents?: SinonSpy;
     readonly fetchTarball?: SinonSpy;
+    readonly ciRepositoryUrl?: string | undefined;
 };
 
 function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
@@ -54,7 +56,8 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
             fetchTarball: createSpy(overrides.fetchTarball, () => {
                 return fake.resolves(emptyTarball);
             })
-        }
+        },
+        ciRepositoryUrl: overrides.ciRepositoryUrl
     };
 
     return createBundleEmitter(dependencies);
@@ -249,4 +252,91 @@ test('publish() forwards extra files to buildTarball', async () => {
     });
 
     assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, [extraFile]]);
+});
+
+function bundleWithRepository(repository: string | undefined): ReturnType<typeof versionedBundleWithManifest> {
+    const packageJson = repository === undefined ? { name: 'the-name' } : { name: 'the-name', repository };
+    return versionedBundleWithManifest({ packageJson });
+}
+
+test('publish() rejects under provenance auto mode when the manifest repository differs from the CI repository', async () => {
+    const buildTarball = fake.resolves({ tarData: emptyTarball });
+    const publishPackage = fake.resolves(undefined);
+    const emitter = emitterFactory({
+        buildTarball,
+        publishPackage,
+        ciRepositoryUrl: 'https://github.com/upstream/package'
+    });
+
+    try {
+        await emitter.publish({
+            registrySettings,
+            bundle: bundleWithRepository('https://github.com/foo/forked-package'),
+            publishSettings: { access: 'public', provenance: { type: 'auto' } }
+        });
+    } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /repository URL does not match/u);
+        assert.strictEqual(buildTarball.callCount, 0);
+        assert.strictEqual(publishPackage.callCount, 0);
+        return;
+    }
+    assert.fail('Expected publish() to throw');
+});
+
+test('publish() does not run the coherence check under provenance file mode', async () => {
+    const buildTarball = fake.resolves({ tarData: emptyTarball });
+    const publishPackage = fake.resolves(undefined);
+    const emitter = emitterFactory({
+        buildTarball,
+        publishPackage,
+        ciRepositoryUrl: 'https://github.com/upstream/package'
+    });
+
+    await emitter.publish({
+        registrySettings,
+        bundle: bundleWithRepository('https://github.com/foo/forked-package'),
+        publishSettings: { access: 'public', provenance: { type: 'file', path: '/build/bundle.sigstore' } }
+    });
+
+    assert.strictEqual(buildTarball.callCount, 1);
+    assert.strictEqual(publishPackage.callCount, 1);
+});
+
+test('publish() does not run the coherence check when provenance is unset', async () => {
+    const buildTarball = fake.resolves({ tarData: emptyTarball });
+    const publishPackage = fake.resolves(undefined);
+    const emitter = emitterFactory({
+        buildTarball,
+        publishPackage,
+        ciRepositoryUrl: undefined
+    });
+
+    await emitter.publish({
+        registrySettings,
+        bundle: bundleWithRepository(undefined),
+        publishSettings: { access: 'public' }
+    });
+
+    assert.strictEqual(buildTarball.callCount, 1);
+    assert.strictEqual(publishPackage.callCount, 1);
+});
+
+test('publish() does not run the coherence check when access is restricted even if provenance is set to auto', async () => {
+    const buildTarball = fake.resolves({ tarData: emptyTarball });
+    const publishPackage = fake.resolves(undefined);
+    const emitter = emitterFactory({
+        buildTarball,
+        publishPackage,
+        ciRepositoryUrl: 'https://github.com/upstream/package'
+    });
+
+    await emitter.publish({
+        registrySettings,
+        bundle: bundleWithRepository('https://github.com/foo/forked-package'),
+        publishSettings: { access: 'restricted', provenance: { type: 'auto' } } as unknown as PublishSettings
+    });
+
+    assert.strictEqual(buildTarball.callCount, 1);
+    assert.strictEqual(publishPackage.callCount, 1);
 });

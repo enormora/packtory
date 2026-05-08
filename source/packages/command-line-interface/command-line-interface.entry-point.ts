@@ -11,6 +11,7 @@ import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
 import { createPacktory } from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
+import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
@@ -39,7 +40,8 @@ const promptForOneTimePassword = createOneTimePasswordPrompt({
 });
 
 const { packageProcessor, progressBroadcaster } = buildPackageProcessorComposition({
-    promptForOneTimePassword
+    promptForOneTimePassword,
+    ciEnvironment: readCiEnvironment(process.env)
 });
 const scheduler = createScheduler({
     progressBroadcastProvider: progressBroadcaster.provider

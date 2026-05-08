@@ -7,6 +7,7 @@ import { Project } from 'ts-morph';
 import { createArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient } from '../bundle-emitter/registry-client.ts';
+import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { getReferencedSourceFiles } from '../dependency-scanner/source-file-references.ts';
 import { createSourceMapFileLocator } from '../dependency-scanner/source-map-file-locator.ts';
@@ -46,6 +47,7 @@ export type PackageProcessorCompositionOptions = {
     readonly clock?: Clock | undefined;
     readonly resolveIdToken?: NpmOidcIdTokenResolver | undefined;
     readonly projectFolder?: string | undefined;
+    readonly ciEnvironment?: CiEnvironment | undefined;
 };
 
 function getEnvironmentVariable(variableName: string): string | undefined {
@@ -104,7 +106,11 @@ function buildBundleEmitter(
 ): ReturnType<typeof createBundleEmitter> {
     const registryClient = buildRegistryClient(options, options.clock ?? createClock());
     const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
-    return createBundleEmitter({ registryClient, artifactsBuilder });
+    return createBundleEmitter({
+        registryClient,
+        artifactsBuilder,
+        ciRepositoryUrl: getCiRepositoryUrl(options.ciEnvironment)
+    });
 }
 
 export function buildPackageProcessorComposition(
