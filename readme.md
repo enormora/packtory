@@ -175,6 +175,7 @@ The configuration for `packtory` is an object with the following properties:
         - An object to be merged directly into the generated `package.json`.
         - Useful for setting meta properties like `description` or `keywords`.
         - If defined in both per-package and common settings, they are merged.
+        - The `scripts` key is rejected by default to prevent accidental shipping of npm lifecycle scripts (`preinstall`, `install`, `postinstall`, `prepare`, `prepublish`, `prepublishOnly`) — the canonical npm supply-chain attack vector. Set `publishSettings.allowScripts: true` on the resolved publish settings to opt in.
 
     - **`bundleDependencies`** (Optional, Array of Strings):
         - An array of package names to mark as dependencies, allowing the bundler to substitute import statements accordingly.
@@ -191,6 +192,7 @@ The configuration for `packtory` is an object with the following properties:
             - `provenance: { type: 'auto' }` — let `libnpmpublish` detect the CI environment and generate the provenance statement. Currently supported CIs: GitHub Actions and GitLab CI.
             - `provenance: { type: 'file', path: './build/pkg.sigstore' }` — pass a pre-generated sigstore bundle. Use this for any CI not natively supported by `auto` mode (e.g. CircleCI, Jenkins, BuildKite). The bundle must have been signed against the exact tarball packtory builds; mismatches are rejected with a clear error.
         - Per-package `publishSettings` replaces the whole common-level block (no field-level merging) so the `access` ↔ `provenance` constraint stays internally consistent at every scope.
+        - An optional `allowScripts` boolean is accepted on both branches and is `false` by default. It must be explicitly set to `true` to allow a `scripts` block in `additionalPackageJsonAttributes` to flow into the published `package.json`. This default-off behaviour exists to prevent shipping npm lifecycle scripts — the canonical supply-chain attack vector — and the opt-in lives on `publishSettings` (replace-merged per package) so it cannot be silently inherited from common settings.
 
 **Note**: Per-package settings override or merge with common settings when both are defined.
 

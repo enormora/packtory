@@ -58,6 +58,21 @@ test('buildPackageManifest() includes dependency, peer dependency, type, and typ
     });
 });
 
+test('buildPackageManifest() passes through a scripts block from additional attributes', () => {
+    const result = buildPackageManifest(
+        createBundle({
+            additionalAttributes: { scripts: { postinstall: 'echo hi' } }
+        })
+    );
+
+    assert.deepStrictEqual(result, {
+        name: 'package-a',
+        version: '1.2.3',
+        main: 'index.js',
+        scripts: { postinstall: 'echo hi' }
+    });
+});
+
 test('buildPackageManifest() lets generated manifest fields override conflicting additional attributes', () => {
     const result = buildPackageManifest(
         createBundle({
