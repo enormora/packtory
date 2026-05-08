@@ -187,7 +187,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'bundlePeerDependencies',
             'checks'
         ],
-        checksShapeKeys: ['noDuplicatedFiles'],
+        checksShapeKeys: ['noDuplicatedFiles', 'requiredFiles'],
         commonShapeKeys: [
             'sourcesFolder',
             'mainPackageJson',

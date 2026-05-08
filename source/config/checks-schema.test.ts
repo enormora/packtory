@@ -129,3 +129,23 @@ test(
         expectedMessages: ['at noDuplicatedFiles: unexpected additional property: "extra"']
     })
 );
+
+test('top-level schema accepts requiredFiles with enabled and a files list', () => {
+    assert.strictEqual(safeParse(checksSchema, { requiredFiles: { enabled: true, files: ['LICENSE'] } }).success, true);
+});
+
+test('top-level schema rejects requiredFiles without enabled', () => {
+    assert.strictEqual(safeParse(checksSchema, { requiredFiles: { files: ['LICENSE'] } }).success, false);
+});
+
+test('top-level schema rejects an empty path in requiredFiles.files', () => {
+    assert.strictEqual(safeParse(checksSchema, { requiredFiles: { enabled: true, files: [''] } }).success, false);
+});
+
+test('per-package schema accepts requiredFiles with a files list', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { requiredFiles: { files: ['LICENSE'] } }).success, true);
+});
+
+test('per-package schema rejects an enabled flag on requiredFiles', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { requiredFiles: { enabled: true } }).success, false);
+});

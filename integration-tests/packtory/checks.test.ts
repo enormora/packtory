@@ -94,6 +94,31 @@ test('resolveAndLinkAll succeeds when every owner consents to the duplicated fil
     assert.strictEqual(result.value.length, 2);
 });
 
+test('resolveAndLinkAll reports a missing required file for every bundle that lacks it', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const config = {
+        ...baseConfig,
+        checks: { requiredFiles: { enabled: true, files: ['LICENSE'] } }
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because of missing required files');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
+        assert.deepStrictEqual(result.error.issues, [
+            'Package "pkg-a" is missing required file "LICENSE"',
+            'Package "pkg-b" is missing required file "LICENSE"'
+        ]);
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
 test('resolveAndLinkAll reports the duplicate when one owner does not consent', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);
