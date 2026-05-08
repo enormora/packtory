@@ -94,6 +94,39 @@ test('resolveAndLinkAll succeeds when every owner consents to the duplicated fil
     assert.strictEqual(result.value.length, 2);
 });
 
+test('resolveAndLinkAll reports a per-package bundle size override that is exceeded', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const config = {
+        ...baseConfig,
+        checks: { maxBundleSize: { enabled: true, bytes: 10_000 } },
+        packages: [
+            {
+                ...baseConfig.packages[0]!,
+                checks: { maxBundleSize: { bytes: 1 } }
+            },
+            baseConfig.packages[1]!
+        ]
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because pkg-a exceeds its size override');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
+        assert.strictEqual(result.error.issues.length, 1);
+        assert.match(
+            result.error.issues[0]!,
+            /^Package "pkg-a" exceeds the maximum bundle size: \d+ bytes \(limit: 1 bytes\)$/u
+        );
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
 test('resolveAndLinkAll reports a missing required file for every bundle that lacks it', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);

@@ -149,3 +149,27 @@ test('per-package schema accepts requiredFiles with a files list', () => {
 test('per-package schema rejects an enabled flag on requiredFiles', () => {
     assert.strictEqual(safeParse(checksPerPackageSchema, { requiredFiles: { enabled: true } }).success, false);
 });
+
+test('top-level schema accepts maxBundleSize with enabled and a bytes threshold', () => {
+    assert.strictEqual(safeParse(checksSchema, { maxBundleSize: { enabled: true, bytes: 1024 } }).success, true);
+});
+
+test('top-level schema accepts maxBundleSize without bytes', () => {
+    assert.strictEqual(safeParse(checksSchema, { maxBundleSize: { enabled: true } }).success, true);
+});
+
+test('top-level schema rejects a negative byte threshold', () => {
+    assert.strictEqual(safeParse(checksSchema, { maxBundleSize: { enabled: true, bytes: -1 } }).success, false);
+});
+
+test('top-level schema rejects a non-integer byte threshold', () => {
+    assert.strictEqual(safeParse(checksSchema, { maxBundleSize: { enabled: true, bytes: 1.5 } }).success, false);
+});
+
+test('per-package schema accepts a maxBundleSize override', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { maxBundleSize: { bytes: 2048 } }).success, true);
+});
+
+test('per-package schema rejects an enabled flag on maxBundleSize', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { maxBundleSize: { enabled: true } }).success, false);
+});
