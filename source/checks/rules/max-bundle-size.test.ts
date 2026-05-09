@@ -66,24 +66,22 @@ test('passes a bundle exactly at the threshold', () => {
     assert.deepStrictEqual(result, []);
 });
 
-test('per-package bytes overrides the global default upward', () => {
-    const result = maxBundleSizeRule.run({
+function runWithGlobalAndOverride(globalBytes: number, override: number): readonly string[] {
+    return maxBundleSizeRule.run({
         bundles: [bundleWithBytes('a', 100)],
-        settings: { maxBundleSize: { enabled: true, bytes: 50 } },
-        perPackageSettings: new Map([['a', { maxBundleSize: { bytes: 1000 } }]])
+        settings: { maxBundleSize: { enabled: true, bytes: globalBytes } },
+        perPackageSettings: new Map([['a', { maxBundleSize: { bytes: override } }]])
     });
+}
 
-    assert.deepStrictEqual(result, []);
+test('per-package bytes overrides the global default upward', () => {
+    assert.deepStrictEqual(runWithGlobalAndOverride(50, 1000), []);
 });
 
 test('per-package bytes overrides the global default downward', () => {
-    const result = maxBundleSizeRule.run({
-        bundles: [bundleWithBytes('a', 100)],
-        settings: { maxBundleSize: { enabled: true, bytes: 1000 } },
-        perPackageSettings: new Map([['a', { maxBundleSize: { bytes: 50 } }]])
-    });
-
-    assert.deepStrictEqual(result, ['Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)']);
+    assert.deepStrictEqual(runWithGlobalAndOverride(1000, 50), [
+        'Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)'
+    ]);
 });
 
 test('per-package bytes acts as the threshold when no global default is set', () => {
@@ -91,6 +89,16 @@ test('per-package bytes acts as the threshold when no global default is set', ()
         bundles: [bundleWithBytes('a', 100), bundleWithBytes('b', 100)],
         settings: { maxBundleSize: { enabled: true } },
         perPackageSettings: new Map([['a', { maxBundleSize: { bytes: 50 } }]])
+    });
+
+    assert.deepStrictEqual(result, ['Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)']);
+});
+
+test('falls back to the global default when the per-package entry has no maxBundleSize key', () => {
+    const result = maxBundleSizeRule.run({
+        bundles: [bundleWithBytes('a', 100)],
+        settings: { maxBundleSize: { enabled: true, bytes: 50 } },
+        perPackageSettings: new Map([['a', {}]])
     });
 
     assert.deepStrictEqual(result, ['Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)']);

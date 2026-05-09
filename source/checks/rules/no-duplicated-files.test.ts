@@ -110,3 +110,26 @@ test('returns no issues when there are no duplicates', () => {
 
     assert.deepStrictEqual(result, []);
 });
+
+function runWithMixedConsent(secondOwnerSettings: PackageChecksSettings): readonly string[] {
+    return noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map([
+            ['a', { noDuplicatedFiles: { allowList: ['shared.ts'] } }],
+            ['b', secondOwnerSettings]
+        ])
+    });
+}
+
+test('reports a duplicate when an owner has per-package settings without a noDuplicatedFiles key', () => {
+    const result = runWithMixedConsent({});
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});
+
+test('reports a duplicate when an owner has noDuplicatedFiles without an allowList', () => {
+    const result = runWithMixedConsent({ noDuplicatedFiles: {} });
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});

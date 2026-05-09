@@ -35,11 +35,11 @@ function collectFileOwnership(bundles: readonly LinkedBundle[]): Map<string, Set
 function everyOwnerConsents(
     filePath: string,
     owners: ReadonlySet<string>,
-    perPackageConfigByBundle: ReadonlyMap<string, PerPackageConfig>
+    perPackageSettings: RunParams['perPackageSettings']
 ): boolean {
     return Array.from(owners).every((owner) => {
-        const allowList = perPackageConfigByBundle.get(owner)?.allowList ?? [];
-        return allowList.includes(filePath);
+        const allowList = perPackageSettings.get(owner)?.noDuplicatedFiles?.allowList;
+        return allowList?.includes(filePath) ?? false;
     });
 }
 
@@ -51,24 +51,13 @@ function formatOwners(owners: ReadonlySet<string>): string {
         .join(', ');
 }
 
-function buildPerPackageConfigByBundle(
-    perPackageSettings: RunParams['perPackageSettings']
-): ReadonlyMap<string, PerPackageConfig> {
-    return new Map(
-        Array.from(perPackageSettings.entries()).flatMap(([bundleName, packageChecks]) => {
-            const ruleConfig = packageChecks?.noDuplicatedFiles;
-            return ruleConfig === undefined ? [] : [[bundleName, ruleConfig] as const];
-        })
-    );
-}
-
 function findDuplicateIssues(
     bundles: readonly LinkedBundle[],
-    perPackageConfigByBundle: ReadonlyMap<string, PerPackageConfig>
+    perPackageSettings: RunParams['perPackageSettings']
 ): readonly string[] {
     return Array.from(collectFileOwnership(bundles).entries()).flatMap(([filePath, owners]) => {
         const isDuplicate = owners.size > 1;
-        const consented = everyOwnerConsents(filePath, owners, perPackageConfigByBundle);
+        const consented = everyOwnerConsents(filePath, owners, perPackageSettings);
         if (isDuplicate && !consented) {
             return [`File "${filePath}" is included in multiple packages: ${formatOwners(owners)}`];
         }
@@ -81,7 +70,7 @@ function run(params: RunParams): readonly string[] {
     if (globalConfig?.enabled !== true) {
         return [];
     }
-    return findDuplicateIssues(params.bundles, buildPerPackageConfigByBundle(params.perPackageSettings));
+    return findDuplicateIssues(params.bundles, params.perPackageSettings);
 }
 
 export const noDuplicatedFilesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {

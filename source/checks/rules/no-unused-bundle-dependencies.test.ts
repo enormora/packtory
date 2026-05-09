@@ -45,6 +45,27 @@ test('returns no issues when the rule is disabled', () => {
     assert.deepStrictEqual(result, []);
 });
 
+test('returns no issues when packageConfigs is omitted entirely', () => {
+    const result = noUnusedBundleDependenciesRule.run({
+        bundles: [bundleWithLinkedDeps('a', [])],
+        settings: enabled,
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('returns no issues when no entry exists in packageConfigs for the bundle', () => {
+    const result = noUnusedBundleDependenciesRule.run({
+        bundles: [bundleWithLinkedDeps('a', [])],
+        settings: enabled,
+        perPackageSettings: new Map(),
+        packageConfigs: {}
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
 test('returns no issues when the package declares no bundle dependencies', () => {
     const result = noUnusedBundleDependenciesRule.run({
         bundles: [bundleWithLinkedDeps('a', [])],

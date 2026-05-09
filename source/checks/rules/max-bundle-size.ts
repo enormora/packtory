@@ -22,7 +22,7 @@ type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 function bundleSizeBytes(bundle: LinkedBundle): number {
     let total = 0;
     for (const resource of bundle.contents) {
-        total += Buffer.byteLength(resource.fileDescription.content, 'utf8');
+        total += Buffer.byteLength(resource.fileDescription.content);
     }
     return total;
 }

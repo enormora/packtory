@@ -27,12 +27,9 @@ function findUnused(bundle: LinkedBundle, declared: readonly string[], kind: Dep
 }
 
 function checkBundle(bundle: LinkedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
-    if (packageConfig === undefined) {
-        return [];
-    }
     return [
-        ...findUnused(bundle, packageConfig.bundleDependencies ?? [], 'bundle'),
-        ...findUnused(bundle, packageConfig.bundlePeerDependencies ?? [], 'bundle peer')
+        ...findUnused(bundle, packageConfig?.bundleDependencies ?? [], 'bundle'),
+        ...findUnused(bundle, packageConfig?.bundlePeerDependencies ?? [], 'bundle peer')
     ];
 }
 

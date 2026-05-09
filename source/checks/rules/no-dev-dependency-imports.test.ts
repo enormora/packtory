@@ -45,6 +45,27 @@ test('returns no issues when the rule is disabled', () => {
     assert.deepStrictEqual(result, []);
 });
 
+test('returns no issues when packageConfigs is omitted entirely', () => {
+    const result = noDevDependencyImportsRule.run({
+        bundles: [bundleWithExternals('a', ['leaked'])],
+        settings: enabled,
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('returns no issues when packageConfigs has no entry for the bundle', () => {
+    const result = noDevDependencyImportsRule.run({
+        bundles: [bundleWithExternals('a', ['leaked'])],
+        settings: enabled,
+        perPackageSettings: new Map(),
+        packageConfigs: {}
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
 test('returns no issues when the package has no main package.json', () => {
     const result = noDevDependencyImportsRule.run({
         bundles: [bundleWithExternals('a', ['leaked'])],
