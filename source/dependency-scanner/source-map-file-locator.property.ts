@@ -1,17 +1,16 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
 import { test } from 'mocha';
-import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
-import { createSourceMapFileLocator, type SourceMapFileLocatorDependencies } from './source-map-file-locator.ts';
+import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
+import { createSourceMapFileLocator } from './source-map-file-locator.ts';
 
 function createLocator(readFileContent: string, isReadable: boolean) {
-    return createSourceMapFileLocator({
-        fileManager: {
-            readFile: fake.resolves(readFileContent),
-            checkReadability: fake.resolves({ isReadable })
-        }
-    } as unknown as SourceMapFileLocatorDependencies);
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: readFileContent }],
+        simulatedCheckReadabilityResponses: [{ value: { isReadable } }]
+    });
+    return createSourceMapFileLocator({ fileManager });
 }
 
 test('locate() returns Maybe.nothing() for malformed or missing source-map comments', async () => {

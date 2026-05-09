@@ -1,49 +1,46 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
-import {
-    createSourceMapFileLocator,
-    type SourceMapFileLocator,
-    type SourceMapFileLocatorDependencies
-} from './source-map-file-locator.ts';
+import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
+import { createSourceMapFileLocator, type SourceMapFileLocator } from './source-map-file-locator.ts';
 
 type Overrides = {
-    readonly readFile?: SinonSpy;
-    readonly checkReadability?: SinonSpy;
+    readonly readFileContent?: string;
+    readonly isReadable?: boolean;
 };
 
-function sourceMapFileLocatorFactory(overrides: Overrides = {}): SourceMapFileLocator {
-    const { readFile = fake.resolves(''), checkReadability = fake.resolves(null) } = overrides;
-    const fakeDependencies = {
-        fileManager: {
-            readFile,
-            checkReadability
-        }
-    } as unknown as SourceMapFileLocatorDependencies;
+function sourceMapFileLocatorFactory(overrides: Overrides = {}): {
+    readonly locator: SourceMapFileLocator;
+    readonly fileManager: FakeFileManager;
+} {
+    const { readFileContent = '', isReadable = false } = overrides;
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: readFileContent }],
+        simulatedCheckReadabilityResponses: [{ value: { isReadable } }]
+    });
 
-    return createSourceMapFileLocator(fakeDependencies);
+    return {
+        locator: createSourceMapFileLocator({ fileManager }),
+        fileManager
+    };
 }
 
 test('reads the content of the given source file', async () => {
-    const readFile = fake.resolves('');
-    const locator = sourceMapFileLocatorFactory({ readFile });
+    const { locator, fileManager } = sourceMapFileLocatorFactory();
 
     await locator.locate('/foo/bar.js');
 
-    assert.strictEqual(readFile.callCount, 1);
-    assert.deepStrictEqual(readFile.firstCall.args, ['/foo/bar.js']);
+    assert.strictEqual(fileManager.getReadFileCallCount(), 1);
+    assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: '/foo/bar.js' });
 });
 
 async function expectLocateReturnsNothingWithoutCheckReadability(content: string): Promise<void> {
-    const readFile = fake.resolves(content);
-    const checkReadability = fake.resolves({ isReadable: true });
-    const locator = sourceMapFileLocatorFactory({ readFile, checkReadability });
+    const { locator, fileManager } = sourceMapFileLocatorFactory({ readFileContent: content, isReadable: true });
 
     const result = await locator.locate('/foo/bar.js');
 
     assert.deepStrictEqual(result, Maybe.nothing());
-    assert.strictEqual(checkReadability.callCount, 0);
+    assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 0);
 }
 
 test('returns nothing when there is no external source mapping URL referenced in the given file', async () => {
@@ -65,41 +62,45 @@ test('returns nothing when the sourceMappingURL comment does not contain a file 
 });
 
 test('reads the named capture group value as the source map file name', async () => {
-    const readFile = fake.resolves('foo\n//# sourceMappingURL=../maps/baz.map.js');
-    const checkReadability = fake.resolves({ isReadable: false });
-    const locator = sourceMapFileLocatorFactory({ readFile, checkReadability });
+    const { locator, fileManager } = sourceMapFileLocatorFactory({
+        readFileContent: 'foo\n//# sourceMappingURL=../maps/baz.map.js',
+        isReadable: false
+    });
 
     const result = await locator.locate('/foo/bar.js');
 
     assert.deepStrictEqual(result, Maybe.nothing());
-    assert.deepStrictEqual(checkReadability.firstCall.args, ['/maps/baz.map.js']);
+    assert.deepStrictEqual(fileManager.getCheckReadabilityCall(0), { fileOrFolderPath: '/maps/baz.map.js' });
 });
 
 test('uses the full sourceMappingURL capture up to the end of the line', async () => {
-    const readFile = fake.resolves('foo\n//# sourceMappingURL=../maps/baz.map.js?hash=1');
-    const checkReadability = fake.resolves({ isReadable: false });
-    const locator = sourceMapFileLocatorFactory({ readFile, checkReadability });
+    const { locator, fileManager } = sourceMapFileLocatorFactory({
+        readFileContent: 'foo\n//# sourceMappingURL=../maps/baz.map.js?hash=1',
+        isReadable: false
+    });
 
     await locator.locate('/foo/bar.js');
 
-    assert.deepStrictEqual(checkReadability.firstCall.args, ['/maps/baz.map.js?hash=1']);
+    assert.deepStrictEqual(fileManager.getCheckReadabilityCall(0), { fileOrFolderPath: '/maps/baz.map.js?hash=1' });
 });
 
 test('checks if the referenced source mapping file is readable on the file system', async () => {
-    const readFile = fake.resolves('foo\n//# sourceMappingURL=baz.map.js');
-    const checkReadability = fake.resolves({ isReadable: false });
-    const locator = sourceMapFileLocatorFactory({ readFile, checkReadability });
+    const { locator, fileManager } = sourceMapFileLocatorFactory({
+        readFileContent: 'foo\n//# sourceMappingURL=baz.map.js',
+        isReadable: false
+    });
 
     await locator.locate('/foo/bar.js');
 
-    assert.strictEqual(checkReadability.callCount, 1);
-    assert.deepStrictEqual(checkReadability.firstCall.args, ['/foo/baz.map.js']);
+    assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 1);
+    assert.deepStrictEqual(fileManager.getCheckReadabilityCall(0), { fileOrFolderPath: '/foo/baz.map.js' });
 });
 
 test('returns the path to the referenced source map file when it is readable', async () => {
-    const readFile = fake.resolves('foo\n//# sourceMappingURL=../maps/baz.map.js');
-    const checkReadability = fake.resolves({ isReadable: true });
-    const locator = sourceMapFileLocatorFactory({ readFile, checkReadability });
+    const { locator } = sourceMapFileLocatorFactory({
+        readFileContent: 'foo\n//# sourceMappingURL=../maps/baz.map.js',
+        isReadable: true
+    });
 
     const result = await locator.locate('/foo/bar.js');
 
@@ -107,9 +108,10 @@ test('returns the path to the referenced source map file when it is readable', a
 });
 
 test('returns nothing when there is an external source mapping file referenced but it can’t be read', async () => {
-    const readFile = fake.resolves('foo\n//# sourceMappingURL=baz.map.js');
-    const checkReadability = fake.resolves({ isReadable: false });
-    const locator = sourceMapFileLocatorFactory({ readFile, checkReadability });
+    const { locator } = sourceMapFileLocatorFactory({
+        readFileContent: 'foo\n//# sourceMappingURL=baz.map.js',
+        isReadable: false
+    });
 
     const result = await locator.locate('/foo/bar.js');
 

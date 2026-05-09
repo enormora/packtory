@@ -3,6 +3,7 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     type ArtifactsBuilder,
     type ArtifactsBuilderDependencies,
@@ -22,40 +23,39 @@ function bundleWithContents(
 }
 
 type Overrides = {
-    readonly readFile?: SinonSpy;
-    readonly checkReadability?: SinonSpy;
-    readonly copyFile?: SinonSpy;
-    readonly writeFile?: SinonSpy;
+    readonly fileManager?: FakeFileManager;
     readonly tarballBuilder?: { readonly build?: SinonSpy };
 };
-
-function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
-    return spy ?? fallback();
-}
 
 function createTarballBuilderDependencies(overrides: Overrides['tarballBuilder'] = {}): {
     readonly build: SinonSpy;
 } {
     return {
-        build: createSpy(overrides.build, () => {
-            return fake.resolves(Buffer.from([-1]));
-        })
+        build: overrides.build ?? fake.resolves(Buffer.from([-1]))
     };
 }
 
-function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
+function artifactsBuilderFactory(overrides: Overrides = {}): {
+    readonly builder: ArtifactsBuilder;
+    readonly fileManager: FakeFileManager;
+} {
+    const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: ArtifactsBuilderDependencies = {
-        fileManager: {
-            readFile: createSpy(overrides.readFile, fake),
-            checkReadability: createSpy(overrides.checkReadability, fake),
-            copyFile: createSpy(overrides.copyFile, fake),
-            writeFile: createSpy(overrides.writeFile, fake),
-            getTransferableFileDescriptionFromPath: fake()
-        },
+        fileManager,
         tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder)
     };
 
-    return createArtifactsBuilder(dependencies);
+    return { builder: createArtifactsBuilder(dependencies), fileManager };
+}
+
+function builderWithUnreadableTargetFolder(): {
+    readonly builder: ArtifactsBuilder;
+    readonly fileManager: FakeFileManager;
+} {
+    const fileManager = createFakeFileManager({
+        simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }]
+    });
+    return artifactsBuilderFactory({ fileManager });
 }
 
 function makeContent(targetFilePath: string, content: string, isSubstituted = false): LinkedBundleResource {
@@ -74,7 +74,7 @@ function makeContent(targetFilePath: string, content: string, isSubstituted = fa
 
 test('buildTarball() returns the tarData', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([42])) };
-    const builder = artifactsBuilderFactory({ tarballBuilder });
+    const { builder } = artifactsBuilderFactory({ tarballBuilder });
     const result = await builder.buildTarball(bundleWithContents([]));
 
     assert.deepStrictEqual(result, {
@@ -84,7 +84,7 @@ test('buildTarball() returns the tarData', async () => {
 
 test('buildTarball() passes all given contents to the tarballBuilder', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
-    const builder = artifactsBuilderFactory({ tarballBuilder });
+    const { builder } = artifactsBuilderFactory({ tarballBuilder });
     const contents: LinkedBundleResource[] = [
         makeContent('bar.txt', 'bar'),
         makeContent('baz.txt', 'baz'),
@@ -104,45 +104,51 @@ test('buildTarball() passes all given contents to the tarballBuilder', async () 
 });
 
 test('buildFolder() writes only the manifest when the given bundle has no contents', async () => {
-    const writeFile = fake.resolves(undefined);
-    const checkReadability = fake.resolves({ isReadable: false });
-    const builder = artifactsBuilderFactory({ writeFile, checkReadability });
+    const { builder, fileManager } = builderWithUnreadableTargetFolder();
 
     await builder.buildFolder(bundleWithContents([], 'package.json'), '/the/target/folder');
 
-    assert.strictEqual(writeFile.callCount, 1);
-    assert.deepStrictEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
+    assert.deepStrictEqual(fileManager.getWriteFileCall(0), {
+        filePath: '/the/target/folder/package.json',
+        content: '{}'
+    });
 });
 
 test('buildFolder() throws when the target folder already exists', async () => {
-    const checkReadability = fake.resolves({ isReadable: true });
-    const builder = artifactsBuilderFactory({ checkReadability });
+    const fileManager = createFakeFileManager({
+        simulatedCheckReadabilityResponses: [{ value: { isReadable: true } }]
+    });
+    const { builder } = artifactsBuilderFactory({ fileManager });
 
     try {
         await builder.buildFolder(bundleWithContents([]), '/the/target/folder');
         assert.fail('Expected buildFolder() to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual(checkReadability.callCount, 1);
-        assert.deepStrictEqual(checkReadability.firstCall.args, ['/the/target/folder']);
+        assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 1);
+        assert.deepStrictEqual(fileManager.getCheckReadabilityCall(0), { fileOrFolderPath: '/the/target/folder' });
         assert.strictEqual((error as Error).message, 'Folder /the/target/folder already exists');
     }
 });
 
 test('buildFolder() writes the source of a source bundle content to the given target folder', async () => {
-    const writeFile = fake.resolves(undefined);
-    const checkReadability = fake.resolves({ isReadable: false });
-    const builder = artifactsBuilderFactory({ writeFile, checkReadability });
+    const { builder, fileManager } = builderWithUnreadableTargetFolder();
     const contents: LinkedBundleResource[] = [makeContent('bar/baz.txt', 'the-content')];
     await builder.buildFolder(bundleWithContents(contents, 'package.json'), '/the/target/folder');
 
-    assert.strictEqual(writeFile.callCount, 2);
-    assert.deepStrictEqual(writeFile.firstCall.args, ['/the/target/folder/package.json', '{}']);
-    assert.deepStrictEqual(writeFile.secondCall.args, ['/the/target/folder/bar/baz.txt', 'the-content']);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 2);
+    assert.deepStrictEqual(fileManager.getWriteFileCall(0), {
+        filePath: '/the/target/folder/package.json',
+        content: '{}'
+    });
+    assert.deepStrictEqual(fileManager.getWriteFileCall(1), {
+        filePath: '/the/target/folder/bar/baz.txt',
+        content: 'the-content'
+    });
 });
 
 test('collectContents() returns the list of file descriptions of the given bundle', () => {
-    const readFile = fake.resolves('bar');
-    const builder = artifactsBuilderFactory({ readFile });
+    const { builder } = artifactsBuilderFactory();
     const contents: LinkedBundleResource[] = [
         makeContent('bar.txt', 'bar'),
         makeContent('baz.txt', 'baz'),
@@ -159,7 +165,7 @@ test('collectContents() returns the list of file descriptions of the given bundl
 });
 
 test('collectContents() appends extra files after the bundle contents and applies the prefix to them', () => {
-    const builder = artifactsBuilderFactory();
+    const { builder } = artifactsBuilderFactory();
     const result = builder.collectContents(bundleWithContents([], 'package.json'), 'package', [
         { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
     ]);
@@ -172,7 +178,7 @@ test('collectContents() appends extra files after the bundle contents and applie
 
 test('buildTarball() forwards extra files to the tarball builder alongside the bundle contents', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
-    const builder = artifactsBuilderFactory({ tarballBuilder });
+    const { builder } = artifactsBuilderFactory({ tarballBuilder });
     await builder.buildTarball(bundleWithContents([makeContent('bar.txt', 'bar')], 'package.json'), [
         { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
     ]);
@@ -187,16 +193,15 @@ test('buildTarball() forwards extra files to the tarball builder alongside the b
 });
 
 test('buildFolder() writes extra files alongside the bundle contents into the target folder', async () => {
-    const writeable = { writeFile: fake.resolves(undefined), checkReadability: fake.resolves({ isReadable: false }) };
-    const builder = artifactsBuilderFactory(writeable);
+    const { builder, fileManager } = builderWithUnreadableTargetFolder();
 
     await builder.buildFolder(bundleWithContents([], 'package.json'), '/the/target/folder', [
         { filePath: 'sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
     ]);
 
-    assert.strictEqual(writeable.writeFile.callCount, 2);
-    assert.deepStrictEqual(writeable.writeFile.secondCall.args, [
-        '/the/target/folder/sbom.cdx.json',
-        '{"bomFormat":"CycloneDX"}'
-    ]);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 2);
+    assert.deepStrictEqual(fileManager.getWriteFileCall(1), {
+        filePath: '/the/target/folder/sbom.cdx.json',
+        content: '{"bomFormat":"CycloneDX"}'
+    });
 });

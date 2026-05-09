@@ -3,6 +3,7 @@ import { test } from 'mocha';
 import { fake, stub, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import { createDependencyGraph } from '../dependency-scanner/dependency-graph.ts';
+import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     createResourceResolver,
     type ResourceResolver,
@@ -58,27 +59,32 @@ function createGraph(params: {
 
 type Overrides = {
     readonly scan?: SinonSpy;
-    readonly getTransferableFileDescriptionFromPath?: SinonSpy;
+    readonly transferableFileDescriptionResponder?: (
+        sourceFilePath: string,
+        targetFilePath: string
+    ) => TransferableFile;
 };
 
 function createResolver(overrides: Overrides = {}): {
     readonly resolver: ResourceResolver;
     readonly scan: SinonSpy;
-    readonly getTransferableFileDescriptionFromPath: SinonSpy;
 } {
     const scan = overrides.scan ?? fake();
-    const getTransferableFileDescriptionFromPath =
-        overrides.getTransferableFileDescriptionFromPath ?? fake(createTransferableFile);
+    const responder = overrides.transferableFileDescriptionResponder ?? createTransferableFile;
+    const fileManager = createFakeFileManager({
+        transferableFileDescriptionResponder: (sourceFilePath, targetFilePath) => {
+            return { value: responder(sourceFilePath, targetFilePath) };
+        }
+    });
 
-    const dependencies = {
-        dependencyScanner: { scan },
-        fileManager: { getTransferableFileDescriptionFromPath }
-    } as unknown as ResourceResolverDependencies;
+    const dependencies: ResourceResolverDependencies = {
+        dependencyScanner: { scan } as unknown as ResourceResolverDependencies['dependencyScanner'],
+        fileManager
+    };
 
     return {
         resolver: createResourceResolver(dependencies),
-        scan,
-        getTransferableFileDescriptionFromPath
+        scan
     };
 }
 
@@ -180,9 +186,9 @@ test('resolve() throws when an entry point resource cannot be resolved from the 
     const scan = fake.resolves(graph);
     const { resolver } = createResolver({
         scan,
-        getTransferableFileDescriptionFromPath: fake(async () => {
+        transferableFileDescriptionResponder: () => {
             return createTransferableFile('/src/not-the-entry.js');
-        })
+        }
     });
 
     try {
