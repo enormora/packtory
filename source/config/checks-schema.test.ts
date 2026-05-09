@@ -208,3 +208,19 @@ test('per-package schema accepts an empty noDevDependencyImports object', () => 
 test('per-package schema rejects any field on noDevDependencyImports', () => {
     assert.strictEqual(safeParse(checksPerPackageSchema, { noDevDependencyImports: { enabled: true } }).success, false);
 });
+
+test('top-level schema accepts uniqueTargetPaths with enabled', () => {
+    assert.strictEqual(safeParse(checksSchema, { uniqueTargetPaths: { enabled: true } }).success, true);
+});
+
+test('top-level schema rejects uniqueTargetPaths without enabled', () => {
+    assert.strictEqual(safeParse(checksSchema, { uniqueTargetPaths: {} }).success, false);
+});
+
+test('per-package schema accepts an empty uniqueTargetPaths object', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { uniqueTargetPaths: {} }).success, true);
+});
+
+test('per-package schema rejects any field on uniqueTargetPaths', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { uniqueTargetPaths: { enabled: true } }).success, false);
+});

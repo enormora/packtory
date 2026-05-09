@@ -192,7 +192,8 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'requiredFiles',
             'maxBundleSize',
             'noUnusedBundleDependencies',
-            'noDevDependencyImports'
+            'noDevDependencyImports',
+            'uniqueTargetPaths'
         ],
         commonShapeKeys: [
             'sourcesFolder',
