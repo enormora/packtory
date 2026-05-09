@@ -94,6 +94,29 @@ test('resolveAndLinkAll succeeds when every owner consents to the duplicated fil
     assert.strictEqual(result.value.length, 2);
 });
 
+test('resolveAndLinkAll reports a declared bundleDependency that is never imported', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const config = {
+        ...baseConfig,
+        checks: { noUnusedBundleDependencies: { enabled: true } },
+        packages: [{ ...baseConfig.packages[0]!, bundleDependencies: ['pkg-b'] }, baseConfig.packages[1]!]
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because pkg-a does not import from pkg-b');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
+        assert.deepStrictEqual(result.error.issues, ['Unused bundle dependency "pkg-b" declared by package "pkg-a"']);
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
 test('resolveAndLinkAll reports a per-package bundle size override that is exceeded', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);

@@ -173,3 +173,22 @@ test('per-package schema accepts a maxBundleSize override', () => {
 test('per-package schema rejects an enabled flag on maxBundleSize', () => {
     assert.strictEqual(safeParse(checksPerPackageSchema, { maxBundleSize: { enabled: true } }).success, false);
 });
+
+test('top-level schema accepts noUnusedBundleDependencies with enabled', () => {
+    assert.strictEqual(safeParse(checksSchema, { noUnusedBundleDependencies: { enabled: true } }).success, true);
+});
+
+test('top-level schema rejects noUnusedBundleDependencies without enabled', () => {
+    assert.strictEqual(safeParse(checksSchema, { noUnusedBundleDependencies: {} }).success, false);
+});
+
+test('per-package schema accepts an empty noUnusedBundleDependencies object', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { noUnusedBundleDependencies: {} }).success, true);
+});
+
+test('per-package schema rejects any field on noUnusedBundleDependencies', () => {
+    assert.strictEqual(
+        safeParse(checksPerPackageSchema, { noUnusedBundleDependencies: { enabled: true } }).success,
+        false
+    );
+});

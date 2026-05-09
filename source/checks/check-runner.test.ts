@@ -7,6 +7,7 @@ test('does not invoke any rule when settings are empty', () => {
     const issues = runChecks({
         settings: {},
         perPackageSettings: new Map(),
+        packageConfigs: {},
         bundles: [checkBundle('a', ['shared.ts']), checkBundle('b', ['shared.ts'])]
     });
 
@@ -17,6 +18,7 @@ test('dispatches an enabled rule with the provided bundles and aggregates its is
     const issues = runChecks({
         settings: { noDuplicatedFiles: { enabled: true } },
         perPackageSettings: new Map(),
+        packageConfigs: {},
         bundles: [checkBundle('a', ['shared.ts']), checkBundle('b', ['shared.ts'])]
     });
 
@@ -31,6 +33,7 @@ test('threads per-package settings through to the rule for cross-package consent
             ['a', consent],
             ['b', consent]
         ]),
+        packageConfigs: {},
         bundles: [checkBundle('a', ['shared.ts']), checkBundle('b', ['shared.ts'])]
     });
 
