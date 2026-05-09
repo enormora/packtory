@@ -143,7 +143,10 @@ The configuration for `packtory` is an object with the following properties:
     - Defines settings that can be shared for all packages.
     - Allowed settings: `sourcesFolder`, `mainPackageJson`, `includeSourceMapFiles`, `additionalFiles`, `additionalPackageJsonAttributes`, `publishSettings`.
 
-3. **`packages`** (Required, Array):
+3. **`checks`** (Optional, Object):
+    - Toggles and configures the cross-package checks that run after every bundle has been linked. Lives at the top level (not inside `commonPackageSettings`) because every check operates over the full set of bundles. See [Checks](#checks).
+
+4. **`packages`** (Required, Array):
     - An array of per-package configurations.
     - Each per-package configuration has the following settings:
 
@@ -183,6 +186,9 @@ The configuration for `packtory` is an object with the following properties:
     - **`bundlePeerDependencies`** (Optional, Array of Strings):
         - Similar to `bundleDependencies` but represented as `peerDependencies` in the generated `package.json`.
 
+    - **`checks`** (Optional, Object):
+        - Per-package contribution to the configured checks. See [Checks](#checks). Each enabled check decides whether per-package overrides apply to it; rules without per-package configuration accept only an empty object for that key.
+
     - **`publishSettings`** (Required somewhere):
         - Controls how the package is published. Must be set in `commonPackageSettings` (as a default for every package), in every package entry, or both. If neither is set, validation rejects the config with `publishSettings must be set in commonPackageSettings or in every package`.
         - A discriminated union on `access`:
@@ -197,6 +203,101 @@ The configuration for `packtory` is an object with the following properties:
 **Note**: Per-package settings override or merge with common settings when both are defined.
 
 This comprehensive configuration allows fine-tuning for individual packages and provides flexibility in defining dependencies and additional files.
+
+## Checks
+
+Checks are post-bundling validations that run after every bundle has been linked. They operate over the full set of bundles, so a single rule can flag issues that span multiple packages (e.g. duplicated files). Configuration is split across two scopes:
+
+- **Top-level `checks`** — a sibling of `commonPackageSettings` and `packages`. Toggles each rule via `enabled` and holds any cross-package or default settings the rule needs. A rule cannot be disabled per package.
+- **Per-package `checks`** — lives on each `PackageConfig`. Carries that package's contribution to (or override of) a rule's settings. Only rules that document per-package fields accept anything beyond `{}` here.
+
+If `checks` is omitted, every rule is off.
+
+```javascript
+checks: {
+    noDuplicatedFiles: { enabled: true },
+    requiredFiles: { enabled: true, files: ['LICENSE'] },
+    maxBundleSize: { enabled: true, bytes: 500_000 },
+    noUnusedBundleDependencies: { enabled: true },
+    noDevDependencyImports: { enabled: true },
+    uniqueTargetPaths: { enabled: true }
+}
+```
+
+### `noDuplicatedFiles`
+
+Reports any source file that ends up in more than one bundle.
+
+- **Top-level:** `enabled: boolean`.
+- **Per-package:** `allowList?: string[]` — files this package consents to share with other packages. A duplicate is allowed iff _every_ owning bundle's allowList contains the file path. A package that does not list a file effectively vetoes any duplicate involving it.
+
+```javascript
+checks: { noDuplicatedFiles: { enabled: true } },
+packages: [
+    {
+        name: 'pkg-a',
+        entryPoints: [{ js: 'a.js' }],
+        checks: { noDuplicatedFiles: { allowList: [path.join(projectFolder, 'LICENSE')] } }
+    },
+    {
+        name: 'pkg-b',
+        entryPoints: [{ js: 'b.js' }],
+        checks: { noDuplicatedFiles: { allowList: [path.join(projectFolder, 'LICENSE')] } }
+    }
+]
+```
+
+### `requiredFiles`
+
+Each bundle must contain every file in the effective list, matched on the bundle's `targetFilePath`.
+
+- **Top-level:** `enabled: boolean`, `files?: string[]` — defaults applied to every package.
+- **Per-package:** `files?: string[]` — extends the global list. The effective list is the deduplicated union of both.
+
+```javascript
+checks: { requiredFiles: { enabled: true, files: ['LICENSE', 'readme.md'] } }
+```
+
+### `maxBundleSize`
+
+Reports any bundle whose resources sum to more than the configured byte limit, measured as UTF-8 byte length.
+
+- **Top-level:** `enabled: boolean`, `bytes?: number` — default threshold for every package.
+- **Per-package:** `bytes?: number` — overrides the global default for that package.
+- A bundle without any applicable threshold (no global default and no per-package value) is skipped.
+
+```javascript
+checks: { maxBundleSize: { enabled: true, bytes: 500_000 } },
+packages: [
+    {
+        name: 'image-resizer-cli',
+        entryPoints: [{ js: 'cli.js' }],
+        checks: { maxBundleSize: { bytes: 2_000_000 } }
+    }
+]
+```
+
+### `noUnusedBundleDependencies`
+
+Reports declared `bundleDependencies` and `bundlePeerDependencies` whose imports were never substituted by the linker — i.e. no file in the bundle imports anything from the named package, so the declaration is dead config.
+
+- **Top-level:** `enabled: boolean`.
+- **Per-package:** `{}` only.
+
+### `noDevDependencyImports`
+
+Reports any external dependency reachable from a package's source that is declared only in `mainPackageJson.devDependencies` and not in `dependencies` or `peerDependencies`. Catches dev-only deps that have leaked into runtime imports — a likely break for downstream consumers.
+
+- **Top-level:** `enabled: boolean`.
+- **Per-package:** `{}` only.
+- The effective `mainPackageJson` is resolved per package (per-package overrides `commonPackageSettings`) before the rule runs.
+
+### `uniqueTargetPaths`
+
+Reports any bundle where two resources resolve to the same `targetFilePath`. Typically arises when an `additionalFiles` entry's `targetFilePath` collides with the relative path of an already-resolved local file; without this rule the artifact writer silently overwrites one with the other.
+
+- **Top-level:** `enabled: boolean`.
+- **Per-package:** `{}` only.
 
 ## Example Use-Cases
 
