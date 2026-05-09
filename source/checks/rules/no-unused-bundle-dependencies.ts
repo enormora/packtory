@@ -1,17 +1,17 @@
-import { z } from 'zod/mini';
+import type { z } from 'zod/mini';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
-import type { CheckRuleDefinition, RulePackageConfig, RuleRunParams } from '../rule.ts';
+import {
+    emptyPerPackageSchema,
+    enabledOnlyGlobalSchema,
+    type CheckRuleDefinition,
+    type RulePackageConfig,
+    type RuleRunParams
+} from '../rule.ts';
 
 const ruleName = 'noUnusedBundleDependencies';
 
-const globalSchema = z.strictObject({
-    enabled: z.boolean()
-});
-
-const perPackageSchema = z.strictObject({});
-
-type GlobalConfig = z.infer<typeof globalSchema>;
-type PerPackageConfig = z.infer<typeof perPackageSchema>;
+type GlobalConfig = z.infer<typeof enabledOnlyGlobalSchema>;
+type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 type DependencyKind = 'bundle' | 'bundle peer';
@@ -49,7 +49,7 @@ function run(params: RunParams): readonly string[] {
 
 export const noUnusedBundleDependenciesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
     name: ruleName,
-    globalSchema,
-    perPackageSchema,
+    globalSchema: enabledOnlyGlobalSchema,
+    perPackageSchema: emptyPerPackageSchema,
     run
 };

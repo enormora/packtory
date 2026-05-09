@@ -81,16 +81,26 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,
         resolvedPackages: readonly ResolvedPackage[]
     ): Result<readonly ResolvedPackage[], CheckError> {
-        const { packtoryConfig: config, packageConfigs } = validated;
+        const { packtoryConfig: config } = validated;
         const perPackageSettings = new Map(
             config.packages.map((packageConfig) => {
                 return [packageConfig.name, packageConfig.checks];
             })
         );
+        const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
+        const effectivePackageConfigs = mapToObj(config.packages, (packageConfig) => {
+            return [
+                packageConfig.name,
+                {
+                    ...packageConfig,
+                    mainPackageJson: packageConfig.mainPackageJson ?? commonMainPackageJson
+                }
+            ];
+        });
         const checkIssues = runChecks({
             settings: config.checks ?? {},
             perPackageSettings,
-            packageConfigs,
+            packageConfigs: effectivePackageConfigs,
             bundles: resolvedPackages.map((resolvedPackage) => {
                 return resolvedPackage.linkedBundle;
             })

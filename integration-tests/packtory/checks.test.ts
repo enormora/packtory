@@ -94,6 +94,42 @@ test('resolveAndLinkAll succeeds when every owner consents to the duplicated fil
     assert.strictEqual(result.value.length, 2);
 });
 
+test('resolveAndLinkAll reports an external dependency that is only declared in devDependencies', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/with-peer-dependencies');
+    const config: PacktoryConfigWithoutRegistry = {
+        commonPackageSettings: {
+            sourcesFolder: path.join(fixturePath, 'src'),
+            mainPackageJson: {
+                type: 'module',
+                devDependencies: { 'example-module': '1.2.3' }
+            },
+            publishSettings: { access: 'public' }
+        },
+        checks: { noDevDependencyImports: { enabled: true } },
+        packages: [
+            {
+                name: 'leaky',
+                entryPoints: [{ js: path.join(fixturePath, 'src/entry.js') }]
+            }
+        ]
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because example-module is dev-only');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
+        assert.deepStrictEqual(result.error.issues, [
+            'Package "leaky" imports "example-module" which is only declared in devDependencies of the main package.json'
+        ]);
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
 test('resolveAndLinkAll reports a declared bundleDependency that is never imported', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);

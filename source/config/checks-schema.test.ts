@@ -192,3 +192,19 @@ test('per-package schema rejects any field on noUnusedBundleDependencies', () =>
         false
     );
 });
+
+test('top-level schema accepts noDevDependencyImports with enabled', () => {
+    assert.strictEqual(safeParse(checksSchema, { noDevDependencyImports: { enabled: true } }).success, true);
+});
+
+test('top-level schema rejects noDevDependencyImports without enabled', () => {
+    assert.strictEqual(safeParse(checksSchema, { noDevDependencyImports: {} }).success, false);
+});
+
+test('per-package schema accepts an empty noDevDependencyImports object', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { noDevDependencyImports: {} }).success, true);
+});
+
+test('per-package schema rejects any field on noDevDependencyImports', () => {
+    assert.strictEqual(safeParse(checksPerPackageSchema, { noDevDependencyImports: { enabled: true } }).success, false);
+});
