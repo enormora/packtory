@@ -486,7 +486,6 @@ test('buildAndPublishAll() returns a partial failure when a linked bundle is mis
             entryPoints: [{ js: '/src/package-a/index.js' }] as const,
             includeSourceMapFiles: false,
             additionalFiles: [],
-            moduleResolution: 'module' as const,
             mainPackageJson: { type: 'module' as const },
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: [],

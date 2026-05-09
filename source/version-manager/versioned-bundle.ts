@@ -22,7 +22,7 @@ export type VersionedBundle = Pick<LinkedBundle, 'contents' | 'name'> & {
     readonly additionalAttributes: AdditionalPackageJsonAttributes;
     readonly mainFile: TransferableFileDescription;
     readonly typesMainFile?: TransferableFileDescription | undefined;
-    readonly packageType: PackageJson['type'];
+    readonly packageType: 'module';
 };
 
 export type VersionedBundleWithManifest = VersionedBundle & {
@@ -43,7 +43,7 @@ export type BuildVersionedBundleOptions = {
 function getVersionFromDependencies(
     moduleName: string,
     mainPackageJson: MainPackageJson,
-    kind: 'dependencies' | 'devDependencies' | 'peerDependencies'
+    kind: 'dependencies' | 'peerDependencies'
 ): string {
     const dependencies = { ...mainPackageJson[kind] };
     return String(dependencies[moduleName]);

@@ -16,7 +16,6 @@ test('bundles and substitutes multiple packages correctly', async () => {
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: true,
         additionalFiles: [],
-        moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
@@ -35,7 +34,6 @@ test('bundles and substitutes multiple packages correctly', async () => {
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
         additionalFiles: [],
-        moduleResolution: 'module',
         allowMutableSpecifiers: []
     });
     const thirdBundle = await packageProcessor.build({
@@ -51,7 +49,6 @@ test('bundles and substitutes multiple packages correctly', async () => {
         bundlePeerDependencies: [secondBundle],
         additionalPackageJsonAttributes: {},
         additionalFiles: [],
-        moduleResolution: 'module',
         allowMutableSpecifiers: []
     });
 

@@ -76,7 +76,7 @@ function buildLatestVersionFetchJson(): SinonSpy {
     return fake.resolves({
         name: '',
         'dist-tags': { latest: '1' },
-        versions: { 1: { dist: { shasum: '', tarball: '' } } }
+        versions: { 1: { dist: { tarball: '' } } }
     });
 }
 
@@ -360,7 +360,7 @@ test('metadata auto retries with publish auth on a 401 challenge', async () => {
         return {
             name: '',
             'dist-tags': { latest: '1' },
-            versions: { 1: { dist: { shasum: 'abc', tarball: 'https://registry.example.test/pkg.tgz' } } }
+            versions: { 1: { dist: { tarball: 'https://registry.example.test/pkg.tgz' } } }
         };
     });
     const registryClient = registryClientFactory({ npmFetchJson });
@@ -376,7 +376,6 @@ test('metadata auto retries with publish auth on a 401 challenge', async () => {
         result,
         Maybe.just({
             version: '1',
-            shasum: 'abc',
             tarballUrl: 'https://registry.example.test/pkg.tgz'
         })
     );
@@ -414,7 +413,7 @@ test('metadata auto retries with publish auth on a 403 challenge', async () => {
         return {
             name: '',
             'dist-tags': { latest: '1' },
-            versions: { 1: { dist: { shasum: 'abc', tarball: 'https://registry.example.test/pkg.tgz' } } }
+            versions: { 1: { dist: { tarball: 'https://registry.example.test/pkg.tgz' } } }
         };
     });
     const registryClient = registryClientFactory({ npmFetchJson });
@@ -430,7 +429,6 @@ test('metadata auto retries with publish auth on a 403 challenge', async () => {
         result,
         Maybe.just({
             version: '1',
-            shasum: 'abc',
             tarballUrl: 'https://registry.example.test/pkg.tgz'
         })
     );
@@ -600,7 +598,7 @@ test('fetchTarball() also retries metadata auto with publish auth on a 401 chall
     npmFetch.json = fake();
     const registryClient = registryClientFactory({ npmFetch });
 
-    const result = await registryClient.fetchTarball('https://registry.example.test/pkg.tgz', 'abc', {
+    const result = await registryClient.fetchTarball('https://registry.example.test/pkg.tgz', {
         auth: {
             publish: { type: 'basic', username: 'reader', password: 'reader-secret' },
             metadata: 'auto'
@@ -1210,7 +1208,7 @@ test('fetchLatestVersion() returns nothing when the registry response has no lat
         npmFetchJson: fake.resolves({
             name: 'the-name',
             'dist-tags': {},
-            versions: { '1.0.0': { dist: { shasum: 'abc', tarball: 'https://registry.example.test/pkg.tgz' } } }
+            versions: { '1.0.0': { dist: { tarball: 'https://registry.example.test/pkg.tgz' } } }
         })
     });
 
@@ -1234,7 +1232,7 @@ test('fetchLatestVersion() throws when the latest tag points to a missing versio
         await registryClient.fetchLatestVersion('the-name', {
             auth: { type: 'bearer-token', token: 'the-token' }
         });
-    }, /^Error: Version "1.0.0" for package "the-name" is missing a shasum$/u);
+    }, /^Error: Version "1.0.0" for package "the-name" has no entry in the registry response$/u);
 });
 
 for (const [testName, response] of [
@@ -1244,27 +1242,11 @@ for (const [testName, response] of [
     ['versions is not an object', { name: 'the-name', 'dist-tags': {}, versions: 'invalid' }],
     ['version dist is missing', { name: 'the-name', 'dist-tags': { latest: '1.0.0' }, versions: { '1.0.0': {} } }],
     [
-        'version shasum is not a string',
-        {
-            name: 'the-name',
-            'dist-tags': { latest: '1.0.0' },
-            versions: { '1.0.0': { dist: { shasum: 123, tarball: 'https://registry.example.test/pkg.tgz' } } }
-        }
-    ],
-    [
         'version tarball is not a string',
         {
             name: 'the-name',
             'dist-tags': { latest: '1.0.0' },
-            versions: { '1.0.0': { dist: { shasum: 'abc', tarball: false } } }
-        }
-    ],
-    [
-        'version dist fields are not strings',
-        {
-            name: 'the-name',
-            'dist-tags': { latest: '1.0.0' },
-            versions: { '1.0.0': { dist: { shasum: 123, tarball: false } } }
+            versions: { '1.0.0': { dist: { tarball: false } } }
         }
     ]
 ] as const) {

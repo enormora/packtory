@@ -18,7 +18,6 @@ const clearEntireLine = '[2K';
 const cursorToColumnZero = '\r';
 
 type SlotSnapshot = {
-    readonly generation: number;
     readonly state: SlotState;
     readonly label: string;
     readonly message: string;
@@ -43,9 +42,7 @@ export type SpinnerWorkerDependencies<Handle = unknown> = {
 };
 
 function readSlotSnapshot(accessors: SpinnerSharedAccessors, slotIndex: number): SlotSnapshot {
-    const generation = accessors.readSlotGeneration(slotIndex);
-    const slot = accessors.readSlot(slotIndex);
-    return { generation, state: slot.state, label: slot.label, message: slot.message };
+    return accessors.readSlot(slotIndex);
 }
 
 function selectGlyph(state: SlotState, frameIndex: number): string {

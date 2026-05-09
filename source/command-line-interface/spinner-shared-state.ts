@@ -49,8 +49,6 @@ export type SpinnerSharedLayout = {
     readonly slotCount: number;
     readonly slotByteLength: number;
     readonly headerByteLength: number;
-    readonly maxLabelByteLength: number;
-    readonly maxMessageByteLength: number;
 };
 
 export function createSpinnerSharedLayout(slotCount: number): SpinnerSharedLayout {
@@ -58,9 +56,7 @@ export function createSpinnerSharedLayout(slotCount: number): SpinnerSharedLayou
         bufferByteLength: headerByteLength + slotCount * slotByteLength,
         slotCount,
         slotByteLength,
-        headerByteLength,
-        maxLabelByteLength: labelByteLength,
-        maxMessageByteLength: messageByteLength
+        headerByteLength
     };
 }
 
@@ -73,9 +69,7 @@ export type SpinnerSharedAccessors = {
     readonly getIntervalMs: () => number;
     readonly requestShutdown: () => void;
     readonly isShutdownRequested: () => boolean;
-    readonly readSlotGeneration: (slotIndex: number) => number;
     readonly bumpSlotGeneration: (slotIndex: number) => void;
-    readonly setSlotEmpty: (slotIndex: number) => void;
     readonly writeSlot: (slotIndex: number, state: SlotState, label: string, message: string) => void;
     readonly readSlot: (slotIndex: number) => {
         readonly state: SlotState;
@@ -89,7 +83,8 @@ function stateToByte(state: SlotState): number {
 }
 
 function byteToState(byte: number): SlotState {
-    return byteToStateMap[byte] ?? 'empty';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- writers always go through stateToByteMap so the byte is one of the known state values
+    return byteToStateMap[byte] as SlotState;
 }
 
 type SlotStringSlice = {
@@ -153,6 +148,17 @@ function readStringFromSlot(views: Views, slotIndex: number, slice: SlotStringSl
     return textDecoder.decode(views.slotBytes(slotIndex).subarray(slice.contentOffset, slice.contentOffset + length));
 }
 
+function readSlotContent(
+    views: Views,
+    slotIndex: number
+): { readonly state: SlotState; readonly label: string; readonly message: string } {
+    return {
+        state: byteToState(views.slotData(slotIndex).getUint8(slotStateOffset)),
+        label: readStringFromSlot(views, slotIndex, labelSlice),
+        message: readStringFromSlot(views, slotIndex, messageSlice)
+    };
+}
+
 export function createSpinnerSharedAccessors(
     buffer: SharedArrayBuffer,
     layout: SpinnerSharedLayout
@@ -161,6 +167,10 @@ export function createSpinnerSharedAccessors(
 
     function writeStateByte(slotIndex: number, stateByte: number): void {
         views.slotData(slotIndex).setUint8(slotStateOffset, stateByte);
+    }
+
+    function readSlotGeneration(slotIndex: number): number {
+        return Atomics.load(views.slotInt32(slotIndex), slotGenerationIndex);
     }
 
     return {
@@ -184,16 +194,8 @@ export function createSpinnerSharedAccessors(
         isShutdownRequested() {
             return Atomics.load(views.headerInt32, headerControlIndex) !== controlIdleValue;
         },
-        readSlotGeneration(slotIndex) {
-            return Atomics.load(views.slotInt32(slotIndex), slotGenerationIndex);
-        },
         bumpSlotGeneration(slotIndex) {
             Atomics.add(views.slotInt32(slotIndex), slotGenerationIndex, 1);
-        },
-        setSlotEmpty(slotIndex) {
-            writeStateByte(slotIndex, slotStateEmpty);
-            writeStringIntoSlot(views, slotIndex, labelSlice, '');
-            writeStringIntoSlot(views, slotIndex, messageSlice, '');
         },
         writeSlot(slotIndex, state, label, message) {
             writeStateByte(slotIndex, stateToByte(state));
@@ -201,11 +203,18 @@ export function createSpinnerSharedAccessors(
             writeStringIntoSlot(views, slotIndex, messageSlice, message);
         },
         readSlot(slotIndex) {
-            return {
-                state: byteToState(views.slotData(slotIndex).getUint8(slotStateOffset)),
-                label: readStringFromSlot(views, slotIndex, labelSlice),
-                message: readStringFromSlot(views, slotIndex, messageSlice)
-            };
+            // Seqlock retry: writers atomically bump the slot generation after
+            // updating the (non-atomic) label/message bytes; if the generation
+            // moves between the two reads we observed a torn write and retry.
+            let generationBefore = readSlotGeneration(slotIndex);
+            let slot = readSlotContent(views, slotIndex);
+            let generationAfter = readSlotGeneration(slotIndex);
+            while (generationAfter !== generationBefore) {
+                generationBefore = generationAfter;
+                slot = readSlotContent(views, slotIndex);
+                generationAfter = readSlotGeneration(slotIndex);
+            }
+            return slot;
         }
     };
 }

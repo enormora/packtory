@@ -3,7 +3,9 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import { createSbomFileBuilder, type SbomSibling } from './sbom-file.ts';
+import { createSbomFileBuilder, type SbomFileBuilder } from './sbom-file.ts';
+
+type SbomSibling = Parameters<SbomFileBuilder['generate']>[1][number];
 
 const enabledSbom: PublishSettings = { access: 'public', sbom: { enabled: true } };
 const disabledSbom: PublishSettings = { access: 'public', sbom: { enabled: false } };

@@ -7,20 +7,14 @@ import { createDependencyScanner, type DependencyScanner, type DependencyScanner
 
 type ProjectOverrides = {
     readonly getReferencedSourceFilePaths?: SinonSpy;
-    readonly getSourceFile?: SinonSpy;
     readonly getProject?: SinonSpy;
 };
 
 function createFakeAnalyzeProject(overrides: ProjectOverrides = {}): Readonly<SinonSpy> {
-    const {
-        getReferencedSourceFilePaths = fake.returns([]),
-        getSourceFile = fake.returns({}),
-        getProject = fake.returns({})
-    } = overrides;
+    const { getReferencedSourceFilePaths = fake.returns([]), getProject = fake.returns({}) } = overrides;
 
     return fake.returns({
         getReferencedSourceFilePaths,
-        getSourceFile,
         getProject
     });
 }
@@ -44,51 +38,20 @@ test('analyzes the given entryPoint file in the given folder as a typescript pro
     const analyzeProject = createFakeAnalyzeProject();
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await dependencyScanner.scan('/foo/bar.js', '/foo', { moduleResolution: 'module' });
+    await dependencyScanner.scan('/foo/bar.js', '/foo', {});
 
     assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: false }
-    ]);
-});
-
-test('passes the failOnCompileErrors option to the project analyzer', async () => {
-    const analyzeProject = createFakeAnalyzeProject();
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    await dependencyScanner.scan('/foo/bar.js', '/foo', { moduleResolution: 'module', failOnCompileErrors: true });
-
-    assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: true, moduleResolution: 'module', resolveDeclarationFiles: false }
-    ]);
+    assert.deepStrictEqual(analyzeProject.firstCall.args, ['/foo', { resolveDeclarationFiles: false }]);
 });
 
 test('passes the resolveDeclarationFiles option to the project analyzer', async () => {
     const analyzeProject = createFakeAnalyzeProject();
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await dependencyScanner.scan('/foo/bar.js', '/foo', { moduleResolution: 'module', resolveDeclarationFiles: true });
+    await dependencyScanner.scan('/foo/bar.js', '/foo', { resolveDeclarationFiles: true });
 
     assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: true }
-    ]);
-});
-
-test('defaults the moduleResolution option to "module" when not provided', async () => {
-    const analyzeProject = createFakeAnalyzeProject();
-    const dependencyScanner = dependencyScannerFactory({ analyzeProject });
-
-    await dependencyScanner.scan('/foo/bar.js', '/foo');
-
-    assert.deepStrictEqual(analyzeProject.firstCall.args, [
-        '/foo',
-        { failOnCompileErrors: false, moduleResolution: 'module', resolveDeclarationFiles: false }
-    ]);
+    assert.deepStrictEqual(analyzeProject.firstCall.args, ['/foo', { resolveDeclarationFiles: true }]);
 });
 
 test('scans the dependencies of the given entryPoint file', async () => {
@@ -96,7 +59,7 @@ test('scans the dependencies of the given entryPoint file', async () => {
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await dependencyScanner.scan('/foo/bar.js', '/foo', { moduleResolution: 'module' });
+    await dependencyScanner.scan('/foo/bar.js', '/foo', {});
 
     assert.strictEqual(getReferencedSourceFilePaths.callCount, 1);
     assert.deepStrictEqual(getReferencedSourceFilePaths.firstCall.args, ['/foo/bar.js']);

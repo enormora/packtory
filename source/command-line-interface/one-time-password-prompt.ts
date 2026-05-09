@@ -12,7 +12,7 @@ export type OneTimePasswordPromptDependencies = {
     readonly createInterface: () => OneTimePasswordReadline;
 };
 
-export type OneTimePasswordPrompt = () => Promise<string | undefined>;
+export type OneTimePasswordPrompt = () => Promise<string>;
 
 const oneTimePasswordPromptTimeoutMs = 90_000;
 

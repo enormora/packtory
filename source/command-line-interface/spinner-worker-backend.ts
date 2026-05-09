@@ -16,7 +16,7 @@ export type WorkerSpawnRequest = {
     readonly stdoutFileDescriptor: number;
 };
 
-export type WorkerSpawner = (request: WorkerSpawnRequest) => void;
+type WorkerSpawner = (request: WorkerSpawnRequest) => void;
 
 export type SpinnerRuntimeOptions = {
     readonly slotCount?: number;

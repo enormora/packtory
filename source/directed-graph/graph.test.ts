@@ -1,6 +1,8 @@
 import assert from 'node:assert';
 import { test, type Func } from 'mocha';
-import { createDirectedGraph, type GraphEdge, type DirectedGraph } from './graph.ts';
+import { createDirectedGraph, type DirectedGraph } from './graph.ts';
+
+type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
 
 test('hasNode() returns false when there is no node for the given id', () => {
     const graph = createDirectedGraph<string, string>();

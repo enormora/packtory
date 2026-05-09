@@ -77,10 +77,9 @@ test('createWorkerSpinnerBackend.add stores a running slot in the supplied runti
     backend.add(2, 'pkg', 'starting');
 
     assert.deepStrictEqual(accessors.readSlot(2), { state: 'running', label: 'pkg', message: 'starting' });
-    assert.strictEqual(accessors.readSlotGeneration(2), 1);
 });
 
-test('createWorkerSpinnerBackend.update writes a new running slot value and bumps the generation counter', () => {
+test('createWorkerSpinnerBackend.update writes a new running slot value', () => {
     const { runtime, accessors } = buildRuntime();
     const backend = createWorkerSpinnerBackend({ runtime });
 
@@ -88,7 +87,6 @@ test('createWorkerSpinnerBackend.update writes a new running slot value and bump
     backend.update(0, 'pkg', 'two');
 
     assert.deepStrictEqual(accessors.readSlot(0), { state: 'running', label: 'pkg', message: 'two' });
-    assert.strictEqual(accessors.readSlotGeneration(0), 2);
 });
 
 test('createWorkerSpinnerBackend.finish records the finished status', () => {

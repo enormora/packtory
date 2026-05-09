@@ -1,5 +1,4 @@
 import path from 'node:path';
-import ssri from 'ssri';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
@@ -10,9 +9,8 @@ export type ArtifactsBuilderDependencies = {
     readonly tarballBuilder: TarballBuilder;
 };
 
-export type TarballArtifact = {
+type TarballArtifact = {
     readonly tarData: Buffer;
-    readonly shasum: string;
 };
 
 export type ArtifactsBuilder = {
@@ -77,10 +75,7 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
             const contents = collectContents(bundle, 'package', extraFiles);
             const tarData = await tarballBuilder.build(contents);
 
-            return {
-                shasum: ssri.fromData(tarData, { algorithms: ['sha1'] }).hexDigest(),
-                tarData
-            };
+            return { tarData };
         },
 
         async buildFolder(bundle, targetFolder, extraFiles) {

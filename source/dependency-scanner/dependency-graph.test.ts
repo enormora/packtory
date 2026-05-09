@@ -7,9 +7,10 @@ import {
     type DependencyFiles,
     type DependencyGraph,
     type DependencyGraphNodeData,
-    type DependencyNode,
     mergeDependencyFiles
 } from './dependency-graph.ts';
+
+type DependencyNode = Parameters<Parameters<DependencyGraph['walk']>[1]>[0];
 
 type Overrides = {
     readonly topLevelDependencies?: string[];

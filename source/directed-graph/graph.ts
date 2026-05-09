@@ -8,7 +8,7 @@ type GraphNode<TId extends GraphNodeId, TData> = {
     readonly incomingEdges: number;
 };
 
-export type GraphEdge<TId extends GraphNodeId> = {
+type GraphEdge<TId extends GraphNodeId> = {
     readonly from: TId;
     readonly to: TId;
 };

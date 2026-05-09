@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'tstyche';
 import type { Result } from 'true-myth';
-import type { MetadataAuthMode, PublishAuthStrategy, RegistryAuthConfig } from '../../config/registry-settings.ts';
+import type { MetadataAuthMode, PublishAuthStrategy } from '../../config/registry-settings.ts';
 import type {
     buildAndPublishAll,
     progressBroadcastConsumer,
@@ -149,8 +149,7 @@ describe('PacktoryConfig — exposed structure', () => {
 
     test('registrySettings exposes the documented auth fields', () => {
         expect<PacktoryConfig['registrySettings']['registryUrl']>().type.toBe<string | undefined>();
-        expect<PacktoryConfig['registrySettings']['auth']>().type.toBe<RegistryAuthConfig>();
-        type ExpandedAuth = Extract<RegistryAuthConfig, { publish: unknown }>;
+        type ExpandedAuth = Extract<PacktoryConfig['registrySettings']['auth'], { publish: unknown }>;
         expect<ExpandedAuth['publish']>().type.toBe<PublishAuthStrategy>();
         expect<ExpandedAuth['metadata']>().type.toBe<MetadataAuthMode | undefined>();
     });

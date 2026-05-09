@@ -14,7 +14,6 @@ test('correctly detects cyclic dependencies and avoids an infinite loop', async 
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
-        moduleResolution: 'module',
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},

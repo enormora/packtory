@@ -25,20 +25,14 @@ function createFakeSourceFile(overrides: FakeSourceFileOverrides = {}): FakeSour
 type TSMorphProjectOverrides = {
     readonly addSourceFilesAtPaths?: SinonSpy;
     readonly getSourceFile?: SinonSpy;
-    readonly getPreEmitDiagnostics?: SinonSpy;
 };
 
 function createFakeTSMorphProject(overrides: TSMorphProjectOverrides = {}): Readonly<SinonStub> {
-    const {
-        addSourceFilesAtPaths = fake(),
-        getSourceFile = fake.returns(createFakeSourceFile()),
-        getPreEmitDiagnostics = fake.returns([])
-    } = overrides;
+    const { addSourceFilesAtPaths = fake(), getSourceFile = fake.returns(createFakeSourceFile()) } = overrides;
 
     return stub().returns({
         addSourceFilesAtPaths,
-        getSourceFile,
-        getPreEmitDiagnostics
+        getSourceFile
     });
 }
 
@@ -61,26 +55,6 @@ function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): Typescript
     } as unknown as TypescriptProjectAnalyzerDependencies;
 
     return createTypescriptProjectAnalyzer(fakeDependencies);
-}
-
-function createAnalyzedProjectForGetSourceFileTest(): {
-    readonly project: ReturnType<TypescriptProjectAnalyzer['analyzeProject']>;
-    readonly sourceFile: FakeSourceFile;
-    readonly getSourceFile: SinonSpy;
-} {
-    const sourceFile = createFakeSourceFile({ filePath: '/foo/source-file.ts' });
-    const getSourceFile = fake((filePath: string) => {
-        return filePath === '/foo/source-file.ts' ? sourceFile : undefined;
-    });
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-    const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
-
-    return { project, sourceFile, getSourceFile };
 }
 
 function expectedProjectConstruction(args: {
@@ -107,7 +81,6 @@ function expectedProjectConstruction(args: {
 }
 
 function runAnalyzeProjectExpectingArgs(testArgs: {
-    readonly moduleResolution: 'module';
     readonly resolveDeclarationFiles: boolean;
     readonly fileSystemAdapters: Record<string, unknown>;
     readonly expectedModule: number;
@@ -123,9 +96,7 @@ function runAnalyzeProjectExpectingArgs(testArgs: {
     });
 
     analyzer.analyzeProject('/foo', {
-        moduleResolution: testArgs.moduleResolution,
-        resolveDeclarationFiles: testArgs.resolveDeclarationFiles,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: testArgs.resolveDeclarationFiles
     });
 
     assert.strictEqual(TSMorphProject.callCount, 1);
@@ -144,7 +115,6 @@ function runAnalyzeProjectExpectingArgs(testArgs: {
 
 test('creates a project for all js files in the given folder with module resolution', () => {
     runAnalyzeProjectExpectingArgs({
-        moduleResolution: 'module',
         resolveDeclarationFiles: false,
         fileSystemAdapters: { fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files' },
         expectedModule: 100,
@@ -163,9 +133,7 @@ test('creates a project for all d.ts files in the given folder', () => {
     });
 
     analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: true,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: true
     });
 
     assert.strictEqual(TSMorphProject.callCount, 1);
@@ -178,64 +146,26 @@ test('creates a project for all d.ts files in the given folder', () => {
     assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.d.ts']]);
 });
 
-test('creates a project and doesn’t throw when there are pre-emit diagnostics and failOnCompileErrors is false', () => {
-    const getPreEmitDiagnostics = fake.returns([{}]);
-    const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
-    });
-
-    assert.strictEqual(getPreEmitDiagnostics.callCount, 0);
-});
-
-test('creates a project and doesn’t throw when there are no pre-emit diagnostics and failOnCompileErrors is true', () => {
-    const getPreEmitDiagnostics = fake.returns([]);
-    const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: true
-    });
-
-    assert.strictEqual(getPreEmitDiagnostics.callCount, 1);
-});
-
-test('throws when there are pre-emit diagnostics and failOnCompileErrors is true', () => {
-    const getPreEmitDiagnostics = fake.returns([{}]);
-    const TSMorphProject = createFakeTSMorphProject({ getPreEmitDiagnostics });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    try {
-        analyzer.analyzeProject('/foo', {
-            moduleResolution: 'module',
-            resolveDeclarationFiles: false,
-            failOnCompileErrors: true
-        });
-        assert.fail('Expected analyzeProject() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Failed to analyze source files');
-    }
-});
-
 test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', () => {
     const getSourceFile = fake.returns(undefined);
     const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
     const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: false
     });
     const result = project.getReferencedSourceFilePaths('/foo/bar.js');
 
     assert.deepStrictEqual(result, []);
+});
+
+test('getProject() exposes the underlying ts-morph project instance', () => {
+    const TSMorphProject = createFakeTSMorphProject();
+    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+
+    const project = analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false });
+
+    assert.strictEqual(project.getProject(), TSMorphProject.firstCall.returnValue);
 });
 
 test('getReferencedSourceFilePaths() returns the referenced source file paths', () => {
@@ -248,26 +178,9 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
 
     const project = analyzer.analyzeProject('/foo', {
-        moduleResolution: 'module',
-        resolveDeclarationFiles: false,
-        failOnCompileErrors: false
+        resolveDeclarationFiles: false
     });
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 
     assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
-});
-
-test('getSourceFile() returns the requested source file and throws when it does not exist', () => {
-    const { project, sourceFile, getSourceFile } = createAnalyzedProjectForGetSourceFileTest();
-
-    assert.strictEqual(project.getSourceFile('/foo/source-file.ts'), sourceFile);
-
-    try {
-        project.getSourceFile('/foo/missing.ts');
-        assert.fail('Expected getSourceFile() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Failed to find source file for "/foo/missing.ts"');
-    }
-
-    assert.strictEqual(project.getProject().getSourceFile, getSourceFile);
 });

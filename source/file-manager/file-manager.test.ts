@@ -110,17 +110,6 @@ test('copyFile() reads the content of the first file and writes that to the seco
     assert.deepStrictEqual(writeFile.firstCall.args, ['/foo/2.txt', 'the-content', { encoding: 'utf8' }]);
 });
 
-test('getFileMode() returns the file mode of the given file path', async () => {
-    const stat = fake.resolves({ mode: 42 });
-    const fileManager = fileManagerFactory({ stat });
-
-    const result = await fileManager.getFileMode('/foo/bar.txt');
-
-    assert.strictEqual(stat.callCount, 1);
-    assert.deepStrictEqual(stat.firstCall.args, ['/foo/bar.txt']);
-    assert.strictEqual(result, 42);
-});
-
 test('getTransferableFileDescriptionFromPath() returns the file description of the given file paths', async () => {
     const stat = fake.resolves({ mode: 42 });
     const readFile = fake.resolves('the-content');

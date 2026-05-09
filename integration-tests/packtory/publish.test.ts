@@ -264,8 +264,8 @@ async function fetchPublishedPackage(packageName: string, registryDetails: Regis
         assert.fail(`Expected package "${packageName}" to be published`);
     }
 
-    const { version, tarballUrl, shasum } = versionDetails.value;
-    const tarballData = await registryClient.fetchTarball(tarballUrl, shasum, registrySettings);
+    const { version, tarballUrl } = versionDetails.value;
+    const tarballData = await registryClient.fetchTarball(tarballUrl, registrySettings);
     const files = await extractPackageTarball(tarballData);
     const manifestFile = files.find((file) => {
         return file.filePath === 'package/package.json';

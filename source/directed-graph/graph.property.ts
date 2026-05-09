@@ -1,7 +1,9 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
 import { test } from 'mocha';
-import { createDirectedGraph, type DirectedGraph, type GraphEdge } from './graph.ts';
+import { createDirectedGraph, type DirectedGraph } from './graph.ts';
+
+type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
 
 type GraphShape = {
     readonly nodeIds: readonly string[];

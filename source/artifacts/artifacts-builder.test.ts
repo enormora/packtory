@@ -26,7 +26,6 @@ type Overrides = {
     readonly checkReadability?: SinonSpy;
     readonly copyFile?: SinonSpy;
     readonly writeFile?: SinonSpy;
-    readonly getFileMode?: SinonSpy;
     readonly tarballBuilder?: { readonly build?: SinonSpy };
 };
 
@@ -51,9 +50,6 @@ function artifactsBuilderFactory(overrides: Overrides = {}): ArtifactsBuilder {
             checkReadability: createSpy(overrides.checkReadability, fake),
             copyFile: createSpy(overrides.copyFile, fake),
             writeFile: createSpy(overrides.writeFile, fake),
-            getFileMode: createSpy(overrides.getFileMode, () => {
-                return fake.resolves(-1);
-            }),
             getTransferableFileDescriptionFromPath: fake()
         },
         tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder)
@@ -76,14 +72,13 @@ function makeContent(targetFilePath: string, content: string, isSubstituted = fa
     };
 }
 
-test('buildTarball() returns the tarData and its shasum', async () => {
+test('buildTarball() returns the tarData', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([42])) };
     const builder = artifactsBuilderFactory({ tarballBuilder });
     const result = await builder.buildTarball(bundleWithContents([]));
 
     assert.deepStrictEqual(result, {
-        tarData: Buffer.from([42]),
-        shasum: 'df58248c414f342c81e056b40bee12d17a08bf61'
+        tarData: Buffer.from([42])
     });
 });
 

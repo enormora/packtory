@@ -15,7 +15,6 @@ function createFileManager(overrides: FileManagerOverrides = {}): FileManager {
         readFile: overrides.readFile ?? fake.resolves('{}'),
         writeFile: fake(),
         copyFile: fake(),
-        getFileMode: fake.resolves(0),
         getTransferableFileDescriptionFromPath: fake()
     };
 }

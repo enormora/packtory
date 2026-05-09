@@ -17,14 +17,14 @@ export type BundleEmitterDependencies = {
     readonly ciRepositoryUrl: string | undefined;
 };
 
-export type PublishOptions = {
+type PublishOptions = {
     readonly bundle: VersionedBundleWithManifest;
     readonly registrySettings: RegistrySettings;
     readonly publishSettings: PublishSettings;
     readonly extraFiles?: readonly FileDescription[];
 };
 
-export type AlreadyPublishedCheckOptions = {
+type AlreadyPublishedCheckOptions = {
     readonly bundle: VersionedBundleWithManifest;
     readonly registrySettings: RegistrySettings;
     readonly extraFiles?: readonly FileDescription[];
@@ -71,11 +71,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
             }
 
             const artifactContents = artifactsBuilder.collectContents(bundle, 'package', extraFiles);
-            const tarball = await registryClient.fetchTarball(
-                latestVersion.value.tarballUrl,
-                latestVersion.value.shasum,
-                registrySettings
-            );
+            const tarball = await registryClient.fetchTarball(latestVersion.value.tarballUrl, registrySettings);
             const latestVersionArtifactContents = await extractPackageTarball(tarball);
             const result = compareFileDescriptions(artifactContents, latestVersionArtifactContents);
             return { alreadyPublishedAsLatest: result.status === 'equal' };

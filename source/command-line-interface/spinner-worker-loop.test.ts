@@ -289,7 +289,7 @@ test('startSpinnerWorker keeps refreshing the rendered block once a slot was dra
     harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
 
     harness.tick();
-    harness.accessors.setSlotEmpty(0);
+    harness.accessors.writeSlot(0, 'empty', '', '');
     harness.tick();
 
     assert.strictEqual(harness.writes().length, 2);

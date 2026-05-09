@@ -50,7 +50,7 @@ export type RegistryClient = {
         config: RegistrySettings,
         publishSettings: PublishSettings
     ) => Promise<void>;
-    fetchTarball: (tarballUrl: string, shasum: string, config: RegistrySettings) => Promise<Buffer>;
+    fetchTarball: (tarballUrl: string, config: RegistrySettings) => Promise<Buffer>;
 };
 
 type NpmFetchOptions = Parameters<typeof _npmFetch>[1];
@@ -62,7 +62,6 @@ type AuthResolution = {
 
 const packageVersionDetailsSchema = z.object({
     dist: z.object({
-        shasum: z.string(),
         tarball: z.string()
     })
 });
@@ -91,9 +90,7 @@ type AbbreviatedPackageResponse = {
     readonly 'dist-tags': {
         readonly latest?: string | undefined;
     };
-    readonly versions: Readonly<
-        Record<string, { readonly dist: { readonly shasum: string; readonly tarball: string } }>
-    >;
+    readonly versions: Readonly<Record<string, { readonly dist: { readonly tarball: string } }>>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -105,9 +102,8 @@ function parseAbbreviatedPackageResponse(response: unknown): AbbreviatedPackageR
     return result.success ? result.data : undefined;
 }
 
-export type PackageVersionDetails = {
+type PackageVersionDetails = {
     readonly version: string;
-    readonly shasum: string;
     readonly tarballUrl: string;
 };
 
@@ -369,7 +365,7 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
     }
 
     return {
-        async fetchTarball(tarballUrl, _shasum, registrySettings) {
+        async fetchTarball(tarballUrl, registrySettings) {
             const auth = resolveMetadataAuthOptions(registrySettings);
             const response = await retryAutoMetadataAuth(registrySettings, auth, async (options) => {
                 return npmFetch(tarballUrl, options);
@@ -403,12 +399,13 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
             if (latestVersion !== undefined) {
                 const versionData = packageResponse.value.versions[latestVersion];
                 if (versionData === undefined) {
-                    throw new Error(`Version "${latestVersion}" for package "${packageName}" is missing a shasum`);
+                    throw new Error(
+                        `Version "${latestVersion}" for package "${packageName}" has no entry in the registry response`
+                    );
                 }
 
                 return Maybe.just({
                     version: latestVersion,
-                    shasum: versionData.dist.shasum,
                     tarballUrl: versionData.dist.tarball
                 });
             }

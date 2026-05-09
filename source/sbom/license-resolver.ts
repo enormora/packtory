@@ -2,11 +2,11 @@ import path from 'node:path';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import { extractLicenseFromManifest } from './extract-license.ts';
 
-export type LicenseResolverDependencies = {
+type LicenseResolverDependencies = {
     readonly fileManager: FileManager;
 };
 
-export type LicenseResolveOptions = {
+type LicenseResolveOptions = {
     readonly projectFolder: string;
     readonly dependencyName: string;
 };

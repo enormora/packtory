@@ -58,11 +58,7 @@ export function readCiEnvironment(env: Readonly<Record<string, string | undefine
     };
 }
 
-export function getCiRepositoryUrl(env: CiEnvironment | undefined): string | undefined {
-    if (env === undefined) {
-        return undefined;
-    }
-
+export function getCiRepositoryUrl(env: CiEnvironment): string | undefined {
     if (isNonEmptyString(env.githubServerUrl) && isNonEmptyString(env.githubRepository)) {
         return `${env.githubServerUrl}/${env.githubRepository}`;
     }

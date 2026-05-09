@@ -146,7 +146,6 @@ function createResolveOptions(): ResolveAndLinkOptions {
         entryPoints: [{ js: '/src/index.js' }] as const,
         includeSourceMapFiles: true,
         additionalFiles: [{ sourceFilePath: '/src/readme.md', targetFilePath: 'readme.md' }],
-        moduleResolution: 'module' as const,
         mainPackageJson: { type: 'module' as const, dependencies: { dep: '^1.0.0' } },
         additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
         allowMutableSpecifiers: [],

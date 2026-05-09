@@ -15,7 +15,7 @@ export type DependencyGraphNodeData = {
     readonly externalDependencies: readonly string[];
 };
 
-export type DependencyNode = DependencyGraphNodeData & {
+type DependencyNode = DependencyGraphNodeData & {
     readonly filePath: string;
     readonly localFiles: readonly string[];
 };

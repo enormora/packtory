@@ -6,14 +6,14 @@ import type { PublishSettings } from './publish-settings.ts';
 import type { RegistrySettings } from './registry-settings.ts';
 import type { VersioningSettings } from './versioning-settings.ts';
 
-export type ScopedAllowListEntry = {
+type ScopedAllowListEntry = {
     readonly filePath: string;
     readonly packages: readonly string[];
 };
 
 export type AllowListEntry = ScopedAllowListEntry | string;
 
-export type NoDuplicatedFilesSettings = {
+type NoDuplicatedFilesSettings = {
     readonly enabled: boolean;
     readonly allowList?: readonly AllowListEntry[] | undefined;
 };
@@ -47,7 +47,7 @@ export function getBundledDependencies(packageConfig: PackageConfig): readonly s
     });
 }
 
-export type CommonPackageSettings = {
+type CommonPackageSettings = {
     readonly sourcesFolder?: string | undefined;
     readonly mainPackageJson?: MainPackageJson | undefined;
     readonly additionalFiles?: readonly AdditionalFileDescription[] | undefined;

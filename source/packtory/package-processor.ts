@@ -142,7 +142,6 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
                 entryPoints,
                 includeSourceMapFiles,
                 additionalFiles,
-                moduleResolution,
                 name,
                 sourcesFolder
             } = options;
@@ -152,7 +151,6 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
                 entryPoints,
                 includeSourceMapFiles,
                 additionalFiles,
-                moduleResolution,
                 mainPackageJson: options.mainPackageJson,
                 additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
                 allowMutableSpecifiers: options.allowMutableSpecifiers,
