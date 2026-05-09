@@ -16,13 +16,12 @@ export async function buildConfig() {
         throw new Error('Missing NPM_TOKEN environment variable');
     }
 
+    const sharedLicensePath = path.join(projectFolder, 'LICENSE');
+
     return {
         registrySettings: { token: npmToken },
         checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [path.join(projectFolder, 'LICENSE')]
-            }
+            noDuplicatedFiles: { enabled: true, allowList: [sharedLicensePath] }
         },
         commonPackageSettings: {
             sourcesFolder,
@@ -30,7 +29,7 @@ export async function buildConfig() {
             includeSourceMapFiles: true,
             additionalFiles: [
                 {
-                    sourceFilePath: path.join(projectFolder, 'LICENSE'),
+                    sourceFilePath: sharedLicensePath,
                     targetFilePath: 'LICENSE'
                 }
             ],

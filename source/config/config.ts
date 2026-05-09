@@ -1,3 +1,5 @@
+import type { z } from 'zod/mini';
+import type { checksPerPackageSchema, checksSchema } from './checks-schema.ts';
 import type { AdditionalFileDescription } from './additional-files.ts';
 import type { DependencyPolicy } from './dependency-policy.ts';
 import type { EntryPoint } from './entry-point.ts';
@@ -6,21 +8,8 @@ import type { PublishSettings } from './publish-settings.ts';
 import type { RegistrySettings } from './registry-settings.ts';
 import type { VersioningSettings } from './versioning-settings.ts';
 
-type ScopedAllowListEntry = {
-    readonly filePath: string;
-    readonly packages: readonly string[];
-};
-
-export type AllowListEntry = ScopedAllowListEntry | string;
-
-type NoDuplicatedFilesSettings = {
-    readonly enabled: boolean;
-    readonly allowList?: readonly AllowListEntry[] | undefined;
-};
-
-export type ChecksSettings = {
-    readonly noDuplicatedFiles?: NoDuplicatedFilesSettings | undefined;
-};
+export type ChecksSettings = z.infer<typeof checksSchema>;
+export type PackageChecksSettings = z.infer<typeof checksPerPackageSchema>;
 
 export type PackageConfig = {
     readonly name: string;
@@ -35,6 +24,7 @@ export type PackageConfig = {
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
     readonly publishSettings?: PublishSettings | undefined;
     readonly dependencyPolicy?: DependencyPolicy | undefined;
+    readonly checks?: PackageChecksSettings | undefined;
 };
 
 export type PackageConfigsByName = Readonly<Record<string, PackageConfig>>;

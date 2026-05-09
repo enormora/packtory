@@ -5,7 +5,6 @@ import type { ZodMiniType } from 'zod/mini';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
 import {
     getBundledDependencies,
-    type ChecksSettings,
     type PacktoryConfig,
     type PackageConfig,
     type PackageConfigsByName,
@@ -70,28 +69,6 @@ function validateDependenciesExist(packageConfigs: PackageConfigsByName): readon
 function packageListToRecord(packages: readonly PackageConfig[]): PackageConfigsByName {
     return indexBy(packages, (packageConfig) => {
         return packageConfig.name;
-    });
-}
-
-function validateNoDuplicatedFilesAllowList(
-    packageConfigs: PackageConfigsByName,
-    checks: ChecksSettings | undefined
-): readonly string[] {
-    const allowList = checks?.noDuplicatedFiles?.allowList;
-    if (allowList === undefined) {
-        return [];
-    }
-    return allowList.flatMap((entry) => {
-        if (typeof entry === 'string') {
-            return [];
-        }
-        return entry.packages
-            .filter((name) => {
-                return !Object.hasOwn(packageConfigs, name);
-            })
-            .map((name) => {
-                return `Allow list entry for "${entry.filePath}" references unknown package "${name}"`;
-            });
     });
 }
 
@@ -174,8 +151,7 @@ function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWith
     const preGraphIssues = [
         ...validatePublishSettingsArePlaced(packtoryConfig),
         ...validateAllowScriptsConsistency(packtoryConfig),
-        ...validateDependenciesExist(packageConfigs),
-        ...validateNoDuplicatedFilesAllowList(packageConfigs, packtoryConfig.checks)
+        ...validateDependenciesExist(packageConfigs)
     ];
     if (preGraphIssues.length > 0) {
         return Result.err([...validateDuplicatePackages(packtoryConfig.packages), ...preGraphIssues]);

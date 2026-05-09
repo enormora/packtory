@@ -70,126 +70,227 @@ test('resolveAndLinkAll succeeds when checks are disabled', async () => {
     assert.strictEqual(result.value.length, 2);
 });
 
-test('resolveAndLinkAll succeeds when duplicated files are allow-listed', async () => {
+test('resolveAndLinkAll succeeds when the global allowList covers the duplicated file', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);
+    const sharedFile = `${fixturePath}/src/shared/util.js`;
     const config = {
         ...baseConfig,
-        checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [`${fixturePath}/src/shared/util.js`]
-            }
-        }
+        checks: { noDuplicatedFiles: { enabled: true, allowList: [sharedFile] } }
     };
 
     const result = await resolveAndLinkAll(config);
 
     if (!result.isOk) {
-        assert.fail('Duplicated files that are allow-listed should not fail checks');
+        assert.fail('Globally allow-listed shared file should not fail checks');
     }
 
     assert.strictEqual(result.value.length, 2);
 });
 
-test('resolveAndLinkAll succeeds when a scoped allow-list entry covers all owners of the duplicated file', async () => {
+test('resolveAndLinkAll succeeds when every owner consents to the duplicated file', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);
+    const sharedFile = `${fixturePath}/src/shared/util.js`;
     const config = {
         ...baseConfig,
-        checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [
-                    {
-                        filePath: `${fixturePath}/src/shared/util.js`,
-                        packages: ['pkg-a', 'pkg-b']
-                    }
-                ]
-            }
-        }
+        checks: { noDuplicatedFiles: { enabled: true } },
+        packages: baseConfig.packages.map((packageConfig) => {
+            return {
+                ...packageConfig,
+                checks: { noDuplicatedFiles: { allowList: [sharedFile] } }
+            };
+        })
     };
 
     const result = await resolveAndLinkAll(config);
 
     if (!result.isOk) {
-        assert.fail('Scoped allow-list entry covering all owners should not fail checks');
+        assert.fail('Owners that all consent to the shared file should not fail checks');
     }
 
     assert.strictEqual(result.value.length, 2);
 });
 
-test('resolveAndLinkAll reports the duplicate when an owner is outside the scoped allow-list entry', async () => {
+test('resolveAndLinkAll reports a colliding targetFilePath inside a bundle', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);
+    const collidingSource = path.join(fixturePath, 'package.json');
     const config = {
         ...baseConfig,
+        checks: { uniqueTargetPaths: { enabled: true } },
         packages: [
-            ...baseConfig.packages,
             {
-                name: 'pkg-c',
-                entryPoints: [{ js: path.join(fixturePath, 'src/pkg-c/index.js') }]
-            }
-        ],
-        checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [
-                    {
-                        filePath: `${fixturePath}/src/shared/util.js`,
-                        packages: ['pkg-a', 'pkg-b']
-                    }
-                ]
-            }
-        }
+                ...baseConfig.packages[0]!,
+                additionalFiles: [{ sourceFilePath: collidingSource, targetFilePath: 'pkg-a/index.js' }]
+            },
+            baseConfig.packages[1]!
+        ]
     };
 
     const result = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
-        assert.fail('Expected resolveAndLinkAll to fail because pkg-c is outside the scoped allow-list entry');
+        assert.fail('Expected resolveAndLinkAll to fail because of a colliding target path');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
+        assert.strictEqual(result.error.issues.length, 1);
+        assert.match(result.error.issues[0]!, /^Package "pkg-a" maps multiple sources to "pkg-a\/index.js":/u);
+    } else if (result.error.type === 'partial') {
+        const failureMessages = result.error.error.failures.map((failure) => failure.message).join('; ');
+        assert.fail(`Resolve/link failed unexpectedly: ${failureMessages}`);
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
+test('resolveAndLinkAll reports an external dependency that is only declared in devDependencies', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/with-peer-dependencies');
+    const config: PacktoryConfigWithoutRegistry = {
+        commonPackageSettings: {
+            sourcesFolder: path.join(fixturePath, 'src'),
+            mainPackageJson: {
+                type: 'module',
+                devDependencies: { 'example-module': '1.2.3' }
+            },
+            publishSettings: { access: 'public' }
+        },
+        checks: { noDevDependencyImports: { enabled: true } },
+        packages: [
+            {
+                name: 'leaky',
+                entryPoints: [{ js: path.join(fixturePath, 'src/entry.js') }]
+            }
+        ]
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because example-module is dev-only');
         return;
     }
 
     if (result.error.type === 'checks') {
         assert.deepStrictEqual(result.error.issues, [
-            `File "${fixturePath}/src/shared/util.js" is included in multiple packages: pkg-a, pkg-b, pkg-c`
+            'Package "leaky" imports "example-module" which is only declared in devDependencies of the main package.json'
         ]);
     } else {
         assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
     }
 });
 
-test('resolveAndLinkAll fails validation when a scoped allow-list entry references an unknown package', async () => {
-    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+test('resolveAndLinkAll reports a declared bundleDependency that is never imported', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/independent-packages');
     const baseConfig = await createBaseConfig(fixturePath);
     const config = {
         ...baseConfig,
-        checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [
-                    {
-                        filePath: `${fixturePath}/src/shared/util.js`,
-                        packages: ['pkg-a', 'ghost']
-                    }
-                ]
-            }
-        }
+        checks: { noUnusedBundleDependencies: { enabled: true } },
+        packages: [baseConfig.packages[1]!, { ...baseConfig.packages[0]!, bundleDependencies: ['pkg-b'] }]
     };
 
     const result = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
-        assert.fail('Expected validation to fail because of the unknown package reference');
+        assert.fail('Expected resolveAndLinkAll to fail because pkg-a does not import from pkg-b');
         return;
     }
 
-    if (result.error.type === 'config') {
+    if (result.error.type === 'checks') {
+        assert.deepStrictEqual(result.error.issues, ['Unused bundle dependency "pkg-b" declared by package "pkg-a"']);
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
+test('resolveAndLinkAll reports a per-package bundle size override that is exceeded', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const config = {
+        ...baseConfig,
+        checks: { maxBundleSize: { enabled: true, bytes: 10_000 } },
+        packages: [
+            {
+                ...baseConfig.packages[0]!,
+                checks: { maxBundleSize: { bytes: 1 } }
+            },
+            baseConfig.packages[1]!
+        ]
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because pkg-a exceeds its size override');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
+        assert.strictEqual(result.error.issues.length, 1);
+        assert.match(
+            result.error.issues[0]!,
+            /^Package "pkg-a" exceeds the maximum bundle size: \d+ bytes \(limit: 1 bytes\)$/u
+        );
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
+test('resolveAndLinkAll reports a missing required file for every bundle that lacks it', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const config = {
+        ...baseConfig,
+        checks: { requiredFiles: { enabled: true, files: ['LICENSE'] } }
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because of missing required files');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
         assert.deepStrictEqual(result.error.issues, [
-            `Allow list entry for "${fixturePath}/src/shared/util.js" references unknown package "ghost"`
+            'Package "pkg-a" is missing required file "LICENSE"',
+            'Package "pkg-b" is missing required file "LICENSE"'
         ]);
     } else {
-        assert.fail(`Expected a config failure, but received "${result.error.type}"`);
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+});
+
+test('resolveAndLinkAll reports the duplicate when one owner does not consent', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const sharedFile = `${fixturePath}/src/shared/util.js`;
+    const config = {
+        ...baseConfig,
+        checks: { noDuplicatedFiles: { enabled: true } },
+        packages: [
+            {
+                ...baseConfig.packages[0]!,
+                checks: { noDuplicatedFiles: { allowList: [sharedFile] } }
+            },
+            baseConfig.packages[1]!
+        ]
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because pkg-b did not consent');
+        return;
+    }
+
+    if (result.error.type === 'checks') {
+        assert.deepStrictEqual(result.error.issues, [
+            `File "${sharedFile}" is included in multiple packages: pkg-a, pkg-b`
+        ]);
+    } else {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
     }
 });

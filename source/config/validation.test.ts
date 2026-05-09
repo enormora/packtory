@@ -33,18 +33,6 @@ function fooPackage(name = 'foo'): ConfigInput {
     return minimalPackageConfigFactory.build({ name });
 }
 
-function configWithGhostAllowList(allowListPackages: readonly string[]): ConfigInput {
-    return {
-        checks: {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'src/shared/util.ts', packages: allowListPackages }]
-            }
-        },
-        packages: [fooPackage('a'), fooPackage('b')]
-    };
-}
-
 test('returns the issues when the given config doesn’t match the schema', () => {
     const result = validateConfig({ not: 'valid' });
     assert.deepStrictEqual(
@@ -192,27 +180,6 @@ test('doesn’t report cyclic dependency issues when there is also a missing dep
     assert.deepStrictEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
 });
 
-test('returns an issue when a scoped allow-list entry references an unknown package', () => {
-    const result = validateConfig(withRegistry(configWithGhostAllowList(['a', 'ghost'])));
-
-    assert.deepStrictEqual(
-        result,
-        Result.err(['Allow list entry for "src/shared/util.ts" references unknown package "ghost"'])
-    );
-});
-
-test('returns one issue per unknown package in a scoped allow-list entry', () => {
-    const result = validateConfig(withRegistry(configWithGhostAllowList(['ghost', 'phantom'])));
-
-    assert.deepStrictEqual(
-        result,
-        Result.err([
-            'Allow list entry for "src/shared/util.ts" references unknown package "ghost"',
-            'Allow list entry for "src/shared/util.ts" references unknown package "phantom"'
-        ])
-    );
-});
-
 test('accepts a config where checks is defined but noDuplicatedFiles is omitted', () => {
     const result = validateConfig(
         withRegistry({
@@ -235,34 +202,16 @@ test('accepts a config where checks.noDuplicatedFiles is defined without an allo
     assert.strictEqual(result.isOk, true);
 });
 
-test('does not report unknown-package issues for plain string allow-list entries', () => {
+test('accepts a config where packages declare per-package noDuplicatedFiles allowList', () => {
     const result = validateConfig(
         withRegistry({
-            checks: {
-                noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: ['LICENSE']
-                }
-            },
-            packages: [{ name: 'a', entryPoints: [{ js: 'foo' }] }]
-        })
-    );
-
-    assert.strictEqual(result.isOk, true);
-});
-
-test('accepts a scoped allow-list entry when all referenced packages exist', () => {
-    const result = validateConfig(
-        withRegistry({
-            checks: {
-                noDuplicatedFiles: {
-                    enabled: true,
-                    allowList: [{ filePath: 'src/shared/util.ts', packages: ['a', 'b'] }]
-                }
-            },
+            checks: { noDuplicatedFiles: { enabled: true } },
             packages: [
-                { name: 'a', entryPoints: [{ js: 'foo' }] },
-                { name: 'b', entryPoints: [{ js: 'foo' }] }
+                {
+                    name: 'a',
+                    entryPoints: [{ js: 'foo' }],
+                    checks: { noDuplicatedFiles: { allowList: ['LICENSE'] } }
+                }
             ]
         })
     );
@@ -274,22 +223,6 @@ test('validateConfigWithoutRegistry() returns schema issues when the config is i
     const result = validateConfigWithoutRegistry({ not: 'valid' });
 
     assert.deepStrictEqual(result, Result.err(['invalid value doesn’t match expected union']));
-});
-
-test('validateConfigWithoutRegistry() returns an issue for unknown packages in a scoped allow-list entry', () => {
-    const result = validateConfigWithoutRegistry({
-        commonPackageSettings: {
-            sourcesFolder: 'foo',
-            mainPackageJson: { type: 'module' },
-            publishSettings: { access: 'public' }
-        },
-        ...configWithGhostAllowList(['a', 'ghost'])
-    });
-
-    assert.deepStrictEqual(
-        result,
-        Result.err(['Allow list entry for "src/shared/util.ts" references unknown package "ghost"'])
-    );
 });
 
 test('validateConfigWithoutRegistry() returns duplicate and missing dependency issues', () => {

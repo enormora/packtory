@@ -1,168 +1,155 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
-import { isNoDuplicatedFilesRuleEnabled, runNoDuplicatedFilesRule } from './no-duplicated-files.ts';
+import type { PackageChecksSettings } from '../../config/config.ts';
+import { checkBundle } from '../../test-libraries/check-bundle-fixture.ts';
+import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 
-function createBundle(name: string, sourceFilePath: string): LinkedBundle {
-    return {
-        name,
-        contents: [
-            {
-                fileDescription: {
-                    sourceFilePath,
-                    targetFilePath: sourceFilePath,
-                    content: '',
-                    isExecutable: false
-                },
-                directDependencies: new Set<string>(),
-                isSubstituted: false,
-                isExplicitlyIncluded: false
-            }
-        ],
-        entryPoints: [
-            {
-                js: {
-                    sourceFilePath,
-                    targetFilePath: sourceFilePath,
-                    content: '',
-                    isExecutable: false
-                }
-            }
-        ] as const,
-        linkedBundleDependencies: new Map(),
-        externalDependencies: new Map()
-    };
+function bundle(name: string, sourceFilePath: string): LinkedBundle {
+    return checkBundle(name, [sourceFilePath]);
 }
 
-test('exports the enabled-check and runner functions', () => {
-    assert.strictEqual(typeof isNoDuplicatedFilesRuleEnabled, 'function');
-    assert.strictEqual(typeof runNoDuplicatedFilesRule, 'function');
+function consentMap(
+    consenters: readonly (readonly [string, readonly string[]])[]
+): ReadonlyMap<string, PackageChecksSettings> {
+    return new Map(
+        consenters.map(([name, allowList]) => {
+            return [name, { noDuplicatedFiles: { allowList } }];
+        })
+    );
+}
+
+function runWithConsent(
+    bundles: readonly LinkedBundle[],
+    consenters: readonly (readonly [string, readonly string[]])[]
+): readonly string[] {
+    return noDuplicatedFilesRule.run({
+        bundles,
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: consentMap(consenters)
+    });
+}
+
+test('rule definition exposes name, schemas and a run function', () => {
+    assert.strictEqual(noDuplicatedFilesRule.name, 'noDuplicatedFiles');
+    assert.strictEqual(typeof noDuplicatedFilesRule.run, 'function');
+    assert.notStrictEqual(noDuplicatedFilesRule.globalSchema, undefined);
+    assert.notStrictEqual(noDuplicatedFilesRule.perPackageSchema, undefined);
 });
 
-test('run() returns all duplicate-file issues when no allow list is configured', () => {
-    const result = runNoDuplicatedFilesRule(
-        { bundles: [createBundle('b', 'shared.ts'), createBundle('a', 'shared.ts')] },
-        { noDuplicatedFiles: { enabled: true } }
-    );
+test('returns no issues when settings are missing entirely', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: undefined,
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('returns no issues when the rule is disabled at the top level', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: false } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('reports every duplicate when no per-package consent is configured', () => {
+    const result = runWithConsent([bundle('b', 'shared.ts'), bundle('a', 'shared.ts')], []);
 
     assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
 });
 
-test('isEnabled() returns false when the rule config is missing', () => {
-    const result = isNoDuplicatedFilesRuleEnabled(undefined);
-
-    assert.strictEqual(result, false);
-});
-
-test('isEnabled() returns true when the rule is explicitly enabled', () => {
-    const result = isNoDuplicatedFilesRuleEnabled({ noDuplicatedFiles: { enabled: true } });
-
-    assert.strictEqual(result, true);
-});
-
-test('isEnabled() returns false when the rule is explicitly disabled', () => {
-    const result = isNoDuplicatedFilesRuleEnabled({ noDuplicatedFiles: { enabled: false } });
-
-    assert.strictEqual(result, false);
-});
-
-test('run() still reports duplicates when the allow list is empty because the rule is disabled', () => {
-    const result = runNoDuplicatedFilesRule(
-        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
-        { noDuplicatedFiles: { enabled: false } }
-    );
-
-    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
-});
-
-test('run() ignores duplicate-file issues that are allow-listed only when the rule is enabled', () => {
-    const result = runNoDuplicatedFilesRule(
-        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
-        { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } }
+test('ignores duplicates when every owning package consents via its allowList', () => {
+    const result = runWithConsent(
+        [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        [
+            ['a', ['shared.ts']],
+            ['b', ['shared.ts']]
+        ]
     );
 
     assert.deepStrictEqual(result, []);
 });
 
-test('run() still reports duplicates when settings are missing entirely', () => {
-    const result = runNoDuplicatedFilesRule(
-        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
-        undefined
-    );
+test('reports a duplicate when only one owner consents', () => {
+    const result = runWithConsent([bundle('a', 'shared.ts'), bundle('b', 'shared.ts')], [['a', ['shared.ts']]]);
 
     assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
 });
 
-test('run() ignores the allow list when the rule is disabled', () => {
-    const result = runNoDuplicatedFilesRule(
-        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
-        { noDuplicatedFiles: { enabled: false, allowList: ['shared.ts'] } }
-    );
-
-    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
-});
-
-test('run() suppresses a duplicate when a scoped allow-list entry covers all owners', () => {
-    const result = runNoDuplicatedFilesRule(
-        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
-        {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'shared.ts', packages: ['a', 'b'] }]
-            }
-        }
-    );
-
-    assert.deepStrictEqual(result, []);
-});
-
-test('run() reports a duplicate when a scoped allow-list entry omits one of the actual owners', () => {
-    const result = runNoDuplicatedFilesRule(
-        {
-            bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts'), createBundle('c', 'shared.ts')]
-        },
-        {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'shared.ts', packages: ['a', 'b'] }]
-            }
-        }
+test('reports a duplicate when a third owner did not consent', () => {
+    const result = runWithConsent(
+        [bundle('a', 'shared.ts'), bundle('b', 'shared.ts'), bundle('c', 'shared.ts')],
+        [
+            ['a', ['shared.ts']],
+            ['b', ['shared.ts']]
+        ]
     );
 
     assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b, c']);
 });
 
-test('run() does not match a scoped entry when the file path differs', () => {
-    const result = runNoDuplicatedFilesRule(
-        { bundles: [createBundle('a', 'shared.ts'), createBundle('b', 'shared.ts')] },
-        {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: [{ filePath: 'other.ts', packages: ['a', 'b'] }]
-            }
-        }
+test('does not match consent for a different file path', () => {
+    const result = runWithConsent(
+        [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        [
+            ['a', ['other.ts']],
+            ['b', ['other.ts']]
+        ]
     );
 
     assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
 });
 
-test('run() supports a mix of plain string and scoped allow-list entries', () => {
-    const result = runNoDuplicatedFilesRule(
-        {
-            bundles: [
-                createBundle('a', 'shared.ts'),
-                createBundle('b', 'shared.ts'),
-                createBundle('c', 'license'),
-                createBundle('d', 'license')
-            ]
-        },
-        {
-            noDuplicatedFiles: {
-                enabled: true,
-                allowList: ['license', { filePath: 'shared.ts', packages: ['a', 'b'] }]
-            }
-        }
-    );
+test('returns no issues when there are no duplicates', () => {
+    const result = runWithConsent([bundle('a', 'a.ts'), bundle('b', 'b.ts')], []);
 
     assert.deepStrictEqual(result, []);
+});
+
+function runWithMixedConsent(secondOwnerSettings: PackageChecksSettings): readonly string[] {
+    return noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map([
+            ['a', { noDuplicatedFiles: { allowList: ['shared.ts'] } }],
+            ['b', secondOwnerSettings]
+        ])
+    });
+}
+
+test('reports a duplicate when an owner has per-package settings without a noDuplicatedFiles key', () => {
+    const result = runWithMixedConsent({});
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});
+
+test('reports a duplicate when an owner has noDuplicatedFiles without an allowList', () => {
+    const result = runWithMixedConsent({ noDuplicatedFiles: {} });
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});
+
+test('ignores duplicates when the global allowList contains the file path even without per-package consent', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('reports a duplicate that is not present in the global allowList', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['other.ts'] } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
 });

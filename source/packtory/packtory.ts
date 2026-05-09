@@ -78,11 +78,29 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     }
 
     function buildChecksResult(
-        config: PacktoryConfigWithoutRegistry,
+        validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,
         resolvedPackages: readonly ResolvedPackage[]
     ): Result<readonly ResolvedPackage[], CheckError> {
+        const { packtoryConfig: config } = validated;
+        const perPackageSettings = new Map(
+            config.packages.map((packageConfig) => {
+                return [packageConfig.name, packageConfig.checks];
+            })
+        );
+        const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
+        const effectivePackageConfigs = mapToObj(config.packages, (packageConfig) => {
+            return [
+                packageConfig.name,
+                {
+                    ...packageConfig,
+                    mainPackageJson: packageConfig.mainPackageJson ?? commonMainPackageJson
+                }
+            ];
+        });
         const checkIssues = runChecks({
             settings: config.checks ?? {},
+            perPackageSettings,
+            packageConfigs: effectivePackageConfigs,
             bundles: resolvedPackages.map((resolvedPackage) => {
                 return resolvedPackage.linkedBundle;
             })
@@ -127,7 +145,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             return Result.err({ type: 'partial', error: runResult.error });
         }
 
-        return buildChecksResult(config.packtoryConfig, runResult.value);
+        return buildChecksResult(config, runResult.value);
     }
 
     async function determineVersionAndPublishAll(

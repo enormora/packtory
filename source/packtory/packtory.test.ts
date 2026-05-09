@@ -267,12 +267,16 @@ test('resolveAndLinkAll() returns partial scheduler failures', async () => {
     );
 });
 
-test('resolveAndLinkAll() returns check failures after the linked bundles were built', async () => {
-    const { packtory } = createPacktoryUnderTest({
+function createPacktoryThatSharesSourceFile(): ReturnType<typeof createPacktoryUnderTest> {
+    return createPacktoryUnderTest({
         resolveAndLink: fake(async (options: { name: string }) => {
             return createLinkedBundle(options.name, '/shared.js');
         })
     });
+}
+
+test('resolveAndLinkAll() returns check failures after the linked bundles were built', async () => {
+    const { packtory } = createPacktoryThatSharesSourceFile();
 
     const result = await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
@@ -280,6 +284,131 @@ test('resolveAndLinkAll() returns check failures after the linked bundles were b
             packages: twoPackageEntries
         })
     );
+
+    assert.deepStrictEqual(
+        result,
+        Result.err({
+            type: 'checks',
+            issues: ['File "/shared.js" is included in multiple packages: package-a, package-b']
+        })
+    );
+});
+
+test('resolveAndLinkAll() threads per-package noDuplicatedFiles consent through the runner', async () => {
+    const { packtory } = createPacktoryThatSharesSourceFile();
+
+    const result = await packtory.resolveAndLinkAll(
+        createConfigWithoutRegistry({
+            checks: { noDuplicatedFiles: { enabled: true } },
+            packages: twoPackageEntries.map((entry) => {
+                return {
+                    ...entry,
+                    checks: { noDuplicatedFiles: { allowList: ['/shared.js'] } }
+                };
+            })
+        })
+    );
+
+    assert.strictEqual(result.isOk, true);
+});
+
+test('resolveAndLinkAll() exposes packageConfig.bundleDependencies to noUnusedBundleDependencies', async () => {
+    const { packtory } = createPacktoryUnderTest({
+        resolveAndLink: fake(async (options: { name: string }) => {
+            return createLinkedBundle(options.name);
+        })
+    });
+
+    const result = await packtory.resolveAndLinkAll(
+        createConfigWithoutRegistry({
+            checks: { noUnusedBundleDependencies: { enabled: true } },
+            packages: [
+                { name: 'package-b', entryPoints: [{ js: 'package-b/index.js' }] },
+                {
+                    name: 'package-a',
+                    entryPoints: [{ js: 'package-a/index.js' }],
+                    bundleDependencies: ['package-b']
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(
+        result,
+        Result.err({
+            type: 'checks',
+            issues: ['Unused bundle dependency "package-b" declared by package "package-a"']
+        })
+    );
+});
+
+test('resolveAndLinkAll() prefers per-package mainPackageJson over common when running checks', async () => {
+    const { packtory } = createPacktoryUnderTest({
+        resolveAndLink: fake(async (options: { name: string }) => {
+            return linkedBundle({
+                name: options.name,
+                contents: [
+                    {
+                        ...bundleResource(`/${options.name}/index.js`, { targetFilePath: 'index.js' }),
+                        isSubstituted: false
+                    }
+                ],
+                entryPoints: [
+                    {
+                        js: {
+                            sourceFilePath: `/${options.name}/index.js`,
+                            targetFilePath: 'index.js',
+                            content: '',
+                            isExecutable: false
+                        }
+                    }
+                ],
+                externalDependencies: new Map([['runtime-dep', { name: 'runtime-dep', referencedFrom: ['/x'] }]])
+            });
+        })
+    });
+
+    const result = await packtory.resolveAndLinkAll({
+        commonPackageSettings: {
+            sourcesFolder: '/src',
+            mainPackageJson: { type: 'module', devDependencies: { 'runtime-dep': '1.0.0' } },
+            publishSettings: { access: 'public' }
+        },
+        checks: { noDevDependencyImports: { enabled: true } },
+        packages: [
+            {
+                name: 'package-a',
+                mainPackageJson: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } },
+                entryPoints: [{ js: 'package-a/index.js' }]
+            }
+        ]
+    });
+
+    assert.strictEqual(result.isOk, true);
+});
+
+test('resolveAndLinkAll() runs checks when commonPackageSettings is omitted', async () => {
+    const { packtory } = createPacktoryThatSharesSourceFile();
+
+    const result = await packtory.resolveAndLinkAll({
+        checks: { noDuplicatedFiles: { enabled: true } },
+        packages: [
+            {
+                name: 'package-a',
+                sourcesFolder: '/src',
+                mainPackageJson: { type: 'module' },
+                publishSettings: { access: 'public' },
+                entryPoints: [{ js: 'package-a/index.js' }]
+            },
+            {
+                name: 'package-b',
+                sourcesFolder: '/src',
+                mainPackageJson: { type: 'module' },
+                publishSettings: { access: 'public' },
+                entryPoints: [{ js: 'package-b/index.js' }]
+            }
+        ]
+    });
 
     assert.deepStrictEqual(
         result,
