@@ -13,9 +13,16 @@ test('schema accepts valid noDuplicatedFiles settings at the top level', () => {
     assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: { enabled: true } }).success, true);
 });
 
-test('top-level schema rejects an allowList field on noDuplicatedFiles', () => {
+test('top-level schema accepts a global allowList on noDuplicatedFiles', () => {
     assert.strictEqual(
         safeParse(checksSchema, { noDuplicatedFiles: { enabled: true, allowList: ['src/index.ts'] } }).success,
+        true
+    );
+});
+
+test('top-level schema rejects an empty path inside the noDuplicatedFiles allowList', () => {
+    assert.strictEqual(
+        safeParse(checksSchema, { noDuplicatedFiles: { enabled: true, allowList: [''] } }).success,
         false
     );
 });

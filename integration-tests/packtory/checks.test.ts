@@ -70,6 +70,24 @@ test('resolveAndLinkAll succeeds when checks are disabled', async () => {
     assert.strictEqual(result.value.length, 2);
 });
 
+test('resolveAndLinkAll succeeds when the global allowList covers the duplicated file', async () => {
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const baseConfig = await createBaseConfig(fixturePath);
+    const sharedFile = `${fixturePath}/src/shared/util.js`;
+    const config = {
+        ...baseConfig,
+        checks: { noDuplicatedFiles: { enabled: true, allowList: [sharedFile] } }
+    };
+
+    const result = await resolveAndLinkAll(config);
+
+    if (!result.isOk) {
+        assert.fail('Globally allow-listed shared file should not fail checks');
+    }
+
+    assert.strictEqual(result.value.length, 2);
+});
+
 test('resolveAndLinkAll succeeds when every owner consents to the duplicated file', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);
@@ -165,12 +183,12 @@ test('resolveAndLinkAll reports an external dependency that is only declared in 
 });
 
 test('resolveAndLinkAll reports a declared bundleDependency that is never imported', async () => {
-    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/independent-packages');
     const baseConfig = await createBaseConfig(fixturePath);
     const config = {
         ...baseConfig,
         checks: { noUnusedBundleDependencies: { enabled: true } },
-        packages: [{ ...baseConfig.packages[0]!, bundleDependencies: ['pkg-b'] }, baseConfig.packages[1]!]
+        packages: [baseConfig.packages[1]!, { ...baseConfig.packages[0]!, bundleDependencies: ['pkg-b'] }]
     };
 
     const result = await resolveAndLinkAll(config);

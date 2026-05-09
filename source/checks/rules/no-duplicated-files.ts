@@ -6,7 +6,8 @@ import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
 const ruleName = 'noDuplicatedFiles';
 
 const globalSchema = z.strictObject({
-    enabled: z.boolean()
+    enabled: z.boolean(),
+    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
 });
 
 const perPackageSchema = z.strictObject({
@@ -53,12 +54,14 @@ function formatOwners(owners: ReadonlySet<string>): string {
 
 function findDuplicateIssues(
     bundles: readonly LinkedBundle[],
-    perPackageSettings: RunParams['perPackageSettings']
+    perPackageSettings: RunParams['perPackageSettings'],
+    globalConfig: GlobalConfig
 ): readonly string[] {
+    const globallyAllowed = new Set(globalConfig.allowList);
     return Array.from(collectFileOwnership(bundles).entries()).flatMap(([filePath, owners]) => {
         const isDuplicate = owners.size > 1;
-        const consented = everyOwnerConsents(filePath, owners, perPackageSettings);
-        if (isDuplicate && !consented) {
+        const isAllowed = globallyAllowed.has(filePath) || everyOwnerConsents(filePath, owners, perPackageSettings);
+        if (isDuplicate && !isAllowed) {
             return [`File "${filePath}" is included in multiple packages: ${formatOwners(owners)}`];
         }
         return [];
@@ -70,7 +73,7 @@ function run(params: RunParams): readonly string[] {
     if (globalConfig?.enabled !== true) {
         return [];
     }
-    return findDuplicateIssues(params.bundles, params.perPackageSettings);
+    return findDuplicateIssues(params.bundles, params.perPackageSettings, globalConfig);
 }
 
 export const noDuplicatedFilesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {

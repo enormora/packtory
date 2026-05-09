@@ -228,21 +228,29 @@ checks: {
 
 Reports any source file that ends up in more than one bundle.
 
-- **Top-level:** `enabled: boolean`.
-- **Per-package:** `allowList?: string[]` — files this package consents to share with other packages. A duplicate is allowed iff _every_ owning bundle's allowList contains the file path. A package that does not list a file effectively vetoes any duplicate involving it.
+- **Top-level:** `enabled: boolean`, `allowList?: string[]` — files that may appear in any number of bundles unconditionally. Use this for files you intentionally distribute across every package (e.g. a shared `LICENSE` injected via `commonPackageSettings.additionalFiles`).
+- **Per-package:** `allowList?: string[]` — files this package consents to share with other packages.
+
+A duplicate is suppressed iff the file is in the top-level `allowList`, **or** every owning bundle's per-package `allowList` contains it. A package that does not list a file (and that file is not globally allow-listed) effectively vetoes any duplicate involving it.
 
 ```javascript
+// Blanket allow — every bundle may ship the shared LICENSE
+checks: { noDuplicatedFiles: { enabled: true, allowList: [path.join(projectFolder, 'LICENSE')] } }
+```
+
+```javascript
+// Per-package consent — pkg-a and pkg-b agree to share util.ts; nobody else may
 checks: { noDuplicatedFiles: { enabled: true } },
 packages: [
     {
         name: 'pkg-a',
         entryPoints: [{ js: 'a.js' }],
-        checks: { noDuplicatedFiles: { allowList: [path.join(projectFolder, 'LICENSE')] } }
+        checks: { noDuplicatedFiles: { allowList: ['util.ts'] } }
     },
     {
         name: 'pkg-b',
         entryPoints: [{ js: 'b.js' }],
-        checks: { noDuplicatedFiles: { allowList: [path.join(projectFolder, 'LICENSE')] } }
+        checks: { noDuplicatedFiles: { allowList: ['util.ts'] } }
     }
 ]
 ```

@@ -17,12 +17,11 @@ export async function buildConfig() {
     }
 
     const sharedLicensePath = path.join(projectFolder, 'LICENSE');
-    const licenseConsent = { noDuplicatedFiles: { allowList: [sharedLicensePath] } };
 
     return {
         registrySettings: { token: npmToken },
         checks: {
-            noDuplicatedFiles: { enabled: true }
+            noDuplicatedFiles: { enabled: true, allowList: [sharedLicensePath] }
         },
         commonPackageSettings: {
             sourcesFolder,
@@ -60,8 +59,7 @@ export async function buildConfig() {
                         sourceFilePath: path.join(projectFolder, 'source/packages/packtory/readme.md'),
                         targetFilePath: 'readme.md'
                     }
-                ],
-                checks: licenseConsent
+                ]
             },
             {
                 name: '@packtory/cli',
@@ -84,8 +82,7 @@ export async function buildConfig() {
                         targetFilePath: 'readme.md'
                     }
                 ],
-                bundleDependencies: ['packtory'],
-                checks: licenseConsent
+                bundleDependencies: ['packtory']
             }
         ]
     };

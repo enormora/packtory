@@ -133,3 +133,23 @@ test('reports a duplicate when an owner has noDuplicatedFiles without an allowLi
 
     assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
 });
+
+test('ignores duplicates when the global allowList contains the file path even without per-package consent', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('reports a duplicate that is not present in the global allowList', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['other.ts'] } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});
