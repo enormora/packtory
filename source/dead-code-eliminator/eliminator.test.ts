@@ -42,6 +42,13 @@ function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
     });
 }
 
+function collectTargetPaths(analyzed: AnalyzedBundle | undefined): readonly string[] {
+    assert.ok(analyzed !== undefined);
+    return analyzed.contents.map((resource) => {
+        return resource.fileDescription.targetFilePath;
+    });
+}
+
 test('eliminate returns one analyzed bundle per linked bundle', async () => {
     const eliminator = createDeadCodeEliminator();
     const result = await eliminator.eliminate(inputs(linkedBundle({ name: 'a' }), linkedBundle({ name: 'b' })));
@@ -158,26 +165,41 @@ test('eliminate keeps unreachable declarations when transformations are disabled
     assert.strictEqual(emitted.fileDescription.content, indexTsContent);
 });
 
-test('eliminate drops the paired source map when a code file is transformed', async () => {
+test('eliminate recomposes the paired source map when a code file is transformed', async () => {
     const eliminator = createDeadCodeEliminator();
+    const originalMap = JSON.stringify({
+        version: 3,
+        file: 'index.ts',
+        sources: ['index.ts'],
+        sourcesContent: [indexTsContent],
+        names: [],
+        // cspell:disable-next-line
+        mappings: 'AAAA,SAAS,IAAI,IAAI,CAAC,OAAO,CAAC,CAAC,CAAC;AAC5B,OAAO,SAAS,IAAI,IAAI,CAAC,OAAO,CAAC,CAAC,CAAC,CAAC'
+    });
     const mapResource = {
-        ...bundleResource('/src/index.ts.map', { content: '{"version":3}', targetFilePath: 'index.ts.map' }),
+        ...bundleResource('/src/index.ts.map', { content: originalMap, targetFilePath: 'index.ts.map' }),
         isSubstituted: false
     };
     const [analyzed] = await eliminator.eliminate(inputs(indexTsBundle([mapResource])));
-    const targetPaths = analyzed?.contents.map((resource) => {
-        return resource.fileDescription.targetFilePath;
+    const emittedTargetPaths = collectTargetPaths(analyzed);
+    assert.strictEqual(emittedTargetPaths.includes('index.ts.map'), true);
+    assert.strictEqual(emittedTargetPaths.includes('index.ts'), true);
+    const emittedMap = analyzed?.contents.find((resource) => {
+        return resource.fileDescription.targetFilePath === 'index.ts.map';
     });
-    assert.ok(targetPaths !== undefined);
-    assert.strictEqual(targetPaths.includes('index.ts.map'), false);
-    assert.strictEqual(targetPaths.includes('index.ts'), true);
+    assert.ok(emittedMap !== undefined);
+    assert.notStrictEqual(emittedMap.fileDescription.content, originalMap);
+    const parsed = JSON.parse(emittedMap.fileDescription.content) as { mappings: string; version: number };
+    assert.strictEqual(parsed.version, 3);
+    assert.ok(parsed.mappings.length > 0);
 });
 
-test('eliminate keeps the paired source map when no transformation occurs', async () => {
+test('eliminate keeps the paired source map untouched when no transformation occurs', async () => {
     const eliminator = createDeadCodeEliminator();
     const liveOnlyContent = 'export function live() { return 2; }';
+    const originalMapContent = '{"version":3}';
     const mapResource = {
-        ...bundleResource('/src/index.ts.map', { content: '{"version":3}', targetFilePath: 'index.ts.map' }),
+        ...bundleResource('/src/index.ts.map', { content: originalMapContent, targetFilePath: 'index.ts.map' }),
         isSubstituted: false
     };
     const bundle = bundleForCodeFile({
@@ -188,11 +210,11 @@ test('eliminate keeps the paired source map when no transformation occurs', asyn
         extraResources: [mapResource]
     });
     const [analyzed] = await eliminator.eliminate(inputs(bundle));
-    const targetPaths = analyzed?.contents.map((resource) => {
-        return resource.fileDescription.targetFilePath;
+    const emittedMap = analyzed?.contents.find((resource) => {
+        return resource.fileDescription.targetFilePath === 'index.ts.map';
     });
-    assert.ok(targetPaths !== undefined);
-    assert.strictEqual(targetPaths.includes('index.ts.map'), true);
+    assert.ok(emittedMap !== undefined);
+    assert.strictEqual(emittedMap.fileDescription.content, originalMapContent);
 });
 
 test('eliminate honours an entry point declaration file when seeding reachability', async () => {

@@ -357,9 +357,12 @@ The same static analysis also drives, regardless of any `checks` configuration:
 
 `deadCodeElimination` may also live in `commonPackageSettings` to apply to every package; per-package values override the common setting. When `enabled: false`, the analyzer still runs (so the auto-emitted `sideEffects` and the `noSideEffects` rule keep working), but no declarations are removed from the package's source files.
 
+### Source maps
+
+When a `.map` file is paired with a code file the analyzer transforms, packtory recomposes the source map so the published map still points back to the original sources at the new line and column numbers. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Malformed source maps that cannot be parsed are passed through unchanged rather than dropped.
+
 ### Known limitations
 
-- **Source maps for transformed files are dropped, not recomposed.** When a code file is transformed, its paired `.map` is removed from the published bundle so debugging never lands on stale line numbers. A future release will recompose source maps via `@jridgewell/trace-mapping`. Users who want maps preserved today can opt out per package via `deadCodeElimination: { enabled: false }`.
 - **Cross-bundle seeding is single-pass.** When bundle A imports a symbol from bundle B, that symbol is preserved in B. The fixed-point iteration that would propagate B's reductions back to refine A's seeds is not yet implemented; in practice this only matters for transitive cross-bundle reference chains, which are uncommon.
 - **`additionalFiles`** entries are never affected. The user explicitly opted to ship them, so the analyzer treats them as required regardless of their content.
 

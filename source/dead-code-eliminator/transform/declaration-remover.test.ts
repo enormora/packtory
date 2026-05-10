@@ -9,8 +9,8 @@ function transform(
 ): { readonly text: string; readonly mutated: boolean } {
     const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
     const sourceFile = project.getSourceFileOrThrow('index.ts');
-    const mutated = applyRemovalPlan(sourceFile, { survivingNames: surviving });
-    return { text: sourceFile.getFullText(), mutated };
+    const result = applyRemovalPlan(sourceFile, { survivingNames: surviving });
+    return { text: sourceFile.getFullText(), mutated: result.mutated };
 }
 
 test('removes an unreachable function declaration', () => {

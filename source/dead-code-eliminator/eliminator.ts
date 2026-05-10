@@ -13,7 +13,8 @@ import { extractTopLevelBindings, type BindingDescriptor } from './reachability/
 import { bindingId, computeReachability, type FileBindings } from './reachability/reachability.ts';
 import { classifySideEffects } from './side-effect-classifier.ts';
 import { computeSideEffectsField, isCodeFile } from './side-effects-field.ts';
-import { applyRemovalPlan } from './transform/declaration-remover.ts';
+import { applyRemovalPlan, type PositionAtom } from './transform/declaration-remover.ts';
+import { recomposeSourceMap } from './transform/source-map-composer.ts';
 
 function createIsolatedProject(): Project {
     return new Project({});
@@ -103,9 +104,14 @@ function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet
     return surviving;
 }
 
-function transformedContent(sourceFile: SourceFile, surviving: ReadonlySet<string>): string {
-    applyRemovalPlan(sourceFile, { survivingNames: surviving });
-    return sourceFile.getFullText();
+type TransformOutcome = {
+    readonly transformedCode: string;
+    readonly atoms: readonly PositionAtom[];
+};
+
+function transformSourceFile(sourceFile: SourceFile, surviving: ReadonlySet<string>): TransformOutcome {
+    const result = applyRemovalPlan(sourceFile, { survivingNames: surviving });
+    return { transformedCode: sourceFile.getFullText(), atoms: result.atoms };
 }
 
 type AnalysisContext = {
@@ -131,19 +137,37 @@ function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): 
     };
 }
 
-function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisContext): AnalyzedBundleResource {
+type TransformRecord = {
+    readonly originalCode: string;
+    readonly transformedCode: string;
+    readonly atoms: readonly PositionAtom[];
+};
+
+type BuildOutput = {
+    readonly resource: AnalyzedBundleResource;
+    readonly transform?: TransformRecord;
+};
+
+function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisContext): BuildOutput {
     if (loaded.sourceFile === undefined) {
-        return { ...loaded.resource, analysis: createEmptyFileAnalysis() };
+        return { resource: { ...loaded.resource, analysis: createEmptyFileAnalysis() } };
     }
     const { analysis, reachableBindings, shouldTransform } = analyzeCodeFile(loaded, context);
     if (!shouldTransform) {
-        return { ...loaded.resource, analysis };
+        return { resource: { ...loaded.resource, analysis } };
     }
-    const newContent = transformedContent(loaded.sourceFile, reachableBindings);
+    const originalCode = loaded.resource.fileDescription.content;
+    const { transformedCode, atoms } = transformSourceFile(loaded.sourceFile, reachableBindings);
+    if (transformedCode === originalCode) {
+        return { resource: { ...loaded.resource, analysis } };
+    }
     return {
-        ...loaded.resource,
-        fileDescription: { ...loaded.resource.fileDescription, content: newContent },
-        analysis
+        resource: {
+            ...loaded.resource,
+            fileDescription: { ...loaded.resource.fileDescription, content: transformedCode },
+            analysis
+        },
+        transform: { originalCode, transformedCode, atoms }
     };
 }
 
@@ -161,16 +185,31 @@ function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
     };
 }
 
-function dropStaleSourceMaps(
+function recomposePairedSourceMaps(
     contents: readonly AnalyzedBundleResource[],
-    transformedTargetPaths: ReadonlySet<string>
+    transformsByTargetPath: ReadonlyMap<string, TransformRecord>
 ): readonly AnalyzedBundleResource[] {
-    const stalePaths = new Set<string>();
-    for (const transformed of transformedTargetPaths) {
-        stalePaths.add(`${transformed}.map`);
-    }
-    return contents.filter((resource) => {
-        return !stalePaths.has(resource.fileDescription.targetFilePath);
+    return contents.map((resource) => {
+        const targetPath = resource.fileDescription.targetFilePath;
+        const mapSuffix = '.map';
+        if (!targetPath.endsWith(mapSuffix)) {
+            return resource;
+        }
+        const baseTarget = targetPath.slice(0, -mapSuffix.length);
+        const transform = transformsByTargetPath.get(baseTarget);
+        if (transform === undefined) {
+            return resource;
+        }
+        const recomposed = recomposeSourceMap({
+            originalMap: resource.fileDescription.content,
+            originalCode: transform.originalCode,
+            transformedCode: transform.transformedCode,
+            atoms: transform.atoms
+        });
+        return {
+            ...resource,
+            fileDescription: { ...resource.fileDescription, content: recomposed }
+        };
     });
 }
 
@@ -184,19 +223,19 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
         reachable,
         transformationsEnabled: loaded.input.transformationsEnabled
     };
-    const transformedTargetPaths = new Set<string>();
+    const transformsByTargetPath = new Map<string, TransformRecord>();
     const contents = loaded.loaded.map((entry) => {
-        const result = buildAnalyzedResource(entry, context);
-        if (result.fileDescription.content !== entry.resource.fileDescription.content) {
-            transformedTargetPaths.add(result.fileDescription.targetFilePath);
+        const output = buildAnalyzedResource(entry, context);
+        if (output.transform !== undefined) {
+            transformsByTargetPath.set(output.resource.fileDescription.targetFilePath, output.transform);
         }
-        return result;
+        return output.resource;
     });
-    const cleanedContents = dropStaleSourceMaps(contents, transformedTargetPaths);
+    const finalContents = recomposePairedSourceMaps(contents, transformsByTargetPath);
     return {
         ...loaded.input.bundle,
-        contents: cleanedContents,
-        sideEffectsField: computeSideEffectsField(cleanedContents)
+        contents: finalContents,
+        sideEffectsField: computeSideEffectsField(finalContents)
     };
 }
 
