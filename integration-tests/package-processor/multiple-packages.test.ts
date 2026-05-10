@@ -2,7 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
-import { bindingAnalysis, emptyAnalysis } from '../dce-helpers.ts';
+import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('bundles and substitutes multiple packages correctly', async () => {

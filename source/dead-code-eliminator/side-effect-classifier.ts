@@ -12,10 +12,12 @@ import {
 import type { SideEffectStatement } from './analyzed-bundle.ts';
 
 type PurityChecker = (expression: Expression) => boolean;
+type PurityRule = (expression: Expression, recurse: PurityChecker) => boolean;
+type StatementClassifier = (statement: Statement) => string | undefined;
 
 const assetExtensions = ['.css', '.scss', '.sass', '.less'] as const;
 
-const pureLiteralKinds: ReadonlySet<SyntaxKind> = new Set([
+const pureLeafKinds: ReadonlySet<SyntaxKind> = new Set([
     SyntaxKind.StringLiteral,
     SyntaxKind.NumericLiteral,
     SyntaxKind.BigIntLiteral,
@@ -23,7 +25,11 @@ const pureLiteralKinds: ReadonlySet<SyntaxKind> = new Set([
     SyntaxKind.FalseKeyword,
     SyntaxKind.NullKeyword,
     SyntaxKind.RegularExpressionLiteral,
-    SyntaxKind.NoSubstitutionTemplateLiteral
+    SyntaxKind.NoSubstitutionTemplateLiteral,
+    SyntaxKind.Identifier,
+    SyntaxKind.FunctionExpression,
+    SyntaxKind.ArrowFunction,
+    SyntaxKind.ClassExpression
 ]);
 
 const allowedPrefixUnaryOperators: ReadonlySet<SyntaxKind> = new Set([
@@ -49,6 +55,13 @@ const allowedBinaryOperators: ReadonlySet<SyntaxKind> = new Set([
     SyntaxKind.GreaterThanEqualsToken,
     SyntaxKind.EqualsEqualsEqualsToken,
     SyntaxKind.ExclamationEqualsEqualsToken
+]);
+
+const inherentlyPurePropertyKinds: ReadonlySet<SyntaxKind> = new Set([
+    SyntaxKind.ShorthandPropertyAssignment,
+    SyntaxKind.MethodDeclaration,
+    SyntaxKind.GetAccessor,
+    SyntaxKind.SetAccessor
 ]);
 
 const pureDeclarationKinds: ReadonlySet<SyntaxKind> = new Set([
@@ -81,16 +94,6 @@ function endsWithAssetExtension(specifier: string): boolean {
     });
 }
 
-function isPureLeafExpression(expression: Expression): boolean {
-    return (
-        pureLiteralKinds.has(expression.getKind()) ||
-        TsMorphNode.isIdentifier(expression) ||
-        TsMorphNode.isFunctionExpression(expression) ||
-        TsMorphNode.isArrowFunction(expression) ||
-        TsMorphNode.isClassExpression(expression)
-    );
-}
-
 function isPureArrayElement(element: Expression, recurse: PurityChecker): boolean {
     if (TsMorphNode.isOmittedExpression(element)) {
         return true;
@@ -100,13 +103,6 @@ function isPureArrayElement(element: Expression, recurse: PurityChecker): boolea
     }
     return recurse(element);
 }
-
-const inherentlyPurePropertyKinds: ReadonlySet<SyntaxKind> = new Set([
-    SyntaxKind.ShorthandPropertyAssignment,
-    SyntaxKind.MethodDeclaration,
-    SyntaxKind.GetAccessor,
-    SyntaxKind.SetAccessor
-]);
 
 function isPurePropertyAssignment(property: TsMorphNode, recurse: PurityChecker): boolean {
     if (TsMorphNode.isPropertyAssignment(property)) {
@@ -118,63 +114,95 @@ function isPurePropertyAssignment(property: TsMorphNode, recurse: PurityChecker)
     return inherentlyPurePropertyKinds.has(property.getKind());
 }
 
-function isPureContainerExpression(expression: Expression, recurse: PurityChecker): boolean {
-    if (TsMorphNode.isTemplateExpression(expression)) {
-        return expression.getTemplateSpans().every((span) => {
-            return recurse(span.getExpression());
-        });
-    }
-    if (TsMorphNode.isArrayLiteralExpression(expression)) {
-        return expression.getElements().every((element) => {
-            return isPureArrayElement(element, recurse);
-        });
-    }
-    if (TsMorphNode.isObjectLiteralExpression(expression)) {
-        return expression.getProperties().every((property) => {
-            return isPurePropertyAssignment(property, recurse);
-        });
-    }
-    return false;
-}
-
-function isPureCastExpression(expression: Expression, recurse: PurityChecker): boolean {
-    if (
-        TsMorphNode.isAsExpression(expression) ||
-        TsMorphNode.isSatisfiesExpression(expression) ||
-        TsMorphNode.isParenthesizedExpression(expression) ||
-        TsMorphNode.isTypeAssertion(expression) ||
-        TsMorphNode.isNonNullExpression(expression)
-    ) {
-        return recurse(expression.getExpression());
-    }
-    return false;
-}
-
-function isPureUnaryExpression(expression: Expression, recurse: PurityChecker): boolean {
-    if (!TsMorphNode.isPrefixUnaryExpression(expression)) {
-        return false;
-    }
-    return allowedPrefixUnaryOperators.has(expression.getOperatorToken()) && recurse(expression.getOperand());
-}
-
-function isPureBinaryExpression(expression: Expression, recurse: PurityChecker): boolean {
-    if (!TsMorphNode.isBinaryExpression(expression)) {
-        return false;
-    }
-    if (!allowedBinaryOperators.has(expression.getOperatorToken().getKind())) {
-        return false;
-    }
-    return recurse(expression.getLeft()) && recurse(expression.getRight());
-}
+const expressionPurityRules: ReadonlyMap<SyntaxKind, PurityRule> = new Map<SyntaxKind, PurityRule>([
+    [
+        SyntaxKind.TemplateExpression,
+        (expression, recurse) => {
+            return expression
+                .asKindOrThrow(SyntaxKind.TemplateExpression)
+                .getTemplateSpans()
+                .every((span) => {
+                    return recurse(span.getExpression());
+                });
+        }
+    ],
+    [
+        SyntaxKind.ArrayLiteralExpression,
+        (expression, recurse) => {
+            return expression
+                .asKindOrThrow(SyntaxKind.ArrayLiteralExpression)
+                .getElements()
+                .every((element) => {
+                    return isPureArrayElement(element, recurse);
+                });
+        }
+    ],
+    [
+        SyntaxKind.ObjectLiteralExpression,
+        (expression, recurse) => {
+            return expression
+                .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
+                .getProperties()
+                .every((property) => {
+                    return isPurePropertyAssignment(property, recurse);
+                });
+        }
+    ],
+    [
+        SyntaxKind.AsExpression,
+        (expression, recurse) => {
+            return recurse(expression.asKindOrThrow(SyntaxKind.AsExpression).getExpression());
+        }
+    ],
+    [
+        SyntaxKind.SatisfiesExpression,
+        (expression, recurse) => {
+            return recurse(expression.asKindOrThrow(SyntaxKind.SatisfiesExpression).getExpression());
+        }
+    ],
+    [
+        SyntaxKind.ParenthesizedExpression,
+        (expression, recurse) => {
+            return recurse(expression.asKindOrThrow(SyntaxKind.ParenthesizedExpression).getExpression());
+        }
+    ],
+    [
+        SyntaxKind.TypeAssertionExpression,
+        (expression, recurse) => {
+            return recurse(expression.asKindOrThrow(SyntaxKind.TypeAssertionExpression).getExpression());
+        }
+    ],
+    [
+        SyntaxKind.NonNullExpression,
+        (expression, recurse) => {
+            return recurse(expression.asKindOrThrow(SyntaxKind.NonNullExpression).getExpression());
+        }
+    ],
+    [
+        SyntaxKind.PrefixUnaryExpression,
+        (expression, recurse) => {
+            const unary = expression.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
+            return allowedPrefixUnaryOperators.has(unary.getOperatorToken()) && recurse(unary.getOperand());
+        }
+    ],
+    [
+        SyntaxKind.BinaryExpression,
+        (expression, recurse) => {
+            const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
+            if (!allowedBinaryOperators.has(binary.getOperatorToken().getKind())) {
+                return false;
+            }
+            return recurse(binary.getLeft()) && recurse(binary.getRight());
+        }
+    ]
+]);
 
 function isPureExpression(expression: Expression): boolean {
-    return (
-        isPureLeafExpression(expression) ||
-        isPureContainerExpression(expression, isPureExpression) ||
-        isPureCastExpression(expression, isPureExpression) ||
-        isPureUnaryExpression(expression, isPureExpression) ||
-        isPureBinaryExpression(expression, isPureExpression)
-    );
+    const kind = expression.getKind();
+    if (pureLeafKinds.has(kind)) {
+        return true;
+    }
+    return expressionPurityRules.get(kind)?.(expression, isPureExpression) ?? false;
 }
 
 function memberHasDecorators(member: TsMorphNode): boolean {
@@ -243,48 +271,38 @@ function classifyVariableStatement(statement: VariableStatement): string | undef
     return undefined;
 }
 
-function classifyImportOrExport(statement: Statement): { readonly kind: string | undefined } | undefined {
-    if (TsMorphNode.isImportDeclaration(statement)) {
-        return { kind: classifyImportDeclaration(statement) };
-    }
-    if (TsMorphNode.isExportAssignment(statement)) {
-        return { kind: classifyExportAssignment(statement) };
-    }
-    return undefined;
-}
-
-function classifyClassOrVariable(statement: Statement): { readonly kind: string | undefined } | undefined {
-    if (TsMorphNode.isClassDeclaration(statement)) {
-        return { kind: classifyClassDeclaration(statement) };
-    }
-    if (TsMorphNode.isVariableStatement(statement)) {
-        return { kind: classifyVariableStatement(statement) };
-    }
-    return undefined;
-}
-
-function classifyDeclarativeStatement(statement: Statement): { readonly kind: string | undefined } | undefined {
-    const importOrExport = classifyImportOrExport(statement);
-    if (importOrExport !== undefined) {
-        return importOrExport;
-    }
-    const classOrVariable = classifyClassOrVariable(statement);
-    if (classOrVariable !== undefined) {
-        return classOrVariable;
-    }
-    if (TsMorphNode.isExpressionStatement(statement)) {
-        return { kind: 'expression statement' };
-    }
-    return undefined;
-}
-
-function classifyByStatementKind(statement: Statement): string | undefined {
-    const declarative = classifyDeclarativeStatement(statement);
-    if (declarative !== undefined) {
-        return declarative.kind;
-    }
-    return 'unknown statement';
-}
+const statementClassifiers: ReadonlyMap<SyntaxKind, StatementClassifier> = new Map<SyntaxKind, StatementClassifier>([
+    [
+        SyntaxKind.ImportDeclaration,
+        (statement) => {
+            return classifyImportDeclaration(statement.asKindOrThrow(SyntaxKind.ImportDeclaration));
+        }
+    ],
+    [
+        SyntaxKind.ExportAssignment,
+        (statement) => {
+            return classifyExportAssignment(statement.asKindOrThrow(SyntaxKind.ExportAssignment));
+        }
+    ],
+    [
+        SyntaxKind.ClassDeclaration,
+        (statement) => {
+            return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration));
+        }
+    ],
+    [
+        SyntaxKind.VariableStatement,
+        (statement) => {
+            return classifyVariableStatement(statement.asKindOrThrow(SyntaxKind.VariableStatement));
+        }
+    ],
+    [
+        SyntaxKind.ExpressionStatement,
+        () => {
+            return 'expression statement';
+        }
+    ]
+]);
 
 function classifyTopLevelStatement(statement: Statement): string | undefined {
     const kind = statement.getKind();
@@ -295,7 +313,11 @@ function classifyTopLevelStatement(statement: Statement): string | undefined {
     if (controlFlowKind !== undefined) {
         return controlFlowKind;
     }
-    return classifyByStatementKind(statement);
+    const classifier = statementClassifiers.get(kind);
+    if (classifier !== undefined) {
+        return classifier(statement);
+    }
+    return 'unknown statement';
 }
 
 export function classifySideEffects(sourceFile: Readonly<SourceFile>): readonly SideEffectStatement[] {

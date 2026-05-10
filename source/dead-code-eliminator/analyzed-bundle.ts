@@ -29,3 +29,11 @@ export type EliminationInput = {
 export type DeadCodeEliminator = {
     eliminate: (inputs: readonly EliminationInput[]) => Promise<readonly AnalyzedBundle[]>;
 };
+
+export function createEmptyFileAnalysis(): FileAnalysis {
+    return {
+        survivingBindings: new Set<string>(),
+        sideEffectStatements: [],
+        sideEffectImports: new Set<string>()
+    };
+}

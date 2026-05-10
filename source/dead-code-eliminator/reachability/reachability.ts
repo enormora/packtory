@@ -19,6 +19,9 @@ export type ReachabilityResult = {
     readonly bindingIdsByFile: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
+type DeclarationNodeIndex = ReadonlyMap<TsMorphNode, string>;
+type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
+
 export function bindingId(filePath: string, name: string): string {
     return `${filePath}::${name}`;
 }
@@ -45,9 +48,19 @@ function buildBindingsByFile(files: readonly FileBindings[]): Map<string, Set<st
     return map;
 }
 
+function buildNodeById(files: readonly FileBindings[]): Map<string, TsMorphNode> {
+    const map = new Map<string, TsMorphNode>();
+    for (const file of files) {
+        for (const binding of file.bindings) {
+            map.set(bindingId(file.sourceFilePath, binding.name), binding.declarationNode);
+        }
+    }
+    return map;
+}
+
 function addDeclarationTargets(
     declarations: readonly TsMorphNode[],
-    declarationIndex: ReadonlyMap<TsMorphNode, string>,
+    declarationIndex: DeclarationNodeIndex,
     targets: Set<string>
 ): void {
     for (const declaration of declarations) {
@@ -58,13 +71,7 @@ function addDeclarationTargets(
     }
 }
 
-type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
-
-function addSymbolTargets(
-    symbol: SymbolReference,
-    declarationIndex: ReadonlyMap<TsMorphNode, string>,
-    targets: Set<string>
-): void {
+function addSymbolTargets(symbol: SymbolReference, declarationIndex: DeclarationNodeIndex, targets: Set<string>): void {
     addDeclarationTargets(symbol.getDeclarations(), declarationIndex, targets);
     const aliased = symbol.getAliasedSymbol();
     if (aliased !== undefined) {
@@ -72,37 +79,33 @@ function addSymbolTargets(
     }
 }
 
-function collectIdentifierTargets(
-    rootNode: TsMorphNode,
-    declarationIndex: ReadonlyMap<TsMorphNode, string>
-): Set<string> {
+function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: DeclarationNodeIndex): Set<string> {
     const targets = new Set<string>();
     for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
-        const symbol = identifier.getSymbol();
-        if (symbol !== undefined) {
-            addSymbolTargets(symbol, declarationIndex, targets);
-        }
+        addSymbolTargets(identifier.getSymbolOrThrow(), declarationIndex, targets);
     }
     return targets;
 }
 
-function buildEdgeMap(
-    files: readonly FileBindings[],
-    declarationIndex: ReadonlyMap<TsMorphNode, string>
-): Map<string, ReadonlySet<string>> {
-    const edges = new Map<string, ReadonlySet<string>>();
-    for (const file of files) {
-        for (const binding of file.bindings) {
-            const sourceId = bindingId(file.sourceFilePath, binding.name);
-            edges.set(sourceId, collectIdentifierTargets(binding.declarationNode, declarationIndex));
+function bfsClosure<T>(seeds: Iterable<T>, expand: (current: T) => Iterable<T>): Set<T> {
+    const visited = new Set<T>(seeds);
+    const queue = Array.from(visited);
+    let current = queue.shift();
+    while (current !== undefined) {
+        for (const neighbor of expand(current)) {
+            if (!visited.has(neighbor)) {
+                visited.add(neighbor);
+                queue.push(neighbor);
+            }
         }
+        current = queue.shift();
     }
-    return edges;
+    return visited;
 }
 
 function addStatementSeeds(
     statements: readonly Statement[],
-    declarationIndex: ReadonlyMap<TsMorphNode, string>,
+    declarationIndex: DeclarationNodeIndex,
     seeds: Set<string>
 ): void {
     for (const statement of statements) {
@@ -115,7 +118,7 @@ function addStatementSeeds(
 function gatherInitialSeeds(
     files: readonly FileBindings[],
     entryPointFilePaths: ReadonlySet<string>,
-    declarationIndex: ReadonlyMap<TsMorphNode, string>,
+    declarationIndex: DeclarationNodeIndex,
     externalSeeds: ReadonlySet<string>
 ): Set<string> {
     const seeds = new Set<string>(externalSeeds);
@@ -131,47 +134,18 @@ function gatherInitialSeeds(
     return seeds;
 }
 
-function expandFrontier(
-    current: string,
-    edges: ReadonlyMap<string, ReadonlySet<string>>,
-    reachable: Set<string>,
-    queue: string[]
-): void {
-    const targets = edges.get(current);
-    if (targets === undefined) {
-        return;
-    }
-    for (const target of targets) {
-        if (!reachable.has(target)) {
-            reachable.add(target);
-            queue.push(target);
-        }
-    }
-}
-
-function bfsReachable(seeds: ReadonlySet<string>, edges: ReadonlyMap<string, ReadonlySet<string>>): Set<string> {
-    const reachable = new Set<string>(seeds);
-    const queue = Array.from(seeds);
-    let current = queue.shift();
-    while (current !== undefined) {
-        expandFrontier(current, edges, reachable, queue);
-        current = queue.shift();
-    }
-    return reachable;
-}
-
 export function computeReachability(input: ReachabilityInput): ReachabilityResult {
     const declarationIndex = buildDeclarationNodeIndex(input.files);
-    const edges = buildEdgeMap(input.files, declarationIndex);
+    const nodeById = buildNodeById(input.files);
     const seeds = gatherInitialSeeds(
         input.files,
         input.entryPointFilePaths,
         declarationIndex,
         input.externalSeeds ?? new Set<string>()
     );
-    const reachable = bfsReachable(seeds, edges);
-    return {
-        reachable,
-        bindingIdsByFile: buildBindingsByFile(input.files)
-    };
+    const reachable = bfsClosure(seeds, (id) => {
+        const node = nodeById.get(id);
+        return node === undefined ? [] : collectIdentifierTargets(node, declarationIndex);
+    });
+    return { reachable, bindingIdsByFile: buildBindingsByFile(input.files) };
 }

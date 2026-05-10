@@ -2,7 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
-import { bindingAnalysis } from '../dce-helpers.ts';
+import { bindingAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('resolves node_modules dependencies correctly when depending on @types/* packages', async () => {

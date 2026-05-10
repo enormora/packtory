@@ -21,8 +21,7 @@
         "!source/**/*.type-test.ts",
         "!source/test-libraries/**/*.ts",
         "!source/**/*.entry-point.ts",
-        "!source/packages/**/*.composition.ts",
-        "!source/dead-code-eliminator/analyzed-bundle.ts"
+        "!source/packages/**/*.composition.ts"
     ],
     "ignorePatterns": ["node_modules", "target", ".git", "integration-tests"],
     "disableTypeChecks": true,

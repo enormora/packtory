@@ -9,7 +9,6 @@
         "source/test-libraries/**/*.ts",
         "source/**/*.entry-point.ts",
         "source/packages/**/*.composition.ts",
-        "source/dead-code-eliminator/analyzed-bundle.ts",
         "integration-tests/**",
         "target/**"
     ],

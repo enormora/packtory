@@ -112,6 +112,7 @@ test('tolerates external seeds that do not exist in the bundle edge map', () => 
     });
 
     assert.ok(result.reachable.has(bindingId('not-in-bundle.ts', 'mystery')));
+    assert.strictEqual(result.reachable.size, 1);
 });
 
 test('does not record any unresolved binding ids when a function references its own parameters', () => {

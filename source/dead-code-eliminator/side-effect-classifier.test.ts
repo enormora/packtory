@@ -242,6 +242,10 @@ test('treats a const with a "satisfies" wrapping a pure expression as pure', () 
     assert.deepStrictEqual(classify('const x = 1 satisfies number;'), []);
 });
 
+test('treats a const with a legacy angle-bracket type assertion of a pure expression as pure', () => {
+    assert.deepStrictEqual(classify('const x = <number>1;'), []);
+});
+
 test('treats a const with a parenthesized pure expression as pure', () => {
     assert.deepStrictEqual(classify('const x = (1 + 2);'), []);
 });

@@ -1,6 +1,5 @@
 import {
     Node as TsMorphNode,
-    SyntaxKind,
     type ClassDeclaration,
     type EnumDeclaration,
     type FunctionDeclaration,
@@ -28,21 +27,24 @@ type NamedDeclarationStatement =
     | ModuleDeclaration
     | TypeAliasDeclaration;
 
-const namedDeclarationKinds: ReadonlySet<SyntaxKind> = new Set([
-    SyntaxKind.FunctionDeclaration,
-    SyntaxKind.ClassDeclaration,
-    SyntaxKind.InterfaceDeclaration,
-    SyntaxKind.TypeAliasDeclaration,
-    SyntaxKind.EnumDeclaration,
-    SyntaxKind.ModuleDeclaration
-]);
-
 function isNamedDeclaration(statement: Statement): statement is NamedDeclarationStatement {
-    return namedDeclarationKinds.has(statement.getKind());
+    return (
+        TsMorphNode.isFunctionDeclaration(statement) ||
+        TsMorphNode.isClassDeclaration(statement) ||
+        TsMorphNode.isInterfaceDeclaration(statement) ||
+        TsMorphNode.isTypeAliasDeclaration(statement) ||
+        TsMorphNode.isEnumDeclaration(statement) ||
+        TsMorphNode.isModuleDeclaration(statement)
+    );
 }
 
-function isStatementExported(statement: NamedDeclarationStatement | VariableStatement): boolean {
-    return statement.isExported() || statement.isDefaultExport();
+function bindingsFromNamedDeclaration(statement: NamedDeclarationStatement): readonly BindingDescriptor[] {
+    const name = statement.getName();
+    if (name === undefined) {
+        return [];
+    }
+    const isExported = statement.isExported() || statement.isDefaultExport();
+    return [{ name, isExported, statement, declarationNode: statement }];
 }
 
 function bindingsFromVariableStatement(statement: VariableStatement): readonly BindingDescriptor[] {
@@ -52,69 +54,39 @@ function bindingsFromVariableStatement(statement: VariableStatement): readonly B
     });
 }
 
-function bindingsFromNamedDeclaration(statement: NamedDeclarationStatement): readonly BindingDescriptor[] {
-    const name = statement.getName();
-    if (name === undefined) {
-        return [];
-    }
-    return [{ name, isExported: isStatementExported(statement), statement, declarationNode: statement }];
-}
-
 function localNameOfNamedImport(namedImport: ReturnType<ImportDeclaration['getNamedImports']>[number]): string {
-    const aliasNode = namedImport.getAliasNode();
-    if (aliasNode === undefined) {
-        return namedImport.getName();
-    }
-    return aliasNode.getText();
+    return namedImport.getAliasNode()?.getText() ?? namedImport.getName();
 }
 
-function defaultImportBinding(statement: ImportDeclaration): readonly BindingDescriptor[] {
+function bindingsFromImportDeclaration(statement: ImportDeclaration): readonly BindingDescriptor[] {
+    const result: BindingDescriptor[] = [];
     const defaultImport = statement.getDefaultImport();
-    if (defaultImport === undefined) {
-        return [];
-    }
-    return [
-        {
+    if (defaultImport !== undefined) {
+        result.push({
             name: defaultImport.getText(),
             isExported: false,
             statement,
             declarationNode: defaultImport.getParent()
-        }
-    ];
-}
-
-function namespaceImportBinding(statement: ImportDeclaration): readonly BindingDescriptor[] {
-    const namespaceImport = statement.getNamespaceImport();
-    if (namespaceImport === undefined) {
-        return [];
+        });
     }
-    return [
-        {
+    const namespaceImport = statement.getNamespaceImport();
+    if (namespaceImport !== undefined) {
+        result.push({
             name: namespaceImport.getText(),
             isExported: false,
             statement,
             declarationNode: namespaceImport.getParent()
-        }
-    ];
-}
-
-function namedImportBindings(statement: ImportDeclaration): readonly BindingDescriptor[] {
-    return statement.getNamedImports().map((namedImport) => {
-        return {
+        });
+    }
+    for (const namedImport of statement.getNamedImports()) {
+        result.push({
             name: localNameOfNamedImport(namedImport),
             isExported: false,
             statement,
             declarationNode: namedImport
-        };
-    });
-}
-
-function bindingsFromImportDeclaration(statement: ImportDeclaration): readonly BindingDescriptor[] {
-    return [
-        ...defaultImportBinding(statement),
-        ...namespaceImportBinding(statement),
-        ...namedImportBindings(statement)
-    ];
+        });
+    }
+    return result;
 }
 
 function bindingsFromStatement(statement: Statement): readonly BindingDescriptor[] {
