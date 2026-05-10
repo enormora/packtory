@@ -5,7 +5,7 @@ import { analyzedBundleResource, linkedBundle } from '../../test-libraries/bundl
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
 import { bindingId, type FileBindings } from '../reachability/reachability.ts';
-import { buildCrossBundleSeeds, type CrossBundleInput } from './cross-bundle-seeds.ts';
+import { buildCrossBundleSeeds, type CrossBundleInput, type SeedMap } from './cross-bundle-seeds.ts';
 
 function bundleWith(
     name: string,
@@ -122,34 +122,74 @@ test('records a default import as a "default" binding seed', () => {
     assert.ok(bSeeds.has(bindingId('/b/main.ts', 'default')));
 });
 
-test('records every binding of the target file as a seed for a namespace import', () => {
+function seedsForConsumerProducer(consumerContent: string, producerContent: string): ReadonlySet<string> | undefined {
     const consumer = bundleWith('pkg-a', [
-        {
-            sourceFilePath: '/a/index.ts',
-            targetFilePath: 'index.ts',
-            content: 'import * as helpers from "pkg-b/helpers.ts";\nexport function pub() { return helpers; }'
-        }
+        { sourceFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: consumerContent }
     ]);
     const producer = bundleWith('pkg-b', [
-        {
-            sourceFilePath: '/b/helpers.ts',
-            targetFilePath: 'helpers.ts',
-            content: 'export const a = 1;\nexport const b = 2;'
-        }
+        { sourceFilePath: '/b/helpers.ts', targetFilePath: 'helpers.ts', content: producerContent }
     ]);
-    const seeds = buildCrossBundleSeeds([
-        inputFor(consumer, [
-            {
-                sourceFilePath: '/a/index.ts',
-                content: 'import * as helpers from "pkg-b/helpers.ts";\nexport function pub() { return helpers; }'
-            }
-        ]),
-        inputFor(producer, [{ sourceFilePath: '/b/helpers.ts', content: 'export const a = 1;\nexport const b = 2;' }])
+    return buildCrossBundleSeeds([
+        inputFor(consumer, [{ sourceFilePath: '/a/index.ts', content: consumerContent }]),
+        inputFor(producer, [{ sourceFilePath: '/b/helpers.ts', content: producerContent }])
+    ]).get('pkg-b');
+}
+
+function seedsForLoneConsumer(consumerContent: string): SeedMap {
+    const consumer = bundleWith('pkg-a', [
+        { sourceFilePath: '/a/index.ts', targetFilePath: 'index.ts', content: consumerContent }
     ]);
-    const bSeeds = seeds.get('pkg-b');
+    return buildCrossBundleSeeds([inputFor(consumer, [{ sourceFilePath: '/a/index.ts', content: consumerContent }])]);
+}
+
+function assertHelpersBindingsSeeded(bSeeds: ReadonlySet<string> | undefined): void {
     assert.ok(bSeeds !== undefined);
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'a')));
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'b')));
+}
+
+test('records a named re-export as a seed in the target bundle', () => {
+    const bSeeds = seedsForConsumerProducer(
+        'export { used } from "pkg-b/helpers.ts";',
+        'export function used() { return 1; }\nexport function unused() { return 2; }'
+    );
+    assert.ok(bSeeds !== undefined);
+    assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
+    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
+});
+
+test('records every binding of the target file as a seed for a star re-export', () => {
+    assertHelpersBindingsSeeded(
+        seedsForConsumerProducer('export * from "pkg-b/helpers.ts";', 'export const a = 1;\nexport const b = 2;')
+    );
+});
+
+test('records every binding of the target file as a seed for a namespace re-export', () => {
+    assertHelpersBindingsSeeded(
+        seedsForConsumerProducer(
+            'export * as helpers from "pkg-b/helpers.ts";',
+            'export const a = 1;\nexport const b = 2;'
+        )
+    );
+});
+
+test('ignores a bare local re-export with no module specifier', () => {
+    const seeds = seedsForLoneConsumer('function local() { return 1; }\nexport { local };');
+    assert.strictEqual(seeds.size, 0);
+});
+
+test('does not record a re-export seed when the specifier does not match any bundle name', () => {
+    const seeds = seedsForLoneConsumer('export { x } from "external-pkg";');
+    assert.strictEqual(seeds.size, 0);
+});
+
+test('records every binding of the target file as a seed for a namespace import', () => {
+    assertHelpersBindingsSeeded(
+        seedsForConsumerProducer(
+            'import * as helpers from "pkg-b/helpers.ts";\nexport function pub() { return helpers; }',
+            'export const a = 1;\nexport const b = 2;'
+        )
+    );
 });
 
 test('does not record a seed when the specifier matches a bundle name but not any file in that bundle', () => {

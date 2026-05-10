@@ -1,4 +1,4 @@
-import { Node as TsMorphNode, type ImportDeclaration, type SourceFile } from 'ts-morph';
+import { Node as TsMorphNode, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import { bindingId, type FileBindings } from '../reachability/reachability.ts';
 
@@ -59,10 +59,12 @@ function tryResolveAgainstBundle(
 }
 
 function resolveCrossBundleTarget(
-    importDeclaration: ImportDeclaration,
+    specifier: string | undefined,
     indexed: ReadonlyMap<string, IndexedBundle>
 ): ResolvedTarget | undefined {
-    const specifier = importDeclaration.getModuleSpecifierValue();
+    if (specifier === undefined) {
+        return undefined;
+    }
     for (const [bundleName, info] of indexed) {
         const resolved = tryResolveAgainstBundle(bundleName, info, specifier);
         if (resolved !== undefined) {
@@ -114,7 +116,7 @@ function processImportDeclaration(
     indexed: ReadonlyMap<string, IndexedBundle>,
     seeds: Map<string, Set<string>>
 ): void {
-    const target = resolveCrossBundleTarget(importDeclaration, indexed);
+    const target = resolveCrossBundleTarget(importDeclaration.getModuleSpecifierValue(), indexed);
     if (target === undefined) {
         return;
     }
@@ -126,7 +128,33 @@ function processImportDeclaration(
     recordNamedImportSeeds(importDeclaration, target, seeds);
 }
 
-function walkImportsInSourceFile(
+function recordNamedReExportSeeds(
+    exportDeclaration: ExportDeclaration,
+    target: ResolvedTarget,
+    seeds: Map<string, Set<string>>
+): void {
+    for (const namedExport of exportDeclaration.getNamedExports()) {
+        recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, namedExport.getName()));
+    }
+}
+
+function processExportDeclaration(
+    exportDeclaration: ExportDeclaration,
+    indexed: ReadonlyMap<string, IndexedBundle>,
+    seeds: Map<string, Set<string>>
+): void {
+    const target = resolveCrossBundleTarget(exportDeclaration.getModuleSpecifierValue(), indexed);
+    if (target === undefined) {
+        return;
+    }
+    if (exportDeclaration.isNamespaceExport()) {
+        seedAllBindings(seeds, target);
+        return;
+    }
+    recordNamedReExportSeeds(exportDeclaration, target, seeds);
+}
+
+function walkCrossBundleStatements(
     sourceFile: Readonly<SourceFile>,
     indexed: ReadonlyMap<string, IndexedBundle>,
     seeds: Map<string, Set<string>>
@@ -134,6 +162,8 @@ function walkImportsInSourceFile(
     for (const statement of sourceFile.getStatements()) {
         if (TsMorphNode.isImportDeclaration(statement)) {
             processImportDeclaration(statement, indexed, seeds);
+        } else if (TsMorphNode.isExportDeclaration(statement)) {
+            processExportDeclaration(statement, indexed, seeds);
         }
     }
 }
@@ -143,7 +173,7 @@ export function buildCrossBundleSeeds(inputs: readonly CrossBundleInput[]): Seed
     const seeds = new Map<string, Set<string>>();
     for (const input of inputs) {
         for (const sourceFile of input.sourceFiles) {
-            walkImportsInSourceFile(sourceFile, indexed, seeds);
+            walkCrossBundleStatements(sourceFile, indexed, seeds);
         }
     }
     return seeds;

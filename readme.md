@@ -325,14 +325,14 @@ The error message names the file and the offending statement(s) by line and kind
 
 ## Dead-Code Elimination
 
-`packtory` performs symbol-level reachability analysis across every bundled file and removes top-level declarations that no entry-point export reaches. Files with top-level side effects are preserved untouched.
+`packtory` performs symbol-level reachability analysis across every bundled file and removes top-level declarations that nothing reaches. A declaration is reached if it is exported from an entry-point file, referenced by a top-level side-effect statement, or imported (or re-exported) by another packtory-managed bundle in the same publish run. Files with top-level side effects are preserved untouched.
 
 ### What gets removed
 
 Within each bundle, the analyzer:
 
 1. Extracts every top-level binding (functions, classes, variables, types, enums, namespaces, imports) from every code file.
-2. Seeds reachability with: every binding exported from any entry-point file, plus every binding referenced by any impure top-level statement, plus every binding imported from this bundle by another bundle in the same publish run (cross-bundle seeding).
+2. Seeds reachability with: every binding exported from any entry-point file, plus every binding referenced by any impure top-level statement, plus every binding imported or re-exported from this bundle by another bundle in the same publish run (cross-bundle seeding, named/default/namespace `import` and named/star/star-as `export ... from`).
 3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
 4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
 
