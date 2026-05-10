@@ -223,6 +223,27 @@ test('lists every shared declaration in alphabetical order', () => {
     ]);
 });
 
+test('does not report when only a single bundle owns the file', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('does not report when one owner has no surviving bindings and the other has bindings that do not match', () => {
+    const project = createSymbolAwareProject();
+    const result = noDuplicatedFilesRule.run({
+        bundles: [project.bundle('pkg1', '/helpers.ts', new Set(['format'])), bundle('pkg2', '/helpers.ts')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
 test('falls back to path-level message when surviving bindings are unavailable for every owner', () => {
     const result = noDuplicatedFilesRule.run({
         bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],

@@ -51,7 +51,8 @@ function intersectTwo(left: ReadonlySet<string>, right: ReadonlySet<string>): Se
     return result;
 }
 
-function intersectAll(first: ReadonlySet<string>, rest: readonly ReadonlySet<string>[]): ReadonlySet<string> {
+function intersectAll(sets: readonly [ReadonlySet<string>, ...(readonly ReadonlySet<string>[])]): ReadonlySet<string> {
+    const [first, ...rest] = sets;
     return rest.reduce<Set<string>>(intersectTwo, new Set(first));
 }
 
@@ -98,30 +99,32 @@ function formatPathLevelMessage(filePath: string, owners: readonly OwnerInfo[]):
     return `File "${filePath}" is included in multiple packages: ${ownerNames(owners).join(', ')}`;
 }
 
-function classifyDuplicate(
-    filePath: string,
-    owners: readonly OwnerInfo[]
-): { readonly hasDuplicate: false } | { readonly hasDuplicate: true; readonly message: string } {
-    const [firstOwner, ...remainingOwners] = owners;
-    if (firstOwner === undefined || remainingOwners.length === 0) {
-        return { hasDuplicate: false };
-    }
+type MultipleOwners = readonly [OwnerInfo, OwnerInfo, ...(readonly OwnerInfo[])];
+
+const minimumOwnerCountForDuplicate = 2;
+
+function hasMultipleOwners(owners: readonly OwnerInfo[]): owners is MultipleOwners {
+    return owners.length >= minimumOwnerCountForDuplicate;
+}
+
+function duplicateMessage(filePath: string, owners: MultipleOwners): string | undefined {
     const allOwnersHaveNoBindings = owners.every((owner) => {
         return owner.survivingBindings.size === 0;
     });
     if (allOwnersHaveNoBindings) {
-        return { hasDuplicate: true, message: formatPathLevelMessage(filePath, owners) };
+        return formatPathLevelMessage(filePath, owners);
     }
-    const sharedDeclarations = intersectAll(
+    const [firstOwner, ...remainingOwners] = owners;
+    const sharedDeclarations = intersectAll([
         firstOwner.survivingBindings,
-        remainingOwners.map((owner) => {
+        ...remainingOwners.map((owner) => {
             return owner.survivingBindings;
         })
-    );
+    ]);
     if (sharedDeclarations.size === 0) {
-        return { hasDuplicate: false };
+        return undefined;
     }
-    return { hasDuplicate: true, message: formatSharedDeclarationsMessage(filePath, sharedDeclarations, owners) };
+    return formatSharedDeclarationsMessage(filePath, sharedDeclarations, owners);
 }
 
 function findDuplicateIssues(
@@ -131,14 +134,17 @@ function findDuplicateIssues(
 ): readonly string[] {
     const globallyAllowed = new Set(globalConfig.allowList);
     return Array.from(collectFileOwnership(bundles).entries()).flatMap(([filePath, owners]) => {
-        const classification = classifyDuplicate(filePath, owners);
-        if (!classification.hasDuplicate) {
+        if (!hasMultipleOwners(owners)) {
+            return [];
+        }
+        const message = duplicateMessage(filePath, owners);
+        if (message === undefined) {
             return [];
         }
         if (globallyAllowed.has(filePath) || everyOwnerConsents(filePath, owners, perPackageSettings)) {
             return [];
         }
-        return [classification.message];
+        return [message];
     });
 }
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
@@ -164,4 +165,36 @@ test('per-package allowList only suppresses for the listed package', () => {
     assert.strictEqual(result.length, 1);
     const [issue] = result;
     assert.ok(issue?.includes('package "b"'));
+});
+
+test('reports a side effect when the per-package settings entry exists for the bundle but does not include noSideEffects', () => {
+    const result = noSideEffectsRule.run({
+        bundles: [
+            bundleWithImpureResources('a', [impureResource('/init.ts', [{ line: 1, kind: 'expression statement' }])])
+        ],
+        settings: { noSideEffects: { enabled: true } },
+        perPackageSettings: new Map<string, PackageChecksSettings>([['a', {}]])
+    });
+
+    assert.strictEqual(result.length, 1);
+});
+
+test('global schema accepts a configuration with enabled and an allowList', () => {
+    const result = safeParse(noSideEffectsRule.globalSchema, { enabled: true, allowList: ['/init.ts'] });
+    assert.strictEqual(result.success, true);
+});
+
+test('global schema rejects a configuration without the enabled flag', () => {
+    const result = safeParse(noSideEffectsRule.globalSchema, { allowList: ['/init.ts'] });
+    assert.strictEqual(result.success, false);
+});
+
+test('per-package schema accepts a configuration with an allowList', () => {
+    const result = safeParse(noSideEffectsRule.perPackageSchema, { allowList: ['/init.ts'] });
+    assert.strictEqual(result.success, true);
+});
+
+test('per-package schema rejects unknown keys', () => {
+    const result = safeParse(noSideEffectsRule.perPackageSchema, { unknown: 1 });
+    assert.strictEqual(result.success, false);
 });

@@ -296,6 +296,20 @@ test('build() forwards deadCodeElimination.enabled to the eliminator', async () 
     assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, false);
 });
 
+test('build() defaults transformationsEnabled to true when deadCodeElimination is not configured', async () => {
+    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
+        return inputs.map(() => {
+            return { ...createLinkedBundle(), contents: [], sideEffectsField: undefined };
+        });
+    });
+    const { processor } = createProcessor({ eliminate });
+
+    await processor.build({ ...createBuildAndPublishOptions(), version: '1.0.0' });
+
+    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
+    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, true);
+});
+
 test('build() throws when the dead-code eliminator returns no bundle', async () => {
     const eliminate = fake.resolves([]);
     const { processor } = createProcessor({ eliminate });

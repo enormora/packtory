@@ -620,6 +620,24 @@ test('resolveAndLinkAll() honours per-package deadCodeElimination.enabled when r
     assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, false);
 });
 
+test('resolveAndLinkAll() defaults transformationsEnabled to true when neither commonPackageSettings nor per-package config sets it', async () => {
+    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
+        return inputs.map(() => {
+            const stub: AnalyzedBundle = {
+                ...createLinkedBundle('package-a'),
+                contents: [],
+                sideEffectsField: undefined
+            };
+            return stub;
+        });
+    });
+    const eliminator = { eliminate };
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: eliminator });
+    await packtory.resolveAndLinkAll(createConfigWithoutRegistry({}));
+    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
+    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, true);
+});
+
 test('resolveAndLinkAll() throws when a resolved package has no entry in the transformations map', async () => {
     const { packtory } = createPacktoryUnderTest({
         resolveStage: async () => {
