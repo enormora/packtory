@@ -15,6 +15,12 @@ type IndexedBundle = {
     readonly bindingsByFilePath: ReadonlyMap<string, FileBindings>;
 };
 
+type ResolvedTarget = {
+    readonly bundleName: string;
+    readonly sourceFilePath: string;
+    readonly indexedBundle: IndexedBundle;
+};
+
 function indexBundles(inputs: readonly CrossBundleInput[]): ReadonlyMap<string, IndexedBundle> {
     const map = new Map<string, IndexedBundle>();
     for (const input of inputs) {
@@ -28,13 +34,6 @@ function indexBundles(inputs: readonly CrossBundleInput[]): ReadonlyMap<string, 
     return map;
 }
 
-function targetFilePathFromSpecifier(packageName: string, specifier: string): string | undefined {
-    if (!specifier.startsWith(`${packageName}/`)) {
-        return undefined;
-    }
-    return specifier.slice(packageName.length + 1);
-}
-
 function findResourceByTargetPath(bundle: LinkedBundle, targetFilePath: string): string | undefined {
     const resource = bundle.contents.find((entry) => {
         return entry.fileDescription.targetFilePath === targetFilePath;
@@ -42,29 +41,30 @@ function findResourceByTargetPath(bundle: LinkedBundle, targetFilePath: string):
     return resource?.fileDescription.sourceFilePath;
 }
 
-function resolveSpecifier(
+function tryResolveAgainstBundle(
     bundleName: string,
-    info: IndexedBundle,
+    indexedBundle: IndexedBundle,
     specifier: string
-): { readonly bundleName: string; readonly sourceFilePath: string } | undefined {
-    const targetPath = targetFilePathFromSpecifier(bundleName, specifier);
-    if (targetPath === undefined) {
+): ResolvedTarget | undefined {
+    const prefix = `${bundleName}/`;
+    if (!specifier.startsWith(prefix)) {
         return undefined;
     }
-    const sourceFilePath = findResourceByTargetPath(info.bundle, targetPath);
+    const targetPath = specifier.slice(prefix.length);
+    const sourceFilePath = findResourceByTargetPath(indexedBundle.bundle, targetPath);
     if (sourceFilePath === undefined) {
         return undefined;
     }
-    return { bundleName, sourceFilePath };
+    return { bundleName, sourceFilePath, indexedBundle };
 }
 
 function resolveCrossBundleTarget(
     importDeclaration: ImportDeclaration,
     indexed: ReadonlyMap<string, IndexedBundle>
-): { readonly bundleName: string; readonly sourceFilePath: string } | undefined {
+): ResolvedTarget | undefined {
     const specifier = importDeclaration.getModuleSpecifierValue();
     for (const [bundleName, info] of indexed) {
-        const resolved = resolveSpecifier(bundleName, info, specifier);
+        const resolved = tryResolveAgainstBundle(bundleName, info, specifier);
         if (resolved !== undefined) {
             return resolved;
         }
@@ -78,30 +78,32 @@ function recordSeed(seeds: Map<string, Set<string>>, bundleName: string, seed: s
     seeds.set(bundleName, existing);
 }
 
-function seedAllBindings(
-    seeds: Map<string, Set<string>>,
-    bundleName: string,
-    sourceFilePath: string,
-    bindingsByFilePath: ReadonlyMap<string, FileBindings>
-): void {
-    const fileBindings = bindingsByFilePath.get(sourceFilePath);
+function seedAllBindings(seeds: Map<string, Set<string>>, target: ResolvedTarget): void {
+    const fileBindings = target.indexedBundle.bindingsByFilePath.get(target.sourceFilePath);
     if (fileBindings === undefined) {
         return;
     }
     for (const binding of fileBindings.bindings) {
-        recordSeed(seeds, bundleName, bindingId(sourceFilePath, binding.name));
+        recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, binding.name));
     }
+}
+
+function recordDefaultImportSeed(
+    importDeclaration: ImportDeclaration,
+    target: ResolvedTarget,
+    seeds: Map<string, Set<string>>
+): void {
+    if (importDeclaration.getDefaultImport() === undefined) {
+        return;
+    }
+    recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, 'default'));
 }
 
 function recordNamedImportSeeds(
     importDeclaration: ImportDeclaration,
-    target: { readonly bundleName: string; readonly sourceFilePath: string },
+    target: ResolvedTarget,
     seeds: Map<string, Set<string>>
 ): void {
-    const defaultImport = importDeclaration.getDefaultImport();
-    if (defaultImport !== undefined) {
-        recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, 'default'));
-    }
     for (const namedImport of importDeclaration.getNamedImports()) {
         recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, namedImport.getName()));
     }
@@ -117,12 +119,10 @@ function processImportDeclaration(
         return;
     }
     if (importDeclaration.getNamespaceImport() !== undefined) {
-        const targetBundle = indexed.get(target.bundleName);
-        if (targetBundle !== undefined) {
-            seedAllBindings(seeds, target.bundleName, target.sourceFilePath, targetBundle.bindingsByFilePath);
-        }
+        seedAllBindings(seeds, target);
         return;
     }
+    recordDefaultImportSeed(importDeclaration, target, seeds);
     recordNamedImportSeeds(importDeclaration, target, seeds);
 }
 

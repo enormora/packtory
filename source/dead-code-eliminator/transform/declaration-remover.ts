@@ -1,4 +1,4 @@
-import { Node as TsMorphNode, SyntaxKind, type SourceFile, type Statement, type VariableStatement } from 'ts-morph';
+import { Node as TsMorphNode, SyntaxKind, type SourceFile, type Statement } from 'ts-morph';
 
 export type RemovalPlan = {
     readonly survivingNames: ReadonlySet<string>;
@@ -31,13 +31,10 @@ function processNamedDeclaration(statement: Statement, survivingNames: ReadonlyS
     return true;
 }
 
-function variableStatementHasNoSurvivors(statement: VariableStatement, survivingNames: ReadonlySet<string>): boolean {
-    return statement.getDeclarations().every((declarator) => {
-        return !survivingNames.has(declarator.getName());
-    });
-}
-
-function removeDeadDeclarators(statement: VariableStatement, survivingNames: ReadonlySet<string>): boolean {
+function processVariableStatement(statement: Statement, survivingNames: ReadonlySet<string>): boolean {
+    if (!TsMorphNode.isVariableStatement(statement)) {
+        return false;
+    }
     let mutated = false;
     for (const declarator of statement.getDeclarations()) {
         if (!survivingNames.has(declarator.getName())) {
@@ -46,17 +43,6 @@ function removeDeadDeclarators(statement: VariableStatement, survivingNames: Rea
         }
     }
     return mutated;
-}
-
-function processVariableStatement(statement: Statement, survivingNames: ReadonlySet<string>): boolean {
-    if (!TsMorphNode.isVariableStatement(statement)) {
-        return false;
-    }
-    if (variableStatementHasNoSurvivors(statement, survivingNames)) {
-        statement.remove();
-        return true;
-    }
-    return removeDeadDeclarators(statement, survivingNames);
 }
 
 function processStatement(statement: Statement, survivingNames: ReadonlySet<string>): boolean {

@@ -17,9 +17,6 @@ export function computeSideEffectsField(
     const codeFiles = contents.filter((resource) => {
         return isCodeFile(resource.fileDescription.targetFilePath);
     });
-    if (codeFiles.length === 0) {
-        return false;
-    }
     const impureFiles = codeFiles.filter(fileHasSideEffects);
     if (impureFiles.length === 0) {
         return false;

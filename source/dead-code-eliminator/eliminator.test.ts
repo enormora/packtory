@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { analyzedBundle, bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
 import { createDeadCodeEliminator } from './eliminator.ts';
@@ -10,6 +10,35 @@ function inputs(
 ): readonly { bundle: LinkedBundle; transformationsEnabled: boolean }[] {
     return bundles.map((bundle) => {
         return { bundle, transformationsEnabled: true };
+    });
+}
+
+type CodeFileSpec = {
+    readonly name: string;
+    readonly sourceFilePath: string;
+    readonly targetFilePath: string;
+    readonly content: string;
+    readonly extraResources?: readonly LinkedBundleResource[];
+};
+
+function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
+    const codeResource = {
+        ...bundleResource(spec.sourceFilePath, { content: spec.content, targetFilePath: spec.targetFilePath }),
+        isSubstituted: false
+    };
+    return linkedBundle({
+        name: spec.name,
+        contents: [codeResource, ...(spec.extraResources ?? [])],
+        entryPoints: [
+            {
+                js: {
+                    content: spec.content,
+                    isExecutable: false,
+                    sourceFilePath: spec.sourceFilePath,
+                    targetFilePath: spec.targetFilePath
+                }
+            }
+        ]
     });
 }
 
@@ -75,15 +104,21 @@ test('eliminate copies entryPoints, externalDependencies, and linkedBundleDepend
     assert.strictEqual(analyzed.linkedBundleDependencies, input.linkedBundleDependencies);
 });
 
-test('eliminate preserves resource fields apart from analysis on non-code files', async () => {
+test('eliminate preserves resource fields and uses empty analysis defaults on non-code files', async () => {
     const eliminator = createDeadCodeEliminator();
     const resource = { ...bundleResource('/src/LICENSE', { content: 'Hello' }), isSubstituted: false };
     const [analyzed] = await eliminator.eliminate(inputs(linkedBundle({ name: 'pkg', contents: [resource] })));
     const emitted = analyzed?.contents[0];
-    assert.strictEqual(emitted?.fileDescription, resource.fileDescription);
+    assert.ok(emitted !== undefined);
+    assert.strictEqual(emitted.fileDescription, resource.fileDescription);
     assert.strictEqual(emitted.isSubstituted, false);
     assert.strictEqual(emitted.directDependencies, resource.directDependencies);
     assert.strictEqual(emitted.isExplicitlyIncluded, resource.isExplicitlyIncluded);
+    assert.deepStrictEqual(emitted.analysis, {
+        survivingBindings: new Set<string>(),
+        sideEffectStatements: [],
+        sideEffectImports: new Set<string>()
+    });
 });
 
 test('eliminate accepts an analyzed bundle fixture and treats it like any linked bundle', async () => {
@@ -94,97 +129,42 @@ test('eliminate accepts an analyzed bundle fixture and treats it like any linked
     assert.strictEqual(analyzed.sideEffectsField, false);
 });
 
-test('eliminate removes an unreachable function declaration from the emitted content when transformations are enabled', async () => {
+const indexTsContent = ['function dead() { return 1; }', 'export function live() { return 2; }'].join('\n');
+const indexTsBundle = (extraResources: readonly LinkedBundleResource[] = []): LinkedBundle => {
+    return bundleForCodeFile({
+        name: 'pkg',
+        sourceFilePath: '/src/index.ts',
+        targetFilePath: 'index.ts',
+        content: indexTsContent,
+        extraResources
+    });
+};
+
+test('eliminate removes an unreachable function declaration and records the surviving bindings when transformations are enabled', async () => {
     const eliminator = createDeadCodeEliminator();
-    const content = ['function dead() { return 1; }', 'export function live() { return 2; }'].join('\n');
-    const resource = {
-        ...bundleResource('/src/index.ts', { content, targetFilePath: 'index.ts' }),
-        isSubstituted: false
-    };
-    const [analyzed] = await eliminator.eliminate(
-        inputs(
-            linkedBundle({
-                name: 'pkg',
-                contents: [resource],
-                entryPoints: [
-                    {
-                        js: {
-                            content,
-                            isExecutable: false,
-                            sourceFilePath: '/src/index.ts',
-                            targetFilePath: 'index.ts'
-                        }
-                    }
-                ]
-            })
-        )
-    );
+    const [analyzed] = await eliminator.eliminate(inputs(indexTsBundle()));
     const emitted = analyzed?.contents[0];
     assert.ok(emitted !== undefined);
     assert.strictEqual(emitted.fileDescription.content.includes('dead'), false);
     assert.strictEqual(emitted.fileDescription.content.includes('live'), true);
+    assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['live']));
 });
 
 test('eliminate keeps unreachable declarations when transformations are disabled', async () => {
     const eliminator = createDeadCodeEliminator();
-    const content = ['function dead() { return 1; }', 'export function live() { return 2; }'].join('\n');
-    const resource = {
-        ...bundleResource('/src/index.ts', { content, targetFilePath: 'index.ts' }),
-        isSubstituted: false
-    };
-    const result = await eliminator.eliminate([
-        {
-            bundle: linkedBundle({
-                name: 'pkg',
-                contents: [resource],
-                entryPoints: [
-                    {
-                        js: {
-                            content,
-                            isExecutable: false,
-                            sourceFilePath: '/src/index.ts',
-                            targetFilePath: 'index.ts'
-                        }
-                    }
-                ]
-            }),
-            transformationsEnabled: false
-        }
-    ]);
+    const result = await eliminator.eliminate([{ bundle: indexTsBundle(), transformationsEnabled: false }]);
     const emitted = result[0]?.contents[0];
     assert.ok(emitted !== undefined);
-    assert.strictEqual(emitted.fileDescription.content, content);
+    assert.strictEqual(emitted.fileDescription.content, indexTsContent);
 });
 
 test('eliminate drops the paired source map when a code file is transformed', async () => {
     const eliminator = createDeadCodeEliminator();
-    const content = ['function dead() { return 1; }', 'export function live() { return 2; }'].join('\n');
-    const codeResource = {
-        ...bundleResource('/src/index.ts', { content, targetFilePath: 'index.ts' }),
-        isSubstituted: false
-    };
     const mapResource = {
         ...bundleResource('/src/index.ts.map', { content: '{"version":3}', targetFilePath: 'index.ts.map' }),
         isSubstituted: false
     };
-    const [analyzed] = await eliminator.eliminate(
-        inputs(
-            linkedBundle({
-                name: 'pkg',
-                contents: [codeResource, mapResource],
-                entryPoints: [
-                    {
-                        js: {
-                            content,
-                            isExecutable: false,
-                            sourceFilePath: '/src/index.ts',
-                            targetFilePath: 'index.ts'
-                        }
-                    }
-                ]
-            })
-        )
-    );
+    const [analyzed] = await eliminator.eliminate(inputs(indexTsBundle([mapResource])));
     const targetPaths = analyzed?.contents.map((resource) => {
         return resource.fileDescription.targetFilePath;
     });
@@ -195,33 +175,19 @@ test('eliminate drops the paired source map when a code file is transformed', as
 
 test('eliminate keeps the paired source map when no transformation occurs', async () => {
     const eliminator = createDeadCodeEliminator();
-    const content = 'export function live() { return 2; }';
-    const codeResource = {
-        ...bundleResource('/src/index.ts', { content, targetFilePath: 'index.ts' }),
-        isSubstituted: false
-    };
+    const liveOnlyContent = 'export function live() { return 2; }';
     const mapResource = {
         ...bundleResource('/src/index.ts.map', { content: '{"version":3}', targetFilePath: 'index.ts.map' }),
         isSubstituted: false
     };
-    const [analyzed] = await eliminator.eliminate(
-        inputs(
-            linkedBundle({
-                name: 'pkg',
-                contents: [codeResource, mapResource],
-                entryPoints: [
-                    {
-                        js: {
-                            content,
-                            isExecutable: false,
-                            sourceFilePath: '/src/index.ts',
-                            targetFilePath: 'index.ts'
-                        }
-                    }
-                ]
-            })
-        )
-    );
+    const bundle = bundleForCodeFile({
+        name: 'pkg',
+        sourceFilePath: '/src/index.ts',
+        targetFilePath: 'index.ts',
+        content: liveOnlyContent,
+        extraResources: [mapResource]
+    });
+    const [analyzed] = await eliminator.eliminate(inputs(bundle));
     const targetPaths = analyzed?.contents.map((resource) => {
         return resource.fileDescription.targetFilePath;
     });
@@ -229,17 +195,16 @@ test('eliminate keeps the paired source map when no transformation occurs', asyn
     assert.strictEqual(targetPaths.includes('index.ts.map'), true);
 });
 
-test('eliminate keeps all declarations when the file has top-level side effects', async () => {
+test('eliminate honours an entry point declaration file when seeding reachability', async () => {
     const eliminator = createDeadCodeEliminator();
-    const content = [
-        'function dead() { return 1; }',
-        'export function live() { return 2; }',
-        'console.log("init");'
-    ].join('\n');
-    const resource = {
-        ...bundleResource('/src/index.ts', { content, targetFilePath: 'index.ts' }),
-        isSubstituted: false
+    const declarationContent = 'export type Public = number;\nexport type Private = string;';
+    const declarationFile = {
+        content: declarationContent,
+        isExecutable: false,
+        sourceFilePath: '/src/index.d.ts',
+        targetFilePath: 'index.d.ts'
     };
+    const resource = { ...bundleResource('/src/index.d.ts', declarationFile), isSubstituted: false };
     const [analyzed] = await eliminator.eliminate(
         inputs(
             linkedBundle({
@@ -248,11 +213,12 @@ test('eliminate keeps all declarations when the file has top-level side effects'
                 entryPoints: [
                     {
                         js: {
-                            content,
+                            content: '',
                             isExecutable: false,
-                            sourceFilePath: '/src/index.ts',
-                            targetFilePath: 'index.ts'
-                        }
+                            sourceFilePath: '/src/index.js',
+                            targetFilePath: 'index.js'
+                        },
+                        declarationFile
                     }
                 ]
             })
@@ -260,5 +226,61 @@ test('eliminate keeps all declarations when the file has top-level side effects'
     );
     const emitted = analyzed?.contents[0];
     assert.ok(emitted !== undefined);
+    assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['Public', 'Private']));
+});
+
+test('eliminate uses cross-bundle seeds to keep an exported function reachable when consumed by another bundle', async () => {
+    const eliminator = createDeadCodeEliminator();
+    const consumerBundle = bundleForCodeFile({
+        name: 'consumer',
+        sourceFilePath: '/consumer/index.ts',
+        targetFilePath: 'index.ts',
+        content: 'import { used } from "producer/helpers.ts";\nexport function pub() { return used(); }'
+    });
+    const producerHelpers = {
+        ...bundleResource('/producer/helpers.ts', {
+            content: 'export function used() { return 1; }\nexport function unused() { return 2; }',
+            targetFilePath: 'helpers.ts'
+        }),
+        isSubstituted: false
+    };
+    const producerBundle = linkedBundle({
+        name: 'producer',
+        contents: [producerHelpers],
+        entryPoints: [
+            {
+                js: {
+                    content: '',
+                    isExecutable: false,
+                    sourceFilePath: '/producer/index.js',
+                    targetFilePath: 'index.js'
+                }
+            }
+        ]
+    });
+    const result = await eliminator.eliminate(inputs(consumerBundle, producerBundle));
+    const producerEmitted = result[1]?.contents[0];
+    assert.ok(producerEmitted !== undefined);
+    assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), true);
+    assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), false);
+});
+
+test('eliminate keeps all declarations and reports them as surviving when the file has top-level side effects', async () => {
+    const eliminator = createDeadCodeEliminator();
+    const sideEffectContent = [
+        'function dead() { return 1; }',
+        'export function live() { return 2; }',
+        'console.log("init");'
+    ].join('\n');
+    const bundle = bundleForCodeFile({
+        name: 'pkg',
+        sourceFilePath: '/src/index.ts',
+        targetFilePath: 'index.ts',
+        content: sideEffectContent
+    });
+    const [analyzed] = await eliminator.eliminate(inputs(bundle));
+    const emitted = analyzed?.contents[0];
+    assert.ok(emitted !== undefined);
     assert.strictEqual(emitted.fileDescription.content.includes('dead'), true);
+    assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['dead', 'live']));
 });

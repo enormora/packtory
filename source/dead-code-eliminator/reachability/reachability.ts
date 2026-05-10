@@ -1,4 +1,4 @@
-import { Node as TsMorphNode, type Identifier, type SourceFile, type Statement } from 'ts-morph';
+import { SyntaxKind, type Identifier, type Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
 import type { BindingDescriptor } from './binding-extractor.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
@@ -11,7 +11,7 @@ export type FileBindings = {
 export type ReachabilityInput = {
     readonly files: readonly FileBindings[];
     readonly entryPointFilePaths: ReadonlySet<string>;
-    readonly externalSeeds?: ReadonlySet<string>;
+    readonly externalSeeds?: ReadonlySet<string> | undefined;
 };
 
 export type ReachabilityResult = {
@@ -45,41 +45,31 @@ function buildBindingsByFile(files: readonly FileBindings[]): Map<string, Set<st
     return map;
 }
 
-function appendDeclarationTargets(
+function addDeclarationTargets(
     declarations: readonly TsMorphNode[],
     declarationIndex: ReadonlyMap<TsMorphNode, string>,
-    targets: string[]
+    targets: Set<string>
 ): void {
     for (const declaration of declarations) {
         const candidate = declarationIndex.get(declaration);
         if (candidate !== undefined) {
-            targets.push(candidate);
+            targets.add(candidate);
         }
     }
 }
 
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
 
-function aliasedSymbolDeclarations(symbol: SymbolReference): readonly TsMorphNode[] {
+function addSymbolTargets(
+    symbol: SymbolReference,
+    declarationIndex: ReadonlyMap<TsMorphNode, string>,
+    targets: Set<string>
+): void {
+    addDeclarationTargets(symbol.getDeclarations(), declarationIndex, targets);
     const aliased = symbol.getAliasedSymbol();
-    if (aliased === undefined) {
-        return [];
+    if (aliased !== undefined) {
+        addDeclarationTargets(aliased.getDeclarations(), declarationIndex, targets);
     }
-    return aliased.getDeclarations();
-}
-
-function findEdgeTargets(
-    identifier: Identifier,
-    declarationIndex: ReadonlyMap<TsMorphNode, string>
-): readonly string[] {
-    const symbol = identifier.getSymbol();
-    if (symbol === undefined) {
-        return [];
-    }
-    const targets: string[] = [];
-    appendDeclarationTargets(symbol.getDeclarations(), declarationIndex, targets);
-    appendDeclarationTargets(aliasedSymbolDeclarations(symbol), declarationIndex, targets);
-    return targets;
 }
 
 function collectIdentifierTargets(
@@ -87,14 +77,12 @@ function collectIdentifierTargets(
     declarationIndex: ReadonlyMap<TsMorphNode, string>
 ): Set<string> {
     const targets = new Set<string>();
-    rootNode.forEachDescendant((node) => {
-        if (!TsMorphNode.isIdentifier(node)) {
-            return;
+    for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
+        const symbol = identifier.getSymbol();
+        if (symbol !== undefined) {
+            addSymbolTargets(symbol, declarationIndex, targets);
         }
-        for (const target of findEdgeTargets(node, declarationIndex)) {
-            targets.add(target);
-        }
-    });
+    }
     return targets;
 }
 
@@ -112,17 +100,16 @@ function buildEdgeMap(
     return edges;
 }
 
-function collectStatementSeeds(
+function addStatementSeeds(
     statements: readonly Statement[],
-    declarationIndex: ReadonlyMap<TsMorphNode, string>
-): Set<string> {
-    const seeds = new Set<string>();
+    declarationIndex: ReadonlyMap<TsMorphNode, string>,
+    seeds: Set<string>
+): void {
     for (const statement of statements) {
         for (const target of collectIdentifierTargets(statement, declarationIndex)) {
             seeds.add(target);
         }
     }
-    return seeds;
 }
 
 function gatherInitialSeeds(
@@ -139,19 +126,9 @@ function gatherInitialSeeds(
                 seeds.add(bindingId(file.sourceFilePath, binding.name));
             }
         }
-        const impureStatements = collectImpureStatements(file.sourceFile);
-        for (const id of collectStatementSeeds(impureStatements, declarationIndex)) {
-            seeds.add(id);
-        }
+        addStatementSeeds(collectImpureStatements(file.sourceFile), declarationIndex, seeds);
     }
     return seeds;
-}
-
-function enqueueIfNew(reachable: Set<string>, queue: string[], id: string): void {
-    if (!reachable.has(id)) {
-        reachable.add(id);
-        queue.push(id);
-    }
 }
 
 function expandFrontier(
@@ -165,21 +142,20 @@ function expandFrontier(
         return;
     }
     for (const target of targets) {
-        enqueueIfNew(reachable, queue, target);
+        if (!reachable.has(target)) {
+            reachable.add(target);
+            queue.push(target);
+        }
     }
 }
 
 function bfsReachable(seeds: ReadonlySet<string>, edges: ReadonlyMap<string, ReadonlySet<string>>): Set<string> {
-    const reachable = new Set<string>();
-    const queue: string[] = [];
-    for (const seed of seeds) {
-        enqueueIfNew(reachable, queue, seed);
-    }
-    while (queue.length > 0) {
-        const current = queue.shift();
-        if (current !== undefined) {
-            expandFrontier(current, edges, reachable, queue);
-        }
+    const reachable = new Set<string>(seeds);
+    const queue = Array.from(seeds);
+    let current = queue.shift();
+    while (current !== undefined) {
+        expandFrontier(current, edges, reachable, queue);
+        current = queue.shift();
     }
     return reachable;
 }

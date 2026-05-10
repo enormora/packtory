@@ -108,6 +108,14 @@ test('marks imports as not exported', () => {
     assert.deepStrictEqual(descriptors('import { foo } from "./other";'), [{ name: 'foo', isExported: false }]);
 });
 
+test('marks a default import as not exported', () => {
+    assert.deepStrictEqual(descriptors('import foo from "./other";'), [{ name: 'foo', isExported: false }]);
+});
+
+test('marks a namespace import as not exported', () => {
+    assert.deepStrictEqual(descriptors('import * as ns from "./other";'), [{ name: 'ns', isExported: false }]);
+});
+
 test('extracts bindings from a mixed file in declaration order', () => {
     assert.deepStrictEqual(
         names(

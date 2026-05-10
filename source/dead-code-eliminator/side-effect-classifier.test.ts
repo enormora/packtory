@@ -163,6 +163,13 @@ test('treats a const with a template literal containing a call as impure', () =>
     assert.deepStrictEqual(classify('const x = `hello ${compute()}`;'), [{ line: 1, kind: 'variable initializer' }]);
 });
 
+test('treats a const with a template literal mixing pure and impure spans as impure', () => {
+    // eslint-disable-next-line no-template-curly-in-string -- template literal embedded in source-under-test
+    assert.deepStrictEqual(classify('const x = `pure ${1} mixed ${compute()}`;'), [
+        { line: 1, kind: 'variable initializer' }
+    ]);
+});
+
 test('treats a const with a function expression as pure', () => {
     assert.deepStrictEqual(classify('const x = function () { return 1; };'), []);
 });
@@ -187,6 +194,10 @@ test('treats a const with an array literal containing a call as impure', () => {
     assert.deepStrictEqual(classify('const x = [compute()];'), [{ line: 1, kind: 'variable initializer' }]);
 });
 
+test('treats a const with an array literal mixing pure and impure elements as impure', () => {
+    assert.deepStrictEqual(classify('const x = [1, compute()];'), [{ line: 1, kind: 'variable initializer' }]);
+});
+
 test('treats a const with a spread of an array literal as pure', () => {
     assert.deepStrictEqual(classify('const x = [...[1, 2]];'), []);
 });
@@ -201,6 +212,10 @@ test('treats a const with an object literal of pure properties as pure', () => {
 
 test('treats a const with an object literal whose value is a call as impure', () => {
     assert.deepStrictEqual(classify('const x = { a: compute() };'), [{ line: 1, kind: 'variable initializer' }]);
+});
+
+test('treats a const with an object literal mixing pure and impure properties as impure', () => {
+    assert.deepStrictEqual(classify('const x = { a: 1, b: compute() };'), [{ line: 1, kind: 'variable initializer' }]);
 });
 
 test('treats a const with an object spread of a pure literal as pure', () => {
@@ -328,6 +343,10 @@ test('treats a top-level debugger statement as an impure unknown statement', () 
 
 test('treats a class with a pure static initializer as pure', () => {
     assert.deepStrictEqual(classify('class Foo { static x = 1; }'), []);
+});
+
+test('treats a class with a static property without an initializer as pure', () => {
+    assert.deepStrictEqual(classify('class Foo { static x: number; }'), []);
 });
 
 test('treats a class with a non-static impure initializer as pure (set per-instance)', () => {

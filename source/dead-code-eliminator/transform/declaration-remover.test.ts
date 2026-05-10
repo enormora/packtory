@@ -87,3 +87,10 @@ test('an empty file produces no mutations', () => {
     assert.strictEqual(text, '');
     assert.strictEqual(mutated, false);
 });
+
+test('keeps an anonymous default-exported function declaration whose name cannot be resolved', () => {
+    const { text, mutated } = transform('export default function() { return 1; }', new Set<string>());
+    assert.strictEqual(text.includes('default'), true);
+    assert.strictEqual(text.includes('function'), true);
+    assert.strictEqual(mutated, false);
+});

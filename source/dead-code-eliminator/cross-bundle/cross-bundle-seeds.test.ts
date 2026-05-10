@@ -90,6 +90,7 @@ test('records a named import as a seed in the target bundle', () => {
     assert.ok(bSeeds !== undefined);
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
     assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
+    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'default')), false);
 });
 
 test('records a default import as a "default" binding seed', () => {
@@ -203,6 +204,42 @@ test('does not record seeds for a namespace import that targets a file with no e
         { bundle: producer, sourceFiles: [], fileBindings: [] }
     ]);
     assert.strictEqual(seeds.size, 0);
+});
+
+test('records seeds only in the bundle whose name prefixes the specifier, not in other bundles that share a target file path', () => {
+    const consumer = bundleWith('pkg-a', [
+        {
+            sourceFilePath: '/a/index.ts',
+            targetFilePath: 'index.ts',
+            content: 'import { used } from "pkg-b/helpers.ts";\nexport function pub() { return used(); }'
+        },
+        {
+            sourceFilePath: '/a/helpers.ts',
+            targetFilePath: 'helpers.ts',
+            content: 'export function used() { return 0; }'
+        }
+    ]);
+    const producer = bundleWith('pkg-b', [
+        {
+            sourceFilePath: '/b/helpers.ts',
+            targetFilePath: 'helpers.ts',
+            content: 'export function used() { return 1; }'
+        }
+    ]);
+    const seeds = buildCrossBundleSeeds([
+        inputFor(consumer, [
+            {
+                sourceFilePath: '/a/index.ts',
+                content: 'import { used } from "pkg-b/helpers.ts";\nexport function pub() { return used(); }'
+            },
+            { sourceFilePath: '/a/helpers.ts', content: 'export function used() { return 0; }' }
+        ]),
+        inputFor(producer, [{ sourceFilePath: '/b/helpers.ts', content: 'export function used() { return 1; }' }])
+    ]);
+    assert.strictEqual(seeds.has('pkg-a'), false);
+    const bSeeds = seeds.get('pkg-b');
+    assert.ok(bSeeds !== undefined);
+    assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
 });
 
 test('does not record a seed for an import that does not match any bundle name', () => {

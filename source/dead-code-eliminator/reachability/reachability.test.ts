@@ -114,6 +114,14 @@ test('tolerates external seeds that do not exist in the bundle edge map', () => 
     assert.ok(result.reachable.has(bindingId('not-in-bundle.ts', 'mystery')));
 });
 
+test('does not record any unresolved binding ids when a function references its own parameters', () => {
+    const files = [fileBindingsFor('entry.ts', 'export function pub(x: number) { return x; }')];
+    const result = computeReachability({ files, entryPointFilePaths: new Set(['entry.ts']) });
+
+    assert.strictEqual(result.reachable.size, 1);
+    assert.ok(result.reachable.has(bindingId('entry.ts', 'pub')));
+});
+
 test('includes every file in bindingIdsByFile, even unreachable ones', () => {
     const files = [fileBindingsFor('isolated.ts', 'export function never() {}')];
     const result = computeReachability({ files, entryPointFilePaths: new Set<string>() });

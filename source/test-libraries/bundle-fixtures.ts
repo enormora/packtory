@@ -86,15 +86,6 @@ export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundl
     };
 }
 
-export function fileAnalysis(overrides: Partial<FileAnalysis> = {}): FileAnalysis {
-    return {
-        survivingBindings: new Set<string>(),
-        sideEffectStatements: [],
-        sideEffectImports: new Set<string>(),
-        ...overrides
-    };
-}
-
 type AnalyzedBundleResourceOverrides = {
     readonly content?: string;
     readonly targetFilePath?: string;
@@ -119,7 +110,12 @@ export function analyzedBundleResource(
     return {
         ...base,
         isSubstituted: overrides.isSubstituted ?? false,
-        analysis: fileAnalysis(overrides.analysis)
+        analysis: {
+            survivingBindings: new Set<string>(),
+            sideEffectStatements: [],
+            sideEffectImports: new Set<string>(),
+            ...overrides.analysis
+        }
     };
 }
 

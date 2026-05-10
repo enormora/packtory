@@ -86,6 +86,10 @@ test('returns the impure file paths sorted alphabetically', () => {
     );
 });
 
+test('returns false when only non-code files exist, even if they carry side-effect statements', () => {
+    assert.strictEqual(computeSideEffectsField([resource('LICENSE', true), resource('readme.md', true)]), false);
+});
+
 test('ignores non-code files when classifying purity', () => {
     assert.strictEqual(
         computeSideEffectsField([resource('a.js'), resource('LICENSE'), resource('package.json')]),

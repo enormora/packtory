@@ -110,8 +110,7 @@ const inherentlyPurePropertyKinds: ReadonlySet<SyntaxKind> = new Set([
 
 function isPurePropertyAssignment(property: TsMorphNode, recurse: PurityChecker): boolean {
     if (TsMorphNode.isPropertyAssignment(property)) {
-        const initializer = property.getInitializer();
-        return initializer !== undefined && recurse(initializer);
+        return recurse(property.getInitializerOrThrow());
     }
     if (TsMorphNode.isSpreadAssignment(property)) {
         return recurse(property.getExpression());
@@ -244,28 +243,17 @@ function classifyVariableStatement(statement: VariableStatement): string | undef
     return undefined;
 }
 
-type ClassificationMatch = {
-    readonly kind: string | undefined;
-};
-
-function classifyByKindLookup(kind: SyntaxKind): ClassificationMatch | undefined {
-    if (pureDeclarationKinds.has(kind)) {
-        return { kind: undefined };
-    }
-    const controlFlowKind = controlFlowStatementKinds.get(kind);
-    if (controlFlowKind !== undefined) {
-        return { kind: controlFlowKind };
-    }
-    return undefined;
-}
-
-function classifyDeclarativeStatement(statement: Statement): ClassificationMatch | undefined {
+function classifyImportOrExport(statement: Statement): { readonly kind: string | undefined } | undefined {
     if (TsMorphNode.isImportDeclaration(statement)) {
         return { kind: classifyImportDeclaration(statement) };
     }
     if (TsMorphNode.isExportAssignment(statement)) {
         return { kind: classifyExportAssignment(statement) };
     }
+    return undefined;
+}
+
+function classifyClassOrVariable(statement: Statement): { readonly kind: string | undefined } | undefined {
     if (TsMorphNode.isClassDeclaration(statement)) {
         return { kind: classifyClassDeclaration(statement) };
     }
@@ -275,19 +263,39 @@ function classifyDeclarativeStatement(statement: Statement): ClassificationMatch
     return undefined;
 }
 
-function classifyTopLevelStatement(statement: Statement): string | undefined {
-    const lookup = classifyByKindLookup(statement.getKind());
-    if (lookup !== undefined) {
-        return lookup.kind;
+function classifyDeclarativeStatement(statement: Statement): { readonly kind: string | undefined } | undefined {
+    const importOrExport = classifyImportOrExport(statement);
+    if (importOrExport !== undefined) {
+        return importOrExport;
     }
-    const declarativeMatch = classifyDeclarativeStatement(statement);
-    if (declarativeMatch !== undefined) {
-        return declarativeMatch.kind;
+    const classOrVariable = classifyClassOrVariable(statement);
+    if (classOrVariable !== undefined) {
+        return classOrVariable;
     }
     if (TsMorphNode.isExpressionStatement(statement)) {
-        return 'expression statement';
+        return { kind: 'expression statement' };
+    }
+    return undefined;
+}
+
+function classifyByStatementKind(statement: Statement): string | undefined {
+    const declarative = classifyDeclarativeStatement(statement);
+    if (declarative !== undefined) {
+        return declarative.kind;
     }
     return 'unknown statement';
+}
+
+function classifyTopLevelStatement(statement: Statement): string | undefined {
+    const kind = statement.getKind();
+    if (pureDeclarationKinds.has(kind)) {
+        return undefined;
+    }
+    const controlFlowKind = controlFlowStatementKinds.get(kind);
+    if (controlFlowKind !== undefined) {
+        return controlFlowKind;
+    }
+    return classifyByStatementKind(statement);
 }
 
 export function classifySideEffects(sourceFile: Readonly<SourceFile>): readonly SideEffectStatement[] {
