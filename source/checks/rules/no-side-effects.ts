@@ -1,0 +1,80 @@
+import { z } from 'zod/mini';
+import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
+import { nonEmptyStringSchema } from '../../config/base-validations.ts';
+import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+
+const ruleName = 'noSideEffects';
+
+const globalSchema = z.strictObject({
+    enabled: z.boolean(),
+    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
+});
+
+const perPackageSchema = z.strictObject({
+    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
+});
+
+type GlobalConfig = z.infer<typeof globalSchema>;
+type PerPackageConfig = z.infer<typeof perPackageSchema>;
+type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+
+function formatStatement(statement: { readonly line: number; readonly kind: string }): string {
+    return `line ${statement.line}: ${statement.kind}`;
+}
+
+function isAllowedFor(
+    sourceFilePath: string,
+    bundleName: string,
+    globalAllowList: ReadonlySet<string>,
+    perPackageSettings: RunParams['perPackageSettings']
+): boolean {
+    if (globalAllowList.has(sourceFilePath)) {
+        return true;
+    }
+    const packageAllowList = perPackageSettings.get(bundleName)?.noSideEffects?.allowList;
+    return packageAllowList?.includes(sourceFilePath) ?? false;
+}
+
+function reportResource(bundleName: string, resource: AnalyzedBundleResource): string {
+    const sourcePath = resource.fileDescription.sourceFilePath;
+    const lines = resource.analysis.sideEffectStatements.map((statement) => {
+        return `  - ${formatStatement(statement)}`;
+    });
+    const header = `File "${sourcePath}" in package "${bundleName}" has top-level side effects:`;
+    const footer = 'Side effects prevent downstream tree-shaking.';
+    return [header, ...lines, footer].join('\n');
+}
+
+function findSideEffectsInBundle(
+    bundle: AnalyzedBundle,
+    globalAllowList: ReadonlySet<string>,
+    perPackageSettings: RunParams['perPackageSettings']
+): readonly string[] {
+    return bundle.contents.flatMap((resource) => {
+        if (resource.analysis.sideEffectStatements.length === 0) {
+            return [];
+        }
+        if (isAllowedFor(resource.fileDescription.sourceFilePath, bundle.name, globalAllowList, perPackageSettings)) {
+            return [];
+        }
+        return [reportResource(bundle.name, resource)];
+    });
+}
+
+function run(params: RunParams): readonly string[] {
+    const globalConfig = params.settings?.noSideEffects;
+    if (globalConfig?.enabled !== true) {
+        return [];
+    }
+    const globalAllowList = new Set(globalConfig.allowList);
+    return params.bundles.flatMap((bundle) => {
+        return findSideEffectsInBundle(bundle, globalAllowList, params.perPackageSettings);
+    });
+}
+
+export const noSideEffectsRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+    name: ruleName,
+    globalSchema,
+    perPackageSchema,
+    run
+};

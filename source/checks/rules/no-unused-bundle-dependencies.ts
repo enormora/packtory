@@ -1,5 +1,5 @@
 import type { z } from 'zod/mini';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
@@ -16,7 +16,7 @@ type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 type DependencyKind = 'bundle' | 'bundle peer';
 
-function findUnused(bundle: LinkedBundle, declared: readonly string[], kind: DependencyKind): readonly string[] {
+function findUnused(bundle: AnalyzedBundle, declared: readonly string[], kind: DependencyKind): readonly string[] {
     return declared
         .filter((dependencyName) => {
             return !bundle.linkedBundleDependencies.has(dependencyName);
@@ -26,7 +26,7 @@ function findUnused(bundle: LinkedBundle, declared: readonly string[], kind: Dep
         });
 }
 
-function checkBundle(bundle: LinkedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
+function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
     return [
         ...findUnused(bundle, packageConfig?.bundleDependencies ?? [], 'bundle'),
         ...findUnused(bundle, packageConfig?.bundlePeerDependencies ?? [], 'bundle peer')

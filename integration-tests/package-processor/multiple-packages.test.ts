@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis, emptyAnalysis } from '../dce-helpers.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('bundles and substitutes multiple packages correctly', async () => {
@@ -19,7 +20,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
     const secondBundle = await packageProcessor.build({
         name: 'second',
@@ -34,7 +36,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
         additionalFiles: [],
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
     const thirdBundle = await packageProcessor.build({
         name: 'third',
@@ -49,7 +52,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
         bundlePeerDependencies: [secondBundle],
         additionalPackageJsonAttributes: {},
         additionalFiles: [],
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(firstBundle, {
@@ -58,13 +62,14 @@ test('bundles and substitutes multiple packages correctly', async () => {
             main: 'entry1.js',
             types: 'entry1.d.ts',
             name: 'first',
+            sideEffects: false,
             version: '1.2.3',
             type: 'module'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry1.js",\n    "name": "first",\n    "type": "module",\n    "types": "entry1.d.ts",\n    "version": "1.2.3"\n}',
+                '{\n    "main": "entry1.js",\n    "name": "first",\n    "sideEffects": false,\n    "type": "module",\n    "types": "entry1.d.ts",\n    "version": "1.2.3"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -80,7 +85,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'entry1.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('qux')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/qux.js.map')]),
@@ -91,7 +97,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'qux.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('qux')
             },
             {
                 directDependencies: new Set(),
@@ -103,7 +110,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'entry1.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -115,7 +123,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'qux.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/foo.d.ts')]),
@@ -126,7 +135,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'entry1.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/baz.d.ts')]),
@@ -137,7 +147,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'foo.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('Baz', 'Foo')
             },
             {
                 directDependencies: new Set(),
@@ -148,7 +159,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'baz.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('Baz')
             }
         ],
         dependencies: {},
@@ -161,6 +173,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
         name: 'first',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         typesMainFile: {
             content: "export declare const foo: import('./foo.js').Foo;\n",
             isExecutable: false,
@@ -175,6 +188,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
             dependencies: { first: '1.2.3' },
             main: 'entry2.js',
             name: 'second',
+            sideEffects: false,
             version: '2.3.4',
             types: 'entry2.d.ts',
             type: 'module'
@@ -182,7 +196,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry2.js",\n    "name": "second",\n    "type": "module",\n    "types": "entry2.d.ts",\n    "version": "2.3.4"\n}',
+                '{\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry2.js",\n    "name": "second",\n    "sideEffects": false,\n    "type": "module",\n    "types": "entry2.d.ts",\n    "version": "2.3.4"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -198,7 +212,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'entry2.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('bar')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/bar.js.map')]),
@@ -210,7 +225,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                         "import { qux } from 'first/qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n"
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: true
+                isSubstituted: true,
+                analysis: bindingAnalysis('qux', 'bar')
             },
             {
                 directDependencies: new Set(),
@@ -222,7 +238,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'entry2.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -234,7 +251,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'bar.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -245,7 +263,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     content: "export declare const foo: import('first/foo.js').Foo;\n"
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: true
+                isSubstituted: true,
+                analysis: bindingAnalysis('foo')
             }
         ],
         dependencies: { first: '1.2.3' },
@@ -258,6 +277,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
         name: 'second',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         typesMainFile: {
             isExecutable: false,
             sourceFilePath: path.join(fixture, 'src/entry2.d.ts'),
@@ -274,13 +294,14 @@ test('bundles and substitutes multiple packages correctly', async () => {
             main: 'entry3.js',
             types: 'entry3.d.ts',
             name: 'third',
+            sideEffects: false,
             version: '3.4.5',
             type: 'module'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry3.js",\n    "name": "third",\n    "peerDependencies": {\n        "second": "2.3.4"\n    },\n    "type": "module",\n    "types": "entry3.d.ts",\n    "version": "3.4.5"\n}',
+                '{\n    "dependencies": {\n        "first": "1.2.3"\n    },\n    "main": "entry3.js",\n    "name": "third",\n    "peerDependencies": {\n        "second": "2.3.4"\n    },\n    "sideEffects": false,\n    "type": "module",\n    "types": "entry3.d.ts",\n    "version": "3.4.5"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -296,7 +317,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'entry3.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/foo.js.map')]),
@@ -308,7 +330,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                         "import { bar } from 'second/bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: true
+                isSubstituted: true,
+                analysis: bindingAnalysis('bar', 'foo')
             },
             {
                 directDependencies: new Set(),
@@ -320,7 +343,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'entry3.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -332,7 +356,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     targetFilePath: 'foo.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -343,7 +368,8 @@ test('bundles and substitutes multiple packages correctly', async () => {
                     content: "export declare const foo: import('first/foo.js').Foo;\n"
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: true
+                isSubstituted: true,
+                analysis: bindingAnalysis('foo')
             }
         ],
         dependencies: { first: '1.2.3' },
@@ -356,6 +382,7 @@ test('bundles and substitutes multiple packages correctly', async () => {
         name: 'third',
         packageType: 'module',
         peerDependencies: { second: '2.3.4' },
+        sideEffectsField: false,
         typesMainFile: {
             isExecutable: false,
             sourceFilePath: path.join(fixture, 'src/entry3.d.ts'),

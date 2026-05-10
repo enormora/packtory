@@ -7,7 +7,7 @@ import {
     type ValidConfigResult,
     type ConfigWithGraph
 } from '../config/validation.ts';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { runChecks } from '../checks/check-runner.ts';
 import type { Scheduler as PacktoryScheduler, PartialError } from './scheduler.ts';
@@ -22,6 +22,8 @@ import type {
     PackageProcessor,
     DetermineVersionAndPublishOptions
 } from './package-processor.ts';
+
+type LinkedBundle = Awaited<ReturnType<PackageProcessor['resolveAndLink']>>;
 
 type Options = {
     readonly dryRun: boolean;
@@ -42,7 +44,7 @@ export type PublishAllResult = Result<readonly BuildAndPublishResult[], PublishF
 
 export type ResolvedPackage = {
     readonly name: string;
-    readonly linkedBundle: LinkedBundle;
+    readonly analyzedBundle: AnalyzedBundle;
     readonly resolveOptions: ResolveAndLinkOptions;
 };
 
@@ -62,12 +64,25 @@ export type Packtory = {
 type PacktoryDependencies = {
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PacktoryScheduler;
+    readonly deadCodeEliminator: DeadCodeEliminator;
 };
 
 type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
 
+function resolveTransformationsEnabledByName(
+    validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>
+): ReadonlyMap<string, boolean> {
+    const commonEnabled = validated.packtoryConfig.commonPackageSettings?.deadCodeElimination?.enabled;
+    return new Map(
+        validated.packtoryConfig.packages.map((packageConfig) => {
+            const packageEnabled = packageConfig.deadCodeElimination?.enabled;
+            return [packageConfig.name, packageEnabled ?? commonEnabled ?? true];
+        })
+    );
+}
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
-    const { packageProcessor, scheduler } = dependencies;
+    const { packageProcessor, scheduler, deadCodeEliminator } = dependencies;
 
     function createResolveOptions(
         packageName: string,
@@ -102,7 +117,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             perPackageSettings,
             packageConfigs: effectivePackageConfigs,
             bundles: resolvedPackages.map((resolvedPackage) => {
-                return resolvedPackage.linkedBundle;
+                return resolvedPackage.analyzedBundle;
             })
         });
 
@@ -116,8 +131,14 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     async function resolveAndLinkAllValidated(
         config: ConfigWithGraph<PacktoryConfigWithoutRegistry>
     ): Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
+        type LinkedPackage = {
+            readonly name: string;
+            readonly linkedBundle: LinkedBundle;
+            readonly resolveOptions: ResolveAndLinkOptions;
+        };
+
         const runResult = await scheduler.runForEachScheduledPackage<
-            ResolvedPackage,
+            LinkedPackage,
             LinkedBundle,
             ResolveAndLinkOptions,
             PacktoryConfigWithoutRegistry
@@ -132,7 +153,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
                     name: resolveOptions.name,
                     linkedBundle,
                     resolveOptions
-                } satisfies ResolvedPackage;
+                } satisfies LinkedPackage;
             },
             selectNext: (params) => {
                 const { result } = params;
@@ -142,10 +163,36 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         });
 
         if (runResult.isErr) {
-            return Result.err({ type: 'partial', error: runResult.error });
+            return Result.err({
+                type: 'partial',
+                error: { succeeded: [], failures: runResult.error.failures }
+            });
         }
 
-        return buildChecksResult(config, runResult.value);
+        const linkedPackages = runResult.value;
+        const transformationsEnabledByName = resolveTransformationsEnabledByName(config);
+        const analyzedBundles = await deadCodeEliminator.eliminate(
+            linkedPackages.map((linkedPackage) => {
+                const transformationsEnabled = transformationsEnabledByName.get(linkedPackage.name);
+                if (transformationsEnabled === undefined) {
+                    throw new Error(`Missing transformations flag for package "${linkedPackage.name}"`);
+                }
+                return { bundle: linkedPackage.linkedBundle, transformationsEnabled };
+            })
+        );
+        const resolvedPackages: readonly ResolvedPackage[] = linkedPackages.map((linkedPackage, index) => {
+            const analyzedBundle = analyzedBundles[index];
+            if (analyzedBundle === undefined) {
+                throw new Error(`Analyzed bundle missing for package "${linkedPackage.name}"`);
+            }
+            return {
+                name: linkedPackage.name,
+                analyzedBundle,
+                resolveOptions: linkedPackage.resolveOptions
+            };
+        });
+
+        return buildChecksResult(config, resolvedPackages);
     }
 
     async function determineVersionAndPublishAll(
@@ -153,10 +200,10 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         resolvedPackages: readonly ResolvedPackage[],
         options: Options
     ): Promise<Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>> {
-        const linkedBundlesByName: Readonly<Record<string, LinkedBundle>> = mapToObj(
+        const analyzedBundlesByName: Readonly<Record<string, AnalyzedBundle>> = mapToObj(
             resolvedPackages,
             (resolvedPackage) => {
-                return [resolvedPackage.name, resolvedPackage.linkedBundle];
+                return [resolvedPackage.name, resolvedPackage.analyzedBundle];
             }
         );
 
@@ -177,13 +224,13 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
                 );
             },
             execute: async (buildOptions) => {
-                const linkedBundle = linkedBundlesByName[buildOptions.name];
-                if (linkedBundle === undefined) {
-                    throw new Error(`Linked bundle for package "${buildOptions.name}" is missing`);
+                const analyzedBundle = analyzedBundlesByName[buildOptions.name];
+                if (analyzedBundle === undefined) {
+                    throw new Error(`Analyzed bundle for package "${buildOptions.name}" is missing`);
                 }
 
                 const processorOptions: DetermineVersionAndPublishOptions = {
-                    linkedBundle,
+                    analyzedBundle,
                     buildOptions
                 };
 

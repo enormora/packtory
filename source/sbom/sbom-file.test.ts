@@ -62,6 +62,7 @@ function createBundle(overrides: BundleOverrides): VersionedBundleWithManifest {
         additionalAttributes: {},
         mainFile: { sourceFilePath: '', targetFilePath: '', content: '', isExecutable: false },
         packageType: 'module',
+        sideEffectsField: undefined,
         packageJson: { name: overrides.name, version: overrides.version, dependencies, peerDependencies },
         manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false }
     };

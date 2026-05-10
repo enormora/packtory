@@ -8,6 +8,7 @@ import { createArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient } from '../bundle-emitter/registry-client.ts';
 import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
+import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { getReferencedSourceFiles } from '../dependency-scanner/source-file-references.ts';
 import { createSourceMapFileLocator } from '../dependency-scanner/source-map-file-locator.ts';
@@ -40,6 +41,7 @@ function tryResolvePackagePath(specifier: string): string | undefined {
 export type PackageProcessorComposition = {
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
+    readonly deadCodeEliminator: ReturnType<typeof createDeadCodeEliminator>;
 };
 
 export type PackageProcessorCompositionOptions = {
@@ -114,6 +116,7 @@ export function buildPackageProcessorComposition(
     const bundleEmitter = buildBundleEmitter(options, fileManager);
     const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
     const sbomFileBuilder = buildSbomFileBuilder(fileManager);
+    const deadCodeEliminator = createDeadCodeEliminator();
 
     const packageProcessor = createPackageProcessor({
         progressBroadcaster: progressBroadcaster.provider,
@@ -121,8 +124,9 @@ export function buildPackageProcessorComposition(
         bundleEmitter,
         linker: createBundleLinker(),
         resourceResolver,
-        sbomFileBuilder
+        sbomFileBuilder,
+        deadCodeEliminator
     });
 
-    return { packageProcessor, progressBroadcaster };
+    return { packageProcessor, progressBroadcaster, deadCodeEliminator };
 }

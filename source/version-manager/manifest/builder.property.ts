@@ -73,7 +73,8 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
                           content: '',
                           isExecutable: false
                       },
-            packageType: bundle.packageType
+            packageType: bundle.packageType,
+            sideEffectsField: undefined
         } satisfies VersionedBundle;
     });
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import type { LinkedBundleResource } from '../linker/linked-bundle.ts';
+import type { AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
@@ -11,7 +11,7 @@ import {
 } from './artifacts-builder.ts';
 
 function bundleWithContents(
-    contents: readonly LinkedBundleResource[],
+    contents: readonly AnalyzedBundleResource[],
     manifestFilePath = ''
 ): ReturnType<typeof versionedBundleWithManifest> {
     return versionedBundleWithManifest({
@@ -58,7 +58,7 @@ function builderWithUnreadableTargetFolder(): {
     return artifactsBuilderFactory({ fileManager });
 }
 
-function makeContent(targetFilePath: string, content: string, isSubstituted = false): LinkedBundleResource {
+function makeContent(targetFilePath: string, content: string, isSubstituted = false): AnalyzedBundleResource {
     return {
         isSubstituted,
         isExplicitlyIncluded: false,
@@ -68,6 +68,11 @@ function makeContent(targetFilePath: string, content: string, isSubstituted = fa
             isExecutable: false,
             sourceFilePath: '/foo/bar.txt',
             targetFilePath
+        },
+        analysis: {
+            survivingBindings: new Set<string>(),
+            sideEffectStatements: [],
+            sideEffectImports: new Set<string>()
         }
     };
 }
@@ -85,7 +90,7 @@ test('buildTarball() returns the tarData', async () => {
 test('buildTarball() passes all given contents to the tarballBuilder', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
     const { builder } = artifactsBuilderFactory({ tarballBuilder });
-    const contents: LinkedBundleResource[] = [
+    const contents: AnalyzedBundleResource[] = [
         makeContent('bar.txt', 'bar'),
         makeContent('baz.txt', 'baz'),
         makeContent('qux.txt', 'qux', true)
@@ -133,7 +138,7 @@ test('buildFolder() throws when the target folder already exists', async () => {
 
 test('buildFolder() writes the source of a source bundle content to the given target folder', async () => {
     const { builder, fileManager } = builderWithUnreadableTargetFolder();
-    const contents: LinkedBundleResource[] = [makeContent('bar/baz.txt', 'the-content')];
+    const contents: AnalyzedBundleResource[] = [makeContent('bar/baz.txt', 'the-content')];
     await builder.buildFolder(bundleWithContents(contents, 'package.json'), '/the/target/folder');
 
     assert.strictEqual(fileManager.getWriteFileCallCount(), 2);
@@ -149,7 +154,7 @@ test('buildFolder() writes the source of a source bundle content to the given ta
 
 test('collectContents() returns the list of file descriptions of the given bundle', () => {
     const { builder } = artifactsBuilderFactory();
-    const contents: LinkedBundleResource[] = [
+    const contents: AnalyzedBundleResource[] = [
         makeContent('bar.txt', 'bar'),
         makeContent('baz.txt', 'baz'),
         makeContent('qux.txt', 'qux', true)

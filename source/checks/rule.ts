@@ -1,5 +1,5 @@
 import { z, type ZodMiniType } from 'zod/mini';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 
 export const enabledOnlyGlobalSchema = z.strictObject({ enabled: z.boolean() });
 export const emptyPerPackageSchema = z.strictObject({});
@@ -21,7 +21,7 @@ export type RulePackageConfig = {
 };
 
 export type RuleRunParams<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
-    readonly bundles: readonly LinkedBundle[];
+    readonly bundles: readonly AnalyzedBundle[];
     readonly settings: Readonly<Partial<Record<TName, TGlobal | undefined>>> | undefined;
     readonly perPackageSettings: ReadonlyMap<
         string,

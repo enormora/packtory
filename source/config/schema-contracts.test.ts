@@ -180,6 +180,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'additionalPackageJsonAttributes',
             'publishSettings',
             'dependencyPolicy',
+            'deadCodeElimination',
             'name',
             'entryPoints',
             'versioning',
@@ -193,7 +194,8 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'maxBundleSize',
             'noUnusedBundleDependencies',
             'noDevDependencyImports',
-            'uniqueTargetPaths'
+            'uniqueTargetPaths',
+            'noSideEffects'
         ],
         commonShapeKeys: [
             'sourcesFolder',
@@ -202,7 +204,8 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'includeSourceMapFiles',
             'additionalPackageJsonAttributes',
             'publishSettings',
-            'dependencyPolicy'
+            'dependencyPolicy',
+            'deadCodeElimination'
         ],
         configIntersectionLeftKeys: ['registrySettings'],
         validWithoutRegistrySuccess: true

@@ -3,15 +3,13 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { bundleResource, linkedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { getErrResult, getOkResult } from '../test-libraries/result-helpers.ts';
 import type { PackageProcessor } from './package-processor.ts';
-import {
-    createPacktory,
-    type PublishAllResult,
-    type ResolveAndLinkAllResult,
-    type ResolvedPackage
-} from './packtory.ts';
+import { createPacktory, type PublishAllResult, type ResolveAndLinkAllResult } from './packtory.ts';
+
+type AnalyzedBundle = Awaited<ReturnType<ReturnType<typeof createDeadCodeEliminator>['eliminate']>>[number];
 
 function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): ReturnType<typeof linkedBundle> {
     return linkedBundle({
@@ -166,6 +164,7 @@ function createPacktoryUnderTest(
         readonly resolveAndLink?: SinonSpy;
         readonly tryBuildAndPublish?: SinonSpy;
         readonly buildAndPublish?: SinonSpy;
+        readonly deadCodeEliminator?: ReturnType<typeof createDeadCodeEliminator>;
     } = {}
 ): PacktoryUnderTest {
     const resolveAndLink =
@@ -231,7 +230,8 @@ function createPacktoryUnderTest(
     return {
         packtory: createPacktory({
             packageProcessor,
-            scheduler: scheduler as never
+            scheduler: scheduler as never,
+            deadCodeEliminator: overrides.deadCodeEliminator ?? createDeadCodeEliminator()
         }),
         resolveAndLink,
         tryBuildAndPublish,
@@ -565,7 +565,99 @@ test('buildAndPublishAll() passes selectNext and createProgressEvent that expose
     assert.deepStrictEqual(observed.progressEvents, [{ version: '1.0.0', status: 'new-version' }]);
 });
 
-test('resolveAndLinkAll() unwraps partial scheduler errors without converting check failures', async () => {
+test('resolveAndLinkAll() honours commonPackageSettings.deadCodeElimination.enabled when running the eliminator', async () => {
+    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
+        return inputs.map(() => {
+            const stub: AnalyzedBundle = {
+                ...createLinkedBundle('package-a'),
+                contents: [],
+                sideEffectsField: undefined
+            };
+            return stub;
+        });
+    });
+    const eliminator = { eliminate };
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: eliminator });
+    await packtory.resolveAndLinkAll(
+        createConfigWithoutRegistry({
+            commonPackageSettings: {
+                sourcesFolder: '/src',
+                mainPackageJson: { type: 'module' },
+                publishSettings: { access: 'public' },
+                deadCodeElimination: { enabled: false }
+            }
+        })
+    );
+    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
+    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, false);
+});
+
+test('resolveAndLinkAll() honours per-package deadCodeElimination.enabled when running the eliminator', async () => {
+    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
+        return inputs.map(() => {
+            const stub: AnalyzedBundle = {
+                ...createLinkedBundle('package-a'),
+                contents: [],
+                sideEffectsField: undefined
+            };
+            return stub;
+        });
+    });
+    const eliminator = { eliminate };
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: eliminator });
+    await packtory.resolveAndLinkAll(
+        createConfigWithoutRegistry({
+            packages: [
+                {
+                    name: 'package-a',
+                    entryPoints: [{ js: 'package-a/index.js' }],
+                    deadCodeElimination: { enabled: false }
+                }
+            ]
+        })
+    );
+    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
+    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, false);
+});
+
+test('resolveAndLinkAll() throws when a resolved package has no entry in the transformations map', async () => {
+    const { packtory } = createPacktoryUnderTest({
+        resolveStage: async () => {
+            return Result.ok([
+                {
+                    name: 'unexpected-package',
+                    linkedBundle: createLinkedBundle('unexpected-package'),
+                    resolveOptions: {}
+                }
+            ]);
+        }
+    });
+
+    try {
+        await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
+        assert.fail('Expected resolveAndLinkAll to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Missing transformations flag for package "unexpected-package"');
+    }
+});
+
+test('resolveAndLinkAll() throws when the dead code eliminator returns fewer bundles than packages', async () => {
+    const eliminator = {
+        eliminate: async () => {
+            return [];
+        }
+    };
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: eliminator });
+
+    try {
+        await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
+        assert.fail('Expected resolveAndLinkAll to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'Analyzed bundle missing for package "package-a"');
+    }
+});
+
+test('resolveAndLinkAll() reports partial scheduler errors with the failure list and an empty succeeded list', async () => {
     const { packtory } = createPacktoryUnderTest({
         resolveStage: async () => {
             return Result.err(partialResolveFailure('package-a'));
@@ -578,7 +670,10 @@ test('resolveAndLinkAll() unwraps partial scheduler errors without converting ch
         result,
         Result.err({
             type: 'partial',
-            error: partialResolveFailure('package-a')
+            error: {
+                succeeded: [],
+                failures: [new Error('resolve failed')]
+            }
         })
     );
 });
@@ -605,8 +700,8 @@ test('buildAndPublishAll() returns partial publish failures from the publish sta
     );
 });
 
-test('buildAndPublishAll() returns a partial failure when a linked bundle is missing for a later package', async () => {
-    const resolvedPackage = {
+test('buildAndPublishAll() returns a partial failure when an analyzed bundle is missing for a later package', async () => {
+    const linkedPackage = {
         name: 'package-a',
         linkedBundle: createLinkedBundle('package-a'),
         resolveOptions: {
@@ -621,11 +716,11 @@ test('buildAndPublishAll() returns a partial failure when a linked bundle is mis
             bundleDependencies: [],
             bundlePeerDependencies: []
         }
-    } satisfies ResolvedPackage;
+    };
 
     const { packtory } = createPacktoryUnderTest({
         resolveStage: async () => {
-            return Result.ok([resolvedPackage]);
+            return Result.ok([linkedPackage]);
         },
         publishStage: runPublishStageUntilFailure
     });
@@ -637,7 +732,7 @@ test('buildAndPublishAll() returns a partial failure when a linked bundle is mis
         Result.err({
             type: 'partial',
             succeeded: [{ bundle: createVersionedBundle('package-a'), status: 'new-version' }],
-            failures: [new Error('Linked bundle for package "package-b" is missing')]
+            failures: [new Error('Analyzed bundle for package "package-b" is missing')]
         })
     );
 });

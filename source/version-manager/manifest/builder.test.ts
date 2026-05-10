@@ -18,6 +18,7 @@ function createBundle(overrides: Partial<VersionedBundle> = {}): VersionedBundle
         additionalAttributes: {},
         contents: [],
         packageType: 'module',
+        sideEffectsField: undefined,
         ...overrides
     };
 }
@@ -93,4 +94,44 @@ test('buildPackageManifest() lets generated manifest fields override conflicting
         type: 'module',
         customField: true
     });
+});
+
+test('buildPackageManifest() omits sideEffects when the bundle has no auto-detected value', () => {
+    const result = buildPackageManifest(createBundle());
+
+    assert.strictEqual('sideEffects' in result, false);
+});
+
+test('buildPackageManifest() emits "sideEffects": false when the auto-detected value is false', () => {
+    const result = buildPackageManifest(createBundle({ sideEffectsField: false }));
+
+    assert.strictEqual(result.sideEffects, false);
+});
+
+test('buildPackageManifest() emits the auto-detected file list as "sideEffects"', () => {
+    const result = buildPackageManifest(createBundle({ sideEffectsField: ['./impure.js'] }));
+
+    assert.deepStrictEqual(result.sideEffects, ['./impure.js']);
+});
+
+test('buildPackageManifest() prefers a user-provided sideEffects value in additionalAttributes over the auto-detected one', () => {
+    const result = buildPackageManifest(
+        createBundle({
+            additionalAttributes: { sideEffects: true },
+            sideEffectsField: false
+        })
+    );
+
+    assert.strictEqual(result.sideEffects, true);
+});
+
+test('buildPackageManifest() preserves a user-provided sideEffects array even when auto-detection would emit different values', () => {
+    const result = buildPackageManifest(
+        createBundle({
+            additionalAttributes: { sideEffects: ['./vendor/setup.js'] },
+            sideEffectsField: ['./other.js']
+        })
+    );
+
+    assert.deepStrictEqual(result.sideEffects, ['./vendor/setup.js']);
 });

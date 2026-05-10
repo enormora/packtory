@@ -50,7 +50,10 @@ test('resolveAndLinkAll() reports duplicated files when the rule is enabled', as
 
     if (result.error.type === 'checks') {
         assert.deepStrictEqual(result.error.issues, [
-            `File "${fixturePath}/src/shared/util.js" is included in multiple packages: pkg-a, pkg-b`
+            [
+                `File "${fixturePath}/src/shared/util.js" has shared declarations across multiple packages:`,
+                '  - "sharedValue" → pkg-a, pkg-b'
+            ].join('\n')
         ]);
     } else {
         assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
@@ -288,7 +291,10 @@ test('resolveAndLinkAll reports the duplicate when one owner does not consent', 
 
     if (result.error.type === 'checks') {
         assert.deepStrictEqual(result.error.issues, [
-            `File "${sharedFile}" is included in multiple packages: pkg-a, pkg-b`
+            [
+                `File "${sharedFile}" has shared declarations across multiple packages:`,
+                '  - "sharedValue" → pkg-a, pkg-b'
+            ].join('\n')
         ]);
     } else {
         assert.fail(`Expected a checks failure, but received "${result.error.type}"`);

@@ -1,9 +1,9 @@
 import type { ChecksSettings, PackageChecksSettings, PackageConfigsByName } from '../config/config.ts';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { allRules } from './rules/registry.ts';
 
 export type CheckRunnerParams = {
-    readonly bundles: readonly LinkedBundle[];
+    readonly bundles: readonly AnalyzedBundle[];
     readonly settings: ChecksSettings | undefined;
     readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings | undefined>;
     readonly packageConfigs: PackageConfigsByName;

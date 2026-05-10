@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis } from '../dce-helpers.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('resolves files in a nested folder structure correctly', async () => {
@@ -17,7 +18,8 @@ test('resolves files in a nested folder structure correctly', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
@@ -25,13 +27,14 @@ test('resolves files in a nested folder structure correctly', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            sideEffects: false,
             type: 'module',
             version: '42.0.0'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -44,7 +47,8 @@ test('resolves files in a nested folder structure correctly', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/nested/deep/bar.js')]),
@@ -55,7 +59,8 @@ test('resolves files in a nested folder structure correctly', async () => {
                     targetFilePath: 'nested/foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('bar', 'foo')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/nested/deep/folder/baz.js')]),
@@ -66,7 +71,8 @@ test('resolves files in a nested folder structure correctly', async () => {
                     targetFilePath: 'nested/deep/bar.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('baz', 'bar')
             },
             {
                 directDependencies: new Set(),
@@ -77,7 +83,8 @@ test('resolves files in a nested folder structure correctly', async () => {
                     targetFilePath: 'nested/deep/folder/baz.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('baz')
             }
         ],
         mainFile: {
@@ -90,6 +97,7 @@ test('resolves files in a nested folder structure correctly', async () => {
         packageType: 'module',
         peerDependencies: {},
         name: 'the-package-name',
+        sideEffectsField: false,
         typesMainFile: undefined,
         version: '42.0.0'
     });

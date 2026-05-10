@@ -220,7 +220,8 @@ checks: {
     maxBundleSize: { enabled: true, bytes: 500_000 },
     noUnusedBundleDependencies: { enabled: true },
     noDevDependencyImports: { enabled: true },
-    uniqueTargetPaths: { enabled: true }
+    uniqueTargetPaths: { enabled: true },
+    noSideEffects: { enabled: true }
 }
 ```
 
@@ -306,6 +307,61 @@ Reports any bundle where two resources resolve to the same `targetFilePath`. Typ
 
 - **Top-level:** `enabled: boolean`.
 - **Per-package:** `{}` only.
+
+### `noSideEffects`
+
+Reports any source file in a bundle that has top-level side effects, preventing downstream consumers from tree-shaking it. Side effects are detected purely by static analysis of top-level statements — no `package.json sideEffects` field is consulted. Examples of impure top-level statements that this rule flags: top-level expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), and bare imports of asset files (`.css`, `.scss`, `.sass`, `.less`).
+
+- **Top-level:** `enabled: boolean`, `allowList?: string[]` — files whose side effects are intentional and should not be flagged. Use this for legitimate setup modules (polyfills, ambient configuration, CLI entry points).
+- **Per-package:** `allowList?: string[]` — files this package consents to ship with side effects.
+
+A side-effecting file is suppressed iff it appears in the top-level `allowList`, **or** in the per-package `allowList` for its bundle.
+
+```javascript
+checks: { noSideEffects: { enabled: true, allowList: ['/src/polyfill.ts'] } }
+```
+
+The error message names the file and the offending statement(s) by line and kind, so the location is actionable without further investigation. The rule is opt-in by default — many legitimate packages (CLI bins, polyfill libraries) have side effects on purpose.
+
+## Dead-Code Elimination
+
+`packtory` performs symbol-level reachability analysis across every bundled file and removes top-level declarations that no entry-point export reaches. Files with top-level side effects are preserved untouched.
+
+### What gets removed
+
+Within each bundle, the analyzer:
+
+1. Extracts every top-level binding (functions, classes, variables, types, enums, namespaces, imports) from every code file.
+2. Seeds reachability with: every binding exported from any entry-point file, plus every binding referenced by any impure top-level statement, plus every binding imported from this bundle by another bundle in the same publish run (cross-bundle seeding).
+3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
+4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
+
+Files whose top-level statements are impure are left fully intact. The static side-effect classifier identifies impure top-level statements: expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), variable initializers that contain calls or property accesses, and bare imports of asset extensions (`.css`, `.scss`, `.sass`, `.less`).
+
+### Free side-effect features
+
+The same static analysis also drives, regardless of any `checks` configuration:
+
+1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageJsonAttributes` or `mainPackageJson` always wins over the auto-emitted value.
+2. **The `noSideEffects` check rule** — opt-in CI enforcement that a package is tree-shakable.
+
+### Configuration
+
+```javascript
+{
+    name: 'pkg',
+    entryPoints: [{ js: 'index.js' }],
+    deadCodeElimination: { enabled: true } // default; set to false to disable transformations
+}
+```
+
+`deadCodeElimination` may also live in `commonPackageSettings` to apply to every package; per-package values override the common setting. When `enabled: false`, the analyzer still runs (so the auto-emitted `sideEffects` and the `noSideEffects` rule keep working), but no declarations are removed from the package's source files.
+
+### Known limitations
+
+- **Source maps for transformed files are dropped, not recomposed.** When a code file is transformed, its paired `.map` is removed from the published bundle so debugging never lands on stale line numbers. A future release will recompose source maps via `@jridgewell/trace-mapping`. Users who want maps preserved today can opt out per package via `deadCodeElimination: { enabled: false }`.
+- **Cross-bundle seeding is single-pass.** When bundle A imports a symbol from bundle B, that symbol is preserved in B. The fixed-point iteration that would propagate B's reductions back to refine A's seeds is not yet implemented; in practice this only matters for transitive cross-bundle reference chains, which are uncommon.
+- **`additionalFiles`** entries are never affected. The user explicitly opted to ship them, so the analyzer treats them as required regardless of their content.
 
 ## Example Use-Cases
 

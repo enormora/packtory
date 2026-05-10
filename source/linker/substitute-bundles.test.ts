@@ -47,7 +47,12 @@ function bundleSource(packageName: string, sourceFilePath: string, isSubstituted
         contents: [
             {
                 ...bundleResource(sourceFilePath, { targetFilePath }),
-                isSubstituted
+                isSubstituted,
+                analysis: {
+                    survivingBindings: new Set<string>(),
+                    sideEffectStatements: [],
+                    sideEffectImports: new Set<string>()
+                }
             }
         ],
         packageJson: { name: packageName, version: '21' },

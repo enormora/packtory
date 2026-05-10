@@ -1,14 +1,14 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
-import { bundleResource, linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
+import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { uniqueTargetPathsRule } from './unique-target-paths.ts';
 
-function bundleWithMappings(name: string, mappings: readonly (readonly [string, string])[]): LinkedBundle {
-    return linkedBundle({
+function bundleWithMappings(name: string, mappings: readonly (readonly [string, string])[]): AnalyzedBundle {
+    return analyzedBundle({
         name,
         contents: mappings.map(([sourceFilePath, targetFilePath]) => {
-            return { ...bundleResource(sourceFilePath, { targetFilePath }), isSubstituted: false };
+            return analyzedBundleResource(sourceFilePath, { targetFilePath });
         })
     });
 }

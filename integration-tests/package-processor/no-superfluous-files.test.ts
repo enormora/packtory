@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis } from '../dce-helpers.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('ignores superfluous local files and reference node modules', async () => {
@@ -17,7 +18,8 @@ test('ignores superfluous local files and reference node modules', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
@@ -25,13 +27,14 @@ test('ignores superfluous local files and reference node modules', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            sideEffects: false,
             type: 'module',
             version: '42.0.0'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -44,7 +47,8 @@ test('ignores superfluous local files and reference node modules', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set(),
@@ -55,7 +59,8 @@ test('ignores superfluous local files and reference node modules', async () => {
                     targetFilePath: 'foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             }
         ],
         dependencies: {},
@@ -68,6 +73,7 @@ test('ignores superfluous local files and reference node modules', async () => {
         name: 'the-package-name',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         version: '42.0.0',
         typesMainFile: undefined
     });

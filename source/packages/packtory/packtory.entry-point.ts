@@ -5,7 +5,7 @@ import type * as packtoryTypes from '../../packtory/packtory.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
 
-const { packageProcessor, progressBroadcaster } = buildPackageProcessorComposition({
+const { packageProcessor, progressBroadcaster, deadCodeEliminator } = buildPackageProcessorComposition({
     ciEnvironment: readCiEnvironment(process.env)
 });
 
@@ -15,7 +15,8 @@ const scheduler = createScheduler({
 
 const packtory = createPacktory({
     scheduler,
-    packageProcessor
+    packageProcessor,
+    deadCodeEliminator
 });
 
 export const { buildAndPublishAll, resolveAndLinkAll } = packtory;

@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis } from '../dce-helpers.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('adds declaration files correctly to the bundle', async () => {
@@ -19,7 +20,8 @@ test('adds declaration files correctly to the bundle', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
@@ -27,6 +29,7 @@ test('adds declaration files correctly to the bundle', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            sideEffects: false,
             version: '42.0.0',
             types: 'entry.d.ts',
             type: 'module'
@@ -34,7 +37,7 @@ test('adds declaration files correctly to the bundle', async () => {
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "types": "entry.d.ts",\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "types": "entry.d.ts",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -47,7 +50,8 @@ test('adds declaration files correctly to the bundle', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/bar.js')]),
@@ -58,7 +62,8 @@ test('adds declaration files correctly to the bundle', async () => {
                     targetFilePath: 'foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('bar', 'foo')
             },
             {
                 directDependencies: new Set(),
@@ -69,7 +74,8 @@ test('adds declaration files correctly to the bundle', async () => {
                     targetFilePath: 'bar.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('bar')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/foo.d.ts')]),
@@ -80,7 +86,8 @@ test('adds declaration files correctly to the bundle', async () => {
                     targetFilePath: 'entry.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/baz.d.ts')]),
@@ -91,7 +98,8 @@ test('adds declaration files correctly to the bundle', async () => {
                     targetFilePath: 'foo.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('Baz', 'Foo')
             },
             {
                 directDependencies: new Set(),
@@ -102,7 +110,8 @@ test('adds declaration files correctly to the bundle', async () => {
                     targetFilePath: 'baz.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('Baz')
             }
         ],
         dependencies: {},
@@ -115,6 +124,7 @@ test('adds declaration files correctly to the bundle', async () => {
         name: 'the-package-name',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         typesMainFile: {
             content: "export declare const foo: import('./foo.js').Foo;\n",
             isExecutable: false,

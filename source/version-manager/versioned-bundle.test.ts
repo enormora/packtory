@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import {
+    analyzedBundle as createAnalyzedBundle,
     externalDependency as createReferencedDependency,
-    linkedBundle as createLinkedBundle,
     versionedBundle
 } from '../test-libraries/bundle-fixtures.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
@@ -14,7 +14,7 @@ type BuildOverrides = Partial<BuildVersionedBundleOptions> & {
 
 function buildOptions(overrides: BuildOverrides = {}): BuildVersionedBundleOptions {
     return {
-        bundle: createLinkedBundle(),
+        bundle: createAnalyzedBundle(),
         version: '1.2.3',
         mainPackageJson: { type: 'module' },
         bundleDependencies: [],
@@ -65,14 +65,15 @@ test('buildVersionedBundle() uses the first entry point as the main and types fi
             isExecutable: false
         },
         additionalAttributes: { custom: true },
-        packageType: 'module'
+        packageType: 'module',
+        sideEffectsField: undefined
     });
 });
 
 test('buildVersionedBundle() groups bundle dependencies and peer dependencies by package name', () => {
     const result = buildVersionedBundle(
         buildOptions({
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 linkedBundleDependencies: new Map([
                     ['bundle-dependency', createReferencedDependency('bundle-dependency')],
                     ['peer-dependency', createReferencedDependency('peer-dependency')]
@@ -109,7 +110,7 @@ test('buildVersionedBundle() defaults both dependency maps to empty objects when
 test('buildVersionedBundle() reads external dependency versions from dependencies and peerDependencies', () => {
     const result = buildVersionedBundle(
         buildOptions({
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([
                     ['left-pad', createReferencedDependency('left-pad')],
                     ['react', createReferencedDependency('react')]
@@ -130,7 +131,7 @@ test('buildVersionedBundle() reads external dependency versions from dependencie
 test('buildVersionedBundle() throws when a bundle dependency version is missing', () => {
     expectBuildToThrow(
         {
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 linkedBundleDependencies: new Map([
                     ['bundle-dependency', createReferencedDependency('bundle-dependency')]
                 ])
@@ -143,7 +144,7 @@ test('buildVersionedBundle() throws when a bundle dependency version is missing'
 test('buildVersionedBundle() throws when an external dependency version is missing from the main package.json', () => {
     expectBuildToThrow(
         {
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([['left-pad', createReferencedDependency('left-pad')]])
             })
         },
@@ -154,7 +155,7 @@ test('buildVersionedBundle() throws when an external dependency version is missi
 test('buildVersionedBundle() prefers peerDependencies over dependencies when the same external dependency exists in both', () => {
     const result = buildVersionedBundle(
         buildOptions({
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([['react', createReferencedDependency('react')]])
             }),
             mainPackageJson: {
@@ -179,7 +180,7 @@ test('buildVersionedBundle() throws with a mutable-specifier message when a dep 
     ].join('\n');
     expectBuildToThrow(
         {
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([['react', createReferencedDependency('react')]])
             }),
             mainPackageJson: {
@@ -202,7 +203,7 @@ test('buildVersionedBundle() throws with a malformed-specifier message when a de
     ].join('\n');
     expectBuildToThrow(
         {
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([['shared-utils', createReferencedDependency('shared-utils')]])
             }),
             mainPackageJson: {
@@ -217,7 +218,7 @@ test('buildVersionedBundle() throws with a malformed-specifier message when a de
 test('buildVersionedBundle() prefers a malformed-specifier error over a mutable one when both are present', () => {
     expectBuildToThrowMatching(
         {
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([
                     ['shared-utils', createReferencedDependency('shared-utils')],
                     ['react', createReferencedDependency('react')]
@@ -238,7 +239,7 @@ test('buildVersionedBundle() prefers a malformed-specifier error over a mutable 
 test('buildVersionedBundle() lets a mutable specifier through when its name is in allowMutableSpecifiers', () => {
     const result = buildVersionedBundle(
         buildOptions({
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([['react', createReferencedDependency('react')]])
             }),
             mainPackageJson: {
@@ -262,7 +263,7 @@ test('buildVersionedBundle() throws when an allowMutableSpecifiers entry does no
     ].join('\n');
     expectBuildToThrow(
         {
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([['left-pad', createReferencedDependency('left-pad')]])
             }),
             mainPackageJson: {
@@ -278,7 +279,7 @@ test('buildVersionedBundle() throws when an allowMutableSpecifiers entry does no
 test('buildVersionedBundle() prefers a mutable error over an unused-allow-list error when both are present', () => {
     expectBuildToThrowMatching(
         {
-            bundle: createLinkedBundle({
+            bundle: createAnalyzedBundle({
                 externalDependencies: new Map([['react', createReferencedDependency('react')]])
             }),
             mainPackageJson: {

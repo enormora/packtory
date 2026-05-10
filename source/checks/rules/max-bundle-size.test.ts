@@ -1,13 +1,13 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
-import { bundleResource, linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
+import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { maxBundleSizeRule } from './max-bundle-size.ts';
 
-function bundleWithBytes(name: string, bytes: number): LinkedBundle {
-    return linkedBundle({
+function bundleWithBytes(name: string, bytes: number): AnalyzedBundle {
+    return analyzedBundle({
         name,
-        contents: [{ ...bundleResource(`/${name}/index.js`, { content: 'a'.repeat(bytes) }), isSubstituted: false }]
+        contents: [analyzedBundleResource(`/${name}/index.js`, { content: 'a'.repeat(bytes) })]
     });
 }
 
@@ -105,11 +105,11 @@ test('falls back to the global default when the per-package entry has no maxBund
 });
 
 test('measures bundle size as the UTF-8 byte length of every resource’s content', () => {
-    const bundle = linkedBundle({
+    const bundle = analyzedBundle({
         name: 'multi',
         contents: [
-            { ...bundleResource('/multi/a.js', { content: 'ä' }), isSubstituted: false },
-            { ...bundleResource('/multi/b.js', { content: 'ab' }), isSubstituted: false }
+            analyzedBundleResource('/multi/a.js', { content: 'ä' }),
+            analyzedBundleResource('/multi/b.js', { content: 'ab' })
         ]
     });
 

@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis } from '../dce-helpers.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('resolves node_modules dependencies correctly when depending on @types/* packages', async () => {
@@ -19,7 +20,8 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
@@ -31,6 +33,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
             },
             main: 'entry.js',
             name: 'the-package-name',
+            sideEffects: ['./foo.js'],
             version: '42.0.0',
             types: 'entry.d.ts',
             type: 'module'
@@ -45,7 +48,8 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set(),
@@ -56,7 +60,12 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     targetFilePath: 'foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: {
+                    survivingBindings: new Set(['bar', 'foo']),
+                    sideEffectStatements: [{ line: 2, kind: 'variable initializer' }],
+                    sideEffectImports: new Set<string>()
+                }
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/foo.d.ts')]),
@@ -67,7 +76,8 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     targetFilePath: 'entry.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set(),
@@ -78,12 +88,13 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
                     targetFilePath: 'foo.d.ts'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('Bar')
             }
         ],
         manifestFile: {
             content:
-                '{\n    "dependencies": {\n        "@types/foo": "42.0.0",\n        "foo": "21.0.0"\n    },\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "types": "entry.d.ts",\n    "version": "42.0.0"\n}',
+                '{\n    "dependencies": {\n        "@types/foo": "42.0.0",\n        "foo": "21.0.0"\n    },\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": [\n        "./foo.js"\n    ],\n    "type": "module",\n    "types": "entry.d.ts",\n    "version": "42.0.0"\n}',
             isExecutable: false,
             filePath: 'package.json'
         },
@@ -100,6 +111,7 @@ test('resolves node_modules dependencies correctly when depending on @types/* pa
         name: 'the-package-name',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: ['./foo.js'],
         typesMainFile: {
             content: "export declare const foo: import('./foo.js').Foo;\n",
             isExecutable: false,

@@ -1,5 +1,5 @@
 import type { z } from 'zod/mini';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
@@ -15,7 +15,7 @@ type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function findLeakedDevDependencies(
-    bundle: LinkedBundle,
+    bundle: AnalyzedBundle,
     packageConfig: RulePackageConfig | undefined
 ): readonly string[] {
     const mainPackageJson = packageConfig?.mainPackageJson;

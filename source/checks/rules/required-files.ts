@@ -1,5 +1,5 @@
 import { z } from 'zod/mini';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { nonEmptyStringSchema } from '../../config/base-validations.ts';
 import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
 
@@ -27,7 +27,7 @@ function effectiveRequiredFiles(
     return Array.from(new Set([...(globalConfig.files ?? []), ...(perPackageConfig?.files ?? [])]));
 }
 
-function findMissingFiles(bundle: LinkedBundle, requiredFiles: readonly string[]): readonly string[] {
+function findMissingFiles(bundle: AnalyzedBundle, requiredFiles: readonly string[]): readonly string[] {
     const presentTargets = new Set(
         bundle.contents.map((resource) => {
             return resource.fileDescription.targetFilePath;

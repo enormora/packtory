@@ -5,9 +5,11 @@ import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
 import type { BuildAndPublishOptions, BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
+
+type LinkedBundle = Awaited<ReturnType<BundleLinker['linkBundle']>>;
 
 export type BuildAndPublishResult = {
     readonly status: 'already-published' | 'initial-version' | 'new-version';
@@ -15,7 +17,7 @@ export type BuildAndPublishResult = {
 };
 
 export type DetermineVersionAndPublishOptions = {
-    readonly linkedBundle: LinkedBundle;
+    readonly analyzedBundle: AnalyzedBundle;
     readonly buildOptions: BuildAndPublishOptions;
 };
 
@@ -33,6 +35,7 @@ type PackageProcessorDependencies = {
     readonly linker: BundleLinker;
     readonly resourceResolver: ResourceResolver;
     readonly sbomFileBuilder: SbomFileBuilder;
+    readonly deadCodeEliminator: DeadCodeEliminator;
 };
 
 function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | undefined }): void {
@@ -62,8 +65,23 @@ function shouldIncreaseVersion(currentVersion: Maybe<string>, options: BuildAndP
 }
 
 export function createPackageProcessor(dependencies: PackageProcessorDependencies): PackageProcessor {
-    const { progressBroadcaster, versionManager, bundleEmitter, linker, resourceResolver, sbomFileBuilder } =
-        dependencies;
+    const {
+        progressBroadcaster,
+        versionManager,
+        bundleEmitter,
+        linker,
+        resourceResolver,
+        sbomFileBuilder,
+        deadCodeEliminator
+    } = dependencies;
+
+    async function analyzeOne(linkedBundle: LinkedBundle, transformationsEnabled: boolean): Promise<AnalyzedBundle> {
+        const [analyzedBundle] = await deadCodeEliminator.eliminate([{ bundle: linkedBundle, transformationsEnabled }]);
+        if (analyzedBundle === undefined) {
+            throw new Error(`Dead code eliminator returned no bundle for "${linkedBundle.name}"`);
+        }
+        return analyzedBundle;
+    }
 
     async function resolveAndLink(options: ResolveAndLinkOptions): Promise<LinkedBundle> {
         assertEsmMainPackageJson(options.mainPackageJson);
@@ -78,7 +96,7 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
     }
 
     async function buildVersionedBundle(
-        linkedBundle: LinkedBundle,
+        analyzedBundle: AnalyzedBundle,
         options: BuildAndPublishOptions
     ): Promise<{
         versionedBundle: VersionedBundleWithManifest;
@@ -86,13 +104,13 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         version: string;
     }> {
         const currentVersion = await bundleEmitter.determineCurrentVersion({
-            name: linkedBundle.name,
+            name: analyzedBundle.name,
             registrySettings: options.registrySettings,
             versioning: options.versioning
         });
         const version = determineBuildVersion(currentVersion, options);
         progressBroadcaster.emit('building', { packageName: options.name, version });
-        const versionedBundle = versionManager.addVersion({ bundle: linkedBundle, ...options, version });
+        const versionedBundle = versionManager.addVersion({ bundle: analyzedBundle, ...options, version });
         return { versionedBundle, currentVersion, version };
     }
 
@@ -101,7 +119,7 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
     }
 
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
-        const buildContext = await buildVersionedBundle(options.linkedBundle, options.buildOptions);
+        const buildContext = await buildVersionedBundle(options.analyzedBundle, options.buildOptions);
         const extraFiles = await sbomFileBuilder.generate(
             buildContext.versionedBundle,
             siblingsFromOptions(options.buildOptions),
@@ -158,8 +176,10 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
                 bundlePeerDependencies
             });
 
+            const transformationsEnabled = options.deadCodeElimination?.enabled ?? true;
+            const analyzedBundle = await analyzeOne(linkedBundle, transformationsEnabled);
             return versionManager.addVersion({
-                bundle: linkedBundle,
+                bundle: analyzedBundle,
                 version: options.version,
                 mainPackageJson: options.mainPackageJson,
                 bundleDependencies: options.bundleDependencies,

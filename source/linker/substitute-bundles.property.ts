@@ -22,7 +22,12 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
                 },
                 directDependencies: new Set(),
                 isSubstituted: false,
-                isExplicitlyIncluded: false
+                isExplicitlyIncluded: false,
+                analysis: {
+                    survivingBindings: new Set<string>(),
+                    sideEffectStatements: [],
+                    sideEffectImports: new Set<string>()
+                }
             }
         ],
         packageJson: { name: `package-${index}`, version: '1.0.0' },
@@ -39,6 +44,7 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
         },
         typesMainFile: undefined,
         packageType: 'module',
+        sideEffectsField: undefined,
         manifestFile: { content: '', isExecutable: false, filePath: 'package.json' }
     };
 }
