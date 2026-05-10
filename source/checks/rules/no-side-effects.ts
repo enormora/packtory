@@ -1,18 +1,16 @@
-import { z } from 'zod/mini';
+import type { z } from 'zod/mini';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import { nonEmptyStringSchema } from '../../config/base-validations.ts';
-import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+import {
+    pathAllowListGlobalSchema,
+    pathAllowListPerPackageSchema,
+    type CheckRuleDefinition,
+    type RuleRunParams
+} from '../rule.ts';
 
 const ruleName = 'noSideEffects';
 
-const globalSchema = z.strictObject({
-    enabled: z.boolean(),
-    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-});
-
-const perPackageSchema = z.strictObject({
-    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-});
+const globalSchema = pathAllowListGlobalSchema;
+const perPackageSchema = pathAllowListPerPackageSchema;
 
 type GlobalConfig = z.infer<typeof globalSchema>;
 type PerPackageConfig = z.infer<typeof perPackageSchema>;

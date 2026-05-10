@@ -1,8 +1,20 @@
 import { z, type ZodMiniType } from 'zod/mini';
+import { nonEmptyStringSchema } from '../config/base-validations.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 
 export const enabledOnlyGlobalSchema = z.strictObject({ enabled: z.boolean() });
 export const emptyPerPackageSchema = z.strictObject({});
+
+const pathAllowListShape = {
+    allowList: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
+};
+
+export const pathAllowListGlobalSchema = z.strictObject({
+    enabled: z.boolean(),
+    ...pathAllowListShape
+});
+
+export const pathAllowListPerPackageSchema = z.strictObject(pathAllowListShape);
 
 type RuleGlobalConfig = {
     readonly enabled: boolean;

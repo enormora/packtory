@@ -565,7 +565,10 @@ test('buildAndPublishAll() passes selectNext and createProgressEvent that expose
     assert.deepStrictEqual(observed.progressEvents, [{ version: '1.0.0', status: 'new-version' }]);
 });
 
-test('resolveAndLinkAll() honours commonPackageSettings.deadCodeElimination.enabled when running the eliminator', async () => {
+function createRecordingEliminator(): {
+    readonly eliminate: SinonSpy;
+    readonly firstCallTransformationsEnabled: () => boolean | undefined;
+} {
     const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
         return inputs.map(() => {
             const stub: AnalyzedBundle = {
@@ -576,8 +579,18 @@ test('resolveAndLinkAll() honours commonPackageSettings.deadCodeElimination.enab
             return stub;
         });
     });
-    const eliminator = { eliminate };
-    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: eliminator });
+    return {
+        eliminate,
+        firstCallTransformationsEnabled: () => {
+            const inputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
+            return inputs[0]?.transformationsEnabled;
+        }
+    };
+}
+
+test('resolveAndLinkAll() honours commonPackageSettings.deadCodeElimination.enabled when running the eliminator', async () => {
+    const recorder = createRecordingEliminator();
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: { eliminate: recorder.eliminate } });
     await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             commonPackageSettings: {
@@ -588,23 +601,12 @@ test('resolveAndLinkAll() honours commonPackageSettings.deadCodeElimination.enab
             }
         })
     );
-    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
-    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, false);
+    assert.strictEqual(recorder.firstCallTransformationsEnabled(), false);
 });
 
 test('resolveAndLinkAll() honours per-package deadCodeElimination.enabled when running the eliminator', async () => {
-    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
-        return inputs.map(() => {
-            const stub: AnalyzedBundle = {
-                ...createLinkedBundle('package-a'),
-                contents: [],
-                sideEffectsField: undefined
-            };
-            return stub;
-        });
-    });
-    const eliminator = { eliminate };
-    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: eliminator });
+    const recorder = createRecordingEliminator();
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: { eliminate: recorder.eliminate } });
     await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             packages: [
@@ -616,26 +618,14 @@ test('resolveAndLinkAll() honours per-package deadCodeElimination.enabled when r
             ]
         })
     );
-    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
-    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, false);
+    assert.strictEqual(recorder.firstCallTransformationsEnabled(), false);
 });
 
 test('resolveAndLinkAll() defaults transformationsEnabled to true when neither commonPackageSettings nor per-package config sets it', async () => {
-    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
-        return inputs.map(() => {
-            const stub: AnalyzedBundle = {
-                ...createLinkedBundle('package-a'),
-                contents: [],
-                sideEffectsField: undefined
-            };
-            return stub;
-        });
-    });
-    const eliminator = { eliminate };
-    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: eliminator });
+    const recorder = createRecordingEliminator();
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: { eliminate: recorder.eliminate } });
     await packtory.resolveAndLinkAll(createConfigWithoutRegistry({}));
-    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
-    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, true);
+    assert.strictEqual(recorder.firstCallTransformationsEnabled(), true);
 });
 
 test('resolveAndLinkAll() throws when a resolved package has no entry in the transformations map', async () => {

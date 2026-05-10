@@ -31,6 +31,19 @@ function consentMap(
     );
 }
 
+function runWithInitSideEffect(
+    settings: Parameters<typeof noSideEffectsRule.run>[0]['settings'],
+    perPackageSettings: ReadonlyMap<string, PackageChecksSettings>
+): readonly string[] {
+    return noSideEffectsRule.run({
+        bundles: [
+            bundleWithImpureResources('a', [impureResource('/init.ts', [{ line: 1, kind: 'expression statement' }])])
+        ],
+        settings,
+        perPackageSettings
+    });
+}
+
 test('rule definition exposes name, schemas and a run function', () => {
     assert.strictEqual(noSideEffectsRule.name, 'noSideEffects');
     assert.strictEqual(typeof noSideEffectsRule.run, 'function');
@@ -97,25 +110,13 @@ test('reports a resource with side effects, including line numbers and statement
 });
 
 test('skips a resource that is on the global allowList', () => {
-    const result = noSideEffectsRule.run({
-        bundles: [
-            bundleWithImpureResources('a', [impureResource('/init.ts', [{ line: 1, kind: 'expression statement' }])])
-        ],
-        settings: { noSideEffects: { enabled: true, allowList: ['/init.ts'] } },
-        perPackageSettings: new Map()
-    });
+    const result = runWithInitSideEffect({ noSideEffects: { enabled: true, allowList: ['/init.ts'] } }, new Map());
 
     assert.deepStrictEqual(result, []);
 });
 
 test('skips a resource that is on the per-package allowList', () => {
-    const result = noSideEffectsRule.run({
-        bundles: [
-            bundleWithImpureResources('a', [impureResource('/init.ts', [{ line: 1, kind: 'expression statement' }])])
-        ],
-        settings: { noSideEffects: { enabled: true } },
-        perPackageSettings: consentMap([['a', ['/init.ts']]])
-    });
+    const result = runWithInitSideEffect({ noSideEffects: { enabled: true } }, consentMap([['a', ['/init.ts']]]));
 
     assert.deepStrictEqual(result, []);
 });
@@ -168,13 +169,10 @@ test('per-package allowList only suppresses for the listed package', () => {
 });
 
 test('reports a side effect when the per-package settings entry exists for the bundle but does not include noSideEffects', () => {
-    const result = noSideEffectsRule.run({
-        bundles: [
-            bundleWithImpureResources('a', [impureResource('/init.ts', [{ line: 1, kind: 'expression statement' }])])
-        ],
-        settings: { noSideEffects: { enabled: true } },
-        perPackageSettings: new Map<string, PackageChecksSettings>([['a', {}]])
-    });
+    const result = runWithInitSideEffect(
+        { noSideEffects: { enabled: true } },
+        new Map<string, PackageChecksSettings>([['a', {}]])
+    );
 
     assert.strictEqual(result.length, 1);
 });
