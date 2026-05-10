@@ -62,14 +62,14 @@ test('recomposeSourceMap drops mappings inside the removed range', () => {
     }
 });
 
+function recomposedMappings(): readonly Mapping[] {
+    return listMappings(
+        recomposeSourceMap({ originalMap, originalCode, transformedCode, atoms: removeFunctionDeadAtoms })
+    );
+}
+
 test('recomposeSourceMap shifts surviving mappings to their new generated positions', () => {
-    const result = recomposeSourceMap({
-        originalMap,
-        originalCode,
-        transformedCode,
-        atoms: removeFunctionDeadAtoms
-    });
-    const mappings = listMappings(result);
+    const mappings = recomposedMappings();
     assert.ok(mappings.length > 0);
     for (const mapping of mappings) {
         assert.strictEqual(mapping.source, 'index.ts');
@@ -266,13 +266,7 @@ test('offsetToLineColumn returns the initial entry for an empty index', () => {
 });
 
 test('recomposeSourceMap preserves originalLine and originalColumn as numbers on translated mappings', () => {
-    const result = recomposeSourceMap({
-        originalMap,
-        originalCode,
-        transformedCode,
-        atoms: removeFunctionDeadAtoms
-    });
-    const mappings = listMappings(result);
+    const mappings = recomposedMappings();
     assert.ok(mappings.length > 0);
     for (const mapping of mappings) {
         assert.strictEqual(typeof mapping.originalLine, 'number');

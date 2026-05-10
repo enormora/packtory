@@ -197,9 +197,17 @@ test('eliminate recomposes the paired source map when a code file is transformed
 test('eliminate keeps the paired source map untouched when no transformation occurs', async () => {
     const eliminator = createDeadCodeEliminator();
     const liveOnlyContent = 'export function live() { return 2; }';
-    const originalMapContent = '{"version":3}';
+    const validMapContent = JSON.stringify({
+        version: 3,
+        file: 'index.ts',
+        sources: ['index.ts'],
+        sourcesContent: [liveOnlyContent],
+        names: [],
+        // cspell:disable-next-line
+        mappings: 'AAAA,OAAO,SAAS,IAAI,IAAI,CAAC,OAAO,CAAC,CAAC,CAAC,CAAC'
+    });
     const mapResource = {
-        ...bundleResource('/src/index.ts.map', { content: originalMapContent, targetFilePath: 'index.ts.map' }),
+        ...bundleResource('/src/index.ts.map', { content: validMapContent, targetFilePath: 'index.ts.map' }),
         isSubstituted: false
     };
     const bundle = bundleForCodeFile({
@@ -214,7 +222,7 @@ test('eliminate keeps the paired source map untouched when no transformation occ
         return resource.fileDescription.targetFilePath === 'index.ts.map';
     });
     assert.ok(emittedMap !== undefined);
-    assert.strictEqual(emittedMap.fileDescription.content, originalMapContent);
+    assert.strictEqual(emittedMap.fileDescription.content, validMapContent);
 });
 
 test('eliminate honours an entry point declaration file when seeding reachability', async () => {

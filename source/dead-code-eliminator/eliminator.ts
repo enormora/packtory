@@ -145,21 +145,23 @@ type TransformRecord = {
 
 type BuildOutput = {
     readonly resource: AnalyzedBundleResource;
-    readonly transform?: TransformRecord;
+    readonly transforms: readonly TransformRecord[];
 };
+
+const noTransforms: readonly TransformRecord[] = [];
 
 function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisContext): BuildOutput {
     if (loaded.sourceFile === undefined) {
-        return { resource: { ...loaded.resource, analysis: createEmptyFileAnalysis() } };
+        return { resource: { ...loaded.resource, analysis: createEmptyFileAnalysis() }, transforms: noTransforms };
     }
     const { analysis, reachableBindings, shouldTransform } = analyzeCodeFile(loaded, context);
     if (!shouldTransform) {
-        return { resource: { ...loaded.resource, analysis } };
+        return { resource: { ...loaded.resource, analysis }, transforms: noTransforms };
     }
     const originalCode = loaded.resource.fileDescription.content;
     const { transformedCode, atoms } = transformSourceFile(loaded.sourceFile, reachableBindings);
     if (transformedCode === originalCode) {
-        return { resource: { ...loaded.resource, analysis } };
+        return { resource: { ...loaded.resource, analysis }, transforms: noTransforms };
     }
     return {
         resource: {
@@ -167,7 +169,7 @@ function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisContext)
             fileDescription: { ...loaded.resource.fileDescription, content: transformedCode },
             analysis
         },
-        transform: { originalCode, transformedCode, atoms }
+        transforms: [{ originalCode, transformedCode, atoms }]
     };
 }
 
@@ -187,16 +189,10 @@ function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
 
 function recomposePairedSourceMaps(
     contents: readonly AnalyzedBundleResource[],
-    transformsByTargetPath: ReadonlyMap<string, TransformRecord>
+    transformsByMapPath: ReadonlyMap<string, TransformRecord>
 ): readonly AnalyzedBundleResource[] {
     return contents.map((resource) => {
-        const targetPath = resource.fileDescription.targetFilePath;
-        const mapSuffix = '.map';
-        if (!targetPath.endsWith(mapSuffix)) {
-            return resource;
-        }
-        const baseTarget = targetPath.slice(0, -mapSuffix.length);
-        const transform = transformsByTargetPath.get(baseTarget);
+        const transform = transformsByMapPath.get(resource.fileDescription.targetFilePath);
         if (transform === undefined) {
             return resource;
         }
@@ -213,6 +209,16 @@ function recomposePairedSourceMaps(
     });
 }
 
+function buildMapPathTransformIndex(outputs: readonly BuildOutput[]): ReadonlyMap<string, TransformRecord> {
+    return new Map<string, TransformRecord>(
+        outputs.flatMap((output) => {
+            return output.transforms.map((transform) => {
+                return [`${output.resource.fileDescription.targetFilePath}.map`, transform] as const;
+            });
+        })
+    );
+}
+
 function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet<string> | undefined): AnalyzedBundle {
     const { reachable } = computeReachability({
         files: loaded.fileBindings,
@@ -223,15 +229,14 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
         reachable,
         transformationsEnabled: loaded.input.transformationsEnabled
     };
-    const transformsByTargetPath = new Map<string, TransformRecord>();
-    const contents = loaded.loaded.map((entry) => {
-        const output = buildAnalyzedResource(entry, context);
-        if (output.transform !== undefined) {
-            transformsByTargetPath.set(output.resource.fileDescription.targetFilePath, output.transform);
-        }
+    const outputs = loaded.loaded.map((entry) => {
+        return buildAnalyzedResource(entry, context);
+    });
+    const transformsByMapPath = buildMapPathTransformIndex(outputs);
+    const contents = outputs.map((output) => {
         return output.resource;
     });
-    const finalContents = recomposePairedSourceMaps(contents, transformsByTargetPath);
+    const finalContents = recomposePairedSourceMaps(contents, transformsByMapPath);
     return {
         ...loaded.input.bundle,
         contents: finalContents,

@@ -1,16 +1,16 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { applyRemovalPlan } from './declaration-remover.ts';
+import { applyRemovalPlan, type PositionAtom } from './declaration-remover.ts';
 
 function transform(
     content: string,
     surviving: ReadonlySet<string>
-): { readonly text: string; readonly mutated: boolean } {
+): { readonly text: string; readonly mutated: boolean; readonly atoms: readonly PositionAtom[] } {
     const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
     const sourceFile = project.getSourceFileOrThrow('index.ts');
     const result = applyRemovalPlan(sourceFile, { survivingNames: surviving });
-    return { text: sourceFile.getFullText(), mutated: result.mutated };
+    return { text: sourceFile.getFullText(), mutated: result.mutated, atoms: result.atoms };
 }
 
 test('removes an unreachable function declaration', () => {
@@ -93,4 +93,37 @@ test('keeps an anonymous default-exported function declaration whose name cannot
     assert.strictEqual(text.includes('default'), true);
     assert.strictEqual(text.includes('function'), true);
     assert.strictEqual(mutated, false);
+});
+
+test('captures an atom for an anonymous default-exported function declaration', () => {
+    const { atoms } = transform('export default function() { return 1; }', new Set<string>());
+    assert.strictEqual(atoms.length, 1);
+});
+
+test('captures one atom per surviving variable declarator when at least one is removed', () => {
+    const { atoms } = transform('export const a = 1, b = 2;', new Set(['a']));
+    assert.strictEqual(atoms.length, 1);
+});
+
+test('captures a single atom covering the whole variable statement when every declarator survives', () => {
+    const { atoms } = transform('export const a = 1, b = 2;', new Set(['a', 'b']));
+    assert.strictEqual(atoms.length, 1);
+    const [atom] = atoms;
+    assert.ok(atom !== undefined);
+    assert.strictEqual(atom.originalStart, 0);
+});
+
+test('captures an atom for non-declaration top-level statements (imports, re-exports)', () => {
+    const content = ['import { x } from "./other";', 'export { something } from "./other";'].join('\n');
+    const { atoms } = transform(content, new Set<string>());
+    assert.strictEqual(atoms.length, 2);
+});
+
+test('captures atoms whose newStart reflects the post-removal position', () => {
+    const { atoms } = transform('function dead() {}\nexport function live() {}', new Set(['live']));
+    assert.strictEqual(atoms.length, 1);
+    const [atom] = atoms;
+    assert.ok(atom !== undefined);
+    assert.strictEqual(atom.originalStart, 19);
+    assert.strictEqual(atom.newStart, 0);
 });
