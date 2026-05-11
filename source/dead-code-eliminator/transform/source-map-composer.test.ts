@@ -2,14 +2,7 @@ import assert from 'node:assert';
 import { TraceMap, eachMapping } from '@jridgewell/trace-mapping';
 import { test } from 'mocha';
 import type { PositionAtom } from './declaration-remover.ts';
-import {
-    buildLineIndex,
-    findAtomFor,
-    lineColumnToOffset,
-    offsetToLineColumn,
-    recomposeSourceMap,
-    translateGeneratedOffset
-} from './source-map-composer.ts';
+import { recomposeSourceMap } from './source-map-composer.ts';
 
 type Mapping = {
     readonly generatedLine: number;
@@ -192,80 +185,6 @@ test('recomposeSourceMap drops mappings with a null source even when the positio
     for (const mapping of mappings) {
         assert.notStrictEqual(mapping.source, null);
     }
-});
-
-test('buildLineIndex returns a single entry for an empty string', () => {
-    assert.deepStrictEqual(buildLineIndex(''), [{ lineNumber: 1, lineStart: 0 }]);
-});
-
-test('buildLineIndex returns one entry per newline-terminated line plus the first line', () => {
-    assert.deepStrictEqual(buildLineIndex('a\nb\nc'), [
-        { lineNumber: 1, lineStart: 0 },
-        { lineNumber: 2, lineStart: 2 },
-        { lineNumber: 3, lineStart: 4 }
-    ]);
-});
-
-test('lineColumnToOffset returns the lineStart plus the column for a known line', () => {
-    const index = buildLineIndex('hello\nworld');
-    assert.strictEqual(lineColumnToOffset(index, 2, 3), 9);
-});
-
-test('lineColumnToOffset returns just the column when the line is past the file', () => {
-    const index = buildLineIndex('hello\nworld');
-    assert.strictEqual(lineColumnToOffset(index, 99, 4), 4);
-});
-
-test('offsetToLineColumn returns line 1 column 0 for offset 0', () => {
-    assert.deepStrictEqual(offsetToLineColumn(buildLineIndex('hello\nworld'), 0), { line: 1, column: 0 });
-});
-
-test('offsetToLineColumn returns the line containing the offset for a mid-file offset', () => {
-    assert.deepStrictEqual(offsetToLineColumn(buildLineIndex('hello\nworld'), 8), { line: 2, column: 2 });
-});
-
-test('offsetToLineColumn returns the last line when the offset is past the last newline', () => {
-    assert.deepStrictEqual(offsetToLineColumn(buildLineIndex('hello\nworld'), 100), { line: 2, column: 94 });
-});
-
-test('findAtomFor returns the atom whose range contains the offset', () => {
-    const atoms: readonly PositionAtom[] = [
-        { originalStart: 0, originalEnd: 5, newStart: 0 },
-        { originalStart: 10, originalEnd: 20, newStart: 5 }
-    ];
-    assert.deepStrictEqual(findAtomFor(atoms, 12), { originalStart: 10, originalEnd: 20, newStart: 5 });
-});
-
-test('findAtomFor treats the originalEnd offset as outside the atom', () => {
-    const atoms: readonly PositionAtom[] = [{ originalStart: 0, originalEnd: 5, newStart: 0 }];
-    assert.strictEqual(findAtomFor(atoms, 5), undefined);
-});
-
-test('findAtomFor treats the originalStart offset as inside the atom', () => {
-    const atoms: readonly PositionAtom[] = [{ originalStart: 5, originalEnd: 10, newStart: 0 }];
-    assert.deepStrictEqual(findAtomFor(atoms, 5), { originalStart: 5, originalEnd: 10, newStart: 0 });
-});
-
-test('findAtomFor returns undefined when no atom covers the offset', () => {
-    const atoms: readonly PositionAtom[] = [
-        { originalStart: 0, originalEnd: 5, newStart: 0 },
-        { originalStart: 10, originalEnd: 20, newStart: 5 }
-    ];
-    assert.strictEqual(findAtomFor(atoms, 7), undefined);
-});
-
-test('translateGeneratedOffset shifts the offset by the atom delta', () => {
-    const atoms: readonly PositionAtom[] = [{ originalStart: 10, originalEnd: 20, newStart: 3 }];
-    assert.strictEqual(translateGeneratedOffset(15, atoms), 8);
-});
-
-test('translateGeneratedOffset returns undefined when the offset is not in any atom', () => {
-    const atoms: readonly PositionAtom[] = [{ originalStart: 0, originalEnd: 5, newStart: 0 }];
-    assert.strictEqual(translateGeneratedOffset(20, atoms), undefined);
-});
-
-test('offsetToLineColumn returns the initial entry for an empty index', () => {
-    assert.deepStrictEqual(offsetToLineColumn([], 7), { line: 1, column: 7 });
 });
 
 test('recomposeSourceMap preserves originalLine and originalColumn as numbers on translated mappings', () => {

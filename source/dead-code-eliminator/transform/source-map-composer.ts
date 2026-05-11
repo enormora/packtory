@@ -1,6 +1,14 @@
 import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
 import { eachMapping, TraceMap, type EachMapping } from '@jridgewell/trace-mapping';
+import { translateGeneratedOffset } from './atom-translator.ts';
 import type { PositionAtom } from './declaration-remover.ts';
+import {
+    buildLineIndex,
+    lineColumnToOffset,
+    offsetToLineColumn,
+    type LineColumn,
+    type LineIndex
+} from './line-index.ts';
 
 export type RecomposeInput = {
     readonly originalMap: string;
@@ -8,60 +16,6 @@ export type RecomposeInput = {
     readonly transformedCode: string;
     readonly atoms: readonly PositionAtom[];
 };
-
-export type LineColumn = { readonly line: number; readonly column: number };
-
-type LineIndexEntry = {
-    readonly lineNumber: number;
-    readonly lineStart: number;
-};
-
-export type LineIndex = readonly LineIndexEntry[];
-
-export function buildLineIndex(text: string): LineIndex {
-    const entries: LineIndexEntry[] = [{ lineNumber: 1, lineStart: 0 }];
-    let index = text.indexOf('\n');
-    while (index !== -1) {
-        entries.push({ lineNumber: entries.length + 1, lineStart: index + 1 });
-        index = text.indexOf('\n', index + 1);
-    }
-    return entries;
-}
-
-export function lineColumnToOffset(lineIndex: LineIndex, oneBasedLine: number, column: number): number {
-    const entry = lineIndex.find((candidate) => {
-        return candidate.lineNumber === oneBasedLine;
-    });
-    if (entry === undefined) {
-        return column;
-    }
-    return entry.lineStart + column;
-}
-
-export function offsetToLineColumn(lineIndex: LineIndex, offset: number): LineColumn {
-    let current: LineIndexEntry = { lineNumber: 1, lineStart: 0 };
-    for (const entry of lineIndex) {
-        if (entry.lineStart > offset) {
-            break;
-        }
-        current = entry;
-    }
-    return { line: current.lineNumber, column: offset - current.lineStart };
-}
-
-export function findAtomFor(atoms: readonly PositionAtom[], offset: number): PositionAtom | undefined {
-    return atoms.find((atom) => {
-        return offset >= atom.originalStart && offset < atom.originalEnd;
-    });
-}
-
-export function translateGeneratedOffset(offset: number, atoms: readonly PositionAtom[]): number | undefined {
-    const atom = findAtomFor(atoms, offset);
-    if (atom === undefined) {
-        return undefined;
-    }
-    return atom.newStart + (offset - atom.originalStart);
-}
 
 function omitNull<T>(value: T | null | undefined): T | undefined {
     if (value === null) {
