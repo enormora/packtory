@@ -116,7 +116,7 @@ Packtory supports two versioning modes:
 2. **Manual Versioning:**
     - Provide the exact version number in the configuration.
 
-This explanation provides a comprehensive overview of the bundling and publishing processes in Packtory. Feel free to make any further adjustments or let me know if there's anything specific you'd like to emphasize.
+For a deeper look at the pipeline, the package graph, parallel scheduling, the tree-shaking algorithm, import-path rewriting, and automatic version detection, see [How it works under the hood](./documentation/how-it-works.md).
 
 ## Configuration
 
