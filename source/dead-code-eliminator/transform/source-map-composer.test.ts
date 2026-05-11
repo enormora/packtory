@@ -169,18 +169,21 @@ test('recomposeSourceMap preserves the `name` field on named mappings', () => {
     assert.deepStrictEqual(parsed.names, ['live']);
 });
 
-test('recomposeSourceMap drops mappings with a null source', () => {
-    const mapWithUnsourcedSegment = JSON.stringify({
+test('recomposeSourceMap drops mappings with a null source even when the position falls inside a surviving atom', () => {
+    // Null-source segment at the start of line 2 (which is inside the surviving atom range).
+    const mapWithUnsourcedSegmentInRange = JSON.stringify({
         version: 3,
         file: 'index.ts',
         sources: ['index.ts'],
         sourcesContent: [originalCode],
         names: [],
+        // line 1: AAAA (gen col 0 → source 0 line 1 col 0)
+        // line 2 starts with `A` (1-field segment at col 0, null source), then standard mappings
         // cspell:disable-next-line
-        mappings: 'A;AACA,SAAS'
+        mappings: 'AAAA;A,AACA,SAAS'
     });
     const result = recomposeSourceMap({
-        originalMap: mapWithUnsourcedSegment,
+        originalMap: mapWithUnsourcedSegmentInRange,
         originalCode,
         transformedCode,
         atoms: removeFunctionDeadAtoms
@@ -274,6 +277,40 @@ test('recomposeSourceMap preserves originalLine and originalColumn as numbers on
     }
 });
 
+test('recomposeSourceMap copies the original line and column values from each surviving mapping', () => {
+    const mappings = recomposedMappings();
+    const hasNonInitialOriginal = mappings.some((mapping) => {
+        return (mapping.originalLine ?? 0) > 1 || (mapping.originalColumn ?? 0) > 0;
+    });
+    assert.ok(hasNonInitialOriginal);
+});
+
+test('recomposeSourceMap emits exactly the mappings that translate into the transformed range', () => {
+    const mappings = recomposedMappings();
+    assert.strictEqual(mappings.length, 3);
+});
+
+test('recomposeSourceMap preserves a non-null sourceRoot from the input map', () => {
+    const mapWithSourceRoot = JSON.stringify({
+        version: 3,
+        file: 'index.ts',
+        sourceRoot: 'src',
+        sources: ['index.ts'],
+        sourcesContent: [originalCode],
+        names: [],
+        // cspell:disable-next-line
+        mappings: 'AAAA;AACA'
+    });
+    const result = recomposeSourceMap({
+        originalMap: mapWithSourceRoot,
+        originalCode,
+        transformedCode,
+        atoms: removeFunctionDeadAtoms
+    });
+    const parsed = JSON.parse(result) as { readonly sourceRoot?: string };
+    assert.strictEqual(parsed.sourceRoot, 'src');
+});
+
 test('recomposeSourceMap omits the file field for an input map that explicitly has null file', () => {
     const mapWithNullFile = JSON.stringify({
         version: 3,
@@ -290,8 +327,8 @@ test('recomposeSourceMap omits the file field for an input map that explicitly h
         transformedCode,
         atoms: removeFunctionDeadAtoms
     });
-    const parsed = JSON.parse(result) as { readonly file?: string | null };
-    assert.ok(parsed.file === null || parsed.file === undefined);
+    const parsed = JSON.parse(result) as Record<string, unknown>;
+    assert.strictEqual('file' in parsed, false);
 });
 
 test('recomposeSourceMap copies sources whose sourcesContent is null in the input map', () => {

@@ -1,5 +1,5 @@
-import { addMapping, GenMapping, setSourceContent, toEncodedMap } from '@jridgewell/gen-mapping';
-import { eachMapping, sourceContentFor, TraceMap, type EachMapping } from '@jridgewell/trace-mapping';
+import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
+import { eachMapping, TraceMap, type EachMapping } from '@jridgewell/trace-mapping';
 import type { PositionAtom } from './declaration-remover.ts';
 
 export type RecomposeInput = {
@@ -11,7 +11,7 @@ export type RecomposeInput = {
 
 export type LineColumn = { readonly line: number; readonly column: number };
 
-export type LineIndexEntry = {
+type LineIndexEntry = {
     readonly lineNumber: number;
     readonly lineStart: number;
 };
@@ -63,34 +63,17 @@ export function translateGeneratedOffset(offset: number, atoms: readonly Positio
     return atom.newStart + (offset - atom.originalStart);
 }
 
-function copySingleSourceContent(traceMap: TraceMap, newMap: GenMapping, source: string): void {
-    const content = sourceContentFor(traceMap, source);
-    if (content !== null) {
-        setSourceContent(newMap, source, content);
+function omitNull<T>(value: T | null | undefined): T | undefined {
+    if (value === null) {
+        return undefined;
     }
-}
-
-function copySourceContents(traceMap: TraceMap, newMap: GenMapping): void {
-    for (const source of traceMap.sources) {
-        if (source !== null) {
-            copySingleSourceContent(traceMap, newMap, source);
-        }
-    }
-}
-
-function createGenMappingFor(traceMap: TraceMap): GenMapping {
-    const { file } = traceMap;
-    if (typeof file === 'string') {
-        return new GenMapping({ file });
-    }
-    return new GenMapping();
+    return value;
 }
 
 type TranslatedMapping = {
     readonly generated: LineColumn;
     readonly source: string;
     readonly original: LineColumn;
-    readonly name: string | null;
 };
 
 function translateMapping(
@@ -110,46 +93,51 @@ function translateMapping(
     return {
         generated: offsetToLineColumn(transformedIndex, newOffset),
         source: mapping.source,
-        original: { line: mapping.originalLine, column: mapping.originalColumn },
-        name: mapping.name
+        original: { line: mapping.originalLine, column: mapping.originalColumn }
     };
 }
 
 function appendMapping(newMap: GenMapping, translated: TranslatedMapping): void {
-    const base = {
+    addMapping(newMap, {
         generated: translated.generated,
         source: translated.source,
         original: translated.original
-    };
-    if (translated.name === null) {
-        addMapping(newMap, base);
-    } else {
-        addMapping(newMap, { ...base, name: translated.name });
-    }
+    });
 }
 
-function tryParseTraceMap(originalMap: string): TraceMap | undefined {
+function tryParseTraceMap(originalMap: string): TraceMap | null {
     try {
         return new TraceMap(originalMap);
     } catch {
-        return undefined;
+        return null;
     }
+}
+
+function buildOutputJson(traceMap: TraceMap, encodedMappings: string): string {
+    return JSON.stringify({
+        version: 3,
+        file: omitNull(traceMap.file),
+        sourceRoot: traceMap.sourceRoot,
+        sources: traceMap.sources,
+        sourcesContent: traceMap.sourcesContent,
+        names: traceMap.names,
+        mappings: encodedMappings
+    });
 }
 
 export function recomposeSourceMap(input: RecomposeInput): string {
     const traceMap = tryParseTraceMap(input.originalMap);
-    if (traceMap === undefined) {
+    if (traceMap === null) {
         return input.originalMap;
     }
     const originalIndex = buildLineIndex(input.originalCode);
     const transformedIndex = buildLineIndex(input.transformedCode);
-    const newMap = createGenMappingFor(traceMap);
-    copySourceContents(traceMap, newMap);
+    const mappingsBuilder = new GenMapping();
     eachMapping(traceMap, (mapping) => {
         const translated = translateMapping(mapping, originalIndex, transformedIndex, input.atoms);
         if (translated !== undefined) {
-            appendMapping(newMap, translated);
+            appendMapping(mappingsBuilder, translated);
         }
     });
-    return JSON.stringify(toEncodedMap(newMap));
+    return buildOutputJson(traceMap, toEncodedMap(mappingsBuilder).mappings);
 }
