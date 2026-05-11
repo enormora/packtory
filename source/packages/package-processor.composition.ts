@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
-import { Project } from 'ts-morph';
+import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 import { createArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient } from '../bundle-emitter/registry-client.ts';
@@ -116,7 +116,22 @@ export function buildPackageProcessorComposition(
     const bundleEmitter = buildBundleEmitter(options, fileManager);
     const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
     const sbomFileBuilder = buildSbomFileBuilder(fileManager);
-    const deadCodeEliminator = createDeadCodeEliminator();
+    const deadCodeEliminator = createDeadCodeEliminator({
+        createProject: () => {
+            return new Project({
+                compilerOptions: {
+                    allowJs: true,
+                    module: ModuleKind.Node16,
+                    esModuleInterop: true,
+                    noLib: true,
+                    target: ScriptTarget.ES2022,
+                    moduleResolution: ModuleResolutionKind.Node10
+                },
+                skipLoadingLibFiles: true,
+                useInMemoryFileSystem: true
+            });
+        }
+    });
 
     const packageProcessor = createPackageProcessor({
         progressBroadcaster: progressBroadcaster.provider,

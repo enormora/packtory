@@ -4,7 +4,7 @@ import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import { analyzedBundleResource, linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
-import { bindingId, computeReachability, type FileBindings } from '../reachability/reachability.ts';
+import { bindingId, buildReachabilityIndex, type FileBindings } from '../reachability/reachability.ts';
 import { buildCrossBundleSeeds, type CrossBundleInput, type SeedMap } from './cross-bundle-seeds.ts';
 
 function bundleWith(
@@ -41,7 +41,7 @@ function inputFor(
             bindings: extractTopLevelBindings(sourceFile)
         };
     });
-    const { reachable: localReachable } = computeReachability({
+    const { localReachable } = buildReachabilityIndex({
         files: fileBindings,
         entryPointFilePaths: new Set(files.map((file) => file.sourceFilePath))
     });

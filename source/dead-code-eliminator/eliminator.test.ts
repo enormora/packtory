@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { analyzedBundle, bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
+import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
-import { createDeadCodeEliminator } from './eliminator.ts';
 
 function inputs(
     ...bundles: readonly LinkedBundle[]
@@ -50,25 +50,25 @@ function collectTargetPaths(analyzed: AnalyzedBundle | undefined): readonly stri
 }
 
 test('eliminate returns one analyzed bundle per linked bundle', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const result = await eliminator.eliminate(inputs(linkedBundle({ name: 'a' }), linkedBundle({ name: 'b' })));
     assert.strictEqual(result.length, 2);
 });
 
 test('eliminate preserves the bundle name', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const [analyzed] = await eliminator.eliminate(inputs(linkedBundle({ name: 'pkg' })));
     assert.strictEqual(analyzed?.name, 'pkg');
 });
 
 test('eliminate returns no bundles when given no input', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const result = await eliminator.eliminate([]);
     assert.deepStrictEqual(result, []);
 });
 
 test('eliminate populates analysis on every resource', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const [analyzed] = await eliminator.eliminate(
         inputs(
             linkedBundle({
@@ -91,7 +91,7 @@ test('eliminate populates analysis on every resource', async () => {
 });
 
 test('eliminate sets sideEffectsField to false for empty bundles', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const result = await eliminator.eliminate(inputs(linkedBundle({ name: 'a' }), linkedBundle({ name: 'b' })));
     for (const bundle of result) {
         assert.strictEqual(bundle.sideEffectsField, false);
@@ -99,7 +99,7 @@ test('eliminate sets sideEffectsField to false for empty bundles', async () => {
 });
 
 test('eliminate copies entryPoints, externalDependencies, and linkedBundleDependencies through unchanged', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const input = linkedBundle({
         name: 'a',
         externalDependencies: new Map([['dep', { name: 'dep', referencedFrom: ['/src/index.js'] }]]),
@@ -112,7 +112,7 @@ test('eliminate copies entryPoints, externalDependencies, and linkedBundleDepend
 });
 
 test('eliminate preserves resource fields and uses empty analysis defaults on non-code files', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const resource = { ...bundleResource('/src/LICENSE', { content: 'Hello' }), isSubstituted: false };
     const [analyzed] = await eliminator.eliminate(inputs(linkedBundle({ name: 'pkg', contents: [resource] })));
     const emitted = analyzed?.contents[0];
@@ -129,7 +129,7 @@ test('eliminate preserves resource fields and uses empty analysis defaults on no
 });
 
 test('eliminate accepts an analyzed bundle fixture and treats it like any linked bundle', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const input: AnalyzedBundle = analyzedBundle({ name: 'pkg' });
     const [analyzed] = await eliminator.eliminate(inputs(input));
     assert.strictEqual(analyzed?.name, 'pkg');
@@ -148,7 +148,7 @@ const indexTsBundle = (extraResources: readonly LinkedBundleResource[] = []): Li
 };
 
 test('eliminate removes an unreachable function declaration and records the surviving bindings when transformations are enabled', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const [analyzed] = await eliminator.eliminate(inputs(indexTsBundle()));
     const emitted = analyzed?.contents[0];
     assert.ok(emitted !== undefined);
@@ -158,7 +158,7 @@ test('eliminate removes an unreachable function declaration and records the surv
 });
 
 test('eliminate keeps unreachable declarations when transformations are disabled', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const result = await eliminator.eliminate([{ bundle: indexTsBundle(), transformationsEnabled: false }]);
     const emitted = result[0]?.contents[0];
     assert.ok(emitted !== undefined);
@@ -166,7 +166,7 @@ test('eliminate keeps unreachable declarations when transformations are disabled
 });
 
 test('eliminate recomposes the paired source map when a code file is transformed', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const originalMap = JSON.stringify({
         version: 3,
         file: 'index.ts',
@@ -195,7 +195,7 @@ test('eliminate recomposes the paired source map when a code file is transformed
 });
 
 test('eliminate keeps the paired source map untouched when no transformation occurs', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const liveOnlyContent = 'export function live() { return 2; }';
     const validMapContent = JSON.stringify({
         version: 3,
@@ -226,7 +226,7 @@ test('eliminate keeps the paired source map untouched when no transformation occ
 });
 
 test('eliminate honours an entry point declaration file when seeding reachability', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const declarationContent = 'export type Public = number;\nexport type Private = string;';
     const declarationFile = {
         content: declarationContent,
@@ -290,7 +290,7 @@ function consumerBundleWith(content: string): LinkedBundle {
 }
 
 test('eliminate uses cross-bundle seeds to keep an exported function reachable when consumed by another bundle', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const result = await eliminator.eliminate(
         inputs(
             consumerBundleWith('import { used } from "producer/helpers.ts";\nexport function pub() { return used(); }'),
@@ -304,7 +304,7 @@ test('eliminate uses cross-bundle seeds to keep an exported function reachable w
 });
 
 test('eliminate drops a producer binding whose only consumer-side reference is in unreachable code', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const consumerContent = [
         'import { used } from "producer/helpers.ts";',
         'function dead() { return used(); }',
@@ -319,7 +319,7 @@ test('eliminate drops a producer binding whose only consumer-side reference is i
 });
 
 test('eliminate keeps all declarations and reports them as surviving when the file has top-level side effects', async () => {
-    const eliminator = createDeadCodeEliminator();
+    const eliminator = createTestEliminator();
     const sideEffectContent = [
         'function dead() { return 1; }',
         'export function live() { return 2; }',

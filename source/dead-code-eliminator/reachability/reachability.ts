@@ -1,4 +1,4 @@
-import { Node as TsMorphNode, SyntaxKind, type Identifier, type SourceFile, type Statement } from 'ts-morph';
+import { SyntaxKind, type Identifier, type Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
 import type { BindingDescriptor } from './binding-extractor.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
@@ -11,12 +11,12 @@ export type FileBindings = {
 export type ReachabilityInput = {
     readonly files: readonly FileBindings[];
     readonly entryPointFilePaths: ReadonlySet<string>;
-    readonly externalSeeds?: ReadonlySet<string> | undefined;
 };
 
-export type ReachabilityResult = {
-    readonly reachable: ReadonlySet<string>;
+export type ReachabilityIndex = {
+    readonly localReachable: ReadonlySet<string>;
     readonly bindingIdsByFile: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly expandWith: (externalSeeds: ReadonlySet<string> | undefined) => ReadonlySet<string>;
 };
 
 type DeclarationNodeIndex = ReadonlyMap<TsMorphNode, string>;
@@ -79,22 +79,23 @@ function addSymbolTargets(symbol: SymbolReference, declarationIndex: Declaration
     }
 }
 
-function isImportSpecifierChild(identifier: Identifier): boolean {
-    return TsMorphNode.isImportSpecifier(identifier.getParent());
-}
-
 function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: DeclarationNodeIndex): Set<string> {
     const targets = new Set<string>();
     for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
-        if (!isImportSpecifierChild(identifier)) {
-            addSymbolTargets(identifier.getSymbolOrThrow(), declarationIndex, targets);
+        const symbol = identifier.getSymbol();
+        if (symbol !== undefined) {
+            addSymbolTargets(symbol, declarationIndex, targets);
         }
     }
     return targets;
 }
 
-function bfsClosure<T>(seeds: Iterable<T>, expand: (current: T) => Iterable<T>): Set<T> {
-    const visited = new Set<T>(seeds);
+function bfsClosure<T>(
+    seeds: Iterable<T>,
+    expand: (current: T) => Iterable<T>,
+    initialVisited: ReadonlySet<T>
+): Set<T> {
+    const visited = new Set<T>([...initialVisited, ...seeds]);
     const queue = Array.from(visited);
     let current = queue.shift();
     while (current !== undefined) {
@@ -121,13 +122,12 @@ function addStatementSeeds(
     }
 }
 
-function gatherInitialSeeds(
+function gatherLocalSeeds(
     files: readonly FileBindings[],
     entryPointFilePaths: ReadonlySet<string>,
-    declarationIndex: DeclarationNodeIndex,
-    externalSeeds: ReadonlySet<string>
+    declarationIndex: DeclarationNodeIndex
 ): Set<string> {
-    const seeds = new Set<string>(externalSeeds);
+    const seeds = new Set<string>();
     for (const file of files) {
         const isEntry = entryPointFilePaths.has(file.sourceFilePath);
         for (const binding of file.bindings) {
@@ -140,18 +140,25 @@ function gatherInitialSeeds(
     return seeds;
 }
 
-export function computeReachability(input: ReachabilityInput): ReachabilityResult {
+const emptyStringSet: ReadonlySet<string> = new Set<string>();
+
+export function buildReachabilityIndex(input: ReachabilityInput): ReachabilityIndex {
     const declarationIndex = buildDeclarationNodeIndex(input.files);
     const nodeById = buildNodeById(input.files);
-    const seeds = gatherInitialSeeds(
-        input.files,
-        input.entryPointFilePaths,
-        declarationIndex,
-        input.externalSeeds ?? new Set<string>()
-    );
-    const reachable = bfsClosure(seeds, (id) => {
+    const expand = (id: string): Iterable<string> => {
         const node = nodeById.get(id);
-        return node === undefined ? [] : collectIdentifierTargets(node, declarationIndex);
-    });
-    return { reachable, bindingIdsByFile: buildBindingsByFile(input.files) };
+        return node === undefined ? emptyStringSet : collectIdentifierTargets(node, declarationIndex);
+    };
+    const localSeeds = gatherLocalSeeds(input.files, input.entryPointFilePaths, declarationIndex);
+    const localReachable = bfsClosure(localSeeds, expand, emptyStringSet);
+    return {
+        localReachable,
+        bindingIdsByFile: buildBindingsByFile(input.files),
+        expandWith(externalSeeds) {
+            if (externalSeeds === undefined || externalSeeds.size === 0) {
+                return localReachable;
+            }
+            return bfsClosure(externalSeeds, expand, localReachable);
+        }
+    };
 }

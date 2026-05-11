@@ -7,8 +7,14 @@ import {
     type FileAnalysis
 } from './analyzed-bundle.ts';
 import { buildCrossBundleSeeds, type CrossBundleInput } from './cross-bundle/cross-bundle-seeds.ts';
-import { loadBundle, type LoadedBundle, type LoadedCodeResource, type LoadedResource } from './load-bundle.ts';
-import { bindingId, computeReachability } from './reachability/reachability.ts';
+import {
+    loadBundle,
+    type CreateProject,
+    type LoadedBundle,
+    type LoadedCodeResource,
+    type LoadedResource
+} from './load-bundle.ts';
+import { bindingId } from './reachability/reachability.ts';
 import { classifySideEffects } from './side-effect-classifier.ts';
 import { computeSideEffectsField } from './side-effects-field.ts';
 import { applyRemovalPlan, type PositionAtom } from './transform/declaration-remover.ts';
@@ -113,7 +119,7 @@ function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
         bundle: loaded.input.bundle,
         sourceFiles,
         fileBindings: loaded.fileBindings,
-        localReachable: loaded.localReachable
+        localReachable: loaded.reachability.localReachable
     };
 }
 
@@ -150,13 +156,8 @@ function buildMapPathTransformIndex(outputs: readonly BuildOutput[]): ReadonlyMa
 }
 
 function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet<string> | undefined): AnalyzedBundle {
-    const { reachable } = computeReachability({
-        files: loaded.fileBindings,
-        entryPointFilePaths: loaded.entryPointFilePaths,
-        externalSeeds
-    });
     const context: AnalysisContext = {
-        reachable,
+        reachable: loaded.reachability.expandWith(externalSeeds),
         transformationsEnabled: loaded.input.transformationsEnabled
     };
     const outputs = loaded.loaded.map((entry) => {
@@ -174,10 +175,17 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
     };
 }
 
-export function createDeadCodeEliminator(): DeadCodeEliminator {
+export type DeadCodeEliminatorDependencies = {
+    readonly createProject: CreateProject;
+};
+
+export function createDeadCodeEliminator(dependencies: DeadCodeEliminatorDependencies): DeadCodeEliminator {
+    const { createProject } = dependencies;
     return {
         async eliminate(inputs) {
-            const loadedBundles = inputs.map(loadBundle);
+            const loadedBundles = inputs.map((input) => {
+                return loadBundle(createProject, input);
+            });
             const seedMap = buildCrossBundleSeeds(loadedBundles.map(crossBundleInputFrom));
             return loadedBundles.map((loaded) => {
                 return analyzeBundleWithSeeds(loaded, seedMap.get(loaded.input.bundle.name));

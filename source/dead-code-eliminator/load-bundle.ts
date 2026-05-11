@@ -1,9 +1,11 @@
-import { Project, type SourceFile } from 'ts-morph';
+import type { Project, SourceFile } from 'ts-morph';
 import { isCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
 import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
-import { computeReachability, type FileBindings } from './reachability/reachability.ts';
+import { buildReachabilityIndex, type FileBindings, type ReachabilityIndex } from './reachability/reachability.ts';
+
+export type CreateProject = () => Project;
 
 export type LoadedCodeResource = {
     readonly resource: LinkedBundleResource;
@@ -23,13 +25,8 @@ export type LoadedBundle = {
     readonly project: Project;
     readonly loaded: readonly LoadedResource[];
     readonly fileBindings: readonly FileBindings[];
-    readonly localReachable: ReadonlySet<string>;
-    readonly entryPointFilePaths: ReadonlySet<string>;
+    readonly reachability: ReachabilityIndex;
 };
-
-function createIsolatedProject(): Project {
-    return new Project({});
-}
 
 function loadResource(project: Project, resource: LinkedBundleResource): LoadedResource {
     if (!isCodeFile(resource.fileDescription.targetFilePath)) {
@@ -67,16 +64,15 @@ function entryPointFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
     return paths;
 }
 
-export function loadBundle(input: EliminationInput): LoadedBundle {
-    const project = createIsolatedProject();
+export function loadBundle(createProject: CreateProject, input: EliminationInput): LoadedBundle {
+    const project = createProject();
     const loaded = input.bundle.contents.map((resource) => {
         return loadResource(project, resource);
     });
     const fileBindings = buildFileBindings(loaded);
-    const entryPointFilePaths = entryPointFilePathsFor(input.bundle);
-    const { reachable: localReachable } = computeReachability({
+    const reachability = buildReachabilityIndex({
         files: fileBindings,
-        entryPointFilePaths
+        entryPointFilePaths: entryPointFilePathsFor(input.bundle)
     });
-    return { input, project, loaded, fileBindings, localReachable, entryPointFilePaths };
+    return { input, project, loaded, fileBindings, reachability };
 }

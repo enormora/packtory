@@ -3,13 +3,13 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
-import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { bundleResource, linkedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import { getErrResult, getOkResult } from '../test-libraries/result-helpers.ts';
 import type { PackageProcessor } from './package-processor.ts';
 import { createPacktory, type PublishAllResult, type ResolveAndLinkAllResult } from './packtory.ts';
 
-type AnalyzedBundle = Awaited<ReturnType<ReturnType<typeof createDeadCodeEliminator>['eliminate']>>[number];
+type AnalyzedBundle = Awaited<ReturnType<ReturnType<typeof createTestEliminator>['eliminate']>>[number];
 
 function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): ReturnType<typeof linkedBundle> {
     return linkedBundle({
@@ -164,7 +164,7 @@ function createPacktoryUnderTest(
         readonly resolveAndLink?: SinonSpy;
         readonly tryBuildAndPublish?: SinonSpy;
         readonly buildAndPublish?: SinonSpy;
-        readonly deadCodeEliminator?: ReturnType<typeof createDeadCodeEliminator>;
+        readonly deadCodeEliminator?: ReturnType<typeof createTestEliminator>;
     } = {}
 ): PacktoryUnderTest {
     const resolveAndLink =
@@ -231,7 +231,7 @@ function createPacktoryUnderTest(
         packtory: createPacktory({
             packageProcessor,
             scheduler: scheduler as never,
-            deadCodeEliminator: overrides.deadCodeEliminator ?? createDeadCodeEliminator()
+            deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator()
         }),
         resolveAndLink,
         tryBuildAndPublish,
