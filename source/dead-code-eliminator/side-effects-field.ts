@@ -1,10 +1,5 @@
+import { isCodeFile } from '../common/code-files.ts';
 import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
-
-const codeFilePattern = /(?:\.d\.ts|\.[cm]?[jt]sx?)$/;
-
-export function isCodeFile(targetFilePath: string): boolean {
-    return codeFilePattern.test(targetFilePath);
-}
 
 function fileHasSideEffects(resource: AnalyzedBundleResource): boolean {
     return resource.analysis.sideEffectStatements.length > 0;

@@ -173,6 +173,7 @@ The configuration for `packtory` is an object with the following properties:
         - An array to add additional files to the package that are not automatically resolved.
         - Example: `{ sourceFilePath: 'LICENSE', targetFilePath: 'LICENSE' }`.
         - If defined in both per-package and common settings, they are merged.
+        - Code files (`.js`, `.cjs`, `.mjs`, `.jsx`, `.ts`, `.cts`, `.mts`, `.tsx`, `.d.ts`) are rejected: code that ships in the bundle must be reachable from an entry point so dependency, side-effect and dead-code analyses can run on it. If you need to ship code as a static asset (e.g. a template), give it a non-code extension like `.txt`.
 
     - **`additionalPackageJsonAttributes`** (Optional, Object):
         - An object to be merged directly into the generated `package.json`.
@@ -360,10 +361,6 @@ The same static analysis also drives, regardless of any `checks` configuration:
 ### Source maps
 
 When a `.map` file is paired with a code file the analyzer transforms, packtory recomposes the source map so the published map still points back to the original sources at the new line and column numbers. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Malformed source maps that cannot be parsed are passed through unchanged rather than dropped.
-
-### Known limitations
-
-- **`additionalFiles`** entries are never affected. The user explicitly opted to ship them, so the analyzer treats them as required regardless of their content.
 
 ## Example Use-Cases
 

@@ -78,3 +78,49 @@ test('throws when an object-form additional file uses an absolute target path', 
         assert.strictEqual((error as Error).message, 'The targetFilePath must be relative');
     }
 });
+
+const additionalCodeFileErrorMessage = [
+    'additionalFiles must not include code files; received "lib/template.ts".',
+    'Code that should ship in the bundle must be reachable from an entry point so',
+    'dependency, side-effect and dead-code analyses can run on it.',
+    'If you intend to ship code as a static asset (e.g. a template),',
+    'use a non-code extension like .txt.'
+].join(' ');
+
+test('throws when a string-form additional file points at a code file', () => {
+    try {
+        combineAllBundleFiles('/src', [], ['lib/template.ts']);
+        assert.fail('Expected combineAllBundleFiles() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, additionalCodeFileErrorMessage);
+    }
+});
+
+test('throws when an object-form additional file targets a code file', () => {
+    try {
+        combineAllBundleFiles(
+            '/src',
+            [],
+            [{ sourceFilePath: 'assets/template.txt', targetFilePath: 'lib/template.ts' }]
+        );
+        assert.fail('Expected combineAllBundleFiles() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, additionalCodeFileErrorMessage);
+    }
+});
+
+test('accepts an additional file whose target path retains a code-shaped source via a non-code extension', () => {
+    const result = combineAllBundleFiles(
+        '/src',
+        [],
+        [{ sourceFilePath: 'fixtures/template.ts', targetFilePath: 'fixtures/template.ts.txt' }]
+    );
+    assert.deepStrictEqual(result, [
+        {
+            sourceFilePath: '/src/fixtures/template.ts',
+            targetFilePath: 'fixtures/template.ts.txt',
+            directDependencies: new Set(),
+            isExplicitlyIncluded: true
+        }
+    ]);
+});

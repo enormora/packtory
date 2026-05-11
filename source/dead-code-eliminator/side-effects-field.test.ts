@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
-import { computeSideEffectsField, isCodeFile } from './side-effects-field.ts';
+import { computeSideEffectsField } from './side-effects-field.ts';
 
 function resource(targetFilePath: string, hasSideEffects = false): AnalyzedBundleResource {
     return {
@@ -16,46 +16,6 @@ function resource(targetFilePath: string, hasSideEffects = false): AnalyzedBundl
         }
     };
 }
-
-test('isCodeFile recognizes .js as code', () => {
-    assert.strictEqual(isCodeFile('index.js'), true);
-});
-
-test('isCodeFile recognizes .ts as code', () => {
-    assert.strictEqual(isCodeFile('index.ts'), true);
-});
-
-test('isCodeFile recognizes .tsx as code', () => {
-    assert.strictEqual(isCodeFile('index.tsx'), true);
-});
-
-test('isCodeFile recognizes .jsx as code', () => {
-    assert.strictEqual(isCodeFile('index.jsx'), true);
-});
-
-test('isCodeFile recognizes .cjs as code', () => {
-    assert.strictEqual(isCodeFile('index.cjs'), true);
-});
-
-test('isCodeFile recognizes .mjs as code', () => {
-    assert.strictEqual(isCodeFile('index.mjs'), true);
-});
-
-test('isCodeFile recognizes .d.ts as code', () => {
-    assert.strictEqual(isCodeFile('index.d.ts'), true);
-});
-
-test('isCodeFile rejects .json as not code', () => {
-    assert.strictEqual(isCodeFile('data.json'), false);
-});
-
-test('isCodeFile rejects LICENSE as not code', () => {
-    assert.strictEqual(isCodeFile('LICENSE'), false);
-});
-
-test('isCodeFile rejects markdown as not code', () => {
-    assert.strictEqual(isCodeFile('readme.md'), false);
-});
 
 test('returns false when there are no resources at all', () => {
     assert.strictEqual(computeSideEffectsField([]), false);

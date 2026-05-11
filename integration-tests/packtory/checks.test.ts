@@ -118,14 +118,18 @@ test('resolveAndLinkAll succeeds when every owner consents to the duplicated fil
 test('resolveAndLinkAll reports a colliding targetFilePath inside a bundle', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const baseConfig = await createBaseConfig(fixturePath);
-    const collidingSource = path.join(fixturePath, 'package.json');
+    const firstSource = path.join(fixturePath, 'package.json');
+    const secondSource = path.join(fixturePath, 'src/shared/util.js');
     const config = {
         ...baseConfig,
         checks: { uniqueTargetPaths: { enabled: true } },
         packages: [
             {
                 ...baseConfig.packages[0]!,
-                additionalFiles: [{ sourceFilePath: collidingSource, targetFilePath: 'pkg-a/index.js' }]
+                additionalFiles: [
+                    { sourceFilePath: firstSource, targetFilePath: 'pkg-a/data.json' },
+                    { sourceFilePath: secondSource, targetFilePath: 'pkg-a/data.json' }
+                ]
             },
             baseConfig.packages[1]!
         ]
@@ -140,7 +144,7 @@ test('resolveAndLinkAll reports a colliding targetFilePath inside a bundle', asy
 
     if (result.error.type === 'checks') {
         assert.strictEqual(result.error.issues.length, 1);
-        assert.match(result.error.issues[0]!, /^Package "pkg-a" maps multiple sources to "pkg-a\/index.js":/u);
+        assert.match(result.error.issues[0]!, /^Package "pkg-a" maps multiple sources to "pkg-a\/data\.json":/u);
     } else if (result.error.type === 'partial') {
         const failureMessages = result.error.error.failures.map((failure) => failure.message).join('; ');
         assert.fail(`Resolve/link failed unexpectedly: ${failureMessages}`);
