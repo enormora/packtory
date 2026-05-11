@@ -38,6 +38,7 @@ type LoadedBundle = {
     readonly project: Project;
     readonly loaded: readonly LoadedResource[];
     readonly fileBindings: readonly FileBindings[];
+    readonly localReachable: ReadonlySet<string>;
 };
 
 function loadResource(project: Project, resource: LinkedBundleResource): LoadedResource {
@@ -82,7 +83,11 @@ function loadBundle(input: EliminationInput): LoadedBundle {
         return loadResource(project, resource);
     });
     const fileBindings = buildFileBindings(loaded);
-    return { input, project, loaded, fileBindings };
+    const { reachable: localReachable } = computeReachability({
+        files: fileBindings,
+        entryPointFilePaths: entryPointFilePaths(input.bundle)
+    });
+    return { input, project, loaded, fileBindings, localReachable };
 }
 
 function allBindingNamesFor(loaded: LoadedCodeResource): ReadonlySet<string> {
@@ -183,7 +188,8 @@ function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
     return {
         bundle: loaded.input.bundle,
         sourceFiles,
-        fileBindings: loaded.fileBindings
+        fileBindings: loaded.fileBindings,
+        localReachable: loaded.localReachable
     };
 }
 

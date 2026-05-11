@@ -332,7 +332,7 @@ The error message names the file and the offending statement(s) by line and kind
 Within each bundle, the analyzer:
 
 1. Extracts every top-level binding (functions, classes, variables, types, enums, namespaces, imports) from every code file.
-2. Seeds reachability with: every binding exported from any entry-point file, plus every binding referenced by any impure top-level statement, plus every binding imported or re-exported from this bundle by another bundle in the same publish run (cross-bundle seeding, named/default/namespace `import` and named/star/star-as `export ... from`).
+2. Seeds reachability with: every binding exported from any entry-point file, plus every binding referenced by any impure top-level statement, plus every binding another bundle in the same publish run actually depends on — either re-exported, or imported into code that is itself reachable in the consuming bundle (cross-bundle seeding, named/default/namespace `import` and named/star/star-as `export ... from`).
 3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
 4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
 
@@ -363,7 +363,6 @@ When a `.map` file is paired with a code file the analyzer transforms, packtory 
 
 ### Known limitations
 
-- **Cross-bundle seeding is single-pass.** When bundle A imports a symbol from bundle B, that symbol is preserved in B. The fixed-point iteration that would propagate B's reductions back to refine A's seeds is not yet implemented; in practice this only matters for transitive cross-bundle reference chains, which are uncommon.
 - **`additionalFiles`** entries are never affected. The user explicitly opted to ship them, so the analyzer treats them as required regardless of their content.
 
 ## Example Use-Cases

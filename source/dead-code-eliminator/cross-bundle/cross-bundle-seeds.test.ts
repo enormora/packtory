@@ -4,7 +4,7 @@ import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import { analyzedBundleResource, linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
-import { bindingId, type FileBindings } from '../reachability/reachability.ts';
+import { bindingId, computeReachability, type FileBindings } from '../reachability/reachability.ts';
 import { buildCrossBundleSeeds, type CrossBundleInput, type SeedMap } from './cross-bundle-seeds.ts';
 
 function bundleWith(
@@ -41,7 +41,11 @@ function inputFor(
             bindings: extractTopLevelBindings(sourceFile)
         };
     });
-    return { bundle, sourceFiles, fileBindings };
+    const { reachable: localReachable } = computeReachability({
+        files: fileBindings,
+        entryPointFilePaths: new Set(files.map((file) => file.sourceFilePath))
+    });
+    return { bundle, sourceFiles, fileBindings, localReachable };
 }
 
 test('returns empty map when no bundles are given', () => {
@@ -241,7 +245,7 @@ test('does not record seeds for a namespace import that targets a file with no e
                 content: 'import * as data from "pkg-b/data.json";\nexport function pub() { return data; }'
             }
         ]),
-        { bundle: producer, sourceFiles: [], fileBindings: [] }
+        { bundle: producer, sourceFiles: [], fileBindings: [], localReachable: new Set<string>() }
     ]);
     assert.strictEqual(seeds.size, 0);
 });
@@ -280,6 +284,61 @@ test('records seeds only in the bundle whose name prefixes the specifier, not in
     const bSeeds = seeds.get('pkg-b');
     assert.ok(bSeeds !== undefined);
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
+});
+
+test('does not seed a named import whose local binding is only referenced by unreachable code', () => {
+    const bSeeds = seedsForConsumerProducer(
+        'import { used } from "pkg-b/helpers.ts";\nfunction dead() { return used(); }\nexport function pub() { return 1; }',
+        'export function used() { return 1; }'
+    );
+    assert.strictEqual(bSeeds, undefined);
+});
+
+test('does not seed a default import whose local binding is only referenced by unreachable code', () => {
+    const bSeeds = seedsForConsumerProducer(
+        'import dep from "pkg-b/helpers.ts";\nfunction dead() { return dep; }\nexport function pub() { return 1; }',
+        'export default 42;'
+    );
+    assert.strictEqual(bSeeds, undefined);
+});
+
+test('does not seed a namespace import whose local binding is only referenced by unreachable code', () => {
+    const bSeeds = seedsForConsumerProducer(
+        'import * as helpers from "pkg-b/helpers.ts";\nfunction dead() { return helpers; }\nexport function pub() { return 1; }',
+        'export const a = 1;\nexport const b = 2;'
+    );
+    assert.strictEqual(bSeeds, undefined);
+});
+
+test('uses the aliased local name to gate seeding for renamed named imports', () => {
+    const bSeeds = seedsForConsumerProducer(
+        'import { used as renamed } from "pkg-b/helpers.ts";\nexport function pub() { return renamed(); }',
+        'export function used() { return 1; }'
+    );
+    assert.ok(bSeeds !== undefined);
+    assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
+});
+
+test('does not seed a renamed named import whose aliased local binding is unreachable', () => {
+    const bSeeds = seedsForConsumerProducer(
+        'import { used as renamed } from "pkg-b/helpers.ts";\nfunction dead() { return renamed(); }\nexport function pub() { return 1; }',
+        'export function used() { return 1; }'
+    );
+    assert.strictEqual(bSeeds, undefined);
+});
+
+test('seeds only the named imports whose local bindings are referenced by reachable code', () => {
+    const bSeeds = seedsForConsumerProducer(
+        [
+            'import { used, alsoDead } from "pkg-b/helpers.ts";',
+            'function dead() { return alsoDead(); }',
+            'export function pub() { return used(); }'
+        ].join('\n'),
+        'export function used() { return 1; }\nexport function alsoDead() { return 2; }'
+    );
+    assert.ok(bSeeds !== undefined);
+    assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
+    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'alsoDead')), false);
 });
 
 test('does not record a seed for an import that does not match any bundle name', () => {

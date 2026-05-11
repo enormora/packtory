@@ -1,4 +1,4 @@
-import { SyntaxKind, type Identifier, type Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
+import { Node as TsMorphNode, SyntaxKind, type Identifier, type SourceFile, type Statement } from 'ts-morph';
 import type { BindingDescriptor } from './binding-extractor.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
@@ -79,10 +79,16 @@ function addSymbolTargets(symbol: SymbolReference, declarationIndex: Declaration
     }
 }
 
+function isImportSpecifierChild(identifier: Identifier): boolean {
+    return TsMorphNode.isImportSpecifier(identifier.getParent());
+}
+
 function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: DeclarationNodeIndex): Set<string> {
     const targets = new Set<string>();
     for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
-        addSymbolTargets(identifier.getSymbolOrThrow(), declarationIndex, targets);
+        if (!isImportSpecifierChild(identifier)) {
+            addSymbolTargets(identifier.getSymbolOrThrow(), declarationIndex, targets);
+        }
     }
     return targets;
 }

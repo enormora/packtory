@@ -6,6 +6,7 @@ export type CrossBundleInput = {
     readonly bundle: LinkedBundle;
     readonly sourceFiles: readonly Readonly<SourceFile>[];
     readonly fileBindings: readonly FileBindings[];
+    readonly localReachable: ReadonlySet<string>;
 };
 
 export type SeedMap = ReadonlyMap<string, ReadonlySet<string>>;
@@ -19,6 +20,13 @@ type ResolvedTarget = {
     readonly bundleName: string;
     readonly sourceFilePath: string;
     readonly indexedBundle: IndexedBundle;
+};
+
+type WalkContext = {
+    readonly indexed: ReadonlyMap<string, IndexedBundle>;
+    readonly seeds: Map<string, Set<string>>;
+    readonly sourceFilePath: string;
+    readonly localReachable: ReadonlySet<string>;
 };
 
 function indexBundles(inputs: readonly CrossBundleInput[]): ReadonlyMap<string, IndexedBundle> {
@@ -90,42 +98,55 @@ function seedAllBindings(seeds: Map<string, Set<string>>, target: ResolvedTarget
     }
 }
 
+function localNameOfNamedImport(namedImport: ReturnType<ImportDeclaration['getNamedImports']>[number]): string {
+    return namedImport.getAliasNode()?.getText() ?? namedImport.getName();
+}
+
+function isLocalBindingReachable(context: WalkContext, localName: string): boolean {
+    return context.localReachable.has(bindingId(context.sourceFilePath, localName));
+}
+
 function recordDefaultImportSeed(
     importDeclaration: ImportDeclaration,
     target: ResolvedTarget,
-    seeds: Map<string, Set<string>>
+    context: WalkContext
 ): void {
-    if (importDeclaration.getDefaultImport() === undefined) {
+    const defaultImport = importDeclaration.getDefaultImport();
+    if (defaultImport === undefined) {
         return;
     }
-    recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, 'default'));
+    if (!isLocalBindingReachable(context, defaultImport.getText())) {
+        return;
+    }
+    recordSeed(context.seeds, target.bundleName, bindingId(target.sourceFilePath, 'default'));
 }
 
 function recordNamedImportSeeds(
     importDeclaration: ImportDeclaration,
     target: ResolvedTarget,
-    seeds: Map<string, Set<string>>
+    context: WalkContext
 ): void {
     for (const namedImport of importDeclaration.getNamedImports()) {
-        recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, namedImport.getName()));
+        if (isLocalBindingReachable(context, localNameOfNamedImport(namedImport))) {
+            recordSeed(context.seeds, target.bundleName, bindingId(target.sourceFilePath, namedImport.getName()));
+        }
     }
 }
 
-function processImportDeclaration(
-    importDeclaration: ImportDeclaration,
-    indexed: ReadonlyMap<string, IndexedBundle>,
-    seeds: Map<string, Set<string>>
-): void {
-    const target = resolveCrossBundleTarget(importDeclaration.getModuleSpecifierValue(), indexed);
+function processImportDeclaration(importDeclaration: ImportDeclaration, context: WalkContext): void {
+    const target = resolveCrossBundleTarget(importDeclaration.getModuleSpecifierValue(), context.indexed);
     if (target === undefined) {
         return;
     }
-    if (importDeclaration.getNamespaceImport() !== undefined) {
-        seedAllBindings(seeds, target);
+    const namespaceImport = importDeclaration.getNamespaceImport();
+    if (namespaceImport !== undefined) {
+        if (isLocalBindingReachable(context, namespaceImport.getText())) {
+            seedAllBindings(context.seeds, target);
+        }
         return;
     }
-    recordDefaultImportSeed(importDeclaration, target, seeds);
-    recordNamedImportSeeds(importDeclaration, target, seeds);
+    recordDefaultImportSeed(importDeclaration, target, context);
+    recordNamedImportSeeds(importDeclaration, target, context);
 }
 
 function recordNamedReExportSeeds(
@@ -138,32 +159,24 @@ function recordNamedReExportSeeds(
     }
 }
 
-function processExportDeclaration(
-    exportDeclaration: ExportDeclaration,
-    indexed: ReadonlyMap<string, IndexedBundle>,
-    seeds: Map<string, Set<string>>
-): void {
-    const target = resolveCrossBundleTarget(exportDeclaration.getModuleSpecifierValue(), indexed);
+function processExportDeclaration(exportDeclaration: ExportDeclaration, context: WalkContext): void {
+    const target = resolveCrossBundleTarget(exportDeclaration.getModuleSpecifierValue(), context.indexed);
     if (target === undefined) {
         return;
     }
     if (exportDeclaration.isNamespaceExport()) {
-        seedAllBindings(seeds, target);
+        seedAllBindings(context.seeds, target);
         return;
     }
-    recordNamedReExportSeeds(exportDeclaration, target, seeds);
+    recordNamedReExportSeeds(exportDeclaration, target, context.seeds);
 }
 
-function walkCrossBundleStatements(
-    sourceFile: Readonly<SourceFile>,
-    indexed: ReadonlyMap<string, IndexedBundle>,
-    seeds: Map<string, Set<string>>
-): void {
+function walkCrossBundleStatements(sourceFile: Readonly<SourceFile>, context: WalkContext): void {
     for (const statement of sourceFile.getStatements()) {
         if (TsMorphNode.isImportDeclaration(statement)) {
-            processImportDeclaration(statement, indexed, seeds);
+            processImportDeclaration(statement, context);
         } else if (TsMorphNode.isExportDeclaration(statement)) {
-            processExportDeclaration(statement, indexed, seeds);
+            processExportDeclaration(statement, context);
         }
     }
 }
@@ -173,7 +186,12 @@ export function buildCrossBundleSeeds(inputs: readonly CrossBundleInput[]): Seed
     const seeds = new Map<string, Set<string>>();
     for (const input of inputs) {
         for (const sourceFile of input.sourceFiles) {
-            walkCrossBundleStatements(sourceFile, indexed, seeds);
+            walkCrossBundleStatements(sourceFile, {
+                indexed,
+                seeds,
+                sourceFilePath: sourceFile.getFilePath(),
+                localReachable: input.localReachable
+            });
         }
     }
     return seeds;

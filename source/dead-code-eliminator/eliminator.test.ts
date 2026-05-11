@@ -259,22 +259,12 @@ test('eliminate honours an entry point declaration file when seeding reachabilit
     assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['Public', 'Private']));
 });
 
-test('eliminate uses cross-bundle seeds to keep an exported function reachable when consumed by another bundle', async () => {
-    const eliminator = createDeadCodeEliminator();
-    const consumerBundle = bundleForCodeFile({
-        name: 'consumer',
-        sourceFilePath: '/consumer/index.ts',
-        targetFilePath: 'index.ts',
-        content: 'import { used } from "producer/helpers.ts";\nexport function pub() { return used(); }'
-    });
+function producerBundleWith(helpersContent: string): LinkedBundle {
     const producerHelpers = {
-        ...bundleResource('/producer/helpers.ts', {
-            content: 'export function used() { return 1; }\nexport function unused() { return 2; }',
-            targetFilePath: 'helpers.ts'
-        }),
+        ...bundleResource('/producer/helpers.ts', { content: helpersContent, targetFilePath: 'helpers.ts' }),
         isSubstituted: false
     };
-    const producerBundle = linkedBundle({
+    return linkedBundle({
         name: 'producer',
         contents: [producerHelpers],
         entryPoints: [
@@ -288,11 +278,44 @@ test('eliminate uses cross-bundle seeds to keep an exported function reachable w
             }
         ]
     });
-    const result = await eliminator.eliminate(inputs(consumerBundle, producerBundle));
+}
+
+function consumerBundleWith(content: string): LinkedBundle {
+    return bundleForCodeFile({
+        name: 'consumer',
+        sourceFilePath: '/consumer/index.ts',
+        targetFilePath: 'index.ts',
+        content
+    });
+}
+
+test('eliminate uses cross-bundle seeds to keep an exported function reachable when consumed by another bundle', async () => {
+    const eliminator = createDeadCodeEliminator();
+    const result = await eliminator.eliminate(
+        inputs(
+            consumerBundleWith('import { used } from "producer/helpers.ts";\nexport function pub() { return used(); }'),
+            producerBundleWith('export function used() { return 1; }\nexport function unused() { return 2; }')
+        )
+    );
     const producerEmitted = result[1]?.contents[0];
     assert.ok(producerEmitted !== undefined);
     assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), true);
     assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), false);
+});
+
+test('eliminate drops a producer binding whose only consumer-side reference is in unreachable code', async () => {
+    const eliminator = createDeadCodeEliminator();
+    const consumerContent = [
+        'import { used } from "producer/helpers.ts";',
+        'function dead() { return used(); }',
+        'export function pub() { return 1; }'
+    ].join('\n');
+    const result = await eliminator.eliminate(
+        inputs(consumerBundleWith(consumerContent), producerBundleWith('export function used() { return 1; }'))
+    );
+    const producerEmitted = result[1]?.contents[0];
+    assert.ok(producerEmitted !== undefined);
+    assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), false);
 });
 
 test('eliminate keeps all declarations and reports them as surviving when the file has top-level side effects', async () => {
