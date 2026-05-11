@@ -94,7 +94,7 @@ const expectedFirstPackageVersion = {
         {
             isExecutable: false,
             content:
-                '{\n    "main": "entry1.js",\n    "name": "first",\n    "type": "module",\n    "types": "entry1.d.ts",\n    "version": "0.0.1"\n}',
+                '{\n    "main": "entry1.js",\n    "name": "first",\n    "sideEffects": false,\n    "type": "module",\n    "types": "entry1.d.ts",\n    "version": "0.0.1"\n}',
             filePath: 'package/package.json'
         },
         {
@@ -131,7 +131,7 @@ const expectedSecondPackageFirstRunVersion = {
         {
             isExecutable: false,
             content:
-                '{\n    "dependencies": {\n        "first": "0.0.1"\n    },\n    "main": "entry2.js",\n    "name": "second",\n    "type": "module",\n    "types": "entry2.d.ts",\n    "version": "0.0.1"\n}',
+                '{\n    "dependencies": {\n        "first": "0.0.1"\n    },\n    "main": "entry2.js",\n    "name": "second",\n    "sideEffects": false,\n    "type": "module",\n    "types": "entry2.d.ts",\n    "version": "0.0.1"\n}',
             filePath: 'package/package.json'
         },
         {
@@ -159,7 +159,7 @@ const expectedSecondPackageSecondRunVersion = {
         {
             isExecutable: false,
             content:
-                '{\n    "dependencies": {\n        "first": "0.0.1"\n    },\n    "main": "entry2.js",\n    "name": "second",\n    "type": "module",\n    "types": "entry2.d.ts",\n    "version": "0.0.2"\n}',
+                '{\n    "dependencies": {\n        "first": "0.0.1"\n    },\n    "main": "entry2.js",\n    "name": "second",\n    "sideEffects": false,\n    "type": "module",\n    "types": "entry2.d.ts",\n    "version": "0.0.2"\n}',
             filePath: 'package/package.json'
         },
         {
@@ -224,6 +224,7 @@ async function createPublishConfig(params: CreatePublishConfigParams): Promise<P
     const mergedMainPackageJson = { ...baseMainPackageJson, ...mainPackageJsonOverrides };
     const mergedCommonPackageSettings: PublishConfig['commonPackageSettings'] = {
         publishSettings: { access: 'public', sbom: { enabled: false } },
+        deadCodeElimination: { enabled: false },
         ...commonPackageSettings,
         sourcesFolder: path.join(fixturePath, 'src'),
         mainPackageJson: mergedMainPackageJson
