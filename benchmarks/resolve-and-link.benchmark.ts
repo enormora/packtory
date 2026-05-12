@@ -14,7 +14,7 @@ export async function runResolveAndLinkBenchmark(
         const workload = await generateWorkload({ rootDirectory, size, workloads });
         const config = workload.createConfigWithoutRegistry();
         const result = await measureAsyncTask(`resolve-and-link:${size}`, async () => {
-            const runResult = await resolveAndLinkAll(config);
+            const { result: runResult } = await resolveAndLinkAll(config);
 
             if (runResult.isErr) {
                 throw new Error(`resolveAndLinkAll failed for "${size}" with error type "${runResult.error.type}"`);

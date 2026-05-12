@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs/promises';
 import readline from 'node:readline/promises';
 import { createClock } from '../../common/clock.ts';
 import { bootedSpinnerRuntime } from '../../command-line-interface/spinner-boot.entry-point.ts';
@@ -50,7 +51,8 @@ const scheduler = createScheduler({
 const packtory = createPacktory({
     scheduler,
     packageProcessor,
-    deadCodeEliminator
+    deadCodeEliminator,
+    progressBroadcaster
 });
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
@@ -58,6 +60,9 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     progressBroadcaster: progressBroadcaster.consumer,
     spinnerRenderer,
     configLoader: createConfigLoader({ currentWorkingDirectory: process.cwd(), importModule }),
+    writeReportFile: async (filePath, content) => {
+        await fs.writeFile(filePath, content);
+    },
     log: console.log
 });
 

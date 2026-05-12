@@ -4,7 +4,7 @@ import { test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
-import type { ResolvedPackage } from '../../source/packtory/packtory.ts';
+import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts';
 
 async function singlePackageConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
     return {
@@ -43,11 +43,11 @@ async function consumerProducerConfig(fixturePath: string): Promise<PacktoryConf
     };
 }
 
-function expectOk(result: Awaited<ReturnType<typeof resolveAndLinkAll>>): readonly ResolvedPackage[] {
-    if (!result.isOk) {
-        assert.fail(`Expected resolveAndLinkAll to succeed but got error: ${JSON.stringify(result.error)}`);
+function expectOk(outcome: Awaited<ReturnType<typeof resolveAndLinkAll>>): readonly ResolvedPackage[] {
+    if (!outcome.result.isOk) {
+        assert.fail(`Expected resolveAndLinkAll to succeed but got error: ${JSON.stringify(outcome.result.error)}`);
     }
-    return result.value;
+    return outcome.result.value;
 }
 
 function findPackage(packages: readonly ResolvedPackage[], name: string): ResolvedPackage {
@@ -133,7 +133,7 @@ test('the smart noDuplicatedFiles rule reports shared declarations using symbol 
         ],
         checks: { noDuplicatedFiles: { enabled: true } }
     };
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
     if (!result.isErr) {
         assert.fail('Expected the noDuplicatedFiles rule to fail');
         return;

@@ -1,3 +1,66 @@
+export type StageName = 'build' | 'eliminate' | 'publish' | 'resolveAndLink' | 'tryPublish';
+
+export type IncludedFile = {
+    readonly path: string;
+    readonly reason: string;
+};
+
+export type ExcludedFile = {
+    readonly specifier: string;
+    readonly reason: string;
+};
+
+export type ImportRewrite = {
+    readonly file: string;
+    readonly fromSpecifier: string;
+    readonly toSpecifier: string;
+    readonly targetBundle: string;
+};
+
+export type FileDecision = {
+    readonly path: string;
+    readonly decision: 'eliminated' | 'kept' | 'transformed';
+    readonly reason: string;
+    readonly sourceBytes: number;
+    readonly outputBytes?: number;
+};
+
+export type DroppedSymbol = {
+    readonly file: string;
+    readonly symbolName: string;
+    readonly kind: string;
+    readonly reason: string;
+};
+
+export type CrossBundleSeed = {
+    readonly binding: string;
+    readonly sourceBundle: string;
+    readonly consumerBundle: string;
+    readonly gatedBy: string;
+};
+
+type EliminationBundleResult = {
+    readonly packageName: string;
+    readonly files: readonly FileDecision[];
+    readonly droppedSymbols: readonly DroppedSymbol[];
+    readonly seeds: readonly CrossBundleSeed[];
+};
+
+export type VersionTrigger = 'auto-patch-bump' | 'initial' | 'minimum' | 'pinned';
+
+export type FieldProvenance = {
+    readonly source: 'additionalAttributes' | 'derived' | 'mainPackageJson';
+    readonly note?: string;
+};
+
+export type ArtifactEntry = {
+    readonly path: string;
+    readonly sizeBytes: number;
+    readonly kind: 'additional' | 'manifest' | 'sbom' | 'source';
+};
+
+export type RedactedConfig = Readonly<Record<string, unknown>>;
+
 type ProgressEventPayload = {
     readonly packageName: string;
     readonly version: string;
@@ -26,6 +89,62 @@ type DonePayload = {
     readonly status: 'already-published' | 'initial-version' | 'new-version';
 };
 
+type InputsResolvedPayload = {
+    readonly packageName: string;
+    readonly entryPoints: readonly string[];
+    readonly sourceFileCount: number;
+    readonly siblingVersions: Readonly<Record<string, string>>;
+};
+
+type EffectiveConfigResolvedPayload = {
+    readonly packageName: string;
+    readonly config: RedactedConfig;
+};
+
+type ScanCompletedPayload = {
+    readonly packageName: string;
+    readonly included: readonly IncludedFile[];
+    readonly excluded: readonly ExcludedFile[];
+};
+
+type LinkingCompletedPayload = {
+    readonly packageName: string;
+    readonly rewrites: readonly ImportRewrite[];
+};
+
+type EliminationCompletedPayload = {
+    readonly perBundle: readonly EliminationBundleResult[];
+};
+
+type VersionDeterminedPayload = {
+    readonly packageName: string;
+    readonly previousVersion: string | undefined;
+    readonly chosenVersion: string;
+    readonly trigger: VersionTrigger;
+};
+
+type PackageJsonAssembledPayload = {
+    readonly packageName: string;
+    readonly fields: Readonly<Record<string, FieldProvenance>>;
+};
+
+type ArtifactsCollectedPayload = {
+    readonly packageName: string;
+    readonly entries: readonly ArtifactEntry[];
+};
+
+type StageTimedPayload = {
+    readonly packageName: string;
+    readonly stage: StageName;
+    readonly durationMs: number;
+};
+
+type PackageFailedPayload = {
+    readonly packageName: string;
+    readonly stage: StageName;
+    readonly message: string;
+};
+
 type Events = {
     readonly scheduled: ScheduledEventPayload;
     readonly resolving: ResolvingEventPayload;
@@ -35,12 +154,33 @@ type Events = {
     readonly publishing: ProgressEventPayload;
     readonly done: DonePayload;
     readonly error: ErrorPayload;
+    readonly inputsResolved: InputsResolvedPayload;
+    readonly effectiveConfigResolved: EffectiveConfigResolvedPayload;
+    readonly scanCompleted: ScanCompletedPayload;
+    readonly linkingCompleted: LinkingCompletedPayload;
+    readonly eliminationCompleted: EliminationCompletedPayload;
+    readonly versionDetermined: VersionDeterminedPayload;
+    readonly packageJsonAssembled: PackageJsonAssembledPayload;
+    readonly artifactsCollected: ArtifactsCollectedPayload;
+    readonly stageTimed: StageTimedPayload;
+    readonly packageFailed: PackageFailedPayload;
 };
 
 type Listener<TPayload> = (payload: TPayload) => void;
 
+type ProgressEventName =
+    | 'building'
+    | 'done'
+    | 'error'
+    | 'linking'
+    | 'publishing'
+    | 'rebuilding'
+    | 'resolving'
+    | 'scheduled';
+
 export type ProgressBroadcastProvider = {
     readonly emit: <TEventName extends keyof Events>(eventName: TEventName, payload: Events[TEventName]) => void;
+    readonly hasSubscribers: (eventName: keyof Events) => boolean;
 };
 
 export type ProgressBroadcastConsumer = {
@@ -49,6 +189,17 @@ export type ProgressBroadcastConsumer = {
         listener: Listener<Events[TEventName]>
     ) => void;
     readonly off: <TEventName extends keyof Events>(
+        eventName: TEventName,
+        listener: Listener<Events[TEventName]>
+    ) => void;
+};
+
+export type PublicProgressBroadcastConsumer = {
+    readonly on: <TEventName extends ProgressEventName>(
+        eventName: TEventName,
+        listener: Listener<Events[TEventName]>
+    ) => void;
+    readonly off: <TEventName extends ProgressEventName>(
         eventName: TEventName,
         listener: Listener<Events[TEventName]>
     ) => void;
@@ -68,7 +219,17 @@ function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<
         rebuilding: new Set(),
         publishing: new Set(),
         done: new Set(),
-        error: new Set()
+        error: new Set(),
+        inputsResolved: new Set(),
+        effectiveConfigResolved: new Set(),
+        scanCompleted: new Set(),
+        linkingCompleted: new Set(),
+        eliminationCompleted: new Set(),
+        versionDetermined: new Set(),
+        packageJsonAssembled: new Set(),
+        artifactsCollected: new Set(),
+        stageTimed: new Set(),
+        packageFailed: new Set()
     };
 }
 
@@ -81,6 +242,9 @@ export function createProgressBroadcaster(): ProgressBroadcaster {
                 listeners[eventName].forEach((listener) => {
                     listener(payload);
                 });
+            },
+            hasSubscribers: (eventName) => {
+                return listeners[eventName].size > 0;
             }
         },
         consumer: {

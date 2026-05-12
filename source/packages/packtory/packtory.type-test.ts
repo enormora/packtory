@@ -5,8 +5,11 @@ import type {
     buildAndPublishAll,
     progressBroadcastConsumer,
     resolveAndLinkAll,
+    BuildReport,
     PacktoryConfig,
+    PublishAllOutcome,
     PublishAllResult,
+    ResolveAndLinkAllOutcome,
     ResolveAndLinkAllResult,
     ResolveAndLinkFailure,
     ResolvedPackage
@@ -31,14 +34,39 @@ type PublishErr = ErrVariant<PublishAllResult>['error'];
 type BuildAndPublishResult = PublishOk[number];
 
 describe('public functions', () => {
-    test('buildAndPublishAll takes an unknown config and a dry-run option and returns a PublishAllResult', () => {
+    test('buildAndPublishAll takes an unknown config and build options and returns a PublishAllOutcome', () => {
         expect<typeof buildAndPublishAll>().type.toBe<
-            (config: unknown, options: { readonly dryRun: boolean }) => Promise<PublishAllResult>
+            (
+                config: unknown,
+                options: { readonly dryRun: boolean; readonly collectReport?: boolean }
+            ) => Promise<PublishAllOutcome>
         >();
     });
 
-    test('resolveAndLinkAll takes an unknown config and returns a ResolveAndLinkAllResult', () => {
-        expect<typeof resolveAndLinkAll>().type.toBe<(config: unknown) => Promise<ResolveAndLinkAllResult>>();
+    test('resolveAndLinkAll takes an unknown config and returns a ResolveAndLinkAllOutcome', () => {
+        expect<typeof resolveAndLinkAll>().type.toBe<
+            (config: unknown, options?: { readonly collectReport?: boolean }) => Promise<ResolveAndLinkAllOutcome>
+        >();
+    });
+});
+
+describe('PublishAllOutcome', () => {
+    test('exposes the wrapped result', () => {
+        expect<PublishAllOutcome['result']>().type.toBe<PublishAllResult>();
+    });
+
+    test('exposes a getReport method that returns BuildReport or undefined', () => {
+        expect<PublishAllOutcome['getReport']>().type.toBe<() => BuildReport | undefined>();
+    });
+});
+
+describe('ResolveAndLinkAllOutcome', () => {
+    test('exposes the wrapped result', () => {
+        expect<ResolveAndLinkAllOutcome['result']>().type.toBe<ResolveAndLinkAllResult>();
+    });
+
+    test('exposes a getReport method that returns BuildReport or undefined', () => {
+        expect<ResolveAndLinkAllOutcome['getReport']>().type.toBe<() => BuildReport | undefined>();
     });
 });
 

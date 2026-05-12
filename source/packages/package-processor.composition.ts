@@ -18,6 +18,7 @@ import { createFileManager, type FileManager } from '../file-manager/file-manage
 import { createBundleLinker } from '../linker/linker.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { withStageTimings } from '../report/decorators.ts';
 import { createResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
@@ -96,10 +97,15 @@ function buildSbomFileBuilder(fileManager: FileManager): ReturnType<typeof creat
 
 function buildBundleEmitter(
     options: PackageProcessorCompositionOptions,
-    fileManager: FileManager
+    fileManager: FileManager,
+    progressBroadcaster: ProgressBroadcaster
 ): ReturnType<typeof createBundleEmitter> {
     const registryClient = buildRegistryClient(options, createClock());
-    const artifactsBuilder = createArtifactsBuilder({ fileManager, tarballBuilder: createTarballBuilder() });
+    const artifactsBuilder = createArtifactsBuilder({
+        fileManager,
+        tarballBuilder: createTarballBuilder(),
+        progressBroadcaster: progressBroadcaster.provider
+    });
     return createBundleEmitter({
         registryClient,
         artifactsBuilder,
@@ -113,10 +119,11 @@ export function buildPackageProcessorComposition(
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
     const dependencyScanner = createDependencyScannerWith(fileManager);
     const progressBroadcaster = createProgressBroadcaster();
-    const bundleEmitter = buildBundleEmitter(options, fileManager);
+    const bundleEmitter = buildBundleEmitter(options, fileManager, progressBroadcaster);
     const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
     const sbomFileBuilder = buildSbomFileBuilder(fileManager);
     const deadCodeEliminator = createDeadCodeEliminator({
+        progressBroadcaster: progressBroadcaster.provider,
         createProject: () => {
             return new Project({
                 compilerOptions: {
@@ -133,15 +140,16 @@ export function buildPackageProcessorComposition(
         }
     });
 
-    const packageProcessor = createPackageProcessor({
+    const basePackageProcessor = createPackageProcessor({
         progressBroadcaster: progressBroadcaster.provider,
-        versionManager: createVersionManager(),
+        versionManager: createVersionManager({ progressBroadcaster: progressBroadcaster.provider }),
         bundleEmitter,
         linker: createBundleLinker(),
         resourceResolver,
         sbomFileBuilder,
         deadCodeEliminator
     });
+    const packageProcessor = withStageTimings(basePackageProcessor, progressBroadcaster.provider);
 
     return { packageProcessor, progressBroadcaster, deadCodeEliminator };
 }

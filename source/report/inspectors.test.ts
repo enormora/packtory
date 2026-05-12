@@ -1,0 +1,273 @@
+import assert from 'node:assert';
+import { test } from 'mocha';
+import type { FileDescription } from '../file-manager/file-description.ts';
+import {
+    inspectArtifactSizes,
+    inspectLinkerRewrites,
+    inspectPackageJsonProvenance,
+    inspectScanResults
+} from './inspectors.ts';
+
+function description(filePath: string, content = ''): FileDescription {
+    return { filePath, content, isExecutable: false };
+}
+
+test('inspectArtifactSizes maps file paths and content lengths', () => {
+    const entries = inspectArtifactSizes([
+        { filePath: 'package.json', content: '{"name":"a"}', isExecutable: false },
+        { filePath: 'src/index.js', content: 'export const a = 1;', isExecutable: false }
+    ]);
+
+    assert.deepStrictEqual(entries, [
+        { path: 'package.json', sizeBytes: 12, kind: 'manifest' },
+        { path: 'src/index.js', sizeBytes: 19, kind: 'source' }
+    ]);
+});
+
+test('inspectArtifactSizes classifies a nested package.json as manifest', () => {
+    const [entry] = inspectArtifactSizes([description('nested/dir/package.json')]);
+    assert.strictEqual(entry?.kind, 'manifest');
+});
+
+test('inspectArtifactSizes does NOT classify a sibling-suffixed package.json as manifest', () => {
+    const [entry] = inspectArtifactSizes([description('inner-package.json')]);
+    assert.notStrictEqual(entry?.kind, 'manifest');
+});
+
+test('inspectArtifactSizes recognizes sbom files', () => {
+    const entries = inspectArtifactSizes([
+        { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false },
+        { filePath: 'project.sbom.json', content: '{}', isExecutable: false }
+    ]);
+
+    assert.deepStrictEqual(
+        entries.map((entry) => {
+            return entry.kind;
+        }),
+        ['sbom', 'sbom']
+    );
+});
+
+test('inspectArtifactSizes treats unknown files as additional', () => {
+    const entries = inspectArtifactSizes([{ filePath: 'README.md', content: '# hi', isExecutable: false }]);
+
+    assert.strictEqual(entries[0]?.kind, 'additional');
+});
+
+test('inspectArtifactSizes does not classify a generic .json as source', () => {
+    const [entry] = inspectArtifactSizes([description('data.json')]);
+    assert.strictEqual(entry?.kind, 'additional');
+});
+
+test('inspectArtifactSizes classifies .js as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.js')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .cjs as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.cjs')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .mjs as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.mjs')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .ts as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.ts')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .tsx as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.tsx')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .jsx as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.jsx')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .d.ts as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.d.ts')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .d.cts as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.d.cts')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .d.mts as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.d.mts')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes classifies .map as source', () => {
+    const [entry] = inspectArtifactSizes([description('a.js.map')]);
+    assert.strictEqual(entry?.kind, 'source');
+});
+
+test('inspectArtifactSizes returns utf-8 byte length for multi-byte content', () => {
+    const entries = inspectArtifactSizes([{ filePath: 'note.txt', content: '✓', isExecutable: false }]);
+
+    assert.strictEqual(entries[0]?.sizeBytes, 3);
+});
+
+test('inspectArtifactSizes reports zero bytes for empty content', () => {
+    const [entry] = inspectArtifactSizes([description('file.txt', '')]);
+    assert.strictEqual(entry?.sizeBytes, 0);
+});
+
+test('inspectArtifactSizes preserves the original file path on each entry', () => {
+    const [entry] = inspectArtifactSizes([description('deep/nested/file.js')]);
+    assert.strictEqual(entry?.path, 'deep/nested/file.js');
+});
+
+test('inspectArtifactSizes returns one entry per input descriptor', () => {
+    const entries = inspectArtifactSizes([
+        description('a.js', 'a'),
+        description('b.ts', 'bb'),
+        description('c.txt', 'ccc')
+    ]);
+    assert.strictEqual(entries.length, 3);
+});
+
+test('inspectScanResults returns included files with reason "reachable-from-entry"', () => {
+    const bundle = {
+        contents: [
+            { fileDescription: { sourceFilePath: '/src/a.ts' } },
+            { fileDescription: { sourceFilePath: '/src/b.ts' } }
+        ],
+        externalDependencies: new Map<string, unknown>()
+    };
+
+    const { included } = inspectScanResults(bundle);
+
+    assert.deepStrictEqual(included, [
+        { path: '/src/a.ts', reason: 'reachable-from-entry' },
+        { path: '/src/b.ts', reason: 'reachable-from-entry' }
+    ]);
+});
+
+test('inspectScanResults returns excluded specifiers with reason "external-module"', () => {
+    const bundle = {
+        contents: [],
+        externalDependencies: new Map<string, unknown>([
+            ['lodash', { version: '^4' }],
+            ['react', { version: '^18' }]
+        ])
+    };
+
+    const { excluded } = inspectScanResults(bundle);
+
+    assert.deepStrictEqual(excluded, [
+        { specifier: 'lodash', reason: 'external-module' },
+        { specifier: 'react', reason: 'external-module' }
+    ]);
+});
+
+test('inspectScanResults returns empty arrays when the bundle has no contents and no externals', () => {
+    const { included, excluded } = inspectScanResults({
+        contents: [],
+        externalDependencies: new Map<string, unknown>()
+    });
+
+    assert.deepStrictEqual(included, []);
+    assert.deepStrictEqual(excluded, []);
+});
+
+test('inspectLinkerRewrites returns no rewrites when no resource is substituted', () => {
+    const rewrites = inspectLinkerRewrites({
+        contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: false }],
+        linkedBundleDependencies: new Map<string, unknown>([['pkg-b', {}]])
+    });
+
+    assert.deepStrictEqual(rewrites, []);
+});
+
+test('inspectLinkerRewrites emits one rewrite per substituted resource per linked bundle', () => {
+    const rewrites = inspectLinkerRewrites({
+        contents: [
+            { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true },
+            { fileDescription: { sourceFilePath: '/src/b.ts' }, isSubstituted: true }
+        ],
+        linkedBundleDependencies: new Map<string, unknown>([
+            ['pkg-b', {}],
+            ['pkg-c', {}]
+        ])
+    });
+
+    assert.deepStrictEqual(rewrites, [
+        { file: '/src/a.ts', fromSpecifier: '/src/a.ts', toSpecifier: 'pkg-b', targetBundle: 'pkg-b' },
+        { file: '/src/a.ts', fromSpecifier: '/src/a.ts', toSpecifier: 'pkg-c', targetBundle: 'pkg-c' },
+        { file: '/src/b.ts', fromSpecifier: '/src/b.ts', toSpecifier: 'pkg-b', targetBundle: 'pkg-b' },
+        { file: '/src/b.ts', fromSpecifier: '/src/b.ts', toSpecifier: 'pkg-c', targetBundle: 'pkg-c' }
+    ]);
+});
+
+test('inspectLinkerRewrites returns an empty array when given no resources', () => {
+    const rewrites = inspectLinkerRewrites({
+        contents: [],
+        linkedBundleDependencies: new Map<string, unknown>([['pkg-b', {}]])
+    });
+
+    assert.deepStrictEqual(rewrites, []);
+});
+
+test('inspectLinkerRewrites returns an empty array when there are no linked bundle dependencies', () => {
+    const rewrites = inspectLinkerRewrites({
+        contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true }],
+        linkedBundleDependencies: new Map<string, unknown>()
+    });
+
+    assert.deepStrictEqual(rewrites, []);
+});
+
+test('inspectPackageJsonProvenance marks fields present in mainPackageJson', () => {
+    const provenance = inspectPackageJsonProvenance(
+        { name: 'pkg', version: '1.0.0', type: 'module' },
+        { type: 'module' },
+        undefined
+    );
+
+    assert.deepStrictEqual(provenance.type, { source: 'mainPackageJson' });
+});
+
+test('inspectPackageJsonProvenance marks fields present in additionalAttributes', () => {
+    const provenance = inspectPackageJsonProvenance(
+        { name: 'pkg', version: '1.0.0', publishConfig: { access: 'public' } },
+        {},
+        { publishConfig: { access: 'public' } }
+    );
+
+    assert.deepStrictEqual(provenance.publishConfig, { source: 'additionalAttributes' });
+});
+
+test('inspectPackageJsonProvenance marks fields not in any source as derived', () => {
+    const provenance = inspectPackageJsonProvenance({ name: 'pkg', version: '1.0.0' }, {}, undefined);
+
+    assert.deepStrictEqual(provenance.name, { source: 'derived' });
+    assert.deepStrictEqual(provenance.version, { source: 'derived' });
+});
+
+test('inspectPackageJsonProvenance prefers additionalAttributes over mainPackageJson when both contain the field', () => {
+    const provenance = inspectPackageJsonProvenance(
+        { keywords: ['a', 'b'] },
+        { keywords: ['x'] },
+        { keywords: ['a', 'b'] }
+    );
+
+    assert.deepStrictEqual(provenance.keywords, { source: 'additionalAttributes' });
+});
+
+test('inspectPackageJsonProvenance treats undefined additionalAttributes as absent', () => {
+    const provenance = inspectPackageJsonProvenance({ name: 'pkg' }, { name: 'pkg' }, undefined);
+    assert.deepStrictEqual(provenance, { name: { source: 'mainPackageJson' } });
+});
+
+test('inspectPackageJsonProvenance returns an empty object for an empty assembled manifest', () => {
+    const provenance = inspectPackageJsonProvenance({}, { name: 'pkg' }, { scripts: {} });
+    assert.deepStrictEqual(provenance, {});
+});

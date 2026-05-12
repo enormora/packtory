@@ -4,6 +4,7 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { toOutcome } from '../test-libraries/result-helpers.ts';
 import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
@@ -14,6 +15,7 @@ type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
+    readonly writeReportFile?: SinonSpy;
     progressBroadcaster?: ProgressBroadcaster;
     spinnerRenderer?: {
         add?: SinonSpy;
@@ -59,7 +61,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
                 return fake.resolves(undefined);
             }),
-            resolveAndLinkAll: fake.resolves(Result.ok([]))
+            resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([])))
         },
         log: (message) => {
             log(stripVTControlCharacters(message));
@@ -70,7 +72,10 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             })
         },
         progressBroadcaster: progressBroadcaster.consumer,
-        spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer)
+        spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer),
+        writeReportFile: createSpy(overrides.writeReportFile, () => {
+            return fake.resolves(undefined);
+        })
     };
 
     return createCommandLineInterfaceRunner(dependencies);
@@ -78,7 +83,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
 
 test('publish command loads the config file and passes it to buildAndPublishAll()', async () => {
     const loadConfig = fake.resolves('the-config');
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ loadConfig, buildAndPublishAll });
 
     await runner.run(['foo', 'bar', 'publish']);
@@ -89,27 +94,27 @@ test('publish command loads the config file and passes it to buildAndPublishAll(
 });
 
 test('publish command runs in dry-run mode per default', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     await runner.run(['foo', 'bar', 'publish']);
 
     assert.strictEqual(buildAndPublishAll.callCount, 1);
-    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true });
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: false });
 });
 
 test('publish command runs not in dry-run mode when no-dry-run flag is set', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
 
     assert.strictEqual(buildAndPublishAll.callCount, 1);
-    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: false });
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: false, collectReport: false });
 });
 
 test('returns exit code 0 when publish command had no errors', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     const exitCode = await runner.run(['foo', 'bar', 'publish']);
@@ -118,7 +123,7 @@ test('returns exit code 0 when publish command had no errors', async () => {
 });
 
 test('returns exit code 1 when publish command has errors', async () => {
-    const buildAndPublishAll = fake.resolves(Result.err({ type: 'config', issues: [] }));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'config', issues: [] })));
     const runner = runnerFactory({ buildAndPublishAll });
 
     const exitCode = await runner.run(['foo', 'bar', 'publish']);
@@ -127,7 +132,7 @@ test('returns exit code 1 when publish command has errors', async () => {
 });
 
 test('returns exit code 1 instead of exiting the process when command parsing fails', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const log = fake();
     const runner = runnerFactory({ buildAndPublishAll, log });
 
@@ -140,7 +145,7 @@ test('returns exit code 1 instead of exiting the process when command parsing fa
 });
 
 test('returns exit code 1 when the publish command name is misspelled', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     const exitCode = await runner.run(['foo', 'bar', 'publis']);
@@ -151,7 +156,7 @@ test('returns exit code 1 when the publish command name is misspelled', async ()
 
 test('prints command help that includes the publish command name and description', async () => {
     const log = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll, log });
 
     const exitCode = await runner.run(['foo', 'bar', '--help']);
@@ -169,7 +174,7 @@ test('prints command help that includes the publish command name and description
 
 test('prints subcommand help that includes the full publish command path', async () => {
     const log = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll, log });
 
     const exitCode = await runner.run(['foo', 'bar', 'publish', '--help']);
@@ -196,7 +201,7 @@ async function runWithIssues(
     type: 'checks' | 'config',
     issues: readonly string[]
 ): Promise<{ readonly log: SinonSpy }> {
-    const buildAndPublishAll = fake.resolves(Result.err({ type, issues }));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type, issues })));
     const log = fake();
     const runner = runnerFactory({ buildAndPublishAll, log });
 
@@ -241,11 +246,13 @@ async function runPublishCapturingLog(
     return log;
 }
 
-const partialResultWithTwoFailures = Result.err({
-    type: 'partial' as const,
-    succeeded: ['foo'],
-    failures: [new Error('first'), new Error('second')]
-});
+const partialResultWithTwoFailures = toOutcome(
+    Result.err({
+        type: 'partial' as const,
+        succeeded: ['foo'],
+        failures: [new Error('first'), new Error('second')]
+    })
+);
 
 test('prints error summary and dry-run note when publish command encounters partial errors', async () => {
     const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures));
@@ -263,7 +270,7 @@ test('prints error summary without dry-run note when publish command encounters 
 });
 
 test('prints success summary and dry-run note when publish command had no errors', async () => {
-    const log = await runPublishCapturingLog(fake.resolves(Result.ok(['foo', 'bar'])));
+    const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok(['foo', 'bar']))));
 
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);
@@ -271,7 +278,7 @@ test('prints success summary and dry-run note when publish command had no errors
 });
 
 test('prints success summary without dry-run note when publish command had no errors and dry-run mode is disabled', async () => {
-    const log = await runPublishCapturingLog(fake.resolves(Result.ok(['foo', 'bar'])), ['--no-dry-run']);
+    const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok(['foo', 'bar']))), ['--no-dry-run']);
 
     assert.strictEqual(log.callCount, 1);
     assert.deepStrictEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);
@@ -288,7 +295,7 @@ test('stops all spinners when buildAndPublishAll throws', async () => {
 
 test('stops all spinners when buildAndPublishAll finishes without errors', async () => {
     const stopAll = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stopAll } });
 
     await runner.run(['foo', 'bar', 'publish']);
@@ -297,7 +304,7 @@ test('stops all spinners when buildAndPublishAll finishes without errors', async
 
 test('adds a spinner when progressBroadcaster receives a "scheduled" event', async () => {
     const add = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const progressBroadcaster = createProgressBroadcaster();
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { add }, progressBroadcaster });
 
@@ -313,7 +320,7 @@ async function runWithProgressEvent(
     eventName: string,
     eventPayload: unknown
 ): Promise<ProgressBroadcaster> {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const progressBroadcaster = createProgressBroadcaster();
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer, progressBroadcaster });
 
@@ -372,4 +379,104 @@ test('updates a running spinner message when a "rebuilding" event is received', 
 
     assert.strictEqual(updateMessage.callCount, 1);
     assert.deepStrictEqual(updateMessage.firstCall.args, ['foo', 'Rebuilding package with version 1']);
+});
+
+const sampleReport = {
+    schemaVersion: 1 as const,
+    generatedAt: '2026-05-11T00:00:00.000Z',
+    packages: { 'pkg-a': { decisions: {}, timings: {} } },
+    aggregate: { crossBundleLinks: [] }
+};
+
+function outcomeWithReport(result: unknown): {
+    readonly result: unknown;
+    readonly getReport: () => typeof sampleReport;
+} {
+    return {
+        result,
+        getReport: () => {
+            return sampleReport;
+        }
+    };
+}
+
+test('publish with --report-json requests collectReport: true', async () => {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    await runner.run(['foo', 'bar', 'publish', '--report-json']);
+
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+});
+
+test('publish with --report-html requests collectReport: true', async () => {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    await runner.run(['foo', 'bar', 'publish', '--report-html']);
+
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+});
+
+async function runPublishWithReport(extraArgs: readonly string[]): Promise<SinonSpy> {
+    const writeReportFile = fake.resolves(undefined);
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+    await runner.run(['foo', 'bar', 'publish', ...extraArgs]);
+    return writeReportFile;
+}
+
+test('publish writes packtory-report.json when --report-json is set and getReport returns a report', async () => {
+    const writeReportFile = await runPublishWithReport(['--report-json']);
+
+    assert.strictEqual(writeReportFile.callCount, 1);
+    assert.strictEqual(writeReportFile.firstCall.args[0], 'packtory-report.json');
+    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    assert.ok(writtenContent.endsWith('\n'), 'json report must end with a newline');
+    assert.deepStrictEqual(JSON.parse(writtenContent), sampleReport);
+});
+
+test('publish writes packtory-report.html when --report-html is set and getReport returns a report', async () => {
+    const writeReportFile = await runPublishWithReport(['--report-html']);
+
+    assert.strictEqual(writeReportFile.callCount, 1);
+    assert.strictEqual(writeReportFile.firstCall.args[0], 'packtory-report.html');
+    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    assert.ok(writtenContent.startsWith('<!doctype html>'), 'html report must start with doctype');
+});
+
+test('publish writes both report files when --report-json and --report-html are set', async () => {
+    const writeReportFile = await runPublishWithReport(['--report-json', '--report-html']);
+
+    const writtenPaths = writeReportFile.getCalls().map((call): unknown => {
+        return call.args[0];
+    });
+    assert.deepStrictEqual(writtenPaths, ['packtory-report.json', 'packtory-report.html']);
+});
+
+test('publish writes no report files when neither flag is set', async () => {
+    const writeReportFile = await runPublishWithReport([]);
+
+    assert.strictEqual(writeReportFile.callCount, 0);
+});
+
+test('publish writes no report files when getReport returns undefined even with --report-json set', async () => {
+    const writeReportFile = fake.resolves(undefined);
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+
+    await runner.run(['foo', 'bar', 'publish', '--report-json']);
+
+    assert.strictEqual(writeReportFile.callCount, 0);
+});
+
+test('publish writes the report even when the build failed', async () => {
+    const writeReportFile = fake.resolves(undefined);
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.err({ type: 'config', issues: ['boom'] })));
+    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+
+    const exitCode = await runner.run(['foo', 'bar', 'publish', '--report-json']);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(writeReportFile.callCount, 1);
 });

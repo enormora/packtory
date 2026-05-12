@@ -2,6 +2,8 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
+import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
@@ -42,7 +44,11 @@ function artifactsBuilderFactory(overrides: Overrides = {}): {
     const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: ArtifactsBuilderDependencies = {
         fileManager,
-        tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder)
+        tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder),
+        progressBroadcaster: {
+            emit: (): void => undefined,
+            hasSubscribers: (): boolean => false
+        }
     };
 
     return { builder: createArtifactsBuilder(dependencies), fileManager };
@@ -209,4 +215,79 @@ test('buildFolder() writes extra files alongside the bundle contents into the ta
         filePath: '/the/target/folder/sbom.cdx.json',
         content: '{"bomFormat":"CycloneDX"}'
     });
+});
+
+function artifactsBuilderWithBroadcaster(): {
+    readonly builder: ArtifactsBuilder;
+    readonly broadcaster: ReturnType<typeof createProgressBroadcaster>;
+} {
+    const broadcaster = createProgressBroadcaster();
+    const dependencies: ArtifactsBuilderDependencies = {
+        fileManager: createFakeFileManager(),
+        tarballBuilder: { build: fake.resolves(Buffer.from([])) },
+        progressBroadcaster: broadcaster.provider
+    };
+    return { builder: createArtifactsBuilder(dependencies), broadcaster };
+}
+
+test('collectContents() emits an artifactsCollected event with the package name when a subscriber is registered', () => {
+    const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
+    const received: { packageName: string }[] = [];
+    broadcaster.consumer.on('artifactsCollected', (payload) => {
+        received.push({ packageName: payload.packageName });
+    });
+
+    builder.collectContents(bundleWithContents([makeContent('a.js', 'console.log(0)')], 'package.json'));
+
+    assert.deepStrictEqual(received, [{ packageName: 'the-name' }]);
+});
+
+test('collectContents() emits artifact entries with size and kind classification', () => {
+    const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
+    const received: { entries: readonly { path: string; sizeBytes: number; kind: string }[] }[] = [];
+    broadcaster.consumer.on('artifactsCollected', (payload) => {
+        received.push({
+            entries: payload.entries.map((entry) => {
+                return { path: entry.path, sizeBytes: entry.sizeBytes, kind: entry.kind };
+            })
+        });
+    });
+
+    builder.collectContents(bundleWithContents([makeContent('a.js', 'abc')], 'package.json'));
+
+    assert.deepStrictEqual(received, [
+        {
+            entries: [
+                { path: 'package.json', sizeBytes: 2, kind: 'manifest' },
+                { path: 'a.js', sizeBytes: 3, kind: 'source' }
+            ]
+        }
+    ]);
+});
+
+test('collectContents() does NOT emit artifactsCollected when no subscriber is registered', () => {
+    const spying = createSpyingBroadcaster();
+    const dependencies: ArtifactsBuilderDependencies = {
+        fileManager: createFakeFileManager(),
+        tarballBuilder: { build: fake.resolves(Buffer.from([])) },
+        progressBroadcaster: spying.provider
+    };
+    const builder = createArtifactsBuilder(dependencies);
+
+    builder.collectContents(bundleWithContents([], 'package.json'));
+
+    assert.strictEqual(spying.emitSpy.callCount, 0);
+});
+
+test('collectContents() emits exactly once per invocation', () => {
+    const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
+    let callCount = 0;
+    broadcaster.consumer.on('artifactsCollected', () => {
+        callCount += 1;
+    });
+
+    builder.collectContents(bundleWithContents([], 'package.json'));
+    builder.collectContents(bundleWithContents([], 'package.json'));
+
+    assert.strictEqual(callCount, 2);
 });
