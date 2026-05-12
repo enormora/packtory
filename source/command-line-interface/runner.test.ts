@@ -4,6 +4,7 @@ import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { toOutcome } from '../test-libraries/result-helpers.ts';
 import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
@@ -59,7 +60,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
                 return fake.resolves(undefined);
             }),
-            resolveAndLinkAll: fake.resolves(Result.ok([]))
+            resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([])))
         },
         log: (message) => {
             log(stripVTControlCharacters(message));
@@ -78,7 +79,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
 
 test('publish command loads the config file and passes it to buildAndPublishAll()', async () => {
     const loadConfig = fake.resolves('the-config');
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ loadConfig, buildAndPublishAll });
 
     await runner.run(['foo', 'bar', 'publish']);
@@ -89,27 +90,27 @@ test('publish command loads the config file and passes it to buildAndPublishAll(
 });
 
 test('publish command runs in dry-run mode per default', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     await runner.run(['foo', 'bar', 'publish']);
 
     assert.strictEqual(buildAndPublishAll.callCount, 1);
-    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true });
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: false });
 });
 
 test('publish command runs not in dry-run mode when no-dry-run flag is set', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
 
     assert.strictEqual(buildAndPublishAll.callCount, 1);
-    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: false });
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: false, collectReport: false });
 });
 
 test('returns exit code 0 when publish command had no errors', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     const exitCode = await runner.run(['foo', 'bar', 'publish']);
@@ -118,7 +119,7 @@ test('returns exit code 0 when publish command had no errors', async () => {
 });
 
 test('returns exit code 1 when publish command has errors', async () => {
-    const buildAndPublishAll = fake.resolves(Result.err({ type: 'config', issues: [] }));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'config', issues: [] })));
     const runner = runnerFactory({ buildAndPublishAll });
 
     const exitCode = await runner.run(['foo', 'bar', 'publish']);
@@ -127,7 +128,7 @@ test('returns exit code 1 when publish command has errors', async () => {
 });
 
 test('returns exit code 1 instead of exiting the process when command parsing fails', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const log = fake();
     const runner = runnerFactory({ buildAndPublishAll, log });
 
@@ -140,7 +141,7 @@ test('returns exit code 1 instead of exiting the process when command parsing fa
 });
 
 test('returns exit code 1 when the publish command name is misspelled', async () => {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll });
 
     const exitCode = await runner.run(['foo', 'bar', 'publis']);
@@ -151,7 +152,7 @@ test('returns exit code 1 when the publish command name is misspelled', async ()
 
 test('prints command help that includes the publish command name and description', async () => {
     const log = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll, log });
 
     const exitCode = await runner.run(['foo', 'bar', '--help']);
@@ -169,7 +170,7 @@ test('prints command help that includes the publish command name and description
 
 test('prints subcommand help that includes the full publish command path', async () => {
     const log = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll, log });
 
     const exitCode = await runner.run(['foo', 'bar', 'publish', '--help']);
@@ -196,7 +197,7 @@ async function runWithIssues(
     type: 'checks' | 'config',
     issues: readonly string[]
 ): Promise<{ readonly log: SinonSpy }> {
-    const buildAndPublishAll = fake.resolves(Result.err({ type, issues }));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type, issues })));
     const log = fake();
     const runner = runnerFactory({ buildAndPublishAll, log });
 
@@ -241,11 +242,13 @@ async function runPublishCapturingLog(
     return log;
 }
 
-const partialResultWithTwoFailures = Result.err({
-    type: 'partial' as const,
-    succeeded: ['foo'],
-    failures: [new Error('first'), new Error('second')]
-});
+const partialResultWithTwoFailures = toOutcome(
+    Result.err({
+        type: 'partial' as const,
+        succeeded: ['foo'],
+        failures: [new Error('first'), new Error('second')]
+    })
+);
 
 test('prints error summary and dry-run note when publish command encounters partial errors', async () => {
     const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures));
@@ -263,7 +266,7 @@ test('prints error summary without dry-run note when publish command encounters 
 });
 
 test('prints success summary and dry-run note when publish command had no errors', async () => {
-    const log = await runPublishCapturingLog(fake.resolves(Result.ok(['foo', 'bar'])));
+    const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok(['foo', 'bar']))));
 
     assert.strictEqual(log.callCount, 2);
     assert.deepStrictEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);
@@ -271,7 +274,7 @@ test('prints success summary and dry-run note when publish command had no errors
 });
 
 test('prints success summary without dry-run note when publish command had no errors and dry-run mode is disabled', async () => {
-    const log = await runPublishCapturingLog(fake.resolves(Result.ok(['foo', 'bar'])), ['--no-dry-run']);
+    const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok(['foo', 'bar']))), ['--no-dry-run']);
 
     assert.strictEqual(log.callCount, 1);
     assert.deepStrictEqual(log.firstCall.args, ['✔ Success: all 2 package(s) have been published']);
@@ -288,7 +291,7 @@ test('stops all spinners when buildAndPublishAll throws', async () => {
 
 test('stops all spinners when buildAndPublishAll finishes without errors', async () => {
     const stopAll = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stopAll } });
 
     await runner.run(['foo', 'bar', 'publish']);
@@ -297,7 +300,7 @@ test('stops all spinners when buildAndPublishAll finishes without errors', async
 
 test('adds a spinner when progressBroadcaster receives a "scheduled" event', async () => {
     const add = fake();
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const progressBroadcaster = createProgressBroadcaster();
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { add }, progressBroadcaster });
 
@@ -313,7 +316,7 @@ async function runWithProgressEvent(
     eventName: string,
     eventPayload: unknown
 ): Promise<ProgressBroadcaster> {
-    const buildAndPublishAll = fake.resolves(Result.ok([]));
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const progressBroadcaster = createProgressBroadcaster();
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer, progressBroadcaster });
 

@@ -1,15 +1,16 @@
 import type { Maybe } from 'true-myth';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import { inspectLinkerRewrites, inspectScanResults } from '../report/inspectors.ts';
 import type { BundleLinker } from '../linker/linker.ts';
 import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
 import type { BuildAndPublishOptions, BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 
 type LinkedBundle = Awaited<ReturnType<BundleLinker['linkBundle']>>;
+type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion']>>;
 
 export type BuildAndPublishResult = {
     readonly status: 'already-published' | 'initial-version' | 'new-version';
@@ -56,12 +57,52 @@ function determineBuildVersion(currentVersion: Maybe<string>, options: BuildAndP
     return options.versioning.minimumVersion ?? '0.0.0';
 }
 
+function maybeEmitScanCompleted(
+    broadcaster: ProgressBroadcastProvider,
+    packageName: string,
+    resolved: Parameters<typeof inspectScanResults>[0]
+): void {
+    if (broadcaster.hasSubscribers('scanCompleted')) {
+        broadcaster.emit('scanCompleted', { packageName, ...inspectScanResults(resolved) });
+    }
+}
+
+function maybeEmitLinkingCompleted(
+    broadcaster: ProgressBroadcastProvider,
+    packageName: string,
+    linked: LinkedBundle
+): void {
+    if (broadcaster.hasSubscribers('linkingCompleted')) {
+        broadcaster.emit('linkingCompleted', { packageName, rewrites: inspectLinkerRewrites(linked) });
+    }
+}
+
 function shouldIncreaseVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): boolean {
     if (!options.versioning.automatic) {
         return false;
     }
 
     return currentVersion.isJust || options.versioning.minimumVersion === undefined;
+}
+
+function inferVersionTrigger(
+    currentVersion: Maybe<string>,
+    options: BuildAndPublishOptions,
+    didBump: boolean
+): 'auto-patch-bump' | 'initial' | 'minimum' | 'pinned' {
+    if (didBump) {
+        return 'auto-patch-bump';
+    }
+    if (!options.versioning.automatic) {
+        return 'pinned';
+    }
+    if (currentVersion.isJust) {
+        return 'auto-patch-bump';
+    }
+    if (options.versioning.minimumVersion !== undefined) {
+        return 'minimum';
+    }
+    return 'initial';
 }
 
 export function createPackageProcessor(dependencies: PackageProcessorDependencies): PackageProcessor {
@@ -87,11 +128,13 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         assertEsmMainPackageJson(options.mainPackageJson);
         progressBroadcaster.emit('resolving', { packageName: options.name });
         const resolvedBundle = await resourceResolver.resolve(options);
+        maybeEmitScanCompleted(progressBroadcaster, options.name, resolvedBundle);
         progressBroadcaster.emit('linking', { packageName: options.name });
         const linkedBundle = await linker.linkBundle({
             bundle: resolvedBundle,
             bundleDependencies: [...options.bundleDependencies, ...options.bundlePeerDependencies]
         });
+        maybeEmitLinkingCompleted(progressBroadcaster, options.name, linkedBundle);
         return linkedBundle;
     }
 
@@ -118,6 +161,52 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
         return [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
     }
 
+    function emitVersionDetermined(args: {
+        readonly options: BuildAndPublishOptions;
+        readonly currentVersion: Maybe<string>;
+        readonly chosenVersion: string;
+        readonly didBump: boolean;
+    }): void {
+        if (!progressBroadcaster.hasSubscribers('versionDetermined')) {
+            return;
+        }
+        progressBroadcaster.emit('versionDetermined', {
+            packageName: args.options.name,
+            previousVersion: args.currentVersion.isJust ? args.currentVersion.value : undefined,
+            chosenVersion: args.chosenVersion,
+            trigger: inferVersionTrigger(args.currentVersion, args.options, args.didBump)
+        });
+    }
+
+    function finalizeWithoutBump(
+        buildContext: { versionedBundle: VersionedBundleWithManifest; currentVersion: Maybe<string> },
+        options: BuildAndPublishOptions,
+        status: BuildAndPublishResult['status']
+    ): BuildAndPublishResult {
+        emitVersionDetermined({
+            options,
+            currentVersion: buildContext.currentVersion,
+            chosenVersion: buildContext.versionedBundle.version,
+            didBump: false
+        });
+        return { bundle: buildContext.versionedBundle, status };
+    }
+
+    async function bumpVersion(
+        buildContext: { versionedBundle: VersionedBundleWithManifest; version: string; currentVersion: Maybe<string> },
+        options: BuildAndPublishOptions
+    ): Promise<VersionedBundleWithManifest> {
+        progressBroadcaster.emit('rebuilding', { packageName: options.name, version: buildContext.version });
+        const newVersionedBundle = versionManager.increaseVersion(buildContext.versionedBundle);
+        emitVersionDetermined({
+            options,
+            currentVersion: buildContext.currentVersion,
+            chosenVersion: newVersionedBundle.version,
+            didBump: true
+        });
+        return newVersionedBundle;
+    }
+
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
         const buildContext = await buildVersionedBundle(options.analyzedBundle, options.buildOptions);
         const extraFiles = await sbomFileBuilder.generate(
@@ -131,19 +220,16 @@ export function createPackageProcessor(dependencies: PackageProcessorDependencie
             ...(extraFiles === undefined ? {} : { extraFiles })
         });
         if (result.alreadyPublishedAsLatest) {
-            return { bundle: buildContext.versionedBundle, status: 'already-published' };
+            return finalizeWithoutBump(buildContext, options.buildOptions, 'already-published');
         }
         if (!shouldIncreaseVersion(buildContext.currentVersion, options.buildOptions)) {
-            return {
-                bundle: buildContext.versionedBundle,
-                status: buildContext.currentVersion.isJust ? 'new-version' : 'initial-version'
-            };
+            return finalizeWithoutBump(
+                buildContext,
+                options.buildOptions,
+                buildContext.currentVersion.isJust ? 'new-version' : 'initial-version'
+            );
         }
-        progressBroadcaster.emit('rebuilding', {
-            packageName: options.buildOptions.name,
-            version: buildContext.version
-        });
-        const newVersionedBundle = versionManager.increaseVersion(buildContext.versionedBundle);
+        const newVersionedBundle = await bumpVersion(buildContext, options.buildOptions);
         return {
             bundle: newVersionedBundle,
             status: buildContext.currentVersion.isJust ? 'new-version' : 'initial-version'

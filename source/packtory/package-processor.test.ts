@@ -135,7 +135,7 @@ function createProcessor(overrides: Overrides = {}): ProcessorContext {
         });
     });
     const dependencies = {
-        progressBroadcaster: { emit },
+        progressBroadcaster: { emit, hasSubscribers: () => false },
         resourceResolver: { resolve },
         linker: { linkBundle },
         bundleEmitter: { determineCurrentVersion, checkBundleAlreadyPublished, publish },

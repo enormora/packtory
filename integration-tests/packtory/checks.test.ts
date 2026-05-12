@@ -41,7 +41,7 @@ test('resolveAndLinkAll() reports duplicated files when the rule is enabled', as
         checks: { noDuplicatedFiles: { enabled: true } }
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
         assert.fail('Expected resolveAndLinkAll to fail because of duplicated files');
@@ -64,7 +64,7 @@ test('resolveAndLinkAll succeeds when checks are disabled', async () => {
     const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
     const config = await createBaseConfig(fixturePath);
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isOk) {
         assert.fail('Duplicated file rule should not run when disabled');
@@ -82,7 +82,7 @@ test('resolveAndLinkAll succeeds when the global allowList covers the duplicated
         checks: { noDuplicatedFiles: { enabled: true, allowList: [sharedFile] } }
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isOk) {
         assert.fail('Globally allow-listed shared file should not fail checks');
@@ -106,7 +106,7 @@ test('resolveAndLinkAll succeeds when every owner consents to the duplicated fil
         })
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isOk) {
         assert.fail('Owners that all consent to the shared file should not fail checks');
@@ -135,7 +135,7 @@ test('resolveAndLinkAll reports an external dependency that is only declared in 
         ]
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
         assert.fail('Expected resolveAndLinkAll to fail because example-module is dev-only');
@@ -160,7 +160,7 @@ test('resolveAndLinkAll reports a declared bundleDependency that is never import
         packages: [baseConfig.packages[1]!, { ...baseConfig.packages[0]!, bundleDependencies: ['pkg-b'] }]
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
         assert.fail('Expected resolveAndLinkAll to fail because pkg-a does not import from pkg-b');
@@ -189,7 +189,7 @@ test('resolveAndLinkAll reports a per-package bundle size override that is excee
         ]
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
         assert.fail('Expected resolveAndLinkAll to fail because pkg-a exceeds its size override');
@@ -215,7 +215,7 @@ test('resolveAndLinkAll reports a missing required file for every bundle that la
         checks: { requiredFiles: { enabled: true, files: ['LICENSE'] } }
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
         assert.fail('Expected resolveAndLinkAll to fail because of missing required files');
@@ -248,7 +248,7 @@ test('resolveAndLinkAll reports the duplicate when one owner does not consent', 
         ]
     };
 
-    const result = await resolveAndLinkAll(config);
+    const { result } = await resolveAndLinkAll(config);
 
     if (!result.isErr) {
         assert.fail('Expected resolveAndLinkAll to fail because pkg-b did not consent');

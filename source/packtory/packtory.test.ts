@@ -5,7 +5,7 @@ import { Result } from 'true-myth';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import { bundleResource, linkedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
-import { getErrResult, getOkResult } from '../test-libraries/result-helpers.ts';
+import { createTestProgressBroadcaster, getErrResult, getOkResult } from '../test-libraries/result-helpers.ts';
 import type { PackageProcessor } from './package-processor.ts';
 import { createPacktory, type PublishAllResult, type ResolveAndLinkAllResult } from './packtory.ts';
 
@@ -231,7 +231,8 @@ function createPacktoryUnderTest(
         packtory: createPacktory({
             packageProcessor,
             scheduler: scheduler as never,
-            deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator()
+            deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator(),
+            progressBroadcaster: createTestProgressBroadcaster()
         }),
         resolveAndLink,
         tryBuildAndPublish,
@@ -243,7 +244,7 @@ function createPacktoryUnderTest(
 test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async () => {
     const { packtory } = createPacktoryUnderTest();
 
-    const result = await packtory.resolveAndLinkAll({ invalid: true });
+    const { result } = await packtory.resolveAndLinkAll({ invalid: true });
 
     const error = getErrResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
     assert.strictEqual(error.type, 'config');
@@ -256,7 +257,7 @@ test('resolveAndLinkAll() returns partial scheduler failures', async () => {
         }
     });
 
-    const result = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
+    const { result } = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
 
     assert.deepStrictEqual(
         result,
@@ -278,7 +279,7 @@ function createPacktoryThatSharesSourceFile(): ReturnType<typeof createPacktoryU
 test('resolveAndLinkAll() returns check failures after the linked bundles were built', async () => {
     const { packtory } = createPacktoryThatSharesSourceFile();
 
-    const result = await packtory.resolveAndLinkAll(
+    const { result } = await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             checks: { noDuplicatedFiles: { enabled: true } },
             packages: twoPackageEntries
@@ -297,7 +298,7 @@ test('resolveAndLinkAll() returns check failures after the linked bundles were b
 test('resolveAndLinkAll() threads per-package noDuplicatedFiles consent through the runner', async () => {
     const { packtory } = createPacktoryThatSharesSourceFile();
 
-    const result = await packtory.resolveAndLinkAll(
+    const { result } = await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             checks: { noDuplicatedFiles: { enabled: true } },
             packages: twoPackageEntries.map((entry) => {
@@ -319,7 +320,7 @@ test('resolveAndLinkAll() exposes packageConfig.bundleDependencies to noUnusedBu
         })
     });
 
-    const result = await packtory.resolveAndLinkAll(
+    const { result } = await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             checks: { noUnusedBundleDependencies: { enabled: true } },
             packages: [
@@ -368,7 +369,7 @@ test('resolveAndLinkAll() prefers per-package mainPackageJson over common when r
         })
     });
 
-    const result = await packtory.resolveAndLinkAll({
+    const { result } = await packtory.resolveAndLinkAll({
         commonPackageSettings: {
             sourcesFolder: '/src',
             mainPackageJson: { type: 'module', devDependencies: { 'runtime-dep': '1.0.0' } },
@@ -390,7 +391,7 @@ test('resolveAndLinkAll() prefers per-package mainPackageJson over common when r
 test('resolveAndLinkAll() runs checks when commonPackageSettings is omitted', async () => {
     const { packtory } = createPacktoryThatSharesSourceFile();
 
-    const result = await packtory.resolveAndLinkAll({
+    const { result } = await packtory.resolveAndLinkAll({
         checks: { noDuplicatedFiles: { enabled: true } },
         packages: [
             {
@@ -422,7 +423,7 @@ test('resolveAndLinkAll() runs checks when commonPackageSettings is omitted', as
 test('resolveAndLinkAll() returns all resolved packages on success', async () => {
     const { packtory, resolveAndLink, scheduler } = createPacktoryUnderTest();
 
-    const result = await packtory.resolveAndLinkAll(
+    const { result } = await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             packages: [
                 { name: 'dependency', entryPoints: [{ js: 'dependency/index.js' }] },
@@ -449,7 +450,7 @@ test('resolveAndLinkAll() returns all resolved packages on success', async () =>
 test('buildAndPublishAll() returns config issues when the config with registry is invalid', async () => {
     const { packtory } = createPacktoryUnderTest();
 
-    const result = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true });
+    const { result } = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true });
 
     assert.deepStrictEqual(
         result,
@@ -467,7 +468,7 @@ test('buildAndPublishAll() converts resolve-stage partial failures into a partia
         }
     });
 
-    const result = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+    const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
 
     assert.deepStrictEqual(
         result,
@@ -490,7 +491,7 @@ test('buildAndPublishAll() returns check failures without entering publish mode'
         tryBuildAndPublish
     });
 
-    const result = await packtory.buildAndPublishAll(
+    const { result } = await packtory.buildAndPublishAll(
         createConfig({
             checks: { noDuplicatedFiles: { enabled: true } },
             packages: twoPackageEntries
@@ -512,7 +513,7 @@ test('buildAndPublishAll() returns check failures without entering publish mode'
 test('buildAndPublishAll() uses tryBuildAndPublish() in dry-run mode and returns successful publish results', async () => {
     const { packtory, tryBuildAndPublish, buildAndPublish, scheduler } = createPacktoryUnderTest();
 
-    const result = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+    const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
 
     assert.deepStrictEqual(
         result,
@@ -526,7 +527,7 @@ test('buildAndPublishAll() uses tryBuildAndPublish() in dry-run mode and returns
 test('buildAndPublishAll() uses buildAndPublish() outside dry-run mode', async () => {
     const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
 
-    const result = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
+    const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
 
     assert.deepStrictEqual(result, Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'new-version' }]));
     assert.strictEqual(tryBuildAndPublish.callCount, 0);
@@ -558,7 +559,7 @@ test('buildAndPublishAll() passes selectNext and createProgressEvent that expose
         }
     });
 
-    const result = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
+    const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
 
     assert.deepStrictEqual(result, Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'new-version' }]));
     assert.deepStrictEqual(observed.selected, [createVersionedBundle('package-a')]);
@@ -672,7 +673,7 @@ test('resolveAndLinkAll() reports partial scheduler errors with the failure list
         }
     });
 
-    const result = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
+    const { result } = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
 
     assert.deepStrictEqual(
         result,
@@ -696,7 +697,7 @@ test('buildAndPublishAll() returns partial publish failures from the publish sta
         }
     });
 
-    const result = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+    const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
 
     assert.deepStrictEqual(
         result,
@@ -733,7 +734,9 @@ test('buildAndPublishAll() returns a partial failure when an analyzed bundle is 
         publishStage: runPublishStageUntilFailure
     });
 
-    const result = await packtory.buildAndPublishAll(createConfig({ packages: twoPackageEntries }), { dryRun: false });
+    const { result } = await packtory.buildAndPublishAll(createConfig({ packages: twoPackageEntries }), {
+        dryRun: false
+    });
 
     assert.deepStrictEqual(
         result,

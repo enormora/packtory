@@ -1,9 +1,11 @@
+import fs from 'node:fs/promises';
 import { command, subcommands, flag, binary, runSafely } from 'cmd-ts';
 import { bold, red, green, yellow, dim } from 'yoctocolors';
-import type { Packtory, PublishFailure } from '../packtory/packtory.ts';
+import type { BuildReport, Packtory, PublishFailure } from '../packtory/packtory.ts';
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { PartialError } from '../packtory/scheduler.ts';
+import { renderHtmlReport } from '../report/html-renderer.ts';
 import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 import type { ConfigLoader } from './config-loader.ts';
 
@@ -134,6 +136,64 @@ function registerProgressListeners(
     });
 }
 
+const jsonIndentSpaces = 2;
+
+async function writeReports(
+    report: BuildReport | undefined,
+    flags: { readonly reportJson: boolean; readonly reportHtml: boolean }
+): Promise<void> {
+    if (report === undefined) {
+        return;
+    }
+    if (flags.reportJson) {
+        await fs.writeFile('packtory-report.json', `${JSON.stringify(report, undefined, jsonIndentSpaces)}\n`);
+    }
+    if (flags.reportHtml) {
+        await fs.writeFile('packtory-report.html', renderHtmlReport(report));
+    }
+}
+
+type PublishHandlerDeps = {
+    readonly log: (message: string) => void;
+    readonly packtory: Packtory;
+    readonly spinnerRenderer: TerminalSpinnerRenderer;
+    readonly configLoader: ConfigLoader;
+    readonly flags: { readonly noDryRun: boolean; readonly reportJson: boolean; readonly reportHtml: boolean };
+};
+
+async function reportOutcome(
+    log: PublishHandlerDeps['log'],
+    outcome: Awaited<ReturnType<Packtory['buildAndPublishAll']>>,
+    flags: PublishHandlerDeps['flags']
+): Promise<number> {
+    let exitCode = 0;
+    if (outcome.result.isErr) {
+        exitCode = 1;
+        printPublishFailure(log, outcome.result.error);
+    } else {
+        printSuccessSummary(log, outcome.result.value);
+    }
+    await writeReports(outcome.getReport(), flags);
+    return exitCode;
+}
+
+async function runPublishHandler(deps: PublishHandlerDeps): Promise<number> {
+    const { log, packtory, spinnerRenderer, configLoader, flags } = deps;
+    const config = await configLoader.load();
+    const collectReport = flags.reportJson || flags.reportHtml;
+    try {
+        const outcome = await packtory.buildAndPublishAll(config, {
+            dryRun: !flags.noDryRun,
+            collectReport
+        });
+        spinnerRenderer.stopAll();
+        return await reportOutcome(log, outcome, flags);
+    } finally {
+        spinnerRenderer.stopAll();
+        printDryRunNote(log, { noDryRun: flags.noDryRun });
+    }
+}
+
 function getParseExitCode(log: (message: string) => void, result: CommandParseResult): number | undefined {
     if (!hasCommandParseError(result)) {
         return undefined;
@@ -157,25 +217,19 @@ export function createCommandLineInterfaceRunner(
                 name: publishCommandName,
                 description: 'Builds and publishes all packages (dry-run enabled by default).',
                 args: {
-                    noDryRun: flag({ long: 'no-dry-run' })
+                    noDryRun: flag({ long: 'no-dry-run' }),
+                    reportJson: flag({ long: 'report-json' }),
+                    reportHtml: flag({ long: 'report-html' })
                 },
-                async handler({ noDryRun }) {
-                    const config = await configLoader.load();
-
-                    try {
-                        const result = await packtory.buildAndPublishAll(config, { dryRun: !noDryRun });
-                        spinnerRenderer.stopAll();
-
-                        if (result.isErr) {
-                            exitCode = 1;
-                            printPublishFailure(log, result.error);
-                        } else {
-                            printSuccessSummary(log, result.value);
-                        }
-                    } finally {
-                        spinnerRenderer.stopAll();
-                        printDryRunNote(log, { noDryRun });
-                    }
+                async handler({ noDryRun, reportJson, reportHtml }) {
+                    const handlerExitCode = await runPublishHandler({
+                        log,
+                        packtory,
+                        spinnerRenderer,
+                        configLoader,
+                        flags: { noDryRun, reportJson, reportHtml }
+                    });
+                    exitCode = handlerExitCode;
                 }
             })
         }

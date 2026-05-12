@@ -1,5 +1,4 @@
 import { Result } from 'true-myth';
-import { mapToObj } from 'remeda';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import {
     validateConfig,
@@ -8,8 +7,9 @@ import {
     type ConfigWithGraph
 } from '../config/validation.ts';
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import { runChecks } from '../checks/check-runner.ts';
+import { withFailureCapture } from '../report/decorators.ts';
+import { buildChecksResult, type CheckError } from './checks-result.ts';
+import { emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 import type { Scheduler as PacktoryScheduler, PartialError } from './scheduler.ts';
 import {
     configToBuildAndPublishOptions,
@@ -24,18 +24,32 @@ import type {
 } from './package-processor.ts';
 
 type LinkedBundle = Awaited<ReturnType<PackageProcessor['resolveAndLink']>>;
+type VersionedBundleWithManifest = BuildAndPublishResult['bundle'];
+type ProgressBroadcaster = Parameters<typeof maybeAttachAggregator>[0];
 
-type Options = {
+export type BuildAndPublishAllOptions = {
     readonly dryRun: boolean;
+    readonly collectReport?: boolean;
+};
+
+export type ResolveAndLinkAllOptions = {
+    readonly collectReport?: boolean;
+};
+
+export type BuildReport = NonNullable<ReturnType<ReturnType<typeof maybeAttachAggregator>['getReport']>>;
+
+export type PublishAllOutcome = {
+    readonly result: PublishAllResult;
+    readonly getReport: () => BuildReport | undefined;
+};
+
+export type ResolveAndLinkAllOutcome = {
+    readonly result: ResolveAndLinkAllResult;
+    readonly getReport: () => BuildReport | undefined;
 };
 
 type ConfigError = {
     type: 'config';
-    issues: readonly string[];
-};
-
-type CheckError = {
-    type: 'checks';
     issues: readonly string[];
 };
 
@@ -57,17 +71,29 @@ export type ResolveAndLinkFailure = CheckError | ConfigError | PartialErrorResul
 export type ResolveAndLinkAllResult = Result<readonly ResolvedPackage[], ResolveAndLinkFailure>;
 
 export type Packtory = {
-    buildAndPublishAll: (config: unknown, options: Options) => Promise<PublishAllResult>;
-    resolveAndLinkAll: (config: unknown) => Promise<ResolveAndLinkAllResult>;
+    buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
+    resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
 };
 
 type PacktoryDependencies = {
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PacktoryScheduler;
     readonly deadCodeEliminator: DeadCodeEliminator;
+    readonly progressBroadcaster: ProgressBroadcaster;
 };
 
 type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
+
+function mapResolveFailureToPublishFailure(error: ResolveAndLinkFailure): PublishFailure {
+    if (error.type === 'partial') {
+        return { type: 'partial', succeeded: [], failures: error.error.failures };
+    }
+    return error;
+}
+
+function mapPublishStageFailure(error: PartialError<BuildAndPublishResult>): PublishFailure {
+    return { type: 'partial', ...error };
+}
 
 function resolveTransformationsEnabledByName(
     validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>
@@ -82,7 +108,7 @@ function resolveTransformationsEnabledByName(
 }
 
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
-    const { packageProcessor, scheduler, deadCodeEliminator } = dependencies;
+    const { packageProcessor, scheduler, deadCodeEliminator, progressBroadcaster } = dependencies;
 
     function createResolveOptions(
         packageName: string,
@@ -90,42 +116,6 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         config: ConfigWithGraph<PacktoryConfigWithoutRegistry>
     ): ResolveAndLinkOptions {
         return configToResolveAndLinkOptions(packageName, config.packageConfigs, config.packtoryConfig, existing);
-    }
-
-    function buildChecksResult(
-        validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,
-        resolvedPackages: readonly ResolvedPackage[]
-    ): Result<readonly ResolvedPackage[], CheckError> {
-        const { packtoryConfig: config } = validated;
-        const perPackageSettings = new Map(
-            config.packages.map((packageConfig) => {
-                return [packageConfig.name, packageConfig.checks];
-            })
-        );
-        const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
-        const effectivePackageConfigs = mapToObj(config.packages, (packageConfig) => {
-            return [
-                packageConfig.name,
-                {
-                    ...packageConfig,
-                    mainPackageJson: packageConfig.mainPackageJson ?? commonMainPackageJson
-                }
-            ];
-        });
-        const checkIssues = runChecks({
-            settings: config.checks ?? {},
-            perPackageSettings,
-            packageConfigs: effectivePackageConfigs,
-            bundles: resolvedPackages.map((resolvedPackage) => {
-                return resolvedPackage.analyzedBundle;
-            })
-        });
-
-        if (checkIssues.length > 0) {
-            return Result.err({ type: 'checks', issues: checkIssues });
-        }
-
-        return Result.ok(resolvedPackages);
     }
 
     async function resolveAndLinkAllValidated(
@@ -145,16 +135,27 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         >({
             config,
             createOptions: (context) => {
-                return createResolveOptions(context.packageName, context.existing, context.config);
+                const options = createResolveOptions(context.packageName, context.existing, context.config);
+                if (progressBroadcaster.provider.hasSubscribers('inputsResolved')) {
+                    progressBroadcaster.provider.emit('inputsResolved', {
+                        packageName: options.name,
+                        entryPoints: options.entryPoints.map((entry) => {
+                            return entry.js;
+                        }),
+                        sourceFileCount: 0,
+                        siblingVersions: {}
+                    });
+                }
+                return options;
             },
-            execute: async (resolveOptions) => {
+            execute: withFailureCapture(progressBroadcaster.provider, 'resolveAndLink', async (resolveOptions) => {
                 const linkedBundle = await packageProcessor.resolveAndLink(resolveOptions);
                 return {
                     name: resolveOptions.name,
                     linkedBundle,
                     resolveOptions
                 } satisfies LinkedPackage;
-            },
+            }),
             selectNext: (params) => {
                 const { result } = params;
                 return result.linkedBundle;
@@ -198,13 +199,12 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     async function determineVersionAndPublishAll(
         config: ValidConfigResult,
         resolvedPackages: readonly ResolvedPackage[],
-        options: Options
+        options: BuildAndPublishAllOptions
     ): Promise<Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>> {
-        const analyzedBundlesByName: Readonly<Record<string, AnalyzedBundle>> = mapToObj(
-            resolvedPackages,
-            (resolvedPackage) => {
+        const analyzedBundlesByName: Readonly<Record<string, AnalyzedBundle>> = Object.fromEntries(
+            resolvedPackages.map((resolvedPackage) => {
                 return [resolvedPackage.name, resolvedPackage.analyzedBundle];
-            }
+            })
         );
 
         return scheduler.runForEachScheduledPackage<
@@ -223,7 +223,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
                     existing
                 );
             },
-            execute: async (buildOptions) => {
+            execute: withFailureCapture(progressBroadcaster.provider, 'publish', async (buildOptions) => {
                 const analyzedBundle = analyzedBundlesByName[buildOptions.name];
                 if (analyzedBundle === undefined) {
                     throw new Error(`Analyzed bundle for package "${buildOptions.name}" is missing`);
@@ -238,7 +238,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
                     return packageProcessor.tryBuildAndPublish(processorOptions);
                 }
                 return packageProcessor.buildAndPublish(processorOptions);
-            },
+            }),
             selectNext: (params) => {
                 return params.result.bundle;
             },
@@ -253,63 +253,67 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         });
     }
 
-    function mapResolveFailureToPublishFailure(error: ResolveAndLinkFailure): PublishFailure {
-        if (error.type === 'partial') {
-            return {
-                type: 'partial',
-                succeeded: [],
-                failures: error.error.failures
-            };
-        }
+    async function resolveAndLinkAllPublic(
+        config: unknown,
+        options?: ResolveAndLinkAllOptions
+    ): Promise<ResolveAndLinkAllOutcome> {
+        const reporting = maybeAttachAggregator(progressBroadcaster, options?.collectReport);
+        try {
+            const validation = validateConfigWithoutRegistry(config);
+            if (validation.isErr) {
+                return {
+                    result: Result.err({ type: 'config', issues: validation.error }),
+                    getReport: reporting.getReport
+                };
+            }
 
-        return error;
+            const result = await resolveAndLinkAllValidated(validation.value);
+            if (result.isErr) {
+                return { result: Result.err(result.error), getReport: reporting.getReport };
+            }
+            return { result: Result.ok(result.value), getReport: reporting.getReport };
+        } finally {
+            reporting.dispose();
+        }
     }
 
-    function mapPublishStageFailure(error: PartialError<BuildAndPublishResult>): PublishFailure {
-        return {
-            type: 'partial',
-            ...error
-        };
-    }
+    async function runBuildAndPublishValidated(
+        validated: ValidConfigResult,
+        options: BuildAndPublishAllOptions
+    ): Promise<PublishAllResult> {
+        emitEffectiveConfigPerPackage(progressBroadcaster, validated.packtoryConfig);
 
-    async function resolveAndLinkAllPublic(config: unknown): Promise<ResolveAndLinkAllResult> {
-        const validation = validateConfigWithoutRegistry(config);
-        if (validation.isErr) {
-            return Result.err({ type: 'config', issues: validation.error });
-        }
-
-        const result = await resolveAndLinkAllValidated(validation.value);
-        if (result.isErr) {
-            return Result.err(result.error);
-        }
-        return Result.ok(result.value);
-    }
-
-    async function buildAndPublishAllPublic(config: unknown, options: Options): Promise<PublishAllResult> {
-        const validation = validateConfig(config);
-        if (validation.isErr) {
-            return Result.err({
-                type: 'config',
-                issues: validation.error
-            });
-        }
-
-        const resolvedBundlesResult = await resolveAndLinkAllValidated(validation.value);
+        const resolvedBundlesResult = await resolveAndLinkAllValidated(validated);
         if (resolvedBundlesResult.isErr) {
             return Result.err(mapResolveFailureToPublishFailure(resolvedBundlesResult.error));
         }
 
-        const publishResult = await determineVersionAndPublishAll(
-            validation.value,
-            resolvedBundlesResult.value,
-            options
-        );
-
+        const publishResult = await determineVersionAndPublishAll(validated, resolvedBundlesResult.value, options);
         if (publishResult.isErr) {
             return Result.err(mapPublishStageFailure(publishResult.error));
         }
-
         return Result.ok(publishResult.value);
+    }
+
+    async function runBuildAndPublish(config: unknown, options: BuildAndPublishAllOptions): Promise<PublishAllResult> {
+        const validation = validateConfig(config);
+        if (validation.isErr) {
+            return Result.err({ type: 'config', issues: validation.error });
+        }
+        return runBuildAndPublishValidated(validation.value, options);
+    }
+
+    async function buildAndPublishAllPublic(
+        config: unknown,
+        options: BuildAndPublishAllOptions
+    ): Promise<PublishAllOutcome> {
+        const reporting = maybeAttachAggregator(progressBroadcaster, options.collectReport);
+        try {
+            const result = await runBuildAndPublish(config, options);
+            return { result, getReport: reporting.getReport };
+        } finally {
+            reporting.dispose();
+        }
     }
 
     return {

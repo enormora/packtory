@@ -42,7 +42,11 @@ function artifactsBuilderFactory(overrides: Overrides = {}): {
     const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: ArtifactsBuilderDependencies = {
         fileManager,
-        tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder)
+        tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder),
+        progressBroadcaster: {
+            emit: (): void => undefined,
+            hasSubscribers: (): boolean => false
+        }
     };
 
     return { builder: createArtifactsBuilder(dependencies), fileManager };

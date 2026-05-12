@@ -12,7 +12,12 @@ function createAnalyzedBundle(): AnalyzedBundle {
 }
 
 test('addVersion() creates the versioned bundle and manifest file', () => {
-    const manager = createVersionManager();
+    const manager = createVersionManager({
+        progressBroadcaster: {
+            emit: (): void => undefined,
+            hasSubscribers: (): boolean => false
+        }
+    });
 
     const result = manager.addVersion({
         bundle: createAnalyzedBundle(),
@@ -62,7 +67,12 @@ test('addVersion() creates the versioned bundle and manifest file', () => {
 });
 
 test('increaseVersion() bumps the patch version and rebuilds the package manifest', () => {
-    const manager = createVersionManager();
+    const manager = createVersionManager({
+        progressBroadcaster: {
+            emit: (): void => undefined,
+            hasSubscribers: (): boolean => false
+        }
+    });
 
     const result = manager.increaseVersion({
         name: 'package-a',
@@ -119,7 +129,12 @@ test('increaseVersion() bumps the patch version and rebuilds the package manifes
 });
 
 test('increaseVersion() throws when the given version is invalid', () => {
-    const manager = createVersionManager();
+    const manager = createVersionManager({
+        progressBroadcaster: {
+            emit: (): void => undefined,
+            hasSubscribers: (): boolean => false
+        }
+    });
 
     try {
         manager.increaseVersion({

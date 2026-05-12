@@ -50,7 +50,8 @@ const scheduler = createScheduler({
 const packtory = createPacktory({
     scheduler,
     packageProcessor,
-    deadCodeEliminator
+    deadCodeEliminator,
+    progressBroadcaster
 });
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({

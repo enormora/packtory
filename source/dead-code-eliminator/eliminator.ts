@@ -6,6 +6,7 @@ import {
     type DeadCodeEliminator,
     type FileAnalysis
 } from './analyzed-bundle.ts';
+import { maybeEmitElimination } from './elimination-emitter.ts';
 import { buildCrossBundleSeeds, type CrossBundleInput } from './cross-bundle/cross-bundle-seeds.ts';
 import {
     loadBundle,
@@ -19,6 +20,8 @@ import { classifySideEffects } from './side-effect-classifier.ts';
 import { computeSideEffectsField } from './side-effects-field.ts';
 import { applyRemovalPlan, type PositionAtom } from './transform/declaration-remover.ts';
 import { recomposeSourceMap } from './transform/source-map-composer.ts';
+
+type ProgressBroadcastProvider = Parameters<typeof maybeEmitElimination>[0];
 
 function allBindingNamesFor(loaded: LoadedCodeResource): ReadonlySet<string> {
     const names = new Set<string>();
@@ -177,19 +180,22 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
 
 export type DeadCodeEliminatorDependencies = {
     readonly createProject: CreateProject;
+    readonly progressBroadcaster: ProgressBroadcastProvider;
 };
 
 export function createDeadCodeEliminator(dependencies: DeadCodeEliminatorDependencies): DeadCodeEliminator {
-    const { createProject } = dependencies;
+    const { createProject, progressBroadcaster } = dependencies;
     return {
         async eliminate(inputs) {
             const loadedBundles = inputs.map((input) => {
                 return loadBundle(createProject, input);
             });
             const seedMap = buildCrossBundleSeeds(loadedBundles.map(crossBundleInputFrom));
-            return loadedBundles.map((loaded) => {
+            const analyzed = loadedBundles.map((loaded) => {
                 return analyzeBundleWithSeeds(loaded, seedMap.get(loaded.input.bundle.name));
             });
+            maybeEmitElimination(progressBroadcaster, analyzed);
+            return analyzed;
         }
     };
 }

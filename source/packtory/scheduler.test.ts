@@ -35,7 +35,8 @@ function createTestScheduler(emit: SinonSpy = fake()): {
             progressBroadcastProvider: {
                 emit: (eventName, payload) => {
                     emit(eventName, payload);
-                }
+                },
+                hasSubscribers: () => false
             }
         }),
         emit

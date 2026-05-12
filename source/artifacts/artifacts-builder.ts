@@ -1,12 +1,15 @@
 import path from 'node:path';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
+import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import { inspectArtifactSizes } from '../report/inspectors.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { TarballBuilder } from '../tar/tarball-builder.ts';
 
 export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;
     readonly tarballBuilder: TarballBuilder;
+    readonly progressBroadcaster: ProgressBroadcastProvider;
 };
 
 type TarballArtifact = {
@@ -31,7 +34,7 @@ export type ArtifactsBuilder = {
 };
 
 export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
-    const { fileManager, tarballBuilder } = artifactsBuilderDependencies;
+    const { fileManager, tarballBuilder, progressBroadcaster } = artifactsBuilderDependencies;
 
     function applyPrefix(filePath: string, prefix: string | undefined): string {
         return prefix === undefined ? filePath : path.join(prefix, filePath);
@@ -62,6 +65,13 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
                 filePath: applyPrefix(extraFile.filePath, prefix),
                 content: extraFile.content,
                 isExecutable: extraFile.isExecutable
+            });
+        }
+
+        if (progressBroadcaster.hasSubscribers('artifactsCollected')) {
+            progressBroadcaster.emit('artifactsCollected', {
+                packageName: bundle.name,
+                entries: inspectArtifactSizes(artifactContents)
             });
         }
 
