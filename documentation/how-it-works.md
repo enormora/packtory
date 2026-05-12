@@ -8,26 +8,46 @@ A single `packtory publish` run is a chain of seven stages. Each stage produces 
 
 ```mermaid
 flowchart LR
-    A[Config] --> B[Validation +<br/>Package Graph]
-    B --> C[Resource Resolver]
-    C --> D[Linker]
-    D --> E[Dead-Code Eliminator]
-    E --> F[Checks]
-    F --> G[Version Manager]
-    G --> H[Bundle Emitter]
+    A([Config]) --> B[Validation +<br/>Package Graph]
+    B --> C(Resource Resolver)
+    C --> D(Linker)
+    D ==> E[[Dead-Code Eliminator]]
+    E --> F[[Checks]]
+    F ==> G(Version Manager)
+    G --> H([Bundle Emitter])
 
-    subgraph "per package"
+    subgraph PP1 ["per package"]
         C
         D
     end
-    subgraph "cross-package"
+    subgraph CP ["cross-package"]
         E
         F
     end
-    subgraph "per package"
+    subgraph PP2 ["per package"]
         G
         H
     end
+
+    classDef input fill:#0ea5e9,stroke:#0369a1,stroke-width:2px,color:#fff,font-weight:bold
+    classDef perPkg fill:#6366f1,stroke:#4338ca,stroke-width:2px,color:#fff,font-weight:bold
+    classDef crossPkg fill:#ec4899,stroke:#be185d,stroke-width:2px,color:#fff,font-weight:bold
+    classDef output fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff,font-weight:bold
+
+    class A,B input
+    class C,D perPkg
+    class E,F crossPkg
+    class G,H output
+
+    linkStyle 0,1,2 stroke:#6366f1,stroke-width:2px
+    linkStyle 3 stroke:#ec4899,stroke-width:3px
+    linkStyle 4 stroke:#ec4899,stroke-width:2px
+    linkStyle 5 stroke:#10b981,stroke-width:3px
+    linkStyle 6 stroke:#10b981,stroke-width:2px
+
+    style PP1 fill:#eef2ff,stroke:#6366f1,stroke-width:1px,stroke-dasharray:4 3,color:#4338ca
+    style CP fill:#fdf2f8,stroke:#ec4899,stroke-width:1px,stroke-dasharray:4 3,color:#be185d
+    style PP2 fill:#ecfdf5,stroke:#10b981,stroke-width:1px,stroke-dasharray:4 3,color:#047857
 ```
 
 The artifact names are not arbitrary; they form a type ladder:
@@ -74,14 +94,26 @@ So before partitioning into generations, the scheduler calls `packageGraph.rever
 
 ```mermaid
 flowchart LR
-    subgraph "config graph (consumer → dep)"
-        A1[A] --> B1[B]
-        A1 --> C1[C]
+    subgraph CFG ["config graph (consumer → dep)"]
+        A1((A)) -.-> B1((B))
+        A1 -.-> C1((C))
     end
-    subgraph "reversed (run order)"
-        B2[B] --> A2[A]
-        C2[C] --> A2
+    subgraph REV ["reversed (run order)"]
+        B2((B)) ==> A2((A))
+        C2((C)) ==> A2
     end
+
+    classDef consumer fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#fff,font-weight:bold,font-size:18px
+    classDef dependency fill:#06b6d4,stroke:#0e7490,stroke-width:2px,color:#fff,font-weight:bold,font-size:18px
+
+    class A1,A2 consumer
+    class B1,B2,C1,C2 dependency
+
+    linkStyle 0,1 stroke:#94a3b8,stroke-width:2px,stroke-dasharray:6 4
+    linkStyle 2,3 stroke:#0e7490,stroke-width:3px
+
+    style CFG fill:#fef3c7,stroke:#f59e0b,stroke-width:1px,stroke-dasharray:4 3,color:#92400e
+    style REV fill:#cffafe,stroke:#06b6d4,stroke-width:1px,color:#0e7490
 ```
 
 ### Cross-generation state
@@ -132,12 +164,24 @@ If yes, the import is replaced. The path becomes `<siblingName>/<targetFilePath>
 
 ```mermaid
 flowchart LR
-    subgraph "before"
-        A[cli.ts] -- "./lib/index.js" --> B[lib/index.ts]
+    subgraph BEFORE ["before"]
+        A[/cli.ts/] -. "./lib/index.js" .-> B[/lib/index.ts/]
     end
-    subgraph "after substitution"
-        A2[cli.ts] -- "image-resizer-lib/index.js" --> S[(image-resizer-lib)]
+    subgraph AFTER ["after substitution"]
+        A2[/cli.ts/] == "image-resizer-lib/index.js" ==> S[(image-resizer-lib)]
     end
+
+    classDef file fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff,font-weight:bold
+    classDef pkg fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff,font-weight:bold
+
+    class A,B,A2 file
+    class S pkg
+
+    linkStyle 0 stroke:#94a3b8,stroke-width:2px,color:#475569,font-style:italic
+    linkStyle 1 stroke:#6d28d9,stroke-width:3px,color:#5b21b6,font-weight:bold
+
+    style BEFORE fill:#dbeafe,stroke:#3b82f6,stroke-width:1px,stroke-dasharray:4 3,color:#1e40af
+    style AFTER fill:#ede9fe,stroke:#8b5cf6,stroke-width:1px,color:#5b21b6
 ```
 
 ### How the rewrite actually happens
@@ -344,6 +388,10 @@ Key properties:
 
 - **Byte-identical comparison.** `compareFileDescriptions` sorts both file lists by `filePath` and checks every file for equality (`source/file-manager/compare.ts`). The `package.json` produced by the serializer is deterministic, so a no-op rebuild yields a no-op publish.
 - **Only patch bumps.** packtory's worldview is "every release could be breaking anyway, so semver minor/major distinctions are noise". This drastically simplifies the algorithm: there is exactly one operation, `semver.inc(v, 'patch')`.
+
+  [![xkcd 1172: Workflow](https://imgs.xkcd.com/comics/workflow.png)](https://xkcd.com/1172/)
+  <sub>*xkcd 1172, "Workflow" — the case for treating every release as potentially breaking.*</sub>
+
 - **The tarball is the source of truth.** packtory does *not* trust the registry's metadata (size, shasum). It downloads and unpacks, then compares contents. This catches "I republished the same version after editing a file" anomalies that show up in some registries.
 
 ### Provenance and OIDC
@@ -355,6 +403,25 @@ If `publishSettings.access === 'public'` and `provenance.type === 'auto'`, the e
 A worked example: `image-resizer-cli` bundles `image-resizer-lib`.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {
+    'primaryColor': '#6366f1',
+    'primaryTextColor': '#fff',
+    'primaryBorderColor': '#4338ca',
+    'lineColor': '#6366f1',
+    'actorBkg': '#6366f1',
+    'actorBorder': '#4338ca',
+    'actorTextColor': '#fff',
+    'actorLineColor': '#6366f1',
+    'signalColor': '#1f2937',
+    'signalTextColor': '#1f2937',
+    'noteBkgColor': '#fef3c7',
+    'noteTextColor': '#92400e',
+    'noteBorderColor': '#f59e0b',
+    'sequenceNumberColor': '#fff',
+    'labelBoxBkgColor': '#ec4899',
+    'labelBoxBorderColor': '#be185d',
+    'labelTextColor': '#fff'
+}}}%%
 sequenceDiagram
     participant CFG as Config
     participant SCH as Scheduler
