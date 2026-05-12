@@ -1,7 +1,7 @@
 import type { PackageJson, SetRequired } from 'type-fest';
 import { oneLine } from 'common-tags';
 import { mergeAll } from 'remeda';
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
 import { classifySpecifier } from './specifier-classifier.ts';
@@ -15,7 +15,7 @@ import {
 
 export type BundlePackageJson = Readonly<SetRequired<PackageJson, 'name' | 'version'>>;
 
-export type VersionedBundle = Pick<LinkedBundle, 'contents' | 'name'> & {
+export type VersionedBundle = Pick<AnalyzedBundle, 'contents' | 'name' | 'sideEffectsField'> & {
     readonly version: string;
     readonly dependencies: Record<string, string>;
     readonly peerDependencies: Record<string, string>;
@@ -31,7 +31,7 @@ export type VersionedBundleWithManifest = VersionedBundle & {
 };
 
 export type BuildVersionedBundleOptions = {
-    readonly bundle: LinkedBundle;
+    readonly bundle: AnalyzedBundle;
     readonly version: string;
     readonly mainPackageJson: MainPackageJson;
     readonly bundleDependencies: readonly VersionedBundle[];
@@ -76,7 +76,7 @@ function mergeDependencyGroups(...groups: Readonly<GroupedDependencies>[]): Read
 }
 
 function groupBundleDependencies(
-    bundle: LinkedBundle,
+    bundle: AnalyzedBundle,
     bundlePeerDependencies: readonly VersionedBundle[],
     bundleDependencies: readonly VersionedBundle[]
 ): Readonly<GroupedDependencies> {
@@ -176,7 +176,7 @@ function throwHighestPriorityFailure(
 }
 
 function groupExternalDependencies(
-    bundle: LinkedBundle,
+    bundle: AnalyzedBundle,
     mainPackageJson: MainPackageJson,
     allowMutableSpecifiers: readonly string[]
 ): Readonly<GroupedDependencies> {
@@ -227,6 +227,7 @@ export function buildVersionedBundle(options: BuildVersionedBundleOptions): Vers
         mainFile: firstEntryPoint.js,
         typesMainFile: firstEntryPoint.declarationFile,
         additionalAttributes: additionalPackageJsonAttributes,
-        packageType: mainPackageJson.type
+        packageType: mainPackageJson.type,
+        sideEffectsField: bundle.sideEffectsField
     };
 }

@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('rejects packages whose mainPackageJson.type is not "module"', async () => {
@@ -40,7 +41,8 @@ test('correctly resolves ESM files', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
@@ -48,13 +50,14 @@ test('correctly resolves ESM files', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            sideEffects: false,
             version: '42.0.0',
             type: 'module'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -67,7 +70,8 @@ test('correctly resolves ESM files', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set(),
@@ -78,7 +82,8 @@ test('correctly resolves ESM files', async () => {
                     targetFilePath: 'foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             }
         ],
         dependencies: {},
@@ -91,6 +96,7 @@ test('correctly resolves ESM files', async () => {
         name: 'the-package-name',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         typesMainFile: undefined,
         version: '42.0.0'
     });
@@ -109,7 +115,8 @@ test('correctly resolves ESM files with export from statements', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
@@ -117,13 +124,14 @@ test('correctly resolves ESM files with export from statements', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            sideEffects: false,
             version: '42.0.0',
             type: 'module'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -136,7 +144,8 @@ test('correctly resolves ESM files with export from statements', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -147,7 +156,8 @@ test('correctly resolves ESM files with export from statements', async () => {
                     targetFilePath: 'foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             }
         ],
         dependencies: {},
@@ -160,6 +170,7 @@ test('correctly resolves ESM files with export from statements', async () => {
         name: 'the-package-name',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         typesMainFile: undefined,
         version: '42.0.0'
     });
@@ -178,7 +189,8 @@ test('correctly resolves ESM files with plain import statements', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
@@ -186,13 +198,14 @@ test('correctly resolves ESM files with plain import statements', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'the-package-name',
+            sideEffects: ['./foo.js'],
             version: '42.0.0',
             type: 'module'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": [\n        "./foo.js"\n    ],\n    "type": "module",\n    "version": "42.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -205,7 +218,8 @@ test('correctly resolves ESM files with plain import statements', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -216,7 +230,12 @@ test('correctly resolves ESM files with plain import statements', async () => {
                     targetFilePath: 'foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: {
+                    survivingBindings: new Set<string>(),
+                    sideEffectStatements: [{ line: 1, kind: 'expression statement' }],
+                    sideEffectImports: new Set<string>()
+                }
             }
         ],
         dependencies: {},
@@ -229,6 +248,7 @@ test('correctly resolves ESM files with plain import statements', async () => {
         name: 'the-package-name',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: ['./foo.js'],
         typesMainFile: undefined,
         version: '42.0.0'
     });

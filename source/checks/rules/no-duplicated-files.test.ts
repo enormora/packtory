@@ -1,12 +1,31 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
+import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
 import { checkBundle } from '../../test-libraries/check-bundle-fixture.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 
-function bundle(name: string, sourceFilePath: string): LinkedBundle {
+function bundle(name: string, sourceFilePath: string): AnalyzedBundle {
     return checkBundle(name, [sourceFilePath]);
+}
+
+function createSymbolAwareProject(): {
+    readonly bundle: (name: string, sourceFilePath: string, survivingBindings: ReadonlySet<string>) => AnalyzedBundle;
+} {
+    return {
+        bundle(name, sourceFilePath, survivingBindings) {
+            return analyzedBundle({
+                name,
+                contents: [
+                    analyzedBundleResource(sourceFilePath, {
+                        targetFilePath: sourceFilePath,
+                        analysis: { survivingBindings }
+                    })
+                ]
+            });
+        }
+    };
 }
 
 function consentMap(
@@ -20,7 +39,7 @@ function consentMap(
 }
 
 function runWithConsent(
-    bundles: readonly LinkedBundle[],
+    bundles: readonly AnalyzedBundle[],
     consenters: readonly (readonly [string, readonly string[]])[]
 ): readonly string[] {
     return noDuplicatedFilesRule.run({
@@ -152,4 +171,99 @@ test('reports a duplicate that is not present in the global allowList', () => {
     });
 
     assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});
+
+test('reports shared declarations when surviving bindings overlap', () => {
+    const project = createSymbolAwareProject();
+    const result = noDuplicatedFilesRule.run({
+        bundles: [
+            project.bundle('pkg1', '/helpers.ts', new Set(['format', 'validate'])),
+            project.bundle('pkg2', '/helpers.ts', new Set(['format', 'parse']))
+        ],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, [
+        ['File "/helpers.ts" has shared declarations across multiple packages:', '  - "format" → pkg1, pkg2'].join('\n')
+    ]);
+});
+
+test('does not report when surviving binding sets are fully disjoint', () => {
+    const project = createSymbolAwareProject();
+    const result = noDuplicatedFilesRule.run({
+        bundles: [
+            project.bundle('pkg1', '/helpers.ts', new Set(['validate'])),
+            project.bundle('pkg2', '/helpers.ts', new Set(['parse']))
+        ],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('lists every shared declaration in alphabetical order', () => {
+    const project = createSymbolAwareProject();
+    const result = noDuplicatedFilesRule.run({
+        bundles: [
+            project.bundle('pkg1', '/util.ts', new Set(['zeta', 'alpha', 'parse'])),
+            project.bundle('pkg2', '/util.ts', new Set(['zeta', 'alpha', 'validate']))
+        ],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, [
+        [
+            'File "/util.ts" has shared declarations across multiple packages:',
+            '  - "alpha" → pkg1, pkg2',
+            '  - "zeta" → pkg1, pkg2'
+        ].join('\n')
+    ]);
+});
+
+test('does not report when only a single bundle owns the file', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('does not report when one owner has no surviving bindings and the other has bindings that do not match', () => {
+    const project = createSymbolAwareProject();
+    const result = noDuplicatedFilesRule.run({
+        bundles: [project.bundle('pkg1', '/helpers.ts', new Set(['format'])), bundle('pkg2', '/helpers.ts')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
+});
+
+test('falls back to path-level message when surviving bindings are unavailable for every owner', () => {
+    const result = noDuplicatedFilesRule.run({
+        bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+});
+
+test('global allowList suppresses the symbol-level message', () => {
+    const project = createSymbolAwareProject();
+    const result = noDuplicatedFilesRule.run({
+        bundles: [
+            project.bundle('pkg1', '/helpers.ts', new Set(['format'])),
+            project.bundle('pkg2', '/helpers.ts', new Set(['format']))
+        ],
+        settings: { noDuplicatedFiles: { enabled: true, allowList: ['/helpers.ts'] } },
+        perPackageSettings: new Map()
+    });
+
+    assert.deepStrictEqual(result, []);
 });

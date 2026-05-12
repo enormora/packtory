@@ -50,7 +50,10 @@ test('resolveAndLinkAll() reports duplicated files when the rule is enabled', as
 
     if (result.error.type === 'checks') {
         assert.deepStrictEqual(result.error.issues, [
-            `File "${fixturePath}/src/shared/util.js" is included in multiple packages: pkg-a, pkg-b`
+            [
+                `File "${fixturePath}/src/shared/util.js" has shared declarations across multiple packages:`,
+                '  - "sharedValue" → pkg-a, pkg-b'
+            ].join('\n')
         ]);
     } else {
         assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
@@ -110,40 +113,6 @@ test('resolveAndLinkAll succeeds when every owner consents to the duplicated fil
     }
 
     assert.strictEqual(result.value.length, 2);
-});
-
-test('resolveAndLinkAll reports a colliding targetFilePath inside a bundle', async () => {
-    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-    const baseConfig = await createBaseConfig(fixturePath);
-    const collidingSource = path.join(fixturePath, 'package.json');
-    const config = {
-        ...baseConfig,
-        checks: { uniqueTargetPaths: { enabled: true } },
-        packages: [
-            {
-                ...baseConfig.packages[0]!,
-                additionalFiles: [{ sourceFilePath: collidingSource, targetFilePath: 'pkg-a/index.js' }]
-            },
-            baseConfig.packages[1]!
-        ]
-    };
-
-    const result = await resolveAndLinkAll(config);
-
-    if (!result.isErr) {
-        assert.fail('Expected resolveAndLinkAll to fail because of a colliding target path');
-        return;
-    }
-
-    if (result.error.type === 'checks') {
-        assert.strictEqual(result.error.issues.length, 1);
-        assert.match(result.error.issues[0]!, /^Package "pkg-a" maps multiple sources to "pkg-a\/index.js":/u);
-    } else if (result.error.type === 'partial') {
-        const failureMessages = result.error.error.failures.map((failure) => failure.message).join('; ');
-        assert.fail(`Resolve/link failed unexpectedly: ${failureMessages}`);
-    } else {
-        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
-    }
 });
 
 test('resolveAndLinkAll reports an external dependency that is only declared in devDependencies', async () => {
@@ -288,7 +257,10 @@ test('resolveAndLinkAll reports the duplicate when one owner does not consent', 
 
     if (result.error.type === 'checks') {
         assert.deepStrictEqual(result.error.issues, [
-            `File "${sharedFile}" is included in multiple packages: pkg-a, pkg-b`
+            [
+                `File "${sharedFile}" has shared declarations across multiple packages:`,
+                '  - "sharedValue" → pkg-a, pkg-b'
+            ].join('\n')
         ]);
     } else {
         assert.fail(`Expected a checks failure, but received "${result.error.type}"`);

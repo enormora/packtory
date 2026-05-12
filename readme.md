@@ -173,6 +173,7 @@ The configuration for `packtory` is an object with the following properties:
         - An array to add additional files to the package that are not automatically resolved.
         - Example: `{ sourceFilePath: 'LICENSE', targetFilePath: 'LICENSE' }`.
         - If defined in both per-package and common settings, they are merged.
+        - Code files (`.js`, `.cjs`, `.mjs`, `.jsx`, `.ts`, `.cts`, `.mts`, `.tsx`, `.d.ts`) are rejected: code that ships in the bundle must be reachable from an entry point so dependency, side-effect and dead-code analyses can run on it. If you need to ship code as a static asset (e.g. a template), give it a non-code extension like `.txt`.
 
     - **`additionalPackageJsonAttributes`** (Optional, Object):
         - An object to be merged directly into the generated `package.json`.
@@ -220,7 +221,8 @@ checks: {
     maxBundleSize: { enabled: true, bytes: 500_000 },
     noUnusedBundleDependencies: { enabled: true },
     noDevDependencyImports: { enabled: true },
-    uniqueTargetPaths: { enabled: true }
+    uniqueTargetPaths: { enabled: true },
+    noSideEffects: { enabled: true }
 }
 ```
 
@@ -306,6 +308,59 @@ Reports any bundle where two resources resolve to the same `targetFilePath`. Typ
 
 - **Top-level:** `enabled: boolean`.
 - **Per-package:** `{}` only.
+
+### `noSideEffects`
+
+Reports any source file in a bundle that has top-level side effects, preventing downstream consumers from tree-shaking it. Side effects are detected purely by static analysis of top-level statements — no `package.json sideEffects` field is consulted. Examples of impure top-level statements that this rule flags: top-level expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), and bare imports of asset files (`.css`, `.scss`, `.sass`, `.less`).
+
+- **Top-level:** `enabled: boolean`, `allowList?: string[]` — files whose side effects are intentional and should not be flagged. Use this for legitimate setup modules (polyfills, ambient configuration, CLI entry points).
+- **Per-package:** `allowList?: string[]` — files this package consents to ship with side effects.
+
+A side-effecting file is suppressed iff it appears in the top-level `allowList`, **or** in the per-package `allowList` for its bundle.
+
+```javascript
+checks: { noSideEffects: { enabled: true, allowList: ['/src/polyfill.ts'] } }
+```
+
+The error message names the file and the offending statement(s) by line and kind, so the location is actionable without further investigation. The rule is opt-in by default — many legitimate packages (CLI bins, polyfill libraries) have side effects on purpose.
+
+## Dead-Code Elimination
+
+`packtory` performs symbol-level reachability analysis across every bundled file and removes top-level declarations that nothing reaches. A declaration is reached if it is exported from an entry-point file, referenced by a top-level side-effect statement, or imported (or re-exported) by another packtory-managed bundle in the same publish run. Files with top-level side effects are preserved untouched.
+
+### What gets removed
+
+Within each bundle, the analyzer:
+
+1. Extracts every top-level binding (functions, classes, variables, types, enums, namespaces, imports) from every code file.
+2. Seeds reachability with: every binding exported from any entry-point file, plus every binding referenced by any impure top-level statement, plus every binding another bundle in the same publish run actually depends on — either re-exported, or imported into code that is itself reachable in the consuming bundle (cross-bundle seeding, named/default/namespace `import` and named/star/star-as `export ... from`).
+3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
+4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
+
+Files whose top-level statements are impure are left fully intact. The static side-effect classifier identifies impure top-level statements: expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), variable initializers that contain calls or property accesses, and bare imports of asset extensions (`.css`, `.scss`, `.sass`, `.less`).
+
+### Free side-effect features
+
+The same static analysis also drives, regardless of any `checks` configuration:
+
+1. **Auto-emitted `sideEffects` in the published `package.json`.** When every bundled code file is statically pure, the generated manifest emits `"sideEffects": false`. When some files are impure, the manifest emits `"sideEffects": ["./impure-file.js", ...]` listing only the offending paths, sorted alphabetically. When every file is impure, the field is omitted (the conservative default). A user-provided `sideEffects` in `additionalPackageJsonAttributes` or `mainPackageJson` always wins over the auto-emitted value.
+2. **The `noSideEffects` check rule** — opt-in CI enforcement that a package is tree-shakable.
+
+### Configuration
+
+```javascript
+{
+    name: 'pkg',
+    entryPoints: [{ js: 'index.js' }],
+    deadCodeElimination: { enabled: true } // default; set to false to disable transformations
+}
+```
+
+`deadCodeElimination` may also live in `commonPackageSettings` to apply to every package; per-package values override the common setting. When `enabled: false`, the analyzer still runs (so the auto-emitted `sideEffects` and the `noSideEffects` rule keep working), but no declarations are removed from the package's source files.
+
+### Source maps
+
+When a `.map` file is paired with a code file the analyzer transforms, packtory recomposes the source map so the published map still points back to the original sources at the new line and column numbers. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Malformed source maps that cannot be parsed are passed through unchanged rather than dropped.
 
 ## Example Use-Cases
 

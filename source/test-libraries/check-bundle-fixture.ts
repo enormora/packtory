@@ -1,11 +1,11 @@
-import type { LinkedBundle } from '../linker/linked-bundle.ts';
-import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import { analyzedBundle, analyzedBundleResource } from './bundle-fixtures.ts';
 
-export function checkBundle(name: string, filePaths: readonly string[]): LinkedBundle {
-    return linkedBundle({
+export function checkBundle(name: string, filePaths: readonly string[]): AnalyzedBundle {
+    return analyzedBundle({
         name,
         contents: filePaths.map((filePath) => {
-            return { ...bundleResource(filePath, { targetFilePath: filePath }), isSubstituted: false };
+            return analyzedBundleResource(filePath, { targetFilePath: filePath });
         })
     });
 }

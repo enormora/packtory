@@ -1,6 +1,7 @@
 import { z } from 'zod/mini';
 import { additionalFileDescriptionSchema } from './additional-files.ts';
 import { additionalPackageJsonAttributesSchema } from './additional-package-json-attributes-schema.ts';
+import { deadCodeEliminationSettingsSchema } from './dead-code-elimination-settings.ts';
 import { dependencyPolicySchema } from './dependency-policy.ts';
 import { publishSettingsSchema } from './publish-settings.ts';
 
@@ -9,5 +10,6 @@ export const optionalPackageSettingsSchema = z.strictObject({
     includeSourceMapFiles: z.optional(z.boolean()),
     additionalPackageJsonAttributes: z.optional(additionalPackageJsonAttributesSchema),
     publishSettings: z.optional(publishSettingsSchema),
-    dependencyPolicy: z.optional(dependencyPolicySchema)
+    dependencyPolicy: z.optional(dependencyPolicySchema),
+    deadCodeElimination: z.optional(deadCodeEliminationSettingsSchema)
 });

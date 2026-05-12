@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('adds map files to the bundle when enabled', async () => {
@@ -17,20 +18,22 @@ test('adds map files to the bundle when enabled', async () => {
         bundleDependencies: [],
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: []
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
     });
 
     assert.deepStrictEqual(result, {
         additionalAttributes: {},
         packageJson: {
             main: 'entry.js',
+            sideEffects: false,
             type: 'module',
             name: 'the-package-name',
             version: '42.0.0'
         },
         manifestFile: {
             content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "type": "module",\n    "version": "42.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "version": "42.0.0"\n}',
             isExecutable: false,
             filePath: 'package.json'
         },
@@ -44,7 +47,8 @@ test('adds map files to the bundle when enabled', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('foo')
             },
             {
                 directDependencies: new Set([path.join(fixture, 'src/bar.js'), path.join(fixture, 'src/foo.js.map')]),
@@ -56,7 +60,8 @@ test('adds map files to the bundle when enabled', async () => {
                     targetFilePath: 'foo.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('bar', 'foo')
             },
             {
                 directDependencies: new Set(),
@@ -68,7 +73,8 @@ test('adds map files to the bundle when enabled', async () => {
                     targetFilePath: 'entry.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             },
             {
                 directDependencies: new Set(),
@@ -79,7 +85,8 @@ test('adds map files to the bundle when enabled', async () => {
                     targetFilePath: 'bar.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('bar')
             },
             {
                 directDependencies: new Set(),
@@ -91,7 +98,8 @@ test('adds map files to the bundle when enabled', async () => {
                     targetFilePath: 'foo.js.map'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             }
         ],
         dependencies: {},
@@ -104,6 +112,7 @@ test('adds map files to the bundle when enabled', async () => {
         name: 'the-package-name',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         typesMainFile: undefined,
         version: '42.0.0'
     });

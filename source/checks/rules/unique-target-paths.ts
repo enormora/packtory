@@ -1,5 +1,5 @@
 import type { z } from 'zod/mini';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
@@ -13,7 +13,7 @@ type GlobalConfig = z.infer<typeof enabledOnlyGlobalSchema>;
 type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
-function findCollidingTargetPaths(bundle: LinkedBundle): readonly string[] {
+function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
     const sourcesByTarget = new Map<string, string[]>();
     for (const resource of bundle.contents) {
         const { targetFilePath, sourceFilePath } = resource.fileDescription;

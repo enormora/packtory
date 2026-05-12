@@ -24,6 +24,7 @@ type SharedPackageOptions<TBundle extends { name: string }> = ManifestOptionsSub
     ResourceResolveOptions & {
         readonly bundleDependencies: readonly TBundle[];
         readonly bundlePeerDependencies: readonly TBundle[];
+        readonly deadCodeElimination?: { readonly enabled: boolean } | undefined;
     };
 
 export type BuildOptions = SharedPackageOptions<VersionedBundleWithManifest> & {

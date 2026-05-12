@@ -2,6 +2,7 @@ import path from 'node:path';
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
+import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 
 test('includes additional files in the bundle contents', async () => {
@@ -32,13 +33,14 @@ test('includes additional files in the bundle contents', async () => {
         packageJson: {
             main: 'entry.js',
             name: 'additional-files-package',
+            sideEffects: false,
             type: 'module',
             version: '1.0.0'
         },
         manifestFile: {
             isExecutable: false,
             content:
-                '{\n    "main": "entry.js",\n    "name": "additional-files-package",\n    "type": "module",\n    "version": "1.0.0"\n}',
+                '{\n    "main": "entry.js",\n    "name": "additional-files-package",\n    "sideEffects": false,\n    "type": "module",\n    "version": "1.0.0"\n}',
             filePath: 'package.json'
         },
         contents: [
@@ -52,7 +54,8 @@ test('includes additional files in the bundle contents', async () => {
                     targetFilePath: 'entry.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('greeting', 'run')
             },
             {
                 directDependencies: new Set(),
@@ -63,7 +66,8 @@ test('includes additional files in the bundle contents', async () => {
                     targetFilePath: 'greeting.js'
                 },
                 isExplicitlyIncluded: false,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: bindingAnalysis('greeting')
             },
             {
                 directDependencies: new Set(),
@@ -74,7 +78,8 @@ test('includes additional files in the bundle contents', async () => {
                     targetFilePath: 'docs/additional-info.txt'
                 },
                 isExplicitlyIncluded: true,
-                isSubstituted: false
+                isSubstituted: false,
+                analysis: emptyAnalysis
             }
         ],
         dependencies: {},
@@ -88,6 +93,7 @@ test('includes additional files in the bundle contents', async () => {
         name: 'additional-files-package',
         packageType: 'module',
         peerDependencies: {},
+        sideEffectsField: false,
         version: '1.0.0',
         typesMainFile: undefined
     });

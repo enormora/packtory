@@ -1,10 +1,11 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import { externalDependency, linkedBundle, versionedBundle } from '../test-libraries/bundle-fixtures.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import { analyzedBundle, externalDependency, versionedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createVersionManager } from './manager.ts';
 
-function createLinkedBundle(): ReturnType<typeof linkedBundle> {
-    return linkedBundle({
+function createAnalyzedBundle(): AnalyzedBundle {
+    return analyzedBundle({
         linkedBundleDependencies: new Map([['bundle-dependency', externalDependency('bundle-dependency')]]),
         externalDependencies: new Map([['left-pad', externalDependency('left-pad')]])
     });
@@ -14,7 +15,7 @@ test('addVersion() creates the versioned bundle and manifest file', () => {
     const manager = createVersionManager();
 
     const result = manager.addVersion({
-        bundle: createLinkedBundle(),
+        bundle: createAnalyzedBundle(),
         version: '1.2.3',
         mainPackageJson: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
         bundleDependencies: [
@@ -82,7 +83,8 @@ test('increaseVersion() bumps the patch version and rebuilds the package manifes
             content: '',
             isExecutable: false
         },
-        packageType: 'module'
+        packageType: 'module',
+        sideEffectsField: undefined
     });
 
     assert.strictEqual(result.version, '1.2.4');
@@ -133,7 +135,8 @@ test('increaseVersion() throws when the given version is invalid', () => {
                 content: '',
                 isExecutable: false
             },
-            packageType: 'module'
+            packageType: 'module',
+            sideEffectsField: undefined
         });
         assert.fail('Expected increaseVersion() should fail but it did not');
     } catch (error: unknown) {

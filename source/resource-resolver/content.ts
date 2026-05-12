@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { Project } from 'ts-morph';
+import { isCodeFile } from '../common/code-files.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
 import type { LocalFile } from '../dependency-scanner/dependency-graph.ts';
 
@@ -9,6 +10,20 @@ function prependSourcesFolderIfNecessary(sourcesFolder: string, filePath: string
     }
 
     return filePath;
+}
+
+function rejectCodeFile(targetFilePath: string): void {
+    if (isCodeFile(targetFilePath)) {
+        throw new Error(
+            [
+                `additionalFiles must not include code files; received "${targetFilePath}".`,
+                'Code that should ship in the bundle must be reachable from an entry point so',
+                'dependency, side-effect and dead-code analyses can run on it.',
+                'If you intend to ship code as a static asset (e.g. a template),',
+                'use a non-code extension like .txt.'
+            ].join(' ')
+        );
+    }
 }
 
 type ResolvedBundleFile = {
@@ -37,6 +52,7 @@ export function combineAllBundleFiles(
 
     const additionalContents = additionalFiles.map((additionalFile): ResolvedBundleFile => {
         if (typeof additionalFile === 'string') {
+            rejectCodeFile(additionalFile);
             const sourceFilePath = path.join(sourcesFolder, additionalFile);
             const targetFilePath = additionalFile;
             return {
@@ -50,6 +66,7 @@ export function combineAllBundleFiles(
         if (path.isAbsolute(additionalFile.targetFilePath)) {
             throw new Error('The targetFilePath must be relative');
         }
+        rejectCodeFile(additionalFile.targetFilePath);
 
         return {
             sourceFilePath: prependSourcesFolderIfNecessary(sourcesFolder, additionalFile.sourceFilePath),

@@ -227,9 +227,9 @@ describe('ResolveAndLinkAllResult', () => {
 });
 
 describe('ResolvedPackage', () => {
-    test('exposes name, linkedBundle, and resolveOptions', () => {
+    test('exposes name, analyzedBundle, and resolveOptions', () => {
         expect<ResolvedPackage>().type.toHaveProperty('name');
-        expect<ResolvedPackage>().type.toHaveProperty('linkedBundle');
+        expect<ResolvedPackage>().type.toHaveProperty('analyzedBundle');
         expect<ResolvedPackage>().type.toHaveProperty('resolveOptions');
         expect<ResolvedPackage['name']>().type.toBe<string>();
     });

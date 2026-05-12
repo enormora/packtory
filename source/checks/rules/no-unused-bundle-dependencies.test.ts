@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { ExternalDependency } from '../../dependency-scanner/external-dependencies.ts';
-import { linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
+import { analyzedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { noUnusedBundleDependenciesRule } from './no-unused-bundle-dependencies.ts';
 
-function bundleWithLinkedDeps(name: string, linked: readonly string[]): LinkedBundle {
-    return linkedBundle({
+function bundleWithLinkedDeps(name: string, linked: readonly string[]): AnalyzedBundle {
+    return analyzedBundle({
         name,
         linkedBundleDependencies: new Map<string, ExternalDependency>(
             linked.map((dependencyName) => {

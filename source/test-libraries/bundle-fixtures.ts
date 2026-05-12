@@ -1,5 +1,6 @@
 import { createFactory } from '@enormora/objectory';
 import type { Except } from 'type-fest';
+import type { AnalyzedBundle, AnalyzedBundleResource, FileAnalysis } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
@@ -85,6 +86,52 @@ export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundl
     };
 }
 
+type AnalyzedBundleResourceOverrides = {
+    readonly content?: string;
+    readonly targetFilePath?: string;
+    readonly directDependencies?: ReadonlySet<string>;
+    readonly isExplicitlyIncluded?: boolean;
+    readonly isSubstituted?: boolean;
+    readonly analysis?: Partial<FileAnalysis>;
+};
+
+export function analyzedBundleResource(
+    sourceFilePath: string,
+    overrides: AnalyzedBundleResourceOverrides = {}
+): AnalyzedBundleResource {
+    const base = bundleResource(sourceFilePath, {
+        ...(overrides.content === undefined ? {} : { content: overrides.content }),
+        ...(overrides.targetFilePath === undefined ? {} : { targetFilePath: overrides.targetFilePath }),
+        ...(overrides.directDependencies === undefined ? {} : { directDependencies: overrides.directDependencies }),
+        ...(overrides.isExplicitlyIncluded === undefined
+            ? {}
+            : { isExplicitlyIncluded: overrides.isExplicitlyIncluded })
+    });
+    return {
+        ...base,
+        isSubstituted: overrides.isSubstituted ?? false,
+        analysis: {
+            survivingBindings: new Set<string>(),
+            sideEffectStatements: [],
+            sideEffectImports: new Set<string>(),
+            ...overrides.analysis
+        }
+    };
+}
+
+type AnalyzedBundleOverrides = Except<Partial<AnalyzedBundle>, 'contents'> & {
+    readonly contents?: readonly AnalyzedBundleResource[];
+};
+
+export function analyzedBundle(overrides: AnalyzedBundleOverrides = {}): AnalyzedBundle {
+    const { contents, ...rest } = overrides;
+    return {
+        ...linkedBundle(rest),
+        contents: contents ?? [],
+        sideEffectsField: rest.sideEffectsField
+    };
+}
+
 type VersionedBundleOverrides = Except<Partial<VersionedBundle>, 'mainFile' | 'typesMainFile'> & {
     readonly mainFile?: Partial<TransferableFileDescription>;
     readonly typesMainFile?: Partial<TransferableFileDescription>;
@@ -100,6 +147,7 @@ export function versionedBundle(overrides: VersionedBundleOverrides = {}): Versi
         peerDependencies: {},
         additionalAttributes: {},
         packageType: 'module',
+        sideEffectsField: undefined,
         mainFile: transferableFileDescriptionFactory.build(mainFile),
         ...(typesMainFile === undefined
             ? {}

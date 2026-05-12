@@ -3,11 +3,12 @@ import { createRequire } from 'node:module';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
-import { Project } from 'ts-morph';
+import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 import { createArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient } from '../bundle-emitter/registry-client.ts';
 import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
+import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { getReferencedSourceFiles } from '../dependency-scanner/source-file-references.ts';
 import { createSourceMapFileLocator } from '../dependency-scanner/source-map-file-locator.ts';
@@ -40,6 +41,7 @@ function tryResolvePackagePath(specifier: string): string | undefined {
 export type PackageProcessorComposition = {
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
+    readonly deadCodeEliminator: ReturnType<typeof createDeadCodeEliminator>;
 };
 
 export type PackageProcessorCompositionOptions = {
@@ -114,6 +116,22 @@ export function buildPackageProcessorComposition(
     const bundleEmitter = buildBundleEmitter(options, fileManager);
     const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
     const sbomFileBuilder = buildSbomFileBuilder(fileManager);
+    const deadCodeEliminator = createDeadCodeEliminator({
+        createProject: () => {
+            return new Project({
+                compilerOptions: {
+                    allowJs: true,
+                    module: ModuleKind.Node16,
+                    esModuleInterop: true,
+                    noLib: true,
+                    target: ScriptTarget.ES2022,
+                    moduleResolution: ModuleResolutionKind.Node10
+                },
+                skipLoadingLibFiles: true,
+                useInMemoryFileSystem: true
+            });
+        }
+    });
 
     const packageProcessor = createPackageProcessor({
         progressBroadcaster: progressBroadcaster.provider,
@@ -121,8 +139,9 @@ export function buildPackageProcessorComposition(
         bundleEmitter,
         linker: createBundleLinker(),
         resourceResolver,
-        sbomFileBuilder
+        sbomFileBuilder,
+        deadCodeEliminator
     });
 
-    return { packageProcessor, progressBroadcaster };
+    return { packageProcessor, progressBroadcaster, deadCodeEliminator };
 }

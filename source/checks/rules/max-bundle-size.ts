@@ -1,5 +1,5 @@
 import { z } from 'zod/mini';
-import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
 
 const ruleName = 'maxBundleSize';
@@ -19,7 +19,7 @@ type GlobalConfig = z.infer<typeof globalSchema>;
 type PerPackageConfig = z.infer<typeof perPackageSchema>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
-function bundleSizeBytes(bundle: LinkedBundle): number {
+function bundleSizeBytes(bundle: AnalyzedBundle): number {
     let total = 0;
     for (const resource of bundle.contents) {
         total += Buffer.byteLength(resource.fileDescription.content);
@@ -27,7 +27,7 @@ function bundleSizeBytes(bundle: LinkedBundle): number {
     return total;
 }
 
-function checkBundle(bundle: LinkedBundle, threshold: number | undefined): readonly string[] {
+function checkBundle(bundle: AnalyzedBundle, threshold: number | undefined): readonly string[] {
     if (threshold === undefined) {
         return [];
     }

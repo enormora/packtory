@@ -1,6 +1,7 @@
 import type { z } from 'zod/mini';
 import type { checksPerPackageSchema, checksSchema } from './checks-schema.ts';
 import type { AdditionalFileDescription } from './additional-files.ts';
+import type { DeadCodeEliminationSettings } from './dead-code-elimination-settings.ts';
 import type { DependencyPolicy } from './dependency-policy.ts';
 import type { EntryPoint } from './entry-point.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from './package-json.ts';
@@ -25,6 +26,7 @@ export type PackageConfig = {
     readonly publishSettings?: PublishSettings | undefined;
     readonly dependencyPolicy?: DependencyPolicy | undefined;
     readonly checks?: PackageChecksSettings | undefined;
+    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
 export type PackageConfigsByName = Readonly<Record<string, PackageConfig>>;
@@ -45,6 +47,7 @@ type CommonPackageSettings = {
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
     readonly publishSettings?: PublishSettings | undefined;
     readonly dependencyPolicy?: DependencyPolicy | undefined;
+    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
 export type PacktoryConfigWithoutRegistry = {
