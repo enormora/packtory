@@ -1,5 +1,4 @@
-import type { FileDecision } from '../progress/event-payloads.ts';
-import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import type { FileDecision, ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
 
 function buildFileDecisions(bundle: AnalyzedBundle): readonly FileDecision[] {

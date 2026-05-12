@@ -5,7 +5,7 @@ import type {
     FieldProvenance,
     ImportRewrite,
     IncludedFile
-} from '../progress/event-payloads.ts';
+} from '../progress/progress-broadcaster.ts';
 
 function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
     if (filePath === 'package.json' || filePath.endsWith('/package.json')) {

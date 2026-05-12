@@ -1,6 +1,5 @@
 import type { PackageProcessor } from '../packtory/package-processor.ts';
-import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import type { StageName } from '../progress/event-payloads.ts';
+import type { ProgressBroadcastProvider, StageName } from '../progress/progress-broadcaster.ts';
 
 type Named = { readonly name: string };
 

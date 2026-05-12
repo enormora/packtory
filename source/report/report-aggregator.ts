@@ -7,11 +7,11 @@ import type {
     FileDecision,
     ImportRewrite,
     IncludedFile,
+    ProgressBroadcastConsumer,
     RedactedConfig,
     StageName,
     VersionTrigger
-} from '../progress/event-payloads.ts';
-import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
+} from '../progress/progress-broadcaster.ts';
 
 type VersionDecision = {
     readonly previousVersion: string | undefined;
