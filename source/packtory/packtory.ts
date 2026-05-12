@@ -8,7 +8,6 @@ import {
 } from '../config/validation.ts';
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { withFailureCapture } from '../report/decorators.ts';
-import { buildChecksResult, type CheckError } from './checks-result.ts';
 import { emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 import type { Scheduler as PacktoryScheduler, PartialError } from './scheduler.ts';
 import {
@@ -22,6 +21,7 @@ import type {
     PackageProcessor,
     DetermineVersionAndPublishOptions
 } from './package-processor.ts';
+import { buildChecksResult, createResolvedPackage, type CheckError, type ResolvedPackage } from './resolved-package.ts';
 
 type LinkedBundle = Awaited<ReturnType<PackageProcessor['resolveAndLink']>>;
 type VersionedBundleWithManifest = BuildAndPublishResult['bundle'];
@@ -55,12 +55,6 @@ type ConfigError = {
 
 export type PublishFailure = CheckError | ConfigError | (PartialError<BuildAndPublishResult> & { type: 'partial' });
 export type PublishAllResult = Result<readonly BuildAndPublishResult[], PublishFailure>;
-
-export type ResolvedPackage = {
-    readonly name: string;
-    readonly analyzedBundle: AnalyzedBundle;
-    readonly resolveOptions: ResolveAndLinkOptions;
-};
 
 type PartialErrorResult = {
     type: 'partial';
@@ -186,11 +180,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             if (analyzedBundle === undefined) {
                 throw new Error(`Analyzed bundle missing for package "${linkedPackage.name}"`);
             }
-            return {
-                name: linkedPackage.name,
-                analyzedBundle,
-                resolveOptions: linkedPackage.resolveOptions
-            };
+            return createResolvedPackage(linkedPackage.name, analyzedBundle, linkedPackage.resolveOptions);
         });
 
         return buildChecksResult(config, resolvedPackages);

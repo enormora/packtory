@@ -4,7 +4,7 @@ import { test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
-import type { ResolvedPackage } from '../../source/packtory/packtory.ts';
+import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts';
 
 async function singlePackageConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
     return {

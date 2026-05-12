@@ -1,6 +1,65 @@
-import type { RedactedConfig } from '../progress/event-payloads.ts';
+import type {
+    ArtifactEntry,
+    CrossBundleSeed,
+    DroppedSymbol,
+    ExcludedFile,
+    FieldProvenance,
+    FileDecision,
+    ImportRewrite,
+    IncludedFile,
+    RedactedConfig,
+    StageName,
+    VersionTrigger
+} from '../progress/event-payloads.ts';
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
-import type { BuildReport, PackageReport } from './types.ts';
+
+type VersionDecision = {
+    readonly previousVersion: string | undefined;
+    readonly chosenVersion: string;
+    readonly trigger: VersionTrigger;
+};
+
+type CrossBundleLink = {
+    readonly fromBundle: string;
+    readonly toBundle: string;
+};
+
+export type PackageReport = {
+    readonly inputs?: {
+        readonly entryPoints: readonly string[];
+        readonly effectiveConfig?: RedactedConfig;
+        readonly siblingVersions: Readonly<Record<string, string>>;
+        readonly sourceFileCount: number;
+    };
+    readonly decisions: {
+        readonly dependencyScan?: {
+            readonly included: readonly IncludedFile[];
+            readonly excluded: readonly ExcludedFile[];
+        };
+        readonly deadCodeElimination?: {
+            readonly files: readonly FileDecision[];
+            readonly symbols: readonly DroppedSymbol[];
+            readonly seeds: readonly CrossBundleSeed[];
+        };
+        readonly linker?: { readonly rewrites: readonly ImportRewrite[] };
+        readonly version?: VersionDecision;
+        readonly packageJson?: Readonly<Record<string, FieldProvenance>>;
+    };
+    readonly outputs?: {
+        readonly tarball: { readonly entries: readonly ArtifactEntry[]; readonly totalBytes: number };
+    };
+    readonly timings: Readonly<Record<string, number>>;
+    readonly failure?: { readonly stage: StageName; readonly message: string };
+};
+
+export type BuildReport = {
+    readonly schemaVersion: 1;
+    readonly generatedAt: string;
+    readonly packages: Readonly<Record<string, PackageReport>>;
+    readonly aggregate: {
+        readonly crossBundleLinks: readonly CrossBundleLink[];
+    };
+};
 
 type Required<T> = NonNullable<T>;
 
@@ -23,25 +82,23 @@ type MutablePackageReport = {
     failure?: Required<PackageReport['failure']>;
 };
 
-function hasAnyInput(entry: MutablePackageReport): boolean {
-    return (
-        entry.entryPoints !== undefined ||
-        entry.siblingVersions !== undefined ||
-        entry.sourceFileCount !== undefined ||
-        entry.effectiveConfig !== undefined
-    );
+function materializeInputs(entry: MutablePackageReport): Inputs {
+    const base: Inputs = {
+        entryPoints: entry.entryPoints ?? [],
+        siblingVersions: entry.siblingVersions ?? {},
+        sourceFileCount: entry.sourceFileCount ?? 0
+    };
+    if (entry.effectiveConfig === undefined) {
+        return base;
+    }
+    return { ...base, effectiveConfig: entry.effectiveConfig };
 }
 
 function buildInputs(entry: MutablePackageReport): Inputs | undefined {
-    if (!hasAnyInput(entry)) {
+    if (entry.entryPoints === undefined && entry.effectiveConfig === undefined) {
         return undefined;
     }
-    return {
-        entryPoints: entry.entryPoints ?? [],
-        siblingVersions: entry.siblingVersions ?? {},
-        sourceFileCount: entry.sourceFileCount ?? 0,
-        ...(entry.effectiveConfig === undefined ? {} : { effectiveConfig: entry.effectiveConfig })
-    };
+    return materializeInputs(entry);
 }
 
 function toPackageReport(entry: MutablePackageReport): PackageReport {
@@ -166,8 +223,8 @@ function materialize(state: AggregatorState): BuildReport {
 
 export function createReportAggregator(consumer: ProgressBroadcastConsumer): ReportAggregator {
     const state: AggregatorState = { packages: new Map(), disposers: [] };
-    const memo: { report: BuildReport | undefined } = { report: undefined };
     registerSubscribers(state, consumer);
+    const memo: BuildReport[] = [];
     return {
         unsubscribe() {
             for (const dispose of state.disposers) {
@@ -175,10 +232,13 @@ export function createReportAggregator(consumer: ProgressBroadcastConsumer): Rep
             }
         },
         build() {
-            if (memo.report === undefined) {
-                memo.report = materialize(state);
+            const [cached] = memo;
+            if (cached !== undefined) {
+                return cached;
             }
-            return memo.report;
+            const fresh = materialize(state);
+            memo.push(fresh);
+            return fresh;
         }
     };
 }

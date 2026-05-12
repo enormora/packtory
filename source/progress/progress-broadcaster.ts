@@ -117,7 +117,7 @@ type Events = {
 
 type Listener<TPayload> = (payload: TPayload) => void;
 
-export type ProgressEventName =
+type ProgressEventName =
     | 'building'
     | 'done'
     | 'error'

@@ -1,7 +1,9 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { analyzedBundle, externalDependency, versionedBundle } from '../test-libraries/bundle-fixtures.ts';
+import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
 import { createVersionManager } from './manager.ts';
 
 function createAnalyzedBundle(): AnalyzedBundle {
@@ -157,4 +159,61 @@ test('increaseVersion() throws when the given version is invalid', () => {
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, 'Failed to increase version');
     }
+});
+
+function callAddVersionWithProvider(
+    progressBroadcaster: Parameters<typeof createVersionManager>[0]['progressBroadcaster'],
+    additionalPackageJsonAttributes: Parameters<
+        ReturnType<typeof createVersionManager>['addVersion']
+    >[0]['additionalPackageJsonAttributes'] = {}
+): void {
+    const manager = createVersionManager({ progressBroadcaster });
+    manager.addVersion({
+        bundle: analyzedBundle({}),
+        version: '1.0.0',
+        mainPackageJson: { type: 'module' },
+        bundleDependencies: [],
+        bundlePeerDependencies: [],
+        additionalPackageJsonAttributes,
+        allowMutableSpecifiers: []
+    });
+}
+
+test('addVersion() emits a packageJsonAssembled event with the package name when subscribed', () => {
+    const broadcaster = createProgressBroadcaster();
+    const received: { packageName: string }[] = [];
+    broadcaster.consumer.on('packageJsonAssembled', (payload) => {
+        received.push({ packageName: payload.packageName });
+    });
+
+    callAddVersionWithProvider(broadcaster.provider);
+
+    assert.deepStrictEqual(received, [{ packageName: 'package-a' }]);
+});
+
+test('addVersion() emits packageJsonAssembled fields with provenance classification', () => {
+    const broadcaster = createProgressBroadcaster();
+    const received: Readonly<Record<string, { source: string }>>[] = [];
+    broadcaster.consumer.on('packageJsonAssembled', (payload) => {
+        received.push(payload.fields as Readonly<Record<string, { source: string }>>);
+    });
+
+    callAddVersionWithProvider(broadcaster.provider, { publishConfig: { access: 'public' } });
+
+    const [fields] = received;
+    if (fields === undefined) {
+        assert.fail('expected packageJsonAssembled to fire once');
+    }
+    assert.deepStrictEqual(fields.type, { source: 'mainPackageJson' });
+    assert.deepStrictEqual(fields.publishConfig, { source: 'additionalAttributes' });
+    assert.deepStrictEqual(fields.name, { source: 'derived' });
+    assert.deepStrictEqual(fields.version, { source: 'derived' });
+});
+
+test('addVersion() does NOT emit packageJsonAssembled when no subscriber is registered', () => {
+    const wrapped = createSpyingBroadcaster();
+
+    callAddVersionWithProvider(wrapped.provider);
+
+    assert.strictEqual(wrapped.emitSpy.callCount, 0);
 });

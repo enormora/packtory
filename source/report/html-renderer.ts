@@ -1,4 +1,4 @@
-import type { BuildReport, PackageReport } from './types.ts';
+import type { BuildReport, PackageReport } from './report-aggregator.ts';
 
 const jsonIndentSpaces = 2;
 

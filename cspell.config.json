@@ -12,6 +12,7 @@
         "cmds",
         "htpasswd",
         "sonarjs",
-        "EUSAGE"
+        "EUSAGE",
+        "cyclonedx"
     ]
 }

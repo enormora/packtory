@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import { command, subcommands, flag, binary, runSafely } from 'cmd-ts';
 import { bold, red, green, yellow, dim } from 'yoctocolors';
 import type { BuildReport, Packtory, PublishFailure } from '../packtory/packtory.ts';
@@ -11,11 +10,14 @@ import type { ConfigLoader } from './config-loader.ts';
 
 type PublishPartialError = PartialError<BuildAndPublishResult>;
 
+type ReportWriter = (filePath: string, content: string) => Promise<void>;
+
 export type CommandLineInterfaceRunnerDependencies = {
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcastConsumer;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
+    readonly writeReportFile: ReportWriter;
     log: (message: string) => void;
 };
 
@@ -139,6 +141,7 @@ function registerProgressListeners(
 const jsonIndentSpaces = 2;
 
 async function writeReports(
+    writeReportFile: ReportWriter,
     report: BuildReport | undefined,
     flags: { readonly reportJson: boolean; readonly reportHtml: boolean }
 ): Promise<void> {
@@ -146,10 +149,10 @@ async function writeReports(
         return;
     }
     if (flags.reportJson) {
-        await fs.writeFile('packtory-report.json', `${JSON.stringify(report, undefined, jsonIndentSpaces)}\n`);
+        await writeReportFile('packtory-report.json', `${JSON.stringify(report, undefined, jsonIndentSpaces)}\n`);
     }
     if (flags.reportHtml) {
-        await fs.writeFile('packtory-report.html', renderHtmlReport(report));
+        await writeReportFile('packtory-report.html', renderHtmlReport(report));
     }
 }
 
@@ -158,11 +161,13 @@ type PublishHandlerDeps = {
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
+    readonly writeReportFile: ReportWriter;
     readonly flags: { readonly noDryRun: boolean; readonly reportJson: boolean; readonly reportHtml: boolean };
 };
 
 async function reportOutcome(
     log: PublishHandlerDeps['log'],
+    writeReportFile: ReportWriter,
     outcome: Awaited<ReturnType<Packtory['buildAndPublishAll']>>,
     flags: PublishHandlerDeps['flags']
 ): Promise<number> {
@@ -173,12 +178,12 @@ async function reportOutcome(
     } else {
         printSuccessSummary(log, outcome.result.value);
     }
-    await writeReports(outcome.getReport(), flags);
+    await writeReports(writeReportFile, outcome.getReport(), flags);
     return exitCode;
 }
 
 async function runPublishHandler(deps: PublishHandlerDeps): Promise<number> {
-    const { log, packtory, spinnerRenderer, configLoader, flags } = deps;
+    const { log, packtory, spinnerRenderer, configLoader, writeReportFile, flags } = deps;
     const config = await configLoader.load();
     const collectReport = flags.reportJson || flags.reportHtml;
     try {
@@ -187,7 +192,7 @@ async function runPublishHandler(deps: PublishHandlerDeps): Promise<number> {
             collectReport
         });
         spinnerRenderer.stopAll();
-        return await reportOutcome(log, outcome, flags);
+        return await reportOutcome(log, writeReportFile, outcome, flags);
     } finally {
         spinnerRenderer.stopAll();
         printDryRunNote(log, { noDryRun: flags.noDryRun });
@@ -207,7 +212,7 @@ function getParseExitCode(log: (message: string) => void, result: CommandParseRe
 export function createCommandLineInterfaceRunner(
     dependencies: CommandLineInterfaceRunnerDependencies
 ): CommandLineInterfaceRunner {
-    const { log, packtory, progressBroadcaster, spinnerRenderer, configLoader } = dependencies;
+    const { log, packtory, progressBroadcaster, spinnerRenderer, configLoader, writeReportFile } = dependencies;
     let exitCode = 0;
     const publishCommandName = 'publish';
     const baseCommand = subcommands({
@@ -227,6 +232,7 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader,
+                        writeReportFile,
                         flags: { noDryRun, reportJson, reportHtml }
                     });
                     exitCode = handlerExitCode;

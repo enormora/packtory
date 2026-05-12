@@ -73,6 +73,7 @@ function createVersionedBundle(
 
 type Overrides = {
     readonly emit?: SinonSpy;
+    readonly hasSubscribers?: SinonSpy;
     readonly resolve?: SinonSpy;
     readonly linkBundle?: SinonSpy;
     readonly determineCurrentVersion?: SinonSpy;
@@ -103,6 +104,9 @@ function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () =>
 
 function createProcessor(overrides: Overrides = {}): ProcessorContext {
     const emit = createSpy(overrides.emit, fake);
+    const hasSubscribers = createSpy(overrides.hasSubscribers, () => {
+        return fake.returns(false);
+    });
     const resolve = createSpy(overrides.resolve, () => {
         return fake.resolves(createLinkedBundle());
     });
@@ -135,7 +139,7 @@ function createProcessor(overrides: Overrides = {}): ProcessorContext {
         });
     });
     const dependencies = {
-        progressBroadcaster: { emit, hasSubscribers: () => false },
+        progressBroadcaster: { emit, hasSubscribers },
         resourceResolver: { resolve },
         linker: { linkBundle },
         bundleEmitter: { determineCurrentVersion, checkBundleAlreadyPublished, publish },
@@ -617,6 +621,250 @@ test('tryBuildAndPublish() omits extraFiles when sbomFileBuilder returns undefin
 
     const checkArgs = checkBundleAlreadyPublished.firstCall.args[0] as Record<string, unknown>;
     assert.strictEqual('extraFiles' in checkArgs, false);
+});
+
+test('resolveAndLink() emits scanCompleted with the resolved bundle scan results when subscribed', async () => {
+    const hasSubscribers = fake((eventName: string) => {
+        return eventName === 'scanCompleted';
+    });
+    const resolve = fake.resolves({
+        name: 'package-a',
+        contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' } }],
+        entryPoints: [],
+        externalDependencies: new Map([['lodash', { version: '^4' }]])
+    });
+    const { processor, emit } = createProcessor({ hasSubscribers, resolve });
+
+    await processor.resolveAndLink(createResolveOptions());
+
+    const scanCalls = getCallArgs(emit).filter((args) => {
+        return args[0] === 'scanCompleted';
+    });
+    assert.strictEqual(scanCalls.length, 1);
+    assert.deepStrictEqual(scanCalls[0], [
+        'scanCompleted',
+        {
+            packageName: 'package-a',
+            included: [{ path: '/src/a.ts', reason: 'reachable-from-entry' }],
+            excluded: [{ specifier: 'lodash', reason: 'external-module' }]
+        }
+    ]);
+});
+
+test('resolveAndLink() does NOT emit scanCompleted when no subscriber is registered', async () => {
+    const { processor, emit } = createProcessor();
+
+    await processor.resolveAndLink(createResolveOptions());
+
+    const scanCalls = getCallArgs(emit).filter((args) => {
+        return args[0] === 'scanCompleted';
+    });
+    assert.strictEqual(scanCalls.length, 0);
+});
+
+test('resolveAndLink() emits linkingCompleted with the linker rewrites when subscribed', async () => {
+    const hasSubscribers = fake((eventName: string) => {
+        return eventName === 'linkingCompleted';
+    });
+    const linkBundle = fake.resolves({
+        name: 'package-a',
+        contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true }],
+        entryPoints: [],
+        linkedBundleDependencies: new Map([['pkg-b', {}]]),
+        externalDependencies: new Map()
+    });
+    const { processor, emit } = createProcessor({ hasSubscribers, linkBundle });
+
+    await processor.resolveAndLink(createResolveOptions());
+
+    const linkingCalls = getCallArgs(emit).filter((args) => {
+        return args[0] === 'linkingCompleted';
+    });
+    assert.strictEqual(linkingCalls.length, 1);
+    assert.deepStrictEqual(linkingCalls[0], [
+        'linkingCompleted',
+        {
+            packageName: 'package-a',
+            rewrites: [
+                {
+                    file: '/src/a.ts',
+                    fromSpecifier: '/src/a.ts',
+                    toSpecifier: 'pkg-b',
+                    targetBundle: 'pkg-b'
+                }
+            ]
+        }
+    ]);
+});
+
+test('resolveAndLink() does NOT emit linkingCompleted when no subscriber is registered', async () => {
+    const { processor, emit } = createProcessor();
+
+    await processor.resolveAndLink(createResolveOptions());
+
+    const linkingCalls = getCallArgs(emit).filter((args) => {
+        return args[0] === 'linkingCompleted';
+    });
+    assert.strictEqual(linkingCalls.length, 0);
+});
+
+function onlyVersionDeterminedSubscriber(): SinonSpy {
+    return fake((eventName: string) => {
+        return eventName === 'versionDetermined';
+    });
+}
+
+function filterVersionDetermined(emit: SinonSpy): unknown[][] {
+    return getCallArgs(emit).filter((args) => {
+        return args[0] === 'versionDetermined';
+    });
+}
+
+function expectSingleVersionDetermined(
+    emit: SinonSpy,
+    payload: {
+        packageName: string;
+        previousVersion: string | undefined;
+        chosenVersion: string;
+        trigger: 'auto-patch-bump' | 'initial' | 'minimum' | 'pinned';
+    }
+): void {
+    assert.deepStrictEqual(filterVersionDetermined(emit), [['versionDetermined', payload]]);
+}
+
+test('tryBuildAndPublish() emits versionDetermined trigger "pinned" when first publish keeps the manual version', async () => {
+    const manualBundle = createVersionedBundle('package-a', '4.5.6');
+    const { processor, emit } = createProcessor({
+        hasSubscribers: onlyVersionDeterminedSubscriber(),
+        determineCurrentVersion: fake.resolves(Maybe.nothing()),
+        addVersion: fake.returns(manualBundle)
+    });
+
+    await processor.tryBuildAndPublish({
+        analyzedBundle: createAnalyzedBundle(),
+        buildOptions: { ...createBuildAndPublishOptions(), versioning: { automatic: false, version: '4.5.6' } }
+    });
+
+    expectSingleVersionDetermined(emit, {
+        packageName: 'package-a',
+        previousVersion: undefined,
+        chosenVersion: '4.5.6',
+        trigger: 'pinned'
+    });
+});
+
+test('tryBuildAndPublish() emits versionDetermined trigger "auto-patch-bump" on first auto publish without minimum', async () => {
+    const initialBundle = createVersionedBundle('package-a', '0.0.0');
+    const rebuiltBundle = createVersionedBundle('package-a', '0.0.1');
+    const { processor, emit } = createProcessor({
+        hasSubscribers: onlyVersionDeterminedSubscriber(),
+        determineCurrentVersion: fake.resolves(Maybe.nothing()),
+        addVersion: fake.returns(initialBundle),
+        increaseVersion: fake.returns(rebuiltBundle)
+    });
+
+    await tryBuildAndPublishDefault(processor);
+
+    expectSingleVersionDetermined(emit, {
+        packageName: 'package-a',
+        previousVersion: undefined,
+        chosenVersion: '0.0.1',
+        trigger: 'auto-patch-bump'
+    });
+});
+
+test('tryBuildAndPublish() emits versionDetermined trigger "minimum" when minimumVersion is used as-is', async () => {
+    const minimumVersionBundle = createVersionedBundle('package-a', '1.2.3');
+    const { processor, emit } = createProcessor({
+        hasSubscribers: onlyVersionDeterminedSubscriber(),
+        determineCurrentVersion: fake.resolves(Maybe.nothing()),
+        addVersion: fake.returns(minimumVersionBundle)
+    });
+
+    await processor.tryBuildAndPublish({
+        analyzedBundle: createAnalyzedBundle(),
+        buildOptions: {
+            ...createBuildAndPublishOptions(),
+            versioning: { automatic: true, minimumVersion: '1.2.3' }
+        }
+    });
+
+    expectSingleVersionDetermined(emit, {
+        packageName: 'package-a',
+        previousVersion: undefined,
+        chosenVersion: '1.2.3',
+        trigger: 'minimum'
+    });
+});
+
+test('tryBuildAndPublish() emits versionDetermined with the previousVersion for a rebuild on existing publication', async () => {
+    const currentBundle = createVersionedBundle('package-a', '2.0.0');
+    const rebuilt = createVersionedBundle('package-a', '2.0.1');
+    const { processor, emit } = createProcessor({
+        hasSubscribers: onlyVersionDeterminedSubscriber(),
+        determineCurrentVersion: fake.resolves(Maybe.just('2.0.0')),
+        addVersion: fake.returns(currentBundle),
+        increaseVersion: fake.returns(rebuilt)
+    });
+
+    await tryBuildAndPublishDefault(processor);
+
+    expectSingleVersionDetermined(emit, {
+        packageName: 'package-a',
+        previousVersion: '2.0.0',
+        chosenVersion: '2.0.1',
+        trigger: 'auto-patch-bump'
+    });
+});
+
+test('tryBuildAndPublish() emits versionDetermined trigger "auto-patch-bump" without bump when current matches an automatic build', async () => {
+    const initialBundle = createVersionedBundle('package-a', '2.0.0');
+    const { processor, emit } = createProcessor({
+        hasSubscribers: onlyVersionDeterminedSubscriber(),
+        determineCurrentVersion: fake.resolves(Maybe.just('2.0.0')),
+        addVersion: fake.returns(initialBundle),
+        checkBundleAlreadyPublished: fake.resolves({ alreadyPublishedAsLatest: true })
+    });
+
+    await tryBuildAndPublishDefault(processor);
+
+    expectSingleVersionDetermined(emit, {
+        packageName: 'package-a',
+        previousVersion: '2.0.0',
+        chosenVersion: '2.0.0',
+        trigger: 'auto-patch-bump'
+    });
+});
+
+test('tryBuildAndPublish() emits versionDetermined trigger "initial" when nothing is published and the bundle already matches', async () => {
+    const initialBundle = createVersionedBundle('package-a', '0.0.0');
+    const { processor, emit } = createProcessor({
+        hasSubscribers: onlyVersionDeterminedSubscriber(),
+        determineCurrentVersion: fake.resolves(Maybe.nothing()),
+        addVersion: fake.returns(initialBundle),
+        checkBundleAlreadyPublished: fake.resolves({ alreadyPublishedAsLatest: true })
+    });
+
+    await tryBuildAndPublishDefault(processor);
+
+    expectSingleVersionDetermined(emit, {
+        packageName: 'package-a',
+        previousVersion: undefined,
+        chosenVersion: '0.0.0',
+        trigger: 'initial'
+    });
+});
+
+test('tryBuildAndPublish() does NOT emit versionDetermined when no subscriber is registered', async () => {
+    const { processor, emit } = createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+        addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+        checkBundleAlreadyPublished: fake.resolves({ alreadyPublishedAsLatest: true })
+    });
+
+    await tryBuildAndPublishDefault(processor);
+
+    assert.strictEqual(filterVersionDetermined(emit).length, 0);
 });
 
 test('buildAndPublish() forwards extraFiles from sbomFileBuilder to publish', async () => {

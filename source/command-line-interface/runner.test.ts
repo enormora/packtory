@@ -15,6 +15,7 @@ type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
+    readonly writeReportFile?: SinonSpy;
     progressBroadcaster?: ProgressBroadcaster;
     spinnerRenderer?: {
         add?: SinonSpy;
@@ -71,7 +72,10 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             })
         },
         progressBroadcaster: progressBroadcaster.consumer,
-        spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer)
+        spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer),
+        writeReportFile: createSpy(overrides.writeReportFile, () => {
+            return fake.resolves(undefined);
+        })
     };
 
     return createCommandLineInterfaceRunner(dependencies);
@@ -375,4 +379,104 @@ test('updates a running spinner message when a "rebuilding" event is received', 
 
     assert.strictEqual(updateMessage.callCount, 1);
     assert.deepStrictEqual(updateMessage.firstCall.args, ['foo', 'Rebuilding package with version 1']);
+});
+
+const sampleReport = {
+    schemaVersion: 1 as const,
+    generatedAt: '2026-05-11T00:00:00.000Z',
+    packages: { 'pkg-a': { decisions: {}, timings: {} } },
+    aggregate: { crossBundleLinks: [] }
+};
+
+function outcomeWithReport(result: unknown): {
+    readonly result: unknown;
+    readonly getReport: () => typeof sampleReport;
+} {
+    return {
+        result,
+        getReport: () => {
+            return sampleReport;
+        }
+    };
+}
+
+test('publish with --report-json requests collectReport: true', async () => {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    await runner.run(['foo', 'bar', 'publish', '--report-json']);
+
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+});
+
+test('publish with --report-html requests collectReport: true', async () => {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    await runner.run(['foo', 'bar', 'publish', '--report-html']);
+
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+});
+
+async function runPublishWithReport(extraArgs: readonly string[]): Promise<SinonSpy> {
+    const writeReportFile = fake.resolves(undefined);
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+    await runner.run(['foo', 'bar', 'publish', ...extraArgs]);
+    return writeReportFile;
+}
+
+test('publish writes packtory-report.json when --report-json is set and getReport returns a report', async () => {
+    const writeReportFile = await runPublishWithReport(['--report-json']);
+
+    assert.strictEqual(writeReportFile.callCount, 1);
+    assert.strictEqual(writeReportFile.firstCall.args[0], 'packtory-report.json');
+    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    assert.ok(writtenContent.endsWith('\n'), 'json report must end with a newline');
+    assert.deepStrictEqual(JSON.parse(writtenContent), sampleReport);
+});
+
+test('publish writes packtory-report.html when --report-html is set and getReport returns a report', async () => {
+    const writeReportFile = await runPublishWithReport(['--report-html']);
+
+    assert.strictEqual(writeReportFile.callCount, 1);
+    assert.strictEqual(writeReportFile.firstCall.args[0], 'packtory-report.html');
+    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    assert.ok(writtenContent.startsWith('<!doctype html>'), 'html report must start with doctype');
+});
+
+test('publish writes both report files when --report-json and --report-html are set', async () => {
+    const writeReportFile = await runPublishWithReport(['--report-json', '--report-html']);
+
+    const writtenPaths = writeReportFile.getCalls().map((call): unknown => {
+        return call.args[0];
+    });
+    assert.deepStrictEqual(writtenPaths, ['packtory-report.json', 'packtory-report.html']);
+});
+
+test('publish writes no report files when neither flag is set', async () => {
+    const writeReportFile = await runPublishWithReport([]);
+
+    assert.strictEqual(writeReportFile.callCount, 0);
+});
+
+test('publish writes no report files when getReport returns undefined even with --report-json set', async () => {
+    const writeReportFile = fake.resolves(undefined);
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+
+    await runner.run(['foo', 'bar', 'publish', '--report-json']);
+
+    assert.strictEqual(writeReportFile.callCount, 0);
+});
+
+test('publish writes the report even when the build failed', async () => {
+    const writeReportFile = fake.resolves(undefined);
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.err({ type: 'config', issues: ['boom'] })));
+    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+
+    const exitCode = await runner.run(['foo', 'bar', 'publish', '--report-json']);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(writeReportFile.callCount, 1);
 });

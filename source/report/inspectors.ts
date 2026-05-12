@@ -14,7 +14,7 @@ function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
     if (filePath.endsWith('.sbom.json') || filePath.endsWith('.cdx.json')) {
         return 'sbom';
     }
-    if (/\.(?:c?js|d\.[cm]?ts|jsx?|map|mjs|tsx?)$/.test(filePath)) {
+    if (/\.(?:cjs|d\.[cm]ts|jsx?|map|mjs|tsx?)$/.test(filePath)) {
         return 'source';
     }
     return 'additional';
@@ -24,7 +24,7 @@ export function inspectArtifactSizes(contents: readonly FileDescription[]): read
     return contents.map((entry) => {
         return {
             path: entry.filePath,
-            sizeBytes: Buffer.byteLength(entry.content, 'utf8'),
+            sizeBytes: Buffer.byteLength(entry.content),
             kind: inferArtifactKind(entry.filePath)
         };
     });

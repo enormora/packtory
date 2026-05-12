@@ -3,12 +3,27 @@ import { mapToObj } from 'remeda';
 import { runChecks } from '../checks/check-runner.ts';
 import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { ConfigWithGraph } from '../config/validation.ts';
-import type { ResolvedPackage } from './packtory.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { ResolveAndLinkOptions } from './map-config.ts';
+
+export type ResolvedPackage = {
+    readonly name: string;
+    readonly analyzedBundle: AnalyzedBundle;
+    readonly resolveOptions: ResolveAndLinkOptions;
+};
 
 export type CheckError = {
     readonly type: 'checks';
     readonly issues: readonly string[];
 };
+
+export function createResolvedPackage(
+    name: string,
+    analyzedBundle: AnalyzedBundle,
+    resolveOptions: ResolveAndLinkOptions
+): ResolvedPackage {
+    return { name, analyzedBundle, resolveOptions };
+}
 
 export function buildChecksResult(
     validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,

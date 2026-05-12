@@ -1,20 +1,11 @@
 import type { PacktoryConfig } from '../config/config.ts';
 import type { ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { redactConfigForPackage } from '../report/config-redactor.ts';
-import { createReportAggregator } from '../report/report-aggregator.ts';
-import type { BuildReport } from '../report/types.ts';
+import { createReportAggregator, type BuildReport } from '../report/report-aggregator.ts';
 
 export type ReportAttachment = {
     readonly getReport: () => BuildReport | undefined;
     readonly dispose: () => void;
-};
-
-const noReport = (): undefined => {
-    return undefined;
-};
-
-const noDispose = (): void => {
-    return undefined;
 };
 
 export function emitEffectiveConfigPerPackage(
@@ -36,16 +27,13 @@ export function maybeAttachAggregator(
     progressBroadcaster: ProgressBroadcaster,
     collectReport: boolean | undefined
 ): ReportAttachment {
-    if (collectReport !== true) {
-        return { getReport: noReport, dispose: noDispose };
-    }
-    const aggregator = createReportAggregator(progressBroadcaster.consumer);
+    const aggregator = collectReport === true ? createReportAggregator(progressBroadcaster.consumer) : undefined;
     return {
-        getReport: () => {
-            return aggregator.build();
+        getReport() {
+            return aggregator?.build();
         },
-        dispose: () => {
-            aggregator.unsubscribe();
+        dispose() {
+            aggregator?.unsubscribe();
         }
     };
 }
