@@ -52,14 +52,14 @@ flowchart LR
 
 The artifact names are not arbitrary; they form a type ladder:
 
-| Stage | Input | Output |
-| --- | --- | --- |
-| Resource Resolver | `ResourceResolveOptions` | `ResolvedBundle` |
-| Linker | `ResolvedBundle` | `LinkedBundle` |
-| Dead-Code Eliminator | `LinkedBundle[]` | `AnalyzedBundle[]` |
-| Checks | `AnalyzedBundle[]` | issues (string[]) |
-| Version Manager | `AnalyzedBundle` | `VersionedBundleWithManifest` |
-| Bundle Emitter | `VersionedBundleWithManifest` | published tarball |
+| Stage                | Input                         | Output                        |
+| -------------------- | ----------------------------- | ----------------------------- |
+| Resource Resolver    | `ResourceResolveOptions`      | `ResolvedBundle`              |
+| Linker               | `ResolvedBundle`              | `LinkedBundle`                |
+| Dead-Code Eliminator | `LinkedBundle[]`              | `AnalyzedBundle[]`            |
+| Checks               | `AnalyzedBundle[]`            | issues (string[])             |
+| Version Manager      | `AnalyzedBundle`              | `VersionedBundleWithManifest` |
+| Bundle Emitter       | `VersionedBundleWithManifest` | published tarball             |
 
 Two stages — dead-code elimination and checks — operate on the full set of bundles together. Everything else runs per-package and is parallelised by the **scheduler** (§3).
 
@@ -88,7 +88,7 @@ Packages in the same generation have no path between them and can be executed co
 
 ### Why we reverse the graph first
 
-The graph stored in the config has edges *from consumer to dependency* (`A → B` means "A bundles B"). But the scheduler must run **dependencies before consumers**: it needs every `VersionedBundle` of `B` ready before `A` can rewrite its imports.
+The graph stored in the config has edges _from consumer to dependency_ (`A → B` means "A bundles B"). But the scheduler must run **dependencies before consumers**: it needs every `VersionedBundle` of `B` ready before `A` can rewrite its imports.
 
 So before partitioning into generations, the scheduler calls `packageGraph.reverse()` (`source/packtory/scheduler.ts:133`). After reversal `B → A`, sources have in-degree 0, and they fall into generation 0.
 
@@ -148,7 +148,7 @@ Implementation in `source/dependency-scanner/scanner.ts` and `dependency-graph.t
 
 ### Source maps and declarations
 
-If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If an entry point declares a `.d.ts`, a *second* scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
+If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If an entry point declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
 
 ## 5. Stage: Linker — import path rewriting
 
@@ -158,7 +158,7 @@ This is where packtory turns "monorepo with relative imports" into "npm package 
 
 Given the current bundle's resource graph and the already-built `LinkedBundle`s of its sibling packages, the linker looks at every direct dependency edge and asks:
 
-> *Is the file on the other end owned by some sibling bundle?*
+> _Is the file on the other end owned by some sibling bundle?_
 
 If yes, the import is replaced. The path becomes `<siblingName>/<targetFilePath>`. The matched source file is removed from the current bundle's graph (it'll be shipped by the sibling), and the sibling name is recorded as a `bundleDependency`.
 
@@ -186,11 +186,11 @@ flowchart LR
 
 ### How the rewrite actually happens
 
-We do *not* do regex on the source. The path replacement runs through ts-morph: every `ImportStringLiteral` is resolved with `ts.resolveModuleName`, compared against the replacement map, and rewritten via `literal.setLiteralValue(...)` (`source/linker/source-modifier/import-paths.ts`). This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports — the basename of the original specifier is preserved in case the consumer relies on it.
+We do _not_ do regex on the source. The path replacement runs through ts-morph: every `ImportStringLiteral` is resolved with `ts.resolveModuleName`, compared against the replacement map, and rewritten via `literal.setLiteralValue(...)` (`source/linker/source-modifier/import-paths.ts`). This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports — the basename of the original specifier is preserved in case the consumer relies on it.
 
 ### Why the order matters
 
-The scheduler runs dependencies *before* consumers (§3) precisely so that when the linker reaches package `A`, every sibling it might reference is already a fully-built `LinkedBundle` with stable `targetFilePath`s. There is no two-pass resolution.
+The scheduler runs dependencies _before_ consumers (§3) precisely so that when the linker reaches package `A`, every sibling it might reference is already a fully-built `LinkedBundle` with stable `targetFilePath`s. There is no two-pass resolution.
 
 ## 6. Stage: Dead-Code Eliminator (tree-shaking, in plain language)
 
@@ -200,11 +200,11 @@ This is the most subtle stage. The goal is to drop every top-level declaration t
 
 A modern JavaScript bundle is a graph where:
 
-- **Nodes** are *top-level bindings*: a function, class, type, enum, variable, or named import declared at the top of a file.
+- **Nodes** are _top-level bindings_: a function, class, type, enum, variable, or named import declared at the top of a file.
 - **Edges** go from a binding to every other binding it references in its own body.
-- **Roots** are the bindings that are *exported from an entry point* — these are the things consumers can actually import.
+- **Roots** are the bindings that are _exported from an entry point_ — these are the things consumers can actually import.
 
-If you start at the roots and walk all edges, every binding you visit is *reachable*. Everything else is dead, and packtory deletes it.
+If you start at the roots and walk all edges, every binding you visit is _reachable_. Everything else is dead, and packtory deletes it.
 
 This is the same idea every bundler uses; the part that differs is **how you decide what is a root** and **how strict you are about side effects**.
 
@@ -220,7 +220,7 @@ Three kinds of seeds are added to a set $S$:
 
 1. Every exported binding in any entry-point file. These are what consumers can `import`.
 2. Every binding referenced by an **impure top-level statement** (anywhere in the bundle). Impure top-level code runs unconditionally on import, so anything it touches is live by definition. The classifier is described in §6.5.
-3. **Cross-bundle seeds** — bindings that another packtory-managed bundle actually consumes. Without this, exports that exist *only* for sibling packages would look dead and be deleted. See §6.4.
+3. **Cross-bundle seeds** — bindings that another packtory-managed bundle actually consumes. Without this, exports that exist _only_ for sibling packages would look dead and be deleted. See §6.4.
 
 ### Step 3 — Breadth-first closure
 
@@ -252,19 +252,19 @@ For pure files, the declaration remover walks top-level statements, captures the
 
 ### 6.4 Cross-bundle seeding
 
-This is the algorithm that prevents packtory from accidentally deleting exports that *only* siblings depend on.
+This is the algorithm that prevents packtory from accidentally deleting exports that _only_ siblings depend on.
 
 For every package `P` being built, and every code file `F` in `P`, we look at `F`'s `import`/`export … from` statements. If the module specifier looks like `<siblingName>/<targetPath>` (i.e. the linker has already rewritten it in §5), we resolve the target file inside the sibling bundle and seed:
 
-| Statement form | Seeded binding(s) in sibling |
-| --- | --- |
-| `import x from 'pkg/f.js'` | `default` |
-| `import { a, b as c } from 'pkg/f.js'` | `a` and `b` |
-| `import * as ns from 'pkg/f.js'` | *every* binding in `f.js` |
-| `export { a } from 'pkg/f.js'` | `a` |
-| `export * from 'pkg/f.js'` | *every* binding in `f.js` |
+| Statement form                         | Seeded binding(s) in sibling |
+| -------------------------------------- | ---------------------------- |
+| `import x from 'pkg/f.js'`             | `default`                    |
+| `import { a, b as c } from 'pkg/f.js'` | `a` and `b`                  |
+| `import * as ns from 'pkg/f.js'`       | _every_ binding in `f.js`    |
+| `export { a } from 'pkg/f.js'`         | `a`                          |
+| `export * from 'pkg/f.js'`             | _every_ binding in `f.js`    |
 
-**Gating on local reachability.** A cross-bundle import only seeds the sibling if the *local* binding it produces is itself reachable in the consuming bundle. If `cli.ts` does `import foo from 'lib/foo.js'` but never uses `foo`, that import is local-dead and is not propagated to `lib`. This commit message is worth checking: `ae179d5 Gate cross-bundle seeds on consumer-side reachability`.
+**Gating on local reachability.** A cross-bundle import only seeds the sibling if the _local_ binding it produces is itself reachable in the consuming bundle. If `cli.ts` does `import foo from 'lib/foo.js'` but never uses `foo`, that import is local-dead and is not propagated to `lib`. This commit message is worth checking: `ae179d5 Gate cross-bundle seeds on consumer-side reachability`.
 
 The whole exchange happens in two phases:
 
@@ -300,7 +300,7 @@ A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins.
 
 ### 6.6 Source-map recomposition
 
-When a `.map` file is paired with a code file the analyzer transformed, packtory rebuilds the map so the published version still maps back to the *original* sources at the new line/column positions.
+When a `.map` file is paired with a code file the analyzer transformed, packtory rebuilds the map so the published version still maps back to the _original_ sources at the new line/column positions.
 
 <details>
 <summary>The algorithm</summary>
@@ -351,22 +351,22 @@ This is the step that decides what ends up in `dependencies` vs `peerDependencie
 
 Before accepting an external dependency's version, packtory passes it through `npm-package-arg` and classifies the result (`source/version-manager/specifier-classifier.ts`):
 
-| Specifier example | Classification | Behaviour |
-| --- | --- | --- |
-| `^1.2.3`, `1.x`, `latest`, `npm:alias@1.0.0` | `registry` | accepted |
-| `file:./foo.tgz`, `link:../lib`, `./relative` | `mutable` (file/directory) | rejected unless allow-listed |
-| `git+ssh://…`, `https://…/foo.tgz` | `mutable` (git/remote) | rejected unless allow-listed |
-| `workspace:*`, `portal:./x` | `malformed` | always rejected with a clear reason |
+| Specifier example                             | Classification             | Behaviour                           |
+| --------------------------------------------- | -------------------------- | ----------------------------------- |
+| `^1.2.3`, `1.x`, `latest`, `npm:alias@1.0.0`  | `registry`                 | accepted                            |
+| `file:./foo.tgz`, `link:../lib`, `./relative` | `mutable` (file/directory) | rejected unless allow-listed        |
+| `git+ssh://…`, `https://…/foo.tgz`            | `mutable` (git/remote)     | rejected unless allow-listed        |
+| `workspace:*`, `portal:./x`                   | `malformed`                | always rejected with a clear reason |
 
 The rationale: a published package whose `dependencies` point at a `workspace:*` or `file:` specifier will install fine on the author's machine and break for everyone else. `allowMutableSpecifiers` exists for the rare legitimate case (vendored fork pointing at a tag).
 
 ### Manifest assembly
 
-`buildPackageManifest` in `source/version-manager/manifest/builder.ts` composes the final `package.json` in this order: user-provided `additionalAttributes` first, then the auto-emitted `sideEffects` field (only if the user didn't provide one), then the *non-overridable* identity fields (`name`, `version`, `main`, `type`, `dependencies`, `peerDependencies`, `types`). The serializer (`manifest/serialize.ts`) emits keys in a deterministic order so byte-identical runs produce byte-identical manifests — which matters for automatic versioning (§9).
+`buildPackageManifest` in `source/version-manager/manifest/builder.ts` composes the final `package.json` in this order: user-provided `additionalAttributes` first, then the auto-emitted `sideEffects` field (only if the user didn't provide one), then the _non-overridable_ identity fields (`name`, `version`, `main`, `type`, `dependencies`, `peerDependencies`, `types`). The serializer (`manifest/serialize.ts`) emits keys in a deterministic order so byte-identical runs produce byte-identical manifests — which matters for automatic versioning (§9).
 
 ## 9. Stage: Bundle Emitter — automatic version detection
 
-In *manual* versioning, the configured version is used verbatim. In *automatic* mode, packtory decides for itself whether to bump.
+In _manual_ versioning, the configured version is used verbatim. In _automatic_ mode, packtory decides for itself whether to bump.
 
 ### The algorithm
 
@@ -388,11 +388,11 @@ Key properties:
 
 - **Byte-identical comparison.** `compareFileDescriptions` sorts both file lists by `filePath` and checks every file for equality (`source/file-manager/compare.ts`). The `package.json` produced by the serializer is deterministic, so a no-op rebuild yields a no-op publish.
 - **Only patch bumps.** packtory's worldview is "every release could be breaking anyway, so semver minor/major distinctions are noise". This drastically simplifies the algorithm: there is exactly one operation, `semver.inc(v, 'patch')`.
-- **The tarball is the source of truth.** packtory does *not* trust the registry's metadata (size, shasum). It downloads and unpacks, then compares contents. This catches "I republished the same version after editing a file" anomalies that show up in some registries.
+- **The tarball is the source of truth.** packtory does _not_ trust the registry's metadata (size, shasum). It downloads and unpacks, then compares contents. This catches "I republished the same version after editing a file" anomalies that show up in some registries.
 
 ### Provenance and OIDC
 
-If `publishSettings.access === 'public'` and `provenance.type === 'auto'`, the emitter asserts that the CI environment's repository URL matches `package.json#repository.url` *before* publishing (`assertRepositoryCoherence`), then delegates the actual sigstore signing to `libnpmpublish`. For OIDC, the npm trusted-publishing token exchange happens in `source/npm-oidc-id-token-resolver.ts`. Neither is on the hot path for this doc; see [supply-chain.md](./supply-chain.md) for the full story.
+If `publishSettings.access === 'public'` and `provenance.type === 'auto'`, the emitter asserts that the CI environment's repository URL matches `package.json#repository.url` _before_ publishing (`assertRepositoryCoherence`), then delegates the actual sigstore signing to `libnpmpublish`. For OIDC, the npm trusted-publishing token exchange happens in `source/npm-oidc-id-token-resolver.ts`. Neither is on the hot path for this doc; see [supply-chain.md](./supply-chain.md) for the full story.
 
 ## 10. Putting it all together
 
@@ -441,23 +441,23 @@ sequenceDiagram
 
 ## 11. File-map quick reference
 
-| Concern | Primary entry point |
-| --- | --- |
-| Top-level orchestration | `source/packtory/packtory.ts` |
-| Parallel scheduling | `source/packtory/scheduler.ts` |
-| Per-package wiring | `source/packtory/package-processor.ts` |
-| Config validation + package graph | `source/config/validation.ts` |
-| Topological sort, breadth-first traversal, cycle detection | `source/directed-graph/graph.ts` |
-| Dependency scanning | `source/dependency-scanner/scanner.ts` |
-| Module resolution + literal rewriting | `source/dependency-scanner/source-file-references.ts` |
-| Linking + import-path substitution | `source/linker/linker.ts`, `source/linker/source-modifier/import-paths.ts` |
-| Top-level binding extraction | `source/dead-code-eliminator/reachability/binding-extractor.ts` |
-| Symbol-level reachability closure | `source/dead-code-eliminator/reachability/reachability.ts` |
-| Side-effect classifier | `source/dead-code-eliminator/side-effect-classifier.ts` |
-| Cross-bundle seeding | `source/dead-code-eliminator/cross-bundle/cross-bundle-seeds.ts` |
-| Declaration removal + source-map recomposition | `source/dead-code-eliminator/transform/` |
-| Side-effects field for manifest | `source/dead-code-eliminator/side-effects-field.ts` |
-| Specifier classification | `source/version-manager/specifier-classifier.ts` |
-| Manifest assembly | `source/version-manager/manifest/builder.ts` |
-| Automatic version comparison | `source/bundle-emitter/emitter.ts`, `source/file-manager/compare.ts` |
-| Check rules | `source/checks/rules/` |
+| Concern                                                    | Primary entry point                                                        |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Top-level orchestration                                    | `source/packtory/packtory.ts`                                              |
+| Parallel scheduling                                        | `source/packtory/scheduler.ts`                                             |
+| Per-package wiring                                         | `source/packtory/package-processor.ts`                                     |
+| Config validation + package graph                          | `source/config/validation.ts`                                              |
+| Topological sort, breadth-first traversal, cycle detection | `source/directed-graph/graph.ts`                                           |
+| Dependency scanning                                        | `source/dependency-scanner/scanner.ts`                                     |
+| Module resolution + literal rewriting                      | `source/dependency-scanner/source-file-references.ts`                      |
+| Linking + import-path substitution                         | `source/linker/linker.ts`, `source/linker/source-modifier/import-paths.ts` |
+| Top-level binding extraction                               | `source/dead-code-eliminator/reachability/binding-extractor.ts`            |
+| Symbol-level reachability closure                          | `source/dead-code-eliminator/reachability/reachability.ts`                 |
+| Side-effect classifier                                     | `source/dead-code-eliminator/side-effect-classifier.ts`                    |
+| Cross-bundle seeding                                       | `source/dead-code-eliminator/cross-bundle/cross-bundle-seeds.ts`           |
+| Declaration removal + source-map recomposition             | `source/dead-code-eliminator/transform/`                                   |
+| Side-effects field for manifest                            | `source/dead-code-eliminator/side-effects-field.ts`                        |
+| Specifier classification                                   | `source/version-manager/specifier-classifier.ts`                           |
+| Manifest assembly                                          | `source/version-manager/manifest/builder.ts`                               |
+| Automatic version comparison                               | `source/bundle-emitter/emitter.ts`, `source/file-manager/compare.ts`       |
+| Check rules                                                | `source/checks/rules/`                                                     |
