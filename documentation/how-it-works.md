@@ -280,7 +280,7 @@ The classifier is what makes the difference between a file packtory will tree-sh
 - A class declaration with decorators, static blocks, or impure static initializers.
 - A control-flow statement (`if`, `for`, `while`, `try`, `switch`, …).
 - A variable declarator whose initializer contains a call or property access (so `const x = 1 + 2` is pure; `const x = compute()` is not).
-- An import of an asset file (`.css`, `.scss`, `.sass`, `.less`).
+- A bare import of a `.css` file (e.g. `import './styles.css';`). CSS is the one asset format on a standards track (Import Attributes / CSS module type), so it gets explicit handling; other formats like `.scss`, `.less`, or images are bundler-only conventions and packtory makes no attempt to recognise them.
 - Any statement kind the classifier doesn't recognise (fail-closed).
 
 Pure-leaf expressions are: literals, identifiers, function/arrow/class expressions, certain unary/binary operators, plus parenthesised, `as`, `satisfies`, `!`, and `<T>` wrappers. Object and array literals are pure iff their elements are.

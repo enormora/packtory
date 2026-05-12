@@ -71,20 +71,8 @@ test('treats a bare import of a JS module as pure', () => {
     assert.deepStrictEqual(classify('import "./other";'), []);
 });
 
-test('flags a bare import of a CSS asset as impure', () => {
-    assert.deepStrictEqual(classify('import "./styles.css";'), [{ line: 1, kind: 'asset import' }]);
-});
-
-test('flags a bare import of an SCSS asset as impure', () => {
-    assert.deepStrictEqual(classify('import "./styles.scss";'), [{ line: 1, kind: 'asset import' }]);
-});
-
-test('flags a bare import of a Sass asset as impure', () => {
-    assert.deepStrictEqual(classify('import "./styles.sass";'), [{ line: 1, kind: 'asset import' }]);
-});
-
-test('flags a bare import of a Less asset as impure', () => {
-    assert.deepStrictEqual(classify('import "./styles.less";'), [{ line: 1, kind: 'asset import' }]);
+test('flags a bare import of a CSS module as impure', () => {
+    assert.deepStrictEqual(classify('import "./styles.css";'), [{ line: 1, kind: 'css import' }]);
 });
 
 test('treats a top-level call as an impure expression statement', () => {

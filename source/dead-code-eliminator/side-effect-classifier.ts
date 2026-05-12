@@ -15,8 +15,6 @@ type PurityChecker = (expression: Expression) => boolean;
 type PurityRule = (expression: Expression, recurse: PurityChecker) => boolean;
 type StatementClassifier = (statement: Statement) => string | undefined;
 
-const assetExtensions = ['.css', '.scss', '.sass', '.less'] as const;
-
 const pureLeafKinds: ReadonlySet<SyntaxKind> = new Set([
     SyntaxKind.StringLiteral,
     SyntaxKind.NumericLiteral,
@@ -88,10 +86,8 @@ const controlFlowStatementKinds: ReadonlyMap<SyntaxKind, string> = new Map([
     [SyntaxKind.Block, 'block statement']
 ]);
 
-function endsWithAssetExtension(specifier: string): boolean {
-    return assetExtensions.some((extension) => {
-        return specifier.endsWith(extension);
-    });
+function isBareCssImport(specifier: string): boolean {
+    return specifier.endsWith('.css');
 }
 
 function isPureArrayElement(element: Expression, recurse: PurityChecker): boolean {
@@ -240,8 +236,8 @@ function hasClassImpurity(classDeclaration: ClassDeclaration): boolean {
 }
 
 function classifyImportDeclaration(statement: ImportDeclaration): string | undefined {
-    if (endsWithAssetExtension(statement.getModuleSpecifierValue())) {
-        return 'asset import';
+    if (isBareCssImport(statement.getModuleSpecifierValue())) {
+        return 'css import';
     }
     return undefined;
 }
