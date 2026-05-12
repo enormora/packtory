@@ -70,7 +70,7 @@ The user describes packages as a flat list with optional `bundleDependencies` / 
 - $V$ = package names
 - $(a, b) \in E$ iff package $a$ declares package $b$ as a bundle (peer-)dependency
 
-Cycles are rejected at validation time (`source/config/validation.ts`). The graph is stored on the validated config and reused by both the scheduler and the linker.
+Cycles are rejected at validation time. The graph is stored on the validated config and reused by both the scheduler and the linker.
 
 ## 3. The scheduler
 
@@ -84,13 +84,13 @@ $$
 \text{generations}(G) = [\,V_0, V_1, \ldots, V_k\,]\quad\text{where}\quad V_i = \{v \in V \setminus \bigcup_{j<i}V_j \mid \mathrm{indeg}_{G_i}(v)=0\}
 $$
 
-Packages in the same generation have no path between them and can be executed concurrently with `Promise.allSettled`. The implementation lives in `source/directed-graph/graph.ts` (`getTopologicalGenerations`).
+Packages in the same generation have no path between them and can be executed concurrently with `Promise.allSettled`. The implementation is `getTopologicalGenerations`.
 
 ### Why we reverse the graph first
 
 The graph stored in the config has edges _from consumer to dependency_ (`A → B` means "A bundles B"). But the scheduler must run **dependencies before consumers**: it needs every `VersionedBundle` of `B` ready before `A` can rewrite its imports.
 
-So before partitioning into generations, the scheduler calls `packageGraph.reverse()` (`source/packtory/scheduler.ts:133`). After reversal `B → A`, sources have in-degree 0, and they fall into generation 0.
+So before partitioning into generations, the scheduler calls `packageGraph.reverse()`. After reversal `B → A`, sources have in-degree 0, and they fall into generation 0.
 
 ```mermaid
 flowchart LR
@@ -139,7 +139,7 @@ scan(entryPoint, sourcesFolder):
                 add edge current → target, recurse
 ```
 
-Implementation in `source/dependency-scanner/scanner.ts` and `dependency-graph.ts`. A few details worth highlighting:
+A few details worth highlighting:
 
 - **Module resolution is delegated to TypeScript** (`ts.resolveModuleName`). This means packtory respects `tsconfig.json` `paths`, conditional exports, ESM resolution rules, and `.js`-extension imports of `.ts` files — for free.
 - **Node built-ins** (`node:fs`, etc.) are silently ignored. Anything else that fails to resolve throws.
@@ -186,7 +186,7 @@ flowchart LR
 
 ### How the rewrite actually happens
 
-We do _not_ do regex on the source. The path replacement runs through ts-morph: every `ImportStringLiteral` is resolved with `ts.resolveModuleName`, compared against the replacement map, and rewritten via `literal.setLiteralValue(...)` (`source/linker/source-modifier/import-paths.ts`). This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports — the basename of the original specifier is preserved in case the consumer relies on it.
+We do _not_ do regex on the source. The path replacement runs through ts-morph: every `ImportStringLiteral` is resolved with `ts.resolveModuleName`, compared against the replacement map, and rewritten via `literal.setLiteralValue(...)`. This preserves whitespace, quote style, and trailing commas exactly. A small caveat applies to `.d.ts` imports — the basename of the original specifier is preserved in case the consumer relies on it.
 
 ### Why the order matters
 
@@ -210,7 +210,7 @@ This is the same idea every bundler uses; the part that differs is **how you dec
 
 ### Step 1 — Extract bindings
 
-For every code file in the bundle, packtory walks the top-level statements and records one `BindingDescriptor` per declared name (`source/dead-code-eliminator/reachability/binding-extractor.ts`). Combined declarations like `const a = 1, b = 2;` produce two descriptors so they can be removed independently.
+For every code file in the bundle, packtory walks the top-level statements and records one `BindingDescriptor` per declared name. Combined declarations like `const a = 1, b = 2;` produce two descriptors so they can be removed independently.
 
 Each binding gets an id: `bindingId = "<filePath>::<name>"`.
 
@@ -235,7 +235,7 @@ The neighbour relation is computed by walking every `Identifier` inside the bind
 - **Shadowing works correctly**: an inner `const foo = 1` shadows an outer `foo`, and the compiler tells us so. Naïve text matching would get this wrong.
 - **Import aliases follow through**: `import { x as y }` is tracked back to the original export.
 
-Implementation: `source/dead-code-eliminator/reachability/reachability.ts` (`bfsClosure`).
+Implementation: `bfsClosure`.
 
 ### Step 4 — Remove what survives
 
@@ -248,7 +248,7 @@ survivingNames   = shouldTransform ? reachable ∩ fileBindings : fileBindings
 
 If a file has any impure top-level statement, **packtory keeps the file as-is**. Removing declarations from a file that runs side effects could change those side effects' meaning, so the conservative choice is to leave it alone.
 
-For pure files, the declaration remover walks top-level statements, captures the byte ranges of survivors (`PositionAtom`s), and removes the rest via ts-morph (`source/dead-code-eliminator/transform/declaration-remover.ts`). Combined declarations are split so each declarator can be removed independently.
+For pure files, the declaration remover walks top-level statements, captures the byte ranges of survivors (`PositionAtom`s), and removes the rest via ts-morph. Combined declarations are split so each declarator can be removed independently.
 
 ### 6.4 Cross-bundle seeding
 
@@ -271,8 +271,6 @@ The whole exchange happens in two phases:
 1. Per-bundle: compute `localReachable` (Step 3 above, ignoring cross-bundle seeds).
 2. Cross-bundle: walk every bundle's imports, produce a `Map<bundleName, Set<bindingId>>` of external seeds, then recompute reachability for each bundle by adding those seeds.
 
-Code: `source/dead-code-eliminator/cross-bundle/cross-bundle-seeds.ts`.
-
 ### 6.5 The side-effect classifier
 
 The classifier is what makes the difference between a file packtory will tree-shake and a file it will leave intact. It looks at every top-level statement and asks "could this run code on import?". A statement is impure iff it matches one of:
@@ -290,7 +288,7 @@ Pure-leaf expressions are: literals, identifiers, function/arrow/class expressio
 The same classifier serves three purposes:
 
 1. **Gating tree-shaking** per file (above).
-2. **Generating the `sideEffects` field** of the published manifest (`computeSideEffectsField` in `source/dead-code-eliminator/side-effects-field.ts`):
+2. **Generating the `sideEffects` field** of the published manifest (`computeSideEffectsField`):
     - All files pure → `"sideEffects": false`
     - Some files impure → `"sideEffects": ["./impure.js", ...]` (sorted)
     - All files impure → omit the field
@@ -327,11 +325,9 @@ Malformed source maps are passed through unchanged rather than dropped. Files wi
 
 </details>
 
-Code: `source/dead-code-eliminator/transform/source-map-composer.ts` and `atom-translator.ts`.
-
 ## 7. Stage: Checks
 
-After dead-code elimination, the full set of `AnalyzedBundle`s is fed through the configured check rules (`source/checks/`). Each rule is a pure function `(bundles, settings) → issues[]`. Every check is opt-in. They are documented end-to-end in the [readme](../readme.md#checks); the interesting architectural points are:
+After dead-code elimination, the full set of `AnalyzedBundle`s is fed through the configured check rules. Each rule is a pure function `(bundles, settings) → issues[]`. Every check is opt-in. They are documented end-to-end in the [readme](../readme.md#checks); the interesting architectural points are:
 
 - Checks see the bundles **after dead-code elimination**, so e.g. `noUnusedBundleDependencies` correctly reports a `bundleDependencies` entry whose imports have been tree-shaken away.
 - Rules are independent and run in arbitrary order; failures are aggregated into a single error.
@@ -349,7 +345,7 @@ This is the step that decides what ends up in `dependencies` vs `peerDependencie
 
 ### Specifier classification — refusing to ship junk
 
-Before accepting an external dependency's version, packtory passes it through `npm-package-arg` and classifies the result (`source/version-manager/specifier-classifier.ts`):
+Before accepting an external dependency's version, packtory passes it through `npm-package-arg` and classifies the result:
 
 | Specifier example                             | Classification             | Behaviour                           |
 | --------------------------------------------- | -------------------------- | ----------------------------------- |
@@ -362,7 +358,7 @@ The rationale: a published package whose `dependencies` point at a `workspace:*`
 
 ### Manifest assembly
 
-`buildPackageManifest` in `source/version-manager/manifest/builder.ts` composes the final `package.json` in this order: user-provided `additionalAttributes` first, then the auto-emitted `sideEffects` field (only if the user didn't provide one), then the _non-overridable_ identity fields (`name`, `version`, `main`, `type`, `dependencies`, `peerDependencies`, `types`). The serializer (`manifest/serialize.ts`) emits keys in a deterministic order so byte-identical runs produce byte-identical manifests — which matters for automatic versioning (§9).
+`buildPackageManifest` composes the final `package.json` in this order: user-provided `additionalAttributes` first, then the auto-emitted `sideEffects` field (only if the user didn't provide one), then the _non-overridable_ identity fields (`name`, `version`, `main`, `type`, `dependencies`, `peerDependencies`, `types`). The serializer emits keys in a deterministic order so byte-identical runs produce byte-identical manifests — which matters for automatic versioning (§9).
 
 ## 9. Stage: Bundle Emitter — automatic version detection
 
@@ -386,7 +382,7 @@ automaticPublish(bundle):
 
 Key properties:
 
-- **Byte-identical comparison.** `compareFileDescriptions` sorts both file lists by `filePath` and checks every file for equality (`source/file-manager/compare.ts`). The `package.json` produced by the serializer is deterministic, so a no-op rebuild yields a no-op publish.
+- **Byte-identical comparison.** `compareFileDescriptions` sorts both file lists by `filePath` and checks every file for equality. The `package.json` produced by the serializer is deterministic, so a no-op rebuild yields a no-op publish.
 - **Only patch bumps.** packtory's worldview is "every release could be breaking anyway, so semver minor/major distinctions are noise". The argument: with enough consumers, every observable behaviour — an error message string, log ordering, the shape of a thrown object, even timing — becomes load-bearing for someone (Hyrum's Law). The author's intended public contract and consumers' actual contract are different sets, so a "patch" by the author can be a breaking change for a consumer, and the major/minor/patch trichotomy is a fiction in practice. This drastically simplifies the algorithm: there is exactly one operation, `semver.inc(v, 'patch')`.
 
     [![xkcd 1172: Workflow](https://imgs.xkcd.com/comics/workflow.png)](https://xkcd.com/1172/)
@@ -396,7 +392,7 @@ Key properties:
 
 ### Provenance and OIDC
 
-If `publishSettings.access === 'public'` and `provenance.type === 'auto'`, the emitter asserts that the CI environment's repository URL matches `package.json#repository.url` _before_ publishing (`assertRepositoryCoherence`), then delegates the actual sigstore signing to `libnpmpublish`. For OIDC, the npm trusted-publishing token exchange happens in `source/npm-oidc-id-token-resolver.ts`. Neither is on the hot path for this doc; see [supply-chain.md](./supply-chain.md) for the full story.
+If `publishSettings.access === 'public'` and `provenance.type === 'auto'`, the emitter asserts that the CI environment's repository URL matches `package.json#repository.url` _before_ publishing (`assertRepositoryCoherence`), then delegates the actual sigstore signing to `libnpmpublish`. The npm trusted-publishing token exchange is a separate OIDC resolver. Neither is on the hot path for this doc; see [supply-chain.md](./supply-chain.md) for the full story.
 
 ## 10. Putting it all together
 
@@ -442,26 +438,3 @@ sequenceDiagram
     ELIM-->>SCH: AnalyzedBundle(lib), AnalyzedBundle(cli)
     Note over SCH: → checks → version → publish
 ```
-
-## 11. File-map quick reference
-
-| Concern                                                    | Primary entry point                                                        |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Top-level orchestration                                    | `source/packtory/packtory.ts`                                              |
-| Parallel scheduling                                        | `source/packtory/scheduler.ts`                                             |
-| Per-package wiring                                         | `source/packtory/package-processor.ts`                                     |
-| Config validation + package graph                          | `source/config/validation.ts`                                              |
-| Topological sort, breadth-first traversal, cycle detection | `source/directed-graph/graph.ts`                                           |
-| Dependency scanning                                        | `source/dependency-scanner/scanner.ts`                                     |
-| Module resolution + literal rewriting                      | `source/dependency-scanner/source-file-references.ts`                      |
-| Linking + import-path substitution                         | `source/linker/linker.ts`, `source/linker/source-modifier/import-paths.ts` |
-| Top-level binding extraction                               | `source/dead-code-eliminator/reachability/binding-extractor.ts`            |
-| Symbol-level reachability closure                          | `source/dead-code-eliminator/reachability/reachability.ts`                 |
-| Side-effect classifier                                     | `source/dead-code-eliminator/side-effect-classifier.ts`                    |
-| Cross-bundle seeding                                       | `source/dead-code-eliminator/cross-bundle/cross-bundle-seeds.ts`           |
-| Declaration removal + source-map recomposition             | `source/dead-code-eliminator/transform/`                                   |
-| Side-effects field for manifest                            | `source/dead-code-eliminator/side-effects-field.ts`                        |
-| Specifier classification                                   | `source/version-manager/specifier-classifier.ts`                           |
-| Manifest assembly                                          | `source/version-manager/manifest/builder.ts`                               |
-| Automatic version comparison                               | `source/bundle-emitter/emitter.ts`, `source/file-manager/compare.ts`       |
-| Check rules                                                | `source/checks/rules/`                                                     |
