@@ -388,10 +388,6 @@ Key properties:
 
 - **Byte-identical comparison.** `compareFileDescriptions` sorts both file lists by `filePath` and checks every file for equality (`source/file-manager/compare.ts`). The `package.json` produced by the serializer is deterministic, so a no-op rebuild yields a no-op publish.
 - **Only patch bumps.** packtory's worldview is "every release could be breaking anyway, so semver minor/major distinctions are noise". This drastically simplifies the algorithm: there is exactly one operation, `semver.inc(v, 'patch')`.
-
-  [![xkcd 1172: Workflow](https://imgs.xkcd.com/comics/workflow.png)](https://xkcd.com/1172/)
-  <sub>*xkcd 1172, "Workflow" — the case for treating every release as potentially breaking.*</sub>
-
 - **The tarball is the source of truth.** packtory does *not* trust the registry's metadata (size, shasum). It downloads and unpacks, then compares contents. This catches "I republished the same version after editing a file" anomalies that show up in some registries.
 
 ### Provenance and OIDC

@@ -7,6 +7,14 @@
 
 Tired of restrictive monorepo conventions? Fed up with complex workspace setups? Want your monorepo to feel as smooth as a single codebase, effortlessly referencing local files? Think semantic versioning (semver) adds unnecessary complexity, and every version should be treated as potentially breaking anyway? Look no further.
 
+<div align="center">
+
+[![xkcd 1172: Workflow](https://imgs.xkcd.com/comics/workflow.png)](https://xkcd.com/1172/)
+
+<sub><i>xkcd 1172 — every change breaks somebody's workflow, so why pretend otherwise?</i></sub>
+
+</div>
+
 Say goodbye to:
 
 - 🔗 Cumbersome workspaces
