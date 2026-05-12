@@ -81,7 +81,7 @@ The scheduler decides which packages can run in parallel without violating depen
 For each generation we collect every package with in-degree 0, then "delete" them (decrement in-degree of their successors), and repeat until the graph is empty. The result is a partition of $V$:
 
 $$
-\text{generations}(G) = [\,V_0, V_1, \ldots, V_k\,]\quad\text{where}\quad V_i = \{v \in V \setminus \bigcup_{j<i}V_j \mid \mathrm{indeg}_{G_i}(v)=0\}
+\text{generations}(G) = [V_0, V_1, \ldots, V_k] \quad \text{where} \quad V_i = \{ v \in V \setminus \bigcup_{j < i} V_j \mid \mathrm{indeg}(v, G_i) = 0 \}
 $$
 
 Packages in the same generation have no path between them and can be executed concurrently with `Promise.allSettled`. The implementation is `getTopologicalGenerations`.
@@ -227,7 +227,7 @@ Three kinds of seeds are added to a set $S$:
 Reachability is then a plain breadth-first closure over the binding graph:
 
 $$
-R = \mathrm{closure}(S,\ \mathrm{neighbors})\quad\text{where}\quad \mathrm{neighbors}(b) = \{\,b' \mid b' \text{ is referenced inside the body of } b\,\}
+R = \mathrm{closure}(S, \mathrm{neighbors}) \quad \text{where} \quad \mathrm{neighbors}(b) = \{ b' \mid b' \text{ is referenced inside the body of } b \}
 $$
 
 The neighbour relation is computed by walking every `Identifier` inside the binding's declaration node and resolving its `Symbol` via the TypeScript compiler. Two consequences:
