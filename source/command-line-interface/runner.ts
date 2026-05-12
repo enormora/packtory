@@ -4,7 +4,9 @@ import type { BuildReport, Packtory, PublishFailure } from '../packtory/packtory
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { PartialError } from '../packtory/scheduler.ts';
+import { buildPreviewDocument } from '../report/preview-document.ts';
 import { renderHtmlReport } from '../report/html-renderer.ts';
+import { renderFailureOnlyTerminalPreview, renderTerminalPreview } from '../report/terminal-preview-renderer.ts';
 import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 import type { ConfigLoader } from './config-loader.ts';
 
@@ -18,6 +20,9 @@ export type CommandLineInterfaceRunnerDependencies = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
     readonly writeReportFile: ReportWriter;
+    readonly pageOutput: (content: string) => Promise<void>;
+    readonly openFile: (filePath: string) => Promise<boolean>;
+    readonly createTemporaryFilePath: () => string;
     log: (message: string) => void;
 };
 
@@ -29,6 +34,10 @@ type CommandParseResult = Awaited<ReturnType<typeof runSafely>>;
 
 type PublishFlags = {
     noDryRun: boolean;
+};
+
+type PreviewFlags = {
+    open: boolean;
 };
 
 type CommandParseError = {
@@ -143,7 +152,9 @@ const jsonIndentSpaces = 2;
 async function writeReports(
     writeReportFile: ReportWriter,
     report: BuildReport | undefined,
-    flags: { readonly reportJson: boolean; readonly reportHtml: boolean }
+    result: Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result'],
+    flags: { readonly reportJson: boolean; readonly reportHtml: boolean },
+    dryRun: boolean
 ): Promise<void> {
     if (report === undefined) {
         return;
@@ -152,7 +163,8 @@ async function writeReports(
         await writeReportFile('packtory-report.json', `${JSON.stringify(report, undefined, jsonIndentSpaces)}\n`);
     }
     if (flags.reportHtml) {
-        await writeReportFile('packtory-report.html', renderHtmlReport(report));
+        const document = await buildPreviewDocument({ report, result, dryRun });
+        await writeReportFile('packtory-report.html', renderHtmlReport(document));
     }
 }
 
@@ -178,7 +190,7 @@ async function reportOutcome(
     } else {
         printSuccessSummary(log, outcome.result.value);
     }
-    await writeReports(writeReportFile, outcome.getReport(), flags);
+    await writeReports(writeReportFile, outcome.getReport(), outcome.result, flags, !flags.noDryRun);
     return exitCode;
 }
 
@@ -199,6 +211,74 @@ async function runPublishHandler(deps: PublishHandlerDeps): Promise<number> {
     }
 }
 
+function createEmptyReport(): BuildReport {
+    return {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        packages: {},
+        aggregate: { crossBundleLinks: [] }
+    };
+}
+
+function isPreviewableResult(result: Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result']): boolean {
+    return result.isOk || (result.error.type === 'partial' && result.error.succeeded.length > 0);
+}
+
+type PreviewHandlerDeps = {
+    readonly log: (message: string) => void;
+    readonly pageOutput: (content: string) => Promise<void>;
+    readonly openFile: (filePath: string) => Promise<boolean>;
+    readonly createTemporaryFilePath: () => string;
+    readonly packtory: Packtory;
+    readonly spinnerRenderer: TerminalSpinnerRenderer;
+    readonly configLoader: ConfigLoader;
+    readonly writeReportFile: ReportWriter;
+    readonly flags: PreviewFlags;
+};
+
+async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<number> {
+    const {
+        log,
+        pageOutput,
+        openFile,
+        createTemporaryFilePath,
+        packtory,
+        spinnerRenderer,
+        configLoader,
+        writeReportFile,
+        flags
+    } = deps;
+    try {
+        const config = await configLoader.load();
+        const outcome = await packtory.buildAndPublishAll(config, {
+            dryRun: true,
+            collectReport: true
+        });
+        spinnerRenderer.stopAll();
+        const report = outcome.getReport() ?? createEmptyReport();
+        const document = await buildPreviewDocument({
+            report,
+            result: outcome.result,
+            dryRun: true
+        });
+        if (flags.open) {
+            const filePath = createTemporaryFilePath();
+            await writeReportFile(filePath, renderHtmlReport(document));
+            const opened = await openFile(filePath);
+            if (!opened) {
+                log(filePath);
+            }
+        } else if (isPreviewableResult(outcome.result)) {
+            await pageOutput(renderTerminalPreview(document));
+        } else {
+            log(renderFailureOnlyTerminalPreview(document).trimEnd());
+        }
+        return outcome.result.isErr ? 1 : 0;
+    } finally {
+        spinnerRenderer.stopAll();
+    }
+}
+
 function getParseExitCode(log: (message: string) => void, result: CommandParseResult): number | undefined {
     if (!hasCommandParseError(result)) {
         return undefined;
@@ -212,9 +292,20 @@ function getParseExitCode(log: (message: string) => void, result: CommandParseRe
 export function createCommandLineInterfaceRunner(
     dependencies: CommandLineInterfaceRunnerDependencies
 ): CommandLineInterfaceRunner {
-    const { log, packtory, progressBroadcaster, spinnerRenderer, configLoader, writeReportFile } = dependencies;
+    const {
+        log,
+        packtory,
+        progressBroadcaster,
+        spinnerRenderer,
+        configLoader,
+        writeReportFile,
+        pageOutput,
+        openFile,
+        createTemporaryFilePath
+    } = dependencies;
     let exitCode = 0;
     const publishCommandName = 'publish';
+    const previewCommandName = 'preview';
     const baseCommand = subcommands({
         name: 'packtory',
         cmds: {
@@ -234,6 +325,27 @@ export function createCommandLineInterfaceRunner(
                         configLoader,
                         writeReportFile,
                         flags: { noDryRun, reportJson, reportHtml }
+                    });
+                    exitCode = handlerExitCode;
+                }
+            }),
+            [previewCommandName]: command({
+                name: previewCommandName,
+                description: 'Builds all packages in fresh dry-run mode and opens a human preview.',
+                args: {
+                    open: flag({ long: 'open' })
+                },
+                async handler({ open }) {
+                    const handlerExitCode = await runPreviewHandler({
+                        log,
+                        pageOutput,
+                        openFile,
+                        createTemporaryFilePath,
+                        packtory,
+                        spinnerRenderer,
+                        configLoader,
+                        writeReportFile,
+                        flags: { open }
                     });
                     exitCode = handlerExitCode;
                 }

@@ -20,12 +20,22 @@ function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
     return 'additional';
 }
 
-export function inspectArtifactSizes(contents: readonly FileDescription[]): readonly ArtifactEntry[] {
+type ArtifactDescriptor = FileDescription & {
+    readonly sourceFilePath?: string | undefined;
+    readonly isSubstituted?: boolean | undefined;
+};
+
+export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): readonly ArtifactEntry[] {
     return contents.map((entry) => {
+        const sourcePath = 'sourceFilePath' in entry ? entry.sourceFilePath : undefined;
+        const rewritten = entry.isSubstituted === true;
         return {
             path: entry.filePath,
             sizeBytes: Buffer.byteLength(entry.content),
-            kind: inferArtifactKind(entry.filePath)
+            kind: inferArtifactKind(entry.filePath),
+            ...(sourcePath === undefined ? {} : { sourcePath }),
+            status: sourcePath === undefined ? 'generated' : rewritten ? 'changed' : 'unchanged',
+            badges: rewritten ? ['import-path-rewrite'] : []
         };
     });
 }

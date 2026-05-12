@@ -244,22 +244,45 @@ test('collectContents() emits an artifactsCollected event with the package name 
 
 test('collectContents() emits artifact entries with size and kind classification', () => {
     const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
-    const received: { entries: readonly { path: string; sizeBytes: number; kind: string }[] }[] = [];
+    const received: {
+        entries: readonly {
+            path: string;
+            sizeBytes: number;
+            kind: string;
+            sourcePath?: string;
+            status: string;
+            badges: readonly string[];
+        }[];
+    }[] = [];
     broadcaster.consumer.on('artifactsCollected', (payload) => {
         received.push({
             entries: payload.entries.map((entry) => {
-                return { path: entry.path, sizeBytes: entry.sizeBytes, kind: entry.kind };
+                return {
+                    path: entry.path,
+                    sizeBytes: entry.sizeBytes,
+                    kind: entry.kind,
+                    ...(entry.sourcePath === undefined ? {} : { sourcePath: entry.sourcePath }),
+                    status: entry.status,
+                    badges: entry.badges
+                };
             })
         });
     });
 
-    builder.collectContents(bundleWithContents([makeContent('a.js', 'abc')], 'package.json'));
+    builder.collectContents(bundleWithContents([makeContent('a.js', 'abc', true)], 'package.json'));
 
     assert.deepStrictEqual(received, [
         {
             entries: [
-                { path: 'package.json', sizeBytes: 2, kind: 'manifest' },
-                { path: 'a.js', sizeBytes: 3, kind: 'source' }
+                { path: 'package.json', sizeBytes: 2, kind: 'manifest', status: 'generated', badges: [] },
+                {
+                    path: 'a.js',
+                    sizeBytes: 3,
+                    kind: 'source',
+                    sourcePath: '/foo/bar.txt',
+                    status: 'changed',
+                    badges: ['import-path-rewrite']
+                }
             ]
         }
     ]);

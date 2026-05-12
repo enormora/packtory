@@ -10,6 +10,11 @@ import { createCommandLineInterfaceRunner } from '../../command-line-interface/r
 import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.ts';
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner-worker-backend.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
+import {
+    createTemporaryPreviewHtmlPath,
+    openPreviewFile,
+    pagePreviewOutput
+} from '../../command-line-interface/preview-io.ts';
 import { createPacktory } from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
@@ -63,6 +68,14 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     writeReportFile: async (filePath, content) => {
         await fs.writeFile(filePath, content);
     },
+    pageOutput: async (content) => {
+        const didPage = await pagePreviewOutput(content);
+        if (!didPage) {
+            console.log(content);
+        }
+    },
+    openFile: openPreviewFile,
+    createTemporaryFilePath: createTemporaryPreviewHtmlPath,
     log: console.log
 });
 

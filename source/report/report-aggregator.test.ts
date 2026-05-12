@@ -73,8 +73,15 @@ test('aggregator captures artifactsCollected entries and computes totalBytes', (
     broadcaster.provider.emit('artifactsCollected', {
         packageName: 'pkg-a',
         entries: [
-            { path: 'package.json', sizeBytes: 50, kind: 'manifest' },
-            { path: 'index.js', sizeBytes: 100, kind: 'source' }
+            { path: 'package.json', sizeBytes: 50, kind: 'manifest', status: 'generated', badges: [] },
+            {
+                path: 'index.js',
+                sizeBytes: 100,
+                kind: 'source',
+                sourcePath: '/src/index.js',
+                status: 'unchanged',
+                badges: []
+            }
         ]
     });
 
@@ -253,7 +260,10 @@ test('eliminationCompleted assigns each perBundle entry to its own package', () 
             },
             {
                 packageName: 'pkg-b',
-                files: [{ path: '/src/b.ts', decision: 'kept', reason: 'reachable', sourceBytes: 1 }],
+                files: [
+                    { path: '/src/b.ts', decision: 'kept', reason: 'reachable', sourceBytes: 1 },
+                    { path: '/src/c.ts', decision: 'eliminated', reason: 'not-emitted-after-analysis', sourceBytes: 2 }
+                ],
                 droppedSymbols: [{ file: '/src/b.ts', symbolName: 'x', kind: 'function', reason: 'unused' }],
                 seeds: [{ binding: 'shared', sourceBundle: 'pkg-a', consumerBundle: 'pkg-b', gatedBy: 'import' }]
             }
@@ -273,8 +283,12 @@ test('eliminationCompleted assigns each perBundle entry to its own package', () 
     assert.deepStrictEqual(decisionsB.symbols, [
         { file: '/src/b.ts', symbolName: 'x', kind: 'function', reason: 'unused' }
     ]);
+    assert.deepStrictEqual(decisionsB.files, [{ path: '/src/b.ts', decision: 'kept', reason: 'reachable', sourceBytes: 1 }]);
     assert.deepStrictEqual(decisionsB.seeds, [
         { binding: 'shared', sourceBundle: 'pkg-a', consumerBundle: 'pkg-b', gatedBy: 'import' }
+    ]);
+    assert.deepStrictEqual(pkgB?.eliminatedSourceFiles, [
+        { path: '/src/c.ts', reason: 'not-emitted-after-analysis', sourceBytes: 2 }
     ]);
 });
 
@@ -298,6 +312,106 @@ test('artifactsCollected reports totalBytes 0 for an empty entries list', () => 
     broadcaster.provider.emit('artifactsCollected', { packageName: 'pkg-a', entries: [] });
 
     assert.strictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.totalBytes, 0);
+});
+
+test('artifacts are marked changed and gain a DCE badge when elimination reported a transformed file', () => {
+    const broadcaster = createProgressBroadcaster();
+    const aggregator = createReportAggregator(broadcaster.consumer);
+
+    broadcaster.provider.emit('artifactsCollected', {
+        packageName: 'pkg-a',
+        entries: [
+            {
+                path: 'index.js',
+                sizeBytes: 20,
+                kind: 'source',
+                sourcePath: '/src/index.js',
+                status: 'unchanged',
+                badges: []
+            }
+        ]
+    });
+    broadcaster.provider.emit('eliminationCompleted', {
+        perBundle: [
+            {
+                packageName: 'pkg-a',
+                files: [
+                    {
+                        path: '/src/index.js',
+                        decision: 'transformed',
+                        reason: 'rewritten-after-analysis',
+                        sourceBytes: 30,
+                        outputBytes: 20
+                    }
+                ],
+                droppedSymbols: [],
+                seeds: []
+            }
+        ]
+    });
+
+    assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.entries, [
+        {
+            path: 'index.js',
+            sizeBytes: 20,
+            kind: 'source',
+            sourcePath: '/src/index.js',
+            status: 'changed',
+            badges: ['dead-code-elimination']
+        }
+    ]);
+});
+
+test('artifacts merge import rewrite badges with transformed status', () => {
+    const broadcaster = createProgressBroadcaster();
+    const aggregator = createReportAggregator(broadcaster.consumer);
+
+    broadcaster.provider.emit('artifactsCollected', {
+        packageName: 'pkg-a',
+        entries: [
+            {
+                path: 'index.js',
+                sizeBytes: 20,
+                kind: 'source',
+                sourcePath: '/src/index.js',
+                status: 'changed',
+                badges: ['import-path-rewrite']
+            }
+        ]
+    });
+    broadcaster.provider.emit('linkingCompleted', {
+        packageName: 'pkg-a',
+        rewrites: [{ file: '/src/index.js', fromSpecifier: './dep.js', toSpecifier: 'pkg-b', targetBundle: 'pkg-b' }]
+    });
+    broadcaster.provider.emit('eliminationCompleted', {
+        perBundle: [
+            {
+                packageName: 'pkg-a',
+                files: [
+                    {
+                        path: '/src/index.js',
+                        decision: 'transformed',
+                        reason: 'rewritten-after-analysis',
+                        sourceBytes: 30,
+                        outputBytes: 20
+                    }
+                ],
+                droppedSymbols: [],
+                seeds: []
+            }
+        ]
+    });
+
+    assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.entries, [
+        {
+            path: 'index.js',
+            sizeBytes: 20,
+            kind: 'source',
+            sourcePath: '/src/index.js',
+            status: 'changed',
+            badges: ['import-path-rewrite', 'dead-code-elimination']
+        }
+    ]);
 });
 
 test('aggregator collects multiple packages independently', () => {

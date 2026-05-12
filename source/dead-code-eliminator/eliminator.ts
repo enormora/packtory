@@ -194,7 +194,13 @@ export function createDeadCodeEliminator(dependencies: DeadCodeEliminatorDepende
             const analyzed = loadedBundles.map((loaded) => {
                 return analyzeBundleWithSeeds(loaded, seedMap.get(loaded.input.bundle.name));
             });
-            maybeEmitElimination(progressBroadcaster, analyzed);
+            maybeEmitElimination(
+                progressBroadcaster,
+                inputs.map((input) => {
+                    return input.bundle;
+                }),
+                analyzed
+            );
             return analyzed;
         }
     };
