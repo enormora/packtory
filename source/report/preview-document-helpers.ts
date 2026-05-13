@@ -26,13 +26,22 @@ export type PreviewArtifact = ArtifactEntry & {
     readonly diff?: readonly PreviewDiffHunk[];
 };
 
-export type PreviewArtifactNode = {
+export type PreviewDirectoryNode = {
     readonly path: string;
     readonly name: string;
     readonly depth: number;
-    readonly type: 'directory' | 'file';
-    readonly artifact?: PreviewArtifact;
+    readonly type: 'directory';
 };
+
+export type PreviewFileNode = {
+    readonly path: string;
+    readonly name: string;
+    readonly depth: number;
+    readonly type: 'file';
+    readonly artifact: PreviewArtifact;
+};
+
+export type PreviewArtifactNode = PreviewDirectoryNode | PreviewFileNode;
 
 type FinalArtifactContent = {
     readonly content: string;
@@ -192,7 +201,7 @@ function flattenTree(directory: RootDirectory): readonly PreviewArtifactNode[] {
             name: entry.name,
             depth: entry.depth,
             type: 'directory'
-        } satisfies PreviewArtifactNode;
+        } satisfies PreviewDirectoryNode;
         return {
             node,
             directory: entry,
@@ -206,7 +215,7 @@ function flattenTree(directory: RootDirectory): readonly PreviewArtifactNode[] {
             depth: directory.depth,
             type: 'file',
             artifact
-        } satisfies PreviewArtifactNode;
+        } satisfies PreviewFileNode;
         return {
             node,
             sortKey: treeNodeSortKey(node)

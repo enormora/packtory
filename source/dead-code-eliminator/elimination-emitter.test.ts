@@ -163,7 +163,11 @@ test('maybeEmitElimination() marks a file as transformed with the rewritten-afte
     broadcaster.consumer.on('eliminationCompleted', (payload) => {
         for (const bundleResult of payload.perBundle) {
             for (const file of bundleResult.files) {
-                received.push({ decision: file.decision, reason: file.reason, outputBytes: file.outputBytes });
+                received.push({
+                    decision: file.decision,
+                    reason: file.reason,
+                    ...(file.outputBytes === undefined ? {} : { outputBytes: file.outputBytes })
+                });
             }
         }
     });

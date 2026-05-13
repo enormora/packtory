@@ -140,20 +140,6 @@ test('embeds the entire BuildReport as escaped JSON in the data script tag', () 
     assert.deepStrictEqual(JSON.parse(decodeHtmlEntities(encoded)), document.report);
 });
 
-test('throws when a file node is missing its artifact payload', () => {
-    assert.throws(() => {
-        renderHtmlReport(
-            createPreviewDocumentFixture({
-                packages: [
-                    createPreviewPackageFixture({
-                        tree: [{ path: 'index.js', name: 'index.js', depth: 0, type: 'file' }]
-                    })
-                ]
-            })
-        );
-    }, /Artifact missing/);
-});
-
 test('renders package names from the provided report', () => {
     const html = renderHtmlReport(
         createPreviewDocumentFixture({

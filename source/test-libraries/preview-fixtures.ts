@@ -182,15 +182,7 @@ export function createDirectoryDiffPreviewPackageFixture(overrides: Partial<Prev
                 path: 'src',
                 name: 'src',
                 depth: 0,
-                type: 'directory',
-                artifact: {
-                    path: 'src/index.js',
-                    sizeBytes: 20,
-                    kind: 'source',
-                    status: 'changed',
-                    badges: [],
-                    diff: [{ header: '@@ -1,1 +1,1 @@', lines: [] }]
-                }
+                type: 'directory'
             }
         ],
         ...overrides

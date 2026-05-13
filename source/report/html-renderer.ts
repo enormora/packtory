@@ -6,7 +6,7 @@ import {
     type PreviewDocument,
     type PreviewPackage
 } from './preview-document.ts';
-import { collectChangedArtifacts } from './changed-artifacts.ts';
+import { collectChangedArtifacts, type ChangedPreviewArtifact } from './changed-artifacts.ts';
 import { escapeHtml } from './html-escaping.ts';
 import type { PreviewArtifactNode, PreviewDiffLine } from './preview-document-helpers.ts';
 
@@ -41,9 +41,6 @@ function renderArtifactNode(node: PreviewArtifactNode): string {
         return `<li class="tree-row directory" style="--depth:${node.depth}"><span class="tree-name">${escapeHtml(node.name)}/</span></li>`;
     }
     const { artifact } = node;
-    if (artifact === undefined) {
-        throw new Error(`Artifact missing for file node "${node.path}"`);
-    }
     const badges = [
         renderBadge(artifactStatusLabel(artifact.status), `status-${artifact.status}`),
         ...artifact.badges.map((badge) => {
@@ -69,7 +66,7 @@ function renderDiffHunk(header: string, lines: readonly PreviewDiffLine[]): stri
     return `<div class="diff-hunk"><div class="diff-header">${escapeHtml(header)}</div>${renderedLines}</div>`;
 }
 
-function renderArtifactDiff(artifact: NonNullable<PreviewArtifactNode['artifact']>): string {
+function renderArtifactDiff(artifact: ChangedPreviewArtifact): string {
     let hunks = '';
     for (const hunk of artifact.diff) {
         hunks += renderDiffHunk(hunk.header, hunk.lines);

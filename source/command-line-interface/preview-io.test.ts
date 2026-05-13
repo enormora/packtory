@@ -1,36 +1,55 @@
 /* eslint-disable no-restricted-syntax, functional/no-this-expressions, destructuring/in-params, sonarjs/publicly-writable-directories, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, no-undef -- fake child-process scaffolding is intentionally imperative in these tests */
 import assert from 'node:assert';
 import { test } from 'mocha';
-import { createPreviewIo, defaultSpawnProcess, type SpawnedProcess } from './preview-io-shared.ts';
+import {
+    createPreviewIo,
+    defaultSpawnProcess,
+    type SpawnedProcess,
+    type SpawnOptions
+} from './preview-io-shared.ts';
 import { previewIo as defaultPreviewIo } from './preview-io.ts';
 
 type FakeSpawnResult = {
     readonly command: string;
     readonly args: readonly string[];
-    readonly options: {
-        readonly stdio: readonly ['pipe', 'inherit', 'inherit'] | 'ignore';
-        readonly detached?: boolean;
-    };
+    readonly options: SpawnOptions;
     readonly child: FakeSpawnedProcess;
 };
 
+type PreviewIoFactoryOverrides = {
+    readonly pager?: string | undefined;
+    readonly platform?: NodeJS.Platform;
+    readonly shell?: string | undefined;
+    readonly stdoutIsTTY?: boolean;
+    readonly spawnHook?: ((result: FakeSpawnResult) => void) | undefined;
+    readonly stdinMode?: 'null' | 'pipe';
+};
+
 class FakeSpawnedProcess implements SpawnedProcess {
+    readonly stdin;
+
     readonly listeners: {
         close?: (code?: number) => void;
         error?: () => void;
         stdinError?: () => void;
     } = {};
 
-    readonly stdin = {
-        on: (eventName: string, listener: () => void): void => {
-            if (eventName === 'error') {
-                this.listeners.stdinError = listener;
-            }
-        },
-        end: (content: string): void => {
-            this.endedContent = content;
+    constructor(stdinMode: PreviewIoFactoryOverrides['stdinMode'] = 'pipe') {
+        if (stdinMode === 'null') {
+            this.stdin = null;
+            return;
         }
-    };
+        this.stdin = {
+            on: (eventName: string, listener: () => void): void => {
+                if (eventName === 'error') {
+                    this.listeners.stdinError = listener;
+                }
+            },
+            end: (content: string): void => {
+                this.endedContent = content;
+            }
+        };
+    }
 
     endedContent = '';
 
@@ -52,18 +71,12 @@ class FakeSpawnedProcess implements SpawnedProcess {
 }
 
 function previewIoFactory(
-    overrides: {
-        readonly pager?: string | undefined;
-        readonly platform?: NodeJS.Platform;
-        readonly shell?: string | undefined;
-        readonly stdoutIsTTY?: boolean;
-        readonly spawnHook?: ((result: FakeSpawnResult) => void) | undefined;
-    } = {}
+    overrides: PreviewIoFactoryOverrides = {}
 ) {
     const calls: FakeSpawnResult[] = [];
     const previewIo = createPreviewIo({
         spawnProcess: (command, args, options) => {
-            const child = new FakeSpawnedProcess();
+            const child = new FakeSpawnedProcess(overrides.stdinMode);
             const result = { command, args, options, child };
             calls.push(result);
             overrides.spawnHook?.(result);
@@ -87,8 +100,8 @@ function requireFirstCall(calls: readonly FakeSpawnResult[]): FakeSpawnResult {
     return firstCall;
 }
 
-function closeProcess(code: number): NonNullable<Parameters<typeof previewIoFactory>[0]['spawnHook']> {
-    return ({ child }) => {
+function closeProcess(code: number): NonNullable<PreviewIoFactoryOverrides['spawnHook']> {
+    return ({ child }: FakeSpawnResult) => {
         queueMicrotask(() => {
             child.listeners.close?.(code);
         });
@@ -97,8 +110,8 @@ function closeProcess(code: number): NonNullable<Parameters<typeof previewIoFact
 
 function emitProcessError(
     kind: 'error' | 'stdinError'
-): NonNullable<Parameters<typeof previewIoFactory>[0]['spawnHook']> {
-    return ({ child }) => {
+): NonNullable<PreviewIoFactoryOverrides['spawnHook']> {
+    return ({ child }: FakeSpawnResult) => {
         queueMicrotask(() => {
             child.listeners[kind]?.();
         });
@@ -189,6 +202,12 @@ test('pagePreviewOutput returns false when stdin errors', async () => {
     assert.strictEqual(await io.pagePreviewOutput('content'), false);
 });
 
+test('pagePreviewOutput returns false when the spawned pager process exposes a null stdin stream', async () => {
+    const { previewIo: io } = previewIoFactory({ stdinMode: 'null' });
+
+    assert.strictEqual(await io.pagePreviewOutput('content'), false);
+});
+
 test('openPreviewFile uses open on macOS', async () => {
     const { previewIo: io, calls } = previewIoFactory({ platform: 'darwin' });
 
@@ -250,7 +269,25 @@ test('defaultSpawnProcess delegates to child_process.spawn with array args', asy
         stdio: ['pipe', 'inherit', 'inherit']
     });
 
+    if (child.stdin === null) {
+        assert.fail('expected stdin to be available for pipe stdio');
+    }
     child.stdin.end('');
+    const exitCode = await new Promise<number | undefined>((resolve) => {
+        child.on('close', resolve);
+    });
+
+    assert.strictEqual(exitCode, 0);
+});
+
+test('defaultSpawnProcess preserves ignored stdio', async () => {
+    const child = defaultSpawnProcess(process.execPath, ['-e', 'process.exit(0)'], {
+        detached: true,
+        stdio: 'ignore'
+    });
+
+    assert.strictEqual(child.stdin, null);
+    child.unref();
     const exitCode = await new Promise<number | undefined>((resolve) => {
         child.on('close', resolve);
     });

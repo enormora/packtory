@@ -23,9 +23,6 @@ function renderArtifactNode(node: PreviewArtifactNode, colors: Colors): string {
         return `${indent}${colors.bold(`▸ ${node.name}/`)}`;
     }
     const { artifact } = node;
-    if (artifact === undefined) {
-        throw new Error(`Artifact missing for file node "${node.path}"`);
-    }
     const badgeParts = [
         artifactStatusLabel(artifact.status),
         ...artifact.badges.map((badge) => {

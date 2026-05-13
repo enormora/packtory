@@ -7,14 +7,19 @@ export type SpawnedProcess = {
     readonly stdin: {
         readonly on: (eventName: 'error', listener: () => void) => void;
         readonly end: (content: string) => void;
-    };
+    } | null;
     readonly unref: () => void;
 };
 
-type SpawnFunction = (
+export type SpawnOptions = {
+    readonly stdio: readonly ['pipe', 'inherit', 'inherit'] | 'ignore';
+    readonly detached?: boolean;
+};
+
+export type SpawnFunction = (
     command: string,
     args: readonly string[],
-    options: { readonly stdio: readonly ['pipe', 'inherit', 'inherit'] | 'ignore'; readonly detached?: boolean }
+    options: SpawnOptions
 ) => SpawnedProcess;
 
 export type PreviewIoDependencies = {
@@ -41,10 +46,12 @@ type RunDetachedCommandOptions = {
 export function defaultSpawnProcess(
     command: string,
     args: readonly string[],
-    // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- use the node:child_process option type directly to stay aligned with spawn()
-    options: Parameters<typeof spawn>[2]
+    options: SpawnOptions
 ): SpawnedProcess {
-    return spawn(command, Array.from(args), options);
+    return spawn(command, Array.from(args), {
+        ...options,
+        stdio: options.stdio === 'ignore' ? 'ignore' : Array.from(options.stdio)
+    });
 }
 
 export function createPreviewIo(dependencies: PreviewIoDependencies): PreviewIo {
@@ -55,6 +62,10 @@ export function createPreviewIo(dependencies: PreviewIoDependencies): PreviewIo 
             const child = dependencies.spawnProcess(command, args, {
                 stdio: ['pipe', 'inherit', 'inherit']
             });
+            if (child.stdin === null) {
+                resolve(false);
+                return;
+            }
             child.on('error', () => {
                 resolve(false);
             });

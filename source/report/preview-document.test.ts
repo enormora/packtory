@@ -28,17 +28,11 @@ import {
     getSucceededResults,
     hasMeaningfulChanges,
     isPreviewableResult,
-    type PreviewArtifactNode,
-    type PreviewArtifact
+    type PreviewFileNode
 } from './preview-document-helpers.ts';
 import { isDiffableArtifact, toDiffLineType } from './preview-document-diff.ts';
 import { compareTreeNodes, treeNodeSortKey } from './preview-document-tree.ts';
 import type { BuildReport, PackageReport } from './report-aggregator.ts';
-
-type PreviewFileNode = PreviewArtifactNode & {
-    readonly type: 'file';
-    readonly artifact: PreviewArtifact;
-};
 
 const eliminatedUnusedFile = {
     path: '/workspace/src/unused.js',
@@ -46,7 +40,7 @@ const eliminatedUnusedFile = {
     sourceBytes: 14
 } as const;
 
-function buildResult(overrides: Partial<BuildAndPublishResult> = {}): BuildAndPublishResult {
+function buildResult(overrides: Parameters<typeof createBuildResultFixture>[0] = {}): BuildAndPublishResult {
     return createBuildResultFixture({
         contents: [
             createAnalyzedResource({
@@ -534,8 +528,7 @@ test('buildPreviewDocument leaves versionTransition undefined when no version de
         report: createBuildReportFixture({
             packages: {
                 'pkg-a': createPackageReport(
-                    [createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })],
-                    { eliminatedSourceFiles: undefined }
+                    [createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })]
                 )
             }
         }),
@@ -618,7 +611,8 @@ test('artifact label helpers return the expected labels for unchanged and rewrit
 });
 
 test('preview helper functions classify result shapes exactly', () => {
-    const success = Result.ok([buildResult()]);
+    const succeeded = [buildResult()];
+    const success = Result.ok(succeeded);
     const partialError = { type: 'partial' as const, succeeded: [buildResult()], failures: [new Error('boom')] };
     const partial = Result.err(partialError);
     const partialOnlyFailures = Result.err({
@@ -632,7 +626,7 @@ test('preview helper functions classify result shapes exactly', () => {
     assert.strictEqual(isPreviewableResult(success), true);
     assert.strictEqual(isPreviewableResult(partial), true);
     assert.strictEqual(isPreviewableResult(partialOnlyFailures), false);
-    assert.deepStrictEqual(getSucceededResults(success), success.value);
+    assert.deepStrictEqual(getSucceededResults(success), succeeded);
     assert.deepStrictEqual(getSucceededResults(partial), partialError.succeeded);
     assert.deepStrictEqual(getSucceededResults(checks), []);
     assert.deepStrictEqual(getIssues(checks), ['bad']);
@@ -769,21 +763,12 @@ test('preview helper functions sort and flatten tree nodes with package.json fir
         ]
     );
     assert.ok(
-        compareTreeNodes(
-            { path: 'package.json', name: 'package.json', depth: 0, type: 'file' },
-            { path: 'src', name: 'src', depth: 0, type: 'directory' }
-        ) < 0
+        compareTreeNodes({ name: 'package.json', type: 'file' }, { name: 'src', type: 'directory' }) < 0
     );
     assert.ok(
-        compareTreeNodes(
-            { path: 'package.json', name: 'package.json', depth: 0, type: 'directory' },
-            { path: 'package.json', name: 'package.json', depth: 0, type: 'file' }
-        ) > 0
+        compareTreeNodes({ name: 'package.json', type: 'directory' }, { name: 'package.json', type: 'file' }) > 0
     );
-    assert.strictEqual(
-        treeNodeSortKey({ path: 'package.json', name: 'package.json', depth: 0, type: 'file' }),
-        '0:package.json'
-    );
+    assert.strictEqual(treeNodeSortKey({ name: 'package.json', type: 'file' }), '0:package.json');
 });
 
 test('buildArtifactTree uses a path-based tiebreak when sort keys match', () => {

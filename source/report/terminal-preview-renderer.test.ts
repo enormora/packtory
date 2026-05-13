@@ -119,21 +119,6 @@ test('renderTerminalPreview supports color-enabled rendering', () => {
     assert.ok(output.includes('Packtory preview'));
 });
 
-test('renderTerminalPreview throws when a file node is missing its artifact payload', () => {
-    assert.throws(() => {
-        renderTerminalPreview(
-            createPreviewDocumentFixture({
-                packages: [
-                    createPreviewPackageFixture({
-                        tree: [{ path: 'index.js', name: 'index.js', depth: 0, type: 'file' }]
-                    })
-                ]
-            }),
-            { color: false }
-        );
-    }, /Artifact missing/);
-});
-
 test('renderTerminalPreview renders context diff lines unchanged', () => {
     const output = renderTerminalPreview(
         createPreviewDocumentFixture({

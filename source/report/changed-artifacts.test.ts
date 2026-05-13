@@ -3,12 +3,12 @@ import { test } from 'mocha';
 import { createPreviewPackageFixture } from '../test-libraries/preview-fixtures.ts';
 import { collectChangedArtifacts } from './changed-artifacts.ts';
 
-test('collectChangedArtifacts ignores file nodes without artifact payloads', () => {
+test('collectChangedArtifacts ignores non-file nodes and unchanged files', () => {
     assert.deepStrictEqual(
         collectChangedArtifacts(
             createPreviewPackageFixture({
                 tree: [
-                    { path: 'broken.js', name: 'broken.js', depth: 0, type: 'file' },
+                    { path: 'src', name: 'src', depth: 0, type: 'directory' },
                     {
                         path: 'ok.js',
                         name: 'ok.js',
@@ -21,6 +21,19 @@ test('collectChangedArtifacts ignores file nodes without artifact payloads', () 
                             status: 'changed',
                             badges: [],
                             diff: [{ header: '@@ -1,1 +1,1 @@', lines: [] }]
+                        }
+                    },
+                    {
+                        path: 'same.js',
+                        name: 'same.js',
+                        depth: 0,
+                        type: 'file',
+                        artifact: {
+                            path: 'same.js',
+                            sizeBytes: 1,
+                            kind: 'source',
+                            status: 'unchanged',
+                            badges: []
                         }
                     }
                 ]
