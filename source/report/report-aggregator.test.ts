@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { mergeArtifactEntry } from './artifact-entry-merger.ts';
 import { createReportAggregator } from './report-aggregator.ts';
 
 test('aggregator captures inputsResolved into the package report', () => {
@@ -73,8 +74,15 @@ test('aggregator captures artifactsCollected entries and computes totalBytes', (
     broadcaster.provider.emit('artifactsCollected', {
         packageName: 'pkg-a',
         entries: [
-            { path: 'package.json', sizeBytes: 50, kind: 'manifest' },
-            { path: 'index.js', sizeBytes: 100, kind: 'source' }
+            { path: 'package.json', sizeBytes: 50, kind: 'manifest', status: 'generated', badges: [] },
+            {
+                path: 'index.js',
+                sizeBytes: 100,
+                kind: 'source',
+                sourcePath: '/src/index.js',
+                status: 'unchanged',
+                badges: []
+            }
         ]
     });
 
@@ -84,6 +92,113 @@ test('aggregator captures artifactsCollected entries and computes totalBytes', (
     }
     assert.strictEqual(tarball.totalBytes, 150);
     assert.strictEqual(tarball.entries.length, 2);
+});
+
+test('mergeArtifactEntry preserves artifacts without source paths and only marks transformed files as changed', () => {
+    const manifest = { path: 'package.json', sizeBytes: 2, kind: 'manifest', status: 'generated', badges: [] } as const;
+
+    assert.strictEqual(mergeArtifactEntry(manifest, new Set(['/src/index.js']), new Set(['/src/index.js'])), manifest);
+    assert.deepStrictEqual(
+        mergeArtifactEntry(
+            {
+                path: 'index.js',
+                sizeBytes: 20,
+                kind: 'source',
+                sourcePath: '/src/index.js',
+                status: 'unchanged',
+                badges: []
+            },
+            new Set<string>(),
+            new Set(['/src/index.js'])
+        ),
+        {
+            path: 'index.js',
+            sizeBytes: 20,
+            kind: 'source',
+            sourcePath: '/src/index.js',
+            status: 'changed',
+            badges: ['dead-code-elimination']
+        }
+    );
+});
+
+test('only transformed DCE files contribute changed status when outputs are materialized', () => {
+    const broadcaster = createProgressBroadcaster();
+    const aggregator = createReportAggregator(broadcaster.consumer);
+
+    broadcaster.provider.emit('artifactsCollected', {
+        packageName: 'pkg-a',
+        entries: [
+            {
+                path: 'package.json',
+                sizeBytes: 2,
+                kind: 'manifest',
+                status: 'generated',
+                badges: []
+            },
+            {
+                path: 'index.js',
+                sizeBytes: 20,
+                kind: 'source',
+                sourcePath: '/src/index.js',
+                status: 'unchanged',
+                badges: []
+            },
+            {
+                path: 'kept.js',
+                sizeBytes: 10,
+                kind: 'source',
+                sourcePath: '/src/kept.js',
+                status: 'unchanged',
+                badges: []
+            }
+        ]
+    });
+    broadcaster.provider.emit('eliminationCompleted', {
+        perBundle: [
+            {
+                packageName: 'pkg-a',
+                files: [
+                    {
+                        path: '/src/index.js',
+                        decision: 'transformed',
+                        reason: 'rewritten-after-analysis',
+                        sourceBytes: 30,
+                        outputBytes: 20
+                    },
+                    { path: '/src/kept.js', decision: 'kept', reason: 'reachable', sourceBytes: 10 }
+                ],
+                droppedSymbols: [],
+                seeds: []
+            }
+        ]
+    });
+
+    assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.entries, [
+        {
+            path: 'package.json',
+            sizeBytes: 2,
+            kind: 'manifest',
+            status: 'generated',
+            badges: []
+        },
+        {
+            path: 'index.js',
+            sizeBytes: 20,
+            kind: 'source',
+            sourcePath: '/src/index.js',
+            status: 'changed',
+            badges: ['dead-code-elimination']
+        },
+        {
+            path: 'kept.js',
+            sizeBytes: 10,
+            kind: 'source',
+            sourcePath: '/src/kept.js',
+            status: 'unchanged',
+            badges: []
+        }
+    ]);
 });
 
 test('aggregator build() is memoised - second call returns the same object reference', () => {
@@ -174,6 +289,73 @@ function aggregatorWithEffectiveConfig(): ReturnType<typeof createReportAggregat
     return aggregator;
 }
 
+function aggregatorWithBroadcaster() {
+    const broadcaster = createProgressBroadcaster();
+    return {
+        broadcaster,
+        aggregator: createReportAggregator(broadcaster.consumer)
+    };
+}
+
+function emitCollectedSourceArtifact(
+    broadcaster: ReturnType<typeof createProgressBroadcaster>,
+    entry: {
+        readonly status: 'changed' | 'unchanged';
+        readonly badges: readonly ('dead-code-elimination' | 'import-path-rewrite')[];
+    }
+): void {
+    broadcaster.provider.emit('artifactsCollected', {
+        packageName: 'pkg-a',
+        entries: [
+            {
+                path: 'index.js',
+                sizeBytes: 20,
+                kind: 'source',
+                sourcePath: '/src/index.js',
+                status: entry.status,
+                badges: entry.badges
+            }
+        ]
+    });
+}
+
+function emitTransformedElimination(broadcaster: ReturnType<typeof createProgressBroadcaster>): void {
+    broadcaster.provider.emit('eliminationCompleted', {
+        perBundle: [
+            {
+                packageName: 'pkg-a',
+                files: [
+                    {
+                        path: '/src/index.js',
+                        decision: 'transformed',
+                        reason: 'rewritten-after-analysis',
+                        sourceBytes: 30,
+                        outputBytes: 20
+                    }
+                ],
+                droppedSymbols: [],
+                seeds: []
+            }
+        ]
+    });
+}
+
+function expectSingleMergedArtifact(
+    aggregator: ReturnType<typeof createReportAggregator>,
+    badges: readonly ('dead-code-elimination' | 'import-path-rewrite')[]
+): void {
+    assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.entries, [
+        {
+            path: 'index.js',
+            sizeBytes: 20,
+            kind: 'source',
+            sourcePath: '/src/index.js',
+            status: 'changed',
+            badges
+        }
+    ]);
+}
+
 test('effectiveConfigResolved records the redacted config under inputs.effectiveConfig', () => {
     const aggregator = aggregatorWithEffectiveConfig();
 
@@ -253,7 +435,10 @@ test('eliminationCompleted assigns each perBundle entry to its own package', () 
             },
             {
                 packageName: 'pkg-b',
-                files: [{ path: '/src/b.ts', decision: 'kept', reason: 'reachable', sourceBytes: 1 }],
+                files: [
+                    { path: '/src/b.ts', decision: 'kept', reason: 'reachable', sourceBytes: 1 },
+                    { path: '/src/c.ts', decision: 'eliminated', reason: 'not-emitted-after-analysis', sourceBytes: 2 }
+                ],
                 droppedSymbols: [{ file: '/src/b.ts', symbolName: 'x', kind: 'function', reason: 'unused' }],
                 seeds: [{ binding: 'shared', sourceBundle: 'pkg-a', consumerBundle: 'pkg-b', gatedBy: 'import' }]
             }
@@ -273,8 +458,19 @@ test('eliminationCompleted assigns each perBundle entry to its own package', () 
     assert.deepStrictEqual(decisionsB.symbols, [
         { file: '/src/b.ts', symbolName: 'x', kind: 'function', reason: 'unused' }
     ]);
+    assert.deepStrictEqual(decisionsB.files, [
+        {
+            path: '/src/b.ts',
+            decision: 'kept',
+            reason: 'reachable',
+            sourceBytes: 1
+        }
+    ]);
     assert.deepStrictEqual(decisionsB.seeds, [
         { binding: 'shared', sourceBundle: 'pkg-a', consumerBundle: 'pkg-b', gatedBy: 'import' }
+    ]);
+    assert.deepStrictEqual(pkgB?.eliminatedSourceFiles, [
+        { path: '/src/c.ts', reason: 'not-emitted-after-analysis', sourceBytes: 2 }
     ]);
 });
 
@@ -298,6 +494,110 @@ test('artifactsCollected reports totalBytes 0 for an empty entries list', () => 
     broadcaster.provider.emit('artifactsCollected', { packageName: 'pkg-a', entries: [] });
 
     assert.strictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.totalBytes, 0);
+});
+
+test('artifacts are marked changed and gain a DCE badge when elimination reported a transformed file', () => {
+    const { broadcaster, aggregator } = aggregatorWithBroadcaster();
+
+    emitCollectedSourceArtifact(broadcaster, { status: 'unchanged', badges: [] });
+    emitTransformedElimination(broadcaster);
+
+    expectSingleMergedArtifact(aggregator, ['dead-code-elimination']);
+});
+
+test('artifacts merge import rewrite badges with transformed status', () => {
+    const { broadcaster, aggregator } = aggregatorWithBroadcaster();
+
+    emitCollectedSourceArtifact(broadcaster, { status: 'changed', badges: ['import-path-rewrite'] });
+    broadcaster.provider.emit('linkingCompleted', {
+        packageName: 'pkg-a',
+        rewrites: [{ file: '/src/index.js', fromSpecifier: './dep.js', toSpecifier: 'pkg-b', targetBundle: 'pkg-b' }]
+    });
+    emitTransformedElimination(broadcaster);
+
+    expectSingleMergedArtifact(aggregator, ['import-path-rewrite', 'dead-code-elimination']);
+});
+
+test('artifacts gain an import rewrite badge and changed status when linking rewrites the source file', () => {
+    const { broadcaster, aggregator } = aggregatorWithBroadcaster();
+
+    emitCollectedSourceArtifact(broadcaster, { status: 'unchanged', badges: [] });
+    broadcaster.provider.emit('linkingCompleted', {
+        packageName: 'pkg-a',
+        rewrites: [{ file: '/src/index.js', fromSpecifier: './dep.js', toSpecifier: 'pkg-b', targetBundle: 'pkg-b' }]
+    });
+
+    expectSingleMergedArtifact(aggregator, ['import-path-rewrite']);
+});
+
+test('artifacts without source paths stay unchanged when merge metadata is applied', () => {
+    const broadcaster = createProgressBroadcaster();
+    const aggregator = createReportAggregator(broadcaster.consumer);
+
+    broadcaster.provider.emit('artifactsCollected', {
+        packageName: 'pkg-a',
+        entries: [{ path: 'package.json', sizeBytes: 5, kind: 'manifest', status: 'generated', badges: [] }]
+    });
+    broadcaster.provider.emit('linkingCompleted', {
+        packageName: 'pkg-a',
+        rewrites: [{ file: '/src/index.js', fromSpecifier: './dep.js', toSpecifier: 'pkg-b', targetBundle: 'pkg-b' }]
+    });
+    emitTransformedElimination(broadcaster);
+
+    assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.outputs?.tarball.entries, [
+        { path: 'package.json', sizeBytes: 5, kind: 'manifest', status: 'generated', badges: [] }
+    ]);
+});
+
+test('eliminatedSourceFiles preserves outputBytes when present', () => {
+    const broadcaster = createProgressBroadcaster();
+    const aggregator = createReportAggregator(broadcaster.consumer);
+
+    broadcaster.provider.emit('eliminationCompleted', {
+        perBundle: [
+            {
+                packageName: 'pkg-a',
+                files: [
+                    {
+                        path: '/src/index.js',
+                        decision: 'eliminated',
+                        reason: 'not-emitted-after-analysis',
+                        sourceBytes: 30,
+                        outputBytes: 0
+                    }
+                ],
+                droppedSymbols: [],
+                seeds: []
+            }
+        ]
+    });
+
+    assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.eliminatedSourceFiles, [
+        {
+            path: '/src/index.js',
+            reason: 'not-emitted-after-analysis',
+            sourceBytes: 30,
+            outputBytes: 0
+        }
+    ]);
+});
+
+test('eliminationCompleted omits eliminatedSourceFiles when no files were eliminated', () => {
+    const broadcaster = createProgressBroadcaster();
+    const aggregator = createReportAggregator(broadcaster.consumer);
+
+    broadcaster.provider.emit('eliminationCompleted', {
+        perBundle: [
+            {
+                packageName: 'pkg-a',
+                files: [{ path: '/src/index.js', decision: 'kept', reason: 'reachable', sourceBytes: 30 }],
+                droppedSymbols: [],
+                seeds: []
+            }
+        ]
+    });
+
+    assert.strictEqual('eliminatedSourceFiles' in (aggregator.build().packages['pkg-a'] ?? {}), false);
 });
 
 test('aggregator collects multiple packages independently', () => {

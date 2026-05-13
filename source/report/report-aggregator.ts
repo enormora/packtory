@@ -2,6 +2,7 @@ import type {
     ArtifactEntry,
     CrossBundleSeed,
     DroppedSymbol,
+    EliminatedSourceFile,
     ExcludedFile,
     FieldProvenance,
     FileDecision,
@@ -12,6 +13,7 @@ import type {
     StageName,
     VersionTrigger
 } from '../progress/progress-broadcaster.ts';
+import { mergeArtifactEntry } from './artifact-entry-merger.ts';
 
 type VersionDecision = {
     readonly previousVersion: string | undefined;
@@ -48,6 +50,7 @@ export type PackageReport = {
     readonly outputs?: {
         readonly tarball: { readonly entries: readonly ArtifactEntry[]; readonly totalBytes: number };
     };
+    readonly eliminatedSourceFiles?: readonly EliminatedSourceFile[];
     readonly timings: Readonly<Record<string, number>>;
     readonly failure?: { readonly stage: StageName; readonly message: string };
 };
@@ -78,6 +81,7 @@ type MutablePackageReport = {
         packageJson?: Required<PackageReport['decisions']['packageJson']>;
     };
     outputs?: Required<PackageReport['outputs']>;
+    eliminatedSourceFiles?: PackageReport['eliminatedSourceFiles'];
     timings: Record<string, number>;
     failure?: Required<PackageReport['failure']>;
 };
@@ -101,13 +105,51 @@ function buildInputs(entry: MutablePackageReport): Inputs | undefined {
     return materializeInputs(entry);
 }
 
+function mergeArtifactEntries(
+    entries: readonly ArtifactEntry[],
+    rewrittenSourcePaths: ReadonlySet<string>,
+    transformedSourcePaths: ReadonlySet<string>
+): readonly ArtifactEntry[] {
+    return entries.map((entry) => {
+        return mergeArtifactEntry(entry, rewrittenSourcePaths, transformedSourcePaths);
+    });
+}
+
+function buildOutputs(entry: MutablePackageReport): PackageReport['outputs'] | undefined {
+    if (entry.outputs === undefined) {
+        return undefined;
+    }
+    const rewrittenSourcePaths = new Set(
+        entry.decisions.linker?.rewrites.map((rewrite) => {
+            return rewrite.file;
+        })
+    );
+    const transformedSourcePaths = new Set(
+        entry.decisions.deadCodeElimination?.files
+            .filter((file) => {
+                return file.decision === 'transformed';
+            })
+            .map((file) => {
+                return file.path;
+            })
+    );
+    return {
+        tarball: {
+            totalBytes: entry.outputs.tarball.totalBytes,
+            entries: mergeArtifactEntries(entry.outputs.tarball.entries, rewrittenSourcePaths, transformedSourcePaths)
+        }
+    };
+}
+
 function toPackageReport(entry: MutablePackageReport): PackageReport {
     const inputs = buildInputs(entry);
+    const outputs = buildOutputs(entry);
     return {
         decisions: entry.decisions,
         timings: entry.timings,
         ...(inputs === undefined ? {} : { inputs }),
-        ...(entry.outputs === undefined ? {} : { outputs: entry.outputs }),
+        ...(outputs === undefined ? {} : { outputs }),
+        ...(entry.eliminatedSourceFiles === undefined ? {} : { eliminatedSourceFiles: entry.eliminatedSourceFiles }),
         ...(entry.failure === undefined ? {} : { failure: entry.failure })
     };
 }
@@ -167,11 +209,29 @@ function registerDecisionHandlers(state: AggregatorState, subscribe: Subscribe):
     });
     subscribe('eliminationCompleted', (payload) => {
         for (const bundle of payload.perBundle) {
+            const keptOrChanged = bundle.files.filter((file) => {
+                return file.decision !== 'eliminated';
+            });
+            const eliminatedSourceFiles = bundle.files
+                .filter((file) => {
+                    return file.decision === 'eliminated';
+                })
+                .map((file): EliminatedSourceFile => {
+                    return {
+                        path: file.path,
+                        reason: file.reason,
+                        sourceBytes: file.sourceBytes,
+                        ...(file.outputBytes === undefined ? {} : { outputBytes: file.outputBytes })
+                    };
+                });
             getOrCreate(state, bundle.packageName).decisions.deadCodeElimination = {
-                files: bundle.files,
+                files: keptOrChanged,
                 symbols: bundle.droppedSymbols,
                 seeds: bundle.seeds
             };
+            if (eliminatedSourceFiles.length > 0) {
+                getOrCreate(state, bundle.packageName).eliminatedSourceFiles = eliminatedSourceFiles;
+            }
         }
     });
 }

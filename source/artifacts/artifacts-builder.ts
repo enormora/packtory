@@ -71,7 +71,27 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
         if (progressBroadcaster.hasSubscribers('artifactsCollected')) {
             progressBroadcaster.emit('artifactsCollected', {
                 packageName: bundle.name,
-                entries: inspectArtifactSizes(artifactContents)
+                entries: inspectArtifactSizes([
+                    {
+                        ...bundle.manifestFile,
+                        filePath: applyPrefix(bundle.manifestFile.filePath, prefix)
+                    },
+                    ...bundle.contents.map((entry) => {
+                        return {
+                            filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
+                            content: entry.fileDescription.content,
+                            isExecutable: entry.fileDescription.isExecutable,
+                            sourceFilePath: entry.fileDescription.sourceFilePath,
+                            isSubstituted: entry.isSubstituted
+                        };
+                    }),
+                    ...extraFiles.map((entry) => {
+                        return {
+                            ...entry,
+                            filePath: applyPrefix(entry.filePath, prefix)
+                        };
+                    })
+                ])
             });
         }
 

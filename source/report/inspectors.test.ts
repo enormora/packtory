@@ -15,12 +15,24 @@ function description(filePath: string, content = ''): FileDescription {
 test('inspectArtifactSizes maps file paths and content lengths', () => {
     const entries = inspectArtifactSizes([
         { filePath: 'package.json', content: '{"name":"a"}', isExecutable: false },
-        { filePath: 'src/index.js', content: 'export const a = 1;', isExecutable: false }
+        {
+            filePath: 'src/index.js',
+            content: 'export const a = 1;',
+            isExecutable: false,
+            sourceFilePath: '/workspace/src/index.js'
+        }
     ]);
 
     assert.deepStrictEqual(entries, [
-        { path: 'package.json', sizeBytes: 12, kind: 'manifest' },
-        { path: 'src/index.js', sizeBytes: 19, kind: 'source' }
+        { path: 'package.json', sizeBytes: 12, kind: 'manifest', status: 'generated', badges: [] },
+        {
+            path: 'src/index.js',
+            sizeBytes: 19,
+            kind: 'source',
+            sourcePath: '/workspace/src/index.js',
+            status: 'unchanged',
+            badges: []
+        }
     ]);
 });
 
@@ -123,6 +135,27 @@ test('inspectArtifactSizes reports zero bytes for empty content', () => {
 test('inspectArtifactSizes preserves the original file path on each entry', () => {
     const [entry] = inspectArtifactSizes([description('deep/nested/file.js')]);
     assert.strictEqual(entry?.path, 'deep/nested/file.js');
+});
+
+test('inspectArtifactSizes marks a substituted source file as changed with an import rewrite badge', () => {
+    const [entry] = inspectArtifactSizes([
+        {
+            filePath: 'deep/nested/file.js',
+            content: 'export {};',
+            isExecutable: false,
+            sourceFilePath: '/workspace/src/file.js',
+            isSubstituted: true
+        }
+    ]);
+
+    assert.deepStrictEqual(entry, {
+        path: 'deep/nested/file.js',
+        sizeBytes: 10,
+        kind: 'source',
+        sourcePath: '/workspace/src/file.js',
+        status: 'changed',
+        badges: ['import-path-rewrite']
+    });
 });
 
 test('inspectArtifactSizes returns one entry per input descriptor', () => {

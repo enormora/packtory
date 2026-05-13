@@ -1,9 +1,16 @@
+/* eslint-disable sonarjs/publicly-writable-directories -- temp preview paths are intentional test fixtures */
 import assert from 'node:assert';
 import { stripVTControlCharacters } from 'node:util';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import {
+    createArtifactEntryFixture,
+    createBuildReportFixture,
+    createBuildResultFixture,
+    createPackageReportFixture
+} from '../test-libraries/preview-fixtures.ts';
 import { toOutcome } from '../test-libraries/result-helpers.ts';
 import {
     createCommandLineInterfaceRunner,
@@ -16,6 +23,9 @@ type Overrides = {
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
     readonly writeReportFile?: SinonSpy;
+    readonly pageOutput?: SinonSpy;
+    readonly openFile?: SinonSpy;
+    readonly createTemporaryFilePath?: () => string;
     progressBroadcaster?: ProgressBroadcaster;
     spinnerRenderer?: {
         add?: SinonSpy;
@@ -56,6 +66,7 @@ function createSpinnerRenderer(
 function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
     const progressBroadcaster = overrides.progressBroadcaster ?? createProgressBroadcaster();
     const log = createSpy(overrides.log, fake);
+    const pageOutput = overrides.pageOutput ?? fake.resolves(undefined);
     const dependencies: CommandLineInterfaceRunnerDependencies = {
         packtory: {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
@@ -75,22 +86,70 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
         spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer),
         writeReportFile: createSpy(overrides.writeReportFile, () => {
             return fake.resolves(undefined);
-        })
+        }),
+        pageOutput: async (message) => {
+            pageOutput(stripVTControlCharacters(message));
+        },
+        openFile: createSpy(overrides.openFile, () => {
+            return fake.resolves(true);
+        }),
+        createTemporaryFilePath: overrides.createTemporaryFilePath ?? (() => '/tmp/packtory-preview.html')
     };
 
     return createCommandLineInterfaceRunner(dependencies);
 }
 
-test('publish command loads the config file and passes it to buildAndPublishAll()', async () => {
+async function expectCommandLoadsConfig(command: 'preview' | 'publish'): Promise<void> {
     const loadConfig = fake.resolves('the-config');
     const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = runnerFactory({ loadConfig, buildAndPublishAll });
 
-    await runner.run(['foo', 'bar', 'publish']);
+    await runner.run(['foo', 'bar', command]);
 
     assert.strictEqual(loadConfig.callCount, 1);
     assert.strictEqual(buildAndPublishAll.callCount, 1);
     assert.strictEqual(buildAndPublishAll.firstCall.args[0], 'the-config');
+}
+
+async function expectHelp(args: readonly string[]): Promise<string> {
+    const log = fake();
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    const exitCode = await runner.run(['foo', 'bar', ...args]);
+
+    assert.strictEqual(exitCode, 0);
+    return String(log.firstCall.args[0]);
+}
+
+async function expectSubcommandHelp(command: 'preview' | 'publish'): Promise<string> {
+    return expectHelp([command, '--help']);
+}
+
+async function expectCollectReportFlag(flag: '--report-html' | '--report-json'): Promise<void> {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    await runner.run(['foo', 'bar', 'publish', flag]);
+
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+}
+
+async function runPreview(
+    buildAndPublishAll: SinonSpy,
+    overrides: { readonly pageOutput?: SinonSpy; readonly log?: SinonSpy } = {}
+): Promise<{ readonly exitCode: number; readonly pageOutput: SinonSpy; readonly log: SinonSpy }> {
+    const pageOutput = overrides.pageOutput ?? fake.resolves(undefined);
+    const log = overrides.log ?? fake();
+    const runner = runnerFactory({ buildAndPublishAll, pageOutput, log });
+
+    const exitCode = await runner.run(['foo', 'bar', 'preview']);
+
+    return { exitCode, pageOutput, log };
+}
+
+test('publish command loads the config file and passes it to buildAndPublishAll()', async () => {
+    await expectCommandLoadsConfig('publish');
 });
 
 test('publish command runs in dry-run mode per default', async () => {
@@ -111,6 +170,19 @@ test('publish command runs not in dry-run mode when no-dry-run flag is set', asy
 
     assert.strictEqual(buildAndPublishAll.callCount, 1);
     assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: false, collectReport: false });
+});
+
+test('preview command loads the config file and passes it to buildAndPublishAll()', async () => {
+    await expectCommandLoadsConfig('preview');
+});
+
+test('preview command always runs in dry-run mode with collectReport enabled', async () => {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+    const runner = runnerFactory({ buildAndPublishAll });
+
+    await runner.run(['foo', 'bar', 'preview']);
+
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
 });
 
 test('returns exit code 0 when publish command had no errors', async () => {
@@ -155,32 +227,26 @@ test('returns exit code 1 when the publish command name is misspelled', async ()
 });
 
 test('prints command help that includes the publish command name and description', async () => {
-    const log = fake();
-    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll, log });
+    const help = await expectHelp(['--help']);
 
-    const exitCode = await runner.run(['foo', 'bar', '--help']);
-
-    assert.strictEqual(exitCode, 0);
+    assert.ok(help.includes('publish'), 'Expected help output to include the publish command name');
     assert.ok(
-        String(log.firstCall.args[0]).includes('publish'),
-        'Expected help output to include the publish command name'
-    );
-    assert.ok(
-        String(log.firstCall.args[0]).includes('Builds and publishes all packages (dry-run enabled by default).'),
+        help.includes('Builds and publishes all packages (dry-run enabled by default).'),
         'Expected help output to include the publish command description'
     );
+    assert.ok(help.includes('preview'), 'Expected help output to include the preview command');
 });
 
 test('prints subcommand help that includes the full publish command path', async () => {
-    const log = fake();
-    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll, log });
+    assert.match(await expectSubcommandHelp('publish'), /packtory publish/);
+});
 
-    const exitCode = await runner.run(['foo', 'bar', 'publish', '--help']);
+test('prints subcommand help that includes the full preview command path and --open flag', async () => {
+    const help = await expectSubcommandHelp('preview');
 
-    assert.strictEqual(exitCode, 0);
-    assert.match(String(log.firstCall.args[0]), /packtory publish/);
+    assert.match(help, /packtory preview/);
+    assert.match(help, /--open/);
+    assert.match(help, /Builds all packages in fresh dry-run mode and opens a human preview\./);
 });
 
 async function expectRunnerToRethrow(overrides: Overrides, expectedMessage: string): Promise<void> {
@@ -381,12 +447,27 @@ test('updates a running spinner message when a "rebuilding" event is received', 
     assert.deepStrictEqual(updateMessage.firstCall.args, ['foo', 'Rebuilding package with version 1']);
 });
 
-const sampleReport = {
-    schemaVersion: 1 as const,
-    generatedAt: '2026-05-11T00:00:00.000Z',
-    packages: { 'pkg-a': { decisions: {}, timings: {} } },
-    aggregate: { crossBundleLinks: [] }
-};
+const sampleReport = createBuildReportFixture({
+    packages: {
+        'pkg-a': createPackageReportFixture({
+            outputs: {
+                tarball: {
+                    totalBytes: 20,
+                    entries: [
+                        createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
+                        createArtifactEntryFixture({
+                            path: 'index.js',
+                            sizeBytes: 18,
+                            sourcePath: '/workspace/index.js',
+                            badges: ['dead-code-elimination']
+                        })
+                    ]
+                }
+            },
+            timings: {}
+        })
+    }
+});
 
 function outcomeWithReport(result: unknown): {
     readonly result: unknown;
@@ -401,21 +482,11 @@ function outcomeWithReport(result: unknown): {
 }
 
 test('publish with --report-json requests collectReport: true', async () => {
-    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll });
-
-    await runner.run(['foo', 'bar', 'publish', '--report-json']);
-
-    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+    await expectCollectReportFlag('--report-json');
 });
 
 test('publish with --report-html requests collectReport: true', async () => {
-    const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll });
-
-    await runner.run(['foo', 'bar', 'publish', '--report-html']);
-
-    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+    await expectCollectReportFlag('--report-html');
 });
 
 async function runPublishWithReport(extraArgs: readonly string[]): Promise<SinonSpy> {
@@ -443,6 +514,15 @@ test('publish writes packtory-report.html when --report-html is set and getRepor
     assert.strictEqual(writeReportFile.firstCall.args[0], 'packtory-report.html');
     const writtenContent = String(writeReportFile.firstCall.args[1]);
     assert.ok(writtenContent.startsWith('<!doctype html>'), 'html report must start with doctype');
+    assert.ok(writtenContent.includes('Dry run'));
+});
+
+test('publish writes report html in publish mode when dry-run is disabled', async () => {
+    const writeReportFile = await runPublishWithReport(['--report-html', '--no-dry-run']);
+
+    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    assert.ok(writtenContent.includes('Publish'));
+    assert.ok(!writtenContent.includes('<div class="mode-label">Dry run</div>'));
 });
 
 test('publish writes both report files when --report-json and --report-html are set', async () => {
@@ -479,4 +559,162 @@ test('publish writes the report even when the build failed', async () => {
 
     assert.strictEqual(exitCode, 1);
     assert.strictEqual(writeReportFile.callCount, 1);
+});
+
+test('preview pages previewable output and does not print it directly to stdout', async () => {
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+    const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
+
+    assert.strictEqual(exitCode, 0);
+    assert.strictEqual(pageOutput.callCount, 1);
+    assert.match(String(pageOutput.firstCall.args[0]), /Packtory preview/);
+    assert.match(String(pageOutput.firstCall.args[0]), /\[Dry run]/);
+    assert.strictEqual(log.callCount, 0);
+});
+
+test('preview pages partial-success output and still exits with code 1', async () => {
+    const report = {
+        ...sampleReport,
+        packages: {
+            'pkg-a': {
+                ...sampleReport.packages['pkg-a'],
+                outputs: {
+                    tarball: {
+                        totalBytes: 20,
+                        entries: [
+                            createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
+                            createArtifactEntryFixture({
+                                path: 'index.js',
+                                sizeBytes: 18,
+                                sourcePath: '/workspace/index.js',
+                                status: 'unchanged',
+                                badges: []
+                            })
+                        ]
+                    }
+                }
+            }
+        }
+    };
+    const buildAndPublishAll = fake.resolves({
+        result: Result.err({
+            type: 'partial' as const,
+            succeeded: [createBuildResultFixture({ contents: [] })],
+            failures: [new Error('boom')]
+        }),
+        getReport: () => report
+    });
+    const { exitCode, pageOutput } = await runPreview(buildAndPublishAll);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(pageOutput.callCount, 1);
+});
+
+test('preview prints failure-only output directly to stdout without paging', async () => {
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.err({ type: 'checks', issues: ['boom'] })));
+    const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(pageOutput.callCount, 0);
+    assert.strictEqual(log.callCount, 1);
+    assert.strictEqual(String(log.firstCall.args[0]), 'Packtory preview [Dry run]\nCheck failures\n- boom');
+});
+
+test('preview treats partial failures with no successful packages as failure-only output', async () => {
+    const buildAndPublishAll = fake.resolves(
+        outcomeWithReport(Result.err({ type: 'partial', succeeded: [], failures: [new Error('boom')] }))
+    );
+    const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(pageOutput.callCount, 0);
+    assert.strictEqual(log.callCount, 1);
+    assert.strictEqual(String(log.firstCall.args[0]), 'Packtory preview [Dry run]\nPackage failures\n- boom');
+});
+
+test('preview --open writes a temporary html report and invokes the opener', async () => {
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+    const writeReportFile = fake.resolves(undefined);
+    const openFile = fake.resolves(true);
+    const log = fake();
+    const runner = runnerFactory({
+        buildAndPublishAll,
+        writeReportFile,
+        openFile,
+        log,
+        createTemporaryFilePath: () => '/tmp/packtory-preview-test.html'
+    });
+
+    const exitCode = await runner.run(['foo', 'bar', 'preview', '--open']);
+
+    assert.strictEqual(exitCode, 0);
+    assert.strictEqual(writeReportFile.callCount, 1);
+    assert.deepStrictEqual(writeReportFile.firstCall.args[0], '/tmp/packtory-preview-test.html');
+    assert.match(String(writeReportFile.firstCall.args[1]), /^<!doctype html>/);
+    assert.strictEqual(openFile.callCount, 1);
+    assert.deepStrictEqual(openFile.firstCall.args, ['/tmp/packtory-preview-test.html']);
+    assert.strictEqual(log.callCount, 0);
+});
+
+test('preview --open prints the temp path only when opening fails', async () => {
+    const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+    const openFile = fake.resolves(false);
+    const log = fake();
+    const runner = runnerFactory({
+        buildAndPublishAll,
+        openFile,
+        log,
+        createTemporaryFilePath: () => '/tmp/packtory-preview-test.html'
+    });
+
+    const exitCode = await runner.run(['foo', 'bar', 'preview', '--open']);
+
+    assert.strictEqual(exitCode, 0);
+    assert.strictEqual(log.callCount, 1);
+    assert.deepStrictEqual(log.firstCall.args, ['/tmp/packtory-preview-test.html']);
+});
+
+test('preview builds an empty fallback report when getReport returns undefined', async () => {
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'checks', issues: ['boom'] })));
+    const log = fake();
+    const runner = runnerFactory({ buildAndPublishAll, log });
+
+    await runner.run(['foo', 'bar', 'preview']);
+
+    assert.strictEqual(String(log.firstCall.args[0]), 'Packtory preview [Dry run]\nCheck failures\n- boom');
+});
+
+test('preview --open writes an empty fallback report when getReport returns undefined', async () => {
+    const writeReportFile = fake.resolves(undefined);
+    const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'checks', issues: ['boom'] })));
+    const runner = runnerFactory({
+        buildAndPublishAll,
+        writeReportFile,
+        createTemporaryFilePath: () => '/tmp/packtory-preview-fallback.html'
+    });
+
+    const exitCode = await runner.run(['foo', 'bar', 'preview', '--open']);
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(writeReportFile.callCount, 1);
+    assert.strictEqual(writeReportFile.firstCall.args[0], '/tmp/packtory-preview-fallback.html');
+    assert.match(
+        String(writeReportFile.firstCall.args[1]),
+        /&quot;aggregate&quot;: \{\s+&quot;crossBundleLinks&quot;: \[\]/u
+    );
+});
+
+test('preview stops all spinners when config loading fails before the build starts', async () => {
+    const stopAll = fake();
+    const loadConfig = fake.rejects(new Error('config boom'));
+    const runner = runnerFactory({ loadConfig, spinnerRenderer: { stopAll } });
+
+    try {
+        await runner.run(['foo', 'bar', 'preview']);
+        assert.fail('expected preview run to throw');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'config boom');
+    }
+
+    assert.strictEqual(stopAll.callCount, 1);
 });

@@ -1,17 +1,14 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import {
+    createBuildReportFixture,
+    createDirectoryDiffPreviewPackageFixture,
+    createManifestOnlyPreviewPackageFixture,
+    createPreviewDocumentFixture,
+    createPreviewPackageFixture
+} from '../test-libraries/preview-fixtures.ts';
 import { renderHtmlReport } from './html-renderer.ts';
-import type { BuildReport } from './report-aggregator.ts';
-
-function baseReport(overrides: Partial<BuildReport> = {}): BuildReport {
-    return {
-        schemaVersion: 1,
-        generatedAt: '2026-05-11T00:00:00.000Z',
-        packages: {},
-        aggregate: { crossBundleLinks: [] },
-        ...overrides
-    };
-}
+import { escapeHtml } from './html-escaping.ts';
 
 function decodeHtmlEntities(value: string): string {
     return value
@@ -22,337 +19,162 @@ function decodeHtmlEntities(value: string): string {
         .replaceAll('&amp;', '&');
 }
 
-function inputsReport(inputs: {
-    entryPoints: readonly string[];
-    siblingVersions: Readonly<Record<string, string>>;
-    sourceFileCount: number;
-}): BuildReport {
-    return baseReport({
-        packages: {
-            'pkg-a': { decisions: {}, timings: {}, inputs }
-        }
-    });
-}
-
 test('renders a doctype and html skeleton', () => {
-    const html = renderHtmlReport(baseReport());
+    const html = renderHtmlReport(createPreviewDocumentFixture());
 
     assert.match(html, /^<!doctype html>/);
     assert.ok(html.includes('<title>Packtory build report</title>'));
+    assert.match(html, /<style>[\s\S]*color-scheme: light;[\s\S]*\.summary-card[\s\S]*<\/style>/u);
 });
 
-test('renders a per-package section with the package name', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': {
-                    decisions: {},
-                    timings: {}
-                }
-            }
+test('renders summary cards, package sections, tree metadata, and diff hunks', () => {
+    const html = renderHtmlReport(createPreviewDocumentFixture());
+
+    assert.match(
+        html,
+        /<section class="summary">[\s\S]*<span class="summary-label">Packages<\/span><strong>1<\/strong>[\s\S]*<span class="summary-label">Changed<\/span><strong>1<\/strong>[\s\S]*<span class="summary-label">Unchanged<\/span><strong>0<\/strong>[\s\S]*<span class="summary-label">Failed<\/span><strong>0<\/strong>[\s\S]*<span class="summary-label">Artifacts<\/span><strong>2<\/strong>[\s\S]*<span class="summary-label">Changed files<\/span><strong>1<\/strong>[\s\S]*<span class="summary-label">Eliminated<\/span><strong>1<\/strong>[\s\S]*<\/section>/u
+    );
+    assert.match(
+        html,
+        /<details class="package" open>[\s\S]*<span class="package-title">pkg-a<\/span>[\s\S]*<span class="badge status-changed">changed<\/span>[\s\S]*<span class="badge secondary">1\.0\.0 -&gt; 1\.0\.1<\/span>[\s\S]*<\/details>/u
+    );
+    assert.ok(
+        [
+            '<ul class="tree"><li class="tree-row file" style="--depth:0">',
+            '<span class="tree-name">package.json</span>',
+            '<span class="tree-meta">manifest · 2 B</span>',
+            '<span class="badge status-generated">generated</span>',
+            '<li class="tree-row directory" style="--depth:0"><span class="tree-name">src/</span></li>',
+            '<span class="tree-name">index.js</span>',
+            '<span class="tree-meta">source · 20 B</span>',
+            '<span class="badge status-changed">changed</span>',
+            '<span class="badge secondary">DCE</span>'
+        ].every((fragment) => html.includes(fragment))
+    );
+    assert.match(
+        html,
+        /<section class="package-block"><h3>Changed files<\/h3>[\s\S]*<summary>src\/index\.js<\/summary>[\s\S]*@@ -1,1 \+1,1 @@[\s\S]*-export const removed = 1;[\s\S]*\+export const kept = 1;[\s\S]*<\/section>/u
+    );
+    assert.match(
+        html,
+        /<section class="package-block">[\s\S]*<h3>Eliminated source files<\/h3>[\s\S]*\/workspace\/src\/unused\.js[\s\S]*14 B[\s\S]*<\/section>/u
+    );
+    assert.ok(!html.includes('Stryker was here'));
+});
+
+test('opens changed packages by default and collapses unchanged ones', () => {
+    const changedHtml = renderHtmlReport(createPreviewDocumentFixture());
+    const unchangedHtml = renderHtmlReport(
+        createPreviewDocumentFixture({
+            packages: [createPreviewPackageFixture({ hasChanges: false, openByDefault: false })]
         })
     );
 
-    assert.ok(html.includes('<h2>pkg-a</h2>'));
+    assert.ok(changedHtml.includes('<details class="package" open>'));
+    assert.ok(unchangedHtml.includes('<details class="package">'));
 });
 
-test('escapes html entities in package names', () => {
+test('renders issues and diagnostics sections', () => {
     const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                '<script>evil()</script>': {
-                    decisions: {},
-                    timings: {}
-                }
-            }
+        createPreviewDocumentFixture({
+            issues: ['<bad>'],
+            packages: [
+                createPreviewPackageFixture({
+                    diagnostics: {
+                        inputs: { entryPoints: ['src/index.js'], siblingVersions: {}, sourceFileCount: 1 },
+                        decisions: { linker: { rewrites: [] } },
+                        outputs: { tarball: { entries: [], totalBytes: 0 } },
+                        timings: { publish: 5 },
+                        failure: { stage: 'publish', message: 'secondary' }
+                    }
+                })
+            ]
         })
     );
 
-    assert.ok(html.includes('&lt;script&gt;evil()&lt;/script&gt;'));
-    assert.ok(!html.includes('<h2><script>'));
-});
-
-test('embeds the json data inside a script tag', () => {
-    const html = renderHtmlReport(baseReport());
-
-    assert.ok(html.includes('<script type="application/json" id="packtory-report-data">'));
-});
-
-test('renders a failure section when the package failed', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': {
-                    decisions: {},
-                    timings: {},
-                    failure: { stage: 'publish', message: 'oh no' }
-                }
-            }
-        })
-    );
-
-    assert.ok(html.includes('Failed in stage <strong>publish</strong>'));
-    assert.ok(html.includes('oh no'));
-});
-
-test('omits the failure section when the package did not fail', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} }
-            }
-        })
-    );
-
-    assert.ok(!html.includes('Failed in stage'));
-});
-
-test('renders an Inputs section when inputs are present', () => {
-    const html = renderHtmlReport(
-        inputsReport({ entryPoints: ['pkg-a/index.js'], siblingVersions: {}, sourceFileCount: 1 })
-    );
-
+    assert.ok(html.includes('<h2>Issues</h2>'));
     assert.ok(html.includes('<summary>Inputs</summary>'));
-});
-
-test('omits the Inputs section when inputs is undefined', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} }
-            }
-        })
-    );
-
-    assert.ok(!html.includes('<summary>Inputs</summary>'));
-});
-
-test('renders a Decisions section when decisions has at least one key', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': {
-                    decisions: { linker: { rewrites: [] } },
-                    timings: {}
-                }
-            }
-        })
-    );
-
     assert.ok(html.includes('<summary>Decisions</summary>'));
-});
-
-test('omits the Decisions section when the decisions object is empty', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} }
-            }
-        })
-    );
-
-    assert.ok(!html.includes('<summary>Decisions</summary>'));
-});
-
-test('renders an Outputs section when outputs are present', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': {
-                    decisions: {},
-                    timings: {},
-                    outputs: { tarball: { entries: [], totalBytes: 0 } }
-                }
-            }
-        })
-    );
-
     assert.ok(html.includes('<summary>Outputs</summary>'));
-});
-
-test('omits the Outputs section when outputs is undefined', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} }
-            }
-        })
-    );
-
-    assert.ok(!html.includes('<summary>Outputs</summary>'));
-});
-
-test('renders a Timings section when timings has at least one key', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: { publish: 12 } }
-            }
-        })
-    );
-
     assert.ok(html.includes('<summary>Timings (ms)</summary>'));
-});
-
-test('omits the Timings section when timings is empty', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} }
-            }
-        })
-    );
-
-    assert.ok(!html.includes('<summary>Timings (ms)</summary>'));
-});
-
-test('renders a Cross-bundle links section open when aggregate has at least one link', () => {
-    const html = renderHtmlReport(
-        baseReport({ aggregate: { crossBundleLinks: [{ fromBundle: 'pkg-a', toBundle: 'pkg-b' }] } })
-    );
-
-    assert.ok(html.includes('<details open><summary>Cross-bundle links</summary>'));
-});
-
-test('omits the Cross-bundle links section when aggregate links is empty', () => {
-    const html = renderHtmlReport(baseReport());
-
-    assert.ok(!html.includes('<summary>Cross-bundle links</summary>'));
-});
-
-test('omits all content between the meta paragraph and the next element when aggregate links is empty', () => {
-    const html = renderHtmlReport(baseReport({ packages: { 'pkg-a': { decisions: {}, timings: {} } } }));
-
-    assert.match(html, /<\/p>\s+<section class="package">/u);
-});
-
-test('escapes failure stage and message values', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': {
-                    decisions: {},
-                    timings: {},
-                    failure: { stage: 'publish' as never, message: '<bad>' }
-                }
-            }
-        })
-    );
-
+    assert.ok(html.includes('<summary>Failure</summary>'));
     assert.ok(html.includes('&lt;bad&gt;'));
-    assert.ok(!html.includes('<bad>'));
+    assert.match(html, /<pre>\{\n {2}&quot;entryPoints&quot;:/u);
+    assert.ok(!html.includes('Stryker was here'));
 });
 
-test('escapes the generatedAt field', () => {
-    const html = renderHtmlReport(baseReport({ generatedAt: '<dangerous>' }));
+test('renders a failure paragraph when the package failed', () => {
+    const html = renderHtmlReport(
+        createPreviewDocumentFixture({
+            packages: [createPreviewPackageFixture({ failure: { stage: 'publish', message: 'boom' } })]
+        })
+    );
 
-    assert.ok(html.includes('&lt;dangerous&gt;'));
-    assert.ok(!/Generated at:\s+<dangerous>/u.test(html));
+    assert.ok(html.includes('Failed in stage <strong>publish</strong>: boom'));
 });
 
-test('renders the schema version number', () => {
-    const html = renderHtmlReport(baseReport({ schemaVersion: 1 }));
+test('omits eliminated, diff, and diagnostics blocks when the package has none', () => {
+    const html = renderHtmlReport(
+        createPreviewDocumentFixture({
+            packages: [createManifestOnlyPreviewPackageFixture()]
+        })
+    );
 
-    assert.ok(html.includes('Schema version: 1'));
+    assert.ok(!html.includes('Eliminated source files'));
+    assert.ok(!html.includes('<h3>Changed files</h3>'));
+    assert.ok(!html.includes('Diagnostics'));
+    assert.ok(!html.includes('<h2>Issues</h2>'));
+    assert.ok(!html.includes('Stryker was here'));
 });
 
-test('embeds the entire BuildReport as JSON in the data script tag', () => {
-    const report = baseReport({
-        packages: { 'pkg-a': { decisions: {}, timings: { publish: 9 } } }
-    });
-    const html = renderHtmlReport(report);
+test('embeds the entire BuildReport as escaped JSON in the data script tag', () => {
+    const document = createPreviewDocumentFixture();
+    const html = renderHtmlReport(document);
 
     const scriptMatch =
         /<script type="application\/json" id="packtory-report-data">(?<encoded>[\s\S]*?)<\/script>/u.exec(html);
     const encoded = scriptMatch?.groups?.encoded;
     if (encoded === undefined) {
-        assert.fail('expected packtory-report-data script tag with JSON content');
+        assert.fail('expected packtory-report-data script tag');
     }
-    assert.deepStrictEqual(JSON.parse(decodeHtmlEntities(encoded)), report);
+    assert.deepStrictEqual(JSON.parse(decodeHtmlEntities(encoded)), document.report);
 });
 
-test('escapeHtml encodes ampersand, less-than, greater-than, double-quote, and apostrophe', () => {
+test('renders package names from the provided report', () => {
     const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'a&b<c>d"e\'f': { decisions: {}, timings: {} }
-            }
+        createPreviewDocumentFixture({
+            report: createBuildReportFixture({
+                packages: {
+                    'pkg-a': { decisions: {}, timings: {} }
+                }
+            })
         })
     );
 
-    assert.ok(html.includes('a&amp;b&lt;c&gt;d&quot;e&#39;f'));
+    assert.ok(html.includes('pkg-a'));
 });
 
-test('renders multiple package sections in order of insertion', () => {
+test('escapeHtml escapes ampersands and apostrophes', () => {
+    assert.strictEqual(escapeHtml("Tom & 'Jerry' <tag>"), 'Tom &amp; &#39;Jerry&#39; &lt;tag&gt;');
+});
+
+test('renderHtmlReport only renders diff sections for file nodes and omits empty package joins', () => {
     const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} },
-                'pkg-b': { decisions: {}, timings: {} }
-            }
+        createPreviewDocumentFixture({
+            packages: [
+                createDirectoryDiffPreviewPackageFixture({
+                    hasChanges: false
+                }),
+                createManifestOnlyPreviewPackageFixture({
+                    name: 'pkg-b',
+                    hasChanges: false
+                })
+            ]
         })
     );
 
-    const aIndex = html.indexOf('<h2>pkg-a</h2>');
-    const bIndex = html.indexOf('<h2>pkg-b</h2>');
-    assert.ok(aIndex !== -1 && bIndex > aIndex);
-});
-
-test('a package section with no inputs/decisions/outputs/timings/failure contains only whitespace between the heading and the closing tag', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} }
-            }
-        })
-    );
-
-    assert.match(html, /<section class="package">\s+<h2>pkg-a<\/h2>\s+<\/section>/u);
-});
-
-test('joins multiple package sections with a newline separator', () => {
-    const html = renderHtmlReport(
-        baseReport({
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} },
-                'pkg-b': { decisions: {}, timings: {} }
-            }
-        })
-    );
-
-    assert.match(html, /<\/section>\n<section class="package">/u);
-});
-
-test('embeds the body font-family style block in the head', () => {
-    const html = renderHtmlReport(baseReport());
-
-    assert.match(html, /<style>[\s\S]*body\s*\{[\s\S]*font-family:[\s\S]*<\/style>/u);
-});
-
-test('Inputs section embeds the inputs object as a JSON pre block', () => {
-    const inputs = { entryPoints: ['pkg-a/index.js'], siblingVersions: {}, sourceFileCount: 7 };
-    const html = renderHtmlReport(inputsReport(inputs));
-
-    const sectionMatch = /<summary>Inputs<\/summary><pre>(?<encoded>[\s\S]*?)<\/pre>/u.exec(html);
-    const encoded = sectionMatch?.groups?.encoded;
-    if (encoded === undefined) {
-        assert.fail('expected an Inputs <pre> block with content');
-    }
-    assert.deepStrictEqual(JSON.parse(decodeHtmlEntities(encoded)), inputs);
-});
-
-test('Inputs section renders with a closed details element (no " open" attribute)', () => {
-    const html = renderHtmlReport(
-        inputsReport({ entryPoints: ['pkg-a/index.js'], siblingVersions: {}, sourceFileCount: 1 })
-    );
-
-    assert.match(html, /<details><summary>Inputs<\/summary>/u);
-});
-
-test('Cross-bundle links section renders with an open details element', () => {
-    const html = renderHtmlReport(
-        baseReport({ aggregate: { crossBundleLinks: [{ fromBundle: 'pkg-a', toBundle: 'pkg-b' }] } })
-    );
-
-    assert.match(html, /<details open><summary>Cross-bundle links<\/summary>/u);
+    assert.ok(!html.includes('<summary>src/index.js</summary>'));
+    assert.ok(html.includes('<span class="badge status-unchanged">unchanged</span>'));
+    assert.ok(html.includes('pkg-b'));
+    assert.ok(!html.includes('Stryker was here'));
 });

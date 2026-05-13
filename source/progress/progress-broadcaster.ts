@@ -17,6 +17,10 @@ export type ImportRewrite = {
     readonly targetBundle: string;
 };
 
+export type ArtifactStatus = 'changed' | 'generated' | 'unchanged';
+
+export type ArtifactBadge = 'dead-code-elimination' | 'import-path-rewrite';
+
 export type FileDecision = {
     readonly path: string;
     readonly decision: 'eliminated' | 'kept' | 'transformed';
@@ -57,6 +61,16 @@ export type ArtifactEntry = {
     readonly path: string;
     readonly sizeBytes: number;
     readonly kind: 'additional' | 'manifest' | 'sbom' | 'source';
+    readonly sourcePath?: string | undefined;
+    readonly status: ArtifactStatus;
+    readonly badges: readonly ArtifactBadge[];
+};
+
+export type EliminatedSourceFile = {
+    readonly path: string;
+    readonly reason: string;
+    readonly sourceBytes: number;
+    readonly outputBytes?: number | undefined;
 };
 
 export type RedactedConfig = Readonly<Record<string, unknown>>;

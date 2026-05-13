@@ -18,11 +18,30 @@ packtory <command> [options]
 
 **Commands:**
 
+- **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
 
 **Options:**
 
 - **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing.
+- **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
+- **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
+- **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
+
+**Preview behavior:**
+
+- `packtory preview` always performs a fresh dry-run build. It does not reuse prior report files.
+- Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output.
+- Failure-only runs skip the pager and print diagnostics directly to standard output.
+- The terminal preview always carries a visible dry-run label.
+- `packtory preview` exits with code `0` on a clean run and `1` on config errors, check failures, or partial failures.
+- `packtory preview --open` still exits successfully if report generation worked but opening the file failed; in that case it prints the temporary file path.
+
+**Report outputs:**
+
+- `--report-json` keeps the durable structured `BuildReport` contract.
+- `--report-html` and `preview --open` render the same human-facing HTML document.
+- The HTML report can still be written for failing runs when report data is available.
 
 **Configuration:**
 
