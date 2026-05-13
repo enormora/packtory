@@ -212,6 +212,14 @@ test('renderDiffLine colors add and remove lines and leaves context lines unchan
     assert.strictEqual(renderDiffLine({ type: 'context', text: ' same' }, colors), ' same');
 });
 
+test('createColors returns forced ANSI formatters when enabled', () => {
+    const colors = createColors(true);
+
+    assert.strictEqual(colors.bold('x'), `${escapeSequenceStart}[1mx${escapeSequenceStart}[22m`);
+    assert.strictEqual(colors.yellow('y'), `${escapeSequenceStart}[33my${escapeSequenceStart}[39m`);
+    assert.notStrictEqual(colors.bold, defaultBoldFormatter);
+});
+
 test('createColors returns identity formatters when disabled', () => {
     const colors = createColors(false);
 
