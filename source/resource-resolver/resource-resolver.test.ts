@@ -93,7 +93,8 @@ const baseResolveOptions = {
     sourcesFolder: '/src',
     entryPoints: [{ js: '/src/index.js' }] as const,
     includeSourceMapFiles: false,
-    additionalFiles: [] as readonly string[]
+    additionalFiles: [] as readonly string[],
+    mainPackageJson: { type: 'module' as const }
 };
 
 function configureScanForJsAndDeclarationGraphs(
@@ -120,7 +121,11 @@ test('resolve() scans js entry points and additional files and returns their fil
     assert.deepStrictEqual(scan.firstCall.args, [
         '/src/index.js',
         '/src',
-        { includeSourceMapFiles: true, resolveDeclarationFiles: false }
+        {
+            includeSourceMapFiles: true,
+            resolveDeclarationFiles: false,
+            mainPackageJson: { type: 'module' }
+        }
     ]);
     assert.strictEqual(result.name, 'package-a');
     assert.strictEqual(result.contents.length, 3);
@@ -158,14 +163,19 @@ test('resolve() scans declaration entry points separately and merges local and e
         sourcesFolder: '/src',
         entryPoints: [{ js: '/src/index.js', declarationFile: '/src/index.d.ts' }],
         includeSourceMapFiles: false,
-        additionalFiles: []
+        additionalFiles: [],
+        mainPackageJson: { type: 'module' }
     });
 
     assert.strictEqual(scan.callCount, 2);
     assert.deepStrictEqual(scan.secondCall.args, [
         '/src/index.d.ts',
         '/src',
-        { includeSourceMapFiles: false, resolveDeclarationFiles: true }
+        {
+            includeSourceMapFiles: false,
+            resolveDeclarationFiles: true,
+            mainPackageJson: { type: 'module' }
+        }
     ]);
     assert.deepStrictEqual(
         Array.from(result.externalDependencies.keys()).toSorted((left, right) => {
@@ -197,7 +207,8 @@ test('resolve() throws when an entry point resource cannot be resolved from the 
             sourcesFolder: '/src',
             entryPoints: [{ js: '/src/index.js' }],
             includeSourceMapFiles: false,
-            additionalFiles: []
+            additionalFiles: [],
+            mainPackageJson: { type: 'module' }
         });
         assert.fail('Expected resolve() should fail but it did not');
     } catch (error: unknown) {

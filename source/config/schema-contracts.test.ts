@@ -24,7 +24,7 @@ test('leaf config schemas keep their expected object keys and strict object beha
         additionalFileShape: ['sourceFilePath', 'targetFilePath'],
         entryPointShape: ['js', 'declarationFile'],
         registrySettingsShape: ['registryUrl', 'auth'],
-        mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies'],
+        mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
         additionalFileCatchallType: 'never',
         entryPointCatchallType: 'never',
         registrySettingsCatchallType: 'never'
@@ -87,6 +87,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
             'dependencies',
             'peerDependencies',
             'devDependencies',
+            'imports',
             'main',
             'name',
             'types',
@@ -100,6 +101,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
             dependencyRecordType: mainShape.dependencies.def.innerType.def.innerType.def.type,
             devDependencyRecordType: mainShape.devDependencies.def.innerType.def.innerType.def.type,
             peerDependencyRecordType: mainShape.peerDependencies.def.innerType.def.innerType.def.type,
+            importsRecordType: mainShape.imports.def.innerType.def.innerType.def.type,
             validMainSuccess: safeParse(mainPackageJsonSchema, {
                 type: 'module',
                 dependencies: { dep: '1.0.0' }
@@ -109,13 +111,14 @@ test('package json schemas keep their runtime structure and forbidden key behavi
     `);
 
     assert.deepStrictEqual(result, {
-        mainShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies'],
+        mainShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
         typeLiteral: 'module',
         dependencyRecordType: 'record',
         devDependencyRecordType: 'record',
         peerDependencyRecordType: 'record',
+        importsRecordType: 'record',
         validMainSuccess: true,
-        forbiddenKeySuccesses: [false, false, false, false, false, false, false, false]
+        forbiddenKeySuccesses: [false, false, false, false, false, false, false, false, false]
     });
 });
 

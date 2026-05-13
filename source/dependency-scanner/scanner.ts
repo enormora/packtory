@@ -1,5 +1,6 @@
 import { Maybe } from 'true-myth/maybe';
 import { unique } from 'remeda';
+import type { MainPackageJson } from '../config/package-json.ts';
 import type { SourceMapFileLocator } from './source-map-file-locator.ts';
 import type { TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.ts';
 import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.ts';
@@ -7,6 +8,13 @@ import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGra
 type ScanOptions = {
     readonly includeSourceMapFiles: boolean;
     readonly resolveDeclarationFiles: boolean;
+    readonly mainPackageJson: MainPackageJson;
+};
+
+type ScanOptionsInput = {
+    readonly mainPackageJson: MainPackageJson;
+    readonly includeSourceMapFiles?: boolean;
+    readonly resolveDeclarationFiles?: boolean;
 };
 
 function isNodeModulesPath(filePath: string): boolean {
@@ -48,7 +56,7 @@ export type DependencyScannerDependencies = {
 };
 
 export type DependencyScanner = {
-    scan: (entryPointFile: string, folder: string, options?: Partial<ScanOptions>) => Promise<DependencyGraph>;
+    scan: (entryPointFile: string, folder: string, options: ScanOptionsInput) => Promise<DependencyGraph>;
 };
 
 export function createDependencyScanner(
@@ -98,16 +106,18 @@ export function createDependencyScanner(
     }
 
     return {
-        async scan(entryPointFile, folder, options = {}) {
-            const { resolveDeclarationFiles = false, includeSourceMapFiles = false } = options;
+        async scan(entryPointFile, folder, options) {
+            const { resolveDeclarationFiles = false, includeSourceMapFiles = false, mainPackageJson } = options;
             const scanOptions = {
                 includeSourceMapFiles,
-                resolveDeclarationFiles
+                resolveDeclarationFiles,
+                mainPackageJson
             };
 
             const graph = createDependencyGraph();
             const project = typescriptProjectAnalyzer.analyzeProject(folder, {
-                resolveDeclarationFiles: scanOptions.resolveDeclarationFiles
+                resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
+                mainPackageJson: scanOptions.mainPackageJson
             });
 
             await scanDependenciesOfSourceFile(project, entryPointFile, graph, scanOptions);

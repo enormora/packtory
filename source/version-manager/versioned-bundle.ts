@@ -1,8 +1,10 @@
 import type { PackageJson, SetRequired } from 'type-fest';
 import { oneLine } from 'common-tags';
 import { mergeAll } from 'remeda';
+import { Project, ScriptTarget } from 'ts-morph';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
+import { isCodeFile } from '../common/code-files.ts';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
 import { classifySpecifier } from './specifier-classifier.ts';
 import {
@@ -14,11 +16,13 @@ import {
 } from './specifier-errors.ts';
 
 export type BundlePackageJson = Readonly<SetRequired<PackageJson, 'name' | 'version'>>;
+type ImportsField = NonNullable<PackageJson['imports']>;
 
 export type VersionedBundle = Pick<AnalyzedBundle, 'contents' | 'name' | 'sideEffectsField'> & {
     readonly version: string;
     readonly dependencies: Record<string, string>;
     readonly peerDependencies: Record<string, string>;
+    readonly importsField?: ImportsField | undefined;
     readonly additionalAttributes: AdditionalPackageJsonAttributes;
     readonly mainFile: TransferableFileDescription;
     readonly typesMainFile?: TransferableFileDescription | undefined;
@@ -212,17 +216,106 @@ function distributeDependencies(options: BuildVersionedBundleOptions): Readonly<
     return mergeDependencyGroups(bundleGrouped, externalGrouped);
 }
 
+function getHashImportSpecifiers(bundle: AnalyzedBundle): ReadonlySet<string> {
+    const project = new Project({
+        compilerOptions: {
+            allowJs: true,
+            noLib: true,
+            target: ScriptTarget.ES2022
+        },
+        skipLoadingLibFiles: true,
+        useInMemoryFileSystem: true
+    });
+    const importSpecifiers = new Set<string>();
+
+    for (const resource of bundle.contents) {
+        const { targetFilePath, content } = resource.fileDescription;
+        if (!isCodeFile(targetFilePath)) {
+            continue;
+        }
+
+        const sourceFile = project.createSourceFile(targetFilePath, content, { overwrite: true });
+        for (const literal of sourceFile.getImportStringLiterals()) {
+            const specifier = literal.getLiteralValue();
+            if (specifier.startsWith('#')) {
+                importSpecifiers.add(specifier);
+            }
+        }
+    }
+
+    return importSpecifiers;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function findMatchingImportEntryKey(
+    specifier: string,
+    importsField: Readonly<Record<string, unknown>>
+): string | undefined {
+    if (Object.hasOwn(importsField, specifier)) {
+        return specifier;
+    }
+
+    const patternKeys = Object.keys(importsField)
+        .filter((key) => {
+            return key.includes('*');
+        })
+        .filter((key) => {
+            const pattern = `^${escapeRegExp(key).replaceAll('\\*', '.*')}$`;
+            return new RegExp(pattern, 'u').test(specifier);
+        })
+        .toSorted((left, right) => {
+            return right.length - left.length;
+        });
+
+    return patternKeys[0];
+}
+
+function buildImportsField(bundle: AnalyzedBundle, mainPackageJson: MainPackageJson): ImportsField | undefined {
+    const referencedSpecifiers = getHashImportSpecifiers(bundle);
+    if (referencedSpecifiers.size === 0) {
+        return undefined;
+    }
+
+    const configuredImports = mainPackageJson.imports;
+    if (configuredImports === undefined) {
+        const [firstSpecifier] = referencedSpecifiers;
+        throw new Error(
+            `Found surviving package.json imports specifier "${firstSpecifier}" but mainPackageJson.imports is not configured`
+        );
+    }
+
+    const result: Record<string, unknown> = {};
+
+    for (const specifier of referencedSpecifiers) {
+        const matchingKey = findMatchingImportEntryKey(specifier, configuredImports);
+        if (matchingKey === undefined) {
+            throw new Error(
+                `Found surviving package.json imports specifier "${specifier}" but no matching mainPackageJson.imports entry`
+            );
+        }
+
+        result[matchingKey] = configuredImports[matchingKey];
+    }
+
+    return Object.keys(result).length === 0 ? undefined : (result as ImportsField);
+}
+
 export function buildVersionedBundle(options: BuildVersionedBundleOptions): VersionedBundle {
     const { bundle, version, mainPackageJson, additionalPackageJsonAttributes } = options;
     const [firstEntryPoint] = bundle.entryPoints;
 
     const distributedDependencies = distributeDependencies(options);
+    const importsField = buildImportsField(bundle, mainPackageJson);
 
     return {
         name: bundle.name,
         version,
         dependencies: distributedDependencies.dependencies,
         peerDependencies: distributedDependencies.peerDependencies,
+        ...(importsField === undefined ? {} : { importsField }),
         contents: bundle.contents,
         mainFile: firstEntryPoint.js,
         typesMainFile: firstEntryPoint.declarationFile,

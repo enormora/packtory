@@ -22,6 +22,15 @@ test(
 );
 
 test(
+    'main package json schema: validation succeeds when imports is an object',
+    checkValidationSuccess({
+        schema: mainPackageJsonSchema,
+        data: { type: 'module', imports: { '#foo': './src/foo.js', '#bar/*': { default: './src/bar/*.js' } } },
+        expectedData: { type: 'module', imports: { '#foo': './src/foo.js', '#bar/*': { default: './src/bar/*.js' } } }
+    })
+);
+
+test(
     'main package json schema: validation fails when type is missing',
     checkValidationFailure({
         schema: mainPackageJsonSchema,
@@ -45,5 +54,14 @@ test(
         schema: mainPackageJsonSchema,
         data: { type: 'module', dependencies: { foo: 123 } },
         expectedMessages: ['at dependencies.foo: expected string, but got number']
+    })
+);
+
+test(
+    'main package json schema: validation fails when imports is not an object',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: { type: 'module', imports: true },
+        expectedMessages: ['at imports: expected record, but got boolean']
     })
 );

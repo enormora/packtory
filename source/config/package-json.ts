@@ -4,6 +4,7 @@ export const packageJsonDependencyFieldNames = ['dependencies', 'devDependencies
 
 const forbiddenAdditionalPackageJsonAttributeNames = [
     ...packageJsonDependencyFieldNames,
+    'imports',
     'main',
     'name',
     'types',
@@ -22,6 +23,7 @@ export type MainPackageJson = {
     readonly dependencies?: Readonly<Record<string, string>> | undefined;
     readonly devDependencies?: Readonly<Record<string, string>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, string>> | undefined;
+    readonly imports?: Readonly<Record<string, JsonValue>> | undefined;
 };
 
 export type AdditionalPackageJsonAttributes = Readonly<Record<string, JsonValue>>;

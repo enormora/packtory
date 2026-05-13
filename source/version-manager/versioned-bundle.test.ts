@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import {
     analyzedBundle as createAnalyzedBundle,
+    analyzedBundleResource,
     externalDependency as createReferencedDependency,
     versionedBundle
 } from '../test-libraries/bundle-fixtures.ts';
@@ -105,6 +106,81 @@ test('buildVersionedBundle() defaults both dependency maps to empty objects when
 
     assert.deepStrictEqual(result.dependencies, {});
     assert.deepStrictEqual(result.peerDependencies, {});
+    assert.strictEqual(result.importsField, undefined);
+});
+
+test('buildVersionedBundle() emits only the used top-level imports entries for surviving local #imports', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                contents: [
+                    analyzedBundleResource('/src/index.js', {
+                        content: 'export { foo } from "#foo";\nexport { bar } from "#bar/qux";\n'
+                    })
+                ]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: {
+                    '#foo': './src/foo.js',
+                    '#bar/*': { default: './src/bar/*.js' },
+                    '#unused': './src/unused.js'
+                }
+            }
+        })
+    );
+
+    assert.deepStrictEqual(result.importsField, {
+        '#foo': './src/foo.js',
+        '#bar/*': { default: './src/bar/*.js' }
+    });
+});
+
+test('buildVersionedBundle() does not emit imports for substituted files because the surviving code no longer contains #imports', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                contents: [
+                    analyzedBundleResource('/src/index.js', {
+                        content: 'export { foo } from "pkg/foo.js";\n',
+                        isSubstituted: true
+                    })
+                ]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: { '#foo': './src/foo.js' }
+            }
+        })
+    );
+
+    assert.strictEqual(result.importsField, undefined);
+});
+
+test('buildVersionedBundle() throws when surviving #imports exist but mainPackageJson.imports is missing', () => {
+    expectBuildToThrow(
+        {
+            bundle: createAnalyzedBundle({
+                contents: [analyzedBundleResource('/src/index.js', { content: 'export { foo } from "#foo";\n' })]
+            })
+        },
+        'Found surviving package.json imports specifier "#foo" but mainPackageJson.imports is not configured'
+    );
+});
+
+test('buildVersionedBundle() throws when surviving #imports exist but no matching imports entry is configured', () => {
+    expectBuildToThrow(
+        {
+            bundle: createAnalyzedBundle({
+                contents: [analyzedBundleResource('/src/index.js', { content: 'export { foo } from "#foo/bar";\n' })]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: { '#baz/*': './src/baz/*.js' }
+            }
+        },
+        'Found surviving package.json imports specifier "#foo/bar" but no matching mainPackageJson.imports entry'
+    );
 });
 
 test('buildVersionedBundle() reads external dependency versions from dependencies and peerDependencies', () => {

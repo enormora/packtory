@@ -20,13 +20,14 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
     const { dependencyScanner, fileManager } = dependencies;
 
     async function resolveDependenciesForAllEntrypoints(options: ResourceResolveOptions): Promise<DependencyFiles> {
-        const { entryPoints, sourcesFolder, includeSourceMapFiles } = options;
+        const { entryPoints, sourcesFolder, includeSourceMapFiles, mainPackageJson } = options;
         let dependencyFiles: DependencyFiles = { externalDependencies: new Map(), localFiles: [] };
 
         for (const entryPoint of entryPoints) {
             const jsDependencyGraph = await dependencyScanner.scan(entryPoint.js, sourcesFolder, {
                 includeSourceMapFiles,
-                resolveDeclarationFiles: false
+                resolveDeclarationFiles: false,
+                mainPackageJson
             });
             dependencyFiles = mergeDependencyFiles(dependencyFiles, jsDependencyGraph.flatten(entryPoint.js));
 
@@ -36,7 +37,8 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
                     sourcesFolder,
                     {
                         includeSourceMapFiles,
-                        resolveDeclarationFiles: true
+                        resolveDeclarationFiles: true,
+                        mainPackageJson
                     }
                 );
                 dependencyFiles = mergeDependencyFiles(

@@ -28,16 +28,24 @@ function assertNoCircularStructures(value: unknown): void {
     });
 }
 
-function deepSortValue(value: unknown): unknown {
+function shouldPreserveArrayOrder(path: readonly string[]): boolean {
+    const [topLevelKey] = path;
+    return topLevelKey === 'imports' || topLevelKey === 'exports';
+}
+
+function deepSortValue(value: unknown, path: readonly string[] = []): unknown {
     if (isArray(value)) {
-        return value.map(deepSortValue).toSorted(compareValues);
+        const mapped = value.map((entry, index) => {
+            return deepSortValue(entry, [...path, String(index)]);
+        });
+        return shouldPreserveArrayOrder(path) ? mapped : mapped.toSorted(compareValues);
     }
 
     if (isRecord(value)) {
         return Object.fromEntries(
             Object.entries(value)
                 .map<RecordEntry>(([key, nestedValue]) => {
-                    return [key, deepSortValue(nestedValue)];
+                    return [key, deepSortValue(nestedValue, [...path, key])];
                 })
                 .toSorted(([leftKey]: RecordEntry, [rightKey]: RecordEntry) => {
                     return compareValues(leftKey, rightKey);

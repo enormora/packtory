@@ -1,4 +1,6 @@
+import path from 'node:path';
 import type { FileSystemHost } from 'ts-morph';
+import { type MainPackageJson } from '../config/package-json.ts';
 
 function isDeclarationFile(filePath: string): boolean {
     const lowerCasedFilePath = filePath.toLowerCase();
@@ -20,11 +22,13 @@ export type FileSystemAdaptersDependencies = {
 export type FileSystemAdapters = {
     fileSystemHostWithoutFilter: FileSystemHost;
     fileSystemHostFilteringDeclarationFiles: FileSystemHost;
+    withVirtualPackageJson: (fileSystemHost: FileSystemHost, folder: string, mainPackageJson: MainPackageJson) => FileSystemHost;
 };
 
 const syncMethodNames = {
     fileExists: 'fileExistsSync',
-    directoryExists: 'directoryExistsSync'
+    directoryExists: 'directoryExistsSync',
+    readFile: 'readFileSync'
 } as const;
 
 function bindRequiredBooleanMethod(object: FileSystemHost, methodName: string): (path: string) => boolean {
@@ -43,6 +47,73 @@ function bindRequiredBooleanMethod(object: FileSystemHost, methodName: string): 
 
         return result;
     };
+}
+
+function bindRequiredStringMethod(object: FileSystemHost, methodName: string): (path: string) => string {
+    const method: unknown = Reflect.get(object, methodName);
+
+    if (typeof method !== 'function') {
+        throw new TypeError(`Expected ${methodName} to be a function`);
+    }
+
+    return (filePath) => {
+        const result: unknown = Reflect.apply(method, object, [filePath]);
+
+        if (typeof result !== 'string') {
+            throw new TypeError(`Expected ${methodName} to return a string`);
+        }
+
+        return result;
+    };
+}
+
+function serializeMainPackageJson(mainPackageJson: MainPackageJson): string {
+    return JSON.stringify(mainPackageJson, null, 2);
+}
+
+function createVirtualPackageJsonHost(
+    fileSystemHost: FileSystemHost,
+    folder: string,
+    mainPackageJson: MainPackageJson
+): FileSystemHost {
+    const packageJsonPath = path.resolve(folder, 'package.json');
+    const serializedPackageJson = serializeMainPackageJson(mainPackageJson);
+    const fileExistsSync = bindRequiredBooleanMethod(fileSystemHost, syncMethodNames.fileExists);
+    const readFileSync = bindRequiredStringMethod(fileSystemHost, syncMethodNames.readFile);
+
+    const virtualFileSystemHost: FileSystemHost = {
+        ...fileSystemHost,
+        fileExists: async (filePath: string): Promise<boolean> => {
+            if (path.resolve(filePath) === packageJsonPath) {
+                return true;
+            }
+
+            return fileSystemHost.fileExists(filePath);
+        },
+        [syncMethodNames.fileExists]: (filePath: string): boolean => {
+            if (path.resolve(filePath) === packageJsonPath) {
+                return true;
+            }
+
+            return fileExistsSync(filePath);
+        },
+        readFile: async (filePath: string, encoding?: string): Promise<string> => {
+            if (path.resolve(filePath) === packageJsonPath) {
+                return serializedPackageJson;
+            }
+
+            return fileSystemHost.readFile(filePath, encoding);
+        },
+        [syncMethodNames.readFile]: (filePath: string, _encoding?: string): string => {
+            if (path.resolve(filePath) === packageJsonPath) {
+                return serializedPackageJson;
+            }
+
+            return readFileSync(filePath);
+        }
+    };
+    Object.setPrototypeOf(virtualFileSystemHost, fileSystemHost);
+    return virtualFileSystemHost;
 }
 
 export function createFileSystemAdapters(dependencies: FileSystemAdaptersDependencies): FileSystemAdapters {
@@ -88,6 +159,9 @@ export function createFileSystemAdapters(dependencies: FileSystemAdaptersDepende
 
     return {
         fileSystemHostWithoutFilter: fileSystemHost,
-        fileSystemHostFilteringDeclarationFiles
+        fileSystemHostFilteringDeclarationFiles,
+        withVirtualPackageJson(currentFileSystemHost, folder, mainPackageJson) {
+            return createVirtualPackageJsonHost(currentFileSystemHost, folder, mainPackageJson);
+        }
     };
 }

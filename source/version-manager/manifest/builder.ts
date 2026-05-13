@@ -21,10 +21,12 @@ function resolveSideEffectsValue(bundle: VersionedBundle): SideEffectsValue | un
 export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson {
     const sideEffects = resolveSideEffectsValue(bundle);
     const sideEffectsEntry: { sideEffects?: SideEffectsValue } = sideEffects === undefined ? {} : { sideEffects };
+    const importsEntry = bundle.importsField === undefined ? {} : { imports: bundle.importsField };
 
     const packageJson: BundlePackageJson = {
         ...bundle.additionalAttributes,
         ...sideEffectsEntry,
+        ...importsEntry,
         name: bundle.name,
         version: bundle.version,
         main: bundle.mainFile.targetFilePath,

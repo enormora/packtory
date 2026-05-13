@@ -2,8 +2,11 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { stub, fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import type { MainPackageJson } from '../config/package-json.ts';
 import type { DependencyFiles } from './dependency-graph.ts';
 import { createDependencyScanner, type DependencyScanner, type DependencyScannerDependencies } from './scanner.ts';
+
+const defaultMainPackageJson: MainPackageJson = { type: 'module' };
 
 type ProjectOverrides = {
     readonly getReferencedSourceFilePaths?: SinonSpy;
@@ -38,20 +41,29 @@ test('analyzes the given entryPoint file in the given folder as a typescript pro
     const analyzeProject = createFakeAnalyzeProject();
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await dependencyScanner.scan('/foo/bar.js', '/foo', {});
+    await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
 
     assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, ['/foo', { resolveDeclarationFiles: false }]);
+    assert.deepStrictEqual(analyzeProject.firstCall.args, [
+        '/foo',
+        { resolveDeclarationFiles: false, mainPackageJson: defaultMainPackageJson }
+    ]);
 });
 
 test('passes the resolveDeclarationFiles option to the project analyzer', async () => {
     const analyzeProject = createFakeAnalyzeProject();
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await dependencyScanner.scan('/foo/bar.js', '/foo', { resolveDeclarationFiles: true });
+    await dependencyScanner.scan('/foo/bar.js', '/foo', {
+        resolveDeclarationFiles: true,
+        mainPackageJson: defaultMainPackageJson
+    });
 
     assert.strictEqual(analyzeProject.callCount, 1);
-    assert.deepStrictEqual(analyzeProject.firstCall.args, ['/foo', { resolveDeclarationFiles: true }]);
+    assert.deepStrictEqual(analyzeProject.firstCall.args, [
+        '/foo',
+        { resolveDeclarationFiles: true, mainPackageJson: defaultMainPackageJson }
+    ]);
 });
 
 test('scans the dependencies of the given entryPoint file', async () => {
@@ -59,7 +71,7 @@ test('scans the dependencies of the given entryPoint file', async () => {
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    await dependencyScanner.scan('/foo/bar.js', '/foo', {});
+    await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
 
     assert.strictEqual(getReferencedSourceFilePaths.callCount, 1);
     assert.deepStrictEqual(getReferencedSourceFilePaths.firstCall.args, ['/foo/bar.js']);
@@ -83,14 +95,14 @@ async function expectScanReturnsOnlyEntry(scanArgs: Parameters<DependencyScanner
 }
 
 test('returns no dependencies if the given file doesn’t have any dependencies', async () => {
-    await expectScanReturnsOnlyEntry(['/dir/entry.js', '/dir']);
+    await expectScanReturnsOnlyEntry(['/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson }]);
 });
 
 test('doesn’t try to locate source map files by default', async () => {
     const locate = fake.resolves(Maybe.nothing());
     const dependencyScanner = dependencyScannerFactory({ locate });
 
-    await dependencyScanner.scan('/dir/entry.js', '/dir');
+    await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson });
 
     assert.strictEqual(locate.callCount, 0);
 });
@@ -107,7 +119,10 @@ test('tries to locate source map files for all local files when includeSourceMap
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject, locate });
 
-    await dependencyScanner.scan('/dir/entry.js', '/dir', { includeSourceMapFiles: true });
+    await dependencyScanner.scan('/dir/entry.js', '/dir', {
+        includeSourceMapFiles: true,
+        mainPackageJson: defaultMainPackageJson
+    });
 
     assert.strictEqual(locate.callCount, 3);
     assert.deepStrictEqual(locate.firstCall.args, ['/dir/entry.js']);
@@ -120,7 +135,10 @@ async function scanWithSourceMapLocate(locate: SinonSpy): Promise<DependencyFile
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject, locate });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { includeSourceMapFiles: true });
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {
+        includeSourceMapFiles: true,
+        mainPackageJson: defaultMainPackageJson
+    });
     return graph.flatten('/dir/entry.js');
 }
 
@@ -148,7 +166,11 @@ test('returns additional dependencies for source maps if they exist', async () =
 });
 
 test('returns no additional dependencies for source maps if they exist, but includeSourceMapFiles is false', async () => {
-    await expectScanReturnsOnlyEntry(['/dir/entry.js', '/dir', { includeSourceMapFiles: false }]);
+    await expectScanReturnsOnlyEntry([
+        '/dir/entry.js',
+        '/dir',
+        { includeSourceMapFiles: false, mainPackageJson: defaultMainPackageJson }
+    ]);
 });
 
 test('returns the local dependency files', async () => {
@@ -156,7 +178,7 @@ test('returns the local dependency files', async () => {
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir');
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson });
     const result = graph.flatten('/dir/entry.js');
 
     assert.deepStrictEqual(result.localFiles, [
@@ -180,7 +202,7 @@ test('returns the local dependency files found in subsequent dependencies', asyn
         analyzeProject: createFakeAnalyzeProject({ getReferencedSourceFilePaths })
     });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir');
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson });
     const result = graph.flatten('/dir/entry.js');
 
     assert.strictEqual(getReferencedSourceFilePaths.callCount, 4);
@@ -201,7 +223,7 @@ async function scanWithReferencedPaths(referencedPaths: readonly string[]): Prom
     const analyzeProject = createFakeAnalyzeProject({ getReferencedSourceFilePaths });
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
-    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', {});
+    const graph = await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson });
     return graph.flatten('/dir/entry.js');
 }
 
@@ -241,7 +263,7 @@ test('throws an error when an invalid node_modules path is returned', async () =
     const dependencyScanner = dependencyScannerFactory({ analyzeProject });
 
     try {
-        await dependencyScanner.scan('/dir/entry.js', '/dir');
+        await dependencyScanner.scan('/dir/entry.js', '/dir', { mainPackageJson: defaultMainPackageJson });
         assert.fail('Expected scan() to throw but it didn’t');
     } catch (error: unknown) {
         assert.strictEqual(

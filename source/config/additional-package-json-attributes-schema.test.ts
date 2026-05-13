@@ -21,7 +21,17 @@ test(
     })
 );
 
-for (const key of ['dependencies', 'peerDependencies', 'devDependencies', 'main', 'name', 'types', 'type', 'version']) {
+for (const key of [
+    'dependencies',
+    'peerDependencies',
+    'devDependencies',
+    'imports',
+    'main',
+    'name',
+    'types',
+    'type',
+    'version'
+]) {
     test(
         `additional package json attributes schema: validation fails for forbidden key ${key}`,
         checkValidationFailure({
@@ -37,6 +47,7 @@ test('additional package json attributes schema: every forbidden key is rejected
         'dependencies',
         'peerDependencies',
         'devDependencies',
+        'imports',
         'main',
         'name',
         'types',

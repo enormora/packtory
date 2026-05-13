@@ -12,6 +12,8 @@ type Overrides = {
     fileExistsSync?: SinonSpy;
     directoryExists?: SinonSpy;
     directoryExistsSync?: SinonSpy;
+    readFile?: SinonSpy;
+    readFileSync?: SinonSpy;
 };
 
 function fileSystemAdaptersFactory(overrides: Overrides): FileSystemAdapters {
@@ -19,10 +21,12 @@ function fileSystemAdaptersFactory(overrides: Overrides): FileSystemAdapters {
         fileExists = fake(),
         fileExistsSync = fake(),
         directoryExists = fake(),
-        directoryExistsSync = fake()
+        directoryExistsSync = fake(),
+        readFile = fake(),
+        readFileSync = fake()
     } = overrides;
     const fakeDependencies = {
-        fileSystemHost: { fileExists, fileExistsSync, directoryExistsSync, directoryExists }
+        fileSystemHost: { fileExists, fileExistsSync, directoryExistsSync, directoryExists, readFile, readFileSync }
     } as unknown as FileSystemAdaptersDependencies;
 
     return createFileSystemAdapters(fakeDependencies);
@@ -350,3 +354,57 @@ test(
         expectedUpstreamCalls: [['foo/node_modules/@typesomething/foo']]
     })
 );
+
+test('withVirtualPackageJson() makes the configured package.json path exist even when the wrapped host says it does not', async () => {
+    const fileSystemAdapters = fileSystemAdaptersFactory({
+        fileExists: fake.resolves(false),
+        fileExistsSync: fake.returns(false)
+    });
+    const virtualHost = fileSystemAdapters.withVirtualPackageJson(
+        fileSystemAdapters.fileSystemHostWithoutFilter,
+        '/repo/src',
+        { type: 'module', imports: { '#foo': './foo.js' } }
+    );
+
+    assert.strictEqual(await virtualHost.fileExists('/repo/src/package.json'), true);
+    // eslint-disable-next-line node/no-sync -- ts-morph hosts require sync methods
+    assert.strictEqual(virtualHost.fileExistsSync('/repo/src/package.json'), true);
+});
+
+test('withVirtualPackageJson() returns the serialized mainPackageJson for reads of the virtual manifest', async () => {
+    const readFile = fake.resolves('from-disk');
+    const readFileSync = fake.returns('from-disk-sync');
+    const fileSystemAdapters = fileSystemAdaptersFactory({ readFile, readFileSync });
+    const mainPackageJson = { type: 'module' as const, imports: { '#foo': './foo.js' } };
+    const virtualHost = fileSystemAdapters.withVirtualPackageJson(
+        fileSystemAdapters.fileSystemHostWithoutFilter,
+        '/repo/src',
+        mainPackageJson
+    );
+
+    assert.strictEqual(
+        await virtualHost.readFile('/repo/src/package.json'),
+        JSON.stringify(mainPackageJson, null, 2)
+    );
+    // eslint-disable-next-line node/no-sync -- ts-morph hosts require sync methods
+    assert.strictEqual(virtualHost.readFileSync('/repo/src/package.json'), JSON.stringify(mainPackageJson, null, 2));
+    assert.strictEqual(readFile.callCount, 0);
+    assert.strictEqual(readFileSync.callCount, 0);
+});
+
+test('withVirtualPackageJson() delegates reads for non-package.json paths to the wrapped host', async () => {
+    const readFile = fake.resolves('from-disk');
+    const readFileSync = fake.returns('from-disk-sync');
+    const fileSystemAdapters = fileSystemAdaptersFactory({ readFile, readFileSync });
+    const virtualHost = fileSystemAdapters.withVirtualPackageJson(
+        fileSystemAdapters.fileSystemHostWithoutFilter,
+        '/repo/src',
+        { type: 'module' }
+    );
+
+    assert.strictEqual(await virtualHost.readFile('/repo/src/foo.js'), 'from-disk');
+    // eslint-disable-next-line node/no-sync -- ts-morph hosts require sync methods
+    assert.strictEqual(virtualHost.readFileSync('/repo/src/foo.js'), 'from-disk-sync');
+    assert.deepStrictEqual(readFile.args, [['/repo/src/foo.js', undefined]]);
+    assert.deepStrictEqual(readFileSync.args, [['/repo/src/foo.js']]);
+});

@@ -48,22 +48,29 @@ function compareKeys(left: string, right: string): number {
     return 0;
 }
 
-function canonicalizeValue(value: JsonValue): JsonValue {
-    if (Array.isArray(value)) {
-        return value
-            .map((item) => {
-                return canonicalizeValue(item);
-            })
-            .toSorted((left, right) => {
-                if (
-                    (typeof left === 'string' || typeof left === 'number' || typeof left === 'boolean') &&
-                    (typeof right === 'string' || typeof right === 'number' || typeof right === 'boolean')
-                ) {
-                    return comparePrimitiveValues(left, right);
-                }
+function shouldPreserveArrayOrder(path: readonly string[]): boolean {
+    const [topLevelKey] = path;
+    return topLevelKey === 'imports' || topLevelKey === 'exports';
+}
 
-                return 0;
-            });
+function canonicalizeValue(value: JsonValue, path: readonly string[] = []): JsonValue {
+    if (Array.isArray(value)) {
+        const mapped = value.map((item, index) => {
+            return canonicalizeValue(item, [...path, String(index)]);
+        });
+        if (shouldPreserveArrayOrder(path)) {
+            return mapped;
+        }
+        return mapped.toSorted((left, right) => {
+            if (
+                (typeof left === 'string' || typeof left === 'number' || typeof left === 'boolean') &&
+                (typeof right === 'string' || typeof right === 'number' || typeof right === 'boolean')
+            ) {
+                return comparePrimitiveValues(left, right);
+            }
+
+            return 0;
+        });
     }
 
     if (typeof value === 'object' && value !== null) {
@@ -73,7 +80,7 @@ function canonicalizeValue(value: JsonValue): JsonValue {
                     return compareKeys(keyA, keyB);
                 })
                 .map(([propertyName, propertyValue]) => {
-                    return [propertyName, canonicalizeValue(propertyValue)];
+                    return [propertyName, canonicalizeValue(propertyValue, [...path, propertyName])];
                 })
         );
     }
