@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { FileSystemHost } from 'ts-morph';
-import { type MainPackageJson } from '../config/package-json.ts';
+import type { MainPackageJson } from '../config/package-json.ts';
 
 function isDeclarationFile(filePath: string): boolean {
     const lowerCasedFilePath = filePath.toLowerCase();
@@ -22,7 +22,11 @@ export type FileSystemAdaptersDependencies = {
 export type FileSystemAdapters = {
     fileSystemHostWithoutFilter: FileSystemHost;
     fileSystemHostFilteringDeclarationFiles: FileSystemHost;
-    withVirtualPackageJson: (fileSystemHost: FileSystemHost, folder: string, mainPackageJson: MainPackageJson) => FileSystemHost;
+    withVirtualPackageJson: (
+        fileSystemHost: FileSystemHost,
+        folder: string,
+        mainPackageJson: MainPackageJson
+    ) => FileSystemHost;
 };
 
 const syncMethodNames = {
@@ -31,25 +35,12 @@ const syncMethodNames = {
     readFile: 'readFileSync'
 } as const;
 
-function bindRequiredBooleanMethod(object: FileSystemHost, methodName: string): (path: string) => boolean {
-    const method: unknown = Reflect.get(object, methodName);
-
-    if (typeof method !== 'function') {
-        throw new TypeError(`Expected ${methodName} to be a function`);
-    }
-
-    return (path) => {
-        const result: unknown = Reflect.apply(method, object, [path]);
-
-        if (typeof result !== 'boolean') {
-            throw new TypeError(`Expected ${methodName} to return a boolean`);
-        }
-
-        return result;
-    };
-}
-
-function bindRequiredStringMethod(object: FileSystemHost, methodName: string): (path: string) => string {
+function bindRequiredMethod<Result>(
+    object: FileSystemHost,
+    methodName: string,
+    expectedResultDescription: string,
+    validateResult: (value: unknown) => value is Result
+): (filePath: string) => Result {
     const method: unknown = Reflect.get(object, methodName);
 
     if (typeof method !== 'function') {
@@ -59,16 +50,26 @@ function bindRequiredStringMethod(object: FileSystemHost, methodName: string): (
     return (filePath) => {
         const result: unknown = Reflect.apply(method, object, [filePath]);
 
-        if (typeof result !== 'string') {
-            throw new TypeError(`Expected ${methodName} to return a string`);
+        if (!validateResult(result)) {
+            throw new TypeError(`Expected ${methodName} to return ${expectedResultDescription}`);
         }
 
         return result;
     };
 }
 
+function isBoolean(value: unknown): value is boolean {
+    return typeof value === 'boolean';
+}
+
+function isString(value: unknown): value is string {
+    return typeof value === 'string';
+}
+
+const packageJsonIndentationSpaces = 2;
+
 function serializeMainPackageJson(mainPackageJson: MainPackageJson): string {
-    return JSON.stringify(mainPackageJson, null, 2);
+    return JSON.stringify(mainPackageJson, null, packageJsonIndentationSpaces);
 }
 
 function createVirtualPackageJsonHost(
@@ -78,8 +79,8 @@ function createVirtualPackageJsonHost(
 ): FileSystemHost {
     const packageJsonPath = path.resolve(folder, 'package.json');
     const serializedPackageJson = serializeMainPackageJson(mainPackageJson);
-    const fileExistsSync = bindRequiredBooleanMethod(fileSystemHost, syncMethodNames.fileExists);
-    const readFileSync = bindRequiredStringMethod(fileSystemHost, syncMethodNames.readFile);
+    const fileExistsSync = bindRequiredMethod(fileSystemHost, syncMethodNames.fileExists, 'a boolean', isBoolean);
+    const readFileSync = bindRequiredMethod(fileSystemHost, syncMethodNames.readFile, 'a string', isString);
 
     const virtualFileSystemHost: FileSystemHost = {
         ...fileSystemHost,
@@ -95,6 +96,7 @@ function createVirtualPackageJsonHost(
                 return true;
             }
 
+            // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
             return fileExistsSync(filePath);
         },
         readFile: async (filePath: string, encoding?: string): Promise<string> => {
@@ -104,11 +106,13 @@ function createVirtualPackageJsonHost(
 
             return fileSystemHost.readFile(filePath, encoding);
         },
-        [syncMethodNames.readFile]: (filePath: string, _encoding?: string): string => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the ts-morph host signature includes encoding
+        [syncMethodNames.readFile]: (filePath: string, encoding?: string): string => {
             if (path.resolve(filePath) === packageJsonPath) {
                 return serializedPackageJson;
             }
 
+            // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
             return readFileSync(filePath);
         }
     };
@@ -119,8 +123,13 @@ function createVirtualPackageJsonHost(
 export function createFileSystemAdapters(dependencies: FileSystemAdaptersDependencies): FileSystemAdapters {
     const { fileSystemHost } = dependencies;
 
-    const fileExistsSync = bindRequiredBooleanMethod(fileSystemHost, syncMethodNames.fileExists);
-    const directoryExistsSync = bindRequiredBooleanMethod(fileSystemHost, syncMethodNames.directoryExists);
+    const fileExistsSync = bindRequiredMethod(fileSystemHost, syncMethodNames.fileExists, 'a boolean', isBoolean);
+    const directoryExistsSync = bindRequiredMethod(
+        fileSystemHost,
+        syncMethodNames.directoryExists,
+        'a boolean',
+        isBoolean
+    );
 
     const fileSystemHostFilteringDeclarationFiles: FileSystemHost = {
         ...fileSystemHost,
@@ -160,8 +169,6 @@ export function createFileSystemAdapters(dependencies: FileSystemAdaptersDepende
     return {
         fileSystemHostWithoutFilter: fileSystemHost,
         fileSystemHostFilteringDeclarationFiles,
-        withVirtualPackageJson(currentFileSystemHost, folder, mainPackageJson) {
-            return createVirtualPackageJsonHost(currentFileSystemHost, folder, mainPackageJson);
-        }
+        withVirtualPackageJson: createVirtualPackageJsonHost
     };
 }

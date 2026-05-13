@@ -16,7 +16,7 @@ import {
 } from './specifier-errors.ts';
 
 export type BundlePackageJson = Readonly<SetRequired<PackageJson, 'name' | 'version'>>;
-type ImportsField = NonNullable<PackageJson['imports']>;
+type ImportsField = NonNullable<MainPackageJson['imports']>;
 
 export type VersionedBundle = Pick<AnalyzedBundle, 'contents' | 'name' | 'sideEffectsField'> & {
     readonly version: string;
@@ -228,12 +228,12 @@ function getHashImportSpecifiers(bundle: AnalyzedBundle): ReadonlySet<string> {
     });
     const importSpecifiers = new Set<string>();
 
-    for (const resource of bundle.contents) {
-        const { targetFilePath, content } = resource.fileDescription;
-        if (!isCodeFile(targetFilePath)) {
-            continue;
-        }
-
+    for (const resource of bundle.contents.filter((candidate) => {
+        return isCodeFile(candidate.fileDescription.targetFilePath);
+    })) {
+        const {
+            fileDescription: { targetFilePath, content }
+        } = resource;
         const sourceFile = project.createSourceFile(targetFilePath, content, { overwrite: true });
         for (const literal of sourceFile.getImportStringLiterals()) {
             const specifier = literal.getLiteralValue();
@@ -250,10 +250,7 @@ function escapeRegExp(value: string): string {
     return value.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
-function findMatchingImportEntryKey(
-    specifier: string,
-    importsField: Readonly<Record<string, unknown>>
-): string | undefined {
+function findMatchingImportEntryKey(specifier: string, importsField: ImportsField): string | undefined {
     if (Object.hasOwn(importsField, specifier)) {
         return specifier;
     }
@@ -273,34 +270,54 @@ function findMatchingImportEntryKey(
     return patternKeys[0];
 }
 
+function getConfiguredImportsOrThrow(
+    mainPackageJson: MainPackageJson,
+    referencedSpecifiers: ReadonlySet<string>
+): ImportsField {
+    if (mainPackageJson.imports !== undefined) {
+        return mainPackageJson.imports;
+    }
+
+    const [firstSpecifier] = referencedSpecifiers;
+    throw new Error(
+        [
+            `Found surviving package.json imports specifier "${firstSpecifier}"`,
+            'but mainPackageJson.imports is not configured'
+        ].join(' ')
+    );
+}
+
+function collectReferencedImportsEntries(
+    referencedSpecifiers: ReadonlySet<string>,
+    configuredImports: ImportsField
+): ImportsField {
+    const importsField: ImportsField = {};
+
+    for (const specifier of referencedSpecifiers) {
+        const matchingKey = findMatchingImportEntryKey(specifier, configuredImports);
+        if (matchingKey === undefined) {
+            throw new Error(
+                [
+                    `Found surviving package.json imports specifier "${specifier}"`,
+                    'but no matching mainPackageJson.imports entry'
+                ].join(' ')
+            );
+        }
+
+        importsField[matchingKey] = configuredImports[matchingKey];
+    }
+
+    return importsField;
+}
+
 function buildImportsField(bundle: AnalyzedBundle, mainPackageJson: MainPackageJson): ImportsField | undefined {
     const referencedSpecifiers = getHashImportSpecifiers(bundle);
     if (referencedSpecifiers.size === 0) {
         return undefined;
     }
 
-    const configuredImports = mainPackageJson.imports;
-    if (configuredImports === undefined) {
-        const [firstSpecifier] = referencedSpecifiers;
-        throw new Error(
-            `Found surviving package.json imports specifier "${firstSpecifier}" but mainPackageJson.imports is not configured`
-        );
-    }
-
-    const result: Record<string, unknown> = {};
-
-    for (const specifier of referencedSpecifiers) {
-        const matchingKey = findMatchingImportEntryKey(specifier, configuredImports);
-        if (matchingKey === undefined) {
-            throw new Error(
-                `Found surviving package.json imports specifier "${specifier}" but no matching mainPackageJson.imports entry`
-            );
-        }
-
-        result[matchingKey] = configuredImports[matchingKey];
-    }
-
-    return Object.keys(result).length === 0 ? undefined : (result as ImportsField);
+    const configuredImports = getConfiguredImportsOrThrow(mainPackageJson, referencedSpecifiers);
+    return collectReferencedImportsEntries(referencedSpecifiers, configuredImports);
 }
 
 export function buildVersionedBundle(options: BuildVersionedBundleOptions): VersionedBundle {

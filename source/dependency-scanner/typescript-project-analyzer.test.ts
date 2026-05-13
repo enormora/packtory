@@ -133,30 +133,17 @@ test('creates a project for all js files in the given folder with module resolut
 });
 
 test('creates a project for all d.ts files in the given folder', () => {
-    const addSourceFilesAtPaths = fake();
-    const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
     const withVirtualPackageJson = fake.returns('virtualized-no-filtering');
-    const analyzer = typescriptProjectAnalyzerFactory({
-        TSMorphProject,
+    runAnalyzeProjectExpectingArgs({
+        resolveDeclarationFiles: true,
         fileSystemAdapters: {
             fileSystemHostWithoutFilter: 'no-filtering',
             withVirtualPackageJson
-        }
+        },
+        expectedModule: 100,
+        expectedFileSystem: 'virtualized-no-filtering',
+        expectedFilesGlob: '/foo/**/*.d.ts'
     });
-
-    analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: true,
-        mainPackageJson: { type: 'module' }
-    });
-
-    assert.strictEqual(TSMorphProject.callCount, 1);
-    assert.strictEqual(TSMorphProject.calledWithNew(), true);
-    assert.deepStrictEqual(
-        TSMorphProject.firstCall.args,
-        expectedProjectConstruction({ module: 100, fileSystem: 'virtualized-no-filtering' })
-    );
-    assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
-    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [['/foo/**/*.d.ts']]);
 });
 
 test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', () => {
@@ -164,7 +151,10 @@ test('getReferencedSourceFilePaths() returns an empty array when the source file
     const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
-    const project = analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false, mainPackageJson: { type: 'module' } });
+    const project = analyzer.analyzeProject('/foo', {
+        resolveDeclarationFiles: false,
+        mainPackageJson: { type: 'module' }
+    });
     const result = project.getReferencedSourceFilePaths('/foo/bar.js');
 
     assert.deepStrictEqual(result, []);
@@ -174,7 +164,10 @@ test('getProject() exposes the underlying ts-morph project instance', () => {
     const TSMorphProject = createFakeTSMorphProject();
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
-    const project = analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false, mainPackageJson: { type: 'module' } });
+    const project = analyzer.analyzeProject('/foo', {
+        resolveDeclarationFiles: false,
+        mainPackageJson: { type: 'module' }
+    });
 
     assert.strictEqual(project.getProject(), TSMorphProject.firstCall.returnValue);
 });
@@ -188,7 +181,10 @@ test('getReferencedSourceFilePaths() returns the referenced source file paths', 
     const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
     const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
 
-    const project = analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false, mainPackageJson: { type: 'module' } });
+    const project = analyzer.analyzeProject('/foo', {
+        resolveDeclarationFiles: false,
+        mainPackageJson: { type: 'module' }
+    });
     const result = project.getReferencedSourceFilePaths('/foo/a.js');
 
     assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
@@ -210,7 +206,5 @@ test('passes the configured mainPackageJson into the virtual file-system overlay
 
     analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false, mainPackageJson });
 
-    assert.deepStrictEqual(withVirtualPackageJson.args, [
-        ['filtering-declaration-files', '/foo', mainPackageJson]
-    ]);
+    assert.deepStrictEqual(withVirtualPackageJson.args, [['filtering-declaration-files', '/foo', mainPackageJson]]);
 });

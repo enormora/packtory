@@ -382,10 +382,7 @@ test('withVirtualPackageJson() returns the serialized mainPackageJson for reads 
         mainPackageJson
     );
 
-    assert.strictEqual(
-        await virtualHost.readFile('/repo/src/package.json'),
-        JSON.stringify(mainPackageJson, null, 2)
-    );
+    assert.strictEqual(await virtualHost.readFile('/repo/src/package.json'), JSON.stringify(mainPackageJson, null, 2));
     // eslint-disable-next-line node/no-sync -- ts-morph hosts require sync methods
     assert.strictEqual(virtualHost.readFileSync('/repo/src/package.json'), JSON.stringify(mainPackageJson, null, 2));
     assert.strictEqual(readFile.callCount, 0);
