@@ -1,12 +1,7 @@
-/* eslint-disable no-restricted-syntax, functional/no-this-expressions, destructuring/in-params, sonarjs/publicly-writable-directories, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, no-undef -- fake child-process scaffolding is intentionally imperative in these tests */
+/* eslint-disable no-restricted-syntax, functional/no-this-expressions, destructuring/in-params, sonarjs/publicly-writable-directories, no-undef -- fake child-process scaffolding is intentionally imperative in these tests */
 import assert from 'node:assert';
 import { test } from 'mocha';
-import {
-    createPreviewIo,
-    defaultSpawnProcess,
-    type SpawnedProcess,
-    type SpawnOptions
-} from './preview-io-shared.ts';
+import { createPreviewIo, defaultSpawnProcess, type SpawnedProcess, type SpawnOptions } from './preview-io-shared.ts';
 import { previewIo as defaultPreviewIo } from './preview-io.ts';
 
 type FakeSpawnResult = {
@@ -27,6 +22,10 @@ type PreviewIoFactoryOverrides = {
 
 class FakeSpawnedProcess implements SpawnedProcess {
     readonly stdin;
+
+    endedContent = '';
+
+    wasUnrefCalled = false;
 
     readonly listeners: {
         close?: (code?: number) => void;
@@ -51,10 +50,6 @@ class FakeSpawnedProcess implements SpawnedProcess {
         };
     }
 
-    endedContent = '';
-
-    wasUnrefCalled = false;
-
     on(eventName: string, listener: (value?: number) => void): void {
         if (eventName === 'close') {
             this.listeners.close = listener;
@@ -70,9 +65,7 @@ class FakeSpawnedProcess implements SpawnedProcess {
     }
 }
 
-function previewIoFactory(
-    overrides: PreviewIoFactoryOverrides = {}
-) {
+function previewIoFactory(overrides: PreviewIoFactoryOverrides = {}) {
     const calls: FakeSpawnResult[] = [];
     const previewIo = createPreviewIo({
         spawnProcess: (command, args, options) => {
@@ -108,9 +101,7 @@ function closeProcess(code: number): NonNullable<PreviewIoFactoryOverrides['spaw
     };
 }
 
-function emitProcessError(
-    kind: 'error' | 'stdinError'
-): NonNullable<PreviewIoFactoryOverrides['spawnHook']> {
+function emitProcessError(kind: 'error' | 'stdinError'): NonNullable<PreviewIoFactoryOverrides['spawnHook']> {
     return ({ child }: FakeSpawnResult) => {
         queueMicrotask(() => {
             child.listeners[kind]?.();

@@ -26,14 +26,14 @@ export type PreviewArtifact = ArtifactEntry & {
     readonly diff?: readonly PreviewDiffHunk[];
 };
 
-export type PreviewDirectoryNode = {
+type PreviewDirectoryNode = {
     readonly path: string;
     readonly name: string;
     readonly depth: number;
     readonly type: 'directory';
 };
 
-export type PreviewFileNode = {
+type PreviewFileNode = {
     readonly path: string;
     readonly name: string;
     readonly depth: number;

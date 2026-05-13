@@ -28,7 +28,7 @@ import {
     getSucceededResults,
     hasMeaningfulChanges,
     isPreviewableResult,
-    type PreviewFileNode
+    type PreviewArtifactNode
 } from './preview-document-helpers.ts';
 import { isDiffableArtifact, toDiffLineType } from './preview-document-diff.ts';
 import { compareTreeNodes, treeNodeSortKey } from './preview-document-tree.ts';
@@ -39,6 +39,8 @@ const eliminatedUnusedFile = {
     reason: 'not-emitted-after-analysis',
     sourceBytes: 14
 } as const;
+
+type PreviewFileNode = Extract<PreviewArtifactNode, { readonly type: 'file' }>;
 
 function buildResult(overrides: Parameters<typeof createBuildResultFixture>[0] = {}): BuildAndPublishResult {
     return createBuildResultFixture({
@@ -189,7 +191,7 @@ function requireTreeNodeAt(document: PreviewDocument, packageIndex: number, tree
 
 function requireFileNodeAt(document: PreviewDocument, packageIndex: number, treeIndex: number): PreviewFileNode {
     const node = requireTreeNodeAt(document, packageIndex, treeIndex);
-    if (node.type !== 'file' || node.artifact === undefined) {
+    if (node.type !== 'file') {
         assert.fail('expected file node');
     }
     return node;
@@ -197,7 +199,7 @@ function requireFileNodeAt(document: PreviewDocument, packageIndex: number, tree
 
 function requireFileNodeByPath(document: PreviewDocument, packageIndex: number, filePath: string): PreviewFileNode {
     const node = requirePackageAt(document, packageIndex).tree.find((entry) => entry.path === filePath);
-    if (node?.type !== 'file' || node.artifact === undefined) {
+    if (node?.type !== 'file') {
         assert.fail(`expected file node for path ${filePath}`);
     }
     return node;
@@ -351,7 +353,7 @@ test('buildPreviewDocument sorts package.json first and creates diffs only for c
     assert.strictEqual(requireTreeNodeAt(document, 0, 0).path, 'package.json');
     assert.deepStrictEqual(
         pkg.tree
-            .filter((entry) => entry.type === 'file' && entry.artifact?.diff !== undefined)
+            .filter((entry) => entry.type === 'file' && entry.artifact.diff !== undefined)
             .map((entry) => entry.path),
         ['src/index.js']
     );
@@ -527,9 +529,9 @@ test('buildPreviewDocument leaves versionTransition undefined when no version de
     const document = await buildPreviewDocument({
         report: createBuildReportFixture({
             packages: {
-                'pkg-a': createPackageReport(
-                    [createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })]
-                )
+                'pkg-a': createPackageReport([
+                    createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
+                ])
             }
         }),
         result: Result.ok([buildResult()]),
@@ -762,9 +764,7 @@ test('preview helper functions sort and flatten tree nodes with package.json fir
             ['alpha.js', 0, 'file']
         ]
     );
-    assert.ok(
-        compareTreeNodes({ name: 'package.json', type: 'file' }, { name: 'src', type: 'directory' }) < 0
-    );
+    assert.ok(compareTreeNodes({ name: 'package.json', type: 'file' }, { name: 'src', type: 'directory' }) < 0);
     assert.ok(
         compareTreeNodes({ name: 'package.json', type: 'directory' }, { name: 'package.json', type: 'file' }) > 0
     );

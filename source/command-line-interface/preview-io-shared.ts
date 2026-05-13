@@ -16,11 +16,7 @@ export type SpawnOptions = {
     readonly detached?: boolean;
 };
 
-export type SpawnFunction = (
-    command: string,
-    args: readonly string[],
-    options: SpawnOptions
-) => SpawnedProcess;
+type SpawnFunction = (command: string, args: readonly string[], options: SpawnOptions) => SpawnedProcess;
 
 export type PreviewIoDependencies = {
     readonly spawnProcess: SpawnFunction;
@@ -43,11 +39,7 @@ type RunDetachedCommandOptions = {
     readonly args: readonly string[];
 };
 
-export function defaultSpawnProcess(
-    command: string,
-    args: readonly string[],
-    options: SpawnOptions
-): SpawnedProcess {
+export function defaultSpawnProcess(command: string, args: readonly string[], options: SpawnOptions): SpawnedProcess {
     return spawn(command, Array.from(args), {
         ...options,
         stdio: options.stdio === 'ignore' ? 'ignore' : Array.from(options.stdio)
