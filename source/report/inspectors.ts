@@ -29,12 +29,18 @@ export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): r
     return contents.map((entry) => {
         const sourcePath = 'sourceFilePath' in entry ? entry.sourceFilePath : undefined;
         const rewritten = entry.isSubstituted === true;
+        let status: ArtifactEntry['status'] = 'unchanged';
+        if (sourcePath === undefined) {
+            status = 'generated';
+        } else if (rewritten) {
+            status = 'changed';
+        }
         return {
             path: entry.filePath,
             sizeBytes: Buffer.byteLength(entry.content),
             kind: inferArtifactKind(entry.filePath),
             ...(sourcePath === undefined ? {} : { sourcePath }),
-            status: sourcePath === undefined ? 'generated' : rewritten ? 'changed' : 'unchanged',
+            status,
             badges: rewritten ? ['import-path-rewrite'] : []
         };
     });

@@ -1,9 +1,12 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
+import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { analyzedBundle, bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
+import { createProject } from '../test-libraries/typescript-project.ts';
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
+import { createDeadCodeEliminator } from './eliminator.ts';
 
 function inputs(
     ...bundles: readonly LinkedBundle[]
@@ -65,6 +68,26 @@ test('eliminate returns no bundles when given no input', async () => {
     const eliminator = createTestEliminator();
     const result = await eliminator.eliminate([]);
     assert.deepStrictEqual(result, []);
+});
+
+test('eliminate emits elimination progress for the original input bundles', async () => {
+    const broadcaster = createProgressBroadcaster();
+    const received: string[][] = [];
+    broadcaster.consumer.on('eliminationCompleted', (payload) => {
+        received.push(
+            payload.perBundle.map((bundle) => {
+                return bundle.packageName;
+            })
+        );
+    });
+    const eliminator = createDeadCodeEliminator({
+        createProject: () => createProject(),
+        progressBroadcaster: broadcaster.provider
+    });
+
+    await eliminator.eliminate(inputs(linkedBundle({ name: 'pkg-a' }), linkedBundle({ name: 'pkg-b' })));
+
+    assert.deepStrictEqual(received, [['pkg-a', 'pkg-b']]);
 });
 
 test('eliminate populates analysis on every resource', async () => {

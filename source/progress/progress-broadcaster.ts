@@ -17,7 +17,7 @@ export type ImportRewrite = {
     readonly targetBundle: string;
 };
 
-export type ArtifactStatus = 'unchanged' | 'changed' | 'generated';
+export type ArtifactStatus = 'changed' | 'generated' | 'unchanged';
 
 export type ArtifactBadge = 'dead-code-elimination' | 'import-path-rewrite';
 

@@ -25,7 +25,6 @@
         "!source/**/*.test.ts!",
         "!source/test-libraries/**/*.ts!"
     ],
-    "ignoreIssues": {},
     "tags": ["-@internal"],
     "ignoreDependencies": ["@ls-lint/ls-lint", "@packtory/cli", "c8", "eslint", "foo", "jscpd", "prettier"],
     "ignoreBinaries": []

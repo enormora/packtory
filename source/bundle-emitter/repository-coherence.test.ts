@@ -3,10 +3,10 @@ import { test } from 'mocha';
 import {
     assertRepositoryCoherence,
     getCiRepositoryUrl,
-    normalizeRepositoryUrl,
     readCiEnvironment,
     type CiEnvironment
 } from './repository-coherence.ts';
+import { normalizeRepositoryUrl } from './repository-url-normalizer.ts';
 
 const expectedNoRepositoryDeclaredMessage =
     'Provenance is enabled but the package has no repository declared.\n' +

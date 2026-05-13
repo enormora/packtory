@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- the CLI runner orchestrates command parsing, reporting, preview rendering, and progress wiring */
 import { command, subcommands, flag, binary, runSafely } from 'cmd-ts';
 import { bold, red, green, yellow, dim } from 'yoctocolors';
 import type { BuildReport, Packtory, PublishFailure } from '../packtory/packtory.ts';
@@ -149,6 +150,7 @@ function registerProgressListeners(
 
 const jsonIndentSpaces = 2;
 
+// eslint-disable-next-line @typescript-eslint/max-params -- report persistence needs shared flags plus build outcome/report data
 async function writeReports(
     writeReportFile: ReportWriter,
     report: BuildReport | undefined,
@@ -236,6 +238,7 @@ type PreviewHandlerDeps = {
     readonly flags: PreviewFlags;
 };
 
+// eslint-disable-next-line max-statements -- preview handling intentionally coordinates build, render, paging, and opening in one place
 async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<number> {
     const {
         log,

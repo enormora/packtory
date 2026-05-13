@@ -1,4 +1,4 @@
-import HostedGitInfo from 'hosted-git-info';
+import { normalizeRepositoryUrl } from './repository-url-normalizer.ts';
 
 export type CiEnvironment = {
     readonly githubServerUrl: string | undefined;
@@ -8,46 +8,6 @@ export type CiEnvironment = {
 
 function isNonEmptyString(value: unknown): value is string {
     return typeof value === 'string' && value.length > 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function extractRawUrl(input: unknown): string | undefined {
-    if (isNonEmptyString(input)) {
-        return input;
-    }
-    if (isRecord(input) && isNonEmptyString(input.url)) {
-        return input.url;
-    }
-    return undefined;
-}
-
-function manualNormalize(url: string): string {
-    let normalized = url.startsWith('git+') ? url.slice('git+'.length) : url;
-    if (normalized.endsWith('.git')) {
-        normalized = normalized.slice(0, -'.git'.length);
-    }
-    if (normalized.endsWith('/')) {
-        normalized = normalized.slice(0, -1);
-    }
-    return normalized.toLowerCase();
-}
-
-/** @internal exposed for unit testing of every URL shape; production code calls through assertRepositoryCoherence */
-export function normalizeRepositoryUrl(input: unknown): string | undefined {
-    const rawUrl = extractRawUrl(input);
-    if (rawUrl === undefined) {
-        return undefined;
-    }
-
-    const hosted = HostedGitInfo.fromUrl(rawUrl);
-    if (hosted !== undefined) {
-        return manualNormalize(hosted.https({ noCommittish: true }));
-    }
-
-    return manualNormalize(rawUrl);
 }
 
 export function readCiEnvironment(env: Readonly<Record<string, string | undefined>>): CiEnvironment {

@@ -1,23 +1,23 @@
-import type { PreviewArtifactNode, PreviewDocument, PreviewDiffLine, PreviewPackage } from './preview-document.ts';
-import { artifactBadgeLabel, artifactStatusLabel } from './preview-document.ts';
+/* eslint-disable @stylistic/max-len, complexity -- the HTML report renderer is intentionally template-heavy */
+/* cspell:words Palatino Menlo */
+import {
+    artifactBadgeLabel,
+    artifactStatusLabel,
+    type PreviewDocument,
+    type PreviewPackage
+} from './preview-document.ts';
+import { collectChangedArtifacts } from './changed-artifacts.ts';
+import { escapeHtml } from './html-escaping.ts';
+import type { PreviewArtifactNode, PreviewDiffLine } from './preview-document-helpers.ts';
 
 const jsonIndentSpaces = 2;
-
-function escapeHtml(value: string): string {
-    return value
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-}
 
 function renderJsonBlock(value: unknown): string {
     return `<pre>${escapeHtml(JSON.stringify(value, undefined, jsonIndentSpaces))}</pre>`;
 }
 
-function renderSection(title: string, value: unknown, open = false, tone = 'secondary'): string {
-    return `<details class="diagnostic ${tone}"${open ? ' open' : ''}><summary>${escapeHtml(title)}</summary>${renderJsonBlock(value)}</details>`;
+function renderSection(title: string, value: unknown): string {
+    return `<details class="diagnostic secondary"><summary>${escapeHtml(title)}</summary>${renderJsonBlock(value)}</details>`;
 }
 
 function formatBytes(bytes: number): string {
@@ -32,11 +32,15 @@ function renderSummaryCard(label: string, value: number): string {
     return `<div class="summary-card"><span class="summary-label">${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`;
 }
 
+function renderIssues(issueItems: string): string {
+    return `<section class="issues"><h2>Issues</h2><ul>${issueItems}</ul></section>`;
+}
+
 function renderArtifactNode(node: PreviewArtifactNode): string {
     if (node.type === 'directory') {
         return `<li class="tree-row directory" style="--depth:${node.depth}"><span class="tree-name">${escapeHtml(node.name)}/</span></li>`;
     }
-    const artifact = node.artifact;
+    const { artifact } = node;
     if (artifact === undefined) {
         throw new Error(`Artifact missing for file node "${node.path}"`);
     }
@@ -57,27 +61,32 @@ function renderDiffLine(line: PreviewDiffLine): string {
     return `<div class="diff-line ${line.type}">${escapeHtml(line.text)}</div>`;
 }
 
+function renderDiffHunk(header: string, lines: readonly PreviewDiffLine[]): string {
+    let renderedLines = '';
+    for (const line of lines) {
+        renderedLines += renderDiffLine(line);
+    }
+    return `<div class="diff-hunk"><div class="diff-header">${escapeHtml(header)}</div>${renderedLines}</div>`;
+}
+
+function renderArtifactDiff(artifact: NonNullable<PreviewArtifactNode['artifact']>): string {
+    let hunks = '';
+    for (const hunk of artifact.diff) {
+        hunks += renderDiffHunk(hunk.header, hunk.lines);
+    }
+    return `<details class="diff" open><summary>${escapeHtml(artifact.path)}</summary>${hunks}</details>`;
+}
+
 function renderDiffs(pkg: PreviewPackage): string {
-    const changedFiles = pkg.tree.filter((node) => {
-        return node.type === 'file' && node.artifact?.diff !== undefined;
-    });
+    const changedFiles = collectChangedArtifacts(pkg.tree);
     if (changedFiles.length === 0) {
         return '';
     }
-    const sections = changedFiles
-        .map((node) => {
-            const artifact = node.artifact;
-            if (artifact === undefined || artifact.diff === undefined) {
-                throw new Error(`Diff artifact missing for "${node.path}"`);
-            }
-            const hunks = artifact.diff
-                .map((hunk) => {
-                    return `<div class="diff-hunk"><div class="diff-header">${escapeHtml(hunk.header)}</div>${hunk.lines.map(renderDiffLine).join('')}</div>`;
-                })
-                .join('');
-            return `<details class="diff" open><summary>${escapeHtml(artifact.path)}</summary>${hunks}</details>`;
-        })
-        .join('');
+    let sections = '';
+    for (const artifact of changedFiles) {
+        sections += renderArtifactDiff(artifact);
+    }
+
     return `<section class="package-block"><h3>Changed files</h3>${sections}</section>`;
 }
 
@@ -85,22 +94,24 @@ function renderEliminatedFiles(pkg: PreviewPackage): string {
     if (pkg.eliminatedSourceFiles.length === 0) {
         return '';
     }
+    let items = '';
+    for (const file of pkg.eliminatedSourceFiles) {
+        items += `<li><code>${escapeHtml(file.path)}</code> <span class="tree-meta">${escapeHtml(
+            formatBytes(file.sourceBytes)
+        )}</span></li>`;
+    }
     return `<section class="package-block">
         <h3>Eliminated source files</h3>
-        <ul class="eliminated-list">${pkg.eliminatedSourceFiles
-            .map((file) => {
-                return `<li><code>${escapeHtml(file.path)}</code> <span class="tree-meta">${escapeHtml(
-                    formatBytes(file.sourceBytes)
-                )}</span></li>`;
-            })
-            .join('')}</ul>
+        <ul class="eliminated-list">${items}</ul>
     </section>`;
 }
 
 function renderDiagnostics(pkg: PreviewPackage): string {
     const sections = [
         pkg.diagnostics.inputs === undefined ? '' : renderSection('Inputs', pkg.diagnostics.inputs),
-        Object.keys(pkg.diagnostics.decisions).length === 0 ? '' : renderSection('Decisions', pkg.diagnostics.decisions),
+        Object.keys(pkg.diagnostics.decisions).length === 0
+            ? ''
+            : renderSection('Decisions', pkg.diagnostics.decisions),
         pkg.diagnostics.outputs === undefined ? '' : renderSection('Outputs', pkg.diagnostics.outputs),
         Object.keys(pkg.diagnostics.timings).length === 0 ? '' : renderSection('Timings (ms)', pkg.diagnostics.timings),
         pkg.diagnostics.failure === undefined ? '' : renderSection('Failure', pkg.diagnostics.failure)
@@ -315,14 +326,15 @@ const styles = `
 
 export function renderHtmlReport(document: PreviewDocument): string {
     const rawJson = JSON.stringify(document.report, undefined, jsonIndentSpaces);
-    const issueSection =
-        document.issues.length === 0
-            ? ''
-            : `<section class="issues"><h2>Issues</h2><ul>${document.issues
-                  .map((issue) => {
-                      return `<li>${escapeHtml(issue)}</li>`;
-                  })
-                  .join('')}</ul></section>`;
+    let issueItems = '';
+    for (const issue of document.issues) {
+        issueItems += `<li>${escapeHtml(issue)}</li>`;
+    }
+    const issueSection = document.issues.length === 0 ? '' : renderIssues(issueItems);
+    let packageSections = '';
+    for (const pkg of document.packages) {
+        packageSections += renderPackage(pkg);
+    }
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -350,7 +362,7 @@ export function renderHtmlReport(document: PreviewDocument): string {
             ${renderSummaryCard('Eliminated', document.summary.eliminatedSourceFiles)}
         </section>
         ${issueSection}
-        <section class="packages">${document.packages.map(renderPackage).join('')}</section>
+        <section class="packages">${packageSections}</section>
         <script type="application/json" id="packtory-report-data">${escapeHtml(rawJson)}</script>
     </main>
 </body>

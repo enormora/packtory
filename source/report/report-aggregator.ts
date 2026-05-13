@@ -1,6 +1,5 @@
 import type {
     ArtifactEntry,
-    ArtifactBadge,
     CrossBundleSeed,
     DroppedSymbol,
     EliminatedSourceFile,
@@ -14,6 +13,7 @@ import type {
     StageName,
     VersionTrigger
 } from '../progress/progress-broadcaster.ts';
+import { mergeArtifactEntry } from './artifact-entry-merger.ts';
 
 type VersionDecision = {
     readonly previousVersion: string | undefined;
@@ -111,24 +111,7 @@ function mergeArtifactEntries(
     transformedSourcePaths: ReadonlySet<string>
 ): readonly ArtifactEntry[] {
     return entries.map((entry) => {
-        if (entry.sourcePath === undefined) {
-            return entry;
-        }
-        const badgeSet = new Set<ArtifactBadge>(entry.badges);
-        let status = entry.status;
-        if (rewrittenSourcePaths.has(entry.sourcePath)) {
-            badgeSet.add('import-path-rewrite');
-            status = 'changed';
-        }
-        if (transformedSourcePaths.has(entry.sourcePath)) {
-            badgeSet.add('dead-code-elimination');
-            status = 'changed';
-        }
-        return {
-            ...entry,
-            status,
-            badges: Array.from(badgeSet)
-        };
+        return mergeArtifactEntry(entry, rewrittenSourcePaths, transformedSourcePaths);
     });
 }
 
@@ -139,7 +122,7 @@ function buildOutputs(entry: MutablePackageReport): PackageReport['outputs'] | u
     const rewrittenSourcePaths = new Set(
         entry.decisions.linker?.rewrites.map((rewrite) => {
             return rewrite.file;
-        }) ?? []
+        })
     );
     const transformedSourcePaths = new Set(
         entry.decisions.deadCodeElimination?.files
@@ -148,7 +131,7 @@ function buildOutputs(entry: MutablePackageReport): PackageReport['outputs'] | u
             })
             .map((file) => {
                 return file.path;
-            }) ?? []
+            })
     );
     return {
         tarball: {

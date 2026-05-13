@@ -34,12 +34,12 @@ function bundle(name: string, resources: readonly AnalyzedBundleResource[]): Ana
 function originalBundle(name: string, resources: readonly AnalyzedBundleResource[]) {
     return linkedBundle({
         name,
-        contents: resources.map((resource) => {
+        contents: resources.map((bundleResource) => {
             return {
-                fileDescription: resource.fileDescription,
-                directDependencies: resource.directDependencies,
-                isExplicitlyIncluded: resource.isExplicitlyIncluded,
-                isSubstituted: resource.isSubstituted
+                fileDescription: bundleResource.fileDescription,
+                directDependencies: bundleResource.directDependencies,
+                isExplicitlyIncluded: bundleResource.isExplicitlyIncluded,
+                isSubstituted: bundleResource.isSubstituted
             };
         })
     });
@@ -48,9 +48,11 @@ function originalBundle(name: string, resources: readonly AnalyzedBundleResource
 test('maybeEmitElimination() does not emit when no subscriber is registered', () => {
     const wrapped = createSpyingBroadcaster();
 
-    maybeEmitElimination(wrapped.provider, [originalBundle('pkg-a', [resource('/src/a.ts', 'abc')])], [
-        bundle('pkg-a', [resource('/src/a.ts', 'abc')])
-    ]);
+    maybeEmitElimination(
+        wrapped.provider,
+        [originalBundle('pkg-a', [resource('/src/a.ts', 'abc')])],
+        [bundle('pkg-a', [resource('/src/a.ts', 'abc')])]
+    );
 
     assert.strictEqual(wrapped.emitSpy.callCount, 0);
 });
@@ -77,7 +79,10 @@ test('maybeEmitElimination() emits eliminationCompleted with per-bundle decision
             originalBundle('pkg-a', [resource('/src/a.ts', 'abcde'), resource('/src/b.ts', 'xy')]),
             originalBundle('pkg-b', [resource('/src/c.ts', 'hi')])
         ],
-        [bundle('pkg-a', [resource('/src/a.ts', 'abcde'), resource('/src/b.ts', 'xy')]), bundle('pkg-b', [resource('/src/c.ts', 'hi')])]
+        [
+            bundle('pkg-a', [resource('/src/a.ts', 'abcde'), resource('/src/b.ts', 'xy')]),
+            bundle('pkg-b', [resource('/src/c.ts', 'hi')])
+        ]
     );
 
     assert.deepStrictEqual(received, [
@@ -152,13 +157,13 @@ test('maybeEmitElimination() emits an empty perBundle array when given no bundle
     assert.deepStrictEqual(received, [{ perBundle: [] }]);
 });
 
-test('maybeEmitElimination() marks a file as transformed when the analyzed output changed its content', () => {
+test('maybeEmitElimination() marks a file as transformed with the rewritten-after-analysis reason', () => {
     const broadcaster = createProgressBroadcaster();
-    const received: { decision: string; outputBytes?: number }[] = [];
+    const received: { decision: string; reason: string; outputBytes?: number }[] = [];
     broadcaster.consumer.on('eliminationCompleted', (payload) => {
         for (const bundleResult of payload.perBundle) {
             for (const file of bundleResult.files) {
-                received.push({ decision: file.decision, outputBytes: file.outputBytes });
+                received.push({ decision: file.decision, reason: file.reason, outputBytes: file.outputBytes });
             }
         }
     });
@@ -169,16 +174,18 @@ test('maybeEmitElimination() marks a file as transformed when the analyzed outpu
         [bundle('pkg-a', [resource('/src/a.ts', 'const kept = 1;\n')])]
     );
 
-    assert.deepStrictEqual(received, [{ decision: 'transformed', outputBytes: 16 }]);
+    assert.deepStrictEqual(received, [
+        { decision: 'transformed', reason: 'rewritten-after-analysis', outputBytes: 16 }
+    ]);
 });
 
-test('maybeEmitElimination() marks a missing analyzed file as eliminated', () => {
+test('maybeEmitElimination() marks a missing analyzed file as eliminated with the not-emitted-after-analysis reason', () => {
     const broadcaster = createProgressBroadcaster();
-    const received: { decision: string; path: string }[] = [];
+    const received: { decision: string; path: string; reason: string }[] = [];
     broadcaster.consumer.on('eliminationCompleted', (payload) => {
         for (const bundleResult of payload.perBundle) {
             for (const file of bundleResult.files) {
-                received.push({ decision: file.decision, path: file.path });
+                received.push({ decision: file.decision, path: file.path, reason: file.reason });
             }
         }
     });
@@ -189,5 +196,16 @@ test('maybeEmitElimination() marks a missing analyzed file as eliminated', () =>
         [bundle('pkg-a', [])]
     );
 
-    assert.deepStrictEqual(received, [{ decision: 'eliminated', path: '/src/a.ts' }]);
+    assert.deepStrictEqual(received, [
+        { decision: 'eliminated', path: '/src/a.ts', reason: 'not-emitted-after-analysis' }
+    ]);
+});
+
+test('maybeEmitElimination() throws when an analyzed bundle has no matching original bundle', () => {
+    const broadcaster = createProgressBroadcaster();
+    broadcaster.consumer.on('eliminationCompleted', () => undefined);
+
+    assert.throws(() => {
+        maybeEmitElimination(broadcaster.provider, [], [bundle('pkg-a', [resource('/src/a.ts', 'x')])]);
+    }, /Original bundle missing/);
 });
