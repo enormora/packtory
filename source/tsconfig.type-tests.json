@@ -7,5 +7,5 @@
         "types": ["node"]
     },
     "references": [{ "path": "./tsconfig.sources.json" }],
-    "include": ["./**/*.type-test.ts", "./**/*.d.ts"]
+    "include": ["./**/*.type-test.ts"]
 }
