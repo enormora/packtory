@@ -7,7 +7,7 @@ const probeTestTimeoutMs = 10_000;
 test('leaf config schemas keep their expected object keys and strict object behavior', async () => {
     const result = await runNodeProbe(`
         import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
-        import { entryPointSchema } from './source/config/entry-point.ts';
+        import { rootSchema as entryPointSchema } from './source/config/root.ts';
         import { mainPackageJsonSchema } from './source/config/main-package-json-schema.ts';
         import { registrySettingsSchema } from './source/config/registry-settings.ts';
 
@@ -86,9 +86,11 @@ test('package json schemas keep their runtime structure and forbidden key behavi
 
         const mainShape = mainPackageJsonSchema._zod.def.innerType.def.shape;
         const forbiddenKeySuccesses = [
+            'bin',
             'dependencies',
             'peerDependencies',
             'devDependencies',
+            'exports',
             'imports',
             'main',
             'name',
@@ -120,7 +122,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
         peerDependencyRecordType: 'record',
         importsRecordType: 'record',
         validMainSuccess: true,
-        forbiddenKeySuccesses: [false, false, false, false, false, false, false, false, false]
+        forbiddenKeySuccesses: [false, false, false, false, false, false, false, false, false, false, false]
     });
 }).timeout(probeTestTimeoutMs);
 
@@ -160,7 +162,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
                         name: 'pkg',
                         sourcesFolder: 'src',
                         mainPackageJson: { type: 'module' },
-                        entryPoints: [{ js: 'index.js' }]
+                        roots: { main: { js: 'index.js' } }
                     }
                 ]
             }).success
@@ -187,11 +189,13 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'dependencyPolicy',
             'deadCodeElimination',
             'name',
-            'entryPoints',
             'versioning',
             'bundleDependencies',
             'bundlePeerDependencies',
-            'checks'
+            'checks',
+            'roots',
+            'defaultModuleRoot',
+            'packageInterface'
         ],
         checksShapeKeys: [
             'noDuplicatedFiles',
@@ -221,7 +225,7 @@ test('schema source modules still validate representative valid and invalid inpu
     const result = await runNodeProbe(`
         import { safeParse } from '@schema-hub/zod-error-formatter';
         import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
-        import { entryPointSchema } from './source/config/entry-point.ts';
+        import { rootSchema as entryPointSchema } from './source/config/root.ts';
         import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
         import { registrySettingsSchema } from './source/config/registry-settings.ts';
 
@@ -257,7 +261,7 @@ test('schema source modules still validate representative valid and invalid inpu
                     sourcesFolder: 'src',
                     mainPackageJson: { type: 'module' },
                     name: 'pkg',
-                    entryPoints: [{ js: 'index.js' }]
+                    roots: { main: { js: 'index.js' } }
                 }]
             }).success,
             missingConfigRegistrySuccess: safeParse(packtoryConfigSchema, {
@@ -265,7 +269,7 @@ test('schema source modules still validate representative valid and invalid inpu
                     sourcesFolder: 'src',
                     mainPackageJson: { type: 'module' },
                     name: 'pkg',
-                    entryPoints: [{ js: 'index.js' }]
+                    roots: { main: { js: 'index.js' } }
                 }]
             }).success,
             emptyConfigPackagesSuccess: safeParse(packtoryConfigSchema, {

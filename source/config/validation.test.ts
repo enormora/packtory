@@ -115,7 +115,7 @@ test('returns an issue when a package depends on itself', () => {
 test('returns an issue when a package bundle dependency does not exit', () => {
     const result = validateConfig(
         withRegistry({
-            packages: [{ name: 'a', entryPoints: [{ js: 'foo' }], bundleDependencies: ['b'] }]
+            packages: [{ name: 'a', roots: { main: { js: 'foo' } }, bundleDependencies: ['b'] }]
         })
     );
 
@@ -125,11 +125,129 @@ test('returns an issue when a package bundle dependency does not exit', () => {
 test('returns an issue when a package bundle peer dependency does not exit', () => {
     const result = validateConfig(
         withRegistry({
-            packages: [{ name: 'a', entryPoints: [{ js: 'foo' }], bundlePeerDependencies: ['b'] }]
+            packages: [{ name: 'a', roots: { main: { js: 'foo' } }, bundlePeerDependencies: ['b'] }]
         })
     );
 
     assert.deepStrictEqual(result, Result.err(['Bundle peer dependency "b" referenced in "a" does not exist']));
+});
+
+test('returns an issue when two roots point at the same js file', () => {
+    const result = validateConfig(
+        withRegistry({
+            packages: [
+                {
+                    name: 'foo',
+                    roots: {
+                        main: { js: 'index.js' },
+                        alias: { js: 'index.js' }
+                    },
+                    defaultModuleRoot: 'main'
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(result, Result.err(['Package "foo" maps both root "main" and "alias" to "index.js"']));
+});
+
+test('returns an issue when implicit packages define multiple roots without defaultModuleRoot', () => {
+    const result = validateConfig(
+        withRegistry({
+            packages: [
+                {
+                    name: 'foo',
+                    roots: {
+                        main: { js: 'index.js' },
+                        feature: { js: 'feature.js' }
+                    }
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(
+        result,
+        Result.err(['Package "foo" must define defaultModuleRoot when multiple roots exist'])
+    );
+});
+
+test('returns an issue when implicit packages reference an unknown defaultModuleRoot', () => {
+    const result = validateConfig(
+        withRegistry({
+            packages: [
+                {
+                    name: 'foo',
+                    roots: { main: { js: 'index.js' } },
+                    defaultModuleRoot: 'missing'
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(result, Result.err(['Package "foo" references unknown defaultModuleRoot "missing"']));
+});
+
+test('returns issues when explicit modules reference unknown roots or declare duplicate export keys', () => {
+    const result = validateConfig(
+        withRegistry({
+            packages: [
+                {
+                    name: 'foo',
+                    roots: {
+                        main: { js: 'index.js' },
+                        helper: { js: 'helper.js' }
+                    },
+                    packageInterface: {
+                        modules: [
+                            { root: 'missing', export: '.' },
+                            { root: 'main', export: '.' }
+                        ]
+                    }
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(
+        result,
+        Result.err([
+            'Package "foo" module export "." references unknown root "missing"',
+            'Package "foo" declares duplicate export key "."',
+            'Package "foo" defines unused root "helper" in explicit mode'
+        ])
+    );
+});
+
+test('returns issues when explicit bins reference unknown roots, reuse names, or leave roots unused', () => {
+    const result = validateConfig(
+        withRegistry({
+            packages: [
+                {
+                    name: 'foo',
+                    roots: {
+                        main: { js: 'index.js' },
+                        cli: { js: 'cli.js' }
+                    },
+                    packageInterface: {
+                        bins: [
+                            { root: 'missing', name: 'foo' },
+                            { root: 'main', name: 'foo' }
+                        ]
+                    }
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(
+        result,
+        Result.err([
+            'Package "foo" bin "foo" references unknown root "missing"',
+            'Package "foo" declares duplicate bin name "foo"',
+            'Package "foo" defines unused root "cli" in explicit mode'
+        ])
+    );
 });
 
 test('returns multiple issues of different kind', () => {
@@ -171,8 +289,8 @@ test('doesn’t report cyclic dependency issues when there is also a missing dep
     const result = validateConfig(
         withRegistry({
             packages: [
-                { name: 'a', entryPoints: [{ js: 'foo' }], bundlePeerDependencies: ['b'] },
-                { name: 'c', entryPoints: [{ js: 'foo' }], bundlePeerDependencies: ['c'] }
+                { name: 'a', roots: { main: { js: 'foo' } }, bundlePeerDependencies: ['b'] },
+                { name: 'c', roots: { main: { js: 'foo' } }, bundlePeerDependencies: ['c'] }
             ]
         })
     );
@@ -184,7 +302,7 @@ test('accepts a config where checks is defined but noDuplicatedFiles is omitted'
     const result = validateConfig(
         withRegistry({
             checks: {},
-            packages: [{ name: 'a', entryPoints: [{ js: 'foo' }] }]
+            packages: [{ name: 'a', roots: { main: { js: 'foo' } } }]
         })
     );
 
@@ -195,7 +313,7 @@ test('accepts a config where checks.noDuplicatedFiles is defined without an allo
     const result = validateConfig(
         withRegistry({
             checks: { noDuplicatedFiles: { enabled: true } },
-            packages: [{ name: 'a', entryPoints: [{ js: 'foo' }] }]
+            packages: [{ name: 'a', roots: { main: { js: 'foo' } } }]
         })
     );
 
@@ -209,7 +327,7 @@ test('accepts a config where packages declare per-package noDuplicatedFiles allo
             packages: [
                 {
                     name: 'a',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     checks: { noDuplicatedFiles: { allowList: ['LICENSE'] } }
                 }
             ]
@@ -252,12 +370,12 @@ function withCommonWithoutPublishSettings(packages: readonly ConfigInput[]): Con
 
 const placementErrorMessage = 'publishSettings must be set in commonPackageSettings or in every package';
 const packageSpecificPublishSettings = [
-    { name: 'foo', entryPoints: [{ js: 'foo' }], publishSettings: { access: 'public' } },
-    { name: 'bar', entryPoints: [{ js: 'bar' }], publishSettings: { access: 'restricted' } }
+    { name: 'foo', roots: { main: { js: 'foo' } }, publishSettings: { access: 'public' } },
+    { name: 'bar', roots: { main: { js: 'bar' } }, publishSettings: { access: 'restricted' } }
 ] as const;
 
 test('returns an issue when publishSettings is missing from both commonPackageSettings and every package', () => {
-    const result = validateConfig(withCommonWithoutPublishSettings([{ name: 'foo', entryPoints: [{ js: 'foo' }] }]));
+    const result = validateConfig(withCommonWithoutPublishSettings([{ name: 'foo', roots: { main: { js: 'foo' } } }]));
 
     assert.deepStrictEqual(result, Result.err([placementErrorMessage]));
 });
@@ -265,8 +383,8 @@ test('returns an issue when publishSettings is missing from both commonPackageSe
 test('returns an issue when publishSettings is missing for at least one package and not provided in common', () => {
     const result = validateConfig(
         withCommonWithoutPublishSettings([
-            { name: 'foo', entryPoints: [{ js: 'foo' }], publishSettings: { access: 'public' } },
-            { name: 'bar', entryPoints: [{ js: 'bar' }] }
+            { name: 'foo', roots: { main: { js: 'foo' } }, publishSettings: { access: 'public' } },
+            { name: 'bar', roots: { main: { js: 'bar' } } }
         ])
     );
 
@@ -274,7 +392,7 @@ test('returns an issue when publishSettings is missing for at least one package 
 });
 
 test('accepts a config when publishSettings is set only in commonPackageSettings', () => {
-    const result = validateConfig(withRegistry({ packages: [{ name: 'foo', entryPoints: [{ js: 'foo' }] }] }));
+    const result = validateConfig(withRegistry({ packages: [{ name: 'foo', roots: { main: { js: 'foo' } } }] }));
 
     assert.strictEqual(result.isOk, true);
 });
@@ -293,7 +411,7 @@ test('accepts a config when no commonPackageSettings is provided and every packa
                 sourcesFolder: 'foo',
                 mainPackageJson: { type: 'module' },
                 name: 'foo',
-                entryPoints: [{ js: 'foo' }],
+                roots: { main: { js: 'foo' } },
                 publishSettings: { access: 'public' }
             }
         ]
@@ -312,7 +430,7 @@ const allowScriptsErrorFor = (packageName: string): string => {
 const postinstallScripts = { postinstall: 'echo hi' };
 
 test('accepts a config without scripts anywhere', () => {
-    const result = validateConfig(withRegistry({ packages: [{ name: 'foo', entryPoints: [{ js: 'foo' }] }] }));
+    const result = validateConfig(withRegistry({ packages: [{ name: 'foo', roots: { main: { js: 'foo' } } }] }));
 
     assert.strictEqual(result.isOk, true);
 });
@@ -323,7 +441,7 @@ test('accepts a config with per-package scripts and per-package allowScripts tru
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     additionalPackageJsonAttributes: { scripts: postinstallScripts },
                     publishSettings: { access: 'public', allowScripts: true }
                 }
@@ -338,7 +456,7 @@ const publicWithAllowScripts = { publishSettings: { access: 'public', allowScrip
 const commonScriptsAttribute = { additionalPackageJsonAttributes: { scripts: postinstallScripts } };
 const fooPackageWithScripts: ConfigInput = {
     name: 'foo',
-    entryPoints: [{ js: 'foo' }],
+    roots: { main: { js: 'foo' } },
     additionalPackageJsonAttributes: { scripts: postinstallScripts }
 };
 
@@ -388,7 +506,7 @@ test('rejects with both placement and allowScripts errors when scripts are set b
 test('rejects when common allows scripts but per-package replaces publishSettings without allowScripts', () => {
     const result = validateConfig(
         withCustomCommon({ ...commonScriptsAttribute, ...publicWithAllowScripts }, [
-            { name: 'foo', entryPoints: [{ js: 'foo' }], publishSettings: { access: 'public' } }
+            { name: 'foo', roots: { main: { js: 'foo' } }, publishSettings: { access: 'public' } }
         ])
     );
 

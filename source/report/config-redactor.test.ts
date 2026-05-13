@@ -35,7 +35,7 @@ test('redactConfigForPackage() omits publishSettings when neither package nor co
             packages: [
                 {
                     name: 'pkg-a',
-                    entryPoints: [{ js: 'pkg-a/index.js' }]
+                    roots: { main: { js: 'pkg-a/index.js' } }
                 }
             ]
         } as unknown as Partial<PacktoryConfig>),
@@ -51,7 +51,7 @@ test('redactConfigForPackage() uses package publishSettings when present', () =>
             packages: [
                 {
                     name: 'pkg-a',
-                    entryPoints: [{ js: 'pkg-a/index.js' }],
+                    roots: { main: { js: 'pkg-a/index.js' } },
                     publishSettings: { access: 'restricted', allowScripts: true }
                 }
             ]
@@ -66,7 +66,7 @@ test('redactConfigForPackage() falls back to commonPackageSettings.publishSettin
     const redacted = redactConfigForPackage(
         baseConfig({
             commonPackageSettings: { publishSettings: { access: 'public' } },
-            packages: [{ name: 'pkg-a', entryPoints: [{ js: 'pkg-a/index.js' }] }]
+            packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }]
         } as unknown as Partial<PacktoryConfig>),
         'pkg-a'
     );
@@ -81,7 +81,7 @@ test('redactConfigForPackage() prefers package publishSettings over commonPackag
             packages: [
                 {
                     name: 'pkg-a',
-                    entryPoints: [{ js: 'pkg-a/index.js' }],
+                    roots: { main: { js: 'pkg-a/index.js' } },
                     publishSettings: { access: 'restricted' }
                 }
             ]
@@ -95,7 +95,7 @@ test('redactConfigForPackage() prefers package publishSettings over commonPackag
 test('redactConfigForPackage() omits sourcesFolder when neither package nor common defines it', () => {
     const redacted = redactConfigForPackage(
         baseConfig({
-            packages: [{ name: 'pkg-a', entryPoints: [{ js: 'pkg-a/index.js' }] }]
+            packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }]
         } as unknown as Partial<PacktoryConfig>),
         'pkg-a'
     );
@@ -107,7 +107,7 @@ test('redactConfigForPackage() prefers package sourcesFolder over commonPackageS
     const redacted = redactConfigForPackage(
         baseConfig({
             commonPackageSettings: { sourcesFolder: '/common/src' },
-            packages: [{ name: 'pkg-a', entryPoints: [{ js: 'pkg-a/index.js' }], sourcesFolder: '/pkg-a/src' }]
+            packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } }, sourcesFolder: '/pkg-a/src' }]
         } as unknown as Partial<PacktoryConfig>),
         'pkg-a'
     );
@@ -119,7 +119,7 @@ test('redactConfigForPackage() falls back to commonPackageSettings.sourcesFolder
     const redacted = redactConfigForPackage(
         baseConfig({
             commonPackageSettings: { sourcesFolder: '/common/src' },
-            packages: [{ name: 'pkg-a', entryPoints: [{ js: 'pkg-a/index.js' }] }]
+            packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }]
         } as unknown as Partial<PacktoryConfig>),
         'pkg-a'
     );
@@ -133,7 +133,7 @@ test('redactConfigForPackage() returns undefined publishSettings and sourcesFold
             packages: [
                 {
                     name: 'pkg-a',
-                    entryPoints: [{ js: 'pkg-a/index.js' }],
+                    roots: { main: { js: 'pkg-a/index.js' } },
                     publishSettings: { access: 'restricted' },
                     sourcesFolder: '/pkg-a/src'
                 }

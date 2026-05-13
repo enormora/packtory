@@ -66,6 +66,127 @@ function validateDependenciesExist(packageConfigs: PackageConfigsByName): readon
     });
 }
 
+function validateDuplicateRootJavaScriptTargets(packageConfig: PackageConfig): readonly string[] {
+    const issues: string[] = [];
+    const rootEntries = Object.entries(packageConfig.roots);
+    const jsPaths = new Map<string, string>();
+
+    for (const [rootId, root] of rootEntries) {
+        const previous = jsPaths.get(root.js);
+        if (previous === undefined) {
+            jsPaths.set(root.js, rootId);
+        } else {
+            issues.push(`Package "${packageConfig.name}" maps both root "${previous}" and "${rootId}" to "${root.js}"`);
+        }
+    }
+
+    return issues;
+}
+
+function validateImplicitRootConfiguration(packageConfig: ImplicitPackageConfig): readonly string[] {
+    const rootIds = Object.keys(packageConfig.roots);
+    const issues: string[] = [];
+    const { defaultModuleRoot } = packageConfig;
+
+    if (rootIds.length > 1 && defaultModuleRoot === undefined) {
+        issues.push(`Package "${packageConfig.name}" must define defaultModuleRoot when multiple roots exist`);
+    }
+
+    if (defaultModuleRoot !== undefined && packageConfig.roots[defaultModuleRoot] === undefined) {
+        issues.push(`Package "${packageConfig.name}" references unknown defaultModuleRoot "${defaultModuleRoot}"`);
+    }
+
+    return issues;
+}
+
+type ExplicitValidationState = {
+    readonly usedRootIds: Set<string>;
+    readonly seenExportKeys: Set<string>;
+    readonly seenBinNames: Set<string>;
+};
+
+function createExplicitValidationState(): ExplicitValidationState {
+    return {
+        usedRootIds: new Set<string>(),
+        seenExportKeys: new Set<string>(),
+        seenBinNames: new Set<string>()
+    };
+}
+
+function validateExplicitModules(
+    packageConfig: ExplicitPackageConfig,
+    state: ExplicitValidationState
+): readonly string[] {
+    const issues: string[] = [];
+
+    for (const entry of packageConfig.packageInterface.modules ?? []) {
+        if (packageConfig.roots[entry.root] === undefined) {
+            issues.push(
+                [
+                    `Package "${packageConfig.name}" module export "${entry.export}"`,
+                    `references unknown root "${entry.root}"`
+                ].join(' ')
+            );
+        }
+        if (state.seenExportKeys.has(entry.export)) {
+            issues.push(`Package "${packageConfig.name}" declares duplicate export key "${entry.export}"`);
+        }
+        state.seenExportKeys.add(entry.export);
+        state.usedRootIds.add(entry.root);
+    }
+
+    return issues;
+}
+
+function validateExplicitBins(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): readonly string[] {
+    const issues: string[] = [];
+
+    for (const entry of packageConfig.packageInterface.bins ?? []) {
+        if (packageConfig.roots[entry.root] === undefined) {
+            issues.push(`Package "${packageConfig.name}" bin "${entry.name}" references unknown root "${entry.root}"`);
+        }
+        if (state.seenBinNames.has(entry.name)) {
+            issues.push(`Package "${packageConfig.name}" declares duplicate bin name "${entry.name}"`);
+        }
+        state.seenBinNames.add(entry.name);
+        state.usedRootIds.add(entry.root);
+    }
+
+    return issues;
+}
+
+function validateExplicitUnusedRoots(
+    packageConfig: ExplicitPackageConfig,
+    state: ExplicitValidationState
+): readonly string[] {
+    return Object.keys(packageConfig.roots).flatMap((rootId) => {
+        if (state.usedRootIds.has(rootId)) {
+            return [];
+        }
+        return [`Package "${packageConfig.name}" defines unused root "${rootId}" in explicit mode`];
+    });
+}
+
+function validateExplicitRootConfiguration(packageConfig: ExplicitPackageConfig): readonly string[] {
+    const state = createExplicitValidationState();
+
+    return [
+        ...validateExplicitModules(packageConfig, state),
+        ...validateExplicitBins(packageConfig, state),
+        ...validateExplicitUnusedRoots(packageConfig, state)
+    ];
+}
+
+function validateRootConfiguration(packageConfig: PackageConfig): readonly string[] {
+    const duplicateRootIssues = validateDuplicateRootJavaScriptTargets(packageConfig);
+
+    if (packageConfig.packageInterface === undefined) {
+        return [...duplicateRootIssues, ...validateImplicitRootConfiguration(packageConfig)];
+    }
+
+    return [...duplicateRootIssues, ...validateExplicitRootConfiguration(packageConfig)];
+}
+
 function packageListToRecord(packages: readonly PackageConfig[]): PackageConfigsByName {
     return indexBy(packages, (packageConfig) => {
         return packageConfig.name;
@@ -103,6 +224,12 @@ type ConfigWithGraphInternal<TConfig extends { packages: readonly PackageConfig[
         readonly packageGraph: DirectedGraph<string, undefined>;
     };
 
+type ImplicitPackageConfig = Extract<PackageConfig, { readonly packageInterface?: undefined }>;
+type ExplicitPackageConfig = Extract<
+    PackageConfig,
+    { readonly packageInterface: NonNullable<PackageConfig['packageInterface']> }
+>;
+
 function validatePublishSettingsArePlaced(packtoryConfig: Readonly<PacktoryConfigWithoutRegistry>): readonly string[] {
     if (packtoryConfig.commonPackageSettings?.publishSettings !== undefined) {
         return [];
@@ -114,6 +241,10 @@ function validatePublishSettingsArePlaced(packtoryConfig: Readonly<PacktoryConfi
         return [];
     }
     return ['publishSettings must be set in commonPackageSettings or in every package'];
+}
+
+function validatePackageSurfaceRules(packageConfigs: PackageConfigsByName): readonly string[] {
+    return Object.values(packageConfigs).flatMap(validateRootConfiguration);
 }
 
 function validateAllowScriptsConsistency(packtoryConfig: Readonly<PacktoryConfigWithoutRegistry>): readonly string[] {
@@ -136,7 +267,7 @@ function validateAllowScriptsConsistency(packtoryConfig: Readonly<PacktoryConfig
 }
 
 function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWithoutRegistry>(
-    schema: ZodMiniType<TConfig>,
+    schema: ZodMiniType,
     config: unknown
 ): Result<GraphGenerationPossibleResult<TConfig>, readonly string[]> {
     const schemaValidationResult = safeParse(schema, config);
@@ -145,13 +276,15 @@ function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWith
         return Result.err(schemaValidationResult.error.issues);
     }
 
-    const packtoryConfig: TConfig = schemaValidationResult.data;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- callers bind the expected config type for this schema
+    const packtoryConfig = schemaValidationResult.data as TConfig;
     const packageConfigs = packageListToRecord(packtoryConfig.packages);
 
     const preGraphIssues = [
         ...validatePublishSettingsArePlaced(packtoryConfig),
         ...validateAllowScriptsConsistency(packtoryConfig),
-        ...validateDependenciesExist(packageConfigs)
+        ...validateDependenciesExist(packageConfigs),
+        ...validatePackageSurfaceRules(packageConfigs)
     ];
     if (preGraphIssues.length > 0) {
         return Result.err([...validateDuplicatePackages(packtoryConfig.packages), ...preGraphIssues]);

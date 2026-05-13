@@ -30,37 +30,7 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     traverse: (visitor: Visitor<TId, TData>) => void;
 };
 
-/** @internal Mutation-test helper for traversal-budget assertions. */
-export const breadthFirstTraversalBudgetExceededErrorMessage =
-    'Breadth-first traversal exceeded the maximum iteration budget';
-/** @internal Mutation-test helper for traversal-budget assertions. */
-export const topologicalGenerationBudgetExceededErrorMessage =
-    'Topological generation discovery exceeded the maximum iteration budget';
-/** @internal Mutation-test helper for index-based traversal state. */
-export const queuedGraphNodeMissingErrorMessage = 'Queued graph node is missing';
-
-/** @internal Mutation-test helper for countdown-based traversal budgets. */
-export function createDescendingBudget(maximumIterations: number): number[] {
-    return Array.from({ length: maximumIterations + 1 }, (_value, index) => {
-        return maximumIterations - index;
-    });
-}
-
-/** @internal Mutation-test helper for traversal-budget assertions. */
-export function assertRemainingBudget(remainingBudget: number | undefined, errorMessage: string): void {
-    if (remainingBudget === undefined || remainingBudget === 0) {
-        throw new Error(errorMessage);
-    }
-}
-
-/** @internal Mutation-test helper for index-based traversal state. */
-export function getRequiredArrayValue<T>(values: readonly T[], index: number, errorMessage: string): T {
-    const value = values.at(index);
-    if (value === undefined) {
-        throw new Error(errorMessage);
-    }
-    return value;
-}
+const breadthFirstTraversalBudgetExceededErrorMessage = 'Breadth-first traversal exceeded the maximum iteration budget';
 
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
     node: Readonly<GraphNode<TId, TData>>,
@@ -236,12 +206,14 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         const startNode = getNode(startId);
         const queue: GraphNode<TId, TData>[] = [startNode];
         const visited = new Set<TId>();
-        const traversalBudget = createDescendingBudget(getTraversalBudget());
+        const traversalBudget = getTraversalBudget();
 
-        for (let nextNodeIndex = 0; nextNodeIndex < queue.length; nextNodeIndex += 1) {
-            const head = getRequiredArrayValue(queue, nextNodeIndex, queuedGraphNodeMissingErrorMessage);
-            const remainingBudget = traversalBudget.at(nextNodeIndex);
-            assertRemainingBudget(remainingBudget, breadthFirstTraversalBudgetExceededErrorMessage);
+        for (let nextNodeIndex = 0; nextNodeIndex < traversalBudget; nextNodeIndex += 1) {
+            const head = queue[nextNodeIndex];
+            if (head === undefined) {
+                return;
+            }
+
             if (visited.has(head.id)) {
                 continue;
             }
@@ -254,116 +226,123 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 queue.push(adjacentNode);
             }
         }
+
+        throw new Error(breadthFirstTraversalBudgetExceededErrorMessage);
+    }
+
+    function hasNode(id: TId): boolean {
+        return nodes.has(id);
+    }
+
+    function getAdjacentIds(id: TId): ReadonlySet<TId> {
+        const node = getNode(id);
+        return node.adjacentNodeIds;
+    }
+
+    function addNode(id: TId, data: TData): void {
+        if (nodes.has(id)) {
+            throw new Error(`Node with id "${id}" already exists`);
+        }
+        nodes.set(id, { id, data, adjacentNodeIds: new Set(), incomingEdges: 0 });
+    }
+    function hasConnection(edge: GraphEdge<TId>): boolean {
+        const fromNode = getNode(edge.from);
+        return fromNode.adjacentNodeIds.has(edge.to);
+    }
+
+    function connect(edge: GraphEdge<TId>): void {
+        const fromNode = getNode(edge.from);
+        const toNode = getNode(edge.to);
+
+        if (fromNode.adjacentNodeIds.has(toNode.id)) {
+            throw new Error(`Edge from "${edge.from}" to "${toNode.id}" already exists`);
+        }
+
+        nodes.set(edge.from, addAdjacentNodeId(fromNode, toNode.id));
+        nodes.set(edge.to, increaseIncomingEdges(getNode(edge.to)));
+    }
+
+    function disconnect(edge: GraphEdge<TId>): void {
+        const fromNode = getNode(edge.from);
+        const toNode = getNode(edge.to);
+
+        if (!fromNode.adjacentNodeIds.has(toNode.id)) {
+            throw new Error(`Edge from "${edge.from}" to "${toNode.id}" does not exist`);
+        }
+
+        nodes.set(edge.from, removeAdjacentNodeId(fromNode, toNode.id));
+        nodes.set(edge.to, decreaseIncomingEdges(toNode));
+    }
+
+    function traverse(visitor: Visitor<TId, TData>): void {
+        for (const [nodeId, node] of nodes) {
+            if (node.incomingEdges === 0) {
+                visitBreadthFirstSearch(nodeId, visitor);
+            }
+        }
+    }
+
+    function getTopologicalGenerations(): readonly (readonly TId[])[] {
+        if (isCyclic()) {
+            throw new Error('Failed to determine topological generations, current graph is cyclic');
+        }
+
+        const generations: TId[][] = [];
+        let alreadyDiscovered = new Set<TId>();
+        let incomingEdgesPerNode = getIncomingEdgesPerNode();
+        const generationAttempts = Array.from({ length: nodes.size + 1 }, (_unusedEntry, index) => {
+            return index + 1;
+        });
+        let exhaustedAttempts = 0;
+
+        for (const attempt of generationAttempts) {
+            exhaustedAttempts = attempt;
+            const currentGeneration = collectCurrentGeneration(alreadyDiscovered, incomingEdgesPerNode);
+
+            if (currentGeneration.length === 0) {
+                return generations;
+            }
+
+            const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
+            generations.push(Array.from(currentGeneration));
+            alreadyDiscovered = currentlyDiscovered;
+            incomingEdgesPerNode = decreaseIncomingEdgesPerNodeForAdjacentNodes(
+                incomingEdgesPerNode,
+                Array.from(currentGeneration)
+            );
+        }
+
+        throw new Error(`Topological generation discovery did not make progress after ${exhaustedAttempts} attempts`);
+    }
+
+    function reverse(): DirectedGraph<TId, TData> {
+        const reversedGraph = createDirectedGraph<TId, TData>();
+
+        for (const node of nodes.values()) {
+            reversedGraph.addNode(node.id, node.data);
+        }
+
+        for (const node of nodes.values()) {
+            for (const adjacentNodeId of node.adjacentNodeIds) {
+                reversedGraph.connect({ from: adjacentNodeId, to: node.id });
+            }
+        }
+
+        return reversedGraph;
     }
 
     return {
-        addNode(id, data) {
-            if (nodes.has(id)) {
-                throw new Error(`Node with id "${id}" already exists`);
-            }
-            nodes.set(id, { id, data, adjacentNodeIds: new Set(), incomingEdges: 0 });
-        },
-
-        getAdjacentIds(id) {
-            const node = getNode(id);
-            return node.adjacentNodeIds;
-        },
-
-        hasNode(id) {
-            return nodes.has(id);
-        },
-
-        hasConnection(edge) {
-            const fromNode = getNode(edge.from);
-            return fromNode.adjacentNodeIds.has(edge.to);
-        },
-
-        connect(edge) {
-            const fromNode = getNode(edge.from);
-            const toNode = getNode(edge.to);
-
-            if (fromNode.adjacentNodeIds.has(toNode.id)) {
-                throw new Error(`Edge from "${edge.from}" to "${toNode.id}" already exists`);
-            }
-
-            nodes.set(edge.from, addAdjacentNodeId(fromNode, toNode.id));
-            nodes.set(edge.to, increaseIncomingEdges(getNode(edge.to)));
-        },
-
-        disconnect(edge) {
-            const fromNode = getNode(edge.from);
-            const toNode = getNode(edge.to);
-
-            if (!fromNode.adjacentNodeIds.has(toNode.id)) {
-                throw new Error(`Edge from "${edge.from}" to "${toNode.id}" does not exist`);
-            }
-
-            nodes.set(edge.from, removeAdjacentNodeId(fromNode, toNode.id));
-            nodes.set(edge.to, decreaseIncomingEdges(toNode));
-        },
-
+        addNode,
+        getAdjacentIds,
+        hasNode,
+        hasConnection,
+        connect,
+        disconnect,
         visitBreadthFirstSearch,
-
-        traverse(visitor) {
-            for (const [nodeId, node] of nodes) {
-                if (node.incomingEdges === 0) {
-                    visitBreadthFirstSearch(nodeId, visitor);
-                }
-            }
-        },
-
+        traverse,
         detectCycles,
-
         isCyclic,
-
-        getTopologicalGenerations() {
-            if (isCyclic()) {
-                throw new Error('Failed to determine topological generations, current graph is cyclic');
-            }
-
-            const generations: TId[][] = [];
-            let alreadyDiscovered = new Set<TId>();
-            let incomingEdgesPerNode = getIncomingEdgesPerNode();
-            const generationBudget = createDescendingBudget(nodes.size);
-
-            for (const remainingBudget of generationBudget) {
-                const currentGeneration = collectCurrentGeneration(alreadyDiscovered, incomingEdgesPerNode);
-
-                if (currentGeneration.length === 0) {
-                    break;
-                }
-                assertRemainingBudget(remainingBudget, topologicalGenerationBudgetExceededErrorMessage);
-
-                const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
-                if (currentlyDiscovered.size <= alreadyDiscovered.size) {
-                    throw new Error('Topological generation discovery did not make progress');
-                }
-
-                generations.push(Array.from(currentGeneration));
-                alreadyDiscovered = currentlyDiscovered;
-                incomingEdgesPerNode = decreaseIncomingEdgesPerNodeForAdjacentNodes(
-                    incomingEdgesPerNode,
-                    Array.from(currentGeneration)
-                );
-            }
-
-            return generations;
-        },
-
-        reverse() {
-            const reversedGraph = createDirectedGraph<TId, TData>();
-
-            for (const node of nodes.values()) {
-                reversedGraph.addNode(node.id, node.data);
-            }
-
-            for (const node of nodes.values()) {
-                for (const adjacentNodeId of node.adjacentNodeIds) {
-                    reversedGraph.connect({ from: adjacentNodeId, to: node.id });
-                }
-            }
-
-            return reversedGraph;
-        }
+        getTopologicalGenerations,
+        reverse
     };
 }

@@ -33,7 +33,9 @@ function createLinkedBundle(name = 'package-a'): LinkedBundle {
     return {
         name,
         contents: [],
+        roots: { main: { js: createTransferableFile('/entry.js') } } as const,
         entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map(),
         externalDependencies: new Map()
     };
@@ -56,9 +58,12 @@ function createVersionedBundle(
         name,
         version,
         contents: [],
+        roots: { main: { js: createTransferableFile('/entry.js') } } as const,
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         dependencies: {},
         peerDependencies: {},
         additionalAttributes: {},
+        exportsField: { '.': { import: './entry.js' } },
         mainFile: createTransferableFile('/entry.js'),
         packageType: 'module' as const,
         sideEffectsField: undefined,
@@ -166,14 +171,14 @@ function createResolveOptions(): ResolveAndLinkOptions {
     return {
         name: 'package-a',
         sourcesFolder: '/src',
-        entryPoints: [{ js: '/src/index.js' }] as const,
+        roots: { main: { js: '/src/index.js' } } as const,
         includeSourceMapFiles: true,
         additionalFiles: [{ sourceFilePath: '/src/readme.md', targetFilePath: 'readme.md' }],
         mainPackageJson: { type: 'module' as const, dependencies: { dep: '^1.0.0' } },
         additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
         allowMutableSpecifiers: [],
-        bundleDependencies: [{ name: 'bundle-dependency', contents: [] }],
-        bundlePeerDependencies: [{ name: 'peer-dependency', contents: [] }]
+        bundleDependencies: [createLinkedBundle('bundle-dependency')],
+        bundlePeerDependencies: [createLinkedBundle('peer-dependency')]
     };
 }
 
@@ -208,7 +213,9 @@ test('resolveAndLink() emits progress events and links the resolved bundle with 
     const resolve = fake.resolves({
         name: 'package-a',
         contents: [],
-        entryPoints: [],
+        roots: { main: { js: createTransferableFile('/entry.js') } } as const,
+        entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         externalDependencies: new Map()
     });
     const linkBundle = fake.resolves(linkedBundle);
@@ -224,7 +231,9 @@ test('resolveAndLink() emits progress events and links the resolved bundle with 
             bundle: {
                 name: 'package-a',
                 contents: [],
-                entryPoints: [],
+                roots: { main: { js: createTransferableFile('/entry.js') } },
+                entryPoints: [{ js: createTransferableFile('/entry.js') }],
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 externalDependencies: new Map()
             },
             bundleDependencies: [...options.bundleDependencies, ...options.bundlePeerDependencies]
@@ -341,6 +350,24 @@ test('build() rejects non-ESM mainPackageJson values', async () => {
     try {
         await processor.build(options);
         assert.fail('Expected processor.build() should fail but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, 'mainPackageJson.type must be "module"');
+    }
+});
+
+test('buildAndPublish() rejects non-ESM mainPackageJson values', async () => {
+    const { processor } = createProcessor();
+    const invalidMainPackageJson = {};
+
+    try {
+        await processor.buildAndPublish({
+            analyzedBundle: createAnalyzedBundle(),
+            buildOptions: {
+                ...createBuildAndPublishOptions(),
+                mainPackageJson: invalidMainPackageJson as MainPackageJson
+            }
+        });
+        assert.fail('Expected processor.buildAndPublish() should fail but it did not');
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, 'mainPackageJson.type must be "module"');
     }
@@ -490,7 +517,8 @@ test('tryBuildAndPublish() forwards the fully built addVersion payload before pu
         {
             bundle: analyzedBundle,
             ...buildOptions,
-            version: '1.2.3'
+            version: '1.2.3',
+            substitutionPublicModuleSourcePaths: undefined
         }
     ]);
 });
@@ -630,7 +658,9 @@ test('resolveAndLink() emits scanCompleted with the resolved bundle scan results
     const resolve = fake.resolves({
         name: 'package-a',
         contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' } }],
-        entryPoints: [],
+        roots: { main: { js: createTransferableFile('/entry.js') } } as const,
+        entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         externalDependencies: new Map([['lodash', { version: '^4' }]])
     });
     const { processor, emit } = createProcessor({ hasSubscribers, resolve });
@@ -669,7 +699,9 @@ test('resolveAndLink() emits linkingCompleted with the linker rewrites when subs
     const linkBundle = fake.resolves({
         name: 'package-a',
         contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true }],
-        entryPoints: [],
+        roots: { main: { js: createTransferableFile('/entry.js') } } as const,
+        entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map([['pkg-b', {}]]),
         externalDependencies: new Map()
     });

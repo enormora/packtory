@@ -4,6 +4,8 @@ export const packageJsonDependencyFieldNames = ['dependencies', 'devDependencies
 
 const forbiddenAdditionalPackageJsonAttributeNames = [
     ...packageJsonDependencyFieldNames,
+    'bin',
+    'exports',
     'imports',
     'main',
     'name',

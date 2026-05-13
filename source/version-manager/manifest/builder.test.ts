@@ -1,26 +1,11 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import type { VersionedBundle } from '../versioned-bundle.ts';
+import { standardVersionedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { buildPackageManifest } from './builder.ts';
 
-function createBundle(overrides: Partial<VersionedBundle> = {}): VersionedBundle {
-    return {
-        name: 'package-a',
-        version: '1.2.3',
-        dependencies: {},
-        peerDependencies: {},
-        mainFile: {
-            sourceFilePath: '/src/index.js',
-            targetFilePath: 'index.js',
-            content: '',
-            isExecutable: false
-        },
-        additionalAttributes: {},
-        contents: [],
-        packageType: 'module',
-        sideEffectsField: undefined,
-        ...overrides
-    };
+function createBundle(overrides: Parameters<typeof standardVersionedBundle>[0] = {}): VersionedBundle {
+    return standardVersionedBundle(overrides);
 }
 
 test('buildPackageManifest() omits optional fields when they are empty or undefined', () => {
@@ -29,12 +14,17 @@ test('buildPackageManifest() omits optional fields when they are empty or undefi
     assert.deepStrictEqual(result, {
         name: 'package-a',
         version: '1.2.3',
-        main: 'index.js',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
         type: 'module'
     });
 });
 
-test('buildPackageManifest() includes dependency, peer dependency, type, and types fields', () => {
+test('buildPackageManifest() includes dependency, peer dependency, type, and exports fields', () => {
     const result = buildPackageManifest(
         createBundle({
             dependencies: { leftPad: '^1.0.0' },
@@ -52,11 +42,15 @@ test('buildPackageManifest() includes dependency, peer dependency, type, and typ
     assert.deepStrictEqual(result, {
         name: 'package-a',
         version: '1.2.3',
-        main: 'index.js',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
         dependencies: { leftPad: '^1.0.0' },
         peerDependencies: { react: '^19.0.0' },
-        type: 'module',
-        types: 'index.d.ts'
+        type: 'module'
     });
 });
 
@@ -77,7 +71,56 @@ test('buildPackageManifest() includes generated imports when present', () => {
             '#foo': './src/foo.js',
             '#bar/*': { default: ['./src/bar/*.js', './fallback/*.js'] }
         },
-        main: 'index.js',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
+        type: 'module'
+    });
+});
+
+test('buildPackageManifest() preserves string bin entries when present', () => {
+    const result = buildPackageManifest(
+        createBundle({
+            binField: './cli.js'
+        })
+    );
+
+    assert.deepStrictEqual(result, {
+        name: 'package-a',
+        version: '1.2.3',
+        bin: './cli.js',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
+        type: 'module'
+    });
+});
+
+test('buildPackageManifest() drops undefined entries from object bin fields', () => {
+    const result = buildPackageManifest(
+        createBundle({
+            binField: { packageA: './cli.js', ignored: undefined } as unknown as NonNullable<
+                VersionedBundle['binField']
+            >
+        })
+    );
+
+    assert.deepStrictEqual(result, {
+        name: 'package-a',
+        version: '1.2.3',
+        bin: { packageA: './cli.js' },
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
         type: 'module'
     });
 });
@@ -92,7 +135,12 @@ test('buildPackageManifest() passes through a scripts block from additional attr
     assert.deepStrictEqual(result, {
         name: 'package-a',
         version: '1.2.3',
-        main: 'index.js',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
         type: 'module',
         scripts: { postinstall: 'echo hi' }
     });
@@ -112,7 +160,12 @@ test('buildPackageManifest() lets generated manifest fields override conflicting
     assert.deepStrictEqual(result, {
         name: 'package-a',
         version: '1.2.3',
-        main: 'index.js',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
         type: 'module',
         customField: true
     });

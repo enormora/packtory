@@ -89,6 +89,17 @@ test('marks a default-exported function as exported', () => {
     assert.deepStrictEqual(descriptors('export default function foo() {}'), [{ name: 'foo', isExported: true }]);
 });
 
+test('marks an ESM default export assignment as exported', () => {
+    assert.deepStrictEqual(descriptors('const foo = 1;\nexport default foo;'), [
+        { name: 'foo', isExported: false },
+        { name: 'default', isExported: true }
+    ]);
+});
+
+test('skips CommonJS export-equals assignments because they do not create an ESM binding', () => {
+    assert.deepStrictEqual(names('const foo = 1;\nexport = foo;'), ['foo']);
+});
+
 test('marks an exported class as exported', () => {
     assert.deepStrictEqual(descriptors('export class Foo {}'), [{ name: 'Foo', isExported: true }]);
 });

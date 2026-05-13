@@ -1,216 +1,25 @@
-import { indexBy, values } from 'remeda';
-import type {
-    PackageConfig,
-    PackageConfigsByName,
-    PacktoryConfig,
-    PacktoryConfigWithoutRegistry
-} from '../config/config.ts';
-import type { MainPackageJson } from '../config/package-json.ts';
-import type { AdditionalFileDescription } from '../config/additional-files.ts';
-import type { RegistrySettings } from '../config/registry-settings.ts';
-import type { VersioningSettings } from '../config/versioning-settings.ts';
-import type { ResourceResolveOptions } from '../resource-resolver/resource-resolve-options.ts';
-import type { BuildVersionedBundleOptions, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { PackageConfigsByName, PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { BundleSubstitutionSource } from '../linker/linked-bundle.ts';
-import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
-
-type PublishSettings = NonNullable<PackageConfig['publishSettings']>;
-type ManifestOptionsSubset = Pick<
-    BuildVersionedBundleOptions,
-    'additionalPackageJsonAttributes' | 'allowMutableSpecifiers' | 'mainPackageJson'
->;
-
-type SharedPackageOptions<TBundle extends { name: string }> = ManifestOptionsSubset &
-    ResourceResolveOptions & {
-        readonly bundleDependencies: readonly TBundle[];
-        readonly bundlePeerDependencies: readonly TBundle[];
-        readonly deadCodeElimination?: { readonly enabled: boolean } | undefined;
-    };
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import {
+    preparePackageOptions,
+    resolvePublishSettings,
+    type PublishSettings,
+    type SharedPackageOptions,
+    type VersioningSettings
+} from './prepare-package-options.ts';
 
 export type BuildOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
     readonly version: string;
 };
 
 export type BuildAndPublishOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
-    readonly registrySettings: RegistrySettings;
+    readonly registrySettings: PacktoryConfig['registrySettings'];
     readonly publishSettings: PublishSettings;
     readonly versioning: VersioningSettings;
 };
 
 export type ResolveAndLinkOptions = SharedPackageOptions<BundleSubstitutionSource>;
-
-function dependencyNamesToBundles<TBundle extends { name: string }>(
-    dependencyNames: readonly string[],
-    bundles: readonly TBundle[]
-): readonly TBundle[] {
-    const bundlesByName = indexBy(bundles, (bundle) => {
-        return bundle.name;
-    });
-
-    return dependencyNames.map((dependencyName) => {
-        const matchingBundle = bundlesByName[dependencyName];
-        if (matchingBundle === undefined) {
-            throw new Error(`Dependent bundle "${dependencyName}" not found`);
-        }
-        return matchingBundle;
-    });
-}
-
-function mergeAdditionalFiles(
-    firstFiles: readonly AdditionalFileDescription[] = [],
-    secondFiles: readonly AdditionalFileDescription[] = []
-): readonly AdditionalFileDescription[] {
-    return values(
-        indexBy([...firstFiles, ...secondFiles], (file) => {
-            return file.targetFilePath;
-        })
-    );
-}
-
-type PreparedPackageOptions<TBundle extends { name: string }> = {
-    readonly sharedOptions: SharedPackageOptions<TBundle>;
-    readonly versioning: VersioningSettings;
-};
-
-function getPackageConfig(packageName: string, packageConfigs: PackageConfigsByName): PackageConfig {
-    const packageConfig = packageConfigs[packageName];
-
-    if (packageConfig === undefined) {
-        throw new Error(`Config for package "${packageName}" is missing`);
-    }
-
-    return packageConfig;
-}
-
-function getRequiredValue<TValue>(value: TValue | undefined, message: string): TValue {
-    if (value === undefined) {
-        throw new Error(message);
-    }
-
-    return value;
-}
-
-function resolveSourcesFolder(packageConfig: PackageConfig, packtoryConfig: PacktoryConfigWithoutRegistry): string {
-    return getRequiredValue(
-        packageConfig.sourcesFolder ?? packtoryConfig.commonPackageSettings?.sourcesFolder,
-        `Config for package "${packageConfig.name}" is missing the sources folder`
-    );
-}
-
-function resolveMainPackageJson(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): MainPackageJson {
-    return getRequiredValue(
-        packageConfig.mainPackageJson ?? packtoryConfig.commonPackageSettings?.mainPackageJson,
-        `Config for package "${packageConfig.name}" is missing the main package.json settings`
-    );
-}
-
-function resolvePublishSettings(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): PublishSettings {
-    return getRequiredValue(
-        packageConfig.publishSettings ?? packtoryConfig.commonPackageSettings?.publishSettings,
-        `Config for package "${packageConfig.name}" is missing publish settings`
-    );
-}
-
-function resolveAllowMutableSpecifiers(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): readonly string[] {
-    const dependencyPolicy = packageConfig.dependencyPolicy ?? packtoryConfig.commonPackageSettings?.dependencyPolicy;
-    return dependencyPolicy?.allowMutableSpecifiers ?? [];
-}
-
-function buildAdditionalPackageJsonAttributes(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): ManifestOptionsSubset['additionalPackageJsonAttributes'] {
-    return {
-        ...packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
-        ...packageConfig.additionalPackageJsonAttributes
-    };
-}
-
-function resolveIncludeSourceMapFiles(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): boolean {
-    return packageConfig.includeSourceMapFiles ?? packtoryConfig.commonPackageSettings?.includeSourceMapFiles ?? false;
-}
-
-function resolveAdditionalFiles(
-    packageConfig: PackageConfig,
-    sourcesFolder: string,
-    packtoryConfig: PacktoryConfigWithoutRegistry
-): readonly AdditionalFileDescription[] {
-    return mergeAdditionalFiles(
-        packtoryConfig.commonPackageSettings?.additionalFiles,
-        packageConfig.additionalFiles
-    ).map((additionalFile) => {
-        return normalizeAdditionalFile(additionalFile, sourcesFolder);
-    });
-}
-
-function resolveBundleDependencies<TBundle extends { name: string }>(
-    packageConfig: PackageConfig,
-    existingBundles: readonly TBundle[]
-): Pick<SharedPackageOptions<TBundle>, 'bundleDependencies' | 'bundlePeerDependencies'> {
-    return {
-        bundleDependencies: dependencyNamesToBundles(packageConfig.bundleDependencies ?? [], existingBundles),
-        bundlePeerDependencies: dependencyNamesToBundles(packageConfig.bundlePeerDependencies ?? [], existingBundles)
-    };
-}
-
-function buildSharedOptions<TBundle extends { name: string }>(
-    packageConfig: PackageConfig,
-    packtoryConfig: PacktoryConfigWithoutRegistry,
-    existingBundles: readonly TBundle[]
-): SharedPackageOptions<TBundle> {
-    const sourcesFolder = resolveSourcesFolder(packageConfig, packtoryConfig);
-    const mainPackageJson = resolveMainPackageJson(packageConfig, packtoryConfig);
-    const bundleDependencies = resolveBundleDependencies(packageConfig, existingBundles);
-
-    const [firstEntryPoint, ...remainingEntryPoints] = packageConfig.entryPoints;
-    if (firstEntryPoint === undefined) {
-        throw new Error(`Config for package "${packageConfig.name}" is missing entry points`);
-    }
-
-    const entryPoints: ResourceResolveOptions['entryPoints'] = [
-        normalizeEntryPoint(firstEntryPoint, sourcesFolder),
-        ...remainingEntryPoints.map((entryPoint) => {
-            return normalizeEntryPoint(entryPoint, sourcesFolder);
-        })
-    ];
-
-    return {
-        name: packageConfig.name,
-        entryPoints,
-        sourcesFolder,
-        includeSourceMapFiles: resolveIncludeSourceMapFiles(packageConfig, packtoryConfig),
-        additionalFiles: resolveAdditionalFiles(packageConfig, sourcesFolder, packtoryConfig),
-        mainPackageJson,
-        additionalPackageJsonAttributes: buildAdditionalPackageJsonAttributes(packageConfig, packtoryConfig),
-        allowMutableSpecifiers: resolveAllowMutableSpecifiers(packageConfig, packtoryConfig),
-        ...bundleDependencies
-    };
-}
-
-function preparePackageOptions<TBundle extends { name: string }>(
-    packageName: string,
-    packageConfigs: PackageConfigsByName,
-    packtoryConfig: PacktoryConfigWithoutRegistry,
-    existingBundles: readonly TBundle[]
-): PreparedPackageOptions<TBundle> {
-    const packageConfig = getPackageConfig(packageName, packageConfigs);
-    const sharedOptions = buildSharedOptions(packageConfig, packtoryConfig, existingBundles);
-    const versioning = packageConfig.versioning ?? { automatic: true };
-
-    return { sharedOptions, versioning };
-}
 
 export function configToBuildAndPublishOptions(
     packageName: string,
@@ -218,19 +27,19 @@ export function configToBuildAndPublishOptions(
     packtoryConfig: PacktoryConfig,
     existingBundles: readonly VersionedBundleWithManifest[]
 ): BuildAndPublishOptions {
-    const { sharedOptions, versioning } = preparePackageOptions(
+    const { packageConfig, sharedOptions, versioning } = preparePackageOptions(
         packageName,
         packageConfigs,
         packtoryConfig,
         existingBundles
     );
-    const packageConfig = getPackageConfig(packageName, packageConfigs);
+    const publishSettings = resolvePublishSettings(packageConfig, packtoryConfig);
 
     return {
         ...sharedOptions,
         versioning,
         registrySettings: packtoryConfig.registrySettings,
-        publishSettings: resolvePublishSettings(packageConfig, packtoryConfig)
+        publishSettings
     };
 }
 

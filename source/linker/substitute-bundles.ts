@@ -1,4 +1,5 @@
 import { Maybe } from 'true-myth';
+import { getPublicModuleSpecifierForSourcePath } from '../package-surface/modules.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import type { ResourceGraph } from './resource-graph.ts';
 import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from './substituted-resource-graph.ts';
@@ -9,17 +10,23 @@ type Replacement = {
     readonly packageName: string;
 };
 
+function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
+    return bundle.contents.some((content) => {
+        return content.fileDescription.sourceFilePath === file;
+    });
+}
+
 function findReplacement(file: string, bundleDependencies: readonly BundleSubstitutionSource[]): Maybe<Replacement> {
     for (const bundle of bundleDependencies) {
-        const matchingContent = bundle.contents.find((content) => {
-            return content.fileDescription.sourceFilePath === file;
-        });
-        if (matchingContent !== undefined) {
-            const targetPath = `${bundle.name}/${matchingContent.fileDescription.targetFilePath}`;
+        const targetPath = getPublicModuleSpecifierForSourcePath(bundle, file);
+        if (targetPath !== undefined) {
             return Maybe.just({
                 targetPath,
                 packageName: bundle.name
             });
+        }
+        if (ownsSourcePath(file, bundle)) {
+            throw new Error(`Package "${bundle.name}" does not expose "${file}" for cross-package substitution`);
         }
     }
 

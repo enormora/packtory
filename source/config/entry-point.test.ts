@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
-import { entryPointSchema } from './entry-point.ts';
+import { rootSchema as entryPointSchema } from './root.ts';
 
 test('schema accepts an entry point with js only', () => {
     assert.strictEqual(safeParse(entryPointSchema, { js: 'foo' }).success, true);

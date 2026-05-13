@@ -5,6 +5,14 @@ import { createBundleLinker } from './linker.ts';
 
 test('linkBundle() keeps js-only entry points when there are no bundle substitutions', async () => {
     const linker = createBundleLinker();
+    const root = {
+        js: {
+            content: '',
+            isExecutable: false,
+            sourceFilePath: '/src/index.js',
+            targetFilePath: 'index.js'
+        }
+    } as const;
 
     const result = await linker.linkBundle({
         bundle: {
@@ -37,16 +45,9 @@ test('linkBundle() keeps js-only entry points when there are no bundle substitut
                     isExplicitlyIncluded: false
                 }
             ],
-            entryPoints: [
-                {
-                    js: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/src/index.js',
-                        targetFilePath: 'index.js'
-                    }
-                }
-            ],
+            roots: { main: root },
+            entryPoints: [root],
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             externalDependencies: new Map()
         },
         bundleDependencies: []
@@ -74,6 +75,20 @@ test('linkBundle() flattens declaration entry points and substitutes matching bu
         ]
     });
     const linker = createBundleLinker();
+    const root = {
+        js: {
+            content: '',
+            isExecutable: false,
+            sourceFilePath: '/src/index.js',
+            targetFilePath: 'index.js'
+        },
+        declarationFile: {
+            content: '',
+            isExecutable: false,
+            sourceFilePath: '/src/index.d.ts',
+            targetFilePath: 'index.d.ts'
+        }
+    } as const;
 
     const result = await linker.linkBundle({
         bundle: {
@@ -122,27 +137,25 @@ test('linkBundle() flattens declaration entry points and substitutes matching bu
                     isExplicitlyIncluded: false
                 }
             ],
-            entryPoints: [
-                {
-                    js: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/src/index.js',
-                        targetFilePath: 'index.js'
-                    },
-                    declarationFile: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/src/index.d.ts',
-                        targetFilePath: 'index.d.ts'
-                    }
-                }
-            ],
+            roots: { main: root },
+            entryPoints: [root],
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             externalDependencies: new Map()
         },
         bundleDependencies: [
             {
                 name: 'bundle-dependency',
+                roots: {
+                    main: {
+                        js: {
+                            content: '',
+                            isExecutable: false,
+                            sourceFilePath: '/src/dep.js',
+                            targetFilePath: 'dep.js'
+                        }
+                    }
+                },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 contents: [
                     {
                         fileDescription: {

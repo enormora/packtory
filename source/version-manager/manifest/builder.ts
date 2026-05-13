@@ -20,6 +20,7 @@ function resolveSideEffectsValue(bundle: VersionedBundle): SideEffectsValue | un
 }
 
 type PackageJsonImports = NonNullable<PackageJson['imports']>;
+type PackageJsonBin = Readonly<Record<string, string>> | string;
 
 function buildSideEffectsEntry(
     sideEffects: SideEffectsValue | undefined
@@ -38,22 +39,45 @@ function buildImportsEntry(
     return importsField === undefined ? {} : { imports: toPackageJsonImports(importsField) };
 }
 
+function toPackageJsonBinTargets(
+    binField: Exclude<NonNullable<VersionedBundle['binField']>, string>
+): Readonly<Record<string, string>> {
+    return Object.fromEntries(
+        Object.entries(binField).flatMap(([name, target]) => {
+            return target === undefined ? [] : [[name, target]];
+        })
+    );
+}
+
+function buildBinEntry(binField: VersionedBundle['binField']): Record<PropertyKey, never> | { bin: PackageJsonBin } {
+    if (binField === undefined) {
+        return {};
+    }
+
+    if (typeof binField === 'string') {
+        return { bin: binField };
+    }
+
+    return { bin: toPackageJsonBinTargets(binField) };
+}
+
 export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson {
     const sideEffects = resolveSideEffectsValue(bundle);
     const sideEffectsEntry = buildSideEffectsEntry(sideEffects);
     const importsEntry = buildImportsEntry(bundle.importsField);
+    const binEntry = buildBinEntry(bundle.binField);
 
     const packageJson: BundlePackageJson = {
         ...bundle.additionalAttributes,
         ...sideEffectsEntry,
         ...importsEntry,
+        ...binEntry,
+        exports: bundle.exportsField,
         name: bundle.name,
         version: bundle.version,
-        main: bundle.mainFile.targetFilePath,
         type: bundle.packageType,
         ...(isEmpty(bundle.dependencies) ? {} : { dependencies: bundle.dependencies }),
-        ...(isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies }),
-        ...(bundle.typesMainFile === undefined ? {} : { types: bundle.typesMainFile.targetFilePath })
+        ...(isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies })
     };
 
     return packageJson;

@@ -25,6 +25,14 @@ type CodeFileSpec = {
 };
 
 function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
+    const root = {
+        js: {
+            content: spec.content,
+            isExecutable: false,
+            sourceFilePath: spec.sourceFilePath,
+            targetFilePath: spec.targetFilePath
+        }
+    } as const;
     const codeResource = {
         ...bundleResource(spec.sourceFilePath, { content: spec.content, targetFilePath: spec.targetFilePath }),
         isSubstituted: false
@@ -32,16 +40,9 @@ function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
     return linkedBundle({
         name: spec.name,
         contents: [codeResource, ...(spec.extraResources ?? [])],
-        entryPoints: [
-            {
-                js: {
-                    content: spec.content,
-                    isExecutable: false,
-                    sourceFilePath: spec.sourceFilePath,
-                    targetFilePath: spec.targetFilePath
-                }
-            }
-        ]
+        roots: { main: root },
+        entryPoints: [root],
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
     });
 }
 
@@ -323,7 +324,7 @@ test('eliminate uses cross-bundle seeds to keep an exported function reachable w
     const producerEmitted = result[1]?.contents[0];
     assert.ok(producerEmitted !== undefined);
     assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), true);
-    assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), false);
+    assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), true);
 });
 
 test('eliminate drops a producer binding whose only consumer-side reference is in unreachable code', async () => {

@@ -121,6 +121,7 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
                 const targetFilePath = path.join(targetFolder, entry.filePath);
 
                 await fileManager.writeFile(targetFilePath, entry.content);
+                await fileManager.setExecutable(targetFilePath, entry.isExecutable);
             }
         }
     };

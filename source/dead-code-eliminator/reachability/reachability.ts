@@ -90,12 +90,10 @@ function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: Decla
     return targets;
 }
 
-/** @internal Mutation-test helper for the traversal budget guard. */
-export function takeTraversalIteration(remainingIterations: number): number {
+function assertTraversalIteration(remainingIterations: number): void {
     if (remainingIterations === 0) {
         throw new Error('Reachability traversal exceeded the maximum iteration budget');
     }
-    return remainingIterations - 1;
 }
 
 function createTraversalBudget(maximumIterations: number): readonly number[] {
@@ -152,7 +150,7 @@ function bfsClosure<T>(
         if (current === undefined) {
             break;
         }
-        takeTraversalIteration(remainingIterations);
+        assertTraversalIteration(remainingIterations);
         enqueueUnvisitedNeighbors(current, expand, traversalState.visited, traversalState.queue);
     }
 

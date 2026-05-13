@@ -15,19 +15,18 @@ test('package schema with all common settings accepts a valid package', () => {
             sourcesFolder: 'src',
             mainPackageJson: { type: 'module' },
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         }).success,
         true
     );
 });
 
-test('package schema with all common settings rejects empty entryPoints', () => {
+test('package schema with all common settings rejects missing roots', () => {
     assert.strictEqual(
         safeParse(packageSchemaWithAllCommonSettings, {
             sourcesFolder: 'src',
             mainPackageJson: { type: 'module' },
-            name: 'pkg',
-            entryPoints: []
+            name: 'pkg'
         }).success,
         false
     );
@@ -37,7 +36,7 @@ test('package schema with partial common settings accepts package-specific setti
     assert.strictEqual(
         safeParse(packageSchemaWithPartialCommonSettings, {
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         }).success,
         true
     );
@@ -48,7 +47,7 @@ test('package schema with mandatory sourcesFolder rejects packages without it', 
         safeParse(packageSchemaWithMandatorySourcesFolder, {
             mainPackageJson: { type: 'module' },
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         }).success,
         false
     );
@@ -59,7 +58,7 @@ test('package schema with mandatory mainPackageJson rejects packages without it'
         safeParse(packageSchemaWithMandatoryMainPackageJson, {
             sourcesFolder: 'src',
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         }).success,
         false
     );
@@ -73,28 +72,27 @@ test(
             sourcesFolder: 'src',
             mainPackageJson: { type: 'module' },
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         },
         expectedData: {
             sourcesFolder: 'src',
             mainPackageJson: { type: 'module' },
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         }
     })
 );
 
 test(
-    'package schema with all common settings: validation fails when entryPoints is empty',
+    'package schema with all common settings: validation fails when roots is missing',
     checkValidationFailure({
         schema: packageSchemaWithAllCommonSettings,
         data: {
             sourcesFolder: 'src',
             mainPackageJson: { type: 'module' },
-            name: 'pkg',
-            entryPoints: []
+            name: 'pkg'
         },
-        expectedMessages: ['at entryPoints[0]: missing key']
+        expectedMessages: ['at roots: missing property']
     })
 );
 
@@ -104,11 +102,11 @@ test(
         schema: packageSchemaWithPartialCommonSettings,
         data: {
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         },
         expectedData: {
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         }
     })
 );
@@ -120,7 +118,7 @@ test(
         data: {
             mainPackageJson: { type: 'module' },
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         },
         expectedMessages: ['at sourcesFolder: missing property']
     })
@@ -133,7 +131,7 @@ test(
         data: {
             sourcesFolder: 'src',
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         },
         expectedMessages: ['at mainPackageJson: missing property']
     })

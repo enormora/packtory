@@ -11,7 +11,7 @@ import { perPackageSettingsSchema } from './per-package-settings-schema.ts';
 
 const validPerPackageSettings = {
     name: 'pkg',
-    entryPoints: [{ js: 'index.js' }],
+    roots: { main: { js: 'index.js' } },
     versioning: { automatic: false, version: '1.0.0' },
     bundleDependencies: ['dep'],
     bundlePeerDependencies: ['peer']
@@ -21,11 +21,8 @@ test('per-package settings schema accepts a valid package definition', () => {
     assert.strictEqual(safeParse(perPackageSettingsSchema, validPerPackageSettings).success, true);
 });
 
-test('per-package settings schema rejects empty entryPoints', () => {
-    assert.strictEqual(
-        safeParse(perPackageSettingsSchema, { ...validPerPackageSettings, entryPoints: [] }).success,
-        false
-    );
+test('per-package settings schema rejects missing roots', () => {
+    assert.strictEqual(safeParse(perPackageSettingsSchema, { name: 'pkg' }).success, false);
 });
 
 createTestCasesForRequiredField({
@@ -38,8 +35,8 @@ createTestCasesForRequiredField({
 createTestCasesForRequiredField({
     schema: perPackageSettingsSchema,
     data: validPerPackageSettings,
-    path: 'entryPoints',
-    expectedFieldType: 'tuple'
+    path: 'roots',
+    expectedFieldType: 'record'
 });
 
 createTestCasesForOptionalField({
@@ -83,17 +80,17 @@ test(
     'per package settings schema: validation fails when name is missing',
     checkValidationFailure({
         schema: perPackageSettingsSchema,
-        data: { entryPoints: [{ js: 'index.js' }] },
+        data: { roots: { main: { js: 'index.js' } } },
         expectedMessages: ['at name: missing property']
     })
 );
 
 test(
-    'per package settings schema: validation fails when entryPoints is empty',
+    'per package settings schema: validation fails when roots is missing',
     checkValidationFailure({
         schema: perPackageSettingsSchema,
-        data: { ...validPerPackageSettings, entryPoints: [] },
-        expectedMessages: ['at entryPoints[0]: missing key']
+        data: { name: 'pkg' },
+        expectedMessages: ['at roots: missing property']
     })
 );
 

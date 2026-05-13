@@ -62,11 +62,11 @@ export const config = {
     packages: [
         {
             name: 'first-package',
-            entryPoints: [{ js: 'first.js' }]
+            roots: { main: { js: 'first.js' } }
         },
         {
             name: 'second-package',
-            entryPoints: [{ js: 'second.js' }],
+            roots: { main: { js: 'second.js' } },
             bundleDependencies: ['first-package']
         }
     ]
@@ -162,9 +162,19 @@ The configuration for `packtory` is an object with the following properties:
         - It must contain `"type": "module"`.
         - Needed to obtain version numbers of third-party dependencies.
 
-    - **`entryPoints`** (Required, Array of Objects):
-        - An array of entry points with the following shape: `{ js: 'file.js', declarationFile: 'file.d.ts' }`.
-        - The `js` property is required, while `declarationFile` is optional.
+    - **`roots`** (Required, Object):
+        - A map of root ids to source files, e.g. `{ main: { js: 'file.js', declarationFile: 'file.d.ts' } }`.
+        - `js` is required. `declarationFile` is optional.
+        - Roots seed scanning, linking, and dead-code analysis. They are internal build anchors, not automatically the full published API.
+
+    - **`defaultModuleRoot`** (Optional in single-root packages, required in implicit multi-root packages):
+        - Selects which root becomes the package root export `"."` when `packageInterface` is not configured.
+
+    - **`packageInterface`** (Optional, Object):
+        - Switches packtory into explicit package-surface mode.
+        - `modules` declares the published module exports with `{ root, export }`.
+        - `bins` declares published executables with `{ root, name }`.
+        - If omitted, packtory derives `exports` implicitly from roots and cross-package substitution needs.
 
     - **`includeSourceMapFiles`** (Optional, Boolean, Default: `false`):
         - If `true`, the bundler will look for and include source map files in the final package.
@@ -180,6 +190,7 @@ The configuration for `packtory` is an object with the following properties:
         - Useful for setting meta properties like `description` or `keywords`.
         - If defined in both per-package and common settings, they are merged.
         - The `scripts` key is rejected by default to prevent accidental shipping of npm lifecycle scripts (`preinstall`, `install`, `postinstall`, `prepare`, `prepublish`, `prepublishOnly`) — the canonical npm supply-chain attack vector. Set `publishSettings.allowScripts: true` on the resolved publish settings to opt in.
+        - `exports`, `bin`, `main`, and top-level `types` are auto-managed by packtory and cannot be set here.
 
     - **`bundleDependencies`** (Optional, Array of Strings):
         - An array of package names to mark as dependencies, allowing the bundler to substitute import statements accordingly.
@@ -246,12 +257,12 @@ checks: { noDuplicatedFiles: { enabled: true } },
 packages: [
     {
         name: 'pkg-a',
-        entryPoints: [{ js: 'a.js' }],
+        roots: { main: { js: 'a.js' } },
         checks: { noDuplicatedFiles: { allowList: ['util.ts'] } }
     },
     {
         name: 'pkg-b',
-        entryPoints: [{ js: 'b.js' }],
+        roots: { main: { js: 'b.js' } },
         checks: { noDuplicatedFiles: { allowList: ['util.ts'] } }
     }
 ]
@@ -281,7 +292,7 @@ checks: { maxBundleSize: { enabled: true, bytes: 500_000 } },
 packages: [
     {
         name: 'image-resizer-cli',
-        entryPoints: [{ js: 'cli.js' }],
+        roots: { main: { js: 'cli.js' } },
         checks: { maxBundleSize: { bytes: 2_000_000 } }
     }
 ]
@@ -326,14 +337,14 @@ The error message names the file and the offending statement(s) by line and kind
 
 ## Dead-Code Elimination
 
-`packtory` performs symbol-level reachability analysis across every bundled file and removes top-level declarations that nothing reaches. A declaration is reached if it is exported from an entry-point file, referenced by a top-level side-effect statement, or imported (or re-exported) by another packtory-managed bundle in the same publish run. Files with top-level side effects are preserved untouched.
+`packtory` performs symbol-level reachability analysis across every bundled file and removes top-level declarations that nothing reaches. A declaration is reached if it is exported from a public root file, referenced by a top-level side-effect statement, or imported (or re-exported) by another packtory-managed bundle in the same publish run. Files with top-level side effects are preserved untouched.
 
 ### What gets removed
 
 Within each bundle, the analyzer:
 
 1. Extracts every top-level binding (functions, classes, variables, types, enums, namespaces, imports) from every code file.
-2. Seeds reachability with: every binding exported from any entry-point file, plus every binding referenced by any impure top-level statement, plus every binding another bundle in the same publish run actually depends on — either re-exported, or imported into code that is itself reachable in the consuming bundle (cross-bundle seeding, named/default/namespace `import` and named/star/star-as `export ... from`).
+2. Seeds reachability with: every binding exported from any public root file, plus every binding referenced by any impure top-level statement, plus every binding another bundle in the same publish run actually depends on. Once a sibling bundle depends on a public file, packtory keeps the whole public file live, not only the currently imported names.
 3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
 4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
 
@@ -351,7 +362,7 @@ The same static analysis also drives, regardless of any `checks` configuration:
 ```javascript
 {
     name: 'pkg',
-    entryPoints: [{ js: 'index.js' }],
+    roots: { main: { js: 'index.js' } },
     deadCodeElimination: { enabled: true } // default; set to false to disable transformations
 }
 ```
@@ -366,7 +377,7 @@ When a `.map` file is paired with a code file the analyzer transforms, packtory 
 
 ### 1. Creating CLI Tools
 
-Suppose you have a project with a utility library (`image-resizer-lib`) and a corresponding CLI tool (`image-resizer-cli`) with bin entry points. `packtory` simplifies the bundling and publishing of these packages while ensuring clean and minimal npm packages.
+Suppose you have a project with a utility library (`image-resizer-lib`) and a corresponding CLI tool (`image-resizer-cli`) with bin roots. `packtory` simplifies the bundling and publishing of these packages while ensuring clean and minimal npm packages.
 
 ```javascript
 // packtory.config.js
@@ -382,11 +393,11 @@ export const config = {
     packages: [
         {
             name: 'image-resizer-lib',
-            entryPoints: [{ js: 'lib.js' }]
+            roots: { main: { js: 'lib.js' } }
         },
         {
             name: 'image-resizer-cli',
-            entryPoints: [{ js: 'cli.js' }],
+            roots: { main: { js: 'cli.js' } },
             bundleDependencies: ['image-resizer-lib']
         }
     ]
@@ -411,16 +422,16 @@ export const config = {
     packages: [
         {
             name: 'awesome-logger',
-            entryPoints: [{ js: 'index.js' }]
+            roots: { main: { js: 'index.js' } }
         },
         {
             name: 'awesome-logger-adapter',
-            entryPoints: [{ js: 'adapter.js' }],
+            roots: { main: { js: 'adapter.js' } },
             bundleDependencies: ['awesome-logger']
         },
         {
             name: 'awesome-logger-adapter-awesome-target',
-            entryPoints: [{ js: 'target.js' }],
+            roots: { main: { js: 'target.js' } },
             bundleDependencies: ['awesome-logger', 'awesome-logger-adapter']
         }
     ]
@@ -499,11 +510,11 @@ commonPackageSettings: {
 packages: [
     {
         name: 'image-resizer-cli',
-        entryPoints: [{ js: 'cli.js' }]
+        roots: { main: { js: 'cli.js' } }
     },
     {
         name: '@my-org/image-resizer-internal',
-        entryPoints: [{ js: 'internal.js' }],
+        roots: { main: { js: 'internal.js' } },
         publishSettings: { access: 'restricted' }
     }
 ]

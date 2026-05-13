@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import fc from 'fast-check';
 import { test } from 'mocha';
-import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
+import { normalizeAdditionalFile, normalizeRoot } from './normalize-paths.ts';
 
 const pathSegmentArbitrary = fc.stringMatching(/^[\w.-]+$/);
 
@@ -19,7 +19,7 @@ const absolutePathArbitrary = fc.tuple(relativePathArbitrary, relativePathArbitr
     return path.join(path.sep, folder, filePath);
 });
 
-test('normalizeEntryPoint() keeps absolute paths unchanged and resolves relative paths against the source folder', () => {
+test('normalizeRoot() keeps absolute paths unchanged and resolves relative paths against the source folder', () => {
     fc.assert(
         fc.property(
             relativePathArbitrary,
@@ -27,7 +27,7 @@ test('normalizeEntryPoint() keeps absolute paths unchanged and resolves relative
             fc.option(relativePathArbitrary, { nil: undefined }),
             (sourceFolder, js, declarationFile) => {
                 const relativeEntryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedRelativeEntryPoint = normalizeEntryPoint(relativeEntryPoint, sourceFolder);
+                const normalizedRelativeEntryPoint = normalizeRoot(relativeEntryPoint, sourceFolder);
 
                 assert.strictEqual(normalizedRelativeEntryPoint.js, path.join(sourceFolder, js));
                 assert.strictEqual(
@@ -45,7 +45,7 @@ test('normalizeEntryPoint() keeps absolute paths unchanged and resolves relative
             fc.option(absolutePathArbitrary, { nil: undefined }),
             (js, sourceFolder, declarationFile) => {
                 const absoluteEntryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedAbsoluteEntryPoint = normalizeEntryPoint(absoluteEntryPoint, sourceFolder);
+                const normalizedAbsoluteEntryPoint = normalizeRoot(absoluteEntryPoint, sourceFolder);
 
                 assert.strictEqual(normalizedAbsoluteEntryPoint.js, js);
                 assert.strictEqual(normalizedAbsoluteEntryPoint.declarationFile, declarationFile);
@@ -88,7 +88,7 @@ test('normalizeAdditionalFile() keeps the target path and resolves only the sour
     );
 });
 
-test('normalizeEntryPoint() is idempotent once all paths are normalized', () => {
+test('normalizeRoot() is idempotent once all paths are normalized', () => {
     fc.assert(
         fc.property(
             absolutePathArbitrary,
@@ -96,8 +96,8 @@ test('normalizeEntryPoint() is idempotent once all paths are normalized', () => 
             fc.option(relativePathArbitrary, { nil: undefined }),
             (sourceFolder, js, declarationFile) => {
                 const entryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedOnce = normalizeEntryPoint(entryPoint, sourceFolder);
-                const normalizedTwice = normalizeEntryPoint(normalizedOnce, sourceFolder);
+                const normalizedOnce = normalizeRoot(entryPoint, sourceFolder);
+                const normalizedTwice = normalizeRoot(normalizedOnce, sourceFolder);
 
                 assert.deepStrictEqual(normalizedTwice, normalizedOnce);
             }

@@ -10,7 +10,7 @@ test('getBundledDependencies combines direct and peer bundled dependencies', () 
     assert.deepStrictEqual(
         getBundledDependencies({
             name: 'foo',
-            entryPoints: [{ js: 'foo.js' }],
+            roots: { main: { js: 'foo.js' } },
             bundleDependencies: ['bar'],
             bundlePeerDependencies: ['baz']
         }),
@@ -22,7 +22,7 @@ test('getBundledDependencies returns an empty list when no bundled dependencies 
     assert.deepStrictEqual(
         getBundledDependencies({
             name: 'foo',
-            entryPoints: [{ js: 'foo.js' }]
+            roots: { main: { js: 'foo.js' } }
         }),
         []
     );
@@ -37,7 +37,7 @@ test('config schema accepts a valid config', () => {
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }).success,
@@ -53,7 +53,7 @@ test('config schema rejects configs without registrySettings', () => {
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }).success,
@@ -77,7 +77,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -89,7 +89,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -106,7 +106,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -159,7 +159,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -183,7 +183,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     checks: { noDuplicatedFiles: { allowList: [''] } }
                 }
             ]
@@ -208,7 +208,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     checks: { noDuplicatedFiles: { allowList: ['foo/bar.ts'] } }
                 }
             ]
@@ -223,7 +223,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     checks: { noDuplicatedFiles: { allowList: ['foo/bar.ts'] } }
                 }
             ]
@@ -245,7 +245,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -259,7 +259,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -282,7 +282,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -298,7 +298,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -315,7 +315,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -326,7 +326,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -346,7 +346,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -359,7 +359,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -381,7 +381,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -396,7 +396,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -416,7 +416,7 @@ test(
                 {
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -429,7 +429,7 @@ test(
                 {
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -450,7 +450,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -464,7 +464,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -484,7 +484,7 @@ test(
                 {
                     sourcesFolder: 'source',
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -497,7 +497,7 @@ test(
                 {
                     sourcesFolder: 'source',
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -518,7 +518,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -532,7 +532,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         }
@@ -557,7 +557,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     versioning: { automatic: true },
                     bundleDependencies: ['foo'],
                     bundlePeerDependencies: ['foo'],
@@ -581,7 +581,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     versioning: { automatic: true },
                     bundleDependencies: ['foo'],
                     bundlePeerDependencies: ['foo'],
@@ -622,7 +622,7 @@ test(
                 {
                     sourcesFolder: 'source',
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -675,7 +675,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -697,7 +697,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     checks: { noDuplicatedFiles: { allowList: [''] } }
                 }
             ]
@@ -718,7 +718,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -738,7 +738,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -757,7 +757,7 @@ test(
                 {
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -777,7 +777,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -795,7 +795,7 @@ test(
                 {
                     sourcesFolder: 'foo',
                     mainPackageJson: { type: 'module' },
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -814,7 +814,7 @@ test(
                     sourcesFolder: 'foo',
                     mainPackageJson: { type: 'module' },
                     name: 42,
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -911,7 +911,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -933,7 +933,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -955,7 +955,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }]
+                    roots: { main: { js: 'foo' } }
                 }
             ]
         },
@@ -976,7 +976,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     versioning: 'foo'
                 }
             ]
@@ -998,7 +998,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     bundleDependencies: 'foo'
                 }
             ]
@@ -1020,7 +1020,7 @@ test(
             packages: [
                 {
                     name: 'foo',
-                    entryPoints: [{ js: 'foo' }],
+                    roots: { main: { js: 'foo' } },
                     bundlePeerDependencies: 'foo'
                 }
             ]
@@ -1039,7 +1039,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'index.js' }]
+                    roots: { main: { js: 'index.js' } }
                 }
             ]
         },
@@ -1049,7 +1049,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'index.js' }]
+                    roots: { main: { js: 'index.js' } }
                 }
             ]
         }
@@ -1067,7 +1067,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'index.js' }]
+                    roots: { main: { js: 'index.js' } }
                 }
             ]
         },
@@ -1086,7 +1086,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'index.js' }]
+                    roots: { main: { js: 'index.js' } }
                 }
             ]
         },
@@ -1114,7 +1114,7 @@ test(
                 sourcesFolder: 'source',
                 mainPackageJson: { dependencies: true }
             },
-            packages: [{ name: 'foo', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ name: 'foo', roots: { main: { js: 'index.js' } } }]
         },
         expectedMessages: ['invalid value doesn’t match expected union']
     })
@@ -1130,7 +1130,7 @@ test(
                 mainPackageJson: { type: 'module' },
                 additionalPackageJsonAttributes: { dependencies: '1.0.0' }
             },
-            packages: [{ name: 'foo', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ name: 'foo', roots: { main: { js: 'index.js' } } }]
         },
         expectedMessages: ['invalid value doesn’t match expected union']
     })
@@ -1146,7 +1146,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'index.js' }],
+                    roots: { main: { js: 'index.js' } },
                     additionalFiles: [{ sourceFilePath: 'asset.txt' }]
                 }
             ]
@@ -1165,7 +1165,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'index.js' }],
+                    roots: { main: { js: 'index.js' } },
                     additionalPackageJsonAttributes: { version: '1.0.0' }
                 }
             ]
@@ -1187,7 +1187,7 @@ test(
                     sourcesFolder: 'source',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: [{ js: 'index.js' }]
+                    roots: { main: { js: 'index.js' } }
                 }
             ]
         },

@@ -1,6 +1,7 @@
 import type { Project, SourceFile } from 'ts-morph';
 import { isCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
+import { getPublicRootIds } from '../package-surface/modules.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
 import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
 import { buildReachabilityIndex, type FileBindings, type ReachabilityIndex } from './reachability/reachability.ts';
@@ -53,12 +54,18 @@ function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBind
     return result;
 }
 
-function entryPointFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
+function publicRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
+    const publicRootIds = getPublicRootIds(bundle);
     const paths = new Set<string>();
-    for (const entryPoint of bundle.entryPoints) {
-        paths.add(entryPoint.js.sourceFilePath);
-        if (entryPoint.declarationFile !== undefined) {
-            paths.add(entryPoint.declarationFile.sourceFilePath);
+    for (const rootId of publicRootIds) {
+        const root = bundle.roots[rootId];
+        if (root === undefined) {
+            throw new Error(`Bundle "${bundle.name}" is missing root "${rootId}" referenced by its public surface`);
+        }
+
+        paths.add(root.js.sourceFilePath);
+        if (root.declarationFile !== undefined) {
+            paths.add(root.declarationFile.sourceFilePath);
         }
     }
     return paths;
@@ -72,7 +79,7 @@ export function loadBundle(createProject: CreateProject, input: EliminationInput
     const fileBindings = buildFileBindings(loaded);
     const reachability = buildReachabilityIndex({
         files: fileBindings,
-        entryPointFilePaths: entryPointFilePathsFor(input.bundle)
+        entryPointFilePaths: publicRootFilePathsFor(input.bundle)
     });
     return { input, project, loaded, fileBindings, reachability };
 }

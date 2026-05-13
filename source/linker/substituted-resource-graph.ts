@@ -14,7 +14,7 @@ export type SubstitutedResourceGraph = {
     add: (filePath: string, data: SubstitutedResourceGraphNodeData) => void;
     connect: (fromFilePath: string, toFilePath: string) => void;
     isKnown: (filePath: string) => boolean;
-    flatten: (entryPoints: string[]) => Except<LinkedBundle, 'entryPoints' | 'name'>;
+    flatten: (entryPoints: string[]) => Except<LinkedBundle, 'entryPoints' | 'name' | 'roots' | 'surface'>;
 };
 
 function addOrCreateReference(

@@ -26,3 +26,6 @@ export const checksPerPackageSchema = z.strictObject({
     uniqueTargetPaths: z.optional(uniqueTargetPathsRule.perPackageSchema),
     noSideEffects: z.optional(noSideEffectsRule.perPackageSchema)
 });
+
+export type ChecksSettings = z.infer<typeof checksSchema>;
+export type PackageChecksSettings = z.infer<typeof checksPerPackageSchema>;

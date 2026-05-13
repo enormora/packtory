@@ -12,7 +12,7 @@ import {
     getOkResult
 } from '../test-libraries/result-helpers.ts';
 import type { PackageProcessor } from './package-processor.ts';
-import { createPacktory, type PublishAllResult, type ResolveAndLinkAllResult } from './packtory.ts';
+import { createPacktory } from './packtory.ts';
 
 type AnalyzedBundle = Awaited<ReturnType<ReturnType<typeof createTestEliminator>['eliminate']>>[number];
 
@@ -20,7 +20,7 @@ function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`):
     return linkedBundle({
         name,
         contents: [{ ...bundleResource(sourceFilePath, { targetFilePath: 'index.js' }), isSubstituted: false }],
-        entryPoints: [{ js: { sourceFilePath, targetFilePath: 'index.js', content: '', isExecutable: false } }]
+        roots: { main: { js: { sourceFilePath, targetFilePath: 'index.js', content: '', isExecutable: false } } }
     });
 }
 
@@ -41,7 +41,7 @@ function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): P
             mainPackageJson: { type: 'module' },
             publishSettings: { access: 'public' }
         },
-        packages: [{ name: 'package-a', entryPoints: [{ js: 'package-a/index.js' }] }],
+        packages: [{ name: 'package-a', roots: { main: { js: 'package-a/index.js' } } }],
         ...overrides
     };
 }
@@ -62,22 +62,6 @@ type CreateProgressEvent = (params: {
     status: 'already-published' | 'initial-version' | 'new-version';
 };
 
-type SchedulerOverrides = {
-    readonly resolveStage?: (params: {
-        readonly createOptions: (context: unknown) => unknown;
-        readonly execute: (options: unknown) => Promise<unknown>;
-        readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-        readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
-    }) => Promise<PublishAllResult | ResolveAndLinkAllResult | Result<readonly unknown[], unknown>>;
-    readonly publishStage?: (params: {
-        readonly createOptions: (context: unknown) => unknown;
-        readonly execute: (options: unknown) => Promise<unknown>;
-        readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-        readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
-        readonly createProgressEvent?: CreateProgressEvent | undefined;
-    }) => Promise<Result<readonly unknown[], unknown>>;
-};
-
 type StageParams = {
     readonly createOptions: (context: {
         packageName: string;
@@ -88,6 +72,11 @@ type StageParams = {
     readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
     readonly createProgressEvent?: CreateProgressEvent | undefined;
     readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
+};
+
+type SchedulerOverrides = {
+    readonly resolveStage?: (params: StageParams) => Promise<Result<readonly unknown[], unknown>>;
+    readonly publishStage?: (params: StageParams) => Promise<Result<readonly unknown[], unknown>>;
 };
 
 type PacktoryUnderTest = {
@@ -105,10 +94,10 @@ type PacktoryUnderTest = {
 
 const twoPackageEntries: readonly {
     readonly name: string;
-    readonly entryPoints: readonly { readonly js: string }[];
+    readonly roots: { readonly main: { readonly js: string } };
 }[] = [
-    { name: 'package-a', entryPoints: [{ js: 'package-a/index.js' }] },
-    { name: 'package-b', entryPoints: [{ js: 'package-b/index.js' }] }
+    { name: 'package-a', roots: { main: { js: 'package-a/index.js' } } },
+    { name: 'package-b', roots: { main: { js: 'package-b/index.js' } } }
 ];
 
 function partialResolveFailure(packageName: string): {
@@ -119,6 +108,19 @@ function partialResolveFailure(packageName: string): {
         succeeded: [createLinkedBundle(packageName)],
         failures: [new Error('resolve failed')]
     };
+}
+
+function assertResolveAndLinkPartialFailure(result: unknown): void {
+    assert.deepStrictEqual(
+        result,
+        Result.err({
+            type: 'partial',
+            error: {
+                succeeded: [],
+                failures: [new Error('resolve failed')]
+            }
+        })
+    );
 }
 
 function recordStageSuccess(params: {
@@ -133,10 +135,10 @@ function recordStageSuccess(params: {
 }
 
 async function runPublishStageUntilFailure(params: {
-    readonly createOptions: (context: unknown) => unknown;
-    readonly execute: (options: unknown) => Promise<unknown>;
-    readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-    readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
+    readonly createOptions: StageParams['createOptions'];
+    readonly execute: StageParams['execute'];
+    readonly selectNext: StageParams['selectNext'];
+    readonly config: StageParams['config'];
 }): Promise<Result<readonly unknown[], unknown>> {
     const succeeded: unknown[] = [];
     const failures: Error[] = [];
@@ -218,7 +220,7 @@ function createPacktoryUnderTest(
             }
 
             if (overrides.resolveStage !== undefined) {
-                return overrides.resolveStage(params as never);
+                return overrides.resolveStage(params);
             }
 
             return defaultRunStage(params);
@@ -267,13 +269,7 @@ test('resolveAndLinkAll() returns partial scheduler failures', async () => {
 
     const { result } = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
 
-    assert.deepStrictEqual(
-        result,
-        Result.err({
-            type: 'partial',
-            error: { succeeded: [], failures: [new Error('resolve failed')] }
-        })
-    );
+    assertResolveAndLinkPartialFailure(result);
 });
 
 function createPacktoryThatSharesSourceFile(): ReturnType<typeof createPacktoryUnderTest> {
@@ -332,10 +328,10 @@ test('resolveAndLinkAll() exposes packageConfig.bundleDependencies to noUnusedBu
         createConfigWithoutRegistry({
             checks: { noUnusedBundleDependencies: { enabled: true } },
             packages: [
-                { name: 'package-b', entryPoints: [{ js: 'package-b/index.js' }] },
+                { name: 'package-b', roots: { main: { js: 'package-b/index.js' } } },
                 {
                     name: 'package-a',
-                    entryPoints: [{ js: 'package-a/index.js' }],
+                    roots: { main: { js: 'package-a/index.js' } },
                     bundleDependencies: ['package-b']
                 }
             ]
@@ -388,7 +384,7 @@ test('resolveAndLinkAll() prefers per-package mainPackageJson over common when r
             {
                 name: 'package-a',
                 mainPackageJson: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } },
-                entryPoints: [{ js: 'package-a/index.js' }]
+                roots: { main: { js: 'package-a/index.js' } }
             }
         ]
     });
@@ -407,14 +403,14 @@ test('resolveAndLinkAll() runs checks when commonPackageSettings is omitted', as
                 sourcesFolder: '/src',
                 mainPackageJson: { type: 'module' },
                 publishSettings: { access: 'public' },
-                entryPoints: [{ js: 'package-a/index.js' }]
+                roots: { main: { js: 'package-a/index.js' } }
             },
             {
                 name: 'package-b',
                 sourcesFolder: '/src',
                 mainPackageJson: { type: 'module' },
                 publishSettings: { access: 'public' },
-                entryPoints: [{ js: 'package-b/index.js' }]
+                roots: { main: { js: 'package-b/index.js' } }
             }
         ]
     });
@@ -434,10 +430,10 @@ test('resolveAndLinkAll() returns all resolved packages on success', async () =>
     const { result } = await packtory.resolveAndLinkAll(
         createConfigWithoutRegistry({
             packages: [
-                { name: 'dependency', entryPoints: [{ js: 'dependency/index.js' }] },
+                { name: 'dependency', roots: { main: { js: 'dependency/index.js' } } },
                 {
                     name: 'package-a',
-                    entryPoints: [{ js: 'package-a/index.js' }],
+                    roots: { main: { js: 'package-a/index.js' } },
                     bundleDependencies: ['dependency']
                 }
             ]
@@ -621,7 +617,7 @@ test('resolveAndLinkAll() honours per-package deadCodeElimination.enabled when r
             packages: [
                 {
                     name: 'package-a',
-                    entryPoints: [{ js: 'package-a/index.js' }],
+                    roots: { main: { js: 'package-a/index.js' } },
                     deadCodeElimination: { enabled: false }
                 }
             ]
@@ -683,16 +679,7 @@ test('resolveAndLinkAll() reports partial scheduler errors with the failure list
 
     const { result } = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
 
-    assert.deepStrictEqual(
-        result,
-        Result.err({
-            type: 'partial',
-            error: {
-                succeeded: [],
-                failures: [new Error('resolve failed')]
-            }
-        })
-    );
+    assertResolveAndLinkPartialFailure(result);
 });
 
 test('buildAndPublishAll() returns partial publish failures from the publish stage', async () => {
@@ -724,7 +711,7 @@ test('buildAndPublishAll() returns a partial failure when an analyzed bundle is 
         resolveOptions: {
             name: 'package-a',
             sourcesFolder: '/src',
-            entryPoints: [{ js: '/src/package-a/index.js' }] as const,
+            roots: { main: { js: '/src/package-a/index.js' } } as const,
             includeSourceMapFiles: false,
             additionalFiles: [],
             mainPackageJson: { type: 'module' as const },
@@ -842,7 +829,7 @@ test('resolveAndLinkAll() emits packageFailed with stage "resolveAndLink" when t
     });
     const { packtory, progressBroadcaster } = createPacktoryUnderTest({
         resolveAndLink,
-        resolveStage: runPublishStageUntilFailure as never
+        resolveStage: runPublishStageUntilFailure
     });
     const received = subscribeToPackageFailed(progressBroadcaster);
 
@@ -891,7 +878,7 @@ test('resolveAndLinkAll() disposes the report aggregator even when the call thro
     });
     const { packtory, progressBroadcaster } = createPacktoryUnderTest({
         resolveAndLink,
-        resolveStage: runPublishStageUntilFailure as never
+        resolveStage: runPublishStageUntilFailure
     });
 
     await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });

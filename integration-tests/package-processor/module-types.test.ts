@@ -4,6 +4,7 @@ import { test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
+import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
 test('rejects packages whose mainPackageJson.type is not "module"', async () => {
     const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-cjs');
@@ -13,7 +14,7 @@ test('rejects packages whose mainPackageJson.type is not "module"', async () => 
             name: 'the-package-name',
             version: '42.0.0',
             sourcesFolder: path.join(fixture, 'src'),
-            entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
             mainPackageJson: await loadPackageJson(fixture),
             includeSourceMapFiles: false,
             additionalFiles: [],
@@ -34,7 +35,7 @@ test('correctly resolves ESM files', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+        roots: { main: { js: path.join(fixture, 'src/entry.js') } },
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
@@ -45,61 +46,62 @@ test('correctly resolves ESM files', async () => {
         deadCodeElimination: { enabled: false }
     });
 
-    assert.deepStrictEqual(result, {
-        additionalAttributes: {},
-        packageJson: {
-            main: 'entry.js',
-            name: 'the-package-name',
-            sideEffects: false,
-            version: '42.0.0',
-            type: 'module'
-        },
-        manifestFile: {
-            isExecutable: false,
-            content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "version": "42.0.0"\n}',
-            filePath: 'package.json'
-        },
-        contents: [
-            {
-                directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
-                fileDescription: {
-                    content: "import { foo } from './foo';\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                isExplicitlyIncluded: false,
-                isSubstituted: false,
-                analysis: bindingAnalysis('foo')
+    assert.deepStrictEqual(
+        result,
+        asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageJson: {
+                name: 'the-package-name',
+                sideEffects: false,
+                version: '42.0.0',
+                type: 'module'
             },
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    content: "export const foo = 'foo';\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/foo.js'),
-                    targetFilePath: 'foo.js'
+            manifestFile: {
+                isExecutable: false,
+                content: '',
+                filePath: 'package.json'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                    fileDescription: {
+                        content: "import { foo } from './foo';\n",
+                        isExecutable: false,
+                        sourceFilePath: path.join(fixture, 'src/entry.js'),
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
                 },
-                isExplicitlyIncluded: false,
-                isSubstituted: false,
-                analysis: bindingAnalysis('foo')
-            }
-        ],
-        dependencies: {},
-        mainFile: {
-            content: "import { foo } from './foo';\n",
-            isExecutable: false,
-            sourceFilePath: path.join(fixture, 'src/entry.js'),
-            targetFilePath: 'entry.js'
-        },
-        name: 'the-package-name',
-        packageType: 'module',
-        peerDependencies: {},
-        sideEffectsField: false,
-        typesMainFile: undefined,
-        version: '42.0.0'
-    });
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "export const foo = 'foo';\n",
+                        isExecutable: false,
+                        sourceFilePath: path.join(fixture, 'src/foo.js'),
+                        targetFilePath: 'foo.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
+                }
+            ],
+            dependencies: {},
+            mainFile: {
+                content: "import { foo } from './foo';\n",
+                isExecutable: false,
+                sourceFilePath: path.join(fixture, 'src/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            name: 'the-package-name',
+            packageType: 'module',
+            peerDependencies: {},
+            sideEffectsField: false,
+            typesMainFile: undefined,
+            version: '42.0.0'
+        })
+    );
 });
 
 test('correctly resolves ESM files with export from statements', async () => {
@@ -108,7 +110,7 @@ test('correctly resolves ESM files with export from statements', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+        roots: { main: { js: path.join(fixture, 'src/entry.js') } },
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
@@ -119,61 +121,62 @@ test('correctly resolves ESM files with export from statements', async () => {
         deadCodeElimination: { enabled: false }
     });
 
-    assert.deepStrictEqual(result, {
-        additionalAttributes: {},
-        packageJson: {
-            main: 'entry.js',
-            name: 'the-package-name',
-            sideEffects: false,
-            version: '42.0.0',
-            type: 'module'
-        },
-        manifestFile: {
-            isExecutable: false,
-            content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": false,\n    "type": "module",\n    "version": "42.0.0"\n}',
-            filePath: 'package.json'
-        },
-        contents: [
-            {
-                directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
-                fileDescription: {
-                    content: "export * from './foo';\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                isExplicitlyIncluded: false,
-                isSubstituted: false,
-                analysis: emptyAnalysis
+    assert.deepStrictEqual(
+        result,
+        asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageJson: {
+                name: 'the-package-name',
+                sideEffects: false,
+                version: '42.0.0',
+                type: 'module'
             },
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    content: "export const foo = 'foo';\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/foo.js'),
-                    targetFilePath: 'foo.js'
+            manifestFile: {
+                isExecutable: false,
+                content: '',
+                filePath: 'package.json'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                    fileDescription: {
+                        content: "export * from './foo';\n",
+                        isExecutable: false,
+                        sourceFilePath: path.join(fixture, 'src/entry.js'),
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: emptyAnalysis
                 },
-                isExplicitlyIncluded: false,
-                isSubstituted: false,
-                analysis: bindingAnalysis('foo')
-            }
-        ],
-        dependencies: {},
-        mainFile: {
-            content: "export * from './foo';\n",
-            isExecutable: false,
-            sourceFilePath: path.join(fixture, 'src/entry.js'),
-            targetFilePath: 'entry.js'
-        },
-        name: 'the-package-name',
-        packageType: 'module',
-        peerDependencies: {},
-        sideEffectsField: false,
-        typesMainFile: undefined,
-        version: '42.0.0'
-    });
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "export const foo = 'foo';\n",
+                        isExecutable: false,
+                        sourceFilePath: path.join(fixture, 'src/foo.js'),
+                        targetFilePath: 'foo.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: bindingAnalysis('foo')
+                }
+            ],
+            dependencies: {},
+            mainFile: {
+                content: "export * from './foo';\n",
+                isExecutable: false,
+                sourceFilePath: path.join(fixture, 'src/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            name: 'the-package-name',
+            packageType: 'module',
+            peerDependencies: {},
+            sideEffectsField: false,
+            typesMainFile: undefined,
+            version: '42.0.0'
+        })
+    );
 });
 
 test('correctly resolves ESM files with plain import statements', async () => {
@@ -182,7 +185,7 @@ test('correctly resolves ESM files with plain import statements', async () => {
         name: 'the-package-name',
         version: '42.0.0',
         sourcesFolder: path.join(fixture, 'src'),
-        entryPoints: [{ js: path.join(fixture, 'src/entry.js') }],
+        roots: { main: { js: path.join(fixture, 'src/entry.js') } },
         mainPackageJson: await loadPackageJson(fixture),
         includeSourceMapFiles: false,
         additionalFiles: [],
@@ -193,63 +196,64 @@ test('correctly resolves ESM files with plain import statements', async () => {
         deadCodeElimination: { enabled: false }
     });
 
-    assert.deepStrictEqual(result, {
-        additionalAttributes: {},
-        packageJson: {
-            main: 'entry.js',
-            name: 'the-package-name',
-            sideEffects: ['./foo.js'],
-            version: '42.0.0',
-            type: 'module'
-        },
-        manifestFile: {
-            isExecutable: false,
-            content:
-                '{\n    "main": "entry.js",\n    "name": "the-package-name",\n    "sideEffects": [\n        "./foo.js"\n    ],\n    "type": "module",\n    "version": "42.0.0"\n}',
-            filePath: 'package.json'
-        },
-        contents: [
-            {
-                directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
-                fileDescription: {
-                    content: "import './foo';\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/entry.js'),
-                    targetFilePath: 'entry.js'
-                },
-                isExplicitlyIncluded: false,
-                isSubstituted: false,
-                analysis: emptyAnalysis
+    assert.deepStrictEqual(
+        result,
+        asImplicitExportsBundle({
+            additionalAttributes: {},
+            packageJson: {
+                name: 'the-package-name',
+                sideEffects: ['./foo.js'],
+                version: '42.0.0',
+                type: 'module'
             },
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    content: "console.log('foo');\n",
-                    isExecutable: false,
-                    sourceFilePath: path.join(fixture, 'src/foo.js'),
-                    targetFilePath: 'foo.js'
+            manifestFile: {
+                isExecutable: false,
+                content: '',
+                filePath: 'package.json'
+            },
+            contents: [
+                {
+                    directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                    fileDescription: {
+                        content: "import './foo';\n",
+                        isExecutable: false,
+                        sourceFilePath: path.join(fixture, 'src/entry.js'),
+                        targetFilePath: 'entry.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: emptyAnalysis
                 },
-                isExplicitlyIncluded: false,
-                isSubstituted: false,
-                analysis: {
-                    survivingBindings: new Set<string>(),
-                    sideEffectStatements: [{ line: 1, kind: 'expression statement' }],
-                    sideEffectImports: new Set<string>()
+                {
+                    directDependencies: new Set(),
+                    fileDescription: {
+                        content: "console.log('foo');\n",
+                        isExecutable: false,
+                        sourceFilePath: path.join(fixture, 'src/foo.js'),
+                        targetFilePath: 'foo.js'
+                    },
+                    isExplicitlyIncluded: false,
+                    isSubstituted: false,
+                    analysis: {
+                        survivingBindings: new Set<string>(),
+                        sideEffectStatements: [{ line: 1, kind: 'expression statement' }],
+                        sideEffectImports: new Set<string>()
+                    }
                 }
-            }
-        ],
-        dependencies: {},
-        mainFile: {
-            content: "import './foo';\n",
-            isExecutable: false,
-            sourceFilePath: path.join(fixture, 'src/entry.js'),
-            targetFilePath: 'entry.js'
-        },
-        name: 'the-package-name',
-        packageType: 'module',
-        peerDependencies: {},
-        sideEffectsField: ['./foo.js'],
-        typesMainFile: undefined,
-        version: '42.0.0'
-    });
+            ],
+            dependencies: {},
+            mainFile: {
+                content: "import './foo';\n",
+                isExecutable: false,
+                sourceFilePath: path.join(fixture, 'src/entry.js'),
+                targetFilePath: 'entry.js'
+            },
+            name: 'the-package-name',
+            packageType: 'module',
+            peerDependencies: {},
+            sideEffectsField: ['./foo.js'],
+            typesMainFile: undefined,
+            version: '42.0.0'
+        })
+    );
 });

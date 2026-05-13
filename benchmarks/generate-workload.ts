@@ -209,19 +209,19 @@ function createPackageConfigs(rootDirectory: string, clusterCount: number): read
             {
                 name: `first-${clusterIndex}`,
                 sourcesFolder,
-                entryPoints: [{ js: 'entry1.js', declarationFile: 'entry1.d.ts' }],
+                roots: { main: { js: 'entry1.js', declarationFile: 'entry1.d.ts' } },
                 additionalFiles: [{ sourceFilePath: '../docs/first.txt', targetFilePath: 'docs/first.txt' }]
             },
             {
                 name: `second-${clusterIndex}`,
                 sourcesFolder,
-                entryPoints: [{ js: 'entry2.js', declarationFile: 'entry2.d.ts' }],
+                roots: { main: { js: 'entry2.js', declarationFile: 'entry2.d.ts' } },
                 bundleDependencies: [`first-${clusterIndex}`]
             },
             {
                 name: `third-${clusterIndex}`,
                 sourcesFolder,
-                entryPoints: [{ js: 'entry3.js', declarationFile: 'entry3.d.ts' }],
+                roots: { main: { js: 'entry3.js', declarationFile: 'entry3.d.ts' } },
                 bundleDependencies: [`first-${clusterIndex}`],
                 bundlePeerDependencies: [`second-${clusterIndex}`]
             }
@@ -259,7 +259,7 @@ function createCliPackageConfigs(rootDirectory: string, packageCount: number): r
         packages.push({
             name: `parallel-package-${packageIndex}`,
             sourcesFolder: path.join(packageDirectory, 'src'),
-            entryPoints: [{ js: 'index.js', declarationFile: 'index.d.ts' }],
+            roots: { main: { js: 'index.js', declarationFile: 'index.d.ts' } },
             additionalFiles: [{ sourceFilePath: '../docs/readme.txt', targetFilePath: 'docs/readme.txt' }]
         });
     }

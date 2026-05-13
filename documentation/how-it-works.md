@@ -202,7 +202,7 @@ A modern JavaScript bundle is a graph where:
 
 - **Nodes** are _top-level bindings_: a function, class, type, enum, variable, or named import declared at the top of a file.
 - **Edges** go from a binding to every other binding it references in its own body.
-- **Roots** are the bindings that are _exported from an entry point_ — these are the things consumers can actually import.
+- **Roots** are the bindings that are _exported from public root files_ — these are the things consumers can actually import.
 
 If you start at the roots and walk all edges, every binding you visit is _reachable_. Everything else is dead, and packtory deletes it.
 
@@ -218,7 +218,7 @@ Each binding gets an id: `bindingId = "<filePath>::<name>"`.
 
 Three kinds of seeds are added to a set $S$:
 
-1. Every exported binding in any entry-point file. These are what consumers can `import`.
+1. Every exported binding in any public root file. These are what consumers can `import`.
 2. Every binding referenced by an **impure top-level statement** (anywhere in the bundle). Impure top-level code runs unconditionally on import, so anything it touches is live by definition. The classifier is described in §6.5.
 3. **Cross-bundle seeds** — bindings that another packtory-managed bundle actually consumes. Without this, exports that exist _only_ for sibling packages would look dead and be deleted. See §6.4.
 
@@ -258,13 +258,13 @@ For every package `P` being built, and every code file `F` in `P`, we look at `F
 
 | Statement form                         | Seeded binding(s) in sibling |
 | -------------------------------------- | ---------------------------- |
-| `import x from 'pkg/f.js'`             | `default`                    |
-| `import { a, b as c } from 'pkg/f.js'` | `a` and `b`                  |
+| `import x from 'pkg/f.js'`             | _every_ binding in `f.js`    |
+| `import { a, b as c } from 'pkg/f.js'` | _every_ binding in `f.js`    |
 | `import * as ns from 'pkg/f.js'`       | _every_ binding in `f.js`    |
-| `export { a } from 'pkg/f.js'`         | `a`                          |
+| `export { a } from 'pkg/f.js'`         | _every_ binding in `f.js`    |
 | `export * from 'pkg/f.js'`             | _every_ binding in `f.js`    |
 
-**Gating on local reachability.** A cross-bundle import only seeds the sibling if the _local_ binding it produces is itself reachable in the consuming bundle. If `cli.ts` does `import foo from 'lib/foo.js'` but never uses `foo`, that import is local-dead and is not propagated to `lib`. This commit message is worth checking: `ae179d5 Gate cross-bundle seeds on consumer-side reachability`.
+**Gating on local reachability.** A cross-bundle `import` only seeds the sibling if at least one local binding it produces is itself reachable in the consuming bundle. Once that happens, packtory keeps the sibling's whole public file live so the generated `exports` surface stays coherent. Purely unreachable imports are not propagated.
 
 The whole exchange happens in two phases:
 

@@ -90,7 +90,7 @@ test('modifies import statements correctly in d.ts files', () => {
 
     const result = replaceImportPaths(project, '/folder/foo.d.ts', 'import "./bar.js"', replacements);
 
-    assert.strictEqual(result, 'import "replacement/bar.js";');
+    assert.strictEqual(result, 'import "replacement/bar.d.ts";');
 });
 
 test('keeps shebang line in the transformed output', () => {

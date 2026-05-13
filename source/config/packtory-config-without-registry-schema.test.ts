@@ -9,7 +9,7 @@ const packageWithoutPublishSettings = {
     sourcesFolder: 'src',
     mainPackageJson: { type: 'module' },
     name: 'pkg',
-    entryPoints: [{ js: 'index.js' }]
+    roots: { main: { js: 'index.js' } }
 } as const;
 const configWithPackageSpecificPublishSettings = {
     commonPackageSettings: {
@@ -20,7 +20,7 @@ const configWithPackageSpecificPublishSettings = {
     packages: [
         {
             name: 'pkg',
-            entryPoints: [{ js: 'index.js' }],
+            roots: { main: { js: 'index.js' } },
             publishSettings: { access: 'restricted' }
         }
     ]
@@ -34,7 +34,7 @@ test('config without registry schema accepts package configs with optional commo
                     sourcesFolder: 'src',
                     mainPackageJson: { type: 'module' },
                     name: 'pkg',
-                    entryPoints: [{ js: 'index.js' }],
+                    roots: { main: { js: 'index.js' } },
                     publishSettings: publicPublishSettings
                 }
             ]
@@ -51,7 +51,7 @@ test('config without registry schema accepts required common package settings', 
                 mainPackageJson: { type: 'module' },
                 publishSettings: publicPublishSettings
             },
-            packages: [{ name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ name: 'pkg', roots: { main: { js: 'index.js' } } }]
         }).success,
         true
     );
@@ -61,7 +61,7 @@ test('config without registry schema accepts required mainPackageJson', () => {
     assert.strictEqual(
         safeParse(packtoryConfigWithoutRegistrySchema, {
             commonPackageSettings: { mainPackageJson: { type: 'module' }, publishSettings: publicPublishSettings },
-            packages: [{ sourcesFolder: 'src', name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ sourcesFolder: 'src', name: 'pkg', roots: { main: { js: 'index.js' } } }]
         }).success,
         true
     );
@@ -71,7 +71,7 @@ test('config without registry schema accepts required sourcesFolder', () => {
     assert.strictEqual(
         safeParse(packtoryConfigWithoutRegistrySchema, {
             commonPackageSettings: { sourcesFolder: 'src', publishSettings: publicPublishSettings },
-            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', roots: { main: { js: 'index.js' } } }]
         }).success,
         true
     );
@@ -125,7 +125,7 @@ test(
                     sourcesFolder: 'src',
                     mainPackageJson: { type: 'module' },
                     name: 'pkg',
-                    entryPoints: [{ js: 'index.js' }],
+                    roots: { main: { js: 'index.js' } },
                     publishSettings: publicPublishSettings
                 }
             ]
@@ -136,7 +136,7 @@ test(
                     sourcesFolder: 'src',
                     mainPackageJson: { type: 'module' },
                     name: 'pkg',
-                    entryPoints: [{ js: 'index.js' }],
+                    roots: { main: { js: 'index.js' } },
                     publishSettings: publicPublishSettings
                 }
             ]
@@ -154,7 +154,7 @@ test(
                 mainPackageJson: { type: 'module' },
                 publishSettings: publicPublishSettings
             },
-            packages: [{ name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ name: 'pkg', roots: { main: { js: 'index.js' } } }]
         },
         expectedData: {
             commonPackageSettings: {
@@ -162,7 +162,7 @@ test(
                 mainPackageJson: { type: 'module' },
                 publishSettings: publicPublishSettings
             },
-            packages: [{ name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ name: 'pkg', roots: { main: { js: 'index.js' } } }]
         }
     })
 );
@@ -173,11 +173,11 @@ test(
         schema: packtoryConfigWithoutRegistrySchema,
         data: {
             commonPackageSettings: { mainPackageJson: { type: 'module' }, publishSettings: publicPublishSettings },
-            packages: [{ sourcesFolder: 'src', name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ sourcesFolder: 'src', name: 'pkg', roots: { main: { js: 'index.js' } } }]
         },
         expectedData: {
             commonPackageSettings: { mainPackageJson: { type: 'module' }, publishSettings: publicPublishSettings },
-            packages: [{ sourcesFolder: 'src', name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ sourcesFolder: 'src', name: 'pkg', roots: { main: { js: 'index.js' } } }]
         }
     })
 );
@@ -188,11 +188,11 @@ test(
         schema: packtoryConfigWithoutRegistrySchema,
         data: {
             commonPackageSettings: { sourcesFolder: 'src', publishSettings: publicPublishSettings },
-            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', roots: { main: { js: 'index.js' } } }]
         },
         expectedData: {
             commonPackageSettings: { sourcesFolder: 'src', publishSettings: publicPublishSettings },
-            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', entryPoints: [{ js: 'index.js' }] }]
+            packages: [{ mainPackageJson: { type: 'module' }, name: 'pkg', roots: { main: { js: 'index.js' } } }]
         }
     })
 );

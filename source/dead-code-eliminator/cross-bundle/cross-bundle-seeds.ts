@@ -1,5 +1,6 @@
 import { Node as TsMorphNode, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import { resolvePublicModuleSourceFilePath } from '../../package-surface/modules.ts';
 import { bindingId, type FileBindings } from '../reachability/reachability.ts';
 
 export type CrossBundleInput = {
@@ -42,28 +43,12 @@ function indexBundles(inputs: readonly CrossBundleInput[]): ReadonlyMap<string, 
     return map;
 }
 
-function findResourceByTargetPath(bundle: LinkedBundle, targetFilePath: string): string | undefined {
-    const resource = bundle.contents.find((entry) => {
-        return entry.fileDescription.targetFilePath === targetFilePath;
-    });
-    return resource?.fileDescription.sourceFilePath;
-}
-
-function tryResolveAgainstBundle(
-    bundleName: string,
-    indexedBundle: IndexedBundle,
-    specifier: string
-): ResolvedTarget | undefined {
-    const prefix = `${bundleName}/`;
-    if (!specifier.startsWith(prefix)) {
-        return undefined;
-    }
-    const targetPath = specifier.slice(prefix.length);
-    const sourceFilePath = findResourceByTargetPath(indexedBundle.bundle, targetPath);
+function tryResolveAgainstBundle(indexedBundle: IndexedBundle, specifier: string): ResolvedTarget | undefined {
+    const sourceFilePath = resolvePublicModuleSourceFilePath(indexedBundle.bundle, specifier);
     if (sourceFilePath === undefined) {
         return undefined;
     }
-    return { bundleName, sourceFilePath, indexedBundle };
+    return { bundleName: indexedBundle.bundle.name, sourceFilePath, indexedBundle };
 }
 
 function resolveCrossBundleTarget(
@@ -73,8 +58,8 @@ function resolveCrossBundleTarget(
     if (specifier === undefined) {
         return undefined;
     }
-    for (const [bundleName, info] of indexed) {
-        const resolved = tryResolveAgainstBundle(bundleName, info, specifier);
+    for (const info of indexed.values()) {
+        const resolved = tryResolveAgainstBundle(info, specifier);
         if (resolved !== undefined) {
             return resolved;
         }
@@ -98,65 +83,42 @@ function seedAllBindings(seeds: Map<string, Set<string>>, target: ResolvedTarget
     }
 }
 
-function localNameOfNamedImport(namedImport: ReturnType<ImportDeclaration['getNamedImports']>[number]): string {
-    return namedImport.getAliasNode()?.getText() ?? namedImport.getName();
-}
-
 function isLocalBindingReachable(context: WalkContext, localName: string): boolean {
     return context.localReachable.has(bindingId(context.sourceFilePath, localName));
 }
 
-function recordDefaultImportSeed(
-    importDeclaration: ImportDeclaration,
-    target: ResolvedTarget,
-    context: WalkContext
-): void {
+function hasReachableDefaultImport(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
     const defaultImport = importDeclaration.getDefaultImport();
-    if (defaultImport === undefined) {
-        return;
-    }
-    if (!isLocalBindingReachable(context, defaultImport.getText())) {
-        return;
-    }
-    recordSeed(context.seeds, target.bundleName, bindingId(target.sourceFilePath, 'default'));
+    return defaultImport !== undefined && isLocalBindingReachable(context, defaultImport.getText());
 }
 
-function recordNamedImportSeeds(
-    importDeclaration: ImportDeclaration,
-    target: ResolvedTarget,
-    context: WalkContext
-): void {
-    for (const namedImport of importDeclaration.getNamedImports()) {
-        if (isLocalBindingReachable(context, localNameOfNamedImport(namedImport))) {
-            recordSeed(context.seeds, target.bundleName, bindingId(target.sourceFilePath, namedImport.getName()));
-        }
-    }
+function hasReachableNamespaceImport(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
+    const namespaceImport = importDeclaration.getNamespaceImport();
+    return namespaceImport !== undefined && isLocalBindingReachable(context, namespaceImport.getText());
+}
+
+function hasReachableNamedImport(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
+    return importDeclaration.getNamedImports().some((namedImport) => {
+        const localName = namedImport.getAliasNode()?.getText() ?? namedImport.getName();
+        return isLocalBindingReachable(context, localName);
+    });
+}
+
+function hasReachableImportedBinding(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
+    return (
+        hasReachableDefaultImport(importDeclaration, context) ||
+        hasReachableNamespaceImport(importDeclaration, context) ||
+        hasReachableNamedImport(importDeclaration, context)
+    );
 }
 
 function processImportDeclaration(importDeclaration: ImportDeclaration, context: WalkContext): void {
     const target = resolveCrossBundleTarget(importDeclaration.getModuleSpecifierValue(), context.indexed);
-    if (target === undefined) {
+    if (target === undefined || !hasReachableImportedBinding(importDeclaration, context)) {
         return;
     }
-    const namespaceImport = importDeclaration.getNamespaceImport();
-    if (namespaceImport !== undefined) {
-        if (isLocalBindingReachable(context, namespaceImport.getText())) {
-            seedAllBindings(context.seeds, target);
-        }
-        return;
-    }
-    recordDefaultImportSeed(importDeclaration, target, context);
-    recordNamedImportSeeds(importDeclaration, target, context);
-}
 
-function recordNamedReExportSeeds(
-    exportDeclaration: ExportDeclaration,
-    target: ResolvedTarget,
-    seeds: Map<string, Set<string>>
-): void {
-    for (const namedExport of exportDeclaration.getNamedExports()) {
-        recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, namedExport.getName()));
-    }
+    seedAllBindings(context.seeds, target);
 }
 
 function processExportDeclaration(exportDeclaration: ExportDeclaration, context: WalkContext): void {
@@ -164,11 +126,7 @@ function processExportDeclaration(exportDeclaration: ExportDeclaration, context:
     if (target === undefined) {
         return;
     }
-    if (exportDeclaration.isNamespaceExport()) {
-        seedAllBindings(context.seeds, target);
-        return;
-    }
-    recordNamedReExportSeeds(exportDeclaration, target, context.seeds);
+    seedAllBindings(context.seeds, target);
 }
 
 function walkCrossBundleStatements(sourceFile: Readonly<SourceFile>, context: WalkContext): void {

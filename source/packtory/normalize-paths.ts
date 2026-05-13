@@ -1,6 +1,6 @@
 import path from 'node:path';
-import type { EntryPoint } from '../config/entry-point.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
+import type { Root } from '../config/root.ts';
 
 function ensureAbsolutePath(filePath: string, folder: string): string {
     if (path.isAbsolute(filePath)) {
@@ -10,8 +10,8 @@ function ensureAbsolutePath(filePath: string, folder: string): string {
     return path.join(folder, filePath);
 }
 
-export function normalizeEntryPoint(entryPoint: EntryPoint, sourceFolder: string): EntryPoint {
-    const { js, declarationFile } = entryPoint;
+export function normalizeRoot(root: Root, sourceFolder: string): Root {
+    const { js, declarationFile } = root;
 
     if (declarationFile !== undefined) {
         return {

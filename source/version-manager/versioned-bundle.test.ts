@@ -4,8 +4,10 @@ import {
     analyzedBundle as createAnalyzedBundle,
     analyzedBundleResource,
     externalDependency as createReferencedDependency,
+    standardVersionedBundle,
     versionedBundle
 } from '../test-libraries/bundle-fixtures.ts';
+import type { PackageInterface } from '../config/package-interface.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
 import { buildVersionedBundle, type BuildVersionedBundleOptions } from './versioned-bundle.ts';
 
@@ -44,31 +46,38 @@ function expectBuildToThrowMatching(overrides: BuildOverrides, pattern: RegExp):
     }
 }
 
+function explicitCliBundle(packageInterface: PackageInterface) {
+    return createAnalyzedBundle({
+        roots: {
+            cli: {
+                js: {
+                    sourceFilePath: '/src/cli.js',
+                    targetFilePath: 'cli.js',
+                    content: '#!/usr/bin/env node\nconsole.log("cli");\n',
+                    isExecutable: true
+                }
+            }
+        },
+        surface: {
+            mode: 'explicit',
+            packageInterface
+        }
+    });
+}
+
+function assertCliMainFile(result: ReturnType<typeof buildVersionedBundle>): void {
+    assert.deepStrictEqual(result.mainFile, {
+        sourceFilePath: '/src/cli.js',
+        targetFilePath: 'cli.js',
+        content: '#!/usr/bin/env node\nconsole.log("cli");\n',
+        isExecutable: true
+    });
+}
+
 test('buildVersionedBundle() uses the first entry point as the main and types files', () => {
     const result = buildVersionedBundle(buildOptions({ additionalPackageJsonAttributes: { custom: true } }));
 
-    assert.deepStrictEqual(result, {
-        name: 'package-a',
-        version: '1.2.3',
-        dependencies: {},
-        peerDependencies: {},
-        contents: [],
-        mainFile: {
-            sourceFilePath: '/src/index.js',
-            targetFilePath: 'index.js',
-            content: '',
-            isExecutable: false
-        },
-        typesMainFile: {
-            sourceFilePath: '/src/index.d.ts',
-            targetFilePath: 'index.d.ts',
-            content: '',
-            isExecutable: false
-        },
-        additionalAttributes: { custom: true },
-        packageType: 'module',
-        sideEffectsField: undefined
-    });
+    assert.deepStrictEqual(result, standardVersionedBundle({ additionalAttributes: { custom: true } }));
 });
 
 test('buildVersionedBundle() groups bundle dependencies and peer dependencies by package name', () => {
@@ -107,6 +116,112 @@ test('buildVersionedBundle() defaults both dependency maps to empty objects when
     assert.deepStrictEqual(result.dependencies, {});
     assert.deepStrictEqual(result.peerDependencies, {});
     assert.strictEqual(result.importsField, undefined);
+});
+
+test('buildVersionedBundle() prefers the first explicit module root as the representative main file', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                roots: {
+                    main: {
+                        js: {
+                            sourceFilePath: '/src/index.js',
+                            targetFilePath: 'index.js',
+                            content: '',
+                            isExecutable: false
+                        }
+                    },
+                    feature: {
+                        js: {
+                            sourceFilePath: '/src/feature.js',
+                            targetFilePath: 'feature.js',
+                            content: '',
+                            isExecutable: false
+                        },
+                        declarationFile: {
+                            sourceFilePath: '/src/feature.d.ts',
+                            targetFilePath: 'feature.d.ts',
+                            content: '',
+                            isExecutable: false
+                        }
+                    }
+                },
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: {
+                        modules: [{ root: 'feature', export: '.' }]
+                    }
+                }
+            })
+        })
+    );
+
+    assert.deepStrictEqual(result.mainFile, {
+        sourceFilePath: '/src/feature.js',
+        targetFilePath: 'feature.js',
+        content: '',
+        isExecutable: false
+    });
+    assert.deepStrictEqual(result.typesMainFile, {
+        sourceFilePath: '/src/feature.d.ts',
+        targetFilePath: 'feature.d.ts',
+        content: '',
+        isExecutable: false
+    });
+});
+
+test('buildVersionedBundle() falls back to the first explicit bin root when there are no explicit modules', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: explicitCliBundle({
+                bins: [{ root: 'cli', name: 'package-a' }]
+            })
+        })
+    );
+
+    assertCliMainFile(result);
+    assert.deepStrictEqual(result.binField, { 'package-a': './cli.js' });
+    assert.strictEqual(Object.hasOwn(result, 'binField'), true);
+});
+
+test('buildVersionedBundle() ignores an empty explicit modules array before falling back to explicit bins', () => {
+    const invalidExplicitPackageInterface = {
+        modules: [],
+        bins: [{ root: 'cli', name: 'package-a' }]
+    };
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: explicitCliBundle(invalidExplicitPackageInterface as unknown as PackageInterface)
+        })
+    );
+
+    assertCliMainFile(result);
+});
+
+test('buildVersionedBundle() uses an empty placeholder main file when no representative root exists', () => {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- invalid test data is required to exercise the representative-root fallback
+    const invalidExplicitPackageInterface = {} as never;
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                roots: {},
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: invalidExplicitPackageInterface
+                }
+            })
+        })
+    );
+
+    assert.deepStrictEqual(result.mainFile, {
+        sourceFilePath: '',
+        targetFilePath: '',
+        content: '',
+        isExecutable: false
+    });
+    assert.strictEqual(result.typesMainFile, undefined);
+    assert.strictEqual(Object.hasOwn(result, 'typesMainFile'), false);
+    assert.strictEqual(Object.hasOwn(result, 'binField'), false);
 });
 
 test('buildVersionedBundle() emits only the used top-level imports entries for surviving local #imports', () => {

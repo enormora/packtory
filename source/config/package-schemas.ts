@@ -7,6 +7,8 @@ import {
 import { optionalPackageSettingsSchema } from './optional-package-settings-schema.ts';
 import { perPackageSettingsSchema } from './per-package-settings-schema.ts';
 
+const partialRequiredCommonPackageSettingsSchema = z.partial(requiredCommonPackageSettingsSchema);
+
 export const packageSchemaWithAllCommonSettings = z.readonly(
     z.extend(
         z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
@@ -16,7 +18,7 @@ export const packageSchemaWithAllCommonSettings = z.readonly(
 
 export const packageSchemaWithPartialCommonSettings = z.readonly(
     z.extend(
-        z.extend(z.partial(requiredCommonPackageSettingsSchema), optionalPackageSettingsSchema.shape),
+        z.extend(partialRequiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
         perPackageSettingsSchema.shape
     )
 );

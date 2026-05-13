@@ -1,12 +1,12 @@
 import { createFactory } from '@enormora/objectory';
 
-type EntryPointShape = { readonly js: string; readonly declarationFile?: string | undefined };
+type RootShape = { readonly js: string; readonly declarationFile?: string | undefined };
 
-const entryPointFactory = createFactory<EntryPointShape>(() => {
+const rootFactory = createFactory<RootShape>(() => {
     return { js: '' };
 });
 
-const minimalEntryPointFactory = createFactory<EntryPointShape>(() => {
+const minimalRootFactory = createFactory<RootShape>(() => {
     return { js: 'foo' };
 });
 
@@ -16,30 +16,39 @@ const mainPackageJsonFactory = createFactory<MainPackageJsonShape>(() => {
     return { type: 'module' };
 });
 
+const rootsFactory = createFactory<Readonly<Record<string, RootShape>>>(() => {
+    return { main: rootFactory };
+});
+
+const minimalRootsFactory = createFactory<Readonly<Record<string, RootShape>>>(() => {
+    return { main: minimalRootFactory };
+});
+
 type FooPackageConfigShape = {
     readonly name: string;
     readonly sourcesFolder: string;
-    readonly entryPoints: readonly EntryPointShape[];
+    readonly roots: Readonly<Record<string, RootShape>>;
     readonly mainPackageJson: MainPackageJsonShape;
+    readonly defaultModuleRoot?: string | undefined;
 };
 
 export const fooPackageConfigFactory = createFactory<FooPackageConfigShape>(() => {
     return {
         name: 'foo',
         sourcesFolder: 'the-source',
-        entryPoints: entryPointFactory.asArray({ length: 1 }),
+        roots: rootsFactory,
         mainPackageJson: mainPackageJsonFactory
     };
 });
 
 type MinimalPackageConfigShape = {
     readonly name: string;
-    readonly entryPoints: readonly EntryPointShape[];
+    readonly roots: Readonly<Record<string, RootShape>>;
 };
 
 export const minimalPackageConfigFactory = createFactory<MinimalPackageConfigShape>(() => {
     return {
         name: 'foo',
-        entryPoints: minimalEntryPointFactory.asArray({ length: 1 })
+        roots: minimalRootsFactory
     };
 });
