@@ -1,4 +1,3 @@
-/* eslint-disable no-undef -- the NodeJS namespace type is used for portable platform detection */
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 import { createPreviewIo, defaultSpawnProcess } from './preview-io-shared.ts';
