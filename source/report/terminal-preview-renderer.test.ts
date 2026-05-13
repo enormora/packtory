@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import { bold as defaultBoldFormatter } from 'yoctocolors';
 import {
     createDirectoryDiffPreviewPackageFixture,
     createManifestOnlyPreviewPackageFixture,
@@ -222,5 +223,6 @@ test('createColors returns identity formatters when disabled', () => {
 test('createColors defaults to non-forced output when color is undefined in this environment', () => {
     const colors = createColors(undefined);
 
-    assert.strictEqual(colors.bold('x'), 'x');
+    assert.strictEqual(colors.bold('x'), defaultBoldFormatter('x'));
+    assert.strictEqual(colors.bold, defaultBoldFormatter);
 });
