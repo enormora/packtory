@@ -90,24 +90,73 @@ function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: Decla
     return targets;
 }
 
+/** @internal Mutation-test helper for the traversal budget guard. */
+export function takeTraversalIteration(remainingIterations: number): number {
+    if (remainingIterations === 0) {
+        throw new Error('Reachability traversal exceeded the maximum iteration budget');
+    }
+    return remainingIterations - 1;
+}
+
+function createTraversalBudget(maximumIterations: number): readonly number[] {
+    return Array.from({ length: maximumIterations + 1 }, (_value, index) => {
+        return maximumIterations - index;
+    });
+}
+
+function getMaximumTraversalIterations(
+    initialVisitedSize: number,
+    seedCount: number,
+    maximumNodeCount: number
+): number {
+    return initialVisitedSize + seedCount + maximumNodeCount * maximumNodeCount;
+}
+
+function createTraversalState<T>(
+    initialVisited: ReadonlySet<T>,
+    seedList: readonly T[]
+): {
+    readonly visited: Set<T>;
+    readonly queue: T[];
+} {
+    const visited = new Set<T>([...initialVisited, ...seedList]);
+    return { visited, queue: Array.from(visited) };
+}
+
+function enqueueUnvisitedNeighbors<T>(
+    current: T,
+    expand: (current: T) => Iterable<T>,
+    visited: Set<T>,
+    queue: T[]
+): void {
+    for (const neighbor of expand(current)) {
+        if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+        }
+    }
+}
+
 function bfsClosure<T>(
     seeds: Iterable<T>,
     expand: (current: T) => Iterable<T>,
-    initialVisited: ReadonlySet<T>
+    initialVisited: ReadonlySet<T>,
+    maximumNodeCount: number
 ): Set<T> {
-    const visited = new Set<T>([...initialVisited, ...seeds]);
-    const queue = Array.from(visited);
-    let current = queue.shift();
-    while (current !== undefined) {
-        for (const neighbor of expand(current)) {
-            if (!visited.has(neighbor)) {
-                visited.add(neighbor);
-                queue.push(neighbor);
-            }
+    const seedList = Array.from(seeds);
+    const maximumIterations = getMaximumTraversalIterations(initialVisited.size, seedList.length, maximumNodeCount);
+    const traversalState = createTraversalState(initialVisited, seedList);
+
+    for (const remainingIterations of createTraversalBudget(maximumIterations)) {
+        const current = traversalState.queue.shift();
+        if (current === undefined) {
+            break;
         }
-        current = queue.shift();
+        takeTraversalIteration(remainingIterations);
+        enqueueUnvisitedNeighbors(current, expand, traversalState.visited, traversalState.queue);
     }
-    return visited;
+
+    return traversalState.visited;
 }
 
 function addStatementSeeds(
@@ -145,12 +194,13 @@ const emptyStringSet: ReadonlySet<string> = new Set<string>();
 export function buildReachabilityIndex(input: ReachabilityInput): ReachabilityIndex {
     const declarationIndex = buildDeclarationNodeIndex(input.files);
     const nodeById = buildNodeById(input.files);
+    const maximumNodeCount = nodeById.size;
     const expand = (id: string): Iterable<string> => {
         const node = nodeById.get(id);
         return node === undefined ? emptyStringSet : collectIdentifierTargets(node, declarationIndex);
     };
     const localSeeds = gatherLocalSeeds(input.files, input.entryPointFilePaths, declarationIndex);
-    const localReachable = bfsClosure(localSeeds, expand, emptyStringSet);
+    const localReachable = bfsClosure(localSeeds, expand, emptyStringSet, maximumNodeCount);
     return {
         localReachable,
         bindingIdsByFile: buildBindingsByFile(input.files),
@@ -158,7 +208,7 @@ export function buildReachabilityIndex(input: ReachabilityInput): ReachabilityIn
             if (externalSeeds === undefined || externalSeeds.size === 0) {
                 return localReachable;
             }
-            return bfsClosure(externalSeeds, expand, localReachable);
+            return bfsClosure(externalSeeds, expand, localReachable, maximumNodeCount);
         }
     };
 }

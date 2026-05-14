@@ -76,6 +76,82 @@ test('sorts primitive array values so false stays before true and numbers stay o
     assert.strictEqual(result, '{\n    "foo": [\n        false,\n        true,\n        1,\n        2\n    ]\n}');
 });
 
+test('preserves array order inside top-level imports entries', () => {
+    const result = serializePackageJson({
+        imports: {
+            '#foo': {
+                default: ['./z.js', './a.js']
+            }
+        }
+    });
+
+    assert.strictEqual(
+        result,
+        [
+            '{',
+            '    "imports": {',
+            '        "#foo": {',
+            '            "default": [',
+            '                "./z.js",',
+            '                "./a.js"',
+            '            ]',
+            '        }',
+            '    }',
+            '}'
+        ].join('\n')
+    );
+});
+
+test('preserves nested array order inside top-level imports entries', () => {
+    const result = serializePackageJson(
+        JSON.parse('{ "imports": { "#foo": { "default": [["./z.js", "./a.js"]] } } }') as Readonly<PackageJson>
+    );
+
+    assert.strictEqual(
+        result,
+        [
+            '{',
+            '    "imports": {',
+            '        "#foo": {',
+            '            "default": [',
+            '                [',
+            '                    "./z.js",',
+            '                    "./a.js"',
+            '                ]',
+            '            ]',
+            '        }',
+            '    }',
+            '}'
+        ].join('\n')
+    );
+});
+
+test('preserves array order inside top-level exports entries', () => {
+    const result = serializePackageJson({
+        exports: {
+            '.': {
+                import: ['./z.js', './a.js']
+            }
+        }
+    });
+
+    assert.strictEqual(
+        result,
+        [
+            '{',
+            '    "exports": {',
+            '        ".": {',
+            '            "import": [',
+            '                "./z.js",',
+            '                "./a.js"',
+            '            ]',
+            '        }',
+            '    }',
+            '}'
+        ].join('\n')
+    );
+});
+
 test('keeps equal primitive values stable without collapsing them', () => {
     const result = serializePackageJson({ foo: ['b', 'a', 'a'] });
 

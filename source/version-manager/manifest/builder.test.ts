@@ -60,6 +60,28 @@ test('buildPackageManifest() includes dependency, peer dependency, type, and typ
     });
 });
 
+test('buildPackageManifest() includes generated imports when present', () => {
+    const result = buildPackageManifest(
+        createBundle({
+            importsField: {
+                '#foo': './src/foo.js',
+                '#bar/*': { default: ['./src/bar/*.js', './fallback/*.js'] }
+            }
+        })
+    );
+
+    assert.deepStrictEqual(result, {
+        name: 'package-a',
+        version: '1.2.3',
+        imports: {
+            '#foo': './src/foo.js',
+            '#bar/*': { default: ['./src/bar/*.js', './fallback/*.js'] }
+        },
+        main: 'index.js',
+        type: 'module'
+    });
+});
+
 test('buildPackageManifest() passes through a scripts block from additional attributes', () => {
     const result = buildPackageManifest(
         createBundle({

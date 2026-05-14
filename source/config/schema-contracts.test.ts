@@ -2,6 +2,8 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 
+const probeTestTimeoutMs = 10_000;
+
 test('leaf config schemas keep their expected object keys and strict object behavior', async () => {
     const result = await runNodeProbe(`
         import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
@@ -24,12 +26,12 @@ test('leaf config schemas keep their expected object keys and strict object beha
         additionalFileShape: ['sourceFilePath', 'targetFilePath'],
         entryPointShape: ['js', 'declarationFile'],
         registrySettingsShape: ['registryUrl', 'auth'],
-        mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies'],
+        mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
         additionalFileCatchallType: 'never',
         entryPointCatchallType: 'never',
         registrySettingsCatchallType: 'never'
     });
-});
+}).timeout(probeTestTimeoutMs);
 
 test('versioning schema keeps the discriminant and both branches', async () => {
     const result = await runNodeProbe(`
@@ -72,7 +74,7 @@ test('versioning schema keeps the discriminant and both branches', async () => {
         invalidAutomaticBranchSuccess: false,
         invalidManualBranchSuccess: false
     });
-});
+}).timeout(probeTestTimeoutMs);
 
 test('package json schemas keep their runtime structure and forbidden key behavior', async () => {
     const result = await runNodeProbe(`
@@ -87,6 +89,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
             'dependencies',
             'peerDependencies',
             'devDependencies',
+            'imports',
             'main',
             'name',
             'types',
@@ -100,6 +103,7 @@ test('package json schemas keep their runtime structure and forbidden key behavi
             dependencyRecordType: mainShape.dependencies.def.innerType.def.innerType.def.type,
             devDependencyRecordType: mainShape.devDependencies.def.innerType.def.innerType.def.type,
             peerDependencyRecordType: mainShape.peerDependencies.def.innerType.def.innerType.def.type,
+            importsRecordType: mainShape.imports.def.innerType.def.innerType.def.type,
             validMainSuccess: safeParse(mainPackageJsonSchema, {
                 type: 'module',
                 dependencies: { dep: '1.0.0' }
@@ -109,15 +113,16 @@ test('package json schemas keep their runtime structure and forbidden key behavi
     `);
 
     assert.deepStrictEqual(result, {
-        mainShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies'],
+        mainShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
         typeLiteral: 'module',
         dependencyRecordType: 'record',
         devDependencyRecordType: 'record',
         peerDependencyRecordType: 'record',
+        importsRecordType: 'record',
         validMainSuccess: true,
-        forbiddenKeySuccesses: [false, false, false, false, false, false, false, false]
+        forbiddenKeySuccesses: [false, false, false, false, false, false, false, false, false]
     });
-});
+}).timeout(probeTestTimeoutMs);
 
 test('packtory config schemas keep their union and package tuple structure', async () => {
     const result = await runNodeProbe(`
@@ -210,7 +215,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
         configIntersectionLeftKeys: ['registrySettings'],
         validWithoutRegistrySuccess: true
     });
-});
+}).timeout(probeTestTimeoutMs);
 
 test('schema source modules still validate representative valid and invalid inputs', async () => {
     const result = await runNodeProbe(`
@@ -282,4 +287,4 @@ test('schema source modules still validate representative valid and invalid inpu
         missingConfigRegistrySuccess: false,
         emptyConfigPackagesSuccess: false
     });
-});
+}).timeout(probeTestTimeoutMs);

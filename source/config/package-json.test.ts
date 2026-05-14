@@ -13,6 +13,7 @@ test('package.json dependency field names are exposed as runtime constants', () 
 
 test('forbidden additional package.json attribute helper identifies allowed and forbidden keys', () => {
     assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('dependencies'), true);
+    assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('imports'), true);
     assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('version'), true);
     assert.strictEqual(isForbiddenAdditionalPackageJsonAttributeName('license'), false);
 });
@@ -70,11 +71,29 @@ test(
 );
 
 test(
+    'main package.json: validation succeeds when imports are given',
+    checkValidationSuccess({
+        schema: mainPackageJsonSchema,
+        data: { type: 'module', imports: { '#foo': './src/foo.js' } },
+        expectedData: { type: 'module', imports: { '#foo': './src/foo.js' } }
+    })
+);
+
+test(
     'main package.json: validation succeeds when additional properties are given',
     checkValidationSuccess({
         schema: mainPackageJsonSchema,
         data: { type: 'module', foo: 'bar' },
         expectedData: { type: 'module' }
+    })
+);
+
+test(
+    'main package.json: validation fails when imports is not an object',
+    checkValidationFailure({
+        schema: mainPackageJsonSchema,
+        data: { type: 'module', imports: true },
+        expectedMessages: ['at imports: expected record, but got boolean']
     })
 );
 
@@ -250,6 +269,15 @@ test(
 );
 
 test(
+    'additional attributes: validation fails when imports key is given',
+    checkValidationFailure({
+        schema: additionalPackageJsonAttributesSchema,
+        data: { imports: { '#foo': './foo.js' } },
+        expectedMessages: ['at imports: invalid key']
+    })
+);
+
+test(
     'additional attributes: validation fails when main key is given',
     checkValidationFailure({
         schema: additionalPackageJsonAttributesSchema,
@@ -301,6 +329,7 @@ test('additional attributes: every forbidden key is rejected by the key schema',
         'dependencies',
         'peerDependencies',
         'devDependencies',
+        'imports',
         'main',
         'name',
         'types',

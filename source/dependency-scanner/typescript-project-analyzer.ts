@@ -6,6 +6,7 @@ import {
     ModuleResolutionKind,
     type CompilerOptions
 } from 'ts-morph';
+import type { MainPackageJson } from '../config/package-json.ts';
 import type { FileSystemAdapters } from './typescript-file-host.ts';
 
 export type TypescriptProjectAnalyzerDependencies = {
@@ -16,6 +17,7 @@ export type TypescriptProjectAnalyzerDependencies = {
 
 type AnalyzationOptions = {
     readonly resolveDeclarationFiles: boolean;
+    readonly mainPackageJson: MainPackageJson;
 };
 
 export type TypescriptProject = {
@@ -44,7 +46,8 @@ function analyzationOptionsToCompilerOptions(options: AnalyzationOptions): Compi
         allowJs: true,
         noLib: true,
         skipLibCheck: true,
-        module: ModuleKind.Node16
+        module: ModuleKind.Node16,
+        resolvePackageJsonImports: true
     };
 
     if (!resolveDeclarationFiles) {
@@ -64,9 +67,13 @@ export function createTypescriptProjectAnalyzer(
         analyzeProject(folder, options) {
             const project = new Project({
                 compilerOptions: analyzationOptionsToCompilerOptions(options),
-                fileSystem: options.resolveDeclarationFiles
-                    ? fileSystemAdapters.fileSystemHostWithoutFilter
-                    : fileSystemAdapters.fileSystemHostFilteringDeclarationFiles
+                fileSystem: fileSystemAdapters.withVirtualPackageJson(
+                    options.resolveDeclarationFiles
+                        ? fileSystemAdapters.fileSystemHostWithoutFilter
+                        : fileSystemAdapters.fileSystemHostFilteringDeclarationFiles,
+                    folder,
+                    options.mainPackageJson
+                )
             });
 
             const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.js';

@@ -11,39 +11,50 @@ function toError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
 }
 
+type TarStreamEntry = AsyncIterable<Buffer> & {
+    readonly header: TarEntryHeaders;
+};
+
+type ErrorEmitter = {
+    readonly once: (eventName: 'error', listener: (error: unknown) => void) => unknown;
+};
+
+async function collectTarEntries(stream: AsyncIterable<TarStreamEntry>): Promise<TarEntry[]> {
+    const entries: TarEntry[] = [];
+
+    for await (const entry of stream) {
+        let result = '';
+        for await (const chunk of entry) {
+            result += chunk.toString();
+        }
+        entries.push({ header: entry.header, content: result });
+    }
+
+    return entries;
+}
+
+async function waitForStreamError(stream: ErrorEmitter): Promise<never> {
+    return await new Promise<never>((_resolve, reject) => {
+        stream.once('error', (error: unknown) => {
+            reject(toError(error));
+        });
+    });
+}
+
 export async function extractTarEntries(buffer: Buffer): Promise<TarEntry[]> {
     const extractStream = extract();
     const source = Readable.from(buffer);
     const gunzip = createGunzip();
-    const stream = source.pipe(gunzip).pipe(extractStream);
-    const errorEventName = 'error';
+    const stream = source.pipe(gunzip).pipe(extractStream) as AsyncIterable<TarStreamEntry>;
 
-    return new Promise<TarEntry[]>((resolve, reject) => {
-        const rejectOnError = (error: Error): void => {
-            reject(error);
-        };
-
-        source.once(errorEventName, rejectOnError);
-        gunzip.once(errorEventName, rejectOnError);
-        extractStream.once(errorEventName, rejectOnError);
-
-        // eslint-disable-next-line no-void -- The async reader resolves via resolve/reject above.
-        void (async (): Promise<void> => {
-            try {
-                const entries: TarEntry[] = [];
-
-                for await (const entry of stream) {
-                    let result = '';
-                    for await (const chunk of entry) {
-                        result += chunk.toString();
-                    }
-                    entries.push({ header: entry.header, content: result });
-                }
-
-                resolve(entries);
-            } catch (error: unknown) {
-                reject(toError(error));
-            }
-        })();
-    });
+    try {
+        return await Promise.race([
+            collectTarEntries(stream),
+            waitForStreamError(source),
+            waitForStreamError(gunzip),
+            waitForStreamError(extractStream)
+        ]);
+    } catch (error: unknown) {
+        throw toError(error);
+    }
 }

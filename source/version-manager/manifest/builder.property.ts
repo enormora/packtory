@@ -9,6 +9,7 @@ const reservedAttributeNames = new Set([
     'dependencies',
     'peerDependencies',
     'devDependencies',
+    'imports',
     'main',
     'name',
     'types',

@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { createFakeClock, type FakeClock } from '../test-libraries/fake-clock.ts';
+import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
 import { createOneTimePasswordPrompt } from './one-time-password-prompt.ts';
 
 async function expectFailure(action: () => Promise<unknown>, expectedError: RegExp): Promise<void> {
@@ -67,7 +68,7 @@ test('stops the spinner before prompting and trims the entered one-time password
     const question = fake.resolves(' 123456 ');
     const { prompt } = createPrompt({ stopSpinner, question });
 
-    const result = await prompt();
+    const result = await withPromiseDeadline(prompt(), 'one-time password prompt success');
 
     assert.strictEqual(result, '123456');
     assert.strictEqual(stopSpinner.callCount, 1);
@@ -79,7 +80,7 @@ test('closes the prompt interface after a successful prompt', async () => {
     const close = fake();
     const { prompt } = createPrompt({ close });
 
-    await prompt();
+    await withPromiseDeadline(prompt(), 'one-time password prompt close');
 
     assert.strictEqual(close.callCount, 1);
 });
@@ -100,7 +101,7 @@ test('closes the prompt interface when the prompt times out', async () => {
     const promptPromise = prompt();
     clock.tick(90_000);
     await expectFailure(async () => {
-        await promptPromise;
+        await withPromiseDeadline(promptPromise, 'one-time password prompt timeout');
     }, /^Error: One-time password input timed out or was empty$/u);
 
     assert.strictEqual(close.callCount, 1);
@@ -112,6 +113,6 @@ test('throws when the entered one-time password is empty after trimming', async 
     });
 
     await expectFailure(async () => {
-        await prompt();
+        await withPromiseDeadline(prompt(), 'one-time password prompt empty input');
     }, /^Error: One-time password input timed out or was empty$/u);
 });

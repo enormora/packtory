@@ -2,13 +2,14 @@ import assert from 'node:assert';
 import zlib from 'node:zlib';
 import { test } from 'mocha';
 import sinon from 'sinon';
+import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
 test('creates an empty tarball', async () => {
     const builder = createTarballBuilder();
     const tarballBuffer = await builder.build([]);
-    const entries = await extractTarEntries(tarballBuffer);
+    const entries = await withPromiseDeadline(extractTarEntries(tarballBuffer), 'empty tarball builder extraction');
 
     assert.deepStrictEqual(entries, []);
 });
@@ -17,7 +18,10 @@ test('creates a tarball with one file', async () => {
     const builder = createTarballBuilder();
 
     const tarballBuffer = await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
-    const entries = await extractTarEntries(tarballBuffer);
+    const entries = await withPromiseDeadline(
+        extractTarEntries(tarballBuffer),
+        'single-file tarball builder extraction'
+    );
 
     assert.deepStrictEqual(entries, [
         {
@@ -45,7 +49,10 @@ test('sets the file mode in the tar header correctly when the file is executable
     const builder = createTarballBuilder();
 
     const tarballBuffer = await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: true }]);
-    const entries = await extractTarEntries(tarballBuffer);
+    const entries = await withPromiseDeadline(
+        extractTarEntries(tarballBuffer),
+        'executable tarball builder extraction'
+    );
 
     assert.deepStrictEqual(entries, [
         {
@@ -78,7 +85,7 @@ test('creates a tarball with many nested files', async () => {
         { filePath: 'foo/bar/3.txt', content: '3', isExecutable: false },
         { filePath: 'foo/bar/baz/4.txt', content: '4', isExecutable: false }
     ]);
-    const entries = await extractTarEntries(tarballBuffer);
+    const entries = await withPromiseDeadline(extractTarEntries(tarballBuffer), 'nested tarball builder extraction');
     const expectedBaseHeaders = {
         devmajor: 0,
         devminor: 0,
