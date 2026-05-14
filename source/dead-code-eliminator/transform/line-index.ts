@@ -9,10 +9,8 @@ export type LineIndex = readonly LineIndexEntry[];
 
 export function buildLineIndex(text: string): LineIndex {
     const entries: LineIndexEntry[] = [{ lineNumber: 1, lineStart: 0 }];
-    let index = text.indexOf('\n');
-    while (index !== -1) {
-        entries.push({ lineNumber: entries.length + 1, lineStart: index + 1 });
-        index = text.indexOf('\n', index + 1);
+    for (const match of text.matchAll(/\n/gu)) {
+        entries.push({ lineNumber: entries.length + 1, lineStart: match.index + 1 });
     }
     return entries;
 }

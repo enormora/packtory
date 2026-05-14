@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax, functional/no-this-expressions, destructuring/in-params, sonarjs/publicly-writable-directories, no-undef -- fake child-process scaffolding is intentionally imperative in these tests */
 import assert from 'node:assert';
 import { test } from 'mocha';
+import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
 import { createPreviewIo, defaultSpawnProcess, type SpawnedProcess, type SpawnOptions } from './preview-io-shared.ts';
 import { previewIo as defaultPreviewIo } from './preview-io.ts';
 
@@ -118,14 +119,17 @@ test('createTemporaryPreviewHtmlPath uses tmpdir and the generated uuid', () => 
 test('pagePreviewOutput returns false immediately when stdout is not a TTY', async () => {
     const { previewIo: io, calls } = previewIoFactory({ stdoutIsTTY: false });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), false);
+    assert.strictEqual(
+        await withPromiseDeadline(io.pagePreviewOutput('content'), 'non-interactive preview skip'),
+        false
+    );
     assert.deepStrictEqual(calls, []);
 });
 
 test('pagePreviewOutput uses the configured pager when it succeeds', async () => {
     const { previewIo: io, calls } = previewIoFactory({ pager: 'bat', spawnHook: closeProcess(0) });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), true);
+    assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'configured pager success'), true);
     assert.deepStrictEqual(
         calls.map((call) => [call.command, call.args]),
         [['sh', ['-lc', 'bat']]]
@@ -151,7 +155,7 @@ test('pagePreviewOutput falls back to less when the configured pager fails', asy
         }
     });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), true);
+    assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'pager fallback'), true);
     assert.deepStrictEqual(
         calls.map((call) => [call.command, call.args]),
         [
@@ -164,7 +168,7 @@ test('pagePreviewOutput falls back to less when the configured pager fails', asy
 test('pagePreviewOutput uses less directly when no pager is configured', async () => {
     const { previewIo: io, calls } = previewIoFactory({ spawnHook: closeProcess(0) });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), true);
+    assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'default less pager'), true);
     assert.deepStrictEqual(
         calls.map((call) => [call.command, call.args]),
         [['sh', ['-lc', 'less -R']]]
@@ -174,7 +178,7 @@ test('pagePreviewOutput uses less directly when no pager is configured', async (
 test('pagePreviewOutput falls back to less when the pager is empty', async () => {
     const { previewIo: io, calls } = previewIoFactory({ pager: '', spawnHook: closeProcess(0) });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), true);
+    assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'empty pager fallback'), true);
     assert.deepStrictEqual(
         calls.map((call) => call.args),
         [['-lc', 'less -R']]
@@ -184,25 +188,28 @@ test('pagePreviewOutput falls back to less when the pager is empty', async () =>
 test('pagePreviewOutput returns false when spawn errors', async () => {
     const { previewIo: io } = previewIoFactory({ pager: 'bat', spawnHook: emitProcessError('error') });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), false);
+    assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'preview spawn error'), false);
 });
 
 test('pagePreviewOutput returns false when stdin errors', async () => {
     const { previewIo: io } = previewIoFactory({ spawnHook: emitProcessError('stdinError') });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), false);
+    assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'preview stdin error'), false);
 });
 
 test('pagePreviewOutput returns false when the spawned pager process exposes a null stdin stream', async () => {
     const { previewIo: io } = previewIoFactory({ stdinMode: 'null' });
 
-    assert.strictEqual(await io.pagePreviewOutput('content'), false);
+    assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'preview null stdin'), false);
 });
 
 test('openPreviewFile uses open on macOS', async () => {
     const { previewIo: io, calls } = previewIoFactory({ platform: 'darwin' });
 
-    assert.strictEqual(await io.openPreviewFile('/tmp/report.html'), true);
+    assert.strictEqual(
+        await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview on macOS'),
+        true
+    );
     assert.deepStrictEqual(
         calls.map((call) => [call.command, call.args]),
         [['open', ['/tmp/report.html']]]
@@ -216,7 +223,10 @@ test('openPreviewFile uses open on macOS', async () => {
 test('openPreviewFile uses start on Windows', async () => {
     const { previewIo: io, calls } = previewIoFactory({ platform: 'win32' });
 
-    assert.strictEqual(await io.openPreviewFile('C:\\report.html'), true);
+    assert.strictEqual(
+        await withPromiseDeadline(io.openPreviewFile('C:\\report.html'), 'open preview on Windows'),
+        true
+    );
     assert.deepStrictEqual(
         calls.map((call) => [call.command, call.args]),
         [['cmd', ['/c', 'start', '', 'C:\\report.html']]]
@@ -226,7 +236,10 @@ test('openPreviewFile uses start on Windows', async () => {
 test('openPreviewFile uses xdg-open on other platforms', async () => {
     const { previewIo: io, calls } = previewIoFactory({ platform: 'linux' });
 
-    assert.strictEqual(await io.openPreviewFile('/tmp/report.html'), true);
+    assert.strictEqual(
+        await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview on Linux'),
+        true
+    );
     assert.deepStrictEqual(
         calls.map((call) => [call.command, call.args]),
         [['xdg-open', ['/tmp/report.html']]]
@@ -236,13 +249,16 @@ test('openPreviewFile uses xdg-open on other platforms', async () => {
 test('openPreviewFile returns false when opening emits an error', async () => {
     const { previewIo: io } = previewIoFactory({ spawnHook: emitProcessError('error') });
 
-    assert.strictEqual(await io.openPreviewFile('/tmp/report.html'), false);
+    assert.strictEqual(await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview error'), false);
 });
 
 test('openPreviewFile ignores an error emitted after the success path has already settled', async () => {
     const { previewIo: io, calls } = previewIoFactory();
 
-    assert.strictEqual(await io.openPreviewFile('/tmp/report.html'), true);
+    assert.strictEqual(
+        await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview late error ignore'),
+        true
+    );
     const firstCall = requireFirstCall(calls);
     firstCall.child.listeners.error?.();
     assert.strictEqual(firstCall.child.wasUnrefCalled, true);

@@ -1,8 +1,56 @@
 import assert from 'node:assert';
 import { test, type Func } from 'mocha';
-import { createDirectedGraph, type DirectedGraph } from './graph.ts';
+import { stub } from 'sinon';
+import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
+import {
+    assertRemainingBudget,
+    breadthFirstTraversalBudgetExceededErrorMessage,
+    createDescendingBudget,
+    createDirectedGraph,
+    getRequiredArrayValue,
+    queuedGraphNodeMissingErrorMessage,
+    topologicalGenerationBudgetExceededErrorMessage,
+    type DirectedGraph
+} from './graph.ts';
+
+const probeTestTimeoutMs = 10_000;
 
 type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
+
+test('createDescendingBudget() returns a countdown including zero', () => {
+    assert.deepStrictEqual(createDescendingBudget(3), [3, 2, 1, 0]);
+});
+
+test('assertRemainingBudget() throws when no budget remains', () => {
+    assert.doesNotThrow(() => {
+        assertRemainingBudget(1, 'budget exhausted');
+    });
+    assert.throws(() => {
+        assertRemainingBudget(0, 'budget exhausted');
+    }, /^Error: budget exhausted$/u);
+    assert.throws(() => {
+        assertRemainingBudget(undefined, 'budget exhausted');
+    }, /^Error: budget exhausted$/u);
+});
+
+test('graph traversal budget error messages remain stable', () => {
+    assert.strictEqual(
+        breadthFirstTraversalBudgetExceededErrorMessage,
+        'Breadth-first traversal exceeded the maximum iteration budget'
+    );
+    assert.strictEqual(
+        topologicalGenerationBudgetExceededErrorMessage,
+        'Topological generation discovery exceeded the maximum iteration budget'
+    );
+    assert.strictEqual(queuedGraphNodeMissingErrorMessage, 'Queued graph node is missing');
+});
+
+test('getRequiredArrayValue() returns indexed values and throws for missing entries', () => {
+    assert.strictEqual(getRequiredArrayValue(['a', 'b'], 1, 'missing value'), 'b');
+    assert.throws(() => {
+        getRequiredArrayValue(['a'], 2, 'missing value');
+    }, /^Error: missing value$/u);
+});
 
 test('hasNode() returns false when there is no node for the given id', () => {
     const graph = createDirectedGraph<string, string>();
@@ -848,5 +896,136 @@ test('getAdjacentIds() throws when the requested node doesn’t exist', () => {
         assert.fail('Expected getAdjacentIds() to fail but it did not');
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
+    }
+});
+
+test('detectCycles() completes promptly for self-referential graphs', async () => {
+    const result = await runNodeProbe(
+        `
+            import { createDirectedGraph } from './source/directed-graph/graph.ts';
+
+            const graph = createDirectedGraph();
+            graph.addNode('a', 'value');
+            graph.connect({ from: 'a', to: 'a' });
+
+            console.log(JSON.stringify(graph.detectCycles()));
+        `,
+        { timeoutMs: 3000 }
+    );
+
+    assert.deepStrictEqual(result, [['a', 'a']]);
+}).timeout(probeTestTimeoutMs);
+
+test('visitBreadthFirstSearch() completes promptly for cyclic graphs', async () => {
+    const result = await runNodeProbe(
+        `
+            import { createDirectedGraph } from './source/directed-graph/graph.ts';
+
+            const graph = createDirectedGraph();
+            graph.addNode('a', 'first');
+            graph.addNode('b', 'second');
+            graph.connect({ from: 'a', to: 'b' });
+            graph.connect({ from: 'b', to: 'a' });
+
+            const visited = [];
+            graph.visitBreadthFirstSearch('a', (node) => {
+                visited.push(node.id);
+            });
+
+            console.log(JSON.stringify(visited));
+        `,
+        { timeoutMs: 3000 }
+    );
+
+    assert.deepStrictEqual(result, ['a', 'b']);
+}).timeout(probeTestTimeoutMs);
+
+test('getTopologicalGenerations() completes promptly for acyclic graphs', async () => {
+    const result = await runNodeProbe(
+        `
+            import { createDirectedGraph } from './source/directed-graph/graph.ts';
+
+            const graph = createDirectedGraph();
+            graph.addNode('a', 'first');
+            graph.addNode('b', 'second');
+            graph.connect({ from: 'a', to: 'b' });
+
+            console.log(JSON.stringify(graph.getTopologicalGenerations()));
+        `,
+        { timeoutMs: 3000 }
+    );
+
+    assert.deepStrictEqual(result, [['a'], ['b']]);
+}).timeout(probeTestTimeoutMs);
+
+test('detectCycles() throws when cycle traversal exceeds the maximum depth', () => {
+    const graph = createDirectedGraph<string, string>();
+    graph.addNode('a', 'value');
+    graph.connect({ from: 'a', to: 'a' });
+
+    const includesStub = stub(Array.prototype, 'includes').returns(false);
+
+    try {
+        assert.throws(() => {
+            graph.detectCycles();
+        }, /^Error: Cycle detection exceeded the maximum traversal depth$/u);
+    } finally {
+        includesStub.restore();
+    }
+});
+
+test('getTopologicalGenerations() throws when generation discovery stops making progress', () => {
+    const graph = createDirectedGraph<string, string>();
+    graph.addNode('a', 'first');
+    graph.addNode('b', 'second');
+    graph.connect({ from: 'a', to: 'b' });
+
+    const realAdd = Set.prototype.add;
+    const addStub = stub(Set.prototype, 'add');
+    addStub.callsFake(function (this: Set<unknown>, value: unknown) {
+        if (value === 'a') {
+            // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.add requires the receiver
+            return this;
+        }
+        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.add requires the receiver
+        return Reflect.apply(realAdd, this, [value]);
+    });
+
+    try {
+        assert.throws(() => {
+            graph.getTopologicalGenerations();
+        }, /^Error: Topological generation discovery did not make progress$/u);
+    } finally {
+        addStub.restore();
+    }
+});
+
+test('visitBreadthFirstSearch() throws when traversal exceeds the iteration budget', () => {
+    const graph = createDirectedGraph<string, string>();
+    graph.addNode('a', 'first');
+    graph.addNode('b', 'second');
+    graph.connect({ from: 'a', to: 'b' });
+    graph.connect({ from: 'b', to: 'a' });
+    let visitorCallCount = 0;
+
+    const realHas = Set.prototype.has;
+    const hasStub = stub(Set.prototype, 'has');
+    hasStub.callsFake(function (this: ReadonlySet<unknown>, value: unknown) {
+        if (value === 'a' || value === 'b') {
+            return false;
+        }
+        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.has requires the receiver
+        return Reflect.apply(realHas, this, [value]);
+    });
+
+    try {
+        assert.throws(() => {
+            graph.visitBreadthFirstSearch('a', () => {
+                visitorCallCount += 1;
+            });
+        }, /^Error: Breadth-first traversal exceeded the maximum iteration budget$/u);
+        assert.strictEqual(visitorCallCount, 5);
+    } finally {
+        hasStub.restore();
     }
 });

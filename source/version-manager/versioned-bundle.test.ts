@@ -289,6 +289,21 @@ test('buildVersionedBundle() throws when surviving #imports exist but no matchin
     );
 });
 
+test('buildVersionedBundle() throws when the matching imports entry is undefined', () => {
+    expectBuildToThrow(
+        {
+            bundle: createAnalyzedBundle({
+                contents: [analyzedBundleResource('/src/index.js', { content: 'export { foo } from "#foo";\n' })]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: { '#foo': undefined } as unknown as MainPackageJson['imports']
+            }
+        },
+        'Found surviving package.json imports specifier "#foo" but matching mainPackageJson.imports entry "#foo" is undefined'
+    );
+});
+
 test('buildVersionedBundle() reads external dependency versions from dependencies and peerDependencies', () => {
     const result = buildVersionedBundle(
         buildOptions({

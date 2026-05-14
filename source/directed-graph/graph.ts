@@ -30,6 +30,38 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     traverse: (visitor: Visitor<TId, TData>) => void;
 };
 
+/** @internal Mutation-test helper for traversal-budget assertions. */
+export const breadthFirstTraversalBudgetExceededErrorMessage =
+    'Breadth-first traversal exceeded the maximum iteration budget';
+/** @internal Mutation-test helper for traversal-budget assertions. */
+export const topologicalGenerationBudgetExceededErrorMessage =
+    'Topological generation discovery exceeded the maximum iteration budget';
+/** @internal Mutation-test helper for index-based traversal state. */
+export const queuedGraphNodeMissingErrorMessage = 'Queued graph node is missing';
+
+/** @internal Mutation-test helper for countdown-based traversal budgets. */
+export function createDescendingBudget(maximumIterations: number): number[] {
+    return Array.from({ length: maximumIterations + 1 }, (_value, index) => {
+        return maximumIterations - index;
+    });
+}
+
+/** @internal Mutation-test helper for traversal-budget assertions. */
+export function assertRemainingBudget(remainingBudget: number | undefined, errorMessage: string): void {
+    if (remainingBudget === undefined || remainingBudget === 0) {
+        throw new Error(errorMessage);
+    }
+}
+
+/** @internal Mutation-test helper for index-based traversal state. */
+export function getRequiredArrayValue<T>(values: readonly T[], index: number, errorMessage: string): T {
+    const value = values.at(index);
+    if (value === undefined) {
+        throw new Error(errorMessage);
+    }
+    return value;
+}
+
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
     node: Readonly<GraphNode<TId, TData>>,
     idToAdd: TId
@@ -129,10 +161,24 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         return newIncomingEdgesPerNode;
     }
 
+    function getTraversalBudget(): number {
+        let edgeCount = 0;
+
+        for (const node of nodes.values()) {
+            edgeCount += node.adjacentNodeIds.size;
+        }
+
+        return nodes.size + edgeCount + 1;
+    }
+
     function detectCyclesForNode(
         baseNode: GraphNode<TId, TData>,
         visitedIds: readonly TId[]
     ): readonly (readonly TId[])[] {
+        if (visitedIds.length === nodes.size + 1) {
+            throw new Error('Cycle detection exceeded the maximum traversal depth');
+        }
+
         const newVisitedIds = [...visitedIds, baseNode.id];
         const cycles: (readonly TId[])[] = [];
 
@@ -147,6 +193,21 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         }
 
         return cycles;
+    }
+
+    function collectCurrentGeneration(
+        alreadyDiscovered: ReadonlySet<TId>,
+        incomingEdgesPerNode: ReadonlyMap<TId, number>
+    ): readonly TId[] {
+        const currentGeneration: TId[] = [];
+
+        for (const node of nodes.values()) {
+            if (!alreadyDiscovered.has(node.id) && incomingEdgesPerNode.get(node.id) === 0) {
+                currentGeneration.push(node.id);
+            }
+        }
+
+        return currentGeneration;
     }
 
     function detectCycles(): readonly (readonly TId[])[] {
@@ -171,37 +232,16 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         return cycles.length > 0;
     }
 
-    function recursivelyGetTopologicalGenerations(
-        alreadyDiscovered: Set<TId>,
-        incomingEdgesPerNode: Map<TId, number>
-    ): readonly (readonly TId[])[] {
-        const currentGeneration: TId[] = [];
-
-        for (const node of nodes.values()) {
-            if (!alreadyDiscovered.has(node.id) && incomingEdgesPerNode.get(node.id) === 0) {
-                currentGeneration.push(node.id);
-            }
-        }
-
-        if (currentGeneration.length > 0) {
-            const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
-            const newIncomingEdgesPerNode = decreaseIncomingEdgesPerNodeForAdjacentNodes(
-                incomingEdgesPerNode,
-                currentGeneration
-            );
-            const generations = recursivelyGetTopologicalGenerations(currentlyDiscovered, newIncomingEdgesPerNode);
-            return [currentGeneration, ...generations];
-        }
-
-        return [];
-    }
-
     function visitBreadthFirstSearch(startId: TId, visitor: Visitor<TId, TData>): void {
         const startNode = getNode(startId);
         const queue: GraphNode<TId, TData>[] = [startNode];
         const visited = new Set<TId>();
+        const traversalBudget = createDescendingBudget(getTraversalBudget());
 
-        for (let head = queue.shift(); head !== undefined; head = queue.shift()) {
+        for (let nextNodeIndex = 0; nextNodeIndex < queue.length; nextNodeIndex += 1) {
+            const head = getRequiredArrayValue(queue, nextNodeIndex, queuedGraphNodeMissingErrorMessage);
+            const remainingBudget = traversalBudget.at(nextNodeIndex);
+            assertRemainingBudget(remainingBudget, breadthFirstTraversalBudgetExceededErrorMessage);
             if (visited.has(head.id)) {
                 continue;
             }
@@ -281,8 +321,33 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 throw new Error('Failed to determine topological generations, current graph is cyclic');
             }
 
-            const incomingEdgesPerNode = getIncomingEdgesPerNode();
-            return recursivelyGetTopologicalGenerations(new Set(), incomingEdgesPerNode);
+            const generations: TId[][] = [];
+            let alreadyDiscovered = new Set<TId>();
+            let incomingEdgesPerNode = getIncomingEdgesPerNode();
+            const generationBudget = createDescendingBudget(nodes.size);
+
+            for (const remainingBudget of generationBudget) {
+                const currentGeneration = collectCurrentGeneration(alreadyDiscovered, incomingEdgesPerNode);
+
+                if (currentGeneration.length === 0) {
+                    break;
+                }
+                assertRemainingBudget(remainingBudget, topologicalGenerationBudgetExceededErrorMessage);
+
+                const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
+                if (currentlyDiscovered.size <= alreadyDiscovered.size) {
+                    throw new Error('Topological generation discovery did not make progress');
+                }
+
+                generations.push(Array.from(currentGeneration));
+                alreadyDiscovered = currentlyDiscovered;
+                incomingEdgesPerNode = decreaseIncomingEdgesPerNodeForAdjacentNodes(
+                    incomingEdgesPerNode,
+                    Array.from(currentGeneration)
+                );
+            }
+
+            return generations;
         },
 
         reverse() {

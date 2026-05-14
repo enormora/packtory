@@ -1,8 +1,12 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import { stub } from 'sinon';
+import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from './binding-extractor.ts';
-import { bindingId, buildReachabilityIndex, type FileBindings } from './reachability.ts';
+import { bindingId, buildReachabilityIndex, takeTraversalIteration, type FileBindings } from './reachability.ts';
+
+const probeTestTimeoutMs = 10_000;
 
 function fileBindingsFor(filePath: string, content: string): FileBindings {
     const project = createProject({ withFiles: [{ filePath, content }] });
@@ -21,6 +25,13 @@ function multiFileBindingsFor(
         return { sourceFilePath: file.filePath, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
     });
 }
+
+test('takeTraversalIteration() decrements positive budgets and throws at zero', () => {
+    assert.strictEqual(takeTraversalIteration(2), 1);
+    assert.throws(() => {
+        takeTraversalIteration(0);
+    }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
+});
 
 test('keeps every exported entry-point binding reachable', () => {
     const files = [fileBindingsFor('entry.ts', 'export function pub() {}\nexport class Pub {}')];
@@ -143,4 +154,56 @@ test('includes every file in bindingIdsByFile, even unreachable ones', () => {
     const isolatedIds = index.bindingIdsByFile.get('isolated.ts');
     assert.ok(isolatedIds !== undefined);
     assert.ok(isolatedIds.has(bindingId('isolated.ts', 'never')));
+});
+
+test('buildReachabilityIndex completes promptly for cyclic binding graphs', async () => {
+    const result = await runNodeProbe(
+        `
+            import { createProject } from './source/test-libraries/typescript-project.ts';
+            import { extractTopLevelBindings } from './source/dead-code-eliminator/reachability/binding-extractor.ts';
+            import { buildReachabilityIndex } from './source/dead-code-eliminator/reachability/reachability.ts';
+
+            const project = createProject({
+                withFiles: [{
+                    filePath: 'entry.ts',
+                    content: 'function helper() { return pub(); }\\nexport function pub() { return helper(); }'
+                }]
+            });
+            const sourceFile = project.getSourceFileOrThrow('entry.ts');
+            const files = [{
+                sourceFilePath: 'entry.ts',
+                sourceFile,
+                bindings: extractTopLevelBindings(sourceFile)
+            }];
+            const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+
+            console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
+        `,
+        { timeoutMs: 8000 }
+    );
+
+    assert.deepStrictEqual(result, ['entry.ts::helper', 'entry.ts::pub']);
+}).timeout(probeTestTimeoutMs);
+
+test('buildReachabilityIndex throws when traversal exceeds the iteration budget', () => {
+    const files = [
+        fileBindingsFor('entry.ts', 'function helper() { return pub(); }\nexport function pub() { return helper(); }')
+    ];
+    const realHas = Set.prototype.has;
+    const hasStub = stub(Set.prototype, 'has');
+    hasStub.callsFake(function (this: ReadonlySet<unknown>, value: unknown) {
+        if (typeof value === 'string' && value.includes('::')) {
+            return false;
+        }
+        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.has requires the receiver
+        return Reflect.apply(realHas, this, [value]);
+    });
+
+    try {
+        assert.throws(() => {
+            buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+        }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
+    } finally {
+        hasStub.restore();
+    }
 });

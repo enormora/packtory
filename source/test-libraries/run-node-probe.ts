@@ -1,13 +1,20 @@
 import { execFile } from 'node:child_process';
 
-export async function runNodeProbe(script: string): Promise<unknown> {
+type RunNodeProbeOptions = {
+    readonly timeoutMs?: number;
+};
+
+const defaultTimeoutMs = 3000;
+
+export async function runNodeProbe(script: string, options: RunNodeProbeOptions = {}): Promise<unknown> {
     return new Promise<unknown>((resolve, reject) => {
         execFile(
             process.execPath,
-            ['--input-type=module', '-e', script],
+            ['--experimental-strip-types', '--enable-source-maps', '--input-type=module', '-e', script],
             {
                 cwd: process.cwd(),
-                encoding: 'utf8'
+                encoding: 'utf8',
+                timeout: options.timeoutMs ?? defaultTimeoutMs
             },
             (error, standardOutput) => {
                 if (error instanceof Error) {

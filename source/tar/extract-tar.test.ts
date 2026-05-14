@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { Readable } from 'node:stream';
 import { test } from 'mocha';
 import sinon from 'sinon';
+import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
 
@@ -22,7 +23,7 @@ async function expectFailure(action: () => Promise<unknown>, expectedError: RegE
 test('returns an empty array when the given tar buffer has no files', async () => {
     const builder = createTarballBuilder();
     const tar = await builder.build([]);
-    const entries = await extractTarEntries(tar);
+    const entries = await withPromiseDeadline(extractTarEntries(tar), 'empty tar extraction');
 
     assert.deepStrictEqual(entries, []);
 });
@@ -53,7 +54,7 @@ function expectedSingleFileEntry(mode: number): unknown[] {
 test('returns the extracted entries when the given tar buffer has files', async () => {
     const builder = createTarballBuilder();
     const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: false }]);
-    const entries = await extractTarEntries(tar);
+    const entries = await withPromiseDeadline(extractTarEntries(tar), 'single-file tar extraction');
 
     assert.deepStrictEqual(entries, expectedSingleFileEntry(420));
 });
@@ -61,7 +62,7 @@ test('returns the extracted entries when the given tar buffer has files', async 
 test('returns the extracted entries when the given tar buffer has files which are executable', async () => {
     const builder = createTarballBuilder();
     const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: true }]);
-    const entries = await extractTarEntries(tar);
+    const entries = await withPromiseDeadline(extractTarEntries(tar), 'executable tar extraction');
 
     assert.deepStrictEqual(entries, expectedSingleFileEntry(493));
 });
@@ -73,7 +74,7 @@ test('returns every extracted entry in tar order when the tarball contains multi
         { filePath: 'second.txt', content: 'second', isExecutable: false }
     ]);
 
-    const entries = await extractTarEntries(tar);
+    const entries = await withPromiseDeadline(extractTarEntries(tar), 'multi-file tar extraction');
 
     assert.deepStrictEqual(
         entries.map((entry) => {
@@ -88,7 +89,7 @@ test('returns every extracted entry in tar order when the tarball contains multi
 
 test('rejects when the given buffer is not a valid gzip tarball', async () => {
     await expectFailure(async () => {
-        await extractTarEntries(Buffer.from('not-a-tarball'));
+        await withPromiseDeadline(extractTarEntries(Buffer.from('not-a-tarball')), 'invalid tar extraction');
     }, 'error');
 });
 
@@ -113,7 +114,7 @@ async function runWithThrowingStream(thrown: () => never, expectedError: RegExp)
 
     try {
         await expectFailure(async () => {
-            await extractTarEntries(Buffer.from('unused'));
+            await withPromiseDeadline(extractTarEntries(Buffer.from('unused')), 'throwing tar extraction');
         }, expectedError);
     } finally {
         stub.restore();
@@ -167,7 +168,10 @@ test('registers the shared error event handler on the source stream', async () =
     const readableStub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
 
     try {
-        const entries = await extractTarEntries(Buffer.from('unused'));
+        const entries = await withPromiseDeadline(
+            extractTarEntries(Buffer.from('unused')),
+            'source stream error registration'
+        );
 
         assert.deepStrictEqual(entries, []);
         assert.strictEqual(sourceOnce.firstCall.firstArg, 'error');

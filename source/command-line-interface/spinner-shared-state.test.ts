@@ -1,11 +1,14 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
 import { stub } from 'sinon';
+import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 import {
     createSpinnerSharedAccessors,
     createSpinnerSharedLayout,
     type SpinnerSharedAccessors
 } from './spinner-shared-state.ts';
+
+const probeTestTimeoutMs = 10_000;
 
 function createAccessors(slotCount = 4): SpinnerSharedAccessors {
     const layout = createSpinnerSharedLayout(slotCount);
@@ -208,6 +211,65 @@ test('readSlot retries when the slot generation moves between the bracketing sam
         loadStub.restore();
     }
 });
+
+test('readSlot throws when the slot generation never stabilizes', () => {
+    const accessors = createAccessors();
+    accessors.writeSlot(0, 'running', 'pending-label', 'pending-message');
+
+    const realLoad = Atomics.load.bind(Atomics);
+    const loadStub = stub(Atomics, 'load');
+    loadStub.callsFake((typedArray, index) => {
+        const result = realLoad(typedArray, index);
+        if (typedArray.constructor === Int32Array && index === 0) {
+            accessors.bumpSlotGeneration(0);
+        }
+        return result;
+    });
+
+    try {
+        assert.throws(() => {
+            accessors.readSlot(0);
+        }, /^Error: Failed to read a stable spinner slot snapshot$/u);
+        assert.strictEqual(loadStub.callCount, 1025);
+    } finally {
+        loadStub.restore();
+    }
+});
+
+test('readSlot completes promptly when a seqlock retry is needed', async () => {
+    const result = await runNodeProbe(
+        `
+            import {
+                createSpinnerSharedAccessors,
+                createSpinnerSharedLayout
+            } from './source/command-line-interface/spinner-shared-state.ts';
+
+            const layout = createSpinnerSharedLayout(1);
+            const buffer = new SharedArrayBuffer(layout.bufferByteLength);
+            const accessors = createSpinnerSharedAccessors(buffer, layout);
+
+            accessors.writeSlot(0, 'running', 'pending-label', 'pending-message');
+            accessors.bumpSlotGeneration(0);
+
+            const realLoad = Atomics.load.bind(Atomics);
+            let callCount = 0;
+            Atomics.load = (...args) => {
+                const value = realLoad(...args);
+                callCount += 1;
+                if (callCount === 1) {
+                    accessors.writeSlot(0, 'succeeded', 'final-label', 'final-message');
+                    accessors.bumpSlotGeneration(0);
+                }
+                return value;
+            };
+
+            console.log(JSON.stringify(accessors.readSlot(0)));
+        `,
+        { timeoutMs: 3000 }
+    );
+
+    assert.deepStrictEqual(result, { state: 'succeeded', label: 'final-label', message: 'final-message' });
+}).timeout(probeTestTimeoutMs);
 
 test('writeSlot then readSlot round-trips strings that contain multi-byte UTF-8 characters', () => {
     const accessors = createAccessors();

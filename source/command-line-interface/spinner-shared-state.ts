@@ -16,13 +16,13 @@ const slotGenerationIndex = 0;
 
 const controlShutdownValue = 1;
 const controlIdleValue = 0;
+const maximumReadSlotAttempts = 1024;
 
 const slotStateEmpty = 0;
 const slotStateRunning = 1;
 const slotStateSucceeded = 2;
 const slotStateFailed = 3;
 const slotStateCanceled = 4;
-
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
@@ -173,6 +173,16 @@ export function createSpinnerSharedAccessors(
         return Atomics.load(views.slotInt32(slotIndex), slotGenerationIndex);
     }
 
+    function readSlotAttempt(slotIndex: number): {
+        readonly slot: ReturnType<SpinnerSharedAccessors['readSlot']>;
+        readonly generationAfter: number;
+    } {
+        return {
+            slot: readSlotContent(views, slotIndex),
+            generationAfter: readSlotGeneration(slotIndex)
+        };
+    }
+
     return {
         layout,
         buffer,
@@ -207,14 +217,20 @@ export function createSpinnerSharedAccessors(
             // updating the (non-atomic) label/message bytes; if the generation
             // moves between the two reads we observed a torn write and retry.
             let generationBefore = readSlotGeneration(slotIndex);
-            let slot = readSlotContent(views, slotIndex);
-            let generationAfter = readSlotGeneration(slotIndex);
-            while (generationAfter !== generationBefore) {
-                generationBefore = generationAfter;
-                slot = readSlotContent(views, slotIndex);
-                generationAfter = readSlotGeneration(slotIndex);
+            const attempts = Array.from({ length: maximumReadSlotAttempts + 1 }, (_value, index) => {
+                return maximumReadSlotAttempts - index;
+            });
+            for (const remainingAttempts of attempts) {
+                if (remainingAttempts === 0) {
+                    break;
+                }
+                const attemptResult = readSlotAttempt(slotIndex);
+                if (attemptResult.generationAfter === generationBefore) {
+                    return attemptResult.slot;
+                }
+                generationBefore = attemptResult.generationAfter;
             }
-            return slot;
+            throw new Error('Failed to read a stable spinner slot snapshot');
         }
     };
 }

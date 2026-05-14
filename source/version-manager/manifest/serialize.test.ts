@@ -103,13 +103,9 @@ test('preserves array order inside top-level imports entries', () => {
 });
 
 test('preserves nested array order inside top-level imports entries', () => {
-    const result = serializePackageJson({
-        imports: {
-            '#foo': {
-                default: [['./z.js', './a.js']]
-            }
-        }
-    });
+    const result = serializePackageJson(
+        JSON.parse('{ "imports": { "#foo": { "default": [["./z.js", "./a.js"]] } } }') as Readonly<PackageJson>
+    );
 
     assert.strictEqual(
         result,

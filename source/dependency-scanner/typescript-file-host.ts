@@ -106,8 +106,7 @@ function createVirtualPackageJsonHost(
 
             return fileSystemHost.readFile(filePath, encoding);
         },
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the ts-morph host signature includes encoding
-        [syncMethodNames.readFile]: (filePath: string, encoding?: string): string => {
+        [syncMethodNames.readFile]: (filePath: string): string => {
             if (path.resolve(filePath) === packageJsonPath) {
                 return serializedPackageJson;
             }

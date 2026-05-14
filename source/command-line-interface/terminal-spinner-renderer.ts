@@ -40,11 +40,7 @@ export function createTerminalSpinnerRenderer(
     const usedSlots = new Set<number>();
 
     function nextFreeSlotIndex(): number {
-        let candidate = 0;
-        while (usedSlots.has(candidate)) {
-            candidate += 1;
-        }
-        return candidate;
+        return usedSlots.size;
     }
 
     function getSpinnerById(id: string): SpinnerSlot {

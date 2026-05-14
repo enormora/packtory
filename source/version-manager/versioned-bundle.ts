@@ -1,5 +1,5 @@
-import * as typescript from 'typescript';
-import type { PackageJson, SetRequired } from 'type-fest';
+import { ts as typescript } from 'ts-morph';
+import type { JsonValue, PackageJson, SetRequired } from 'type-fest';
 import { oneLine } from 'common-tags';
 import { mergeAll } from 'remeda';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
@@ -280,7 +280,7 @@ function collectReferencedImportsEntries(
     referencedSpecifiers: ReadonlySet<string>,
     configuredImports: ImportsField
 ): ImportsField {
-    const importsField: ImportsField = {};
+    const importsField: Record<string, JsonValue> = {};
 
     for (const specifier of referencedSpecifiers) {
         const matchingKey = findMatchingImportEntryKey(specifier, configuredImports);
@@ -293,7 +293,17 @@ function collectReferencedImportsEntries(
             );
         }
 
-        importsField[matchingKey] = configuredImports[matchingKey];
+        const matchingImport = configuredImports[matchingKey];
+        if (matchingImport === undefined) {
+            throw new Error(
+                [
+                    `Found surviving package.json imports specifier "${specifier}"`,
+                    `but matching mainPackageJson.imports entry "${matchingKey}" is undefined`
+                ].join(' ')
+            );
+        }
+
+        importsField[matchingKey] = matchingImport;
     }
 
     return importsField;

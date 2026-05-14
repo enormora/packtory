@@ -6,6 +6,8 @@
         "source/**/*.test.ts",
         "source/**/*.property.ts",
         "source/**/*.type-test.ts",
+        "source/build-support/check-mutation-timeouts.entry-point.ts",
+        "source/build-support/check-mutation-timeouts.ts",
         "integration-tests/**/*.ts",
         "dependency-cruiser.config.js",
         "mocha.config.base.cjs",
