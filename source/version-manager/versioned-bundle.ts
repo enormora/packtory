@@ -1,7 +1,7 @@
+import * as typescript from 'typescript';
 import type { PackageJson, SetRequired } from 'type-fest';
 import { oneLine } from 'common-tags';
 import { mergeAll } from 'remeda';
-import { Project, ScriptTarget } from 'ts-morph';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { AdditionalPackageJsonAttributes, MainPackageJson } from '../config/package-json.ts';
 import { isCodeFile } from '../common/code-files.ts';
@@ -217,28 +217,20 @@ function distributeDependencies(options: BuildVersionedBundleOptions): Readonly<
 }
 
 function getHashImportSpecifiers(bundle: AnalyzedBundle): ReadonlySet<string> {
-    const project = new Project({
-        compilerOptions: {
-            allowJs: true,
-            noLib: true,
-            target: ScriptTarget.ES2022
-        },
-        skipLoadingLibFiles: true,
-        useInMemoryFileSystem: true
-    });
     const importSpecifiers = new Set<string>();
 
-    for (const resource of bundle.contents.filter((candidate) => {
-        return isCodeFile(candidate.fileDescription.targetFilePath);
-    })) {
+    for (const resource of bundle.contents) {
         const {
             fileDescription: { targetFilePath, content }
         } = resource;
-        const sourceFile = project.createSourceFile(targetFilePath, content, { overwrite: true });
-        for (const literal of sourceFile.getImportStringLiterals()) {
-            const specifier = literal.getLiteralValue();
-            if (specifier.startsWith('#')) {
-                importSpecifiers.add(specifier);
+
+        if (isCodeFile(targetFilePath)) {
+            const parsedFile = typescript.preProcessFile(content, true);
+            for (const literal of parsedFile.importedFiles) {
+                const specifier = literal.fileName;
+                if (specifier.startsWith('#')) {
+                    importSpecifiers.add(specifier);
+                }
             }
         }
     }
@@ -251,23 +243,20 @@ function escapeRegExp(value: string): string {
 }
 
 function findMatchingImportEntryKey(specifier: string, importsField: ImportsField): string | undefined {
-    if (Object.hasOwn(importsField, specifier)) {
-        return specifier;
-    }
-
-    const patternKeys = Object.keys(importsField)
+    const matchingKeys = Object.keys(importsField)
         .filter((key) => {
-            return key.includes('*');
-        })
-        .filter((key) => {
-            const pattern = `^${escapeRegExp(key).replaceAll('\\*', '.*')}$`;
-            return new RegExp(pattern, 'u').test(specifier);
+            const wildcardPattern = `^${escapeRegExp(key).replaceAll('\\*', '.*')}$`;
+            return new RegExp(wildcardPattern).test(specifier);
         })
         .toSorted((left, right) => {
+            if (left === specifier || right === specifier) {
+                return left === specifier ? -1 : 1;
+            }
+
             return right.length - left.length;
         });
 
-    return patternKeys[0];
+    return matchingKeys[0];
 }
 
 function getConfiguredImportsOrThrow(

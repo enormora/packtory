@@ -136,6 +136,112 @@ test('buildVersionedBundle() emits only the used top-level imports entries for s
     });
 });
 
+test('buildVersionedBundle() prefers the most specific matching wildcard imports entry', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                contents: [
+                    analyzedBundleResource('/src/index.js', {
+                        content: 'export { bar } from "#foo/bar/baz";\n'
+                    })
+                ]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: {
+                    '#foo/*': './src/foo/*.js',
+                    '#foo/bar/*': './src/bar/*.js',
+                    '#*': './src/fallback/*.js'
+                }
+            }
+        })
+    );
+
+    assert.deepStrictEqual(result.importsField, {
+        '#foo/bar/*': './src/bar/*.js'
+    });
+});
+
+test('buildVersionedBundle() prefers an exact imports entry over matching wildcard entries', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                contents: [
+                    analyzedBundleResource('/src/index.js', {
+                        content: 'export { foo } from "#foo";\n'
+                    })
+                ]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: {
+                    '#foo*': './src/wildcard.js',
+                    '#*': './src/fallback.js',
+                    '#foo': './src/foo.js'
+                }
+            }
+        })
+    );
+
+    assert.deepStrictEqual(result.importsField, {
+        '#foo': './src/foo.js'
+    });
+});
+
+test('buildVersionedBundle() prefers an exact imports entry over matching wildcard entries regardless of key order', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                contents: [
+                    analyzedBundleResource('/src/index.js', {
+                        content: 'export { foo } from "#foo";\n'
+                    })
+                ]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: {
+                    '#foo': './src/foo.js',
+                    '#foo*': './src/wildcard.js',
+                    '#*': './src/fallback.js'
+                }
+            }
+        })
+    );
+
+    assert.deepStrictEqual(result.importsField, {
+        '#foo': './src/foo.js'
+    });
+});
+
+test('buildVersionedBundle() ignores #imports that only appear in non-code files', () => {
+    const result = buildVersionedBundle(
+        buildOptions({
+            bundle: createAnalyzedBundle({
+                contents: [
+                    analyzedBundleResource('/src/index.js', {
+                        content: 'export { foo } from "#foo";\n'
+                    }),
+                    analyzedBundleResource('/src/readme.md', {
+                        content: 'export { ignored } from "#readme";\n',
+                        targetFilePath: 'readme.md'
+                    })
+                ]
+            }),
+            mainPackageJson: {
+                type: 'module',
+                imports: {
+                    '#foo': './src/foo.js'
+                }
+            }
+        })
+    );
+
+    assert.deepStrictEqual(result.importsField, {
+        '#foo': './src/foo.js'
+    });
+});
+
 test('buildVersionedBundle() does not emit imports for substituted files because the surviving code no longer contains #imports', () => {
     const result = buildVersionedBundle(
         buildOptions({

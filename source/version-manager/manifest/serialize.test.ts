@@ -102,6 +102,60 @@ test('preserves array order inside top-level imports entries', () => {
     );
 });
 
+test('preserves nested array order inside top-level imports entries', () => {
+    const result = serializePackageJson({
+        imports: {
+            '#foo': {
+                default: [['./z.js', './a.js']]
+            }
+        }
+    });
+
+    assert.strictEqual(
+        result,
+        [
+            '{',
+            '    "imports": {',
+            '        "#foo": {',
+            '            "default": [',
+            '                [',
+            '                    "./z.js",',
+            '                    "./a.js"',
+            '                ]',
+            '            ]',
+            '        }',
+            '    }',
+            '}'
+        ].join('\n')
+    );
+});
+
+test('preserves array order inside top-level exports entries', () => {
+    const result = serializePackageJson({
+        exports: {
+            '.': {
+                import: ['./z.js', './a.js']
+            }
+        }
+    });
+
+    assert.strictEqual(
+        result,
+        [
+            '{',
+            '    "exports": {',
+            '        ".": {',
+            '            "import": [',
+            '                "./z.js",',
+            '                "./a.js"',
+            '            ]',
+            '        }',
+            '    }',
+            '}'
+        ].join('\n')
+    );
+});
+
 test('keeps equal primitive values stable without collapsing them', () => {
     const result = serializePackageJson({ foo: ['b', 'a', 'a'] });
 
