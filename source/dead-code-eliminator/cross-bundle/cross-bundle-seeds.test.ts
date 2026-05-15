@@ -93,7 +93,7 @@ test('records a named import as a seed in the target bundle', () => {
     const bSeeds = seeds.get('pkg-b');
     assert.ok(bSeeds !== undefined);
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
-    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), true);
+    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
     assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'default')), false);
 });
 
@@ -159,7 +159,7 @@ test('records a named re-export as a seed in the target bundle', () => {
     );
     assert.ok(bSeeds !== undefined);
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
-    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), true);
+    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
 });
 
 test('records every binding of the target file as a seed for a star re-export', () => {
@@ -338,7 +338,7 @@ test('seeds only the named imports whose local bindings are referenced by reacha
     );
     assert.ok(bSeeds !== undefined);
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
-    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'alsoDead')), true);
+    assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'alsoDead')), false);
 });
 
 test('does not record a seed for an import that does not match any bundle name', () => {

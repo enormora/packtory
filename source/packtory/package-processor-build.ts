@@ -97,7 +97,6 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
             sourcesFolder,
             roots: normalizedResolveInputs.roots,
             surface: normalizedResolveInputs.surface,
-            entryPoints: normalizedResolveInputs.entryPoints,
             includeSourceMapFiles,
             additionalFiles,
             mainPackageJson: options.mainPackageJson,

@@ -122,15 +122,15 @@ After every generation the scheduler appends the produced `LinkedBundle`s (or `V
 
 ## 4. Stage: Resource Resolver — dependency scanning
 
-Goal: starting from a package's entry-point files, find **every local source file reachable through `import` statements**, plus every `node_modules` import that needs to land in the generated `package.json`.
+Goal: starting from a package's root files, find **every local source file reachable through `import` statements**, plus every `node_modules` import that needs to land in the generated `package.json`.
 
 ### Algorithm
 
 ```
-scan(entryPoint, sourcesFolder):
+scan(root, sourcesFolder):
     project ← create ts-morph Project rooted at sourcesFolder
     graph ← empty directed acyclic graph
-    bfs(entryPoint):
+    bfs(root):
         for each import literal L in current file:
             target ← ts.resolveModuleName(L, …)        # uses the host's tsconfig
             if target is inside /node_modules/:
@@ -148,7 +148,7 @@ A few details worth highlighting:
 
 ### Source maps and declarations
 
-If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If an entry point declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
+If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If a root declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
 
 ## 5. Stage: Linker — import path rewriting
 
@@ -258,13 +258,13 @@ For every package `P` being built, and every code file `F` in `P`, we look at `F
 
 | Statement form                         | Seeded binding(s) in sibling |
 | -------------------------------------- | ---------------------------- |
-| `import x from 'pkg/f.js'`             | _every_ binding in `f.js`    |
-| `import { a, b as c } from 'pkg/f.js'` | _every_ binding in `f.js`    |
+| `import x from 'pkg/f.js'`             | `default`                    |
+| `import { a, b as c } from 'pkg/f.js'` | `a` and `b`                  |
 | `import * as ns from 'pkg/f.js'`       | _every_ binding in `f.js`    |
-| `export { a } from 'pkg/f.js'`         | _every_ binding in `f.js`    |
+| `export { a } from 'pkg/f.js'`         | `a`                          |
 | `export * from 'pkg/f.js'`             | _every_ binding in `f.js`    |
 
-**Gating on local reachability.** A cross-bundle `import` only seeds the sibling if at least one local binding it produces is itself reachable in the consuming bundle. Once that happens, packtory keeps the sibling's whole public file live so the generated `exports` surface stays coherent. Purely unreachable imports are not propagated.
+**Gating on local reachability.** A cross-bundle import only seeds the sibling if the _local_ binding it produces is itself reachable in the consuming bundle. If `cli.ts` does `import foo from 'lib/foo.js'` but never uses `foo`, that import is local-dead and is not propagated to `lib`. This commit message is worth checking: `ae179d5 Gate cross-bundle seeds on consumer-side reachability`.
 
 The whole exchange happens in two phases:
 

@@ -128,16 +128,6 @@ test('substituteDependencies() only rewrites matched imports and never invents u
                             };
                         })
                     ],
-                    entryPoints: [
-                        {
-                            js: {
-                                content: '',
-                                isExecutable: false,
-                                sourceFilePath: '/entry.js',
-                                targetFilePath: 'entry.js'
-                            }
-                        }
-                    ],
                     surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                     externalDependencies: new Map(),
                     name: 'fixture'

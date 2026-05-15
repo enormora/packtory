@@ -74,7 +74,7 @@ function assertCliMainFile(result: ReturnType<typeof buildVersionedBundle>): voi
     });
 }
 
-test('buildVersionedBundle() uses the first entry point as the main and types files', () => {
+test('buildVersionedBundle() uses the representative root as the main and types files', () => {
     const result = buildVersionedBundle(buildOptions({ additionalPackageJsonAttributes: { custom: true } }));
 
     assert.deepStrictEqual(result, standardVersionedBundle({ additionalAttributes: { custom: true } }));
@@ -182,6 +182,7 @@ test('buildVersionedBundle() falls back to the first explicit bin root when ther
     assertCliMainFile(result);
     assert.deepStrictEqual(result.binField, { 'package-a': './cli.js' });
     assert.strictEqual(Object.hasOwn(result, 'binField'), true);
+    assert.strictEqual(Object.hasOwn(result, 'typesMainFile'), false);
 });
 
 test('buildVersionedBundle() ignores an empty explicit modules array before falling back to explicit bins', () => {
@@ -198,30 +199,51 @@ test('buildVersionedBundle() ignores an empty explicit modules array before fall
     assertCliMainFile(result);
 });
 
-test('buildVersionedBundle() uses an empty placeholder main file when no representative root exists', () => {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- invalid test data is required to exercise the representative-root fallback
+test('buildVersionedBundle() throws when an explicit surface declares neither modules nor bins', () => {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- intentionally malformed surface
     const invalidExplicitPackageInterface = {} as never;
-    const result = buildVersionedBundle(
-        buildOptions({
-            bundle: createAnalyzedBundle({
-                roots: {},
-                surface: {
-                    mode: 'explicit',
-                    packageInterface: invalidExplicitPackageInterface
-                }
+    assert.throws(() => {
+        buildVersionedBundle(
+            buildOptions({
+                bundle: createAnalyzedBundle({
+                    roots: {},
+                    surface: {
+                        mode: 'explicit',
+                        packageInterface: invalidExplicitPackageInterface
+                    }
+                })
             })
-        })
-    );
+        );
+    }, /^Error: Package "package-a" explicit surface declares neither modules nor bins$/u);
+});
 
-    assert.deepStrictEqual(result.mainFile, {
-        sourceFilePath: '',
-        targetFilePath: '',
-        content: '',
-        isExecutable: false
-    });
-    assert.strictEqual(result.typesMainFile, undefined);
-    assert.strictEqual(Object.hasOwn(result, 'typesMainFile'), false);
-    assert.strictEqual(Object.hasOwn(result, 'binField'), false);
+test('buildVersionedBundle() throws when an implicit surface references an unknown defaultModuleRoot', () => {
+    assert.throws(() => {
+        buildVersionedBundle(
+            buildOptions({
+                bundle: createAnalyzedBundle({
+                    roots: {},
+                    surface: { mode: 'implicit', defaultModuleRoot: 'missing' }
+                })
+            })
+        );
+    }, /^Error: Package "package-a" references unknown root "missing"$/u);
+});
+
+test('buildVersionedBundle() throws when an explicit module entry references an unknown root', () => {
+    assert.throws(() => {
+        buildVersionedBundle(
+            buildOptions({
+                bundle: createAnalyzedBundle({
+                    roots: {},
+                    surface: {
+                        mode: 'explicit',
+                        packageInterface: { modules: [{ root: 'missing', export: '.' }] }
+                    }
+                })
+            })
+        );
+    }, /^Error: Package "package-a" references unknown root "missing"$/u);
 });
 
 test('buildVersionedBundle() emits only the used top-level imports entries for surviving local #imports', () => {

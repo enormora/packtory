@@ -7,28 +7,28 @@ const probeTestTimeoutMs = 10_000;
 test('leaf config schemas keep their expected object keys and strict object behavior', async () => {
     const result = await runNodeProbe(`
         import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
-        import { rootSchema as entryPointSchema } from './source/config/root.ts';
+        import { rootSchema } from './source/config/root.ts';
         import { mainPackageJsonSchema } from './source/config/main-package-json-schema.ts';
         import { registrySettingsSchema } from './source/config/registry-settings.ts';
 
         console.log(JSON.stringify({
             additionalFileShape: Object.keys(additionalFileDescriptionSchema._zod.def.innerType.def.shape),
-            entryPointShape: Object.keys(entryPointSchema._zod.def.innerType.def.shape),
+            rootShape: Object.keys(rootSchema._zod.def.innerType.def.shape),
             registrySettingsShape: Object.keys(registrySettingsSchema._zod.def.innerType.def.shape),
             mainPackageJsonShape: Object.keys(mainPackageJsonSchema._zod.def.innerType.def.shape),
             additionalFileCatchallType: additionalFileDescriptionSchema._zod.def.innerType.def.catchall.type,
-            entryPointCatchallType: entryPointSchema._zod.def.innerType.def.catchall.type,
+            rootCatchallType: rootSchema._zod.def.innerType.def.catchall.type,
             registrySettingsCatchallType: registrySettingsSchema._zod.def.innerType.def.catchall.type
         }));
     `);
 
     assert.deepStrictEqual(result, {
         additionalFileShape: ['sourceFilePath', 'targetFilePath'],
-        entryPointShape: ['js', 'declarationFile'],
+        rootShape: ['js', 'declarationFile'],
         registrySettingsShape: ['registryUrl', 'auth'],
         mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
         additionalFileCatchallType: 'never',
-        entryPointCatchallType: 'never',
+        rootCatchallType: 'never',
         registrySettingsCatchallType: 'never'
     });
 }).timeout(probeTestTimeoutMs);
@@ -225,7 +225,7 @@ test('schema source modules still validate representative valid and invalid inpu
     const result = await runNodeProbe(`
         import { safeParse } from '@schema-hub/zod-error-formatter';
         import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
-        import { rootSchema as entryPointSchema } from './source/config/root.ts';
+        import { rootSchema } from './source/config/root.ts';
         import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
         import { registrySettingsSchema } from './source/config/registry-settings.ts';
 
@@ -237,14 +237,14 @@ test('schema source modules still validate representative valid and invalid inpu
             missingAdditionalFileSourceSuccess: safeParse(additionalFileDescriptionSchema, {
                 targetFilePath: 'README.md'
             }).success,
-            validEntryPointSuccess: safeParse(entryPointSchema, {
+            validRootSuccess: safeParse(rootSchema, {
                 js: 'index.js',
                 declarationFile: 'index.d.ts'
             }).success,
-            missingEntryPointJsSuccess: safeParse(entryPointSchema, {
+            missingRootJsSuccess: safeParse(rootSchema, {
                 declarationFile: 'index.d.ts'
             }).success,
-            extraEntryPointPropertySuccess: safeParse(entryPointSchema, {
+            extraRootPropertySuccess: safeParse(rootSchema, {
                 js: 'index.js',
                 extra: 'nope'
             }).success,
@@ -282,9 +282,9 @@ test('schema source modules still validate representative valid and invalid inpu
     assert.deepStrictEqual(result, {
         validAdditionalFileSuccess: true,
         missingAdditionalFileSourceSuccess: false,
-        validEntryPointSuccess: true,
-        missingEntryPointJsSuccess: false,
-        extraEntryPointPropertySuccess: false,
+        validRootSuccess: true,
+        missingRootJsSuccess: false,
+        extraRootPropertySuccess: false,
         validRegistrySuccess: true,
         missingRegistryTokenSuccess: false,
         validConfigSuccess: true,

@@ -24,7 +24,6 @@ function bundle(name: string, resources: readonly AnalyzedBundleResource[]): Ana
     return {
         name,
         contents: resources,
-        entryPoints: [],
         linkedBundleDependencies: { dependencies: {}, peerDependencies: {} },
         externalDependencies: { dependencies: {}, peerDependencies: {} },
         sideEffectsField: undefined

@@ -3,7 +3,7 @@ import { test } from 'mocha';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { createBundleLinker } from './linker.ts';
 
-test('linkBundle() keeps js-only entry points when there are no bundle substitutions', async () => {
+test('linkBundle() keeps js-only roots when there are no bundle substitutions', async () => {
     const linker = createBundleLinker();
     const root = {
         js: {
@@ -46,7 +46,6 @@ test('linkBundle() keeps js-only entry points when there are no bundle substitut
                 }
             ],
             roots: { main: root },
-            entryPoints: [root],
             surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             externalDependencies: new Map()
         },
@@ -54,8 +53,8 @@ test('linkBundle() keeps js-only entry points when there are no bundle substitut
     });
 
     assert.strictEqual(result.name, 'package-a');
-    assert.deepStrictEqual(result.entryPoints, [
-        {
+    assert.deepStrictEqual(result.roots, {
+        main: {
             js: {
                 content: '',
                 isExecutable: false,
@@ -63,11 +62,11 @@ test('linkBundle() keeps js-only entry points when there are no bundle substitut
                 targetFilePath: 'index.js'
             }
         }
-    ]);
+    });
     assert.strictEqual(result.contents.length, 2);
 });
 
-test('linkBundle() flattens declaration entry points and substitutes matching bundle dependencies', async () => {
+test('linkBundle() flattens declaration roots and substitutes matching bundle dependencies', async () => {
     const project = createProject({
         withFiles: [
             { filePath: '/src/index.js', content: 'import "./dep.js";' },
@@ -138,7 +137,6 @@ test('linkBundle() flattens declaration entry points and substitutes matching bu
                 }
             ],
             roots: { main: root },
-            entryPoints: [root],
             surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             externalDependencies: new Map()
         },

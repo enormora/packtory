@@ -177,6 +177,18 @@ function validateExplicitRootConfiguration(packageConfig: ExplicitPackageConfig)
     ];
 }
 
+function buildMutualExclusionIssues(packageName: string, defaultModuleRoot: string | undefined): readonly string[] {
+    if (defaultModuleRoot === undefined) {
+        return [];
+    }
+    return [
+        [
+            `Package "${packageName}" cannot combine defaultModuleRoot with packageInterface;`,
+            'remove defaultModuleRoot in explicit mode'
+        ].join(' ')
+    ];
+}
+
 function validateRootConfiguration(packageConfig: PackageConfig): readonly string[] {
     const duplicateRootIssues = validateDuplicateRootJavaScriptTargets(packageConfig);
 
@@ -184,7 +196,15 @@ function validateRootConfiguration(packageConfig: PackageConfig): readonly strin
         return [...duplicateRootIssues, ...validateImplicitRootConfiguration(packageConfig)];
     }
 
-    return [...duplicateRootIssues, ...validateExplicitRootConfiguration(packageConfig)];
+    const packageConfigWithBothFields = packageConfig as PackageConfig & {
+        readonly defaultModuleRoot?: string | undefined;
+    };
+    const mutualExclusionIssues = buildMutualExclusionIssues(
+        packageConfig.name,
+        packageConfigWithBothFields.defaultModuleRoot
+    );
+
+    return [...duplicateRootIssues, ...mutualExclusionIssues, ...validateExplicitRootConfiguration(packageConfig)];
 }
 
 function packageListToRecord(packages: readonly PackageConfig[]): PackageConfigsByName {

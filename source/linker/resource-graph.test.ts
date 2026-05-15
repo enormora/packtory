@@ -36,7 +36,6 @@ test('createGraphFromResolvedBundle() keeps only external dependencies reference
             }
         ],
         roots: { main: root },
-        entryPoints: [root] as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         externalDependencies: new Map([
             ['left-pad', { name: 'left-pad', referencedFrom: ['/entry.js'] as const }],

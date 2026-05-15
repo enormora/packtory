@@ -107,7 +107,7 @@ function configureScanForJsAndDeclarationGraphs(
     return scan;
 }
 
-test('resolve() scans js entry points and additional files and returns their file descriptions', async () => {
+test('resolve() scans js roots and additional files and returns their file descriptions', async () => {
     const jsGraph = createGraph({ rootFile: '/src/index.js', additionalLocalFiles: ['/src/internal.js'] });
     const scan = fake.resolves(jsGraph);
     const { resolver } = createResolver({ scan });
@@ -129,25 +129,22 @@ test('resolve() scans js entry points and additional files and returns their fil
     ]);
     assert.strictEqual(result.name, 'package-a');
     assert.strictEqual(result.contents.length, 3);
-    assert.deepStrictEqual(result.entryPoints, [
-        { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined }
-    ]);
     assert.deepStrictEqual(result.roots, {
         main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined }
     });
 });
 
-test('resolve() keeps declarationFile undefined when an entry point does not define one', async () => {
+test('resolve() keeps declarationFile undefined when a root does not define one', async () => {
     const jsGraph = createGraph({ rootFile: '/src/index.js' });
     const scan = fake.resolves(jsGraph);
     const { resolver } = createResolver({ scan });
 
     const result = await resolver.resolve(baseResolveOptions);
 
-    assert.strictEqual(result.entryPoints[0].declarationFile, undefined);
+    assert.strictEqual(result.roots.main?.declarationFile, undefined);
 });
 
-test('resolve() scans declaration entry points separately and merges local and external dependencies', async () => {
+test('resolve() scans declaration roots separately and merges local and external dependencies', async () => {
     const jsGraph = createGraph({
         rootFile: '/src/index.js',
         additionalLocalFiles: ['/src/shared.js'],
@@ -186,12 +183,6 @@ test('resolve() scans declaration entry points separately and merges local and e
         }),
         ['left-pad', 'typescript']
     );
-    assert.deepStrictEqual(result.entryPoints, [
-        {
-            js: createTransferableFile('/src/index.js', 'index.js'),
-            declarationFile: createTransferableFile('/src/index.d.ts', 'index.d.ts')
-        }
-    ]);
     assert.deepStrictEqual(result.roots, {
         main: {
             js: createTransferableFile('/src/index.js', 'index.js'),
@@ -200,7 +191,7 @@ test('resolve() scans declaration entry points separately and merges local and e
     });
 });
 
-test('resolve() preserves additional modern roots as additional entry points', async () => {
+test('resolve() preserves additional modern roots', async () => {
     const firstGraph = createGraph({ rootFile: '/src/index.js' });
     const secondGraph = createGraph({ rootFile: '/src/feature.js' });
     const scan = stub();
@@ -216,17 +207,13 @@ test('resolve() preserves additional modern roots as additional entry points', a
         }
     });
 
-    assert.deepStrictEqual(result.entryPoints, [
-        { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined },
-        { js: createTransferableFile('/src/feature.js', 'feature.js'), declarationFile: undefined }
-    ]);
     assert.deepStrictEqual(result.roots, {
         main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined },
         feature: { js: createTransferableFile('/src/feature.js', 'feature.js'), declarationFile: undefined }
     });
 });
 
-test('resolve() throws when an entry point resource cannot be resolved from the scanned contents', async () => {
+test('resolve() throws when a root resource cannot be resolved from the scanned contents', async () => {
     const graph = createGraph({ rootFile: '/src/index.js' });
     const scan = fake.resolves(graph);
     const { resolver } = createResolver({
@@ -248,22 +235,6 @@ test('resolve() throws when an entry point resource cannot be resolved from the 
         assert.fail('Expected resolve() should fail but it did not');
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, 'Failed to resolve resource for root /src/index.js');
-    }
-});
-
-test('resolve() throws when an explicit entryPoints override references an unresolved js resource', async () => {
-    const graph = createGraph({ rootFile: '/src/index.js' });
-    const scan = fake.resolves(graph);
-    const { resolver } = createResolver({ scan });
-
-    try {
-        await resolver.resolve({
-            ...baseResolveOptions,
-            entryPoints: [{ js: '/src/missing.js' }]
-        });
-        assert.fail('Expected resolve() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Failed to resolve resource for root /src/missing.js');
     }
 });
 

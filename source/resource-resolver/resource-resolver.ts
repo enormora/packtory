@@ -83,13 +83,6 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
         })?.fileDescription;
     }
 
-    function buildResolvedRootFileDescription(
-        js: TransferableFileDescription,
-        declarationFile: TransferableFileDescription | undefined
-    ): { js: TransferableFileDescription; declarationFile: TransferableFileDescription | undefined } {
-        return { js, declarationFile };
-    }
-
     function buildResolvedRoots(
         normalized: ReturnType<typeof resolveRootsAndSurface>,
         contents: BundleResource[]
@@ -101,35 +94,10 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
         for (const [rootId, root] of Object.entries(normalized.roots)) {
             const jsResource = requireFileDescriptionBySourcePath(root.js, contents);
             const declarationFile = resolveDeclarationFileResource(root.declarationFile, contents);
-            resolvedRoots[rootId] = buildResolvedRootFileDescription(jsResource, declarationFile);
+            resolvedRoots[rootId] = { js: jsResource, declarationFile };
         }
 
         return resolvedRoots;
-    }
-
-    function buildResolvedEntryPoints(
-        normalized: ReturnType<typeof resolveRootsAndSurface>,
-        contents: BundleResource[]
-    ): ResolvedBundle['entryPoints'] {
-        const buildEntryPoint = (
-            root: ReturnType<typeof resolveRootsAndSurface>['entryPoints'][number]
-        ): {
-            js: TransferableFileDescription;
-            declarationFile: TransferableFileDescription | undefined;
-        } => {
-            const jsResource = requireFileDescriptionBySourcePath(root.js, contents);
-            const declarationFile = resolveDeclarationFileResource(root.declarationFile, contents);
-            return { js: jsResource, declarationFile };
-        };
-        const [firstEntryPoint, ...remainingEntryPoints] = normalized.entryPoints;
-        const result: [ReturnType<typeof buildEntryPoint>, ...ReturnType<typeof buildEntryPoint>[]] = [
-            buildEntryPoint(firstEntryPoint)
-        ];
-        for (const root of remainingEntryPoints) {
-            result.push(buildEntryPoint(root));
-        }
-
-        return result;
     }
 
     return {
@@ -164,8 +132,7 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
                 name: options.name,
                 surface: normalized.surface,
                 externalDependencies: resolvedDependencies.externalDependencies,
-                roots: buildResolvedRoots(normalized, contents),
-                entryPoints: buildResolvedEntryPoints(normalized, contents)
+                roots: buildResolvedRoots(normalized, contents)
             };
         }
     };

@@ -17,7 +17,7 @@ function rejectCodeFile(targetFilePath: string): void {
         throw new Error(
             [
                 `additionalFiles must not include code files; received "${targetFilePath}".`,
-                'Code that should ship in the bundle must be reachable from an entry point so',
+                'Code that should ship in the bundle must be reachable from a root so',
                 'dependency, side-effect and dead-code analyses can run on it.',
                 'If you intend to ship code as a static asset (e.g. a template),',
                 'use a non-code extension like .txt.'

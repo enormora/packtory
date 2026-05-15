@@ -29,7 +29,3 @@ export function explicitPackageSurface(packageInterface: PackageInterface): Expl
 export function isImplicitPackageSurface(packageSurface: PackageSurface): packageSurface is ImplicitPackageSurface {
     return packageSurface.mode === 'implicit';
 }
-
-export function isExplicitPackageSurface(packageSurface: PackageSurface): packageSurface is ExplicitPackageSurface {
-    return packageSurface.mode === 'explicit';
-}

@@ -21,7 +21,6 @@ export type RootFileDescription = {
 export type ResolvedBundle = {
     readonly contents: readonly ResolvedContent[];
     readonly roots: Readonly<Record<string, RootFileDescription>>;
-    readonly entryPoints: readonly [RootFileDescription, ...RootFileDescription[]];
     readonly surface: PackageSurface;
     readonly name: string;
     readonly externalDependencies: ExternalDependencies;

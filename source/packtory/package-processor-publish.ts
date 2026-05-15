@@ -90,6 +90,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         currentVersion: Maybe<string>;
         version: string;
     }> {
+        assertEsmMainPackageJson(options.mainPackageJson);
         const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
             name: analyzedBundle.name,
             registrySettings: options.registrySettings,
@@ -155,23 +156,30 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         return newVersionedBundle;
     }
 
+    async function generateExtraFiles(
+        versionedBundle: VersionedBundleWithManifest,
+        buildOptions: BuildAndPublishOptions
+    ): ReturnType<SbomFileBuilder['generate']> {
+        return dependencies.sbomFileBuilder.generate(
+            versionedBundle,
+            siblingsFromOptions(buildOptions),
+            buildOptions.publishSettings
+        );
+    }
+
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
         const buildContext = await buildVersionedBundle(
             options.analyzedBundle,
             options.buildOptions,
             options.substitutionPublicModuleSourcePaths
         );
-        const extraFiles = await dependencies.sbomFileBuilder.generate(
-            buildContext.versionedBundle,
-            siblingsFromOptions(options.buildOptions),
-            options.buildOptions.publishSettings
-        );
-        const result = await dependencies.bundleEmitter.checkBundleAlreadyPublished({
+        const extraFiles = await generateExtraFiles(buildContext.versionedBundle, options.buildOptions);
+        const alreadyPublished = await dependencies.bundleEmitter.checkBundleAlreadyPublished({
             bundle: buildContext.versionedBundle,
             registrySettings: options.buildOptions.registrySettings,
             ...(extraFiles === undefined ? {} : { extraFiles })
         });
-        if (result.alreadyPublishedAsLatest) {
+        if (alreadyPublished.alreadyPublishedAsLatest) {
             return finalizeWithoutBump(buildContext, options.buildOptions, 'already-published');
         }
         if (!shouldIncreaseVersion(buildContext.currentVersion, options.buildOptions)) {
@@ -189,7 +197,6 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     }
 
     async function buildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
-        assertEsmMainPackageJson(options.buildOptions.mainPackageJson);
         const result = await tryBuildAndPublish(options);
         if (result.status === 'already-published') {
             return result;
@@ -199,11 +206,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             packageName: options.buildOptions.name,
             version: result.bundle.version
         });
-        const extraFiles = await dependencies.sbomFileBuilder.generate(
-            result.bundle,
-            siblingsFromOptions(options.buildOptions),
-            options.buildOptions.publishSettings
-        );
+        const extraFiles = await generateExtraFiles(result.bundle, options.buildOptions);
         await dependencies.bundleEmitter.publish({
             bundle: result.bundle,
             registrySettings: options.buildOptions.registrySettings,

@@ -94,7 +94,7 @@ Packtory guarantees minimal packages with:
 
 **How Bundling Works:**
 
-1. All source files referenced from the entry point files are resolved into a graph.
+1. All source files referenced from the configured roots are resolved into a graph.
 2. Imports of `node_modules` and node built-ins are detected and tracked to create a minimal `package.json` later.
 3. If bundle dependencies are given, some import statements will be rewritten. For example, if a file in package `first` imports a file in package `second`, the import statement will be rewritten accordingly (e.g., from `import bar from './bar.js'` to `import bar from 'second/bar.js'`).
 4. A `package.json` will be generated, and the version numbers of `node_modules` will be taken from the `mainPackageJson` provided in the configuration.
@@ -183,7 +183,7 @@ The configuration for `packtory` is an object with the following properties:
         - An array to add additional files to the package that are not automatically resolved.
         - Example: `{ sourceFilePath: 'LICENSE', targetFilePath: 'LICENSE' }`.
         - If defined in both per-package and common settings, they are merged.
-        - Code files (`.js`, `.cjs`, `.mjs`, `.jsx`, `.ts`, `.cts`, `.mts`, `.tsx`, `.d.ts`) are rejected: code that ships in the bundle must be reachable from an entry point so dependency, side-effect and dead-code analyses can run on it. If you need to ship code as a static asset (e.g. a template), give it a non-code extension like `.txt`.
+        - Code files (`.js`, `.cjs`, `.mjs`, `.jsx`, `.ts`, `.cts`, `.mts`, `.tsx`, `.d.ts`) are rejected: code that ships in the bundle must be reachable from a root so dependency, side-effect and dead-code analyses can run on it. If you need to ship code as a static asset (e.g. a template), give it a non-code extension like `.txt`.
 
     - **`additionalPackageJsonAttributes`** (Optional, Object):
         - An object to be merged directly into the generated `package.json`.

@@ -59,10 +59,6 @@ function createDefaultSurface(): PackageSurface {
     return implicitPackageSurface('main');
 }
 
-function createDefaultEntryPoints(): readonly [RootFileDescription, ...RootFileDescription[]] {
-    return [createDefaultRoot()];
-}
-
 export function externalDependency(
     name: string,
     referencedFrom: readonly [string, ...(readonly string[])] = ['/src/index.js']
@@ -95,7 +91,6 @@ export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundl
         name: 'package-a',
         contents: [],
         roots: createDefaultRoots(),
-        entryPoints: createDefaultEntryPoints(),
         surface: createDefaultSurface(),
         linkedBundleDependencies: new Map(),
         externalDependencies: new Map(),

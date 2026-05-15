@@ -34,7 +34,6 @@ function createLinkedBundle(name = 'package-a'): LinkedBundle {
         name,
         contents: [],
         roots: { main: { js: createTransferableFile('/entry.js') } } as const,
-        entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map(),
         externalDependencies: new Map()
@@ -214,7 +213,6 @@ test('resolveAndLink() emits progress events and links the resolved bundle with 
         name: 'package-a',
         contents: [],
         roots: { main: { js: createTransferableFile('/entry.js') } } as const,
-        entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         externalDependencies: new Map()
     });
@@ -232,7 +230,6 @@ test('resolveAndLink() emits progress events and links the resolved bundle with 
                 name: 'package-a',
                 contents: [],
                 roots: { main: { js: createTransferableFile('/entry.js') } },
-                entryPoints: [{ js: createTransferableFile('/entry.js') }],
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 externalDependencies: new Map()
             },
@@ -659,7 +656,6 @@ test('resolveAndLink() emits scanCompleted with the resolved bundle scan results
         name: 'package-a',
         contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' } }],
         roots: { main: { js: createTransferableFile('/entry.js') } } as const,
-        entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         externalDependencies: new Map([['lodash', { version: '^4' }]])
     });
@@ -700,7 +696,6 @@ test('resolveAndLink() emits linkingCompleted with the linker rewrites when subs
         name: 'package-a',
         contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true }],
         roots: { main: { js: createTransferableFile('/entry.js') } } as const,
-        entryPoints: [{ js: createTransferableFile('/entry.js') }] as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map([['pkg-b', {}]]),
         externalDependencies: new Map()

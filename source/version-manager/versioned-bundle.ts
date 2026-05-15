@@ -40,29 +40,39 @@ export type BuildVersionedBundleOptions = {
     readonly substitutionPublicModuleSourcePaths?: ReadonlySet<string> | undefined;
 };
 
-function resolveRepresentativeRoot(bundle: AnalyzedBundle): RootFileDescription | undefined {
-    if (isImplicitPackageSurface(bundle.surface)) {
-        return bundle.roots[bundle.surface.defaultModuleRoot];
-    }
+type ExplicitPackageInterfaceLike = {
+    readonly modules?: readonly { readonly root: string }[];
+    readonly bins?: readonly { readonly root: string }[];
+};
 
-    const { modules, bins } = bundle.surface.packageInterface;
-    const [firstModule] = modules ?? [];
+function firstExplicitRootId(packageInterface: ExplicitPackageInterfaceLike): string | undefined {
+    const firstModule = packageInterface.modules?.[0];
     if (firstModule !== undefined) {
-        return bundle.roots[firstModule.root];
+        return firstModule.root;
     }
-
-    return bins?.map((entry) => {
-        return bundle.roots[entry.root];
-    })[0];
+    const firstBin = packageInterface.bins?.[0];
+    if (firstBin !== undefined) {
+        return firstBin.root;
+    }
+    return undefined;
 }
 
-function emptyMainFile(): TransferableFileDescription {
-    return {
-        sourceFilePath: '',
-        targetFilePath: '',
-        content: '',
-        isExecutable: false
-    };
+function resolveRepresentativeRootId(bundle: AnalyzedBundle): string {
+    if (isImplicitPackageSurface(bundle.surface)) {
+        return bundle.surface.defaultModuleRoot;
+    }
+    const referencedRootId = firstExplicitRootId(bundle.surface.packageInterface);
+    if (referencedRootId === undefined) {
+        throw new Error(`Package "${bundle.name}" explicit surface declares neither modules nor bins`);
+    }
+    return referencedRootId;
+}
+
+function resolveRepresentativeRoot(bundle: AnalyzedBundle, rootId: string): RootFileDescription {
+    // Invariant: buildExportsField (implicit) and buildBinField (explicit) run before this
+    // and throw when the referenced root is absent, so the lookup cannot return undefined.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- see invariant above
+    return bundle.roots[rootId]!;
 }
 
 type OptionalVersionedBundleFields = Pick<VersionedBundle, 'binField' | 'importsField' | 'typesMainFile'>;
@@ -88,9 +98,9 @@ export function buildVersionedBundle(options: BuildVersionedBundleOptions): Vers
     const importsField = buildImportsField(bundle, mainPackageJson);
     const exportsField = buildExportsField(bundle, options.substitutionPublicModuleSourcePaths ?? new Set<string>());
     const binField = buildBinField(bundle);
-    const representativeRoot = resolveRepresentativeRoot(bundle);
-    const mainFile = representativeRoot?.js ?? emptyMainFile();
-    const typesMainFile = representativeRoot?.declarationFile;
+    const representativeRoot = resolveRepresentativeRoot(bundle, resolveRepresentativeRootId(bundle));
+    const mainFile = representativeRoot.js;
+    const typesMainFile = representativeRoot.declarationFile;
 
     return {
         name: bundle.name,

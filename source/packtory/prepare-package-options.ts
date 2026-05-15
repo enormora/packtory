@@ -210,10 +210,7 @@ function buildSharedOptions<TBundle extends { name: string }>(
         `Package "${packageConfig.name}" must define at least one root`
     );
 
-    const roots = Object.fromEntries(normalizedRootEntries) as NonNullable<ResourceResolveOptions['roots']>;
-    const normalizedRoots = mapRequiredArrayValue(normalizedRootEntries, ([, root]) => {
-        return root;
-    });
+    const roots = Object.fromEntries(normalizedRootEntries) as ResourceResolveOptions['roots'];
     const rootIds = mapRequiredArrayValue(normalizedRootEntries, ([rootId]) => {
         return rootId;
     });
@@ -223,7 +220,6 @@ function buildSharedOptions<TBundle extends { name: string }>(
         name: packageConfig.name,
         roots,
         surface,
-        entryPoints: normalizedRoots,
         sourcesFolder,
         includeSourceMapFiles: resolveIncludeSourceMapFiles(packageConfig, packtoryConfig),
         additionalFiles: resolveAdditionalFiles(packageConfig, sourcesFolder, packtoryConfig),

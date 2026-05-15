@@ -105,7 +105,7 @@ type DonePayload = {
 
 type InputsResolvedPayload = {
     readonly packageName: string;
-    readonly entryPoints: readonly string[];
+    readonly roots: Readonly<Record<string, string>>;
     readonly sourceFileCount: number;
     readonly siblingVersions: Readonly<Record<string, string>>;
 };

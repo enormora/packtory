@@ -32,7 +32,6 @@ export function createBundleLinker(): BundleLinker {
                 ...substitutedGraph.flatten(flattenRoots(bundle.roots)),
                 name: bundle.name,
                 roots: bundle.roots,
-                entryPoints: bundle.entryPoints,
                 surface: bundle.surface
             };
         }

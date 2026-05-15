@@ -26,12 +26,12 @@ test('normalizeRoot() keeps absolute paths unchanged and resolves relative paths
             relativePathArbitrary,
             fc.option(relativePathArbitrary, { nil: undefined }),
             (sourceFolder, js, declarationFile) => {
-                const relativeEntryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedRelativeEntryPoint = normalizeRoot(relativeEntryPoint, sourceFolder);
+                const relativeRoot = declarationFile === undefined ? { js } : { js, declarationFile };
+                const normalizedRelativeRoot = normalizeRoot(relativeRoot, sourceFolder);
 
-                assert.strictEqual(normalizedRelativeEntryPoint.js, path.join(sourceFolder, js));
+                assert.strictEqual(normalizedRelativeRoot.js, path.join(sourceFolder, js));
                 assert.strictEqual(
-                    normalizedRelativeEntryPoint.declarationFile,
+                    normalizedRelativeRoot.declarationFile,
                     declarationFile === undefined ? undefined : path.join(sourceFolder, declarationFile)
                 );
             }
@@ -44,11 +44,11 @@ test('normalizeRoot() keeps absolute paths unchanged and resolves relative paths
             relativePathArbitrary,
             fc.option(absolutePathArbitrary, { nil: undefined }),
             (js, sourceFolder, declarationFile) => {
-                const absoluteEntryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedAbsoluteEntryPoint = normalizeRoot(absoluteEntryPoint, sourceFolder);
+                const absoluteRoot = declarationFile === undefined ? { js } : { js, declarationFile };
+                const normalizedAbsoluteRoot = normalizeRoot(absoluteRoot, sourceFolder);
 
-                assert.strictEqual(normalizedAbsoluteEntryPoint.js, js);
-                assert.strictEqual(normalizedAbsoluteEntryPoint.declarationFile, declarationFile);
+                assert.strictEqual(normalizedAbsoluteRoot.js, js);
+                assert.strictEqual(normalizedAbsoluteRoot.declarationFile, declarationFile);
             }
         )
     );
@@ -95,8 +95,8 @@ test('normalizeRoot() is idempotent once all paths are normalized', () => {
             relativePathArbitrary,
             fc.option(relativePathArbitrary, { nil: undefined }),
             (sourceFolder, js, declarationFile) => {
-                const entryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedOnce = normalizeRoot(entryPoint, sourceFolder);
+                const root = declarationFile === undefined ? { js } : { js, declarationFile };
+                const normalizedOnce = normalizeRoot(root, sourceFolder);
                 const normalizedTwice = normalizeRoot(normalizedOnce, sourceFolder);
 
                 assert.deepStrictEqual(normalizedTwice, normalizedOnce);

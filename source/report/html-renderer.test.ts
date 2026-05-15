@@ -81,7 +81,7 @@ test('renders issues and diagnostics sections', () => {
             packages: [
                 createPreviewPackageFixture({
                     diagnostics: {
-                        inputs: { entryPoints: ['src/index.js'], siblingVersions: {}, sourceFileCount: 1 },
+                        inputs: { roots: { main: 'src/index.js' }, siblingVersions: {}, sourceFileCount: 1 },
                         decisions: { linker: { rewrites: [] } },
                         outputs: { tarball: { entries: [], totalBytes: 0 } },
                         timings: { publish: 5 },
@@ -99,7 +99,7 @@ test('renders issues and diagnostics sections', () => {
     assert.ok(html.includes('<summary>Timings (ms)</summary>'));
     assert.ok(html.includes('<summary>Failure</summary>'));
     assert.ok(html.includes('&lt;bad&gt;'));
-    assert.match(html, /<pre>\{\n {2}&quot;entryPoints&quot;:/u);
+    assert.match(html, /<pre>\{\n {2}&quot;roots&quot;:/u);
     assert.ok(!html.includes('Stryker was here'));
 });
 

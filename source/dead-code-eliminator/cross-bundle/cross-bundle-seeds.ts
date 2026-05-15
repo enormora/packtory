@@ -83,42 +83,65 @@ function seedAllBindings(seeds: Map<string, Set<string>>, target: ResolvedTarget
     }
 }
 
+function localNameOfNamedImport(namedImport: ReturnType<ImportDeclaration['getNamedImports']>[number]): string {
+    return namedImport.getAliasNode()?.getText() ?? namedImport.getName();
+}
+
 function isLocalBindingReachable(context: WalkContext, localName: string): boolean {
     return context.localReachable.has(bindingId(context.sourceFilePath, localName));
 }
 
-function hasReachableDefaultImport(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
+function recordDefaultImportSeed(
+    importDeclaration: ImportDeclaration,
+    target: ResolvedTarget,
+    context: WalkContext
+): void {
     const defaultImport = importDeclaration.getDefaultImport();
-    return defaultImport !== undefined && isLocalBindingReachable(context, defaultImport.getText());
+    if (defaultImport === undefined) {
+        return;
+    }
+    if (!isLocalBindingReachable(context, defaultImport.getText())) {
+        return;
+    }
+    recordSeed(context.seeds, target.bundleName, bindingId(target.sourceFilePath, 'default'));
 }
 
-function hasReachableNamespaceImport(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
-    const namespaceImport = importDeclaration.getNamespaceImport();
-    return namespaceImport !== undefined && isLocalBindingReachable(context, namespaceImport.getText());
-}
-
-function hasReachableNamedImport(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
-    return importDeclaration.getNamedImports().some((namedImport) => {
-        const localName = namedImport.getAliasNode()?.getText() ?? namedImport.getName();
-        return isLocalBindingReachable(context, localName);
-    });
-}
-
-function hasReachableImportedBinding(importDeclaration: ImportDeclaration, context: WalkContext): boolean {
-    return (
-        hasReachableDefaultImport(importDeclaration, context) ||
-        hasReachableNamespaceImport(importDeclaration, context) ||
-        hasReachableNamedImport(importDeclaration, context)
-    );
+function recordNamedImportSeeds(
+    importDeclaration: ImportDeclaration,
+    target: ResolvedTarget,
+    context: WalkContext
+): void {
+    for (const namedImport of importDeclaration.getNamedImports()) {
+        if (isLocalBindingReachable(context, localNameOfNamedImport(namedImport))) {
+            recordSeed(context.seeds, target.bundleName, bindingId(target.sourceFilePath, namedImport.getName()));
+        }
+    }
 }
 
 function processImportDeclaration(importDeclaration: ImportDeclaration, context: WalkContext): void {
     const target = resolveCrossBundleTarget(importDeclaration.getModuleSpecifierValue(), context.indexed);
-    if (target === undefined || !hasReachableImportedBinding(importDeclaration, context)) {
+    if (target === undefined) {
         return;
     }
+    const namespaceImport = importDeclaration.getNamespaceImport();
+    if (namespaceImport !== undefined) {
+        if (isLocalBindingReachable(context, namespaceImport.getText())) {
+            seedAllBindings(context.seeds, target);
+        }
+        return;
+    }
+    recordDefaultImportSeed(importDeclaration, target, context);
+    recordNamedImportSeeds(importDeclaration, target, context);
+}
 
-    seedAllBindings(context.seeds, target);
+function recordNamedReExportSeeds(
+    exportDeclaration: ExportDeclaration,
+    target: ResolvedTarget,
+    seeds: Map<string, Set<string>>
+): void {
+    for (const namedExport of exportDeclaration.getNamedExports()) {
+        recordSeed(seeds, target.bundleName, bindingId(target.sourceFilePath, namedExport.getName()));
+    }
 }
 
 function processExportDeclaration(exportDeclaration: ExportDeclaration, context: WalkContext): void {
@@ -126,7 +149,11 @@ function processExportDeclaration(exportDeclaration: ExportDeclaration, context:
     if (target === undefined) {
         return;
     }
-    seedAllBindings(context.seeds, target);
+    if (exportDeclaration.isNamespaceExport()) {
+        seedAllBindings(context.seeds, target);
+        return;
+    }
+    recordNamedReExportSeeds(exportDeclaration, target, context.seeds);
 }
 
 function walkCrossBundleStatements(sourceFile: Readonly<SourceFile>, context: WalkContext): void {

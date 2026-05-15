@@ -188,6 +188,30 @@ test('returns an issue when implicit packages reference an unknown defaultModule
     assert.deepStrictEqual(result, Result.err(['Package "foo" references unknown defaultModuleRoot "missing"']));
 });
 
+test('returns an issue when a package combines defaultModuleRoot with packageInterface', () => {
+    const result = validateConfig(
+        withRegistry({
+            packages: [
+                {
+                    name: 'foo',
+                    roots: { main: { js: 'index.js' } },
+                    defaultModuleRoot: 'main',
+                    packageInterface: {
+                        modules: [{ root: 'main', export: '.' }]
+                    }
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(
+        result,
+        Result.err([
+            'Package "foo" cannot combine defaultModuleRoot with packageInterface; remove defaultModuleRoot in explicit mode'
+        ])
+    );
+});
+
 test('returns issues when explicit modules reference unknown roots or declare duplicate export keys', () => {
     const result = validateConfig(
         withRegistry({

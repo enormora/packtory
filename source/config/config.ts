@@ -24,8 +24,5 @@ export type PacktoryConfig = PacktoryConfigWithoutRegistry & {
     readonly registrySettings: RegistrySettings;
 };
 
-const packageConfigOperations = {
-    getBundledDependencies: getBundledDependenciesBase
-};
-
+const packageConfigOperations = { getBundledDependencies: getBundledDependenciesBase };
 export const { getBundledDependencies } = packageConfigOperations;

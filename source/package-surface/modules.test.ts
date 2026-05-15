@@ -9,8 +9,6 @@ import {
     resolvePublicModuleSourceFilePath
 } from './modules.ts';
 
-const malformedSurface = { mode: 'broken' };
-
 function createJsFile(
     sourceFilePath: string,
     targetFilePath: string,
@@ -434,16 +432,6 @@ test('getPublicModuleSpecifierForSourcePath() returns undefined for explicit pac
     assert.strictEqual(getPublicModuleSpecifierForSourcePath(bundle, '/src/cli.js'), undefined);
 });
 
-test('getPublicModuleSpecifierForSourcePath() throws when the package surface mode is malformed', () => {
-    const bundle = linkedBundle({
-        surface: malformedSurface as never
-    });
-
-    assert.throws(() => {
-        getPublicModuleSpecifierForSourcePath(bundle, '/src/index.js');
-    }, /^Error: Unexpected package surface mode$/u);
-});
-
 test('resolvePublicModuleSourceFilePath() resolves explicit and implicit public specifiers', () => {
     const explicitBundle = linkedBundle({
         name: 'package-a',
@@ -551,16 +539,6 @@ test('resolvePublicModuleSourceFilePath() ignores malformed implicit contents wh
     assert.strictEqual(resolvePublicModuleSourceFilePath(malformedBundle, 'other-package/private.js'), undefined);
 });
 
-test('resolvePublicModuleSourceFilePath() throws when the package surface mode is malformed', () => {
-    const bundle = linkedBundle({
-        surface: malformedSurface as never
-    });
-
-    assert.throws(() => {
-        resolvePublicModuleSourceFilePath(bundle, 'package-a');
-    }, /^Error: Unexpected package surface mode$/u);
-});
-
 test('buildExportsField() maps explicit exports and omits missing declaration files', () => {
     const bundle = linkedBundle({
         roots: {
@@ -640,6 +618,70 @@ test('buildExportsField() includes implicit roots and substitution-backed public
     });
 });
 
+test('buildExportsField() pairs each substitution-backed public js with its declaration companion when present', () => {
+    const bundle = linkedBundle({
+        roots: {
+            main: createRoot('/src/index.js', 'index.js')
+        },
+        contents: [
+            analyzedBundleResource('/src/index.js', { targetFilePath: 'index.js' }),
+            analyzedBundleResource('/src/with-types.js', { targetFilePath: 'with-types.js' }),
+            analyzedBundleResource('/src/with-types.d.ts', { targetFilePath: 'with-types.d.ts' }),
+            analyzedBundleResource('/src/module.mjs', { targetFilePath: 'module.mjs' }),
+            analyzedBundleResource('/src/module.d.mts', { targetFilePath: 'module.d.mts' }),
+            analyzedBundleResource('/src/common.cjs', { targetFilePath: 'common.cjs' }),
+            analyzedBundleResource('/src/common.d.cts', { targetFilePath: 'common.d.cts' }),
+            analyzedBundleResource('/src/no-types.js', { targetFilePath: 'no-types.js' })
+        ],
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+
+    assert.deepStrictEqual(
+        buildExportsField(
+            bundle,
+            new Set(['/src/with-types.js', '/src/module.mjs', '/src/common.cjs', '/src/no-types.js'])
+        ),
+        {
+            '.': {
+                import: './index.js'
+            },
+            './with-types.js': {
+                import: './with-types.js',
+                types: './with-types.d.ts'
+            },
+            './module.mjs': {
+                import: './module.mjs',
+                types: './module.d.mts'
+            },
+            './common.cjs': {
+                import: './common.cjs',
+                types: './common.d.cts'
+            },
+            './no-types.js': {
+                import: './no-types.js'
+            }
+        }
+    );
+});
+
+test('buildExportsField() exposes non-code substitution targets without searching for declaration companions', () => {
+    const bundle = linkedBundle({
+        roots: {
+            main: createRoot('/src/index.js', 'index.js')
+        },
+        contents: [
+            analyzedBundleResource('/src/index.js', { targetFilePath: 'index.js' }),
+            analyzedBundleResource('/src/data.json', { targetFilePath: 'data.json' })
+        ],
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+
+    assert.deepStrictEqual(buildExportsField(bundle, new Set(['/src/data.json'])), {
+        '.': { import: './index.js' },
+        './data.json': { import: './data.json' }
+    });
+});
+
 test('buildExportsField() skips declaration-only substitution modules for ts, mts, and cts targets', () => {
     const bundle = linkedBundle({
         roots: {
@@ -687,16 +729,6 @@ test('buildExportsField() throws when a substitution-backed public module is mis
     assert.throws(() => {
         buildExportsField(bundle, new Set(['/src/missing.js']));
     }, /^Error: Package "package-a" is missing content for "\/src\/missing\.js"$/u);
-});
-
-test('buildExportsField() throws when the package surface mode is malformed', () => {
-    const bundle = linkedBundle({
-        surface: malformedSurface as never
-    });
-
-    assert.throws(() => {
-        buildExportsField(bundle, new Set());
-    }, /^Error: Unexpected package surface mode$/u);
 });
 
 test('buildBinField() returns undefined for explicit packages without bins', () => {
@@ -855,14 +887,4 @@ test('buildBinField() preserves names that merely contain an @scope-like substri
     });
 
     assert.deepStrictEqual(buildBinField(bundle), { 'prefix@scope/package-a': './cli.js' });
-});
-
-test('buildBinField() throws when the package surface mode is malformed', () => {
-    const bundle = linkedBundle({
-        surface: malformedSurface as never
-    });
-
-    assert.throws(() => {
-        buildBinField(bundle);
-    }, /^Error: Unexpected package surface mode$/u);
 });

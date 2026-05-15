@@ -101,26 +101,22 @@ const twoPackageEntries: readonly {
 ];
 
 function partialResolveFailure(packageName: string): {
-    readonly succeeded: ReturnType<typeof createLinkedBundle>[];
+    readonly succeeded: { readonly name: string; readonly linkedBundle: ReturnType<typeof createLinkedBundle> }[];
     readonly failures: Error[];
 } {
     return {
-        succeeded: [createLinkedBundle(packageName)],
+        succeeded: [{ name: packageName, linkedBundle: createLinkedBundle(packageName) }],
         failures: [new Error('resolve failed')]
     };
 }
 
-function assertResolveAndLinkPartialFailure(result: unknown): void {
-    assert.deepStrictEqual(
-        result,
-        Result.err({
-            type: 'partial',
-            error: {
-                succeeded: [],
-                failures: [new Error('resolve failed')]
-            }
-        })
-    );
+function assertResolveAndLinkPartialFailure(result: unknown, succeededPackageNames: readonly string[] = []): void {
+    const failure = (result as { error: { error: { succeeded: { name: string }[]; failures: Error[] } } }).error.error;
+    const succeededNames = failure.succeeded.map((entry) => {
+        return entry.name;
+    });
+    assert.deepStrictEqual(succeededNames, succeededPackageNames);
+    assert.deepStrictEqual(failure.failures, [new Error('resolve failed')]);
 }
 
 function recordStageSuccess(params: {
@@ -358,8 +354,8 @@ test('resolveAndLinkAll() prefers per-package mainPackageJson over common when r
                         isSubstituted: false
                     }
                 ],
-                entryPoints: [
-                    {
+                roots: {
+                    main: {
                         js: {
                             sourceFilePath: `/${options.name}/index.js`,
                             targetFilePath: 'index.js',
@@ -367,7 +363,8 @@ test('resolveAndLinkAll() prefers per-package mainPackageJson over common when r
                             isExecutable: false
                         }
                     }
-                ],
+                },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 externalDependencies: new Map([['runtime-dep', { name: 'runtime-dep', referencedFrom: ['/x'] }]])
             });
         })
@@ -465,7 +462,7 @@ test('buildAndPublishAll() returns config issues when the config with registry i
     );
 });
 
-test('buildAndPublishAll() converts resolve-stage partial failures into a partial publish result with no succeeded items', async () => {
+test('buildAndPublishAll() converts resolve-stage partial failures into a partial publish result with no succeeded publishes', async () => {
     const { packtory } = createPacktoryUnderTest({
         resolveStage: async () => {
             return Result.err(partialResolveFailure('package-a'));
@@ -670,7 +667,7 @@ test('resolveAndLinkAll() throws when the dead code eliminator returns fewer bun
     }
 });
 
-test('resolveAndLinkAll() reports partial scheduler errors with the failure list and an empty succeeded list', async () => {
+test('resolveAndLinkAll() reports partial scheduler errors with the failure list and preserves succeeded packages', async () => {
     const { packtory } = createPacktoryUnderTest({
         resolveStage: async () => {
             return Result.err(partialResolveFailure('package-a'));
@@ -679,7 +676,7 @@ test('resolveAndLinkAll() reports partial scheduler errors with the failure list
 
     const { result } = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
 
-    assertResolveAndLinkPartialFailure(result);
+    assertResolveAndLinkPartialFailure(result, ['package-a']);
 });
 
 test('buildAndPublishAll() returns partial publish failures from the publish stage', async () => {
@@ -743,16 +740,16 @@ test('buildAndPublishAll() returns a partial failure when an analyzed bundle is 
     );
 });
 
-test('resolveAndLinkAll() emits inputsResolved with package name and entryPoints when subscribed', async () => {
+test('resolveAndLinkAll() emits inputsResolved with package name and roots when subscribed', async () => {
     const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-    const received: { packageName: string; entryPoints: readonly string[] }[] = [];
+    const received: { packageName: string; roots: Readonly<Record<string, string>> }[] = [];
     progressBroadcaster.consumer.on('inputsResolved', (payload) => {
-        received.push({ packageName: payload.packageName, entryPoints: payload.entryPoints });
+        received.push({ packageName: payload.packageName, roots: payload.roots });
     });
 
     await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
 
-    assert.deepStrictEqual(received, [{ packageName: 'package-a', entryPoints: ['/src/package-a/index.js'] }]);
+    assert.deepStrictEqual(received, [{ packageName: 'package-a', roots: { main: '/src/package-a/index.js' } }]);
 });
 
 test('resolveAndLinkAll() does NOT emit inputsResolved when no subscriber is registered', async () => {

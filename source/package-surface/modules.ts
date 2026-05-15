@@ -1,5 +1,5 @@
-import type { Except, PackageJson } from 'type-fest';
-import { isExplicitPackageSurface, isImplicitPackageSurface, type PackageSurface } from './surface.ts';
+import type { PackageJson } from 'type-fest';
+import { isImplicitPackageSurface, type PackageSurface } from './surface.ts';
 
 type RootFileDescription = {
     readonly js: {
@@ -22,33 +22,13 @@ type BundleLike = {
 
 type ExplicitSurface = Extract<PackageSurface, { readonly mode: 'explicit' }>;
 type ImplicitSurface = Extract<PackageSurface, { readonly mode: 'implicit' }>;
-type ExplicitBundleLike = Except<BundleLike, 'surface'> & { readonly surface: ExplicitSurface };
-type ImplicitBundleLike = Except<BundleLike, 'surface'> & { readonly surface: ImplicitSurface };
 type SurfaceBundleLike = Pick<BundleLike, 'name' | 'roots' | 'surface'>;
-type ExplicitSurfaceBundleLike = Except<SurfaceBundleLike, 'surface'> & { readonly surface: ExplicitSurface };
-type ImplicitSurfaceBundleLike = Except<SurfaceBundleLike, 'surface'> & { readonly surface: ImplicitSurface };
 
 type ExportsField = NonNullable<PackageJson['exports']>;
 type ExportEntry = Readonly<Record<string, unknown>>;
 const exportKeyPrefixLength = 2;
 type ExplicitPackageInterface = ExplicitSurface['packageInterface'];
 type ImplicitSpecifierResolution = readonly ['content', string] | readonly ['private'] | readonly ['root'];
-
-function isExplicitBundleLike(bundle: BundleLike): bundle is ExplicitBundleLike {
-    return isExplicitPackageSurface(bundle.surface);
-}
-
-function isExplicitSurfaceBundleLike(bundle: SurfaceBundleLike): bundle is ExplicitSurfaceBundleLike {
-    return isExplicitPackageSurface(bundle.surface);
-}
-
-function isImplicitBundleLike(bundle: BundleLike): bundle is ImplicitBundleLike {
-    return isImplicitPackageSurface(bundle.surface);
-}
-
-function isImplicitSurfaceBundleLike(bundle: SurfaceBundleLike): bundle is ImplicitSurfaceBundleLike {
-    return isImplicitPackageSurface(bundle.surface);
-}
 
 function getRoot(bundle: Pick<BundleLike, 'name' | 'roots'>, rootId: string): RootFileDescription {
     const root = bundle.roots[rootId];
@@ -163,33 +143,57 @@ function isRootSourcePath(bundle: Pick<BundleLike, 'roots'>, sourceFilePath: str
     });
 }
 
-function buildExplicitExportsEntries(bundle: ExplicitBundleLike): readonly (readonly [string, ExportEntry])[] {
-    const exportsEntries = (bundle.surface.packageInterface.modules ?? []).map((entry) => {
+function buildExplicitExportsEntries(
+    bundle: BundleLike,
+    surface: ExplicitSurface
+): readonly (readonly [string, ExportEntry])[] {
+    return (surface.packageInterface.modules ?? []).map((entry) => {
         return [entry.export, buildExportEntry(getRoot(bundle, entry.root))] satisfies [string, ExportEntry];
     });
-
-    return exportsEntries;
 }
 
-function buildExplicitExportsField(bundle: ExplicitBundleLike): ExportsField {
-    const exportsEntries = buildExplicitExportsEntries(bundle);
+function buildExplicitExportsField(bundle: BundleLike, surface: ExplicitSurface): ExportsField {
+    const exportsEntries = buildExplicitExportsEntries(bundle, surface);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- export entries are built as package.json-compatible records
     return Object.fromEntries(exportsEntries) as ExportsField;
 }
 
-function buildImplicitRootExports(bundle: ImplicitBundleLike): Record<string, ExportEntry> {
-    const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
+function buildImplicitRootExports(bundle: BundleLike, surface: ImplicitSurface): Record<string, ExportEntry> {
+    const defaultRoot = getRoot(bundle, surface.defaultModuleRoot);
     const exportsField: Record<string, ExportEntry> = {
         '.': buildExportEntry(defaultRoot)
     };
 
     for (const [rootId, root] of Object.entries(bundle.roots)) {
-        if (rootId !== bundle.surface.defaultModuleRoot) {
+        if (rootId !== surface.defaultModuleRoot) {
             exportsField[`./${root.js.targetFilePath}`] = buildExportEntry(root);
         }
     }
 
     return exportsField;
+}
+
+const jsExtensionToDeclarationExtension: ReadonlyMap<string, string> = new Map([
+    ['.mjs', '.d.mts'],
+    ['.cjs', '.d.cts'],
+    ['.js', '.d.ts']
+]);
+
+function findContentWithTargetFilePath(bundle: BundleLike, targetFilePath: string): string | undefined {
+    const match = bundle.contents.find((entry) => {
+        return entry.fileDescription.targetFilePath === targetFilePath;
+    });
+    return match?.fileDescription.targetFilePath;
+}
+
+function findDeclarationCompanionTargetPath(bundle: BundleLike, jsTargetFilePath: string): string | undefined {
+    for (const [jsExtension, declarationExtension] of jsExtensionToDeclarationExtension) {
+        if (jsTargetFilePath.endsWith(jsExtension)) {
+            const candidateTargetPath = `${jsTargetFilePath.slice(0, -jsExtension.length)}${declarationExtension}`;
+            return findContentWithTargetFilePath(bundle, candidateTargetPath);
+        }
+    }
+    return undefined;
 }
 
 function buildSubstitutionExportEntry(
@@ -201,13 +205,18 @@ function buildSubstitutionExportEntry(
     }
 
     const content = findContent(bundle, sourceFilePath);
-    if (isDeclarationTargetFilePath(content.fileDescription.targetFilePath)) {
+    const jsTargetFilePath = content.fileDescription.targetFilePath;
+    if (isDeclarationTargetFilePath(jsTargetFilePath)) {
         return undefined;
     }
 
+    const declarationTargetFilePath = findDeclarationCompanionTargetPath(bundle, jsTargetFilePath);
     return [
-        `./${content.fileDescription.targetFilePath}`,
-        { import: toImportTarget(content.fileDescription.targetFilePath) }
+        `./${jsTargetFilePath}`,
+        {
+            import: toImportTarget(jsTargetFilePath),
+            ...(declarationTargetFilePath === undefined ? {} : { types: toImportTarget(declarationTargetFilePath) })
+        }
     ];
 }
 
@@ -229,11 +238,12 @@ function collectImplicitSubstitutionExports(
 }
 
 function buildImplicitExportsField(
-    bundle: ImplicitBundleLike,
+    bundle: BundleLike,
+    surface: ImplicitSurface,
     substitutionPublicModuleSourcePaths: ReadonlySet<string>
 ): ExportsField {
     const completedExportsField = {
-        ...buildImplicitRootExports(bundle),
+        ...buildImplicitRootExports(bundle, surface),
         ...collectImplicitSubstitutionExports(bundle, substitutionPublicModuleSourcePaths)
     };
 
@@ -263,7 +273,7 @@ function validateExplicitBinRoot(
 }
 
 function buildExplicitBinEntries(
-    bundle: ExplicitSurfaceBundleLike,
+    bundle: SurfaceBundleLike,
     bins: NonNullable<ExplicitSurface['packageInterface']['bins']>
 ): readonly (readonly [string, string])[] {
     return bins.map((entry) => {
@@ -272,8 +282,8 @@ function buildExplicitBinEntries(
     });
 }
 
-function buildExplicitBinField(bundle: ExplicitSurfaceBundleLike): PackageJson['bin'] | undefined {
-    const { bins } = bundle.surface.packageInterface;
+function buildExplicitBinField(bundle: SurfaceBundleLike, surface: ExplicitSurface): PackageJson['bin'] | undefined {
+    const { bins } = surface.packageInterface;
     if (bins === undefined) {
         return undefined;
     }
@@ -287,7 +297,7 @@ function getInferredExecutableRoots(bundle: Pick<BundleLike, 'roots'>): readonly
     });
 }
 
-function buildImplicitBinField(bundle: ImplicitSurfaceBundleLike): PackageJson['bin'] | undefined {
+function buildImplicitBinField(bundle: SurfaceBundleLike): PackageJson['bin'] | undefined {
     const [root, extraRoot] = getInferredExecutableRoots(bundle);
     if (root === undefined) {
         return undefined;
@@ -303,22 +313,20 @@ function buildImplicitBinField(bundle: ImplicitSurfaceBundleLike): PackageJson['
 }
 
 function getExplicitPublicModuleSpecifierForSourcePath(
-    bundle: ExplicitBundleLike,
+    bundle: BundleLike,
+    surface: ExplicitSurface,
     sourceFilePath: string
 ): string | undefined {
-    const explicitExportKey = resolveExplicitExportKeyForSourcePath(
-        bundle,
-        bundle.surface.packageInterface,
-        sourceFilePath
-    );
+    const explicitExportKey = resolveExplicitExportKeyForSourcePath(bundle, surface.packageInterface, sourceFilePath);
     return explicitExportKey === undefined ? undefined : toPackageSpecifier(bundle.name, explicitExportKey);
 }
 
 function getDefaultImplicitPublicModuleSpecifier(
-    bundle: ImplicitBundleLike,
+    bundle: BundleLike,
+    surface: ImplicitSurface,
     sourceFilePath: string
 ): string | undefined {
-    const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
+    const defaultRoot = getRoot(bundle, surface.defaultModuleRoot);
     return isMatchingRootSourcePath(defaultRoot, sourceFilePath) ? bundle.name : undefined;
 }
 
@@ -345,10 +353,11 @@ function getContentPublicModuleSpecifier(
 }
 
 function getImplicitPublicModuleSpecifierForSourcePath(
-    bundle: ImplicitBundleLike,
+    bundle: BundleLike,
+    surface: ImplicitSurface,
     sourceFilePath: string
 ): string | undefined {
-    const defaultSpecifier = getDefaultImplicitPublicModuleSpecifier(bundle, sourceFilePath);
+    const defaultSpecifier = getDefaultImplicitPublicModuleSpecifier(bundle, surface, sourceFilePath);
     if (defaultSpecifier !== undefined) {
         return defaultSpecifier;
     }
@@ -357,13 +366,17 @@ function getImplicitPublicModuleSpecifierForSourcePath(
     return declarationSpecifier ?? getContentPublicModuleSpecifier(bundle, sourceFilePath);
 }
 
-function resolveExplicitPublicModuleSourceFilePath(bundle: ExplicitBundleLike, specifier: string): string | undefined {
+function resolveExplicitPublicModuleSourceFilePath(
+    bundle: BundleLike,
+    surface: ExplicitSurface,
+    specifier: string
+): string | undefined {
     const exportKey = resolveExplicitExportKey(bundle.name, specifier);
     if (exportKey === undefined) {
         return undefined;
     }
 
-    const { modules } = bundle.surface.packageInterface;
+    const { modules } = surface.packageInterface;
     if (modules === undefined) {
         return undefined;
     }
@@ -388,11 +401,15 @@ function resolveImplicitSpecifier(bundleName: string, specifier: string): Implic
     return ['content', specifier.slice(prefix.length)];
 }
 
-function resolveImplicitPublicModuleSourceFilePath(bundle: ImplicitBundleLike, specifier: string): string | undefined {
+function resolveImplicitPublicModuleSourceFilePath(
+    bundle: BundleLike,
+    surface: ImplicitSurface,
+    specifier: string
+): string | undefined {
     const [kind, targetFilePath] = resolveImplicitSpecifier(bundle.name, specifier);
     const handlers = {
         root: (): string => {
-            return getRoot(bundle, bundle.surface.defaultModuleRoot).js.sourceFilePath;
+            return getRoot(bundle, surface.defaultModuleRoot).js.sourceFilePath;
         },
         content: (): string | undefined => {
             return bundle.contents.find((entry) => {
@@ -421,48 +438,32 @@ export function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>):
 }
 
 export function getPublicModuleSpecifierForSourcePath(bundle: BundleLike, sourceFilePath: string): string | undefined {
-    if (isExplicitBundleLike(bundle)) {
-        return getExplicitPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
+    if (bundle.surface.mode === 'explicit') {
+        return getExplicitPublicModuleSpecifierForSourcePath(bundle, bundle.surface, sourceFilePath);
     }
-
-    if (!isImplicitBundleLike(bundle)) {
-        throw new Error('Unexpected package surface mode');
-    }
-    return getImplicitPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
+    return getImplicitPublicModuleSpecifierForSourcePath(bundle, bundle.surface, sourceFilePath);
 }
 
 export function resolvePublicModuleSourceFilePath(bundle: BundleLike, specifier: string): string | undefined {
-    if (isExplicitBundleLike(bundle)) {
-        return resolveExplicitPublicModuleSourceFilePath(bundle, specifier);
+    if (bundle.surface.mode === 'explicit') {
+        return resolveExplicitPublicModuleSourceFilePath(bundle, bundle.surface, specifier);
     }
-
-    if (!isImplicitBundleLike(bundle)) {
-        throw new Error('Unexpected package surface mode');
-    }
-    return resolveImplicitPublicModuleSourceFilePath(bundle, specifier);
+    return resolveImplicitPublicModuleSourceFilePath(bundle, bundle.surface, specifier);
 }
 
 export function buildExportsField(
     bundle: BundleLike,
     substitutionPublicModuleSourcePaths: ReadonlySet<string>
 ): ExportsField {
-    if (isExplicitBundleLike(bundle)) {
-        return buildExplicitExportsField(bundle);
+    if (bundle.surface.mode === 'explicit') {
+        return buildExplicitExportsField(bundle, bundle.surface);
     }
-
-    if (!isImplicitBundleLike(bundle)) {
-        throw new Error('Unexpected package surface mode');
-    }
-    return buildImplicitExportsField(bundle, substitutionPublicModuleSourcePaths);
+    return buildImplicitExportsField(bundle, bundle.surface, substitutionPublicModuleSourcePaths);
 }
 
 export function buildBinField(bundle: SurfaceBundleLike): PackageJson['bin'] | undefined {
-    if (isExplicitSurfaceBundleLike(bundle)) {
-        return buildExplicitBinField(bundle);
-    }
-
-    if (!isImplicitSurfaceBundleLike(bundle)) {
-        throw new Error('Unexpected package surface mode');
+    if (bundle.surface.mode === 'explicit') {
+        return buildExplicitBinField(bundle, bundle.surface);
     }
     return buildImplicitBinField(bundle);
 }

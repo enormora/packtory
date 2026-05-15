@@ -127,7 +127,7 @@ test(
 );
 
 test(
-    'validation fails when a package entryPoints array is empty',
+    'validation fails when a package supplies entryPoints instead of roots',
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
@@ -643,25 +643,6 @@ test(
 );
 
 test(
-    'validation fails when entryPoints is an empty array',
-    checkValidationFailure({
-        schema: packtoryConfigSchema,
-        data: {
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            packages: [
-                {
-                    sourcesFolder: 'source',
-                    mainPackageJson: { type: 'module' },
-                    name: 'foo',
-                    entryPoints: []
-                }
-            ]
-        },
-        expectedMessages: ['invalid value doesn’t match expected union']
-    })
-);
-
-test(
     'validation fails when checks.noDuplicatedFiles misses the enabled flag',
     checkValidationFailure({
         schema: packtoryConfigSchema,
@@ -823,7 +804,7 @@ test(
 );
 
 test(
-    'validation fails when entryPoints is missing in a package',
+    'validation fails when roots is missing in a package',
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
@@ -841,7 +822,7 @@ test(
 );
 
 test(
-    'validation fails when entryPoints is not an array',
+    'validation fails when roots is not an object',
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
@@ -851,7 +832,7 @@ test(
                     sourcesFolder: 'foo',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: 'foo'
+                    roots: 'foo'
                 }
             ]
         },
@@ -860,7 +841,7 @@ test(
 );
 
 test(
-    'validation fails when entryPoints is an empty array',
+    'validation fails when a root entry is invalid',
     checkValidationFailure({
         schema: packtoryConfigSchema,
         data: {
@@ -870,26 +851,7 @@ test(
                     sourcesFolder: 'foo',
                     mainPackageJson: { type: 'module' },
                     name: 'foo',
-                    entryPoints: []
-                }
-            ]
-        },
-        expectedMessages: ['invalid value doesn’t match expected union']
-    })
-);
-
-test(
-    'validation fails when entryPoints item is invalid',
-    checkValidationFailure({
-        schema: packtoryConfigSchema,
-        data: {
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            packages: [
-                {
-                    sourcesFolder: 'foo',
-                    mainPackageJson: { type: 'module' },
-                    name: 'foo',
-                    entryPoints: [{ foo: 'bar' }]
+                    roots: { main: { foo: 'bar' } }
                 }
             ]
         },

@@ -33,7 +33,6 @@ function buildInputGraph(
             };
         }),
         roots: { main: root },
-        entryPoints: [root],
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         externalDependencies: new Map(),
         name: 'test-bundle'

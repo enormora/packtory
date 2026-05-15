@@ -59,13 +59,15 @@ async function resolvePackages(
         config,
         createOptions: (context) => {
             const options = createResolveOptions(context.packageName, context.existing, context.config);
-            const normalizedInputs = resolveRootsAndSurface(options);
             if (dependencies.progressBroadcaster.provider.hasSubscribers('inputsResolved')) {
+                const normalizedInputs = resolveRootsAndSurface(options);
                 dependencies.progressBroadcaster.provider.emit('inputsResolved', {
                     packageName: options.name,
-                    entryPoints: Object.values(normalizedInputs.roots).map((root) => {
-                        return root.js;
-                    }),
+                    roots: Object.fromEntries(
+                        Object.entries(normalizedInputs.roots).map(([rootId, root]) => {
+                            return [rootId, root.js];
+                        })
+                    ),
                     sourceFileCount: 0,
                     siblingVersions: {}
                 });
@@ -126,7 +128,8 @@ export function createResolveAndLinkAllValidated(
     ): Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
         const runResult = await resolvePackages(dependencies, config);
         if (runResult.isErr) {
-            return Result.err(resolvePartialFailure({ succeeded: [], failures: runResult.error.failures }));
+            const succeeded = await analyzeResolvedPackages(dependencies, config, runResult.error.succeeded);
+            return Result.err(resolvePartialFailure({ succeeded, failures: runResult.error.failures }));
         }
 
         const resolvedPackages = await analyzeResolvedPackages(dependencies, config, runResult.value);

@@ -41,7 +41,6 @@ function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
         name: spec.name,
         contents: [codeResource, ...(spec.extraResources ?? [])],
         roots: { main: root },
-        entryPoints: [root],
         surface: { mode: 'implicit', defaultModuleRoot: 'main' }
     });
 }
@@ -122,7 +121,7 @@ test('eliminate sets sideEffectsField to false for empty bundles', async () => {
     }
 });
 
-test('eliminate copies entryPoints, externalDependencies, and linkedBundleDependencies through unchanged', async () => {
+test('eliminate copies roots, externalDependencies, and linkedBundleDependencies through unchanged', async () => {
     const eliminator = createTestEliminator();
     const input = linkedBundle({
         name: 'a',
@@ -130,7 +129,7 @@ test('eliminate copies entryPoints, externalDependencies, and linkedBundleDepend
         linkedBundleDependencies: new Map([['bundle', { name: 'bundle', referencedFrom: ['/src/index.js'] }]])
     });
     const [analyzed] = await eliminator.eliminate(inputs(input));
-    assert.strictEqual(analyzed?.entryPoints, input.entryPoints);
+    assert.strictEqual(analyzed?.roots, input.roots);
     assert.strictEqual(analyzed.externalDependencies, input.externalDependencies);
     assert.strictEqual(analyzed.linkedBundleDependencies, input.linkedBundleDependencies);
 });
@@ -249,7 +248,7 @@ test('eliminate keeps the paired source map untouched when no transformation occ
     assert.strictEqual(emittedMap.fileDescription.content, validMapContent);
 });
 
-test('eliminate honours an entry point declaration file when seeding reachability', async () => {
+test('eliminate honours a root declaration file when seeding reachability', async () => {
     const eliminator = createTestEliminator();
     const declarationContent = 'export type Public = number;\nexport type Private = string;';
     const declarationFile = {
@@ -264,8 +263,8 @@ test('eliminate honours an entry point declaration file when seeding reachabilit
             linkedBundle({
                 name: 'pkg',
                 contents: [resource],
-                entryPoints: [
-                    {
+                roots: {
+                    main: {
                         js: {
                             content: '',
                             isExecutable: false,
@@ -274,7 +273,8 @@ test('eliminate honours an entry point declaration file when seeding reachabilit
                         },
                         declarationFile
                     }
-                ]
+                },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' }
             })
         )
     );
@@ -291,8 +291,8 @@ function producerBundleWith(helpersContent: string): LinkedBundle {
     return linkedBundle({
         name: 'producer',
         contents: [producerHelpers],
-        entryPoints: [
-            {
+        roots: {
+            main: {
                 js: {
                     content: '',
                     isExecutable: false,
@@ -300,7 +300,8 @@ function producerBundleWith(helpersContent: string): LinkedBundle {
                     targetFilePath: 'index.js'
                 }
             }
-        ]
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
     });
 }
 
@@ -324,7 +325,7 @@ test('eliminate uses cross-bundle seeds to keep an exported function reachable w
     const producerEmitted = result[1]?.contents[0];
     assert.ok(producerEmitted !== undefined);
     assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), true);
-    assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), true);
+    assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), false);
 });
 
 test('eliminate drops a producer binding whose only consumer-side reference is in unreachable code', async () => {

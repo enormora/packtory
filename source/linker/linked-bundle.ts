@@ -10,7 +10,6 @@ export type LinkedBundle = {
     readonly name: string;
     readonly contents: readonly LinkedBundleResource[];
     readonly roots: Readonly<Record<string, RootFileDescription>>;
-    readonly entryPoints: readonly [RootFileDescription, ...RootFileDescription[]];
     readonly surface: PackageSurface;
     readonly linkedBundleDependencies: ExternalDependencies;
     readonly externalDependencies: ExternalDependencies;
