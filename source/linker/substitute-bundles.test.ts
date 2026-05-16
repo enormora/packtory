@@ -18,6 +18,10 @@ function buildInputGraph(
     contents: readonly ResolvedContentDescription[],
     entryPath = '/entry.js'
 ): ReturnType<typeof createGraphFromResolvedBundle> {
+    const root = {
+        js: { content: '', isExecutable: false, sourceFilePath: entryPath, targetFilePath: 'entry.js' },
+        declarationFile: undefined
+    } as const;
     return createGraphFromResolvedBundle({
         contents: contents.map((entry) => {
             return {
@@ -28,12 +32,8 @@ function buildInputGraph(
                 project: entry.project
             };
         }),
-        entryPoints: [
-            {
-                js: { content: '', isExecutable: false, sourceFilePath: entryPath, targetFilePath: 'entry.js' },
-                declarationFile: undefined
-            }
-        ],
+        roots: { main: root },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         externalDependencies: new Map(),
         name: 'test-bundle'
     });
@@ -44,6 +44,8 @@ function bundleSource(packageName: string, sourceFilePath: string, isSubstituted
     return versionedBundleWithManifest({
         name: packageName,
         version: '21',
+        roots: { main: { js: { content: '', isExecutable: false, sourceFilePath, targetFilePath } } },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         contents: [
             {
                 ...bundleResource(sourceFilePath, { targetFilePath }),
@@ -56,6 +58,7 @@ function bundleSource(packageName: string, sourceFilePath: string, isSubstituted
             }
         ],
         packageJson: { name: packageName, version: '21' },
+        exportsField: { '.': { import: `./${targetFilePath}` } },
         mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
     });
@@ -99,7 +102,7 @@ function substitutedEntryResult(packageName: string): unknown {
                     sourceFilePath: '/entry.js',
                     isExecutable: false,
                     targetFilePath: 'entry.js',
-                    content: `import "${packageName}/foo.js";`
+                    content: `import "${packageName}";`
                 },
                 isSubstituted: true,
                 isExplicitlyIncluded: false
@@ -139,6 +142,59 @@ test('doesn’t substitute anything when the given dependencies has only files t
     const result = substitutedGraph.flatten(['/entry.js']);
 
     assert.deepStrictEqual(result, passthroughResult);
+});
+
+test('throws when a dependency owns a referenced file but does not expose it publicly', () => {
+    const inputGraph = buildInputGraph(entryFooSetup);
+
+    assert.throws(() => {
+        substituteDependencies(inputGraph, [
+            versionedBundleWithManifest({
+                name: 'hidden-package',
+                version: '1.0.0',
+                roots: {
+                    main: {
+                        js: {
+                            sourceFilePath: '/bar.js',
+                            targetFilePath: 'bar.js',
+                            content: '',
+                            isExecutable: false
+                        }
+                    }
+                },
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: {
+                        modules: [{ root: 'main', export: '.' }]
+                    }
+                },
+                contents: [
+                    {
+                        ...bundleResource('/foo.js', { targetFilePath: 'foo.js' }),
+                        isSubstituted: false,
+                        analysis: {
+                            survivingBindings: new Set<string>(),
+                            sideEffectStatements: [],
+                            sideEffectImports: new Set<string>()
+                        }
+                    },
+                    {
+                        ...bundleResource('/unused.js', { targetFilePath: 'unused.js' }),
+                        isSubstituted: false,
+                        analysis: {
+                            survivingBindings: new Set<string>(),
+                            sideEffectStatements: [],
+                            sideEffectImports: new Set<string>()
+                        }
+                    }
+                ],
+                packageJson: { name: 'hidden-package', version: '1.0.0' },
+                exportsField: { '.': { import: './bar.js' } },
+                mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
+                manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
+            })
+        ]);
+    }, /^Error: Package "hidden-package" does not expose "\/foo\.js" for cross-package substitution$/u);
 });
 
 test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', () => {
@@ -207,7 +263,7 @@ test('substitutes multiple matching files in the given dependencies', () => {
             {
                 directDependencies: new Set(),
                 fileDescription: {
-                    content: 'import "first-package/bar.js"; import "second-package/baz.js";',
+                    content: 'import "first-package"; import "second-package";',
                     isExecutable: false,
                     sourceFilePath: '/foo.js',
                     targetFilePath: 'foo.js'

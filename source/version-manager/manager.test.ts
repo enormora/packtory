@@ -2,7 +2,12 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
-import { analyzedBundle, externalDependency, versionedBundle } from '../test-libraries/bundle-fixtures.ts';
+import {
+    analyzedBundle,
+    externalDependency,
+    standardVersionedBundle,
+    versionedBundle
+} from '../test-libraries/bundle-fixtures.ts';
 import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
 import { createVersionManager } from './manager.ts';
 
@@ -40,8 +45,12 @@ test('addVersion() creates the versioned bundle and manifest file', () => {
     assert.deepStrictEqual(result.packageJson, {
         name: 'package-a',
         version: '1.2.3',
-        main: 'index.js',
-        types: 'index.d.ts',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
         type: 'module',
         dependencies: { 'bundle-dependency': '4.5.6', 'left-pad': '^1.0.0' },
         publishConfig: { access: 'public' }
@@ -55,13 +64,17 @@ test('addVersion() creates the versioned bundle and manifest file', () => {
             '        "bundle-dependency": "4.5.6",',
             '        "left-pad": "^1.0.0"',
             '    },',
-            '    "main": "index.js",',
+            '    "exports": {',
+            '        ".": {',
+            '            "import": "./index.js",',
+            '            "types": "./index.d.ts"',
+            '        }',
+            '    },',
             '    "name": "package-a",',
             '    "publishConfig": {',
             '        "access": "public"',
             '    },',
             '    "type": "module",',
-            '    "types": "index.d.ts",',
             '    "version": "1.2.3"',
             '}'
         ].join('\n')
@@ -76,35 +89,23 @@ test('increaseVersion() bumps the patch version and rebuilds the package manifes
         }
     });
 
-    const result = manager.increaseVersion({
-        name: 'package-a',
-        version: '1.2.3',
-        contents: [],
-        dependencies: { dep: '^1.0.0' },
-        peerDependencies: { react: '^19.0.0' },
-        additionalAttributes: {},
-        mainFile: {
-            sourceFilePath: '/src/index.js',
-            targetFilePath: 'index.js',
-            content: '',
-            isExecutable: false
-        },
-        typesMainFile: {
-            sourceFilePath: '/src/index.d.ts',
-            targetFilePath: 'index.d.ts',
-            content: '',
-            isExecutable: false
-        },
-        packageType: 'module',
-        sideEffectsField: undefined
-    });
+    const result = manager.increaseVersion(
+        standardVersionedBundle({
+            dependencies: { dep: '^1.0.0' },
+            peerDependencies: { react: '^19.0.0' }
+        })
+    );
 
     assert.strictEqual(result.version, '1.2.4');
     assert.deepStrictEqual(result.packageJson, {
         name: 'package-a',
         version: '1.2.4',
-        main: 'index.js',
-        types: 'index.d.ts',
+        exports: {
+            '.': {
+                import: './index.js',
+                types: './index.d.ts'
+            }
+        },
         type: 'module',
         dependencies: { dep: '^1.0.0' },
         peerDependencies: { react: '^19.0.0' }
@@ -117,13 +118,17 @@ test('increaseVersion() bumps the patch version and rebuilds the package manifes
             '    "dependencies": {',
             '        "dep": "^1.0.0"',
             '    },',
-            '    "main": "index.js",',
+            '    "exports": {',
+            '        ".": {',
+            '            "import": "./index.js",',
+            '            "types": "./index.d.ts"',
+            '        }',
+            '    },',
             '    "name": "package-a",',
             '    "peerDependencies": {',
             '        "react": "^19.0.0"',
             '    },',
             '    "type": "module",',
-            '    "types": "index.d.ts",',
             '    "version": "1.2.4"',
             '}'
         ].join('\n')
@@ -143,9 +148,25 @@ test('increaseVersion() throws when the given version is invalid', () => {
             name: 'package-a',
             version: 'not-a-semver',
             contents: [],
+            roots: {
+                main: {
+                    js: {
+                        sourceFilePath: '/src/index.js',
+                        targetFilePath: 'index.js',
+                        content: '',
+                        isExecutable: false
+                    }
+                }
+            },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             dependencies: {},
             peerDependencies: {},
             additionalAttributes: {},
+            exportsField: {
+                '.': {
+                    import: './index.js'
+                }
+            },
             mainFile: {
                 sourceFilePath: '/src/index.js',
                 targetFilePath: 'index.js',

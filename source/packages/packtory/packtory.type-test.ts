@@ -26,7 +26,7 @@ type ProgressEventName =
     | 'scheduled';
 
 type PackageConfig = PacktoryConfig['packages'][number];
-type EntryPoint = PackageConfig['entryPoints'][number];
+type Root = PackageConfig['roots'][string];
 type OkVariant<TResult> = Extract<TResult, { isOk: true }>;
 type ErrVariant<TResult> = Extract<TResult, { isErr: true }>;
 type PublishOk = OkVariant<PublishAllResult>['value'];
@@ -91,7 +91,7 @@ describe('PacktoryConfig — accepted shapes', () => {
                 readonly auth: { readonly type: 'bearer-token'; readonly token: 'any-token' };
             };
             readonly packages: readonly [
-                { readonly name: 'pkg'; readonly entryPoints: readonly [{ readonly js: 'index.js' }] }
+                { readonly name: 'pkg'; readonly roots: { readonly main: { readonly js: 'index.js' } } }
             ];
         }>();
     });
@@ -114,9 +114,12 @@ describe('PacktoryConfig — accepted shapes', () => {
             readonly packages: readonly [
                 {
                     readonly name: 'pkg';
-                    readonly entryPoints: readonly [
-                        { readonly js: 'index.js'; readonly declarationFile: 'index.d.ts' }
-                    ];
+                    readonly roots: {
+                        readonly main: {
+                            readonly js: 'index.js';
+                            readonly declarationFile: 'index.d.ts';
+                        };
+                    };
                     readonly bundleDependencies: readonly ['effect'];
                     readonly bundlePeerDependencies: readonly ['react'];
                     readonly includeSourceMapFiles: false;
@@ -148,12 +151,12 @@ describe('PacktoryConfig — rejected shapes', () => {
         }>();
     });
 
-    test('rejects a package without name or entryPoints', () => {
+    test('rejects a package without name or roots', () => {
         expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
             readonly registrySettings: {
                 readonly auth: { readonly type: 'bearer-token'; readonly token: 'tok' };
             };
-            readonly packages: readonly [{ readonly entryPoints: readonly [{ readonly js: 'index.js' }] }];
+            readonly packages: readonly [{ readonly roots: { readonly main: { readonly js: 'index.js' } } }];
         }>();
         expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
             readonly registrySettings: {
@@ -182,14 +185,14 @@ describe('PacktoryConfig — exposed structure', () => {
         expect<ExpandedAuth['metadata']>().type.toBe<MetadataAuthMode | undefined>();
     });
 
-    test('PackageConfig requires name and entryPoints', () => {
+    test('PackageConfig requires name and roots', () => {
         expect<PackageConfig['name']>().type.toBe<string>();
-        expect<PackageConfig['entryPoints']>().type.toBe<readonly EntryPoint[]>();
+        expect<PackageConfig['roots']>().type.toBe<Readonly<Record<string, Root>>>();
     });
 
-    test('EntryPoint requires a js path and allows an optional declarationFile', () => {
-        expect<EntryPoint['js']>().type.toBe<string>();
-        expect<EntryPoint['declarationFile']>().type.toBe<string | undefined>();
+    test('Root requires a js path and allows an optional declarationFile', () => {
+        expect<Root['js']>().type.toBe<string>();
+        expect<Root['declarationFile']>().type.toBe<string | undefined>();
     });
 
     test('checks.noDuplicatedFiles is toggled at the top level via `enabled`', () => {

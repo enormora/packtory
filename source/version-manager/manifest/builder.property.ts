@@ -6,9 +6,11 @@ import type { VersionedBundle } from '../versioned-bundle.ts';
 import { buildPackageManifest } from './builder.ts';
 
 const reservedAttributeNames = new Set([
+    'bin',
     'dependencies',
     'peerDependencies',
     'devDependencies',
+    'exports',
     'imports',
     'main',
     'name',
@@ -59,6 +61,33 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
             peerDependencies: bundle.peerDependencies,
             additionalAttributes: bundle.additionalAttributes,
             contents: [],
+            roots: {
+                main: {
+                    js: {
+                        sourceFilePath: `/src/${bundle.mainTargetFilePath}`,
+                        targetFilePath: bundle.mainTargetFilePath,
+                        content: '',
+                        isExecutable: false
+                    },
+                    ...(bundle.typesTargetFilePath === undefined
+                        ? {}
+                        : {
+                              declarationFile: {
+                                  sourceFilePath: `/src/${bundle.typesTargetFilePath}`,
+                                  targetFilePath: bundle.typesTargetFilePath,
+                                  content: '',
+                                  isExecutable: false
+                              }
+                          })
+                }
+            },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' as const },
+            exportsField: {
+                '.': {
+                    import: `./${bundle.mainTargetFilePath}`,
+                    ...(bundle.typesTargetFilePath === undefined ? {} : { types: `./${bundle.typesTargetFilePath}` })
+                }
+            },
             mainFile: {
                 sourceFilePath: `/src/${bundle.mainTargetFilePath}`,
                 targetFilePath: bundle.mainTargetFilePath,
@@ -86,8 +115,7 @@ test('buildPackageManifest() keeps generated manifest fields coherent with the b
 
             assert.strictEqual(manifest.name, bundle.name);
             assert.strictEqual(manifest.version, bundle.version);
-            assert.strictEqual(manifest.main, bundle.mainFile.targetFilePath);
-            assert.strictEqual(manifest.types, bundle.typesMainFile?.targetFilePath);
+            assert.deepStrictEqual(manifest.exports, bundle.exportsField);
             assert.strictEqual(manifest.type, bundle.packageType);
 
             if (Object.keys(bundle.dependencies).length === 0) {

@@ -3,8 +3,16 @@ import { test } from 'mocha';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { createBundleLinker } from './linker.ts';
 
-test('linkBundle() keeps js-only entry points when there are no bundle substitutions', async () => {
+test('linkBundle() keeps js-only roots when there are no bundle substitutions', async () => {
     const linker = createBundleLinker();
+    const root = {
+        js: {
+            content: '',
+            isExecutable: false,
+            sourceFilePath: '/src/index.js',
+            targetFilePath: 'index.js'
+        }
+    } as const;
 
     const result = await linker.linkBundle({
         bundle: {
@@ -37,24 +45,16 @@ test('linkBundle() keeps js-only entry points when there are no bundle substitut
                     isExplicitlyIncluded: false
                 }
             ],
-            entryPoints: [
-                {
-                    js: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/src/index.js',
-                        targetFilePath: 'index.js'
-                    }
-                }
-            ],
+            roots: { main: root },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             externalDependencies: new Map()
         },
         bundleDependencies: []
     });
 
     assert.strictEqual(result.name, 'package-a');
-    assert.deepStrictEqual(result.entryPoints, [
-        {
+    assert.deepStrictEqual(result.roots, {
+        main: {
             js: {
                 content: '',
                 isExecutable: false,
@@ -62,11 +62,11 @@ test('linkBundle() keeps js-only entry points when there are no bundle substitut
                 targetFilePath: 'index.js'
             }
         }
-    ]);
+    });
     assert.strictEqual(result.contents.length, 2);
 });
 
-test('linkBundle() flattens declaration entry points and substitutes matching bundle dependencies', async () => {
+test('linkBundle() flattens declaration roots and substitutes matching bundle dependencies', async () => {
     const project = createProject({
         withFiles: [
             { filePath: '/src/index.js', content: 'import "./dep.js";' },
@@ -74,6 +74,20 @@ test('linkBundle() flattens declaration entry points and substitutes matching bu
         ]
     });
     const linker = createBundleLinker();
+    const root = {
+        js: {
+            content: '',
+            isExecutable: false,
+            sourceFilePath: '/src/index.js',
+            targetFilePath: 'index.js'
+        },
+        declarationFile: {
+            content: '',
+            isExecutable: false,
+            sourceFilePath: '/src/index.d.ts',
+            targetFilePath: 'index.d.ts'
+        }
+    } as const;
 
     const result = await linker.linkBundle({
         bundle: {
@@ -122,27 +136,24 @@ test('linkBundle() flattens declaration entry points and substitutes matching bu
                     isExplicitlyIncluded: false
                 }
             ],
-            entryPoints: [
-                {
-                    js: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/src/index.js',
-                        targetFilePath: 'index.js'
-                    },
-                    declarationFile: {
-                        content: '',
-                        isExecutable: false,
-                        sourceFilePath: '/src/index.d.ts',
-                        targetFilePath: 'index.d.ts'
-                    }
-                }
-            ],
+            roots: { main: root },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             externalDependencies: new Map()
         },
         bundleDependencies: [
             {
                 name: 'bundle-dependency',
+                roots: {
+                    main: {
+                        js: {
+                            content: '',
+                            isExecutable: false,
+                            sourceFilePath: '/src/dep.js',
+                            targetFilePath: 'dep.js'
+                        }
+                    }
+                },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 contents: [
                     {
                         fileDescription: {

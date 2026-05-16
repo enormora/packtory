@@ -12,6 +12,17 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
     const sourceFilePath = `/dep-${index}.js`;
 
     return {
+        roots: {
+            main: {
+                js: {
+                    content: '',
+                    isExecutable: false,
+                    sourceFilePath,
+                    targetFilePath: `dep-${index}.js`
+                }
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         contents: [
             {
                 fileDescription: {
@@ -36,6 +47,7 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
         dependencies: {},
         peerDependencies: {},
         additionalAttributes: {},
+        exportsField: { '.': { import: `./dep-${index}.js` } },
         mainFile: {
             content: '',
             isExecutable: false,
@@ -76,6 +88,16 @@ test('substituteDependencies() only rewrites matched imports and never invents u
                 });
 
                 const graph = createGraphFromResolvedBundle({
+                    roots: {
+                        main: {
+                            js: {
+                                content: '',
+                                isExecutable: false,
+                                sourceFilePath: '/entry.js',
+                                targetFilePath: 'entry.js'
+                            }
+                        }
+                    },
                     contents: [
                         {
                             fileDescription: {
@@ -106,16 +128,7 @@ test('substituteDependencies() only rewrites matched imports and never invents u
                             };
                         })
                     ],
-                    entryPoints: [
-                        {
-                            js: {
-                                content: '',
-                                isExecutable: false,
-                                sourceFilePath: '/entry.js',
-                                targetFilePath: 'entry.js'
-                            }
-                        }
-                    ],
+                    surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                     externalDependencies: new Map(),
                     name: 'fixture'
                 });
@@ -146,7 +159,7 @@ test('substituteDependencies() only rewrites matched imports and never invents u
                 importPaths.forEach((filePath, index) => {
                     const isSubstituted = selectedFlags[index] ?? false;
                     if (isSubstituted) {
-                        assert.ok(entryFile.fileDescription.content.includes(`package-${index}/dep-${index}.js`));
+                        assert.ok(entryFile.fileDescription.content.includes(`package-${index}`));
                         assert.strictEqual(outputFiles.includes(filePath), false);
                     } else {
                         assert.ok(entryFile.fileDescription.content.includes(`.${filePath}`));

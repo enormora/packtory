@@ -57,9 +57,16 @@ function createBundle(overrides: BundleOverrides): VersionedBundleWithManifest {
         name: overrides.name,
         version: overrides.version,
         contents: [],
+        roots: {
+            main: {
+                js: { sourceFilePath: '', targetFilePath: 'index.js', content: '', isExecutable: false }
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         dependencies,
         peerDependencies,
         additionalAttributes: {},
+        exportsField: { '.': { import: './index.js' } },
         mainFile: { sourceFilePath: '', targetFilePath: '', content: '', isExecutable: false },
         packageType: 'module',
         sideEffectsField: undefined,

@@ -79,7 +79,7 @@ test('throws when the given packageName doesn’t exist in the configs', () => {
                     {
                         name: '',
                         sourcesFolder: '',
-                        entryPoints: [{ js: '' }],
+                        roots: { main: { js: '' } },
                         mainPackageJson: { type: 'module' }
                     }
                 ]
@@ -96,7 +96,7 @@ test('throws when the sourcesFolder is missing after config merging', () => {
     runMapConfigExpectingError(
         {
             name: 'foo',
-            entryPoints: [{ js: '' }],
+            roots: { main: { js: '' } },
             mainPackageJson: { type: 'module' }
         } as unknown as PackageConfigInput,
         'Config for package "foo" is missing the sources folder'
@@ -105,70 +105,154 @@ test('throws when the sourcesFolder is missing after config merging', () => {
 
 test('throws when the main package.json settings are missing after config merging', () => {
     runMapConfigExpectingError(
-        { name: 'foo', sourcesFolder: '/src', entryPoints: [{ js: '' }] } as unknown as PackageConfigInput,
+        { name: 'foo', sourcesFolder: '/src', roots: { main: { js: '' } } } as unknown as PackageConfigInput,
         'Config for package "foo" is missing the main package.json settings'
     );
 });
 
-test('doesn’t change js entryPoints when they are already absolute paths', () => {
-    const packageConfig = fooPackageConfigFactory.build({ entryPoints: [{ js: '/the-entry-file' }] });
+test('doesn’t change js roots when they are already absolute paths', () => {
+    const packageConfig = fooPackageConfigFactory.build({ roots: { main: { js: '/the-entry-file' } } });
 
     const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-    assert.deepStrictEqual(result.entryPoints, [{ js: '/the-entry-file' }]);
+    assert.deepStrictEqual(result.roots, { main: { js: '/the-entry-file' } });
 });
 
-test('adds the sourcesFolder as a prefix to a js entryPoint when it is a relative path', () => {
-    const packageConfig = fooPackageConfigFactory.build({ entryPoints: [{ js: 'the-entry-file' }] });
+test('adds the sourcesFolder as a prefix to a js root when it is a relative path', () => {
+    const packageConfig = fooPackageConfigFactory.build({ roots: { main: { js: 'the-entry-file' } } });
 
     const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-    assert.deepStrictEqual(result.entryPoints, [{ js: 'the-source/the-entry-file' }]);
+    assert.deepStrictEqual(result.roots, { main: { js: 'the-source/the-entry-file' } });
 });
 
-test('throws when a package has no entry points after config lookup', () => {
+test('throws when a package has no roots after config lookup', () => {
     runMapConfigExpectingError(
         {
             name: 'foo',
             sourcesFolder: 'the-source',
-            entryPoints: [],
+            roots: {},
             mainPackageJson: { type: 'module' }
         } as unknown as PackageConfigInput,
-        'Config for package "foo" is missing entry points'
+        'Package "foo" must define at least one root'
     );
 });
 
-test('normalizes every remaining entry point after the first one', () => {
+test('normalizes every configured root', () => {
     const packageConfig = fooPackageConfigFactory.build({
-        entryPoints: [{ js: 'first.js' }, { js: 'second.js', declarationFile: 'second.d.ts' }]
+        roots: {
+            main: { js: 'first.js' },
+            secondary: { js: 'second.js', declarationFile: 'second.d.ts' }
+        },
+        defaultModuleRoot: 'main'
     });
 
     const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-    assert.deepStrictEqual(result.entryPoints, [
-        { js: 'the-source/first.js' },
-        { js: 'the-source/second.js', declarationFile: 'the-source/second.d.ts' }
-    ]);
+    assert.deepStrictEqual(result.roots, {
+        main: { js: 'the-source/first.js' },
+        secondary: { js: 'the-source/second.js', declarationFile: 'the-source/second.d.ts' }
+    });
 });
 
-test('doesn’t change declarationFile entryPoints when they are already absolute paths', () => {
-    const packageConfig = fooPackageConfigFactory.build({
-        entryPoints: [{ js: '/js-file', declarationFile: '/declaration-file' }]
-    });
-
-    const result = runMapConfig(packageConfig, { extraPackages: [] });
-
-    assert.deepStrictEqual(result.entryPoints, [{ js: '/js-file', declarationFile: '/declaration-file' }]);
+test('throws when multiple implicit roots are configured without defaultModuleRoot', () => {
+    runMapConfigExpectingError(
+        fooPackageConfigFactory.build({
+            roots: {
+                main: { js: 'first.js' },
+                secondary: { js: 'second.js' }
+            },
+            defaultModuleRoot: undefined
+        }),
+        'Config for package "foo" is missing defaultModuleRoot',
+        { extraPackages: [] }
+    );
 });
 
-test('adds the sourcesFolder as a prefix to a declarationFile entryPoint when it is a relative path', () => {
+test('uses the configured defaultModuleRoot when multiple implicit roots exist', () => {
+    const result = runMapConfig(
+        fooPackageConfigFactory.build({
+            roots: {
+                main: { js: 'first.js' },
+                secondary: { js: 'second.js' }
+            },
+            defaultModuleRoot: 'secondary'
+        }),
+        { extraPackages: [] }
+    );
+
+    assert.deepStrictEqual(result.surface, {
+        mode: 'implicit',
+        defaultModuleRoot: 'secondary'
+    });
+});
+
+test('builds an implicit surface when packageInterface is not configured', () => {
+    const result = runMapConfig(
+        {
+            name: 'foo',
+            sourcesFolder: 'the-source',
+            roots: {
+                main: { js: 'index.js' }
+            },
+            mainPackageJson: { type: 'module' }
+        } as unknown as PackageConfigInput,
+        { extraPackages: [] }
+    );
+
+    assert.deepStrictEqual(result.surface, {
+        mode: 'implicit',
+        defaultModuleRoot: 'main'
+    });
+});
+
+test('preserves an explicit package surface when packageInterface is configured', () => {
+    const result = runMapConfig(
+        {
+            name: 'foo',
+            sourcesFolder: 'the-source',
+            roots: {
+                main: { js: 'index.js' },
+                cli: { js: 'cli.js' }
+            },
+            mainPackageJson: { type: 'module' },
+            packageInterface: {
+                modules: [{ root: 'main', export: '.' }],
+                bins: [{ root: 'cli', name: 'foo' }]
+            }
+        } as unknown as PackageConfigInput,
+        { extraPackages: [] }
+    );
+
+    assert.deepStrictEqual(result.surface, {
+        mode: 'explicit',
+        packageInterface: {
+            modules: [{ root: 'main', export: '.' }],
+            bins: [{ root: 'cli', name: 'foo' }]
+        }
+    });
+});
+
+test('doesn’t change declarationFile root paths when they are already absolute', () => {
     const packageConfig = fooPackageConfigFactory.build({
-        entryPoints: [{ js: '/js-file', declarationFile: 'declaration-file' }]
+        roots: { main: { js: '/js-file', declarationFile: '/declaration-file' } }
     });
 
     const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-    assert.deepStrictEqual(result.entryPoints, [{ js: '/js-file', declarationFile: 'the-source/declaration-file' }]);
+    assert.deepStrictEqual(result.roots, { main: { js: '/js-file', declarationFile: '/declaration-file' } });
+});
+
+test('adds the sourcesFolder as a prefix to a declarationFile root path when it is relative', () => {
+    const packageConfig = fooPackageConfigFactory.build({
+        roots: { main: { js: '/js-file', declarationFile: 'declaration-file' } }
+    });
+
+    const result = runMapConfig(packageConfig, { extraPackages: [] });
+
+    assert.deepStrictEqual(result.roots, {
+        main: { js: '/js-file', declarationFile: 'the-source/declaration-file' }
+    });
 });
 
 test('doesn’t change an additionalFile sourcePathFile when it is already an absolute path', () => {

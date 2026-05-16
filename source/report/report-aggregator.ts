@@ -28,7 +28,7 @@ type CrossBundleLink = {
 
 export type PackageReport = {
     readonly inputs?: {
-        readonly entryPoints: readonly string[];
+        readonly roots: Readonly<Record<string, string>>;
         readonly effectiveConfig?: RedactedConfig;
         readonly siblingVersions: Readonly<Record<string, string>>;
         readonly sourceFileCount: number;
@@ -69,7 +69,7 @@ type Required<T> = NonNullable<T>;
 type Inputs = Required<PackageReport['inputs']>;
 
 type MutablePackageReport = {
-    entryPoints?: Inputs['entryPoints'];
+    roots?: Inputs['roots'];
     siblingVersions?: Inputs['siblingVersions'];
     sourceFileCount?: Inputs['sourceFileCount'];
     effectiveConfig?: RedactedConfig;
@@ -88,7 +88,7 @@ type MutablePackageReport = {
 
 function materializeInputs(entry: MutablePackageReport): Inputs {
     const base: Inputs = {
-        entryPoints: entry.entryPoints ?? [],
+        roots: entry.roots ?? {},
         siblingVersions: entry.siblingVersions ?? {},
         sourceFileCount: entry.sourceFileCount ?? 0
     };
@@ -99,7 +99,7 @@ function materializeInputs(entry: MutablePackageReport): Inputs {
 }
 
 function buildInputs(entry: MutablePackageReport): Inputs | undefined {
-    if (entry.entryPoints === undefined && entry.effectiveConfig === undefined) {
+    if (entry.roots === undefined && entry.effectiveConfig === undefined) {
         return undefined;
     }
     return materializeInputs(entry);
@@ -178,7 +178,7 @@ type Subscribe = ProgressBroadcastConsumer['on'];
 function registerInputHandlers(state: AggregatorState, subscribe: Subscribe): void {
     subscribe('inputsResolved', (payload) => {
         const entry = getOrCreate(state, payload.packageName);
-        entry.entryPoints = payload.entryPoints;
+        entry.roots = payload.roots;
         entry.siblingVersions = payload.siblingVersions;
         entry.sourceFileCount = payload.sourceFileCount;
     });

@@ -3,6 +3,7 @@ import { safeParse } from '@schema-hub/zod-error-formatter';
 import fc from 'fast-check';
 import { test } from 'mocha';
 import { configToResolveAndLinkOptions } from '../packtory/map-config.ts';
+import { linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { PacktoryConfig } from './config.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
 import type { AdditionalPackageJsonAttributes } from './package-json.ts';
@@ -23,7 +24,7 @@ const additionalAttributeKeyArbitrary = fileNameArbitrary.filter((key) => {
     ].includes(key);
 });
 
-function createEntryPoint(
+function createRoot(
     jsBaseName: string,
     declarationBaseName: string | undefined
 ): { js: string; declarationFile?: string | undefined } {
@@ -89,7 +90,7 @@ const validConfigArbitrary = fc
             packages: [
                 {
                     name: config.packageName,
-                    entryPoints: [createEntryPoint(config.entryBaseName, config.declarationBaseName)],
+                    roots: { main: createRoot(config.entryBaseName, config.declarationBaseName) },
                     ...(config.packageSourcesFolder === undefined
                         ? {}
                         : { sourcesFolder: config.packageSourcesFolder }),
@@ -120,7 +121,7 @@ const validConfigArbitrary = fc
                 ...config.dependencyNames.map((dependencyName) => {
                     return {
                         name: dependencyName,
-                        entryPoints: [{ js: `${dependencyName}.js` }],
+                        roots: { main: { js: `${dependencyName}.js` } },
                         sourcesFolder: config.commonSourcesFolder ?? config.packageSourcesFolder ?? 'source',
                         mainPackageJson: { type: 'module' }
                     };
@@ -149,10 +150,10 @@ test('packtoryConfigSchema accepts generated valid config shapes unchanged', () 
                 );
                 assert.deepStrictEqual(
                     result.data.packages.map((entry) => {
-                        return entry.entryPoints;
+                        return entry.roots;
                     }),
                     typedConfig.packages.map((entry) => {
-                        return entry.entryPoints;
+                        return entry.roots;
                     })
                 );
                 assert.deepStrictEqual(
@@ -193,7 +194,7 @@ test('configToResolveAndLinkOptions() keeps package-specific overrides over inhe
                 assert.fail('Expected a package configuration');
             }
             const existingBundles = (packageConfig.bundleDependencies ?? []).map((dependencyName) => {
-                return { name: dependencyName, contents: [] };
+                return linkedBundle({ name: dependencyName, contents: [] });
             });
 
             const result = configToResolveAndLinkOptions(

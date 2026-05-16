@@ -4,7 +4,8 @@ import type { AnalyzedBundle, AnalyzedBundleResource, FileAnalysis } from '../de
 import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
-import type { BundleResource } from '../resource-resolver/resolved-bundle.ts';
+import { implicitPackageSurface, type PackageSurface } from '../package-surface/surface.ts';
+import type { BundleResource, RootFileDescription } from '../resource-resolver/resolved-bundle.ts';
 import type { VersionedBundle, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 
 const transferableFileDescriptionFactory = createFactory<TransferableFileDescription>(() => {
@@ -37,6 +38,27 @@ const bundlePackageJsonFactory = createFactory<BundlePackageJsonFixture>(() => {
     };
 });
 
+function createDefaultRoot(): RootFileDescription {
+    return {
+        js: transferableFileDescriptionFactory.build({
+            sourceFilePath: '/src/index.js',
+            targetFilePath: 'index.js'
+        }),
+        declarationFile: transferableFileDescriptionFactory.build({
+            sourceFilePath: '/src/index.d.ts',
+            targetFilePath: 'index.d.ts'
+        })
+    };
+}
+
+function createDefaultRoots(): Readonly<Record<string, RootFileDescription>> {
+    return { main: createDefaultRoot() };
+}
+
+function createDefaultSurface(): PackageSurface {
+    return implicitPackageSurface('main');
+}
+
 export function externalDependency(
     name: string,
     referencedFrom: readonly [string, ...(readonly string[])] = ['/src/index.js']
@@ -68,18 +90,8 @@ export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundl
     return {
         name: 'package-a',
         contents: [],
-        entryPoints: [
-            {
-                js: transferableFileDescriptionFactory.build({
-                    sourceFilePath: '/src/index.js',
-                    targetFilePath: 'index.js'
-                }),
-                declarationFile: transferableFileDescriptionFactory.build({
-                    sourceFilePath: '/src/index.d.ts',
-                    targetFilePath: 'index.d.ts'
-                })
-            }
-        ],
+        roots: createDefaultRoots(),
+        surface: createDefaultSurface(),
         linkedBundleDependencies: new Map(),
         externalDependencies: new Map(),
         ...overrides
@@ -143,9 +155,14 @@ export function versionedBundle(overrides: VersionedBundleOverrides = {}): Versi
         name: '',
         version: '',
         contents: [],
+        roots: createDefaultRoots(),
+        surface: createDefaultSurface(),
         dependencies: {},
         peerDependencies: {},
         additionalAttributes: {},
+        exportsField: {
+            '.': { import: './index.js', types: './index.d.ts' }
+        },
         packageType: 'module',
         sideEffectsField: undefined,
         mainFile: transferableFileDescriptionFactory.build(mainFile),
@@ -154,6 +171,22 @@ export function versionedBundle(overrides: VersionedBundleOverrides = {}): Versi
             : { typesMainFile: transferableFileDescriptionFactory.build(typesMainFile) }),
         ...rest
     };
+}
+
+export function standardVersionedBundle(overrides: VersionedBundleOverrides = {}): VersionedBundle {
+    return versionedBundle({
+        name: 'package-a',
+        version: '1.2.3',
+        mainFile: {
+            sourceFilePath: '/src/index.js',
+            targetFilePath: 'index.js'
+        },
+        typesMainFile: {
+            sourceFilePath: '/src/index.d.ts',
+            targetFilePath: 'index.d.ts'
+        },
+        ...overrides
+    });
 }
 
 type VersionedBundleWithManifestOverrides = VersionedBundleOverrides & {

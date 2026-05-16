@@ -1,7 +1,8 @@
 /* eslint-disable import/max-dependencies -- the CLI runner orchestrates command parsing, reporting, preview rendering, and progress wiring */
 import { command, subcommands, flag, binary, runSafely } from 'cmd-ts';
 import { bold, red, green, yellow, dim } from 'yoctocolors';
-import type { BuildReport, Packtory, PublishFailure } from '../packtory/packtory.ts';
+import type { BuildReport, Packtory } from '../packtory/packtory.ts';
+import type { PublishFailure } from '../packtory/packtory-results.ts';
 import type { ProgressBroadcastConsumer } from '../progress/progress-broadcaster.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { PartialError } from '../packtory/scheduler.ts';

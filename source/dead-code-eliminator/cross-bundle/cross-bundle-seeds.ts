@@ -1,5 +1,6 @@
 import { Node as TsMorphNode, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph';
 import type { LinkedBundle } from '../../linker/linked-bundle.ts';
+import { resolvePublicModuleSourceFilePath } from '../../package-surface/modules.ts';
 import { bindingId, type FileBindings } from '../reachability/reachability.ts';
 
 export type CrossBundleInput = {
@@ -42,28 +43,12 @@ function indexBundles(inputs: readonly CrossBundleInput[]): ReadonlyMap<string, 
     return map;
 }
 
-function findResourceByTargetPath(bundle: LinkedBundle, targetFilePath: string): string | undefined {
-    const resource = bundle.contents.find((entry) => {
-        return entry.fileDescription.targetFilePath === targetFilePath;
-    });
-    return resource?.fileDescription.sourceFilePath;
-}
-
-function tryResolveAgainstBundle(
-    bundleName: string,
-    indexedBundle: IndexedBundle,
-    specifier: string
-): ResolvedTarget | undefined {
-    const prefix = `${bundleName}/`;
-    if (!specifier.startsWith(prefix)) {
-        return undefined;
-    }
-    const targetPath = specifier.slice(prefix.length);
-    const sourceFilePath = findResourceByTargetPath(indexedBundle.bundle, targetPath);
+function tryResolveAgainstBundle(indexedBundle: IndexedBundle, specifier: string): ResolvedTarget | undefined {
+    const sourceFilePath = resolvePublicModuleSourceFilePath(indexedBundle.bundle, specifier);
     if (sourceFilePath === undefined) {
         return undefined;
     }
-    return { bundleName, sourceFilePath, indexedBundle };
+    return { bundleName: indexedBundle.bundle.name, sourceFilePath, indexedBundle };
 }
 
 function resolveCrossBundleTarget(
@@ -73,8 +58,8 @@ function resolveCrossBundleTarget(
     if (specifier === undefined) {
         return undefined;
     }
-    for (const [bundleName, info] of indexed) {
-        const resolved = tryResolveAgainstBundle(bundleName, info, specifier);
+    for (const info of indexed.values()) {
+        const resolved = tryResolveAgainstBundle(info, specifier);
         if (resolved !== undefined) {
             return resolved;
         }

@@ -10,6 +10,7 @@ type Overrides = {
     readonly writeFile?: SinonSpy;
     readonly readFile?: SinonSpy;
     readonly stat?: SinonSpy;
+    readonly chmod?: SinonSpy;
 };
 
 function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
@@ -23,7 +24,8 @@ function fileManagerFactory(overrides: Overrides = {}): FileManager {
         mkdir: createSpy(overrides.mkdir, fake),
         writeFile: createSpy(overrides.writeFile, fake),
         readFile: createSpy(overrides.readFile, fake),
-        stat: createSpy(overrides.stat, fake)
+        stat: createSpy(overrides.stat, fake),
+        chmod: createSpy(overrides.chmod, fake)
     };
     const dependencies: FileManagerDependencies = { hostFileSystem };
 
@@ -108,6 +110,24 @@ test('copyFile() reads the content of the first file and writes that to the seco
     assert.deepStrictEqual(readFile.firstCall.args, ['/foo/1.txt', { encoding: 'utf8' }]);
     assert.strictEqual(writeFile.callCount, 1);
     assert.deepStrictEqual(writeFile.firstCall.args, ['/foo/2.txt', 'the-content', { encoding: 'utf8' }]);
+});
+
+test('setExecutable() writes the executable file mode when enabled', async () => {
+    const chmod = fake.resolves(undefined);
+    const fileManager = fileManagerFactory({ chmod });
+
+    await fileManager.setExecutable('/foo/bar.txt', true);
+
+    assert.deepStrictEqual(chmod.firstCall.args, ['/foo/bar.txt', 0o755]);
+});
+
+test('setExecutable() writes the regular file mode when disabled', async () => {
+    const chmod = fake.resolves(undefined);
+    const fileManager = fileManagerFactory({ chmod });
+
+    await fileManager.setExecutable('/foo/bar.txt', false);
+
+    assert.deepStrictEqual(chmod.firstCall.args, ['/foo/bar.txt', 0o644]);
 });
 
 test('getTransferableFileDescriptionFromPath() returns the file description of the given file paths', async () => {

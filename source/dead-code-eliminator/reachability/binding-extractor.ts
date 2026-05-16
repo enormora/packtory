@@ -2,6 +2,7 @@ import {
     Node as TsMorphNode,
     type ClassDeclaration,
     type EnumDeclaration,
+    type ExportAssignment,
     type FunctionDeclaration,
     type ImportDeclaration,
     type InterfaceDeclaration,
@@ -89,6 +90,20 @@ function bindingsFromImportDeclaration(statement: ImportDeclaration): readonly B
     return result;
 }
 
+function bindingsFromExportAssignment(statement: ExportAssignment): readonly BindingDescriptor[] {
+    if (statement.isExportEquals()) {
+        return [];
+    }
+    return [
+        {
+            name: 'default',
+            isExported: true,
+            statement,
+            declarationNode: statement
+        }
+    ];
+}
+
 function bindingsFromStatement(statement: Statement): readonly BindingDescriptor[] {
     if (isNamedDeclaration(statement)) {
         return bindingsFromNamedDeclaration(statement);
@@ -98,6 +113,9 @@ function bindingsFromStatement(statement: Statement): readonly BindingDescriptor
     }
     if (TsMorphNode.isImportDeclaration(statement)) {
         return bindingsFromImportDeclaration(statement);
+    }
+    if (TsMorphNode.isExportAssignment(statement)) {
+        return bindingsFromExportAssignment(statement);
     }
     return [];
 }

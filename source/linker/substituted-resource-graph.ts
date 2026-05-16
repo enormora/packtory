@@ -14,7 +14,7 @@ export type SubstitutedResourceGraph = {
     add: (filePath: string, data: SubstitutedResourceGraphNodeData) => void;
     connect: (fromFilePath: string, toFilePath: string) => void;
     isKnown: (filePath: string) => boolean;
-    flatten: (entryPoints: string[]) => Except<LinkedBundle, 'entryPoints' | 'name'>;
+    flatten: (rootFilePaths: string[]) => Except<LinkedBundle, 'name' | 'roots' | 'surface'>;
 };
 
 function addOrCreateReference(
@@ -105,11 +105,11 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
             graph.connect({ from: fromFilePath, to: toFilePath });
         },
 
-        flatten(entryPoints) {
+        flatten(rootFilePaths) {
             const { collect, contents, linkedBundleDependencies, externalDependencies } = createFlattenCollectors();
 
-            for (const entryPoint of entryPoints) {
-                graph.visitBreadthFirstSearch(entryPoint, (node) => {
+            for (const rootFilePath of rootFilePaths) {
+                graph.visitBreadthFirstSearch(rootFilePath, (node) => {
                     collect(node.id, node.data, node.adjacentNodeIds);
                 });
             }

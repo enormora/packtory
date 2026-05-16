@@ -15,12 +15,16 @@ export type FileManager = {
     checkReadability: (fileOrFolderPath: string) => Promise<FileOrFolderReadability>;
     readFile: (filePath: string) => Promise<string>;
     writeFile: (filePath: string, content: string) => Promise<void>;
+    setExecutable: (filePath: string, executable: boolean) => Promise<void>;
     copyFile: (from: string, to: string) => Promise<void>;
     getTransferableFileDescriptionFromPath: (
         sourceFilePath: string,
         targetFilePath: string
     ) => Promise<TransferableFileDescription>;
 };
+
+const executableFileMode = 0o755;
+const regularFileMode = 0o644;
 
 export function createFileManager(dependencies: FileManagerDependencies): FileManager {
     const { hostFileSystem } = dependencies;
@@ -54,10 +58,17 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         return stats.mode;
     }
 
+    async function setExecutable(filePath: string, executable: boolean): Promise<void> {
+        const mode = executable ? executableFileMode : regularFileMode;
+        await hostFileSystem.chmod(filePath, mode);
+    }
+
     return {
         checkReadability,
 
         writeFile,
+
+        setExecutable,
 
         readFile,
 

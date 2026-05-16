@@ -75,8 +75,8 @@ function createPackageExecutionSnapshots(config: ValidConfigWithoutRegistryResul
 test('runForEachScheduledPackage() emits scheduled events per default and passes previous generation results into createOptions()', async () => {
     const { scheduler, emit } = createTestScheduler();
     const config = createValidatedConfig([
-        { name: 'dependency', entryPoints: [{ js: 'dependency.js' }] },
-        { name: 'package-a', entryPoints: [{ js: 'entry.js' }], bundleDependencies: ['dependency'] }
+        { name: 'dependency', roots: { main: { js: 'dependency.js' } } },
+        { name: 'package-a', roots: { main: { js: 'entry.js' } }, bundleDependencies: ['dependency'] }
     ]);
     const { snapshots, configs, createOptions, execute } = createPackageExecutionSnapshots(config);
 
@@ -105,7 +105,7 @@ test('runForEachScheduledPackage() can disable scheduled events and emits done e
     const { scheduler, emit } = createTestScheduler();
 
     const result = await scheduler.runForEachScheduledPackage({
-        config: createValidatedConfig([{ name: 'package-a', entryPoints: [{ js: 'entry.js' }] }]),
+        config: createValidatedConfig([{ name: 'package-a', roots: { main: { js: 'entry.js' } } }]),
         createOptions: (context) => {
             return context.packageName;
         },
@@ -142,9 +142,9 @@ test('runForEachScheduledPackage() returns succeeded results from previous and c
 
     const result = await scheduler.runForEachScheduledPackage({
         config: createValidatedConfig([
-            { name: 'root', entryPoints: [{ js: 'root.js' }] },
-            { name: 'package-a', entryPoints: [{ js: 'package-a.js' }], bundleDependencies: ['root'] },
-            { name: 'package-b', entryPoints: [{ js: 'package-b.js' }], bundleDependencies: ['root'] }
+            { name: 'root', roots: { main: { js: 'root.js' } } },
+            { name: 'package-a', roots: { main: { js: 'package-a.js' } }, bundleDependencies: ['root'] },
+            { name: 'package-b', roots: { main: { js: 'package-b.js' } }, bundleDependencies: ['root'] }
         ]),
         createOptions: (context) => {
             return { packageName: context.packageName };
@@ -179,7 +179,7 @@ test('runForEachScheduledPackage() converts non-Error throws into an unknown err
     const { scheduler, emit } = createTestScheduler();
 
     const result = await scheduler.runForEachScheduledPackage({
-        config: createValidatedConfig([{ name: 'package-a', entryPoints: [{ js: 'entry.js' }] }]),
+        config: createValidatedConfig([{ name: 'package-a', roots: { main: { js: 'entry.js' } } }]),
         createOptions: (context) => {
             return context.packageName;
         },

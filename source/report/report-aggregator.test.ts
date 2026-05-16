@@ -10,14 +10,14 @@ test('aggregator captures inputsResolved into the package report', () => {
 
     broadcaster.provider.emit('inputsResolved', {
         packageName: 'pkg-a',
-        entryPoints: ['/src/index.ts'],
+        roots: { main: '/src/index.ts' },
         sourceFileCount: 42,
         siblingVersions: { 'pkg-b': '1.0.0' }
     });
 
     const report = aggregator.build();
     assert.deepStrictEqual(report.packages['pkg-a']?.inputs, {
-        entryPoints: ['/src/index.ts'],
+        roots: { main: '/src/index.ts' },
         sourceFileCount: 42,
         siblingVersions: { 'pkg-b': '1.0.0' }
     });
@@ -207,7 +207,7 @@ test('aggregator build() is memoised - second call returns the same object refer
 
     broadcaster.provider.emit('inputsResolved', {
         packageName: 'pkg-a',
-        entryPoints: ['x'],
+        roots: { main: 'x' },
         sourceFileCount: 0,
         siblingVersions: {}
     });
@@ -362,11 +362,11 @@ test('effectiveConfigResolved records the redacted config under inputs.effective
     assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.inputs?.effectiveConfig, { name: 'pkg-a' });
 });
 
-test('buildInputs() backfills missing entryPoints, siblingVersions, and sourceFileCount when only effectiveConfig is set', () => {
+test('buildInputs() backfills missing roots, siblingVersions, and sourceFileCount when only effectiveConfig is set', () => {
     const aggregator = aggregatorWithEffectiveConfig();
 
     assert.deepStrictEqual(aggregator.build().packages['pkg-a']?.inputs, {
-        entryPoints: [],
+        roots: {},
         siblingVersions: {},
         sourceFileCount: 0,
         effectiveConfig: { name: 'pkg-a' }
@@ -379,7 +379,7 @@ test('buildInputs() omits effectiveConfig when only inputsResolved fired', () =>
 
     broadcaster.provider.emit('inputsResolved', {
         packageName: 'pkg-a',
-        entryPoints: ['/src/index.ts'],
+        roots: { main: '/src/index.ts' },
         sourceFileCount: 1,
         siblingVersions: {}
     });

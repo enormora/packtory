@@ -16,15 +16,17 @@ test(
     'additional package json attributes schema: validation succeeds for allowed keys',
     checkValidationSuccess({
         schema: additionalPackageJsonAttributesSchema,
-        data: { license: 'MIT', exports: { '.': './index.js' } },
-        expectedData: { license: 'MIT', exports: { '.': './index.js' } }
+        data: { license: 'MIT', repository: { type: 'git', url: 'https://example.test/repo.git' } },
+        expectedData: { license: 'MIT', repository: { type: 'git', url: 'https://example.test/repo.git' } }
     })
 );
 
 for (const key of [
+    'bin',
     'dependencies',
     'peerDependencies',
     'devDependencies',
+    'exports',
     'imports',
     'main',
     'name',
@@ -44,9 +46,11 @@ for (const key of [
 
 test('additional package json attributes schema: every forbidden key is rejected', () => {
     for (const key of [
+        'bin',
         'dependencies',
         'peerDependencies',
         'devDependencies',
+        'exports',
         'imports',
         'main',
         'name',

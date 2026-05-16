@@ -16,7 +16,7 @@ async function singlePackageConfig(fixturePath: string): Promise<PacktoryConfigW
         packages: [
             {
                 name: 'pkg',
-                entryPoints: [{ js: path.join(fixturePath, 'src/pkg/index.js') }]
+                roots: { main: { js: path.join(fixturePath, 'src/pkg/index.js') } }
             }
         ]
     };
@@ -32,12 +32,12 @@ async function consumerProducerConfig(fixturePath: string): Promise<PacktoryConf
         packages: [
             {
                 name: 'pkg-consumer',
-                entryPoints: [{ js: path.join(fixturePath, 'src/pkg-consumer/index.js') }],
+                roots: { main: { js: path.join(fixturePath, 'src/pkg-consumer/index.js') } },
                 bundleDependencies: ['pkg-producer']
             },
             {
                 name: 'pkg-producer',
-                entryPoints: [{ js: path.join(fixturePath, 'src/pkg-producer/index.js') }]
+                roots: { main: { js: path.join(fixturePath, 'src/pkg-producer/index.js') } }
             }
         ]
     };
@@ -128,8 +128,8 @@ test('the smart noDuplicatedFiles rule reports shared declarations using symbol 
             publishSettings: { access: 'public' }
         },
         packages: [
-            { name: 'pkg-a', entryPoints: [{ js: path.join(fixturePath, 'src/pkg-a/index.js') }] },
-            { name: 'pkg-b', entryPoints: [{ js: path.join(fixturePath, 'src/pkg-b/index.js') }] }
+            { name: 'pkg-a', roots: { main: { js: path.join(fixturePath, 'src/pkg-a/index.js') } } },
+            { name: 'pkg-b', roots: { main: { js: path.join(fixturePath, 'src/pkg-b/index.js') } } }
         ],
         checks: { noDuplicatedFiles: { enabled: true } }
     };

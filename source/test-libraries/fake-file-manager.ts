@@ -133,6 +133,10 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             resolveVoidResponse(response);
         },
 
+        async setExecutable() {
+            return undefined;
+        },
+
         async copyFile(from, to) {
             const response = simulatedCopyFileResponses[copyFileCalls.length] ?? defaultVoidResponse;
             copyFileCalls.push({ from, to });

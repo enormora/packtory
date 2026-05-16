@@ -12,12 +12,12 @@ export type BundleLinker = {
     linkBundle: (options: LinkBundleOptions) => Promise<LinkedBundle>;
 };
 
-function flattenEntryPoints(entryPoints: ResolvedBundle['entryPoints']): string[] {
-    return entryPoints.flatMap((entryPoint) => {
-        if (entryPoint.declarationFile !== undefined) {
-            return [entryPoint.js.sourceFilePath, entryPoint.declarationFile.sourceFilePath];
+function flattenRoots(roots: ResolvedBundle['roots']): string[] {
+    return Object.values(roots).flatMap((root) => {
+        if (root.declarationFile !== undefined) {
+            return [root.js.sourceFilePath, root.declarationFile.sourceFilePath];
         }
-        return [entryPoint.js.sourceFilePath];
+        return [root.js.sourceFilePath];
     });
 }
 
@@ -29,9 +29,10 @@ export function createBundleLinker(): BundleLinker {
             const substitutedGraph = substituteDependencies(resourceGraph, bundleDependencies);
 
             return {
-                ...substitutedGraph.flatten(flattenEntryPoints(bundle.entryPoints)),
+                ...substitutedGraph.flatten(flattenRoots(bundle.roots)),
                 name: bundle.name,
-                entryPoints: bundle.entryPoints
+                roots: bundle.roots,
+                surface: bundle.surface
             };
         }
     };

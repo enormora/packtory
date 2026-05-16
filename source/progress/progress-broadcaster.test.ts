@@ -2,6 +2,17 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { createProgressBroadcaster } from './progress-broadcaster.ts';
 
+const eliminationCompletedPayload = {
+    perBundle: [
+        {
+            packageName: 'package-a',
+            files: [{ path: 'src/index.ts', decision: 'kept', reason: 'reachable', sourceBytes: 42 }],
+            droppedSymbols: [{ file: 'src/index.ts', symbolName: 'unused', kind: 'function', reason: 'unreachable' }],
+            seeds: []
+        }
+    ]
+} as const;
+
 test('emits events to registered listeners', () => {
     const broadcaster = createProgressBroadcaster();
     const receivedPayloads: unknown[] = [];
@@ -84,31 +95,7 @@ test('round-trips an eliminationCompleted decision event', () => {
         receivedPayloads.push(payload);
     });
 
-    broadcaster.provider.emit('eliminationCompleted', {
-        perBundle: [
-            {
-                packageName: 'package-a',
-                files: [{ path: 'src/index.ts', decision: 'kept', reason: 'reachable', sourceBytes: 42 }],
-                droppedSymbols: [
-                    { file: 'src/index.ts', symbolName: 'unused', kind: 'function', reason: 'unreachable' }
-                ],
-                seeds: []
-            }
-        ]
-    });
+    broadcaster.provider.emit('eliminationCompleted', eliminationCompletedPayload);
 
-    assert.deepStrictEqual(receivedPayloads, [
-        {
-            perBundle: [
-                {
-                    packageName: 'package-a',
-                    files: [{ path: 'src/index.ts', decision: 'kept', reason: 'reachable', sourceBytes: 42 }],
-                    droppedSymbols: [
-                        { file: 'src/index.ts', symbolName: 'unused', kind: 'function', reason: 'unreachable' }
-                    ],
-                    seeds: []
-                }
-            ]
-        }
-    ]);
+    assert.deepStrictEqual(receivedPayloads, [eliminationCompletedPayload]);
 });

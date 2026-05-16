@@ -3,6 +3,14 @@ import { test } from 'mocha';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
 
 test('createGraphFromResolvedBundle() keeps only external dependencies referenced by each resource', () => {
+    const root = {
+        js: {
+            sourceFilePath: '/entry.js',
+            targetFilePath: 'entry.js',
+            content: '',
+            isExecutable: false
+        }
+    } as const;
     const graph = createGraphFromResolvedBundle({
         name: 'package-a',
         contents: [
@@ -27,16 +35,8 @@ test('createGraphFromResolvedBundle() keeps only external dependencies reference
                 isExplicitlyIncluded: false
             }
         ],
-        entryPoints: [
-            {
-                js: {
-                    sourceFilePath: '/entry.js',
-                    targetFilePath: 'entry.js',
-                    content: '',
-                    isExecutable: false
-                }
-            }
-        ] as const,
+        roots: { main: root },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         externalDependencies: new Map([
             ['left-pad', { name: 'left-pad', referencedFrom: ['/entry.js'] as const }],
             ['unused', { name: 'unused', referencedFrom: ['/not-used.js'] as const }]

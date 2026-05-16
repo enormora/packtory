@@ -15,19 +15,19 @@ async function createBaseConfig(fixturePath: string): Promise<PacktoryConfigWith
         packages: [
             {
                 name: 'pkg-a',
-                entryPoints: [
-                    {
+                roots: {
+                    main: {
                         js: path.join(fixturePath, 'src/pkg-a/index.js')
                     }
-                ]
+                }
             },
             {
                 name: 'pkg-b',
-                entryPoints: [
-                    {
+                roots: {
+                    main: {
                         js: path.join(fixturePath, 'src/pkg-b/index.js')
                     }
-                ]
+                }
             }
         ]
     };
@@ -130,7 +130,7 @@ test('resolveAndLinkAll reports an external dependency that is only declared in 
         packages: [
             {
                 name: 'leaky',
-                entryPoints: [{ js: path.join(fixturePath, 'src/entry.js') }]
+                roots: { main: { js: path.join(fixturePath, 'src/entry.js') } }
             }
         ]
     };

@@ -122,15 +122,15 @@ After every generation the scheduler appends the produced `LinkedBundle`s (or `V
 
 ## 4. Stage: Resource Resolver — dependency scanning
 
-Goal: starting from a package's entry-point files, find **every local source file reachable through `import` statements**, plus every `node_modules` import that needs to land in the generated `package.json`.
+Goal: starting from a package's root files, find **every local source file reachable through `import` statements**, plus every `node_modules` import that needs to land in the generated `package.json`.
 
 ### Algorithm
 
 ```
-scan(entryPoint, sourcesFolder):
+scan(root, sourcesFolder):
     project ← create ts-morph Project rooted at sourcesFolder
     graph ← empty directed acyclic graph
-    bfs(entryPoint):
+    bfs(root):
         for each import literal L in current file:
             target ← ts.resolveModuleName(L, …)        # uses the host's tsconfig
             if target is inside /node_modules/:
@@ -148,7 +148,7 @@ A few details worth highlighting:
 
 ### Source maps and declarations
 
-If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If an entry point declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
+If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If a root declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
 
 ## 5. Stage: Linker — import path rewriting
 
@@ -202,7 +202,7 @@ A modern JavaScript bundle is a graph where:
 
 - **Nodes** are _top-level bindings_: a function, class, type, enum, variable, or named import declared at the top of a file.
 - **Edges** go from a binding to every other binding it references in its own body.
-- **Roots** are the bindings that are _exported from an entry point_ — these are the things consumers can actually import.
+- **Roots** are the bindings that are _exported from public root files_ — these are the things consumers can actually import.
 
 If you start at the roots and walk all edges, every binding you visit is _reachable_. Everything else is dead, and packtory deletes it.
 
@@ -218,7 +218,7 @@ Each binding gets an id: `bindingId = "<filePath>::<name>"`.
 
 Three kinds of seeds are added to a set $S$:
 
-1. Every exported binding in any entry-point file. These are what consumers can `import`.
+1. Every exported binding in any public root file. These are what consumers can `import`.
 2. Every binding referenced by an **impure top-level statement** (anywhere in the bundle). Impure top-level code runs unconditionally on import, so anything it touches is live by definition. The classifier is described in §6.5.
 3. **Cross-bundle seeds** — bindings that another packtory-managed bundle actually consumes. Without this, exports that exist _only_ for sibling packages would look dead and be deleted. See §6.4.
 

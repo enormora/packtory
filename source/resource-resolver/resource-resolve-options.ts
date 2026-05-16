@@ -1,14 +1,33 @@
-import type { EntryPoint } from '../config/entry-point.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
+import type { Root } from '../config/root.ts';
+import { implicitPackageSurface, type PackageSurface } from '../package-surface/surface.ts';
 
-type EntryPoints = readonly [EntryPoint, ...(readonly EntryPoint[])];
+type Roots = Readonly<Record<string, Root>>;
 
 export type ResourceResolveOptions = {
     readonly sourcesFolder: string;
-    readonly entryPoints: EntryPoints;
     readonly name: string;
     readonly includeSourceMapFiles: boolean;
     readonly additionalFiles: readonly (AdditionalFileDescription | string)[];
     readonly mainPackageJson: MainPackageJson;
+    readonly roots: Roots;
+    readonly surface?: PackageSurface | undefined;
 };
+
+export function resolveRootsAndSurface(options: ResourceResolveOptions): {
+    readonly roots: Roots;
+    readonly surface: PackageSurface;
+} {
+    const rootEntries = Object.entries(options.roots);
+    const [firstRootEntry] = rootEntries;
+    if (firstRootEntry === undefined) {
+        throw new Error(`Package "${options.name}" must define at least one root`);
+    }
+
+    const [firstRootId] = firstRootEntry;
+    return {
+        roots: options.roots,
+        surface: options.surface ?? implicitPackageSurface(firstRootId)
+    };
+}

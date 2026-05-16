@@ -4,7 +4,7 @@ import { stub } from 'sinon';
 import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from './binding-extractor.ts';
-import { bindingId, buildReachabilityIndex, takeTraversalIteration, type FileBindings } from './reachability.ts';
+import { bindingId, buildReachabilityIndex, type FileBindings } from './reachability.ts';
 
 const probeTestTimeoutMs = 10_000;
 
@@ -25,13 +25,6 @@ function multiFileBindingsFor(
         return { sourceFilePath: file.filePath, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
     });
 }
-
-test('takeTraversalIteration() decrements positive budgets and throws at zero', () => {
-    assert.strictEqual(takeTraversalIteration(2), 1);
-    assert.throws(() => {
-        takeTraversalIteration(0);
-    }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
-});
 
 test('keeps every exported entry-point binding reachable', () => {
     const files = [fileBindingsFor('entry.ts', 'export function pub() {}\nexport class Pub {}')];

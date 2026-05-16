@@ -14,7 +14,7 @@ function createMinimalConfig(packageNames: readonly string[]): PacktoryConfig {
         packages: packageNames.map((name) => {
             return {
                 name,
-                entryPoints: [{ js: `${name}/index.js` }]
+                roots: { main: { js: `${name}/index.js` } }
             };
         })
     } as unknown as PacktoryConfig;

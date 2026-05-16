@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import fc from 'fast-check';
 import { test } from 'mocha';
-import { normalizeAdditionalFile, normalizeEntryPoint } from './normalize-paths.ts';
+import { normalizeAdditionalFile, normalizeRoot } from './normalize-paths.ts';
 
 const pathSegmentArbitrary = fc.stringMatching(/^[\w.-]+$/);
 
@@ -19,19 +19,19 @@ const absolutePathArbitrary = fc.tuple(relativePathArbitrary, relativePathArbitr
     return path.join(path.sep, folder, filePath);
 });
 
-test('normalizeEntryPoint() keeps absolute paths unchanged and resolves relative paths against the source folder', () => {
+test('normalizeRoot() keeps absolute paths unchanged and resolves relative paths against the source folder', () => {
     fc.assert(
         fc.property(
             relativePathArbitrary,
             relativePathArbitrary,
             fc.option(relativePathArbitrary, { nil: undefined }),
             (sourceFolder, js, declarationFile) => {
-                const relativeEntryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedRelativeEntryPoint = normalizeEntryPoint(relativeEntryPoint, sourceFolder);
+                const relativeRoot = declarationFile === undefined ? { js } : { js, declarationFile };
+                const normalizedRelativeRoot = normalizeRoot(relativeRoot, sourceFolder);
 
-                assert.strictEqual(normalizedRelativeEntryPoint.js, path.join(sourceFolder, js));
+                assert.strictEqual(normalizedRelativeRoot.js, path.join(sourceFolder, js));
                 assert.strictEqual(
-                    normalizedRelativeEntryPoint.declarationFile,
+                    normalizedRelativeRoot.declarationFile,
                     declarationFile === undefined ? undefined : path.join(sourceFolder, declarationFile)
                 );
             }
@@ -44,11 +44,11 @@ test('normalizeEntryPoint() keeps absolute paths unchanged and resolves relative
             relativePathArbitrary,
             fc.option(absolutePathArbitrary, { nil: undefined }),
             (js, sourceFolder, declarationFile) => {
-                const absoluteEntryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedAbsoluteEntryPoint = normalizeEntryPoint(absoluteEntryPoint, sourceFolder);
+                const absoluteRoot = declarationFile === undefined ? { js } : { js, declarationFile };
+                const normalizedAbsoluteRoot = normalizeRoot(absoluteRoot, sourceFolder);
 
-                assert.strictEqual(normalizedAbsoluteEntryPoint.js, js);
-                assert.strictEqual(normalizedAbsoluteEntryPoint.declarationFile, declarationFile);
+                assert.strictEqual(normalizedAbsoluteRoot.js, js);
+                assert.strictEqual(normalizedAbsoluteRoot.declarationFile, declarationFile);
             }
         )
     );
@@ -88,16 +88,16 @@ test('normalizeAdditionalFile() keeps the target path and resolves only the sour
     );
 });
 
-test('normalizeEntryPoint() is idempotent once all paths are normalized', () => {
+test('normalizeRoot() is idempotent once all paths are normalized', () => {
     fc.assert(
         fc.property(
             absolutePathArbitrary,
             relativePathArbitrary,
             fc.option(relativePathArbitrary, { nil: undefined }),
             (sourceFolder, js, declarationFile) => {
-                const entryPoint = declarationFile === undefined ? { js } : { js, declarationFile };
-                const normalizedOnce = normalizeEntryPoint(entryPoint, sourceFolder);
-                const normalizedTwice = normalizeEntryPoint(normalizedOnce, sourceFolder);
+                const root = declarationFile === undefined ? { js } : { js, declarationFile };
+                const normalizedOnce = normalizeRoot(root, sourceFolder);
+                const normalizedTwice = normalizeRoot(normalizedOnce, sourceFolder);
 
                 assert.deepStrictEqual(normalizedTwice, normalizedOnce);
             }

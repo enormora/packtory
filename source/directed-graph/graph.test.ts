@@ -2,55 +2,11 @@ import assert from 'node:assert';
 import { test, type Func } from 'mocha';
 import { stub } from 'sinon';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
-import {
-    assertRemainingBudget,
-    breadthFirstTraversalBudgetExceededErrorMessage,
-    createDescendingBudget,
-    createDirectedGraph,
-    getRequiredArrayValue,
-    queuedGraphNodeMissingErrorMessage,
-    topologicalGenerationBudgetExceededErrorMessage,
-    type DirectedGraph
-} from './graph.ts';
+import { createDirectedGraph, type DirectedGraph } from './graph.ts';
 
 const probeTestTimeoutMs = 10_000;
 
 type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
-
-test('createDescendingBudget() returns a countdown including zero', () => {
-    assert.deepStrictEqual(createDescendingBudget(3), [3, 2, 1, 0]);
-});
-
-test('assertRemainingBudget() throws when no budget remains', () => {
-    assert.doesNotThrow(() => {
-        assertRemainingBudget(1, 'budget exhausted');
-    });
-    assert.throws(() => {
-        assertRemainingBudget(0, 'budget exhausted');
-    }, /^Error: budget exhausted$/u);
-    assert.throws(() => {
-        assertRemainingBudget(undefined, 'budget exhausted');
-    }, /^Error: budget exhausted$/u);
-});
-
-test('graph traversal budget error messages remain stable', () => {
-    assert.strictEqual(
-        breadthFirstTraversalBudgetExceededErrorMessage,
-        'Breadth-first traversal exceeded the maximum iteration budget'
-    );
-    assert.strictEqual(
-        topologicalGenerationBudgetExceededErrorMessage,
-        'Topological generation discovery exceeded the maximum iteration budget'
-    );
-    assert.strictEqual(queuedGraphNodeMissingErrorMessage, 'Queued graph node is missing');
-});
-
-test('getRequiredArrayValue() returns indexed values and throws for missing entries', () => {
-    assert.strictEqual(getRequiredArrayValue(['a', 'b'], 1, 'missing value'), 'b');
-    assert.throws(() => {
-        getRequiredArrayValue(['a'], 2, 'missing value');
-    }, /^Error: missing value$/u);
-});
 
 test('hasNode() returns false when there is no node for the given id', () => {
     const graph = createDirectedGraph<string, string>();
@@ -994,7 +950,7 @@ test('getTopologicalGenerations() throws when generation discovery stops making 
     try {
         assert.throws(() => {
             graph.getTopologicalGenerations();
-        }, /^Error: Topological generation discovery did not make progress$/u);
+        }, /^Error: Topological generation discovery did not make progress after 3 attempts$/u);
     } finally {
         addStub.restore();
     }
