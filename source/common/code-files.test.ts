@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import { isCodeFile } from './code-files.ts';
+import { isCodeFile, isDeclarationCodeFile } from './code-files.ts';
 
 test('isCodeFile recognizes .js as code', () => {
     assert.strictEqual(isCodeFile('index.js'), true);
@@ -36,6 +36,14 @@ test('isCodeFile recognizes .mts as code', () => {
 
 test('isCodeFile recognizes .d.ts as code', () => {
     assert.strictEqual(isCodeFile('index.d.ts'), true);
+});
+
+test('isDeclarationCodeFile recognizes .d.ts as a declaration code file', () => {
+    assert.strictEqual(isDeclarationCodeFile('index.d.ts'), true);
+});
+
+test('isDeclarationCodeFile rejects .js as a declaration code file', () => {
+    assert.strictEqual(isDeclarationCodeFile('index.js'), false);
 });
 
 test('isCodeFile rejects .json as not code', () => {

@@ -45,6 +45,14 @@ test('extracts every variable declarator name from a single statement', () => {
     assert.deepStrictEqual(names('const a = 1, b = 2, c = 3;'), ['a', 'b', 'c']);
 });
 
+test('extracts every bound identifier from an object destructuring declaration', () => {
+    assert.deepStrictEqual(names('const { a, b: c, ...rest } = value;'), ['a', 'c', 'rest']);
+});
+
+test('extracts every bound identifier from an array destructuring declaration', () => {
+    assert.deepStrictEqual(names('const [first, , third, ...rest] = value;'), ['first', 'third', 'rest']);
+});
+
 test('extracts the local name of a default import', () => {
     assert.deepStrictEqual(names('import foo from "./other";'), ['foo']);
 });
@@ -108,6 +116,13 @@ test('marks every declarator of an exported variable statement as exported', () 
     assert.deepStrictEqual(descriptors('export const a = 1, b = 2;'), [
         { name: 'a', isExported: true },
         { name: 'b', isExported: true }
+    ]);
+});
+
+test('marks every bound identifier of an exported destructuring statement as exported', () => {
+    assert.deepStrictEqual(descriptors('export const { a, b: c } = value;'), [
+        { name: 'a', isExported: true },
+        { name: 'c', isExported: true }
     ]);
 });
 

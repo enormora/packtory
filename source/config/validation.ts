@@ -101,15 +101,19 @@ function validateImplicitRootConfiguration(packageConfig: ImplicitPackageConfig)
 
 type ExplicitValidationState = {
     readonly usedRootIds: Set<string>;
+    readonly publicRootIds: Set<string>;
     readonly seenExportKeys: Set<string>;
     readonly seenBinNames: Set<string>;
+    readonly seenPrivateRootIds: Set<string>;
 };
 
 function createExplicitValidationState(): ExplicitValidationState {
     return {
         usedRootIds: new Set<string>(),
+        publicRootIds: new Set<string>(),
         seenExportKeys: new Set<string>(),
-        seenBinNames: new Set<string>()
+        seenBinNames: new Set<string>(),
+        seenPrivateRootIds: new Set<string>()
     };
 }
 
@@ -133,6 +137,7 @@ function validateExplicitModules(
         }
         state.seenExportKeys.add(entry.export);
         state.usedRootIds.add(entry.root);
+        state.publicRootIds.add(entry.root);
     }
 
     return issues;
@@ -150,9 +155,31 @@ function validateExplicitBins(packageConfig: ExplicitPackageConfig, state: Expli
         }
         state.seenBinNames.add(entry.name);
         state.usedRootIds.add(entry.root);
+        state.publicRootIds.add(entry.root);
     }
 
     return issues;
+}
+
+function validateExplicitPrivateRoots(
+    packageConfig: ExplicitPackageConfig,
+    state: ExplicitValidationState
+): readonly string[] {
+    return (packageConfig.packageInterface.privateRoots ?? []).flatMap((rootId) => {
+        const issues = [];
+        if (packageConfig.roots[rootId] === undefined) {
+            issues.push(`Package "${packageConfig.name}" private root "${rootId}" references unknown root "${rootId}"`);
+        }
+        if (state.seenPrivateRootIds.has(rootId)) {
+            issues.push(`Package "${packageConfig.name}" declares duplicate private root "${rootId}"`);
+        }
+        if (state.publicRootIds.has(rootId)) {
+            issues.push(`Package "${packageConfig.name}" root "${rootId}" cannot be both public and private`);
+        }
+        state.seenPrivateRootIds.add(rootId);
+        state.usedRootIds.add(rootId);
+        return issues;
+    });
 }
 
 function validateExplicitUnusedRoots(
@@ -173,6 +200,7 @@ function validateExplicitRootConfiguration(packageConfig: ExplicitPackageConfig)
     return [
         ...validateExplicitModules(packageConfig, state),
         ...validateExplicitBins(packageConfig, state),
+        ...validateExplicitPrivateRoots(packageConfig, state),
         ...validateExplicitUnusedRoots(packageConfig, state)
     ];
 }

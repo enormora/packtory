@@ -4,8 +4,8 @@ import { analyzedBundleResource, linkedBundle } from '../test-libraries/bundle-f
 import {
     buildBinField,
     buildExportsField,
+    getEntryRootIds,
     getPublicModuleSpecifierForSourcePath,
-    getPublicRootIds,
     resolvePublicModuleSourceFilePath
 } from './modules.ts';
 
@@ -67,75 +67,68 @@ function createRoot(
     };
 }
 
-test('getPublicRootIds() returns every implicit root and every explicit module/bin root', () => {
+test('getEntryRootIds() includes explicit private roots', () => {
+    const explicit = linkedBundle({
+        roots: {
+            main: createRoot('/src/index.js', 'index.js'),
+            worker: createRoot('/src/worker.js', 'worker.js')
+        },
+        surface: {
+            mode: 'explicit',
+            packageInterface: {
+                modules: [{ root: 'main', export: '.' }],
+                privateRoots: ['worker']
+            }
+        }
+    });
+
+    assert.deepStrictEqual(getEntryRootIds(explicit), new Set(['main', 'worker']));
+});
+
+test('getEntryRootIds() returns every root in implicit mode', () => {
     const implicit = linkedBundle({
         roots: {
             main: createRoot('/src/index.js', 'index.js'),
-            feature: createRoot('/src/feature.js', 'feature.js')
+            worker: createRoot('/src/worker.js', 'worker.js')
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' }
     });
+
+    assert.deepStrictEqual(getEntryRootIds(implicit), new Set(['main', 'worker']));
+});
+
+test('getEntryRootIds() includes explicit bin roots', () => {
     const explicit = linkedBundle({
         roots: {
             main: createRoot('/src/index.js', 'index.js'),
-            feature: createRoot('/src/feature.js', 'feature.js'),
-            cli: createRoot('/src/cli.js', 'cli.js')
+            cli: createRoot('/src/cli.js', 'cli.js', { isExecutable: true })
         },
         surface: {
             mode: 'explicit',
             packageInterface: {
-                modules: [
-                    { root: 'main', export: '.' },
-                    { root: 'feature', export: './feature' }
-                ],
-                bins: [{ root: 'cli', name: 'cli' }]
+                modules: [{ root: 'main', export: '.' }],
+                bins: [{ root: 'cli', name: 'packtory' }]
             }
         }
     });
 
-    assert.deepStrictEqual(getPublicRootIds(implicit), new Set(['main', 'feature']));
-    assert.deepStrictEqual(getPublicRootIds(explicit), new Set(['main', 'feature', 'cli']));
+    assert.deepStrictEqual(getEntryRootIds(explicit), new Set(['main', 'cli']));
 });
 
-test('getPublicRootIds() excludes private roots from explicit packages', () => {
+test('getEntryRootIds() works for explicit packages that only declare bins', () => {
     const explicit = linkedBundle({
         roots: {
-            main: createRoot('/src/index.js', 'index.js'),
-            private: createRoot('/src/private.js', 'private.js')
+            cli: createRoot('/src/cli.js', 'cli.js', { isExecutable: true })
         },
         surface: {
             mode: 'explicit',
             packageInterface: {
-                modules: [{ root: 'main', export: '.' }]
+                bins: [{ root: 'cli', name: 'packtory' }]
             }
         }
     });
 
-    assert.deepStrictEqual(getPublicRootIds(explicit), new Set(['main']));
-});
-
-test('getPublicRootIds() tolerates explicit packages with only modules or only bins', () => {
-    const modulesOnly = linkedBundle({
-        roots: { main: createRoot('/src/index.js', 'index.js') },
-        surface: {
-            mode: 'explicit',
-            packageInterface: {
-                modules: [{ root: 'main', export: '.' }]
-            }
-        }
-    });
-    const binsOnly = linkedBundle({
-        roots: { cli: createRoot('/src/cli.js', 'cli.js') },
-        surface: {
-            mode: 'explicit',
-            packageInterface: {
-                bins: [{ root: 'cli', name: 'cli' }]
-            }
-        }
-    });
-
-    assert.deepStrictEqual(getPublicRootIds(modulesOnly), new Set(['main']));
-    assert.deepStrictEqual(getPublicRootIds(binsOnly), new Set(['cli']));
+    assert.deepStrictEqual(getEntryRootIds(explicit), new Set(['cli']));
 });
 
 test('getPublicModuleSpecifierForSourcePath() resolves implicit roots, declarations, and surviving public files', () => {

@@ -1,7 +1,7 @@
 import type { Project, SourceFile } from 'ts-morph';
-import { isCodeFile } from '../common/code-files.ts';
+import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
-import { getPublicRootIds } from '../package-surface/modules.ts';
+import { getEntryRootIds } from '../package-surface/modules.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
 import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
 import { buildReachabilityIndex, type FileBindings, type ReachabilityIndex } from './reachability/reachability.ts';
@@ -23,16 +23,28 @@ export type LoadedResource = LoadedCodeResource | LoadedNonCodeResource;
 
 export type LoadedBundle = {
     readonly input: EliminationInput;
-    readonly project: Project;
     readonly loaded: readonly LoadedResource[];
     readonly fileBindings: readonly FileBindings[];
     readonly reachability: ReachabilityIndex;
 };
 
-function loadResource(project: Project, resource: LinkedBundleResource): LoadedResource {
+function projectForResource(
+    runtimeProject: Project,
+    declarationProject: Project,
+    resource: LinkedBundleResource
+): Project {
+    return isDeclarationCodeFile(resource.fileDescription.targetFilePath) ? declarationProject : runtimeProject;
+}
+
+function loadResource(
+    runtimeProject: Project,
+    declarationProject: Project,
+    resource: LinkedBundleResource
+): LoadedResource {
     if (!isCodeFile(resource.fileDescription.targetFilePath)) {
         return { resource };
     }
+    const project = projectForResource(runtimeProject, declarationProject, resource);
     const sourceFile = project.createSourceFile(
         resource.fileDescription.sourceFilePath,
         resource.fileDescription.content
@@ -54,13 +66,13 @@ function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBind
     return result;
 }
 
-function publicRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
-    const publicRootIds = getPublicRootIds(bundle);
+function entryRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
+    const entryRootIds = getEntryRootIds(bundle);
     const paths = new Set<string>();
-    for (const rootId of publicRootIds) {
+    for (const rootId of entryRootIds) {
         const root = bundle.roots[rootId];
         if (root === undefined) {
-            throw new Error(`Bundle "${bundle.name}" is missing root "${rootId}" referenced by its public surface`);
+            throw new Error(`Bundle "${bundle.name}" is missing root "${rootId}" referenced by its entry surface`);
         }
 
         paths.add(root.js.sourceFilePath);
@@ -72,14 +84,16 @@ function publicRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
 }
 
 export function loadBundle(createProject: CreateProject, input: EliminationInput): LoadedBundle {
-    const project = createProject();
+    const runtimeProject = createProject();
+    const declarationProject = createProject();
     const loaded = input.bundle.contents.map((resource) => {
-        return loadResource(project, resource);
+        return loadResource(runtimeProject, declarationProject, resource);
     });
     const fileBindings = buildFileBindings(loaded);
     const reachability = buildReachabilityIndex({
         files: fileBindings,
-        entryPointFilePaths: publicRootFilePathsFor(input.bundle)
+        entryPointFilePaths: entryRootFilePathsFor(input.bundle),
+        deadCodeElimination: input.deadCodeElimination
     });
-    return { input, project, loaded, fileBindings, reachability };
+    return { input, loaded, fileBindings, reachability };
 }

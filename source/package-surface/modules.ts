@@ -421,7 +421,7 @@ function resolveImplicitPublicModuleSourceFilePath(
     return kind === 'private' ? undefined : handlers[kind]();
 }
 
-export function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
+function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
     if (isImplicitPackageSurface(bundle.surface)) {
         return new Set(Object.keys(bundle.roots));
     }
@@ -435,6 +435,15 @@ export function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>):
     }
 
     return rootIds;
+}
+
+export function getEntryRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
+    const publicRootIds = getPublicRootIds(bundle);
+    if (isImplicitPackageSurface(bundle.surface)) {
+        return publicRootIds;
+    }
+
+    return new Set([...publicRootIds, ...(bundle.surface.packageInterface.privateRoots ?? [])]);
 }
 
 export function getPublicModuleSpecifierForSourcePath(bundle: BundleLike, sourceFilePath: string): string | undefined {

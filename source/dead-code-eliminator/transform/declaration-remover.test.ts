@@ -41,6 +41,18 @@ test('removes only the dead declarators when some are reachable', () => {
     assert.strictEqual(mutated, true);
 });
 
+test('keeps a whole destructuring declarator when any bound identifier survives', () => {
+    const { text, mutated } = transform('export const { a, b } = value;', new Set(['a']));
+    assert.strictEqual(text.includes('{ a, b }'), true);
+    assert.strictEqual(mutated, false);
+});
+
+test('removes a whole destructuring declarator when no bound identifier survives', () => {
+    const { text, mutated } = transform('export const { a, b } = value;', new Set<string>());
+    assert.strictEqual(text.includes('{ a, b }'), false);
+    assert.strictEqual(mutated, true);
+});
+
 test('returns false when nothing needs to change', () => {
     const { text, mutated } = transform('export const a = 1;', new Set(['a']));
     assert.strictEqual(text.includes('a'), true);

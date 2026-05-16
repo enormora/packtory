@@ -1,4 +1,5 @@
 import type { Except } from 'type-fest';
+import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 
 export type SideEffectStatement = {
@@ -24,6 +25,7 @@ export type AnalyzedBundle = Except<LinkedBundle, 'contents'> & {
 export type EliminationInput = {
     readonly bundle: LinkedBundle;
     readonly transformationsEnabled: boolean;
+    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
 export type DeadCodeEliminator = {

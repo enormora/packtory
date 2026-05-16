@@ -274,6 +274,37 @@ test('returns issues when explicit bins reference unknown roots, reuse names, or
     );
 });
 
+test('returns issues when explicit privateRoots reference unknown roots, duplicate entries, or overlap with public roots', () => {
+    const result = validateConfig(
+        withRegistry({
+            packages: [
+                {
+                    name: 'foo',
+                    roots: {
+                        main: { js: 'index.js' },
+                        worker: { js: 'worker.js' },
+                        helper: { js: 'helper.js' }
+                    },
+                    packageInterface: {
+                        modules: [{ root: 'main', export: '.' }],
+                        privateRoots: ['main', 'missing', 'worker', 'worker']
+                    }
+                }
+            ]
+        })
+    );
+
+    assert.deepStrictEqual(
+        result,
+        Result.err([
+            'Package "foo" root "main" cannot be both public and private',
+            'Package "foo" private root "missing" references unknown root "missing"',
+            'Package "foo" declares duplicate private root "worker"',
+            'Package "foo" defines unused root "helper" in explicit mode'
+        ])
+    );
+});
+
 test('returns multiple issues of different kind', () => {
     const result = validateConfig(
         withRegistry({

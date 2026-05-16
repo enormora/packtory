@@ -118,6 +118,26 @@ test('doesn’t change js roots when they are already absolute paths', () => {
     assert.deepStrictEqual(result.roots, { main: { js: '/the-entry-file' } });
 });
 
+test('merges deadCodeElimination settings into the prepared shared options', () => {
+    const packageConfig = {
+        ...fooPackageConfigFactory.build(),
+        deadCodeElimination: { enabled: false, pureConstructors: ['Map'] }
+    } as unknown as PackageConfigInput;
+
+    const result = runMapConfig(packageConfig, {
+        commonPackageSettings: {
+            publishSettings: { access: 'public' },
+            deadCodeElimination: { enabled: true, pureImports: [{ from: 'zod/mini' }], pureConstructors: ['Set'] }
+        }
+    });
+
+    assert.deepStrictEqual(result.deadCodeElimination, {
+        enabled: false,
+        pureImports: [{ from: 'zod/mini' }],
+        pureConstructors: ['Map']
+    });
+});
+
 test('adds the sourcesFolder as a prefix to a js root when it is a relative path', () => {
     const packageConfig = fooPackageConfigFactory.build({ roots: { main: { js: 'the-entry-file' } } });
 

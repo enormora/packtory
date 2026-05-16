@@ -12,12 +12,14 @@ import {
     type TypeAliasDeclaration,
     type VariableStatement
 } from 'ts-morph';
+import { collectVariableDeclarationBindings } from '../variable-declaration-bindings.ts';
 
 export type BindingDescriptor = {
     readonly name: string;
     readonly isExported: boolean;
     readonly statement: Statement;
     readonly declarationNode: TsMorphNode;
+    readonly referenceNode: TsMorphNode;
 };
 
 type NamedDeclarationStatement =
@@ -45,13 +47,21 @@ function bindingsFromNamedDeclaration(statement: NamedDeclarationStatement): rea
         return [];
     }
     const isExported = statement.isExported() || statement.isDefaultExport();
-    return [{ name, isExported, statement, declarationNode: statement }];
+    return [{ name, isExported, statement, declarationNode: statement, referenceNode: statement }];
 }
 
 function bindingsFromVariableStatement(statement: VariableStatement): readonly BindingDescriptor[] {
     const isExported = statement.isExported();
-    return statement.getDeclarations().map((declarator) => {
-        return { name: declarator.getName(), isExported, statement, declarationNode: declarator };
+    return statement.getDeclarations().flatMap((declarator) => {
+        return collectVariableDeclarationBindings(declarator).map((binding) => {
+            return {
+                name: binding.name,
+                isExported,
+                statement,
+                declarationNode: binding.declarationNode,
+                referenceNode: binding.referenceNode
+            };
+        });
     });
 }
 
@@ -67,7 +77,8 @@ function bindingsFromImportDeclaration(statement: ImportDeclaration): readonly B
             name: defaultImport.getText(),
             isExported: false,
             statement,
-            declarationNode: defaultImport.getParent()
+            declarationNode: defaultImport.getParent(),
+            referenceNode: defaultImport.getParent()
         });
     }
     const namespaceImport = statement.getNamespaceImport();
@@ -76,7 +87,8 @@ function bindingsFromImportDeclaration(statement: ImportDeclaration): readonly B
             name: namespaceImport.getText(),
             isExported: false,
             statement,
-            declarationNode: namespaceImport.getParent()
+            declarationNode: namespaceImport.getParent(),
+            referenceNode: namespaceImport.getParent()
         });
     }
     for (const namedImport of statement.getNamedImports()) {
@@ -84,7 +96,8 @@ function bindingsFromImportDeclaration(statement: ImportDeclaration): readonly B
             name: localNameOfNamedImport(namedImport),
             isExported: false,
             statement,
-            declarationNode: namedImport
+            declarationNode: namedImport,
+            referenceNode: namedImport
         });
     }
     return result;
@@ -99,7 +112,8 @@ function bindingsFromExportAssignment(statement: ExportAssignment): readonly Bin
             name: 'default',
             isExported: true,
             statement,
-            declarationNode: statement
+            declarationNode: statement,
+            referenceNode: statement
         }
     ];
 }

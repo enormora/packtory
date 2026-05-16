@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
@@ -30,6 +31,7 @@ import { createSbomSerializer } from '../sbom/sbom-serializer.ts';
 import { createPacktoryToolVersionResolver } from '../sbom/tool-version.ts';
 
 const localRequire = createRequire(import.meta.url);
+const packtoryWorkspacePackageJsonPath = fileURLToPath(new URL('../../package.json', import.meta.url));
 
 function tryResolvePackagePath(specifier: string): string | undefined {
     try {
@@ -89,7 +91,8 @@ function buildSbomFileBuilder(fileManager: FileManager): ReturnType<typeof creat
         sbomSerializer: createSbomSerializer(),
         toolVersionProvider: createPacktoryToolVersionResolver({
             fileManager,
-            resolvePackagePath: tryResolvePackagePath
+            resolvePackagePath: tryResolvePackagePath,
+            fallbackPackageJsonPath: packtoryWorkspacePackageJsonPath
         }),
         projectFolder: process.cwd()
     });

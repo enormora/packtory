@@ -6,6 +6,7 @@ import {
     type VariableDeclaration,
     type VariableStatement
 } from 'ts-morph';
+import { variableDeclarationSurvives } from '../variable-declaration-bindings.ts';
 
 export type RemovalPlan = {
     readonly survivingNames: ReadonlySet<string>;
@@ -64,7 +65,7 @@ function captureVariableStatementSurvivors(
 ): readonly Survivor[] {
     const declarators = statement.getDeclarations();
     const survivingDeclarators = declarators.filter((declarator) => {
-        return survivingNames.has(declarator.getName());
+        return variableDeclarationSurvives(declarator, survivingNames);
     });
     if (survivingDeclarators.length === declarators.length) {
         return [captureSurvivor(statement)];
@@ -100,7 +101,7 @@ function processVariableStatement(statement: Statement, survivingNames: Readonly
     }
     let mutated = false;
     for (const declarator of statement.getDeclarations()) {
-        if (!survivingNames.has(declarator.getName())) {
+        if (!variableDeclarationSurvives(declarator, survivingNames)) {
             declarator.remove();
             mutated = true;
         }

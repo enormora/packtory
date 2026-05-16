@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker as WorkerThread } from 'node:worker_threads';
-import { bootSpinnerRuntime } from './spinner-boot.ts';
-import type { SpinnerRuntime, WorkerSpawnRequest } from './spinner-worker-backend.ts';
+import { bootSpinnerRuntime } from '../../command-line-interface/spinner-boot.ts';
+import type { SpinnerRuntime, WorkerSpawnRequest } from '../../command-line-interface/spinner-worker-backend.ts';
 
 const bootModulePath = fileURLToPath(import.meta.url);
 const bootModuleExtension = path.extname(bootModulePath);

@@ -69,46 +69,51 @@ export function substituteDependencies(
 ): SubstitutedResourceGraph {
     const substitutedGraph = createSubstitutedResourceGraph();
     const outstandingConnections: { from: string; to: string }[] = [];
+    const visited = new Set<string>();
 
-    resourceGraph.traverse((node) => {
-        const directDependencies = Array.from(node.adjacentNodeIds);
-        const replacements = findAllPathReplacements(directDependencies, bundleDependencies);
-
+    function recordOutstandingConnections(
+        fromNodeId: string,
+        directDependencies: readonly string[],
+        replacedPaths: Pick<Replacements['importPathReplacements'], 'has'>
+    ): void {
         for (const file of directDependencies) {
-            if (!replacements.importPathReplacements.has(file)) {
-                outstandingConnections.push({ from: node.id, to: file });
+            if (!replacedPaths.has(file)) {
+                outstandingConnections.push({ from: fromNodeId, to: file });
             }
         }
+    }
 
-        if (replacements.importPathReplacements.size > 0) {
-            const substitutionContent = replaceImportPaths(
-                node.data.project,
-                node.data.fileDescription.sourceFilePath,
-                node.data.fileDescription.content,
-                replacements.importPathReplacements
-            );
+    function contentWithReplacements(
+        node: Parameters<Parameters<ResourceGraph['traverse']>[0]>[0],
+        replacements: Replacements
+    ): string {
+        return replaceImportPaths(
+            node.data.project,
+            node.data.fileDescription.sourceFilePath,
+            node.data.fileDescription.content,
+            replacements.importPathReplacements
+        );
+    }
 
-            substitutedGraph.add(node.id, {
-                fileDescription: {
-                    sourceFilePath: node.data.fileDescription.sourceFilePath,
-                    targetFilePath: node.data.fileDescription.targetFilePath,
-                    isExecutable: node.data.fileDescription.isExecutable,
-                    content: substitutionContent
-                },
-                externalDependencies: node.data.externalDependencies,
-                bundleDependencies: replacements.bundleDependencies,
-                isSubstituted: true,
-                isExplicitlyIncluded: node.data.isExplicitlyIncluded
-            });
-        } else {
-            substitutedGraph.add(node.id, {
-                fileDescription: node.data.fileDescription,
-                externalDependencies: node.data.externalDependencies,
-                bundleDependencies: [],
-                isSubstituted: false,
-                isExplicitlyIncluded: node.data.isExplicitlyIncluded
-            });
+    resourceGraph.traverse((node) => {
+        if (visited.has(node.id)) {
+            return;
         }
+        visited.add(node.id);
+
+        const directDependencies = Array.from(node.adjacentNodeIds);
+        const replacements = findAllPathReplacements(directDependencies, bundleDependencies);
+        recordOutstandingConnections(node.id, directDependencies, replacements.importPathReplacements);
+
+        const isSubstituted = replacements.importPathReplacements.size > 0;
+        const content = contentWithReplacements(node, replacements);
+        substitutedGraph.add(node.id, {
+            fileDescription: { ...node.data.fileDescription, content },
+            externalDependencies: node.data.externalDependencies,
+            bundleDependencies: isSubstituted ? replacements.bundleDependencies : [],
+            isSubstituted,
+            isExplicitlyIncluded: node.data.isExplicitlyIncluded
+        });
     });
 
     for (const connection of outstandingConnections) {

@@ -19,6 +19,7 @@ const missingVersionExpectedMessage =
 type FactoryOverrides = {
     readonly resolvePackagePath?: SinonSpy;
     readonly fileManager?: FakeFileManager;
+    readonly fallbackPackageJsonPath?: string;
 };
 
 function createResolver(overrides: FactoryOverrides = {}): {
@@ -31,7 +32,10 @@ function createResolver(overrides: FactoryOverrides = {}): {
         overrides.fileManager ?? createFakeFileManager({ simulatedReadFileResponses: [{ value: '{}' }] });
     const resolve = createPacktoryToolVersionResolver({
         fileManager,
-        resolvePackagePath
+        resolvePackagePath,
+        ...(overrides.fallbackPackageJsonPath === undefined
+            ? {}
+            : { fallbackPackageJsonPath: overrides.fallbackPackageJsonPath })
     });
     return { resolve, resolvePackagePath, fileManager };
 }
@@ -39,6 +43,44 @@ function createResolver(overrides: FactoryOverrides = {}): {
 test('returns the version from @packtory/cli when its package.json resolves inside node_modules', async () => {
     const resolvePackagePath = fake((specifier: string) => {
         return specifier === '@packtory/cli/package.json' ? '/repo/node_modules/@packtory/cli/package.json' : undefined;
+    });
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: JSON.stringify({ name: '@packtory/cli', version: '1.2.3' }) }]
+    });
+    const { resolve } = createResolver({ resolvePackagePath, fileManager });
+
+    const result = await resolve();
+
+    assert.strictEqual(result, '1.2.3');
+    assert.deepStrictEqual(fileManager.getReadFileCall(0), {
+        filePath: '/repo/node_modules/@packtory/cli/package.json'
+    });
+});
+
+test('derives the package.json path from the package entrypoint when package exports hide package.json', async () => {
+    const resolvePackagePath = fake((specifier: string) => {
+        return specifier === '@packtory/cli'
+            ? '/repo/node_modules/@packtory/cli/packages/command-line-interface/command-line-interface.entry-point.js'
+            : undefined;
+    });
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: JSON.stringify({ name: '@packtory/cli', version: '1.2.3' }) }]
+    });
+    const { resolve } = createResolver({ resolvePackagePath, fileManager });
+
+    const result = await resolve();
+
+    assert.strictEqual(result, '1.2.3');
+    assert.deepStrictEqual(fileManager.getReadFileCall(0), {
+        filePath: '/repo/node_modules/@packtory/cli/package.json'
+    });
+});
+
+test('derives a scoped package.json path from deeply nested entrypoint folders', async () => {
+    const resolvePackagePath = fake((specifier: string) => {
+        return specifier === '@packtory/cli'
+            ? '/repo/node_modules/@packtory/cli/dist/packages/command-line-interface/command-line-interface.entry-point.js'
+            : undefined;
     });
     const fileManager = createFakeFileManager({
         simulatedReadFileResponses: [{ value: JSON.stringify({ name: '@packtory/cli', version: '1.2.3' }) }]
@@ -67,6 +109,25 @@ test('falls back to packtory when @packtory/cli is not resolvable', async () => 
     assert.strictEqual(result, '4.5.6');
 });
 
+test('derives an unscoped package.json path from the package entrypoint when needed', async () => {
+    const resolvePackagePath = fake((specifier: string) => {
+        return specifier === 'packtory'
+            ? '/repo/node_modules/packtory/packages/packtory/packtory.entry-point.js'
+            : undefined;
+    });
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: JSON.stringify({ name: 'packtory', version: '4.5.6' }) }]
+    });
+    const { resolve } = createResolver({ resolvePackagePath, fileManager });
+
+    const result = await resolve();
+
+    assert.strictEqual(result, '4.5.6');
+    assert.deepStrictEqual(fileManager.getReadFileCall(0), {
+        filePath: '/repo/node_modules/packtory/package.json'
+    });
+});
+
 test('throws when neither @packtory/cli nor packtory can be resolved', async () => {
     const { resolve } = createResolver({ resolvePackagePath: fake.returns(undefined) });
 
@@ -76,6 +137,24 @@ test('throws when neither @packtory/cli nor packtory can be resolved', async () 
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, unresolvableExpectedMessage);
     }
+});
+
+test('falls back to an explicitly configured workspace package.json when npm installation resolution is unavailable', async () => {
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: JSON.stringify({ name: 'packtory', version: '0.0.0-dev' }) }]
+    });
+    const { resolve } = createResolver({
+        resolvePackagePath: fake.returns(undefined),
+        fileManager,
+        fallbackPackageJsonPath: '/repo/package.json'
+    });
+
+    const result = await resolve();
+
+    assert.strictEqual(result, '0.0.0-dev');
+    assert.deepStrictEqual(fileManager.getReadFileCall(0), {
+        filePath: '/repo/package.json'
+    });
 });
 
 test('throws when the resolved package.json path is not inside a node_modules folder', async () => {
@@ -88,6 +167,63 @@ test('throws when the resolved package.json path is not inside a node_modules fo
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, outsideNodeModulesExpectedMessage);
         assert.strictEqual(fileManager.getReadFileCallCount(), 0);
+    }
+});
+
+test('throws when resolving a package entrypoint never reaches a node_modules package root', async () => {
+    const resolvePackagePath = fake((specifier: string) => {
+        return specifier === 'packtory' ? '/packtory.entry-point.js' : undefined;
+    });
+    const { resolve, fileManager } = createResolver({ resolvePackagePath });
+
+    try {
+        await resolve();
+        assert.fail('Expected resolve() to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual(
+            (error as Error).message,
+            'Refusing to read packtory tool version from "/package.json": the resolved package.json is not inside a node_modules folder. Install packtory via npm to make its real version available.'
+        );
+        assert.strictEqual(fileManager.getReadFileCallCount(), 0);
+    }
+});
+
+test('does not mistake scoped-looking directories outside node_modules for installed packages', async () => {
+    const resolvePackagePath = fake((specifier: string) => {
+        return specifier === 'packtory' ? '/repo/@packtory/cli/command-line-interface.entry-point.js' : undefined;
+    });
+    const { resolve, fileManager } = createResolver({ resolvePackagePath });
+
+    try {
+        await resolve();
+        assert.fail('Expected resolve() to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual(
+            (error as Error).message,
+            'Refusing to read packtory tool version from "/package.json": the resolved package.json is not inside a node_modules folder. Install packtory via npm to make its real version available.'
+        );
+        assert.strictEqual(fileManager.getReadFileCallCount(), 0);
+    }
+});
+
+test('throws when the fallback package.json has an unexpected package name', async () => {
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: JSON.stringify({ name: 'not-packtory', version: '1.2.3' }) }]
+    });
+    const { resolve } = createResolver({
+        resolvePackagePath: fake.returns(undefined),
+        fileManager,
+        fallbackPackageJsonPath: '/repo/package.json'
+    });
+
+    try {
+        await resolve();
+        assert.fail('Expected resolve() to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual(
+            (error as Error).message,
+            'Resolved packtory package.json at "/repo/package.json" has unexpected package name'
+        );
     }
 });
 

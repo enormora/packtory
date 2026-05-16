@@ -1,4 +1,5 @@
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import type { BundleLinker } from '../linker/linker.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import { resolveRootsAndSurface } from '../resource-resolver/resource-resolve-options.ts';
@@ -49,10 +50,11 @@ function maybeEmitLinkingCompleted(
 async function analyzeOne(
     dependencies: Pick<ResolveAndBuildDependencies, 'deadCodeEliminator'>,
     linkedBundle: LinkedBundle,
-    transformationsEnabled: boolean
+    transformationsEnabled: boolean,
+    deadCodeElimination: DeadCodeEliminationSettings | undefined
 ): Promise<AnalyzedBundle> {
     const [analyzedBundle] = await dependencies.deadCodeEliminator.eliminate([
-        { bundle: linkedBundle, transformationsEnabled }
+        { bundle: linkedBundle, transformationsEnabled, deadCodeElimination }
     ]);
     if (analyzedBundle === undefined) {
         throw new Error(`Dead code eliminator returned no bundle for "${linkedBundle.name}"`);
@@ -107,7 +109,12 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
         });
 
         const transformationsEnabled = options.deadCodeElimination?.enabled ?? true;
-        const analyzedBundle = await analyzeOne(dependencies, linkedBundle, transformationsEnabled);
+        const analyzedBundle = await analyzeOne(
+            dependencies,
+            linkedBundle,
+            transformationsEnabled,
+            options.deadCodeElimination
+        );
         return dependencies.versionManager.addVersion({
             bundle: analyzedBundle,
             version: options.version,

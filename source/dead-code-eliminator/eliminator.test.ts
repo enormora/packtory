@@ -180,6 +180,86 @@ test('eliminate removes an unreachable function declaration and records the surv
     assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['live']));
 });
 
+test('eliminate keeps exported destructuring bindings in an entry file', async () => {
+    const eliminator = createTestEliminator();
+    const bundle = bundleForCodeFile({
+        name: 'pkg',
+        sourceFilePath: '/src/index.ts',
+        targetFilePath: 'index.ts',
+        content: [
+            'const api = { live() { return 1; }, dead() { return 2; } };',
+            'export const { live, dead } = api;'
+        ].join('\n')
+    });
+    const [analyzed] = await eliminator.eliminate(inputs(bundle));
+    const emitted = analyzed?.contents[0];
+    assert.ok(emitted !== undefined);
+    assert.strictEqual(emitted.fileDescription.content.includes('export const { live, dead } = api;'), true);
+    assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['api', 'live', 'dead']));
+});
+
+test('eliminate keeps a whole destructuring declarator when one bound identifier is reachable', async () => {
+    const eliminator = createTestEliminator();
+    const bundle = bundleForCodeFile({
+        name: 'pkg',
+        sourceFilePath: '/src/index.ts',
+        targetFilePath: 'index.ts',
+        content: [
+            'function build() { return { helper() { return 1; }, other() { return 2; } }; }',
+            'const { helper, other } = build();',
+            'export function live() { return helper(); }'
+        ].join('\n')
+    });
+    const [analyzed] = await eliminator.eliminate(inputs(bundle));
+    const emitted = analyzed?.contents[0];
+    assert.ok(emitted !== undefined);
+    assert.strictEqual(emitted.fileDescription.content.includes('const { helper, other } = build();'), true);
+    assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['helper', 'other', 'build', 'live']));
+});
+
+test('eliminate preserves a pure destructuring declarator when one bound identifier is reachable', async () => {
+    const eliminator = createTestEliminator();
+    const bundle = bundleForCodeFile({
+        name: 'pkg',
+        sourceFilePath: '/src/index.ts',
+        targetFilePath: 'index.ts',
+        content: ['const { helper, other } = { helper: 1, other: 2 };', 'export const live = helper;'].join('\n')
+    });
+    const [analyzed] = await eliminator.eliminate(inputs(bundle));
+    const emitted = analyzed?.contents[0];
+    assert.ok(emitted !== undefined);
+    assert.strictEqual(
+        emitted.fileDescription.content.includes('const { helper, other } = { helper: 1, other: 2 };'),
+        true
+    );
+    assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['helper', 'other', 'live']));
+});
+
+test('eliminate keeps shorthand property value bindings when an exported object literal uses them', async () => {
+    const eliminator = createTestEliminator();
+    const bundle = bundleForCodeFile({
+        name: 'pkg',
+        sourceFilePath: '/src/index.ts',
+        targetFilePath: 'index.ts',
+        content: [
+            'const globalSchema = 1;',
+            'const perPackageSchema = 2;',
+            'function run() { return 3; }',
+            'export const rule = { globalSchema, perPackageSchema, run };'
+        ].join('\n')
+    });
+    const [analyzed] = await eliminator.eliminate(inputs(bundle));
+    const emitted = analyzed?.contents[0];
+    assert.ok(emitted !== undefined);
+    assert.strictEqual(emitted.fileDescription.content.includes('const globalSchema = 1;'), true);
+    assert.strictEqual(emitted.fileDescription.content.includes('const perPackageSchema = 2;'), true);
+    assert.strictEqual(emitted.fileDescription.content.includes('function run()'), true);
+    assert.deepStrictEqual(
+        emitted.analysis.survivingBindings,
+        new Set(['globalSchema', 'perPackageSchema', 'run', 'rule'])
+    );
+});
+
 test('eliminate keeps unreachable declarations when transformations are disabled', async () => {
     const eliminator = createTestEliminator();
     const result = await eliminator.eliminate([{ bundle: indexTsBundle(), transformationsEnabled: false }]);
@@ -283,6 +363,59 @@ test('eliminate honours a root declaration file when seeding reachability', asyn
     assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set(['Public', 'Private']));
 });
 
+test('eliminate honours explicit private roots when seeding reachability', async () => {
+    const eliminator = createTestEliminator();
+    const mainResource = {
+        ...bundleResource('/src/index.js', { content: 'export const main = 1;\n', targetFilePath: 'index.js' }),
+        isSubstituted: false
+    };
+    const workerResource = {
+        ...bundleResource('/src/worker.js', {
+            content: 'export const workerPublic = 1;\nexport const workerPrivate = 2;\n',
+            targetFilePath: 'worker.js'
+        }),
+        isSubstituted: false
+    };
+    const [analyzed] = await eliminator.eliminate(
+        inputs(
+            linkedBundle({
+                name: 'pkg',
+                contents: [mainResource, workerResource],
+                roots: {
+                    main: {
+                        js: {
+                            content: '',
+                            isExecutable: false,
+                            sourceFilePath: '/src/index.js',
+                            targetFilePath: 'index.js'
+                        }
+                    },
+                    worker: {
+                        js: {
+                            content: '',
+                            isExecutable: false,
+                            sourceFilePath: '/src/worker.js',
+                            targetFilePath: 'worker.js'
+                        }
+                    }
+                },
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: {
+                        modules: [{ root: 'main', export: '.' }],
+                        privateRoots: ['worker']
+                    }
+                }
+            })
+        )
+    );
+    const emittedWorker = analyzed?.contents.find((resource) => {
+        return resource.fileDescription.sourceFilePath === '/src/worker.js';
+    });
+    assert.ok(emittedWorker !== undefined);
+    assert.deepStrictEqual(emittedWorker.analysis.survivingBindings, new Set(['workerPublic', 'workerPrivate']));
+});
+
 function producerBundleWith(helpersContent: string): LinkedBundle {
     const producerHelpers = {
         ...bundleResource('/producer/helpers.ts', { content: helpersContent, targetFilePath: 'helpers.ts' }),
@@ -326,6 +459,53 @@ test('eliminate uses cross-bundle seeds to keep an exported function reachable w
     assert.ok(producerEmitted !== undefined);
     assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), true);
     assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), false);
+});
+
+test('eliminate keeps a runtime js dependency reachable even when a sibling declaration file is present', async () => {
+    const eliminator = createTestEliminator();
+    const entryResource = {
+        ...bundleResource('/src/index.js', {
+            content: 'import { used } from "./helpers.js";\nexport function live() { return used(); }',
+            targetFilePath: 'index.js'
+        }),
+        isSubstituted: false
+    };
+    const helperRuntimeResource = {
+        ...bundleResource('/src/helpers.js', {
+            content: 'export function used() { return 1; }\nexport function unused() { return 2; }',
+            targetFilePath: 'helpers.js'
+        }),
+        isSubstituted: false
+    };
+    const helperDeclarationResource = {
+        ...bundleResource('/src/helpers.d.ts', {
+            content: 'export declare function used(): number;\nexport declare function unused(): number;\n',
+            targetFilePath: 'helpers.d.ts'
+        }),
+        isSubstituted: false
+    };
+    const bundle = linkedBundle({
+        name: 'pkg',
+        contents: [entryResource, helperRuntimeResource, helperDeclarationResource],
+        roots: {
+            main: {
+                js: {
+                    content: entryResource.fileDescription.content,
+                    isExecutable: false,
+                    sourceFilePath: '/src/index.js',
+                    targetFilePath: 'index.js'
+                }
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+    const [analyzed] = await eliminator.eliminate(inputs(bundle));
+    const runtimeHelper = analyzed?.contents.find((resource) => {
+        return resource.fileDescription.sourceFilePath === '/src/helpers.js';
+    });
+    assert.ok(runtimeHelper !== undefined);
+    assert.strictEqual(runtimeHelper.fileDescription.content.includes('used'), true);
+    assert.strictEqual(runtimeHelper.fileDescription.content.includes('unused'), false);
 });
 
 test('eliminate drops a producer binding whose only consumer-side reference is in unreachable code', async () => {
