@@ -47,14 +47,15 @@ function isPackageRootDirectory(directoryPath: string): boolean {
 function packageJsonPathForResolvedPackageEntry(resolvedPath: string): string {
     let currentDirectory = path.dirname(resolvedPath);
     const rootDirectory = path.parse(currentDirectory).root;
-
-    while (currentDirectory !== rootDirectory) {
-        if (isPackageRootDirectory(currentDirectory)) {
-            return path.join(currentDirectory, packageJsonFileName);
-        }
+    const candidateDirectories = Array.from({ length: currentDirectory.split(pathSeparators).length }, () => {
+        const candidate = currentDirectory;
         currentDirectory = path.dirname(currentDirectory);
+        return candidate;
+    });
+    const packageRoot = candidateDirectories.find(isPackageRootDirectory);
+    if (packageRoot !== undefined) {
+        return path.join(packageRoot, packageJsonFileName);
     }
-
     return path.join(rootDirectory, packageJsonFileName);
 }
 
