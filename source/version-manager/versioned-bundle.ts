@@ -41,8 +41,8 @@ export type BuildVersionedBundleOptions = {
 };
 
 type ExplicitPackageInterfaceLike = {
-    readonly modules?: readonly { readonly root: string }[];
-    readonly bins?: readonly { readonly root: string }[];
+    readonly modules?: readonly { readonly root: string }[] | undefined;
+    readonly bins?: readonly { readonly root: string }[] | undefined;
 };
 
 function firstExplicitRootId(packageInterface: ExplicitPackageInterfaceLike): string | undefined {
