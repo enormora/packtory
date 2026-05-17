@@ -277,12 +277,9 @@ function validateExplicitBinRoot(
     entryName: string,
     root: RootFileDescription
 ): RootFileDescription {
-    if (!root.js.isExecutable || !isShebangContent(root.js.content)) {
+    if (!isShebangContent(root.js.content)) {
         throw new Error(
-            [
-                `Package "${bundleName}" bin "${entryName}" must point to a root`,
-                'with a shebang and executable bit'
-            ].join(' ')
+            [`Package "${bundleName}" bin "${entryName}" must point to a root`, 'with a shebang'].join(' ')
         );
     }
 

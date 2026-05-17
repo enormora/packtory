@@ -762,12 +762,12 @@ test('buildBinField() returns undefined for explicit packages without bins', () 
     assert.strictEqual(buildBinField(bundle), undefined);
 });
 
-test('buildBinField() maps explicit bins and validates shebang executables', () => {
+test('buildBinField() maps explicit bins and validates shebang roots', () => {
     const valid = linkedBundle({
         roots: {
             cli: createRoot('/src/cli.js', 'cli.js', {
                 content: '#!/usr/bin/env node\nconsole.log("cli");\n',
-                isExecutable: true
+                isExecutable: false
             })
         },
         surface: {
@@ -796,7 +796,7 @@ test('buildBinField() maps explicit bins and validates shebang executables', () 
     assert.deepStrictEqual(buildBinField(valid), { 'package-a': './cli.js' });
     assert.throws(() => {
         buildBinField(invalid);
-    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang and executable bit$/u);
+    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang$/u);
 });
 
 test('buildBinField() rejects roots that only have one of executable mode or shebang content', () => {
@@ -828,7 +828,7 @@ test('buildBinField() rejects roots that only have one of executable mode or she
 
     assert.throws(() => {
         buildBinField(executableWithoutShebang);
-    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang and executable bit$/u);
+    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang$/u);
     assert.strictEqual(buildBinField(shebangWithoutExecutable), undefined);
 });
 
