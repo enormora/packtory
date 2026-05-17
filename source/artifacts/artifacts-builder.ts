@@ -16,6 +16,10 @@ type TarballArtifact = {
     readonly tarData: Buffer;
 };
 
+function isString(value: unknown): value is string {
+    return typeof value === 'string';
+}
+
 export type ArtifactsBuilder = {
     collectContents: (
         bundle: VersionedBundleWithManifest,
@@ -40,11 +44,26 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
         return prefix === undefined ? filePath : path.join(prefix, filePath);
     }
 
+    function getExplicitBinTargetPaths(bundle: VersionedBundleWithManifest): ReadonlySet<string> {
+        if (bundle.binField === undefined) {
+            return new Set<string>();
+        }
+
+        const targets =
+            typeof bundle.binField === 'string' ? [bundle.binField] : Object.values(bundle.binField).filter(isString);
+        return new Set(
+            targets.map((target) => {
+                return target.replace(/^\.\//u, '');
+            })
+        );
+    }
+
     function collectContents(
         bundle: VersionedBundleWithManifest,
         prefix?: string,
         extraFiles: readonly FileDescription[] = []
     ): readonly FileDescription[] {
+        const explicitBinTargetPaths = getExplicitBinTargetPaths(bundle);
         const artifactContents: FileDescription[] = [
             {
                 ...bundle.manifestFile,
@@ -56,7 +75,9 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
             artifactContents.push({
                 filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
                 content: entry.fileDescription.content,
-                isExecutable: entry.fileDescription.isExecutable
+                isExecutable:
+                    entry.fileDescription.isExecutable ||
+                    explicitBinTargetPaths.has(entry.fileDescription.targetFilePath)
             });
         }
 

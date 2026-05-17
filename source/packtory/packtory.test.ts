@@ -570,22 +570,29 @@ test('buildAndPublishAll() passes selectNext and createProgressEvent that expose
 function createRecordingEliminator(): {
     readonly eliminate: SinonSpy;
     readonly firstCallTransformationsEnabled: () => boolean | undefined;
+    readonly firstCallDeadCodeElimination: () => unknown;
 } {
-    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
-        return inputs.map(() => {
-            const stub: AnalyzedBundle = {
-                ...createLinkedBundle('package-a'),
-                contents: [],
-                sideEffectsField: undefined
-            };
-            return stub;
-        });
-    });
+    const eliminate = fake(
+        async (inputs: readonly { transformationsEnabled: boolean; deadCodeElimination?: unknown }[]) => {
+            return inputs.map(() => {
+                const stub: AnalyzedBundle = {
+                    ...createLinkedBundle('package-a'),
+                    contents: [],
+                    sideEffectsField: undefined
+                };
+                return stub;
+            });
+        }
+    );
     return {
         eliminate,
         firstCallTransformationsEnabled: () => {
             const inputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
             return inputs[0]?.transformationsEnabled;
+        },
+        firstCallDeadCodeElimination: () => {
+            const inputs = eliminate.firstCall.args[0] as readonly { deadCodeElimination?: unknown }[];
+            return inputs[0]?.deadCodeElimination;
         }
     };
 }
@@ -623,6 +630,36 @@ test('resolveAndLinkAll() honours per-package deadCodeElimination.enabled when r
     assert.strictEqual(recorder.firstCallTransformationsEnabled(), false);
 });
 
+test('resolveAndLinkAll() merges common and per-package deadCodeElimination settings', async () => {
+    const recorder = createRecordingEliminator();
+    const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: { eliminate: recorder.eliminate } });
+    await packtory.resolveAndLinkAll(
+        createConfigWithoutRegistry({
+            commonPackageSettings: {
+                sourcesFolder: '/src',
+                mainPackageJson: { type: 'module' },
+                publishSettings: { access: 'public' },
+                deadCodeElimination: {
+                    enabled: false,
+                    pureImports: [{ from: 'zod/mini' }]
+                }
+            },
+            packages: [
+                {
+                    name: 'package-a',
+                    roots: { main: { js: 'package-a/index.js' } },
+                    deadCodeElimination: { enabled: true, pureConstructors: ['Set'] }
+                }
+            ]
+        })
+    );
+    assert.deepStrictEqual(recorder.firstCallDeadCodeElimination(), {
+        enabled: true,
+        pureImports: [{ from: 'zod/mini' }],
+        pureConstructors: ['Set']
+    });
+});
+
 test('resolveAndLinkAll() defaults transformationsEnabled to true when neither commonPackageSettings nor per-package config sets it', async () => {
     const recorder = createRecordingEliminator();
     const { packtory } = createPacktoryUnderTest({ deadCodeEliminator: { eliminate: recorder.eliminate } });
@@ -647,7 +684,10 @@ test('resolveAndLinkAll() throws when a resolved package has no entry in the tra
         await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
         assert.fail('Expected resolveAndLinkAll to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Missing transformations flag for package "unexpected-package"');
+        assert.strictEqual(
+            (error as Error).message,
+            'Missing dead-code elimination settings for package "unexpected-package"'
+        );
     }
 });
 

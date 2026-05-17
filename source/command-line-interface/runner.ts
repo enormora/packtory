@@ -97,7 +97,13 @@ function printPartialErrorSummary(log: (message: string) => void, error: Publish
     const total = error.succeeded.length + error.failures.length;
     const failureCount = red(String(error.failures.length));
     const successCount = green(String(error.succeeded.length));
-    log(`${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ${successCount} succeeded`);
+    const summary =
+        `${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ` +
+        `${successCount} succeeded`;
+    const details = error.failures.map((failure) => {
+        return `- ${failure.message}`;
+    });
+    log([summary, ...details].join('\n'));
 }
 
 function printPublishFailure(log: (message: string) => void, error: PublishFailure): void {

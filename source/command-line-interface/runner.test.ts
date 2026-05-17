@@ -324,7 +324,7 @@ test('prints error summary and dry-run note when publish command encounters part
     const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures));
 
     assert.strictEqual(log.callCount, 2);
-    assert.deepStrictEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded']);
+    assert.deepStrictEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second']);
     assert.deepStrictEqual(log.secondCall.args, [dryRunNote]);
 });
 
@@ -332,7 +332,7 @@ test('prints error summary without dry-run note when publish command encounters 
     const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures), ['--no-dry-run']);
 
     assert.strictEqual(log.callCount, 1);
-    assert.deepStrictEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded']);
+    assert.deepStrictEqual(log.firstCall.args, ['✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second']);
 });
 
 test('prints success summary and dry-run note when publish command had no errors', async () => {

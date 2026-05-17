@@ -36,5 +36,5 @@ test('loadBundle() throws when the public surface references a missing root', ()
 
     assert.throws(() => {
         loadBundle(createProject, { bundle, transformationsEnabled: true });
-    }, /^Error: Bundle "package-a" is missing root "missing" referenced by its public surface$/u);
+    }, /^Error: Bundle "package-a" is missing root "missing" referenced by its entry surface$/u);
 });

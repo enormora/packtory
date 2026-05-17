@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
@@ -29,14 +28,8 @@ import { createSbomFileBuilder } from '../sbom/sbom-file.ts';
 import { createSbomSerializer } from '../sbom/sbom-serializer.ts';
 import { createPacktoryToolVersionResolver } from '../sbom/tool-version.ts';
 
-const localRequire = createRequire(import.meta.url);
-
-function tryResolvePackagePath(specifier: string): string | undefined {
-    try {
-        return localRequire.resolve(specifier);
-    } catch {
-        return undefined;
-    }
+async function importPackageJson(specifier: string): Promise<unknown> {
+    return await import(specifier, { with: { type: 'json' } });
 }
 
 export type PackageProcessorComposition = {
@@ -87,10 +80,7 @@ function buildSbomFileBuilder(fileManager: FileManager): ReturnType<typeof creat
     return createSbomFileBuilder({
         licenseResolver: createLicenseResolver({ fileManager }),
         sbomSerializer: createSbomSerializer(),
-        toolVersionProvider: createPacktoryToolVersionResolver({
-            fileManager,
-            resolvePackagePath: tryResolvePackagePath
-        }),
+        toolVersionProvider: createPacktoryToolVersionResolver({ importPackageJson }),
         projectFolder: process.cwd()
     });
 }

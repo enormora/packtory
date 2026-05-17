@@ -1,61 +1,66 @@
-import { isPlainObject } from 'remeda';
-import type { FileManager } from '../file-manager/file-manager.ts';
+import { isObjectType, isPlainObject } from 'remeda';
 
 const candidatePackageNames = ['@packtory/cli', 'packtory'] as const;
-const nodeModulesSegment = 'node_modules';
-const pathSeparators = /[/\\]/u;
 
 type ToolVersionResolverDependencies = {
-    readonly fileManager: FileManager;
-    readonly resolvePackagePath: (specifier: string) => string | undefined;
+    readonly importPackageJson: (specifier: string) => Promise<unknown>;
 };
 
-function isInsideNodeModules(filePath: string): boolean {
-    return filePath.split(pathSeparators).includes(nodeModulesSegment);
-}
+type CandidatePackageName = (typeof candidatePackageNames)[number];
 
 function buildUnresolvableMessage(): string {
     const intro = 'Cannot determine packtory tool version: neither "@packtory/cli" nor "packtory" is resolvable.';
     return `${intro} Install packtory via npm so it lives under node_modules/.`;
 }
 
-function buildOutsideNodeModulesMessage(packageJsonPath: string): string {
-    const intro = `Refusing to read packtory tool version from "${packageJsonPath}":`;
-    const reason = 'the resolved package.json is not inside a node_modules folder.';
-    return `${intro} ${reason} Install packtory via npm to make its real version available.`;
+function isCandidatePackageName(value: unknown): value is CandidatePackageName {
+    return value === '@packtory/cli' || value === 'packtory';
 }
 
-function findInstalledPackagePath(
-    resolvePackagePath: ToolVersionResolverDependencies['resolvePackagePath']
-): string | undefined {
-    for (const candidatePackageName of candidatePackageNames) {
-        const resolved = resolvePackagePath(`${candidatePackageName}/package.json`);
-        if (resolved !== undefined) {
-            return resolved;
-        }
+function isImportResolutionError(error: unknown): boolean {
+    if (!isObjectType(error) || !('code' in error)) {
+        return false;
     }
-    return undefined;
+
+    const { code } = error;
+    return code === 'ERR_MODULE_NOT_FOUND' || code === 'ERR_PACKAGE_PATH_NOT_EXPORTED';
+}
+
+function unwrapJsonModule(importedModule: unknown): unknown {
+    if (!isPlainObject(importedModule) || !('default' in importedModule)) {
+        return importedModule;
+    }
+
+    return importedModule.default;
+}
+
+function parseToolPackageJson(specifier: string, importedModule: unknown): string {
+    const parsed = unwrapJsonModule(importedModule);
+    if (!isPlainObject(parsed) || typeof parsed.version !== 'string') {
+        throw new Error(`Imported packtory package.json from "${specifier}" is missing a version field`);
+    }
+    if (!isCandidatePackageName(parsed.name)) {
+        throw new Error(`Imported packtory package.json from "${specifier}" has unexpected package name`);
+    }
+    return parsed.version;
 }
 
 export function createPacktoryToolVersionResolver(
     dependencies: ToolVersionResolverDependencies
 ): () => Promise<string> {
-    const { fileManager, resolvePackagePath } = dependencies;
+    const { importPackageJson } = dependencies;
 
     return async function resolvePacktoryToolVersion(): Promise<string> {
-        const packageJsonPath = findInstalledPackagePath(resolvePackagePath);
-        if (packageJsonPath === undefined) {
-            throw new Error(buildUnresolvableMessage());
+        for (const candidatePackageName of candidatePackageNames) {
+            const specifier = `${candidatePackageName}/package.json`;
+            try {
+                return parseToolPackageJson(specifier, await importPackageJson(specifier));
+            } catch (error: unknown) {
+                if (!isImportResolutionError(error)) {
+                    throw error;
+                }
+            }
         }
-        if (!isInsideNodeModules(packageJsonPath)) {
-            throw new Error(buildOutsideNodeModulesMessage(packageJsonPath));
-        }
-
-        const content = await fileManager.readFile(packageJsonPath);
-        const parsed: unknown = JSON.parse(content);
-        if (!isPlainObject(parsed) || typeof parsed.version !== 'string') {
-            throw new Error(`Resolved packtory package.json at "${packageJsonPath}" is missing a version field`);
-        }
-        return parsed.version;
+        throw new Error(buildUnresolvableMessage());
     };
 }

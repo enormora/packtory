@@ -9,7 +9,8 @@ test('packageInterfaceSchema accepts root exports for "." and subpath exports', 
             modules: [
                 { root: 'main', export: '.' },
                 { root: 'feature', export: './feature' }
-            ]
+            ],
+            privateRoots: ['worker']
         }).success,
         true
     );
@@ -34,6 +35,13 @@ test('packageInterfaceSchema rejects empty module and bin exposure arrays', () =
     assert.strictEqual(
         safeParse(packageInterfaceSchema, {
             bins: []
+        }).success,
+        false
+    );
+    assert.strictEqual(
+        safeParse(packageInterfaceSchema, {
+            modules: [{ root: 'main', export: '.' }],
+            privateRoots: []
         }).success,
         false
     );

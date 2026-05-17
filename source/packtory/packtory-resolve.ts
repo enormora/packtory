@@ -1,4 +1,9 @@
+/* eslint-disable import/max-dependencies -- This orchestration module composes validation, scheduling, linking, and checks. */
 import { Result } from 'true-myth';
+import {
+    resolveDeadCodeEliminationSettings,
+    type DeadCodeEliminationSettings
+} from '../config/dead-code-elimination-settings.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import { resolveRootsAndSurface } from '../resource-resolver/resource-resolve-options.ts';
@@ -26,14 +31,16 @@ type ResolveDependencies = {
     readonly progressBroadcaster: ProgressBroadcaster;
 };
 
-function resolveTransformationsEnabledByName(
+function resolveDeadCodeEliminationByName(
     validated: ValidConfigWithoutRegistryResult
-): ReadonlyMap<string, boolean> {
-    const commonEnabled = validated.packtoryConfig.commonPackageSettings?.deadCodeElimination?.enabled;
+): ReadonlyMap<string, DeadCodeEliminationSettings | undefined> {
+    const commonSettings = validated.packtoryConfig.commonPackageSettings?.deadCodeElimination;
     return new Map(
         validated.packtoryConfig.packages.map((packageConfig) => {
-            const packageEnabled = packageConfig.deadCodeElimination?.enabled;
-            return [packageConfig.name, packageEnabled ?? commonEnabled ?? true];
+            return [
+                packageConfig.name,
+                resolveDeadCodeEliminationSettings(packageConfig.deadCodeElimination, commonSettings)
+            ];
         })
     );
 }
@@ -98,14 +105,18 @@ async function analyzeResolvedPackages(
     config: ValidConfigWithoutRegistryResult,
     linkedPackages: readonly LinkedPackage[]
 ): Promise<readonly ResolvedPackage[]> {
-    const transformationsEnabledByName = resolveTransformationsEnabledByName(config);
+    const deadCodeEliminationByName = resolveDeadCodeEliminationByName(config);
     const analyzedBundles = await dependencies.deadCodeEliminator.eliminate(
         linkedPackages.map((linkedPackage) => {
-            const transformationsEnabled = transformationsEnabledByName.get(linkedPackage.name);
-            if (transformationsEnabled === undefined) {
-                throw new Error(`Missing transformations flag for package "${linkedPackage.name}"`);
+            const deadCodeElimination = deadCodeEliminationByName.get(linkedPackage.name);
+            if (!deadCodeEliminationByName.has(linkedPackage.name)) {
+                throw new Error(`Missing dead-code elimination settings for package "${linkedPackage.name}"`);
             }
-            return { bundle: linkedPackage.linkedBundle, transformationsEnabled };
+            return {
+                bundle: linkedPackage.linkedBundle,
+                transformationsEnabled: deadCodeElimination?.enabled ?? true,
+                deadCodeElimination
+            };
         })
     );
 

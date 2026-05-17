@@ -17,6 +17,7 @@ test('linkBundle() keeps js-only roots when there are no bundle substitutions', 
     const result = await linker.linkBundle({
         bundle: {
             name: 'package-a',
+            exportPackageJson: true,
             contents: [
                 {
                     fileDescription: {
@@ -53,6 +54,7 @@ test('linkBundle() keeps js-only roots when there are no bundle substitutions', 
     });
 
     assert.strictEqual(result.name, 'package-a');
+    assert.strictEqual(result.exportPackageJson, true);
     assert.deepStrictEqual(result.roots, {
         main: {
             js: {
@@ -185,4 +187,93 @@ test('linkBundle() flattens declaration roots and substitutes matching bundle de
     assert.strictEqual(result.contents.length, 2);
     assert.strictEqual(result.contents[0]?.isSubstituted, true);
     assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), ['bundle-dependency']);
+});
+
+test('linkBundle() tolerates explicit roots that share transitive files', async () => {
+    const project = createProject({
+        withFiles: [
+            { filePath: '/src/cli.js', content: 'import "./shared.js";' },
+            { filePath: '/src/worker.js', content: 'import "./shared.js";' },
+            { filePath: '/src/shared.js', content: 'export const shared = 1;' }
+        ]
+    });
+    const linker = createBundleLinker();
+
+    const result = await linker.linkBundle({
+        bundle: {
+            name: '@packtory/cli',
+            contents: [
+                {
+                    fileDescription: {
+                        content: 'import "./shared.js";',
+                        isExecutable: true,
+                        sourceFilePath: '/src/cli.js',
+                        targetFilePath: 'cli.js'
+                    },
+                    directDependencies: new Set(['/src/shared.js']),
+                    isExplicitlyIncluded: false,
+                    project
+                },
+                {
+                    fileDescription: {
+                        content: 'import "./shared.js";',
+                        isExecutable: false,
+                        sourceFilePath: '/src/worker.js',
+                        targetFilePath: 'worker.js'
+                    },
+                    directDependencies: new Set(['/src/shared.js']),
+                    isExplicitlyIncluded: false,
+                    project
+                },
+                {
+                    fileDescription: {
+                        content: 'export const shared = 1;',
+                        isExecutable: false,
+                        sourceFilePath: '/src/shared.js',
+                        targetFilePath: 'shared.js'
+                    },
+                    directDependencies: new Set(),
+                    isExplicitlyIncluded: false,
+                    project
+                }
+            ],
+            roots: {
+                cli: {
+                    js: {
+                        content: '#!/usr/bin/env node\nimport "./shared.js";',
+                        isExecutable: true,
+                        sourceFilePath: '/src/cli.js',
+                        targetFilePath: 'cli.js'
+                    }
+                },
+                worker: {
+                    js: {
+                        content: 'import "./shared.js";',
+                        isExecutable: false,
+                        sourceFilePath: '/src/worker.js',
+                        targetFilePath: 'worker.js'
+                    }
+                }
+            },
+            surface: {
+                mode: 'explicit',
+                packageInterface: {
+                    bins: [{ root: 'cli', name: 'packtory' }],
+                    privateRoots: ['worker']
+                }
+            },
+            externalDependencies: new Map()
+        },
+        bundleDependencies: []
+    });
+
+    assert.strictEqual(result.contents.length, 3);
+    assert.deepStrictEqual(
+        result.contents
+            .map((entry) => {
+                return entry.fileDescription.sourceFilePath;
+            })
+            .toSorted(),
+        ['/src/cli.js', '/src/worker.js', '/src/shared.js'].toSorted()
+    );
 });

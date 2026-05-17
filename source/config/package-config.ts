@@ -21,6 +21,7 @@ export type CommonPackageSettings = {
 
 type PackageConfigBase = {
     readonly name: string;
+    readonly exportPackageJson?: true | undefined;
     readonly versioning?: VersioningSettings | undefined;
     readonly bundleDependencies?: readonly string[] | undefined;
     readonly bundlePeerDependencies?: readonly string[] | undefined;

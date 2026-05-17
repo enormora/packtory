@@ -1,11 +1,17 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { classifySideEffects } from './side-effect-classifier.ts';
 
-function classify(content: string): readonly { readonly line: number; readonly kind: string }[] {
+// cspell:ignore yoctocolors
+
+function classify(
+    content: string,
+    settings?: DeadCodeEliminationSettings
+): readonly { readonly line: number; readonly kind: string }[] {
     const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
-    const result = classifySideEffects(project.getSourceFileOrThrow('index.ts'));
+    const result = classifySideEffects(project.getSourceFileOrThrow('index.ts'), settings);
     return result.map((statement) => {
         return { line: statement.line, kind: statement.kind };
     });
@@ -288,8 +294,183 @@ test('treats a const with a call expression as impure', () => {
     assert.deepStrictEqual(classify('const x = compute();'), [{ line: 1, kind: 'variable initializer' }]);
 });
 
+test('treats a const with a trusted imported call as pure', () => {
+    assert.deepStrictEqual(
+        classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors', imports: ['bold'] }]
+        }),
+        []
+    );
+});
+
+test('treats a const with a wrapped trusted imported call and spread arguments as pure', () => {
+    assert.deepStrictEqual(
+        classify('import { bold } from "yoctocolors"; const x = (((bold as typeof bold))!)(...[\'hi\']);', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors', imports: ['bold'] }]
+        }),
+        []
+    );
+});
+
+test('treats a const with a trusted namespace import call as pure', () => {
+    assert.deepStrictEqual(
+        classify('import * as colors from "yoctocolors"; const x = colors.green("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors' }]
+        }),
+        []
+    );
+});
+
+test('treats a const with a trusted namespace import call as pure when the allow-list names the accessed member', () => {
+    assert.deepStrictEqual(
+        classify('import * as colors from "yoctocolors"; const x = colors.green("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors', imports: ['green'] }]
+        }),
+        []
+    );
+});
+
+test('treats a namespace import call chain as impure when only a later accessed member is trusted', () => {
+    assert.deepStrictEqual(
+        classify('import * as colors from "yoctocolors"; const x = colors.bold.green("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors', imports: ['green'] }]
+        }),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
+test('treats a const with a trusted default import call as pure', () => {
+    assert.deepStrictEqual(
+        classify('import format from "trusted-formatter"; const x = format("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'trusted-formatter', imports: ['default'] }]
+        }),
+        []
+    );
+});
+
+test('treats a const with a named import as impure when only default imports are trusted', () => {
+    assert.deepStrictEqual(
+        classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors', imports: ['default'] }]
+        }),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
+test('treats a const with a trusted imported call as pure when a later trust rule matches', () => {
+    assert.deepStrictEqual(
+        classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'trusted-formatter' }, { from: 'yoctocolors', imports: ['bold'] }]
+        }),
+        []
+    );
+});
+
+test('treats a const with a trusted namespace builder call chain as pure', () => {
+    assert.deepStrictEqual(
+        classify('import { z } from "zod/mini"; const x = z.string().check(z.minLength(1));', {
+            enabled: true,
+            pureImports: [{ from: 'zod/mini' }]
+        }),
+        []
+    );
+});
+
+test('treats an untrusted imported call as impure', () => {
+    assert.deepStrictEqual(
+        classify('import { bold } from "yoctocolors"; const x = bold("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors', imports: ['green'] }]
+        }),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
+test('treats a namespace import call as impure when the module is not trusted', () => {
+    assert.deepStrictEqual(
+        classify('import * as colors from "yoctocolors"; const x = colors.green("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'trusted-formatter' }]
+        }),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
+test('treats a const with an imported call as impure when no pure import settings are configured', () => {
+    assert.deepStrictEqual(classify('import { bold } from "yoctocolors"; const x = bold("hi");', { enabled: true }), [
+        { line: 1, kind: 'variable initializer' }
+    ]);
+});
+
+test('treats a const with an imported call as impure when purity settings are omitted entirely', () => {
+    assert.deepStrictEqual(classify('import { bold } from "yoctocolors"; const x = bold("hi");'), [
+        { line: 1, kind: 'variable initializer' }
+    ]);
+});
+
+test('treats a trusted imported call with an impure argument as impure', () => {
+    assert.deepStrictEqual(
+        classify('import { bold } from "yoctocolors"; const x = bold(compute());', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors', imports: ['bold'] }]
+        }),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
+test('treats a call through an untrusted property base as impure', () => {
+    assert.deepStrictEqual(
+        classify('declare const obj: { format(value: string): string }; const x = obj.format("hi");'),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
+test('treats a call through an unsupported imported element access as impure', () => {
+    assert.deepStrictEqual(
+        classify('import * as colors from "yoctocolors"; const x = colors["green"]("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'yoctocolors' }]
+        }),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
+test('treats a const with a default import as impure when only namespace members are trusted', () => {
+    assert.deepStrictEqual(
+        classify('import format from "trusted-formatter"; const x = format("hi");', {
+            enabled: true,
+            pureImports: [{ from: 'trusted-formatter', imports: ['green'] }]
+        }),
+        [{ line: 1, kind: 'variable initializer' }]
+    );
+});
+
 test('treats a const with a new expression as impure', () => {
     assert.deepStrictEqual(classify('const x = new Date();'), [{ line: 1, kind: 'variable initializer' }]);
+});
+
+test('treats a const with a trusted constructor call as pure', () => {
+    assert.deepStrictEqual(
+        classify('const x = new Set([1, 2, 3]);', {
+            enabled: true,
+            pureConstructors: ['Set']
+        }),
+        []
+    );
+});
+
+test('treats a constructor call as impure when constructor trust settings are omitted', () => {
+    assert.deepStrictEqual(classify('const x = new Set([1, 2, 3]);', { enabled: true }), [
+        { line: 1, kind: 'variable initializer' }
+    ]);
 });
 
 test('treats multiple variable declarators as impure if any initializer is impure', () => {

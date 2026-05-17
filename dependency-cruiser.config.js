@@ -5,7 +5,7 @@ const configFiles = [
     '^packtory\\.config\\.js$'
 ];
 
-const entryPointFiles = ['^source/.+/.+\\.entry-point\\.ts$'];
+const entryPointFiles = ['^source/packages/.+\\.entry-point\\.ts$'];
 const buildSupportFiles = ['^source/build-support/'];
 
 const testFiles = ['\\.(test|property|type-test)\\.ts$', '^integration-tests/'];

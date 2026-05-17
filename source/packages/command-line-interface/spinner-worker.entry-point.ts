@@ -1,7 +1,7 @@
 import { writeSync } from 'node:fs';
 import { setInterval as scheduleInterval, clearInterval as cancelInterval } from 'node:timers';
 import { workerData } from 'node:worker_threads';
-import { isSpinnerWorkerInput, startSpinnerWorker } from './spinner-worker-loop.ts';
+import { isSpinnerWorkerInput, startSpinnerWorker } from '../../command-line-interface/spinner-worker-loop.ts';
 
 if (!isSpinnerWorkerInput(workerData)) {
     throw new TypeError('Spinner worker started with invalid workerData');

@@ -1,5 +1,9 @@
 import { indexBy, values } from 'remeda';
 import type { PackageConfig, PackageConfigsByName, PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import {
+    resolveDeadCodeEliminationSettings,
+    type DeadCodeEliminationSettings
+} from '../config/dead-code-elimination-settings.ts';
 import { explicitPackageSurface, implicitPackageSurface, type PackageSurface } from '../package-surface/surface.ts';
 import type { ResourceResolveOptions } from '../resource-resolver/resource-resolve-options.ts';
 import type { BuildVersionedBundleOptions } from '../version-manager/versioned-bundle.ts';
@@ -20,7 +24,7 @@ export type SharedPackageOptions<TBundle extends { name: string }> = ManifestOpt
     ResourceResolveOptions & {
         readonly bundleDependencies: readonly TBundle[];
         readonly bundlePeerDependencies: readonly TBundle[];
-        readonly deadCodeElimination?: { readonly enabled: boolean } | undefined;
+        readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
     };
 
 export type PreparedPackageOptions<TBundle extends { name: string }> = {
@@ -185,6 +189,16 @@ function resolveAdditionalFiles(
     });
 }
 
+function resolveDeadCodeElimination(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): SharedPackageOptions<{ name: string }>['deadCodeElimination'] {
+    return resolveDeadCodeEliminationSettings(
+        packageConfig.deadCodeElimination,
+        packtoryConfig.commonPackageSettings?.deadCodeElimination
+    );
+}
+
 function resolveBundleDependencies<TBundle extends { name: string }>(
     packageConfig: PackageConfig,
     existingBundles: readonly TBundle[]
@@ -218,6 +232,7 @@ function buildSharedOptions<TBundle extends { name: string }>(
 
     return {
         name: packageConfig.name,
+        exportPackageJson: packageConfig.exportPackageJson,
         roots,
         surface,
         sourcesFolder,
@@ -226,6 +241,7 @@ function buildSharedOptions<TBundle extends { name: string }>(
         mainPackageJson,
         additionalPackageJsonAttributes: buildAdditionalPackageJsonAttributes(packageConfig, packtoryConfig),
         allowMutableSpecifiers: resolveAllowMutableSpecifiers(packageConfig, packtoryConfig),
+        deadCodeElimination: resolveDeadCodeElimination(packageConfig, packtoryConfig),
         ...bundleDependencies
     };
 }

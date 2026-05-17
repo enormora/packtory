@@ -3,7 +3,6 @@
 import fs from 'node:fs/promises';
 import readline from 'node:readline/promises';
 import { createClock } from '../../common/clock.ts';
-import { bootedSpinnerRuntime } from '../../command-line-interface/spinner-boot.entry-point.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
 import type * as configTypes from '../../config/config.ts';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.ts';
@@ -15,6 +14,7 @@ import { createPacktory } from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
+import { bootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);

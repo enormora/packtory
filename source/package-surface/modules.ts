@@ -13,6 +13,7 @@ type RootFileDescription = {
 
 type BundleLike = {
     readonly name: string;
+    readonly exportPackageJson?: true | undefined;
     readonly roots: Readonly<Record<string, RootFileDescription>>;
     readonly surface: PackageSurface;
     readonly contents: readonly {
@@ -26,9 +27,14 @@ type SurfaceBundleLike = Pick<BundleLike, 'name' | 'roots' | 'surface'>;
 
 type ExportsField = NonNullable<PackageJson['exports']>;
 type ExportEntry = Readonly<Record<string, unknown>>;
+const packageJsonExportKey = './package.json';
+const packageJsonExportTarget = './package.json';
 const exportKeyPrefixLength = 2;
 type ExplicitPackageInterface = ExplicitSurface['packageInterface'];
 type ImplicitSpecifierResolution = readonly ['content', string] | readonly ['private'] | readonly ['root'];
+type PackageJsonExportLike = {
+    readonly exportPackageJson?: true | undefined;
+};
 
 function getRoot(bundle: Pick<BundleLike, 'name' | 'roots'>, rootId: string): RootFileDescription {
     const root = bundle.roots[rootId];
@@ -152,10 +158,21 @@ function buildExplicitExportsEntries(
     });
 }
 
+function maybeAddPackageJsonExport<TExports extends Record<string, ExportEntry | string>>(
+    bundle: PackageJsonExportLike,
+    exportsField: TExports
+): TExports {
+    if (bundle.exportPackageJson !== true) {
+        return exportsField;
+    }
+
+    return { ...exportsField, [packageJsonExportKey]: packageJsonExportTarget };
+}
+
 function buildExplicitExportsField(bundle: BundleLike, surface: ExplicitSurface): ExportsField {
     const exportsEntries = buildExplicitExportsEntries(bundle, surface);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- export entries are built as package.json-compatible records
-    return Object.fromEntries(exportsEntries) as ExportsField;
+    return maybeAddPackageJsonExport(bundle, Object.fromEntries(exportsEntries)) as ExportsField;
 }
 
 function buildImplicitRootExports(bundle: BundleLike, surface: ImplicitSurface): Record<string, ExportEntry> {
@@ -248,7 +265,7 @@ function buildImplicitExportsField(
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- export entries are built as package.json-compatible records
-    return completedExportsField as ExportsField;
+    return maybeAddPackageJsonExport(bundle, completedExportsField) as ExportsField;
 }
 
 function unscopedPackageName(packageName: string): string {
@@ -260,12 +277,9 @@ function validateExplicitBinRoot(
     entryName: string,
     root: RootFileDescription
 ): RootFileDescription {
-    if (!root.js.isExecutable || !isShebangContent(root.js.content)) {
+    if (!isShebangContent(root.js.content)) {
         throw new Error(
-            [
-                `Package "${bundleName}" bin "${entryName}" must point to a root`,
-                'with a shebang and executable bit'
-            ].join(' ')
+            [`Package "${bundleName}" bin "${entryName}" must point to a root`, 'with a shebang'].join(' ')
         );
     }
 
@@ -421,7 +435,7 @@ function resolveImplicitPublicModuleSourceFilePath(
     return kind === 'private' ? undefined : handlers[kind]();
 }
 
-export function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
+function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
     if (isImplicitPackageSurface(bundle.surface)) {
         return new Set(Object.keys(bundle.roots));
     }
@@ -435,6 +449,15 @@ export function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>):
     }
 
     return rootIds;
+}
+
+export function getEntryRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
+    const publicRootIds = getPublicRootIds(bundle);
+    if (isImplicitPackageSurface(bundle.surface)) {
+        return publicRootIds;
+    }
+
+    return new Set([...publicRootIds, ...(bundle.surface.packageInterface.privateRoots ?? [])]);
 }
 
 export function getPublicModuleSpecifierForSourcePath(bundle: BundleLike, sourceFilePath: string): string | undefined {

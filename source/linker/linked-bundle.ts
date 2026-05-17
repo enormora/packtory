@@ -11,6 +11,7 @@ export type LinkedBundle = {
     readonly contents: readonly LinkedBundleResource[];
     readonly roots: Readonly<Record<string, RootFileDescription>>;
     readonly surface: PackageSurface;
+    readonly exportPackageJson?: true | undefined;
     readonly linkedBundleDependencies: ExternalDependencies;
     readonly externalDependencies: ExternalDependencies;
 };

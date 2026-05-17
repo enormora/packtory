@@ -283,27 +283,36 @@ test('build() resolves, links, runs the dead-code eliminator, and forwards to ve
     ]);
 });
 
-test('build() forwards deadCodeElimination.enabled to the eliminator', async () => {
-    const eliminate = fake(async (inputs: readonly { transformationsEnabled: boolean }[]) => {
-        return inputs.map((entry) => {
-            return {
-                ...createLinkedBundle(),
-                contents: [],
-                sideEffectsField: undefined,
-                transformationsEnabledFlag: entry.transformationsEnabled
-            };
-        });
-    });
+test('build() forwards deadCodeElimination settings to the eliminator', async () => {
+    const eliminate = fake(
+        async (inputs: readonly { transformationsEnabled: boolean; deadCodeElimination?: unknown }[]) => {
+            return inputs.map((entry) => {
+                return {
+                    ...createLinkedBundle(),
+                    contents: [],
+                    sideEffectsField: undefined,
+                    transformationsEnabledFlag: entry.transformationsEnabled
+                };
+            });
+        }
+    );
     const { processor } = createProcessor({ eliminate });
+    const deadCodeElimination = { enabled: false, pureConstructors: ['Set'] } as const;
 
     await processor.build({
         ...createBuildAndPublishOptions(),
         version: '1.0.0',
-        deadCodeElimination: { enabled: false }
+        deadCodeElimination
     });
 
-    const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
-    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, false);
+    const eliminationInputs = eliminate.firstCall.args[0] as readonly {
+        readonly transformationsEnabled: boolean;
+        readonly deadCodeElimination?: typeof deadCodeElimination;
+    }[];
+    const firstInput = eliminationInputs[0];
+    assert.ok(firstInput);
+    assert.strictEqual(firstInput.transformationsEnabled, false);
+    assert.deepStrictEqual(firstInput.deadCodeElimination, deadCodeElimination);
 });
 
 test('build() defaults transformationsEnabled to true when deadCodeElimination is not configured', async () => {
@@ -317,7 +326,9 @@ test('build() defaults transformationsEnabled to true when deadCodeElimination i
     await processor.build({ ...createBuildAndPublishOptions(), version: '1.0.0' });
 
     const eliminationInputs = eliminate.firstCall.args[0] as readonly { transformationsEnabled: boolean }[];
-    assert.strictEqual(eliminationInputs[0]?.transformationsEnabled, true);
+    const firstInput = eliminationInputs[0];
+    assert.ok(firstInput);
+    assert.strictEqual(firstInput.transformationsEnabled, true);
 });
 
 test('build() throws when the dead-code eliminator returns no bundle', async () => {

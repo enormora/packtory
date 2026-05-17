@@ -23,16 +23,19 @@ const binExposureSchema = z.readonly(
 
 const nonEmptyModuleExposuresSchema = z.readonly(z.tuple([moduleExposureSchema], moduleExposureSchema));
 const nonEmptyBinExposuresSchema = z.readonly(z.tuple([binExposureSchema], binExposureSchema));
+const nonEmptyPrivateRootsSchema = z.readonly(z.tuple([nonEmptyStringSchema], nonEmptyStringSchema));
 
 export const packageInterfaceSchema = z.readonly(
     z.union([
         z.strictObject({
             modules: nonEmptyModuleExposuresSchema,
-            bins: z.optional(nonEmptyBinExposuresSchema)
+            bins: z.optional(nonEmptyBinExposuresSchema),
+            privateRoots: z.optional(nonEmptyPrivateRootsSchema)
         }),
         z.strictObject({
             bins: nonEmptyBinExposuresSchema,
-            modules: z.optional(nonEmptyModuleExposuresSchema)
+            modules: z.optional(nonEmptyModuleExposuresSchema),
+            privateRoots: z.optional(nonEmptyPrivateRootsSchema)
         })
     ])
 );

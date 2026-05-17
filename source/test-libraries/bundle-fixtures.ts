@@ -89,6 +89,7 @@ export function bundleResource(
 export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundle {
     return {
         name: 'package-a',
+        exportPackageJson: undefined,
         contents: [],
         roots: createDefaultRoots(),
         surface: createDefaultSurface(),

@@ -1,4 +1,12 @@
-import { SyntaxKind, type Identifier, type Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
+import {
+    SyntaxKind,
+    type Identifier,
+    type Node as TsMorphNode,
+    type ShorthandPropertyAssignment,
+    type SourceFile,
+    type Statement
+} from 'ts-morph';
+import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
@@ -11,6 +19,7 @@ export type FileBindings = {
 export type ReachabilityInput = {
     readonly files: readonly FileBindings[];
     readonly entryPointFilePaths: ReadonlySet<string>;
+    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
 export type ReachabilityIndex = {
@@ -52,7 +61,7 @@ function buildNodeById(files: readonly FileBindings[]): Map<string, TsMorphNode>
     const map = new Map<string, TsMorphNode>();
     for (const file of files) {
         for (const binding of file.bindings) {
-            map.set(bindingId(file.sourceFilePath, binding.name), binding.declarationNode);
+            map.set(bindingId(file.sourceFilePath, binding.name), binding.referenceNode);
         }
     }
     return map;
@@ -79,6 +88,21 @@ function addSymbolTargets(symbol: SymbolReference, declarationIndex: Declaration
     }
 }
 
+function addShorthandPropertyTargets(
+    rootNode: TsMorphNode,
+    declarationIndex: DeclarationNodeIndex,
+    targets: Set<string>
+): void {
+    for (const shorthand of rootNode.getDescendantsOfKind(
+        SyntaxKind.ShorthandPropertyAssignment
+    ) as readonly ShorthandPropertyAssignment[]) {
+        const valueSymbol = shorthand.getValueSymbol();
+        if (valueSymbol !== undefined) {
+            addSymbolTargets(valueSymbol, declarationIndex, targets);
+        }
+    }
+}
+
 function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: DeclarationNodeIndex): Set<string> {
     const targets = new Set<string>();
     for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
@@ -87,6 +111,7 @@ function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: Decla
             addSymbolTargets(symbol, declarationIndex, targets);
         }
     }
+    addShorthandPropertyTargets(rootNode, declarationIndex, targets);
     return targets;
 }
 
@@ -172,7 +197,8 @@ function addStatementSeeds(
 function gatherLocalSeeds(
     files: readonly FileBindings[],
     entryPointFilePaths: ReadonlySet<string>,
-    declarationIndex: DeclarationNodeIndex
+    declarationIndex: DeclarationNodeIndex,
+    deadCodeElimination: DeadCodeEliminationSettings | undefined
 ): Set<string> {
     const seeds = new Set<string>();
     for (const file of files) {
@@ -182,7 +208,7 @@ function gatherLocalSeeds(
                 seeds.add(bindingId(file.sourceFilePath, binding.name));
             }
         }
-        addStatementSeeds(collectImpureStatements(file.sourceFile), declarationIndex, seeds);
+        addStatementSeeds(collectImpureStatements(file.sourceFile, deadCodeElimination), declarationIndex, seeds);
     }
     return seeds;
 }
@@ -197,7 +223,12 @@ export function buildReachabilityIndex(input: ReachabilityInput): ReachabilityIn
         const node = nodeById.get(id);
         return node === undefined ? emptyStringSet : collectIdentifierTargets(node, declarationIndex);
     };
-    const localSeeds = gatherLocalSeeds(input.files, input.entryPointFilePaths, declarationIndex);
+    const localSeeds = gatherLocalSeeds(
+        input.files,
+        input.entryPointFilePaths,
+        declarationIndex,
+        input.deadCodeElimination
+    );
     const localReachable = bfsClosure(localSeeds, expand, emptyStringSet, maximumNodeCount);
     return {
         localReachable,

@@ -2,7 +2,7 @@
     "$schema": "https://unpkg.com/knip@5/schema.json",
     "entry": [
         "benchmarks/**/*.ts",
-        "source/**/*.entry-point.ts!",
+        "source/packages/**/*.entry-point.ts!",
         "source/**/*.test.ts",
         "source/**/*.property.ts",
         "source/**/*.type-test.ts",

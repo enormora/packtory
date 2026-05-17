@@ -1,4 +1,6 @@
+/* eslint-disable import/max-dependencies -- This orchestration module wires the elimination pipeline stages. */
 import type { SourceFile } from 'ts-morph';
+import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import {
     createEmptyFileAnalysis,
     type AnalyzedBundle,
@@ -31,16 +33,16 @@ function allBindingNamesFor(loaded: LoadedCodeResource): ReadonlySet<string> {
     return names;
 }
 
-function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet<string>): ReadonlySet<string> {
+function directlyReachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet<string>): ReadonlySet<string> {
     const { sourceFilePath } = loaded.resource.fileDescription;
-    const surviving = new Set<string>();
-    for (const binding of loaded.bindings) {
-        if (reachable.has(bindingId(sourceFilePath, binding.name))) {
-            surviving.add(binding.name);
-        }
-    }
-    return surviving;
+    return new Set(
+        loaded.bindings.flatMap((binding) => {
+            return reachable.has(bindingId(sourceFilePath, binding.name)) ? [binding.name] : [];
+        })
+    );
 }
+
+const reachableBindingsFor = directlyReachableBindingsFor;
 
 type TransformOutcome = {
     readonly transformedCode: string;
@@ -55,6 +57,7 @@ function transformSourceFile(sourceFile: SourceFile, surviving: ReadonlySet<stri
 type AnalysisContext = {
     readonly reachable: ReadonlySet<string>;
     readonly transformationsEnabled: boolean;
+    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
 type CodeAnalysis = {
@@ -64,7 +67,7 @@ type CodeAnalysis = {
 };
 
 function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): CodeAnalysis {
-    const sideEffectStatements = classifySideEffects(loaded.sourceFile);
+    const sideEffectStatements = classifySideEffects(loaded.sourceFile, context.deadCodeElimination);
     const reachableBindings = reachableBindingsFor(loaded, context.reachable);
     const shouldTransform = context.transformationsEnabled && sideEffectStatements.length === 0;
     const survivingBindings = shouldTransform ? reachableBindings : allBindingNamesFor(loaded);
@@ -161,7 +164,8 @@ function buildMapPathTransformIndex(outputs: readonly BuildOutput[]): ReadonlyMa
 function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet<string> | undefined): AnalyzedBundle {
     const context: AnalysisContext = {
         reachable: loaded.reachability.expandWith(externalSeeds),
-        transformationsEnabled: loaded.input.transformationsEnabled
+        transformationsEnabled: loaded.input.transformationsEnabled,
+        deadCodeElimination: loaded.input.deadCodeElimination
     };
     const outputs = loaded.loaded.map((entry) => {
         return buildAnalyzedResource(entry, context);

@@ -50,6 +50,56 @@ test('keeps an unexported helper reachable when an exported binding references i
     assert.ok(index.localReachable.has(bindingId('entry.ts', 'helper')));
 });
 
+test('keeps the whole destructuring declarator reachable when an exported binding references one of its bindings', () => {
+    const files = [
+        fileBindingsFor(
+            'entry.ts',
+            'const { helper, other } = { helper() { return 1; }, other() { return 2; } };\nexport function pub() { return helper(); }'
+        )
+    ];
+    const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'helper')));
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'other')));
+});
+
+test('keeps a destructuring initializer reachable when an exported destructured binding is live', () => {
+    const files = [
+        fileBindingsFor(
+            'entry.ts',
+            'function createApi() { return { publish() { return 1; } }; }\nconst api = createApi();\nexport const { publish } = api;'
+        )
+    ];
+    const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'publish')));
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'api')));
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'createApi')));
+});
+
+test('keeps shorthand property value bindings reachable when an exported object literal uses them', () => {
+    const files = [
+        fileBindingsFor(
+            'entry.ts',
+            'const globalSchema = 1;\nconst perPackageSchema = 2;\nfunction run() { return 3; }\nexport const rule = { globalSchema, perPackageSchema, run };'
+        )
+    ];
+    const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'rule')));
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'globalSchema')));
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'perPackageSchema')));
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'run')));
+});
+
+test('ignores shorthand properties whose value symbol cannot be resolved', () => {
+    const files = [fileBindingsFor('entry.ts', 'export const rule = { missing };')];
+    const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'rule')));
+    assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'missing')), false);
+});
+
 test('keeps cross-file imports reachable when an entry-point uses them', () => {
     const files = multiFileBindingsFor([
         {

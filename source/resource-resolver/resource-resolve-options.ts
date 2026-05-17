@@ -8,6 +8,7 @@ type Roots = Readonly<Record<string, Root>>;
 export type ResourceResolveOptions = {
     readonly sourcesFolder: string;
     readonly name: string;
+    readonly exportPackageJson?: true | undefined;
     readonly includeSourceMapFiles: boolean;
     readonly additionalFiles: readonly (AdditionalFileDescription | string)[];
     readonly mainPackageJson: MainPackageJson;

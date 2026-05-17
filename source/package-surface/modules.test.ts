@@ -4,8 +4,8 @@ import { analyzedBundleResource, linkedBundle } from '../test-libraries/bundle-f
 import {
     buildBinField,
     buildExportsField,
+    getEntryRootIds,
     getPublicModuleSpecifierForSourcePath,
-    getPublicRootIds,
     resolvePublicModuleSourceFilePath
 } from './modules.ts';
 
@@ -67,75 +67,68 @@ function createRoot(
     };
 }
 
-test('getPublicRootIds() returns every implicit root and every explicit module/bin root', () => {
+test('getEntryRootIds() includes explicit private roots', () => {
+    const explicit = linkedBundle({
+        roots: {
+            main: createRoot('/src/index.js', 'index.js'),
+            worker: createRoot('/src/worker.js', 'worker.js')
+        },
+        surface: {
+            mode: 'explicit',
+            packageInterface: {
+                modules: [{ root: 'main', export: '.' }],
+                privateRoots: ['worker']
+            }
+        }
+    });
+
+    assert.deepStrictEqual(getEntryRootIds(explicit), new Set(['main', 'worker']));
+});
+
+test('getEntryRootIds() returns every root in implicit mode', () => {
     const implicit = linkedBundle({
         roots: {
             main: createRoot('/src/index.js', 'index.js'),
-            feature: createRoot('/src/feature.js', 'feature.js')
+            worker: createRoot('/src/worker.js', 'worker.js')
         },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' }
     });
+
+    assert.deepStrictEqual(getEntryRootIds(implicit), new Set(['main', 'worker']));
+});
+
+test('getEntryRootIds() includes explicit bin roots', () => {
     const explicit = linkedBundle({
         roots: {
             main: createRoot('/src/index.js', 'index.js'),
-            feature: createRoot('/src/feature.js', 'feature.js'),
-            cli: createRoot('/src/cli.js', 'cli.js')
+            cli: createRoot('/src/cli.js', 'cli.js', { isExecutable: true })
         },
         surface: {
             mode: 'explicit',
             packageInterface: {
-                modules: [
-                    { root: 'main', export: '.' },
-                    { root: 'feature', export: './feature' }
-                ],
-                bins: [{ root: 'cli', name: 'cli' }]
+                modules: [{ root: 'main', export: '.' }],
+                bins: [{ root: 'cli', name: 'packtory' }]
             }
         }
     });
 
-    assert.deepStrictEqual(getPublicRootIds(implicit), new Set(['main', 'feature']));
-    assert.deepStrictEqual(getPublicRootIds(explicit), new Set(['main', 'feature', 'cli']));
+    assert.deepStrictEqual(getEntryRootIds(explicit), new Set(['main', 'cli']));
 });
 
-test('getPublicRootIds() excludes private roots from explicit packages', () => {
+test('getEntryRootIds() works for explicit packages that only declare bins', () => {
     const explicit = linkedBundle({
         roots: {
-            main: createRoot('/src/index.js', 'index.js'),
-            private: createRoot('/src/private.js', 'private.js')
+            cli: createRoot('/src/cli.js', 'cli.js', { isExecutable: true })
         },
         surface: {
             mode: 'explicit',
             packageInterface: {
-                modules: [{ root: 'main', export: '.' }]
+                bins: [{ root: 'cli', name: 'packtory' }]
             }
         }
     });
 
-    assert.deepStrictEqual(getPublicRootIds(explicit), new Set(['main']));
-});
-
-test('getPublicRootIds() tolerates explicit packages with only modules or only bins', () => {
-    const modulesOnly = linkedBundle({
-        roots: { main: createRoot('/src/index.js', 'index.js') },
-        surface: {
-            mode: 'explicit',
-            packageInterface: {
-                modules: [{ root: 'main', export: '.' }]
-            }
-        }
-    });
-    const binsOnly = linkedBundle({
-        roots: { cli: createRoot('/src/cli.js', 'cli.js') },
-        surface: {
-            mode: 'explicit',
-            packageInterface: {
-                bins: [{ root: 'cli', name: 'cli' }]
-            }
-        }
-    });
-
-    assert.deepStrictEqual(getPublicRootIds(modulesOnly), new Set(['main']));
-    assert.deepStrictEqual(getPublicRootIds(binsOnly), new Set(['cli']));
+    assert.deepStrictEqual(getEntryRootIds(explicit), new Set(['cli']));
 });
 
 test('getPublicModuleSpecifierForSourcePath() resolves implicit roots, declarations, and surviving public files', () => {
@@ -541,6 +534,7 @@ test('resolvePublicModuleSourceFilePath() ignores malformed implicit contents wh
 
 test('buildExportsField() maps explicit exports and omits missing declaration files', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js', {
                 declarationSourceFilePath: '/src/index.d.ts',
@@ -566,7 +560,8 @@ test('buildExportsField() maps explicit exports and omits missing declaration fi
         },
         './cli': {
             import: './cli.js'
-        }
+        },
+        './package.json': './package.json'
     });
 });
 
@@ -589,6 +584,7 @@ test('buildExportsField() throws when an explicit export references an unknown r
 
 test('buildExportsField() includes implicit roots and substitution-backed public modules', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js', {
                 declarationSourceFilePath: '/src/index.d.ts',
@@ -614,12 +610,14 @@ test('buildExportsField() includes implicit roots and substitution-backed public
         },
         './public.js': {
             import: './public.js'
-        }
+        },
+        './package.json': './package.json'
     });
 });
 
 test('buildExportsField() pairs each substitution-backed public js with its declaration companion when present', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js')
         },
@@ -659,13 +657,15 @@ test('buildExportsField() pairs each substitution-backed public js with its decl
             },
             './no-types.js': {
                 import: './no-types.js'
-            }
+            },
+            './package.json': './package.json'
         }
     );
 });
 
 test('buildExportsField() exposes non-code substitution targets without searching for declaration companions', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js')
         },
@@ -678,12 +678,14 @@ test('buildExportsField() exposes non-code substitution targets without searchin
 
     assert.deepStrictEqual(buildExportsField(bundle, new Set(['/src/data.json'])), {
         '.': { import: './index.js' },
-        './data.json': { import: './data.json' }
+        './data.json': { import: './data.json' },
+        './package.json': './package.json'
     });
 });
 
 test('buildExportsField() skips declaration-only substitution modules for ts, mts, and cts targets', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js', {
                 declarationSourceFilePath: '/src/index.d.ts',
@@ -713,9 +715,25 @@ test('buildExportsField() skips declaration-only substitution modules for ts, mt
             },
             './public.js': {
                 import: './public.js'
-            }
+            },
+            './package.json': './package.json'
         }
     );
+});
+
+test('buildExportsField() omits package.json unless the package opts in', () => {
+    const bundle = linkedBundle({
+        roots: {
+            main: createRoot('/src/index.js', 'index.js')
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+
+    assert.deepStrictEqual(buildExportsField(bundle, new Set()), {
+        '.': {
+            import: './index.js'
+        }
+    });
 });
 
 test('buildExportsField() throws when a substitution-backed public module is missing from contents', () => {
@@ -744,12 +762,12 @@ test('buildBinField() returns undefined for explicit packages without bins', () 
     assert.strictEqual(buildBinField(bundle), undefined);
 });
 
-test('buildBinField() maps explicit bins and validates shebang executables', () => {
+test('buildBinField() maps explicit bins and validates shebang roots', () => {
     const valid = linkedBundle({
         roots: {
             cli: createRoot('/src/cli.js', 'cli.js', {
                 content: '#!/usr/bin/env node\nconsole.log("cli");\n',
-                isExecutable: true
+                isExecutable: false
             })
         },
         surface: {
@@ -778,7 +796,7 @@ test('buildBinField() maps explicit bins and validates shebang executables', () 
     assert.deepStrictEqual(buildBinField(valid), { 'package-a': './cli.js' });
     assert.throws(() => {
         buildBinField(invalid);
-    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang and executable bit$/u);
+    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang$/u);
 });
 
 test('buildBinField() rejects roots that only have one of executable mode or shebang content', () => {
@@ -810,7 +828,7 @@ test('buildBinField() rejects roots that only have one of executable mode or she
 
     assert.throws(() => {
         buildBinField(executableWithoutShebang);
-    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang and executable bit$/u);
+    }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang$/u);
     assert.strictEqual(buildBinField(shebangWithoutExecutable), undefined);
 });
 

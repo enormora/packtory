@@ -24,6 +24,19 @@ function bundleWithContents(
     });
 }
 
+function bundleWithExplicitBin(
+    contents: readonly AnalyzedBundleResource[],
+    binField: NonNullable<ReturnType<typeof versionedBundleWithManifest>['binField']>
+): ReturnType<typeof versionedBundleWithManifest> {
+    return versionedBundleWithManifest({
+        contents,
+        packageJson: { name: 'the-name', version: 'the-version' },
+        name: 'the-name',
+        manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' },
+        binField
+    });
+}
+
 type Overrides = {
     readonly fileManager?: FakeFileManager;
     readonly tarballBuilder?: { readonly build?: SinonSpy };
@@ -184,6 +197,62 @@ test('collectContents() appends extra files after the bundle contents and applie
     assert.deepStrictEqual(result, [
         { filePath: 'package/package.json', content: '{}', isExecutable: false },
         { filePath: 'package/sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+    ]);
+});
+
+test('collectContents() forces explicit bin targets to executable', () => {
+    const { builder } = artifactsBuilderFactory();
+    const result = builder.collectContents(
+        bundleWithExplicitBin([makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n')], {
+            packtory: './cli.js'
+        })
+    );
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'cli.js', content: '#!/usr/bin/env node\nconsole.log(0);\n', isExecutable: true }
+    ]);
+});
+
+test('collectContents() forces string bin targets to executable', () => {
+    const { builder } = artifactsBuilderFactory();
+    const result = builder.collectContents(
+        bundleWithExplicitBin([makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n')], './cli.js')
+    );
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'cli.js', content: '#!/usr/bin/env node\nconsole.log(0);\n', isExecutable: true }
+    ]);
+});
+
+test('collectContents() ignores malformed non-string bin entries and still applies valid explicit bin targets', () => {
+    const { builder } = artifactsBuilderFactory();
+    const result = builder.collectContents(
+        bundleWithExplicitBin([makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n')], {
+            packtory: './cli.js',
+            broken: 123 as never
+        })
+    );
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'cli.js', content: '#!/usr/bin/env node\nconsole.log(0);\n', isExecutable: true }
+    ]);
+});
+
+test('collectContents() only strips a leading dot-slash from explicit bin targets', () => {
+    const { builder } = artifactsBuilderFactory();
+    const result = builder.collectContents(
+        bundleWithExplicitBin(
+            [makeContent('nested/./cli.js', '#!/usr/bin/env node\nconsole.log(0);\n')],
+            'nested/./cli.js'
+        )
+    );
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'nested/./cli.js', content: '#!/usr/bin/env node\nconsole.log(0);\n', isExecutable: true }
     ]);
 });
 
