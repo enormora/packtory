@@ -76,7 +76,11 @@ async function expectResolvedVersion(expectedResolution: ExpectedResolution): Pr
     const { resolvePackagePath, packageJson, expectedVersion, expectedReadFilePath, fallbackPackageJsonPath } =
         expectedResolution;
     const fileManager = createPackageJsonFileManager(packageJson);
-    const { resolve } = createResolver({ resolvePackagePath, fileManager, fallbackPackageJsonPath });
+    const { resolve } = createResolver({
+        resolvePackagePath,
+        fileManager,
+        ...(fallbackPackageJsonPath === undefined ? {} : { fallbackPackageJsonPath })
+    });
 
     const result = await resolve();
 
@@ -94,7 +98,11 @@ async function expectResolutionError(expectedResolutionError: ExpectedResolution
         packageJson === undefined
             ? createFakeFileManager({ simulatedReadFileResponses: [{ value: '{}' }] })
             : createPackageJsonFileManager(packageJson);
-    const { resolve } = createResolver({ resolvePackagePath, fileManager, fallbackPackageJsonPath });
+    const { resolve } = createResolver({
+        resolvePackagePath,
+        fileManager,
+        ...(fallbackPackageJsonPath === undefined ? {} : { fallbackPackageJsonPath })
+    });
 
     try {
         await resolve();

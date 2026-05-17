@@ -214,8 +214,9 @@ function expressionOriginIsTrusted(
             return true;
         }
 
+        const trustedImports = trustedImport.imports;
         const matchingPathHead = origin.path.slice(0, 1).filter((pathPart) => {
-            return trustedImport.imports.includes(pathPart);
+            return trustedImports.includes(pathPart);
         });
         return matchingPathHead.length === 1;
     });
