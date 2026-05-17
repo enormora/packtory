@@ -8,8 +8,6 @@ const projectFolder = process.cwd();
 const sourcesFolder = path.join(projectFolder, 'target/build/source');
 
 const npmToken = process.env.NPM_TOKEN;
-const allowAnonymousMetadataDryRun = process.env.PACKTORY_DRY_RUN_ANONYMOUS_METADATA === '1';
-const dryRunPublishToken = 'dry-run-only-token';
 const sharedLicensePath = path.join(projectFolder, 'LICENSE');
 const packtoryReadmePath = path.join(projectFolder, 'source/packages/packtory/readme.md');
 const cliReadmePath = path.join(projectFolder, 'source/packages/command-line-interface/readme.md');
@@ -34,27 +32,18 @@ const noSideEffectsAllowList = [
     return path.join(sourcesFolder, filePath);
 });
 
-function resolveRegistryAuth() {
-    if (npmToken !== undefined) {
-        return { type: 'bearer-token', token: npmToken };
-    }
-    if (!allowAnonymousMetadataDryRun) {
-        throw new Error('Missing NPM_TOKEN environment variable');
-    }
-    return {
-        publish: { type: 'bearer-token', token: dryRunPublishToken },
-        metadata: 'anonymous'
-    };
-}
-
 /** @returns {Promise<import('./source/packages/command-line-interface/command-line-interface.entry-point.ts').PacktoryConfig>} */
 export async function buildConfig() {
     const packageJsonContent = await fs.readFile('./package.json', { encoding: 'utf8' });
     const packageJson = JSON.parse(packageJsonContent);
 
+    if (npmToken === undefined) {
+        throw new Error('Missing NPM_TOKEN environment variable');
+    }
+
     return {
         registrySettings: {
-            auth: resolveRegistryAuth()
+            auth: { type: 'bearer-token', token: npmToken }
         },
         checks: {
             noDuplicatedFiles: { enabled: true, allowList: [sharedLicensePath] },
