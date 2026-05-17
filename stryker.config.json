@@ -4,7 +4,7 @@
     "coverageAnalysis": "perTest",
     "tempDirName": "target/.stryker-tmp",
     "allowConsoleColors": false,
-    "concurrency": 2,
+    "concurrency": "50%",
     "mochaOptions": {
         "no-package": true,
         "no-opts": true,

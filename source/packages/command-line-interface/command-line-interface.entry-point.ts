@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs/promises';
+import fs from 'node:fs';
 import readline from 'node:readline/promises';
 import { createClock } from '../../common/clock.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
@@ -9,12 +9,13 @@ import { createCommandLineInterfaceRunner } from '../../command-line-interface/r
 import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.ts';
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner-worker-backend.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
-import { previewIo } from '../../command-line-interface/preview-io.ts';
+import { createDefaultPreviewIo } from '../../command-line-interface/preview-io.ts';
 import { createPacktory } from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
 import { bootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
+import { createFileManager } from '../../file-manager/file-manager.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
@@ -24,6 +25,15 @@ const spinnerRenderer = createTerminalSpinnerRenderer({
     backend: createWorkerSpinnerBackend({ runtime: bootedSpinnerRuntime })
 });
 const clock = createClock();
+const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const previewIo = createDefaultPreviewIo({
+    platform: process.platform,
+    // eslint-disable-next-line node/no-process-env -- preview pager/open behavior is intentionally driven by the caller environment
+    shell: process.env.SHELL,
+    // eslint-disable-next-line node/no-process-env -- preview pager/open behavior is intentionally driven by the caller environment
+    pager: process.env.PAGER,
+    stdoutIsTTY: process.stdout.isTTY
+});
 
 const promptForOneTimePassword = createOneTimePasswordPrompt({
     clock,
@@ -61,9 +71,7 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     progressBroadcaster: progressBroadcaster.consumer,
     spinnerRenderer,
     configLoader: createConfigLoader({ currentWorkingDirectory: process.cwd(), importModule }),
-    writeReportFile: async (filePath, content) => {
-        await fs.writeFile(filePath, content);
-    },
+    fileManager,
     pageOutput: async (content) => {
         const didPage = await previewIo.pagePreviewOutput(content);
         if (!didPage) {

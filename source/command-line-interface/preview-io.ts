@@ -1,15 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
-import { createPreviewIo, defaultSpawnProcess } from './preview-io-shared.ts';
+import { createPreviewIo, defaultSpawnProcess, type PreviewIo, type PreviewIoDependencies } from './preview-io-shared.ts';
 
-export const previewIo = createPreviewIo({
-    spawnProcess: defaultSpawnProcess,
-    randomUuid: randomUUID,
-    tmpdir: os.tmpdir,
-    platform: process.platform,
-    // eslint-disable-next-line node/no-process-env -- preview pager/open behavior is intentionally driven by the caller environment
-    shell: process.env.SHELL,
-    // eslint-disable-next-line node/no-process-env -- preview pager/open behavior is intentionally driven by the caller environment
-    pager: process.env.PAGER,
-    stdoutIsTTY: process.stdout.isTTY
-});
+type DefaultPreviewIoDependencies = Pick<PreviewIoDependencies, 'platform' | 'shell' | 'pager' | 'stdoutIsTTY'> &
+    Partial<Pick<PreviewIoDependencies, 'spawnProcess' | 'randomUuid' | 'tmpdir'>>;
+
+export function createDefaultPreviewIo(dependencies: DefaultPreviewIoDependencies): PreviewIo {
+    return createPreviewIo({
+        spawnProcess: dependencies.spawnProcess ?? defaultSpawnProcess,
+        randomUuid: dependencies.randomUuid ?? randomUUID,
+        tmpdir: dependencies.tmpdir ?? os.tmpdir,
+        platform: dependencies.platform,
+        shell: dependencies.shell,
+        pager: dependencies.pager,
+        stdoutIsTTY: dependencies.stdoutIsTTY
+    });
+}

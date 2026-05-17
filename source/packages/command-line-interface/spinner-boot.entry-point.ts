@@ -24,6 +24,9 @@ function spawnWorker(request: WorkerSpawnRequest): void {
 
 export const bootedSpinnerRuntime: SpinnerRuntime = bootSpinnerRuntime({
     spawnWorker,
+    stdoutFileDescriptor: process.stdout.fd,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.stdout.columns is undefined at runtime when stdout is not a TTY, despite the type declaring it as number
+    stdoutColumns: process.stdout.columns ?? 80,
     initialLabel: 'packtory',
     initialMessage: 'Starting …'
 });

@@ -275,6 +275,16 @@ test('startSpinnerWorker skips writing to stdout while there is nothing to rende
     assert.strictEqual(harness.writes().length, 0);
 });
 
+test('startSpinnerWorker acknowledges a pending mutation even when there is nothing to render', () => {
+    const harness = createHarness(2);
+    const mutation = harness.accessors.markMutation();
+
+    harness.tick();
+
+    assert.strictEqual(harness.writes().length, 0);
+    assert.strictEqual(harness.accessors.waitForRenderedMutation(mutation, 1), true);
+});
+
 test('startSpinnerWorker rewinds the cursor up by the previously rendered line count before redrawing', () => {
     const { harness } = setupRunningSlotHarnessAndTick();
     harness.tick();
@@ -299,13 +309,18 @@ test('startSpinnerWorker writes a final tick and clears the interval after a shu
     const harness = createHarness(1);
     harness.accessors.setColumns(80);
     harness.accessors.writeSlot(0, 'running', 'pkg', 'msg');
+    harness.accessors.bumpSlotGeneration(0);
+    const runningMutation = harness.accessors.markMutation();
 
     harness.tick();
     harness.accessors.requestShutdown();
+    const shutdownMutation = harness.accessors.markMutation();
     harness.tick();
 
     assert.strictEqual(harness.clearIntervalCalls().length, 1);
     assert.strictEqual(harness.clearIntervalCalls()[0], 'ticker-handle');
+    assert.strictEqual(harness.accessors.waitForRenderedMutation(runningMutation, 1), true);
+    assert.strictEqual(harness.accessors.waitForRenderedMutation(shutdownMutation, 1), true);
 });
 
 test('isSpinnerWorkerInput accepts a well-formed payload', () => {

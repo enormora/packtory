@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'mocha';
 import { stub } from 'sinon';
+import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     checkMutationTimeoutReport,
     collectTimeoutMutants,
@@ -99,9 +100,18 @@ function createArgvThrowingNonErrorOnReportPath(): readonly string[] {
     return argv;
 }
 
+function createReadFileError(code: string, message: string): Error & { readonly code: string } {
+    return Object.assign(new Error(message), { code });
+}
+
 async function expectCheckResult(report: unknown, expected: string | undefined): Promise<void> {
     await withTemporaryReport(report, async (reportPath) => {
-        assert.strictEqual(await checkMutationTimeoutReport(reportPath), expected);
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [{ value: JSON.stringify(report) }]
+        });
+
+        assert.strictEqual(await checkMutationTimeoutReport(reportPath, fileManager), expected);
+        assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: reportPath });
     });
 }
 
@@ -120,12 +130,16 @@ async function expectCheckError(operation: Promise<unknown>, expectedMessage: Re
 
 async function runCheckWithCollectedErrors(
     argv: readonly string[],
+    fileManager = createFakeFileManager({ simulatedReadFileResponses: [{ value: '{}' }] }),
     writeError?: (message: string) => void
 ): Promise<{ readonly exitCode: number; readonly errors: readonly string[] }> {
     const errors: string[] = [];
-    const exitCode = await runMutationTimeoutCheck(argv, (message) => {
-        errors.push(message);
-        writeError?.(message);
+    const exitCode = await runMutationTimeoutCheck(argv, {
+        fileManager,
+        writeError: (message) => {
+            errors.push(message);
+            writeError?.(message);
+        }
     });
     return { exitCode, errors };
 }
@@ -213,7 +227,32 @@ test('checkMutationTimeoutReport ignores malformed file reports and malformed mu
             }
         },
         async (reportPath) => {
-            assert.strictEqual(await checkMutationTimeoutReport(reportPath), timeoutReportMessage('source/c.ts', 3, 4));
+            const fileManager = createFakeFileManager({
+                simulatedReadFileResponses: [
+                    {
+                        value: JSON.stringify({
+                            files: {
+                                'source/a.ts': null,
+                                'source/b.ts': { mutants: 'invalid' },
+                                'source/c.ts': {
+                                    mutants: [
+                                        null,
+                                        { status: 'Timeout', location: null },
+                                        { status: 'Timeout', location: { start: { line: '3', column: 4 } } },
+                                        { status: 'Timeout', location: { start: { line: 3, column: '4' } } },
+                                        { status: 'Timeout', location: { start: { line: 3, column: 4 } } }
+                                    ]
+                                }
+                            }
+                        })
+                    }
+                ]
+            });
+
+            assert.strictEqual(
+                await checkMutationTimeoutReport(reportPath, fileManager),
+                timeoutReportMessage('source/c.ts', 3, 4)
+            );
         }
     );
 });
@@ -222,8 +261,11 @@ test('checkMutationTimeoutReport throws when a mutant status is not a string', a
     await withTemporaryReport(
         singleMutantReport({ location: { start: { line: 1, column: 2 } } }),
         async (reportPath) => {
+            const fileManager = createFakeFileManager({
+                simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport({ location: { start: { line: 1, column: 2 } } })) }]
+            });
             await expectCheckError(
-                checkMutationTimeoutReport(reportPath),
+                checkMutationTimeoutReport(reportPath, fileManager),
                 'Mutation report contains a mutant without a string status'
             );
         }
@@ -232,13 +274,24 @@ test('checkMutationTimeoutReport throws when a mutant status is not a string', a
 
 test('checkMutationTimeoutReport returns undefined for malformed top-level report shapes', async () => {
     await withTemporaryReport(null, async (reportPath) => {
-        assert.strictEqual(await checkMutationTimeoutReport(reportPath), undefined);
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [{ value: 'null' }]
+        });
+
+        assert.strictEqual(await checkMutationTimeoutReport(reportPath, fileManager), undefined);
     });
 });
 
 test('checkMutationTimeoutReport throws a missing-file error with the ENOENT cause preserved', async () => {
     try {
-        await checkMutationTimeoutReport(defaultMissingReportPath);
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [
+                {
+                    error: createReadFileError('ENOENT', `ENOENT: no such file or directory, open '${defaultMissingReportPath}'`)
+                }
+            ]
+        });
+        await checkMutationTimeoutReport(defaultMissingReportPath, fileManager);
         assert.fail('Expected checkMutationTimeoutReport() to throw but it did not');
     } catch (error: unknown) {
         assert.strictEqual((error as Error).message, `Mutation report not found at "${defaultMissingReportPath}"`);
@@ -249,13 +302,21 @@ test('checkMutationTimeoutReport throws a missing-file error with the ENOENT cau
 
 test('checkMutationTimeoutReport rethrows invalid JSON parse errors unchanged', async () => {
     await withTemporaryFile('mutation-report.json', '{', async (reportPath) => {
-        await expectCheckError(checkMutationTimeoutReport(reportPath), "Expected property name or '}'");
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [{ value: '{' }]
+        });
+        await expectCheckError(checkMutationTimeoutReport(reportPath, fileManager), "Expected property name or '}'");
     });
 });
 
 test('runMutationTimeoutCheck writes the failure message and returns exit code 1 when timeouts exist', async () => {
     await withTemporaryReport(singleMutantReport(timeoutMutant), async (reportPath) => {
-        const result = await runCheckWithCollectedErrors(['node', 'check', reportPath]);
+        const result = await runCheckWithCollectedErrors(
+            ['node', 'check', reportPath],
+            createFakeFileManager({
+                simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(timeoutMutant)) }]
+            })
+        );
 
         assert.strictEqual(result.exitCode, 1);
         assert.deepStrictEqual(result.errors, [timeoutReportMessage()]);
@@ -264,7 +325,12 @@ test('runMutationTimeoutCheck writes the failure message and returns exit code 1
 
 test('runMutationTimeoutCheck returns exit code 0 and writes nothing when no timeouts exist', async () => {
     await withTemporaryReport(singleMutantReport(killedMutant), async (reportPath) => {
-        const result = await runCheckWithCollectedErrors(['node', 'check', reportPath]);
+        const result = await runCheckWithCollectedErrors(
+            ['node', 'check', reportPath],
+            createFakeFileManager({
+                simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(killedMutant)) }]
+            })
+        );
 
         assert.strictEqual(result.exitCode, 0);
         assert.deepStrictEqual(result.errors, []);
@@ -272,23 +338,30 @@ test('runMutationTimeoutCheck returns exit code 0 and writes nothing when no tim
 });
 
 test('runMutationTimeoutCheck uses the default report path when argv omits an explicit report path', async () => {
-    await withDefaultReport(singleMutantReport(killedMutant), async (directory) => {
-        const originalWorkingDirectory = process.cwd();
-
-        process.chdir(directory);
-        try {
-            const result = await runCheckWithCollectedErrors(['node', 'check']);
-
-            assert.strictEqual(result.exitCode, 0);
-            assert.deepStrictEqual(result.errors, []);
-        } finally {
-            process.chdir(originalWorkingDirectory);
-        }
+    const fileManager = createFakeFileManager({
+        simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(killedMutant)) }]
     });
+    const result = await runCheckWithCollectedErrors(['node', 'check'], fileManager);
+
+    assert.strictEqual(result.exitCode, 0);
+    assert.deepStrictEqual(result.errors, []);
+    assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: defaultReportFilePath });
 });
 
 test('runMutationTimeoutCheck writes missing-file errors and returns exit code 1', async () => {
-    const result = await runCheckWithCollectedErrors(['node', 'check', defaultMissingReportPath]);
+    const result = await runCheckWithCollectedErrors(
+        ['node', 'check', defaultMissingReportPath],
+        createFakeFileManager({
+            simulatedReadFileResponses: [
+                {
+                    error: createReadFileError(
+                        'ENOENT',
+                        `ENOENT: no such file or directory, open '${defaultMissingReportPath}'`
+                    )
+                }
+            ]
+        })
+    );
 
     assert.strictEqual(result.exitCode, 1);
     assert.deepStrictEqual(result.errors, [`Mutation report not found at "${defaultMissingReportPath}"`]);
@@ -302,7 +375,18 @@ test('runMutationTimeoutCheck uses the default stderr writer when no custom writ
     });
 
     try {
-        const exitCode = await runMutationTimeoutCheck(['node', 'check', '/definitely/missing/mutation-report.json']);
+        const exitCode = await runMutationTimeoutCheck(['node', 'check', '/definitely/missing/mutation-report.json'], {
+            fileManager: createFakeFileManager({
+                simulatedReadFileResponses: [
+                    {
+                        error: createReadFileError(
+                            'ENOENT',
+                            'ENOENT: no such file or directory, open \'/definitely/missing/mutation-report.json\''
+                        )
+                    }
+                ]
+            })
+        });
 
         assert.strictEqual(exitCode, 1);
         assert.deepStrictEqual(writes, ['Mutation report not found at "/definitely/missing/mutation-report.json"\n']);
@@ -313,7 +397,12 @@ test('runMutationTimeoutCheck uses the default stderr writer when no custom writ
 
 test('runMutationTimeoutCheck writes invalid JSON errors and returns exit code 1', async () => {
     await withTemporaryFile('mutation-report.json', '{', async (reportPath) => {
-        const result = await runCheckWithCollectedErrors(['node', 'check', reportPath]);
+        const result = await runCheckWithCollectedErrors(
+            ['node', 'check', reportPath],
+            createFakeFileManager({
+                simulatedReadFileResponses: [{ value: '{' }]
+            })
+        );
 
         assert.strictEqual(result.exitCode, 1);
         assert.ok((result.errors[0] ?? '').includes("Expected property name or '}'"));
@@ -322,8 +411,11 @@ test('runMutationTimeoutCheck writes invalid JSON errors and returns exit code 1
 
 test('runMutationTimeoutCheck stringifies non-Error failures', async () => {
     const errors: string[] = [];
-    const exitCode = await runMutationTimeoutCheck(createArgvThrowingNonErrorOnReportPath(), (message) => {
-        errors.push(message);
+    const exitCode = await runMutationTimeoutCheck(createArgvThrowingNonErrorOnReportPath(), {
+        fileManager: createFakeFileManager(),
+        writeError: (message) => {
+            errors.push(message);
+        }
     });
 
     assert.strictEqual(exitCode, 1);

@@ -9,20 +9,36 @@ import {
 } from './spinner-shared-state.ts';
 
 const probeTestTimeoutMs = 10_000;
+type Int32Atomics = {
+    load: (typedArray: Int32Array, index: number) => number;
+    wait: (typedArray: Int32Array, index: number, value: number, timeout?: number) => 'not-equal' | 'ok' | 'timed-out';
+};
 
-function createAccessors(slotCount = 4): SpinnerSharedAccessors {
+function createAccessors(slotCount = 4, dependencies: { readonly now?: () => number } = {}): SpinnerSharedAccessors {
     const layout = createSpinnerSharedLayout(slotCount);
     const buffer = new SharedArrayBuffer(layout.bufferByteLength);
-    return createSpinnerSharedAccessors(buffer, layout);
+    return createSpinnerSharedAccessors(buffer, layout, dependencies);
+}
+
+function createNow(values: readonly number[]): () => number {
+    let index = 0;
+    return () => {
+        const value = values[index] ?? values.at(-1);
+        index += 1;
+        if (value === undefined) {
+            throw new Error('No timestamp configured for test clock');
+        }
+        return value;
+    };
 }
 
 test('createSpinnerSharedLayout reports the byte length required to hold the header and slots', () => {
     const layout = createSpinnerSharedLayout(2);
 
     assert.strictEqual(layout.slotCount, 2);
-    assert.strictEqual(layout.headerByteLength, 16);
+    assert.strictEqual(layout.headerByteLength, 24);
     assert.strictEqual(layout.slotByteLength, 384);
-    assert.strictEqual(layout.bufferByteLength, 16 + 2 * 384);
+    assert.strictEqual(layout.bufferByteLength, 24 + 2 * 384);
 });
 
 test('setColumns and getColumns round-trip the value', () => {
@@ -39,6 +55,157 @@ test('setIntervalMs and getIntervalMs round-trip the value', () => {
     accessors.setIntervalMs(50);
 
     assert.strictEqual(accessors.getIntervalMs(), 50);
+});
+
+test('markMutation increments and getLatestMutation reads the latest mutation number', () => {
+    const accessors = createAccessors();
+
+    assert.strictEqual(accessors.getLatestMutation(), 0);
+    assert.strictEqual(accessors.markMutation(), 1);
+    assert.strictEqual(accessors.markMutation(), 2);
+    assert.strictEqual(accessors.getLatestMutation(), 2);
+});
+
+test('waitForRenderedMutation returns true once the render was acknowledged', () => {
+    const accessors = createAccessors();
+    const mutation = accessors.markMutation();
+
+    accessors.acknowledgeRender(mutation);
+
+    assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+});
+
+test('waitForRenderedMutation times out when the render was not acknowledged', () => {
+    const accessors = createAccessors();
+    const mutation = accessors.markMutation();
+
+    assert.strictEqual(accessors.waitForRenderedMutation(mutation, 1), false);
+});
+
+test('waitForRenderedMutation returns once the render catches up between loop checks', () => {
+    const accessors = createAccessors();
+    const mutation = accessors.markMutation();
+    const int32Atomics = Atomics as Int32Atomics;
+    const realLoad = int32Atomics.load.bind(int32Atomics);
+    const loadStub = stub(int32Atomics, 'load');
+    let renderedMutationLoadCount = 0;
+
+    loadStub.callsFake((typedArray, index) => {
+        if (index === 4) {
+            renderedMutationLoadCount += 1;
+            if (renderedMutationLoadCount === 1) {
+                return 0;
+            }
+            return mutation;
+        }
+        return realLoad(typedArray, index);
+    });
+
+    try {
+        assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+    } finally {
+        loadStub.restore();
+    }
+});
+
+test('waitForRenderedMutation waits with the current rendered mutation and the remaining timeout', () => {
+    const accessors = createAccessors(4, { now: createNow([100, 105, 110]) });
+    const mutation = accessors.markMutation();
+    const int32Atomics = Atomics as Int32Atomics;
+    const realLoad = int32Atomics.load.bind(int32Atomics);
+    const loadStub = stub(int32Atomics, 'load');
+    const waitStub = stub(int32Atomics, 'wait').returns('timed-out');
+    let renderedMutationLoadCount = 0;
+    loadStub.callsFake((typedArray, index) => {
+        if (index === 4) {
+            renderedMutationLoadCount += 1;
+            return 0;
+        }
+        return realLoad(typedArray, index);
+    });
+
+    try {
+        assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), false);
+        assert.strictEqual(waitStub.callCount, 1);
+        assert.strictEqual(renderedMutationLoadCount, 2);
+        assert.deepStrictEqual(waitStub.firstCall.args.slice(1), [4, 0, 5]);
+    } finally {
+        waitStub.restore();
+        loadStub.restore();
+    }
+});
+
+test('waitForRenderedMutation returns true after a wait once the rendered mutation reaches the target', () => {
+    const accessors = createAccessors(4, { now: createNow([100, 100, 100]) });
+    const mutation = accessors.markMutation();
+    const int32Atomics = Atomics as Int32Atomics;
+    const realLoad = int32Atomics.load.bind(int32Atomics);
+    const loadStub = stub(int32Atomics, 'load');
+    const waitStub = stub(int32Atomics, 'wait').returns('ok');
+    let renderedMutationLoadCount = 0;
+    loadStub.callsFake((typedArray, index) => {
+        if (index === 4) {
+            renderedMutationLoadCount += 1;
+            return renderedMutationLoadCount === 1 ? 0 : mutation;
+        }
+        return realLoad(typedArray, index);
+    });
+
+    try {
+        assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+        assert.strictEqual(waitStub.callCount, 1);
+        assert.deepStrictEqual(waitStub.firstCall.args.slice(1), [4, 0, 10]);
+    } finally {
+        waitStub.restore();
+        loadStub.restore();
+    }
+});
+
+test('waitForRenderedMutation returns false when the remaining timeout grows without render progress', () => {
+    const accessors = createAccessors(4, { now: createNow([100, 105, 90]) });
+    const mutation = accessors.markMutation();
+    const int32Atomics = Atomics as Int32Atomics;
+    const realLoad = int32Atomics.load.bind(int32Atomics);
+    const loadStub = stub(int32Atomics, 'load');
+    const waitStub = stub(int32Atomics, 'wait').returns('ok');
+    let renderedMutationLoadCount = 0;
+
+    loadStub.callsFake((typedArray, index) => {
+        if (index === 4) {
+            renderedMutationLoadCount += 1;
+            return 0;
+        }
+        return realLoad(typedArray, index);
+    });
+
+    try {
+        assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), false);
+        assert.strictEqual(waitStub.callCount, 1);
+        assert.strictEqual(renderedMutationLoadCount, 2);
+    } finally {
+        waitStub.restore();
+        loadStub.restore();
+    }
+});
+
+test('waitForRenderedMutation times out immediately when the timeout has already elapsed', () => {
+    const accessors = createAccessors(4, { now: createNow([100, 110]) });
+    const mutation = accessors.markMutation();
+    const int32Atomics = Atomics as Int32Atomics;
+    const realLoad = int32Atomics.load.bind(int32Atomics);
+    const loadStub = stub(int32Atomics, 'load');
+    const waitStub = stub(int32Atomics, 'wait');
+    loadStub.callsFake((typedArray, index) => {
+        return index === 4 ? 0 : realLoad(typedArray, index);
+    });
+
+    try {
+        assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), false);
+        assert.strictEqual(waitStub.callCount, 0);
+    } finally {
+        waitStub.restore();
+        loadStub.restore();
+    }
 });
 
 test('isShutdownRequested returns false until requestShutdown is called', () => {

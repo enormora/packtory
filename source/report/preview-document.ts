@@ -1,5 +1,5 @@
 /* eslint-disable max-statements, complexity -- preview document construction intentionally combines reporting, diffing, and tree shaping */
-import { readFile } from 'node:fs/promises';
+import type { FileManager } from '../file-manager/file-manager.ts';
 import type { PublishAllResult } from '../packtory/packtory.ts';
 import type { ArtifactBadge, ArtifactStatus, EliminatedSourceFile } from '../progress/progress-broadcaster.ts';
 import type { BuildReport, PackageReport } from './report-aggregator.ts';
@@ -54,15 +54,11 @@ type PreviewDocumentParams = {
     readonly report: BuildReport;
     readonly result: PublishAllResult;
     readonly dryRun: boolean;
-    readonly readWorkspaceFile?: ((filePath: string) => Promise<string>) | undefined;
+    readonly fileManager: Pick<FileManager, 'readFile'>;
 };
 
 export async function buildPreviewDocument(params: PreviewDocumentParams): Promise<PreviewDocument> {
-    const readWorkspaceFile =
-        params.readWorkspaceFile ??
-        (async (filePath: string) => {
-            return readFile(filePath, 'utf8');
-        });
+    const readWorkspaceFile = params.fileManager.readFile;
     const bundleArtifactIndex = buildBundleArtifactIndex(getSucceededResults(params.result));
     const packageEntries = Object.entries(params.report.packages);
     const packages: PreviewPackage[] = [];

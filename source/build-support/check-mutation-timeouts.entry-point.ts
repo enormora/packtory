@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import { createFileManager } from '../file-manager/file-manager.ts';
 import { runMutationTimeoutCheck } from './check-mutation-timeouts.ts';
 
-process.exitCode = await runMutationTimeoutCheck(process.argv);
+process.exitCode = await runMutationTimeoutCheck(process.argv, {
+    fileManager: createFileManager({ hostFileSystem: fs.promises })
+});

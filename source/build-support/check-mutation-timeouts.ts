@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import type { FileManager } from '../file-manager/file-manager.ts';
 
 const defaultReportPath = 'target/stryker/mutation-report.json';
 const reportPathArgIndex = 2;
@@ -30,6 +30,11 @@ export type TimeoutMutant = {
 };
 
 export type ErrorWriter = (message: string) => void;
+
+export type MutationTimeoutCheckDependencies = {
+    readonly fileManager: Pick<FileManager, 'readFile'>;
+    readonly writeError?: ErrorWriter;
+};
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return Object.prototype.toString.call(value) === '[object Object]';
@@ -148,9 +153,12 @@ export function formatMutationTimeoutError(timeouts: readonly TimeoutMutant[]): 
     ].join('\n');
 }
 
-async function readMutationReport(reportPath: string): Promise<MutationReport> {
+async function readMutationReport(
+    reportPath: string,
+    fileManager: Pick<FileManager, 'readFile'>
+): Promise<MutationReport> {
     try {
-        return parseMutationReport(JSON.parse(await readFile(reportPath, 'utf8')) as unknown);
+        return parseMutationReport(JSON.parse(await fileManager.readFile(reportPath)) as unknown);
     } catch (error) {
         if (isErrorWithCode(error, 'ENOENT')) {
             throw new Error(`Mutation report not found at "${reportPath}"`, { cause: error });
@@ -160,20 +168,26 @@ async function readMutationReport(reportPath: string): Promise<MutationReport> {
     }
 }
 
-export async function checkMutationTimeoutReport(reportPath: string): Promise<string | undefined> {
-    const report = await readMutationReport(reportPath);
+export async function checkMutationTimeoutReport(
+    reportPath: string,
+    fileManager: Pick<FileManager, 'readFile'>
+): Promise<string | undefined> {
+    const report = await readMutationReport(reportPath, fileManager);
     return formatMutationTimeoutError(collectTimeoutMutants(report));
 }
 
 export async function runMutationTimeoutCheck(
     argv: readonly string[],
-    writeError: ErrorWriter = (message) => {
-        process.stderr.write(`${message}\n`);
-    }
+    dependencies: MutationTimeoutCheckDependencies
 ): Promise<number> {
+    const writeError =
+        dependencies.writeError ??
+        ((message) => {
+            process.stderr.write(`${message}\n`);
+        });
     try {
         const reportPath = argv[reportPathArgIndex] ?? defaultReportPath;
-        const failureMessage = await checkMutationTimeoutReport(reportPath);
+        const failureMessage = await checkMutationTimeoutReport(reportPath, dependencies.fileManager);
 
         if (failureMessage !== undefined) {
             writeError(failureMessage);

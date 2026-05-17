@@ -95,6 +95,31 @@ function buildRedrawSequence(state: RenderState, columns: number, expectedLineCo
     return output;
 }
 
+type RenderTickOutput = {
+    readonly expectedLineCount: number;
+    readonly snapshots: readonly SlotSnapshot[];
+    readonly sequence: string | undefined;
+    readonly targetMutation: number;
+};
+
+function buildRenderTickOutput(accessors: SpinnerSharedAccessors, state: RenderState): RenderTickOutput {
+    const targetMutation = accessors.getLatestMutation();
+    const snapshots = readAllSnapshots(accessors);
+    const highestActive = findHighestActiveSlotIndex(snapshots);
+    const shouldSkipWrite = highestActive < 0 && state.renderedLineCount === 0;
+    if (shouldSkipWrite) {
+        return { expectedLineCount: 0, snapshots, sequence: undefined, targetMutation };
+    }
+
+    const expectedLineCount = Math.max(state.renderedLineCount, highestActive + 1);
+    return {
+        expectedLineCount,
+        snapshots,
+        sequence: buildRedrawSequence({ ...state, snapshots }, accessors.getColumns(), expectedLineCount),
+        targetMutation
+    };
+}
+
 export function startSpinnerWorker<Handle>(
     input: SpinnerWorkerInput,
     dependencies: SpinnerWorkerDependencies<Handle>
@@ -108,17 +133,14 @@ export function startSpinnerWorker<Handle>(
     };
 
     function renderTick(): void {
-        const snapshots = readAllSnapshots(accessors);
-        const highestActive = findHighestActiveSlotIndex(snapshots);
-        if (highestActive < 0 && state.renderedLineCount === 0) {
-            return;
+        const output = buildRenderTickOutput(accessors, state);
+        state.snapshots = output.snapshots;
+        if (output.sequence !== undefined) {
+            dependencies.write(input.stdoutFileDescriptor, output.sequence);
+            state.renderedLineCount = output.expectedLineCount;
+            state.frameIndex += 1;
         }
-        const expectedLineCount = Math.max(state.renderedLineCount, highestActive + 1);
-        state.snapshots = snapshots;
-        const sequence = buildRedrawSequence(state, accessors.getColumns(), expectedLineCount);
-        dependencies.write(input.stdoutFileDescriptor, sequence);
-        state.renderedLineCount = expectedLineCount;
-        state.frameIndex += 1;
+        accessors.acknowledgeRender(output.targetMutation);
     }
 
     const intervalMs = accessors.getIntervalMs();
