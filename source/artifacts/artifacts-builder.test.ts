@@ -226,6 +226,36 @@ test('collectContents() forces string bin targets to executable', () => {
     ]);
 });
 
+test('collectContents() ignores malformed non-string bin entries and still applies valid explicit bin targets', () => {
+    const { builder } = artifactsBuilderFactory();
+    const result = builder.collectContents(
+        bundleWithExplicitBin([makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n')], {
+            packtory: './cli.js',
+            broken: 123 as never
+        })
+    );
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'cli.js', content: '#!/usr/bin/env node\nconsole.log(0);\n', isExecutable: true }
+    ]);
+});
+
+test('collectContents() only strips a leading dot-slash from explicit bin targets', () => {
+    const { builder } = artifactsBuilderFactory();
+    const result = builder.collectContents(
+        bundleWithExplicitBin(
+            [makeContent('nested/./cli.js', '#!/usr/bin/env node\nconsole.log(0);\n')],
+            'nested/./cli.js'
+        )
+    );
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'nested/./cli.js', content: '#!/usr/bin/env node\nconsole.log(0);\n', isExecutable: true }
+    ]);
+});
+
 test('buildTarball() forwards extra files to the tarball builder alongside the bundle contents', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
     const { builder } = artifactsBuilderFactory({ tarballBuilder });
