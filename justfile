@@ -60,4 +60,4 @@ benchmark:
     node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts
 
 publish-dry-run:
-    NPM_TOKEN='{{ env_var_or_default("NPM_TOKEN", "dry-run-only-token") }}' packtory publish
+    PACKTORY_DRY_RUN_ANONYMOUS_METADATA=1 NPM_TOKEN='{{ env_var_or_default("NPM_TOKEN", "dry-run-only-token") }}' packtory publish
