@@ -189,6 +189,7 @@ test('packtory config schemas keep their union and package tuple structure', asy
             'dependencyPolicy',
             'deadCodeElimination',
             'name',
+            'exportPackageJson',
             'versioning',
             'bundleDependencies',
             'bundlePeerDependencies',

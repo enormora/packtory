@@ -23,5 +23,6 @@ export type ResolvedBundle = {
     readonly roots: Readonly<Record<string, RootFileDescription>>;
     readonly surface: PackageSurface;
     readonly name: string;
+    readonly exportPackageJson?: true | undefined;
     readonly externalDependencies: ExternalDependencies;
 };

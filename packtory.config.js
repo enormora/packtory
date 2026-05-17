@@ -43,10 +43,7 @@ export async function buildConfig() {
 
     return {
         registrySettings: {
-            auth: {
-                publish: { type: 'bearer-token', token: npmToken },
-                metadata: 'anonymous'
-            }
+            auth: { type: 'bearer-token', token: npmToken }
         },
         checks: {
             noDuplicatedFiles: { enabled: true, allowList: [sharedLicensePath] },
@@ -88,6 +85,7 @@ export async function buildConfig() {
         packages: [
             {
                 name: 'packtory',
+                exportPackageJson: true,
                 roots: {
                     main: {
                         js: 'packages/packtory/packtory.entry-point.js',
@@ -106,6 +104,7 @@ export async function buildConfig() {
             },
             {
                 name: '@packtory/cli',
+                exportPackageJson: true,
                 roots: {
                     cli: {
                         js: 'packages/command-line-interface/command-line-interface.entry-point.js',

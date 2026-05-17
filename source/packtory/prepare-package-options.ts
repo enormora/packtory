@@ -232,6 +232,7 @@ function buildSharedOptions<TBundle extends { name: string }>(
 
     return {
         name: packageConfig.name,
+        exportPackageJson: packageConfig.exportPackageJson,
         roots,
         surface,
         sourcesFolder,

@@ -17,6 +17,7 @@ test('linkBundle() keeps js-only roots when there are no bundle substitutions', 
     const result = await linker.linkBundle({
         bundle: {
             name: 'package-a',
+            exportPackageJson: true,
             contents: [
                 {
                     fileDescription: {
@@ -53,6 +54,7 @@ test('linkBundle() keeps js-only roots when there are no bundle substitutions', 
     });
 
     assert.strictEqual(result.name, 'package-a');
+    assert.strictEqual(result.exportPackageJson, true);
     assert.deepStrictEqual(result.roots, {
         main: {
             js: {

@@ -534,6 +534,7 @@ test('resolvePublicModuleSourceFilePath() ignores malformed implicit contents wh
 
 test('buildExportsField() maps explicit exports and omits missing declaration files', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js', {
                 declarationSourceFilePath: '/src/index.d.ts',
@@ -559,7 +560,8 @@ test('buildExportsField() maps explicit exports and omits missing declaration fi
         },
         './cli': {
             import: './cli.js'
-        }
+        },
+        './package.json': './package.json'
     });
 });
 
@@ -582,6 +584,7 @@ test('buildExportsField() throws when an explicit export references an unknown r
 
 test('buildExportsField() includes implicit roots and substitution-backed public modules', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js', {
                 declarationSourceFilePath: '/src/index.d.ts',
@@ -607,12 +610,14 @@ test('buildExportsField() includes implicit roots and substitution-backed public
         },
         './public.js': {
             import: './public.js'
-        }
+        },
+        './package.json': './package.json'
     });
 });
 
 test('buildExportsField() pairs each substitution-backed public js with its declaration companion when present', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js')
         },
@@ -652,13 +657,15 @@ test('buildExportsField() pairs each substitution-backed public js with its decl
             },
             './no-types.js': {
                 import: './no-types.js'
-            }
+            },
+            './package.json': './package.json'
         }
     );
 });
 
 test('buildExportsField() exposes non-code substitution targets without searching for declaration companions', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js')
         },
@@ -671,12 +678,14 @@ test('buildExportsField() exposes non-code substitution targets without searchin
 
     assert.deepStrictEqual(buildExportsField(bundle, new Set(['/src/data.json'])), {
         '.': { import: './index.js' },
-        './data.json': { import: './data.json' }
+        './data.json': { import: './data.json' },
+        './package.json': './package.json'
     });
 });
 
 test('buildExportsField() skips declaration-only substitution modules for ts, mts, and cts targets', () => {
     const bundle = linkedBundle({
+        exportPackageJson: true,
         roots: {
             main: createRoot('/src/index.js', 'index.js', {
                 declarationSourceFilePath: '/src/index.d.ts',
@@ -706,9 +715,25 @@ test('buildExportsField() skips declaration-only substitution modules for ts, mt
             },
             './public.js': {
                 import: './public.js'
-            }
+            },
+            './package.json': './package.json'
         }
     );
+});
+
+test('buildExportsField() omits package.json unless the package opts in', () => {
+    const bundle = linkedBundle({
+        roots: {
+            main: createRoot('/src/index.js', 'index.js')
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+
+    assert.deepStrictEqual(buildExportsField(bundle, new Set()), {
+        '.': {
+            import: './index.js'
+        }
+    });
 });
 
 test('buildExportsField() throws when a substitution-backed public module is missing from contents', () => {

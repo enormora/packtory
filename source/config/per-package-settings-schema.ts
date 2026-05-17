@@ -9,6 +9,7 @@ const rootsSchema = z.readonly(z.record(nonEmptyStringSchema, rootSchema));
 
 const basePerPackageSettingsShape = {
     name: nonEmptyStringSchema,
+    exportPackageJson: z.optional(z.literal(true)),
     versioning: z.optional(versioningSettingsSchema),
     bundleDependencies: z.optional(z.readonly(z.array(nonEmptyStringSchema))),
     bundlePeerDependencies: z.optional(z.readonly(z.array(nonEmptyStringSchema))),

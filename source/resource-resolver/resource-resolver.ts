@@ -130,6 +130,7 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
             return {
                 contents,
                 name: options.name,
+                exportPackageJson: options.exportPackageJson,
                 surface: normalized.surface,
                 externalDependencies: resolvedDependencies.externalDependencies,
                 roots: buildResolvedRoots(normalized, contents)
