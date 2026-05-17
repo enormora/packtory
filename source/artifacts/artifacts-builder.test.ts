@@ -214,6 +214,18 @@ test('collectContents() forces explicit bin targets to executable', () => {
     ]);
 });
 
+test('collectContents() forces string bin targets to executable', () => {
+    const { builder } = artifactsBuilderFactory();
+    const result = builder.collectContents(
+        bundleWithExplicitBin([makeContent('cli.js', '#!/usr/bin/env node\nconsole.log(0);\n')], './cli.js')
+    );
+
+    assert.deepStrictEqual(result, [
+        { filePath: 'package.json', content: '{}', isExecutable: false },
+        { filePath: 'cli.js', content: '#!/usr/bin/env node\nconsole.log(0);\n', isExecutable: true }
+    ]);
+});
+
 test('buildTarball() forwards extra files to the tarball builder alongside the bundle contents', async () => {
     const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
     const { builder } = artifactsBuilderFactory({ tarballBuilder });
