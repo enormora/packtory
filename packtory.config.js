@@ -43,7 +43,10 @@ export async function buildConfig() {
 
     return {
         registrySettings: {
-            auth: { type: 'bearer-token', token: npmToken }
+            auth: {
+                publish: { type: 'bearer-token', token: npmToken },
+                metadata: 'anonymous'
+            }
         },
         checks: {
             noDuplicatedFiles: { enabled: true, allowList: [sharedLicensePath] },
