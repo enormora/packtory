@@ -34,14 +34,7 @@ test('addNode() throws when adding a node with an id that already exist', () => 
 });
 
 test('connect() throws when the from and to node don’t exist', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    try {
-        graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
-    }
+    expectGraphMethodToThrow('connect', () => {}, 'Node with id "a" does not exist');
 });
 
 function expectGraphMethodToThrow(
@@ -70,42 +63,29 @@ test('connect() throws when the from node doesn’t exist but the to node does',
 });
 
 test('connect() throws when the to node doesn’t exist but the from node does', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-
-    try {
-        graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
-    }
+    expectGraphMethodToThrow(
+        'connect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+        },
+        'Node with id "b" does not exist'
+    );
 });
 
 test('connect() throws when both nodes exist but there is already a connection', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.connect({ from: 'a', to: 'b' });
-
-    try {
-        graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" already exists');
-    }
+    expectGraphMethodToThrow(
+        'connect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+            graph.addNode('b', 'bar');
+            graph.connect({ from: 'a', to: 'b' });
+        },
+        'Edge from "a" to "b" already exists'
+    );
 });
 
 test('disconnect() throws when the from and to node don’t exist', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    try {
-        graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
-    }
+    expectGraphMethodToThrow('disconnect', () => {}, 'Node with id "a" does not exist');
 });
 
 test('disconnect() throws when the from node doesn’t exist but the to node does', () => {
@@ -119,30 +99,24 @@ test('disconnect() throws when the from node doesn’t exist but the to node doe
 });
 
 test('disconnect() throws when the to node doesn’t exist but the from node does', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-
-    try {
-        graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
-    }
+    expectGraphMethodToThrow(
+        'disconnect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+        },
+        'Node with id "b" does not exist'
+    );
 });
 
 test('disconnect() throws when both nodes exist but there is no connection', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-
-    try {
-        graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" does not exist');
-    }
+    expectGraphMethodToThrow(
+        'disconnect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+            graph.addNode('b', 'bar');
+        },
+        'Edge from "a" to "b" does not exist'
+    );
 });
 
 test('hasConnection() returns false when there is no connection for the given ids', () => {

@@ -96,6 +96,37 @@ function createControlledAtomics(overrides: ControlledAtomicsOverrides = {}): Co
     return controlled;
 }
 
+type WaitScenario = {
+    readonly now: readonly number[];
+    readonly renderedMutations: readonly number[];
+    readonly waitResults?: readonly WaitResult[];
+    readonly targetOffset?: number;
+};
+
+function runWaitScenario(scenario: WaitScenario): {
+    readonly atomics: ControlledAtomics;
+    readonly mutation: number;
+    readonly result: boolean;
+} {
+    const waitResults = [...(scenario.waitResults ?? [])];
+    const renderedMutations = [...scenario.renderedMutations];
+    let mutation = 0;
+    const atomics = createControlledAtomics({
+        load(typedArray, index, realLoad) {
+            if (index === 4) {
+                return renderedMutations.shift() ?? mutation;
+            }
+            return realLoad(typedArray, index);
+        },
+        wait() {
+            return waitResults.shift() ?? 'ok';
+        }
+    });
+    const accessors = createAccessors(4, { now: createNow(scenario.now), atomics });
+    mutation = accessors.markMutation() + (scenario.targetOffset ?? 0);
+    return { atomics, mutation, result: accessors.waitForRenderedMutation(mutation, 10) };
+}
+
 test('createSpinnerSharedLayout reports the byte length required to hold the header and slots', () => {
     const layout = createSpinnerSharedLayout(2);
 
@@ -228,24 +259,14 @@ test('waitForRenderedMutation returns true after a wait once the rendered mutati
 });
 
 test('waitForRenderedMutation keeps waiting after a timeout when the rendered mutation still makes progress', () => {
-    const waitResults: WaitResult[] = ['timed-out', 'ok'];
-    let mutation = 0;
-    const renderedMutations = [0, 1, 1];
-    const atomics = createControlledAtomics({
-        load(typedArray, index, realLoad) {
-            if (index === 4) {
-                return renderedMutations.shift() ?? mutation;
-            }
-            return realLoad(typedArray, index);
-        },
-        wait() {
-            return waitResults.shift() ?? 'ok';
-        }
+    const { atomics, result } = runWaitScenario({
+        now: [100, 100, 101, 101, 102],
+        renderedMutations: [0, 1, 1],
+        waitResults: ['timed-out', 'ok'],
+        targetOffset: 1
     });
-    const accessors = createAccessors(4, { now: createNow([100, 100, 101, 101, 102]), atomics });
-    mutation = accessors.markMutation() + 1;
 
-    assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+    assert.strictEqual(result, true);
     assert.strictEqual(atomics.waitCallCount, 2);
     assert.deepStrictEqual(atomics.waitCalls[0], [4, 0, 10]);
     assert.deepStrictEqual(atomics.waitCalls[1], [4, 1, 9]);
@@ -274,72 +295,40 @@ test('waitForRenderedMutation returns false when the remaining timeout grows wit
 });
 
 test('waitForRenderedMutation keeps polling when no progress was made but the remaining timeout still shrank', () => {
-    let mutation = 0;
-    const renderedMutations = [0, 0, 0];
-    const waitResults: WaitResult[] = ['ok', 'ok'];
-    const atomics = createControlledAtomics({
-        load(typedArray, index, realLoad) {
-            if (index === 4) {
-                return renderedMutations.shift() ?? mutation;
-            }
-            return realLoad(typedArray, index);
-        },
-        wait() {
-            return waitResults.shift() ?? 'ok';
-        }
+    const { atomics, result } = runWaitScenario({
+        now: [100, 100, 101, 101, 102],
+        renderedMutations: [0, 0, 0],
+        waitResults: ['ok', 'ok']
     });
-    const accessors = createAccessors(4, { now: createNow([100, 100, 101, 101, 102]), atomics });
-    mutation = accessors.markMutation();
 
-    assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+    assert.strictEqual(result, true);
     assert.strictEqual(atomics.waitCallCount, 2);
     assert.deepStrictEqual(atomics.waitCalls[0], [4, 0, 10]);
     assert.deepStrictEqual(atomics.waitCalls[1], [4, 0, 9]);
 });
 
 test('waitForRenderedMutation keeps polling when no progress was made and the remaining timeout stayed the same', () => {
-    let mutation = 0;
-    const renderedMutations = [0, 0, 0];
-    const waitResults: WaitResult[] = ['ok', 'ok'];
-    const atomics = createControlledAtomics({
-        load(typedArray, index, realLoad) {
-            if (index === 4) {
-                return renderedMutations.shift() ?? mutation;
-            }
-            return realLoad(typedArray, index);
-        },
-        wait() {
-            return waitResults.shift() ?? 'ok';
-        }
+    const { atomics, result } = runWaitScenario({
+        now: [100, 100, 100, 100, 101],
+        renderedMutations: [0, 0, 0],
+        waitResults: ['ok', 'ok']
     });
-    const accessors = createAccessors(4, { now: createNow([100, 100, 100, 100, 101]), atomics });
-    mutation = accessors.markMutation();
 
-    assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+    assert.strictEqual(result, true);
     assert.strictEqual(atomics.waitCallCount, 2);
     assert.deepStrictEqual(atomics.waitCalls[0], [4, 0, 10]);
     assert.deepStrictEqual(atomics.waitCalls[1], [4, 0, 10]);
 });
 
 test('waitForRenderedMutation keeps polling when progress was made even if the remaining timeout grows', () => {
-    let mutation = 0;
-    const renderedMutations = [0, 1, 1];
-    const waitResults: WaitResult[] = ['ok', 'ok'];
-    const atomics = createControlledAtomics({
-        load(typedArray, index, realLoad) {
-            if (index === 4) {
-                return renderedMutations.shift() ?? mutation;
-            }
-            return realLoad(typedArray, index);
-        },
-        wait() {
-            return waitResults.shift() ?? 'ok';
-        }
+    const { atomics, result } = runWaitScenario({
+        now: [100, 105, 90, 90, 91],
+        renderedMutations: [0, 1, 1],
+        waitResults: ['ok', 'ok'],
+        targetOffset: 1
     });
-    const accessors = createAccessors(4, { now: createNow([100, 105, 90, 90, 91]), atomics });
-    mutation = accessors.markMutation() + 1;
 
-    assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+    assert.strictEqual(result, true);
     assert.strictEqual(atomics.waitCallCount, 2);
     assert.deepStrictEqual(atomics.waitCalls[0], [4, 0, 5]);
     assert.deepStrictEqual(atomics.waitCalls[1], [4, 1, 10]);

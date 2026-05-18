@@ -34,6 +34,24 @@ function buildRuntimeWithFakeAccessors(overrides: Partial<SpinnerSharedAccessors
     return { runtime: { accessors, slotCount: 4 }, accessors };
 }
 
+function collectShutdownWaitCalls(intervalMs = 0): readonly (readonly [number, number])[] {
+    const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
+    const { runtime } = buildRuntimeWithFakeAccessors({
+        getIntervalMs: () => {
+            return intervalMs;
+        },
+        waitForRenderedMutation: (mutation, timeoutMs) => {
+            waitForRenderedMutationCalls.push([mutation, timeoutMs]);
+            return true;
+        }
+    });
+    const backend = createWorkerSpinnerBackend({ runtime });
+
+    backend.shutdown();
+
+    return waitForRenderedMutationCalls;
+}
+
 test('createSpinnerRuntime sets the shared buffer up with the resolved interval and column count', () => {
     const spawnWorker = fake();
 
@@ -156,52 +174,13 @@ test('createWorkerSpinnerBackend.shutdown forwards the shutdown signal to the su
 });
 
 test('createWorkerSpinnerBackend.shutdown waits for the render acknowledgement when the worker interval is positive', () => {
-    const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
-    const { runtime } = buildRuntimeWithFakeAccessors({
-        getIntervalMs: () => {
-            return 25;
-        },
-        waitForRenderedMutation: (mutation, timeoutMs) => {
-            waitForRenderedMutationCalls.push([mutation, timeoutMs]);
-            return true;
-        }
-    });
-    const backend = createWorkerSpinnerBackend({ runtime });
-
-    backend.shutdown();
-
-    assert.deepStrictEqual(waitForRenderedMutationCalls, [[1, 100]]);
+    assert.deepStrictEqual(collectShutdownWaitCalls(25), [[1, 100]]);
 });
 
 test('createWorkerSpinnerBackend.shutdown uses the interval-derived timeout when it exceeds the minimum', () => {
-    const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
-    const { runtime } = buildRuntimeWithFakeAccessors({
-        getIntervalMs: () => {
-            return 80;
-        },
-        waitForRenderedMutation: (mutation, timeoutMs) => {
-            waitForRenderedMutationCalls.push([mutation, timeoutMs]);
-            return true;
-        }
-    });
-    const backend = createWorkerSpinnerBackend({ runtime });
-
-    backend.shutdown();
-
-    assert.deepStrictEqual(waitForRenderedMutationCalls, [[1, 320]]);
+    assert.deepStrictEqual(collectShutdownWaitCalls(80), [[1, 320]]);
 });
 
 test('createWorkerSpinnerBackend.shutdown skips waiting when the worker interval is zero', () => {
-    const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
-    const { runtime } = buildRuntimeWithFakeAccessors({
-        waitForRenderedMutation: (mutation, timeoutMs) => {
-            waitForRenderedMutationCalls.push([mutation, timeoutMs]);
-            return true;
-        }
-    });
-    const backend = createWorkerSpinnerBackend({ runtime });
-
-    backend.shutdown();
-
-    assert.deepStrictEqual(waitForRenderedMutationCalls, []);
+    assert.deepStrictEqual(collectShutdownWaitCalls(), []);
 });

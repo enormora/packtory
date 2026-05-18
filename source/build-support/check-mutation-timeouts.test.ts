@@ -19,6 +19,21 @@ const defaultMissingReportPath = '/definitely/missing/mutation-report.json';
 
 const killedMutant = { status: 'Killed', location: { start: { line: 1, column: 2 } } };
 const timeoutMutant = { status: 'Timeout', location: { start: { line: 7, column: 8 } } };
+const malformedTimeoutReport = {
+    files: {
+        'source/a.ts': null,
+        'source/b.ts': { mutants: 'invalid' },
+        'source/c.ts': {
+            mutants: [
+                null,
+                { status: 'Timeout', location: null },
+                { status: 'Timeout', location: { start: { line: '3', column: 4 } } },
+                { status: 'Timeout', location: { start: { line: 3, column: '4' } } },
+                { status: 'Timeout', location: { start: { line: 3, column: 4 } } }
+            ]
+        }
+    }
+};
 
 function timeoutReportMessage(filePath = 'source/a.ts', line = 7, column = 8): string {
     return ['Mutation report contains 1 timeout mutant.', `- ${filePath}:${line}:${column}`].join('\n');
@@ -213,40 +228,12 @@ test('checkMutationTimeoutReport returns a failure message for timeout mutants',
 
 test('checkMutationTimeoutReport ignores malformed file reports and malformed mutants', async () => {
     await withTemporaryReport(
-        {
-            files: {
-                'source/a.ts': null,
-                'source/b.ts': { mutants: 'invalid' },
-                'source/c.ts': {
-                    mutants: [
-                        null,
-                        { status: 'Timeout', location: null },
-                        { status: 'Timeout', location: { start: { line: '3', column: 4 } } },
-                        { status: 'Timeout', location: { start: { line: 3, column: '4' } } },
-                        { status: 'Timeout', location: { start: { line: 3, column: 4 } } }
-                    ]
-                }
-            }
-        },
+        malformedTimeoutReport,
         async (reportPath) => {
             const fileManager = createFakeFileManager({
                 simulatedReadFileResponses: [
                     {
-                        value: JSON.stringify({
-                            files: {
-                                'source/a.ts': null,
-                                'source/b.ts': { mutants: 'invalid' },
-                                'source/c.ts': {
-                                    mutants: [
-                                        null,
-                                        { status: 'Timeout', location: null },
-                                        { status: 'Timeout', location: { start: { line: '3', column: 4 } } },
-                                        { status: 'Timeout', location: { start: { line: 3, column: '4' } } },
-                                        { status: 'Timeout', location: { start: { line: 3, column: 4 } } }
-                                    ]
-                                }
-                            }
-                        })
+                        value: JSON.stringify(malformedTimeoutReport)
                     }
                 ]
             });
