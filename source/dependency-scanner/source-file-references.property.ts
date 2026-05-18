@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { builtinModules } from 'node:module';
 import fc from 'fast-check';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { getReferencedSourceFiles } from './source-file-references.ts';
 
@@ -14,30 +14,32 @@ const unresolvedImportArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,10}$/).fil
     return !builtinModules.includes(moduleName) && !builtinModules.includes(`node:${moduleName}`);
 });
 
-test('getReferencedSourceFiles() does not throw for builtin imports', () => {
-    fc.assert(
-        fc.property(builtinImportArbitrary, (moduleName) => {
-            const project = createProject({
-                withFiles: [{ filePath: 'main.ts', content: `import value from "${moduleName}";` }]
-            });
+suite('source-file-references', function () {
+    test('getReferencedSourceFiles() does not throw for builtin imports', function () {
+        fc.assert(
+            fc.property(builtinImportArbitrary, (moduleName) => {
+                const project = createProject({
+                    withFiles: [{ filePath: 'main.ts', content: `import value from "${moduleName}";` }]
+                });
 
-            assert.doesNotThrow(() => {
-                getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-            });
-        })
-    );
-});
+                assert.doesNotThrow(() => {
+                    getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
+                });
+            })
+        );
+    });
 
-test('getReferencedSourceFiles() throws for unresolved non-builtin imports', () => {
-    fc.assert(
-        fc.property(unresolvedImportArbitrary, (moduleName) => {
-            const project = createProject({
-                withFiles: [{ filePath: 'main.ts', content: `import value from "${moduleName}";` }]
-            });
+    test('getReferencedSourceFiles() throws for unresolved non-builtin imports', function () {
+        fc.assert(
+            fc.property(unresolvedImportArbitrary, (moduleName) => {
+                const project = createProject({
+                    withFiles: [{ filePath: 'main.ts', content: `import value from "${moduleName}";` }]
+                });
 
-            assert.throws(() => {
-                getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
-            }, Error);
-        })
-    );
+                assert.throws(() => {
+                    getReferencedSourceFiles(project.getSourceFileOrThrow('main.ts'));
+                }, Error);
+            })
+        );
+    });
 });

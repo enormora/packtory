@@ -1,29 +1,31 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { explicitPackageSurface, implicitPackageSurface, isImplicitPackageSurface } from './surface.ts';
 
-test('implicitPackageSurface() creates an implicit runtime surface', () => {
-    const packageSurface = implicitPackageSurface('main');
+suite('surface', function () {
+    test('implicitPackageSurface() creates an implicit runtime surface', function () {
+        const packageSurface = implicitPackageSurface('main');
 
-    assert.deepStrictEqual(packageSurface, {
-        mode: 'implicit',
-        defaultModuleRoot: 'main'
-    });
-    assert.strictEqual(isImplicitPackageSurface(packageSurface), true);
-});
-
-test('explicitPackageSurface() creates an explicit runtime surface', () => {
-    const packageSurface = explicitPackageSurface({
-        bins: [{ name: 'cli', root: 'main' }],
-        modules: [{ export: '.', root: 'main' }]
+        assert.deepStrictEqual(packageSurface, {
+            mode: 'implicit',
+            defaultModuleRoot: 'main'
+        });
+        assert.strictEqual(isImplicitPackageSurface(packageSurface), true);
     });
 
-    assert.deepStrictEqual(packageSurface, {
-        mode: 'explicit',
-        packageInterface: {
+    test('explicitPackageSurface() creates an explicit runtime surface', function () {
+        const packageSurface = explicitPackageSurface({
             bins: [{ name: 'cli', root: 'main' }],
             modules: [{ export: '.', root: 'main' }]
-        }
+        });
+
+        assert.deepStrictEqual(packageSurface, {
+            mode: 'explicit',
+            packageInterface: {
+                bins: [{ name: 'cli', root: 'main' }],
+                modules: [{ export: '.', root: 'main' }]
+            }
+        });
+        assert.strictEqual(isImplicitPackageSurface(packageSurface), false);
     });
-    assert.strictEqual(isImplicitPackageSurface(packageSurface), false);
 });

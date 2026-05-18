@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { extractTarEntries } from './extract-tar.ts';
 
 const nonGzipBufferArbitrary = fc.uint8Array({ maxLength: 256 }).filter((data) => {
@@ -16,27 +16,29 @@ async function expectFailure(action: () => Promise<unknown>): Promise<void> {
     }
 }
 
-test('extractTarEntries() rejects malformed non-gzip buffers explicitly', async () => {
-    await fc.assert(
-        fc.asyncProperty(nonGzipBufferArbitrary, async (data) => {
-            await expectFailure(async () => {
-                await extractTarEntries(Buffer.from(data));
-            });
-        }),
-        { numRuns: 50 }
-    );
-});
+suite('extract-tar', function () {
+    test('extractTarEntries() rejects malformed non-gzip buffers explicitly', async function () {
+        await fc.assert(
+            fc.asyncProperty(nonGzipBufferArbitrary, async (data) => {
+                await expectFailure(async () => {
+                    await extractTarEntries(Buffer.from(data));
+                });
+            }),
+            { numRuns: 50 }
+        );
+    });
 
-test('extractTarEntries() rejects malformed non-gzip buffers without needing exact error text', async () => {
-    await fc.assert(
-        fc.asyncProperty(nonGzipBufferArbitrary, async (data) => {
-            try {
-                const result = await extractTarEntries(Buffer.from(data));
-                assert.fail(`Expected extractTarEntries() to reject, but it returned ${result.length} entries`);
-            } catch (error: unknown) {
-                assert.ok(error instanceof Error);
-            }
-        }),
-        { numRuns: 50 }
-    );
+    test('extractTarEntries() rejects malformed non-gzip buffers without needing exact error text', async function () {
+        await fc.assert(
+            fc.asyncProperty(nonGzipBufferArbitrary, async (data) => {
+                try {
+                    const result = await extractTarEntries(Buffer.from(data));
+                    assert.fail(`Expected extractTarEntries() to reject, but it returned ${result.length} entries`);
+                } catch (error: unknown) {
+                    assert.ok(error instanceof Error);
+                }
+            }),
+            { numRuns: 50 }
+        );
+    });
 });

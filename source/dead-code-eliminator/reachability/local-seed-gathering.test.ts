@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import type { Node as TsMorphNode, SourceFile, Statement } from 'ts-morph';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import type { BindingDescriptor } from './binding-extractor.ts';
 import { buildDeclarationNodeIndex } from './binding-id.ts';
@@ -34,43 +34,45 @@ function exportedBinding(name: string, declarationNode: TsMorphNode): BindingDes
     };
 }
 
-test('gatherLocalSeeds adds entry-point exported bindings to the seed set', () => {
-    const sourceFile = sourceFileFor('export const foo = 1;');
-    const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
-    const binding = exportedBinding('foo', declaration);
-    const file = fileBindings('/index.ts', sourceFile, [binding]);
+suite('local-seed-gathering', function () {
+    test('gatherLocalSeeds adds entry-point exported bindings to the seed set', function () {
+        const sourceFile = sourceFileFor('export const foo = 1;');
+        const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
+        const binding = exportedBinding('foo', declaration);
+        const file = fileBindings('/index.ts', sourceFile, [binding]);
 
-    const seeds = gatherLocalSeeds([file], new Set(['/index.ts']), buildDeclarationNodeIndex([file]), undefined);
+        const seeds = gatherLocalSeeds([file], new Set(['/index.ts']), buildDeclarationNodeIndex([file]), undefined);
 
-    assert.strictEqual(seeds.has('/index.ts::foo'), true);
-});
+        assert.strictEqual(seeds.has('/index.ts::foo'), true);
+    });
 
-test('gatherLocalSeeds ignores exported bindings of non-entry-point files', () => {
-    const sourceFile = sourceFileFor('export const foo = 1;');
-    const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
-    const binding = exportedBinding('foo', declaration);
-    const file = fileBindings('/lib.ts', sourceFile, [binding]);
+    test('gatherLocalSeeds ignores exported bindings of non-entry-point files', function () {
+        const sourceFile = sourceFileFor('export const foo = 1;');
+        const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
+        const binding = exportedBinding('foo', declaration);
+        const file = fileBindings('/lib.ts', sourceFile, [binding]);
 
-    const seeds = gatherLocalSeeds([file], new Set(['/index.ts']), buildDeclarationNodeIndex([file]), undefined);
+        const seeds = gatherLocalSeeds([file], new Set(['/index.ts']), buildDeclarationNodeIndex([file]), undefined);
 
-    assert.strictEqual(seeds.has('/lib.ts::foo'), false);
-});
+        assert.strictEqual(seeds.has('/lib.ts::foo'), false);
+    });
 
-test('gatherLocalSeeds returns an empty set when the bundle has no impure statements and no entry exports', () => {
-    const sourceFile = sourceFileFor('const foo = 1;');
-    const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
-    const binding: BindingDescriptor = {
-        name: 'foo',
-        isExported: false,
+    test('gatherLocalSeeds returns an empty set when the bundle has no impure statements and no entry exports', function () {
+        const sourceFile = sourceFileFor('const foo = 1;');
+        const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
+        const binding: BindingDescriptor = {
+            name: 'foo',
+            isExported: false,
 
-        statement: statementStub as unknown as Statement,
-        declarationNode: declaration,
+            statement: statementStub as unknown as Statement,
+            declarationNode: declaration,
 
-        referenceNode: referenceStub as unknown as TsMorphNode
-    };
-    const file = fileBindings('/index.ts', sourceFile, [binding]);
+            referenceNode: referenceStub as unknown as TsMorphNode
+        };
+        const file = fileBindings('/index.ts', sourceFile, [binding]);
 
-    const seeds = gatherLocalSeeds([file], new Set<string>(), buildDeclarationNodeIndex([file]), undefined);
+        const seeds = gatherLocalSeeds([file], new Set<string>(), buildDeclarationNodeIndex([file]), undefined);
 
-    assert.deepStrictEqual(seeds, new Set<string>());
+        assert.deepStrictEqual(seeds, new Set<string>());
+    });
 });

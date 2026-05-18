@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { content, rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
 import type { ImplicitSurface } from './package-shape.ts';
 import { resolveImplicitPublicModuleSourceFilePath } from './implicit-specifier-resolve.ts';
@@ -16,30 +16,32 @@ const emptyContentBundle = {
     contents: []
 };
 
-test("resolves the package name to the default root's js source path", () => {
-    assert.strictEqual(
-        resolveImplicitPublicModuleSourceFilePath(emptyContentBundle, surface, 'package-a'),
-        '/src/index.js'
-    );
-});
+suite('implicit-specifier-resolve', function () {
+    test("resolves the package name to the default root's js source path", function () {
+        assert.strictEqual(
+            resolveImplicitPublicModuleSourceFilePath(emptyContentBundle, surface, 'package-a'),
+            '/src/index.js'
+        );
+    });
 
-test('resolves "<name>/<targetFilePath>" to the content\'s source path', () => {
-    assert.strictEqual(
-        resolveImplicitPublicModuleSourceFilePath(bundleWithPrivateContent, surface, 'package-a/private.js'),
-        '/src/private.js'
-    );
-});
+    test('resolves "<name>/<targetFilePath>" to the content\'s source path', function () {
+        assert.strictEqual(
+            resolveImplicitPublicModuleSourceFilePath(bundleWithPrivateContent, surface, 'package-a/private.js'),
+            '/src/private.js'
+        );
+    });
 
-test('returns undefined for a foreign package specifier', () => {
-    assert.strictEqual(
-        resolveImplicitPublicModuleSourceFilePath(bundleWithPrivateContent, surface, 'other-package/private.js'),
-        undefined
-    );
-});
+    test('returns undefined for a foreign package specifier', function () {
+        assert.strictEqual(
+            resolveImplicitPublicModuleSourceFilePath(bundleWithPrivateContent, surface, 'other-package/private.js'),
+            undefined
+        );
+    });
 
-test('returns undefined for a subpath specifier whose target is not in contents', () => {
-    assert.strictEqual(
-        resolveImplicitPublicModuleSourceFilePath(emptyContentBundle, surface, 'package-a/missing.js'),
-        undefined
-    );
+    test('returns undefined for a subpath specifier whose target is not in contents', function () {
+        assert.strictEqual(
+            resolveImplicitPublicModuleSourceFilePath(emptyContentBundle, surface, 'package-a/missing.js'),
+            undefined
+        );
+    });
 });

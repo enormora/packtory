@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import type { Node as TsMorphNode, Statement } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
@@ -51,56 +51,58 @@ const baseContext: AnalysisContext = {
     transformationsEnabled: false
 };
 
-test('buildAnalyzedResource returns an empty analysis for non-code resources without transforms', () => {
-    const loaded = nonCodeResource('readme.md', '# title');
+suite('code-file-analyzer', function () {
+    test('buildAnalyzedResource returns an empty analysis for non-code resources without transforms', function () {
+        const loaded = nonCodeResource('readme.md', '# title');
 
-    const result = buildAnalyzedResource(loaded, baseContext);
+        const result = buildAnalyzedResource(loaded, baseContext);
 
-    assert.deepStrictEqual(result.transforms, []);
-    assert.strictEqual(result.resource.analysis.survivingBindings.size, 0);
-});
+        assert.deepStrictEqual(result.transforms, []);
+        assert.strictEqual(result.resource.analysis.survivingBindings.size, 0);
+    });
 
-test('buildAnalyzedResource leaves the content unchanged when transformations are disabled', () => {
-    const loaded = loadedCodeResource('a.ts', 'export const foo = 1;\n');
+    test('buildAnalyzedResource leaves the content unchanged when transformations are disabled', function () {
+        const loaded = loadedCodeResource('a.ts', 'export const foo = 1;\n');
 
-    const result = buildAnalyzedResource(loaded, baseContext);
+        const result = buildAnalyzedResource(loaded, baseContext);
 
-    assert.deepStrictEqual(result.transforms, []);
-    assert.strictEqual(result.resource.fileDescription.content, 'export const foo = 1;\n');
-});
+        assert.deepStrictEqual(result.transforms, []);
+        assert.strictEqual(result.resource.fileDescription.content, 'export const foo = 1;\n');
+    });
 
-test('buildAnalyzedResource includes side-effect statements in the analysis when transformations are disabled', () => {
-    const loaded = loadedCodeResource('a.ts', 'console.log(1);\nexport const foo = 1;\n');
+    test('buildAnalyzedResource includes side-effect statements in the analysis when transformations are disabled', function () {
+        const loaded = loadedCodeResource('a.ts', 'console.log(1);\nexport const foo = 1;\n');
 
-    const result = buildAnalyzedResource(loaded, baseContext);
+        const result = buildAnalyzedResource(loaded, baseContext);
 
-    assert.strictEqual(result.resource.analysis.sideEffectStatements.length, 1);
-});
+        assert.strictEqual(result.resource.analysis.sideEffectStatements.length, 1);
+    });
 
-test('buildAnalyzedResource leaves the content unchanged when transformations are enabled but the file has side effects', () => {
-    const loaded = loadedCodeResource('a.ts', 'console.log(1);\nexport const foo = 1;\n');
+    test('buildAnalyzedResource leaves the content unchanged when transformations are enabled but the file has side effects', function () {
+        const loaded = loadedCodeResource('a.ts', 'console.log(1);\nexport const foo = 1;\n');
 
-    const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
+        const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
 
-    assert.deepStrictEqual(result.transforms, []);
-    assert.strictEqual(result.resource.fileDescription.content, 'console.log(1);\nexport const foo = 1;\n');
-});
+        assert.deepStrictEqual(result.transforms, []);
+        assert.strictEqual(result.resource.fileDescription.content, 'console.log(1);\nexport const foo = 1;\n');
+    });
 
-test('buildAnalyzedResource carries through every original binding name on the analysis when no transform happens', () => {
-    const loaded: LoadedCodeResource = {
-        ...loadedCodeResource('a.ts', 'export const foo = 1;\n'),
-        bindings: [
-            {
-                name: 'foo',
-                isExported: true,
-                statement: statementStub as unknown as Statement,
-                declarationNode: declarationStub as unknown as TsMorphNode,
-                referenceNode: referenceStub as unknown as TsMorphNode
-            }
-        ]
-    };
+    test('buildAnalyzedResource carries through every original binding name on the analysis when no transform happens', function () {
+        const loaded: LoadedCodeResource = {
+            ...loadedCodeResource('a.ts', 'export const foo = 1;\n'),
+            bindings: [
+                {
+                    name: 'foo',
+                    isExported: true,
+                    statement: statementStub as unknown as Statement,
+                    declarationNode: declarationStub as unknown as TsMorphNode,
+                    referenceNode: referenceStub as unknown as TsMorphNode
+                }
+            ]
+        };
 
-    const result = buildAnalyzedResource(loaded, baseContext);
+        const result = buildAnalyzedResource(loaded, baseContext);
 
-    assert.strictEqual(result.resource.analysis.survivingBindings.has('foo'), true);
+        assert.strictEqual(result.resource.analysis.survivingBindings.has('foo'), true);
+    });
 });

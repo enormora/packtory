@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtemp, writeFile } from 'node:fs/promises';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import { createFileManager, type FileManager } from '../../file-manager/file-manager.ts';
 import type { BuildAndPublishResult } from '../../packtory/package-processor.ts';
@@ -300,438 +300,442 @@ function assertFirstFileHasNoDiff(document: PreviewDocument): void {
     assert.strictEqual(requireFileNodeAt(document, 0, 0).artifact.diff, undefined);
 }
 
-test('buildPreviewDocument orders packages by report order and formats version transitions', async () => {
-    const document = await buildPreviewDocument({
-        report: baseReport(),
-        result: Result.ok([
-            buildResult(),
+suite('preview-document', function () {
+    test('buildPreviewDocument orders packages by report order and formats version transitions', async function () {
+        const document = await buildPreviewDocument({
+            report: baseReport(),
+            result: Result.ok([
+                buildResult(),
+                createBuildResultFixture({
+                    packageName: 'pkg-b',
+                    version: '0.0.1',
+                    status: 'initial-version',
+                    contents: [
+                        createAnalyzedResource({
+                            sourceFilePath: '/workspace/pkg-b/index.js',
+                            targetFilePath: 'index.js',
+                            content: 'export {};\n'
+                        })
+                    ]
+                })
+            ]),
+            dryRun: true,
+            fileManager: workspaceFileManager(
+                workspaceReader({ '/workspace/src/index.js': 'export const removed = 1;\n' })
+            )
+        });
+
+        assert.deepStrictEqual(
+            document.packages.map((pkg) => [pkg.name, pkg.versionTransition]),
+            [
+                ['pkg-a', '1.0.0 -> 1.0.1'],
+                ['pkg-b', '0.0.1']
+            ]
+        );
+    });
+
+    test('buildPreviewDocument sorts package.json first and creates diffs only for changed source files', async function () {
+        const document = await buildPreviewDocument({
+            report: baseReport(),
+            result: Result.ok([buildResult()]),
+            dryRun: true,
+            fileManager: workspaceFileManager(
+                workspaceReader({
+                    '/workspace/src/index.js': 'export const removed = 1;\n',
+                    '/workspace/src/index.js.map': '{"version":2}',
+                    '/workspace/types/index.d.ts': 'export declare const kept: number;\n'
+                })
+            )
+        });
+
+        const pkg = requireSinglePackage(document);
+        assert.strictEqual(requireTreeNodeAt(document, 0, 0).path, 'package.json');
+        assert.deepStrictEqual(
+            pkg.tree
+                .filter((entry) => entry.type === 'file' && entry.artifact.diff !== undefined)
+                .map((entry) => entry.path),
+            ['src/index.js']
+        );
+    });
+
+    test('buildPreviewDocument builds exact tree ordering, depths, and summary counts', async function () {
+        const report = createBuildReportFixture({
+            packages: {
+                'pkg-a': createPackageReport(
+                    [
+                        createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
+                        createArtifactEntryFixture({
+                            path: 'dist/index.js',
+                            sizeBytes: 10,
+                            sourcePath: '/workspace/src/index.js',
+                            status: 'changed',
+                            badges: []
+                        }),
+                        createArtifactEntryFixture({
+                            path: 'types/internal/index.d.ts',
+                            sizeBytes: 5,
+                            sourcePath: '/workspace/types/internal/index.d.ts',
+                            status: 'unchanged',
+                            badges: []
+                        })
+                    ],
+                    {
+                        eliminatedSourceFiles: [
+                            { path: '/workspace/src/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
+                        ]
+                    }
+                ),
+                'pkg-b': createPackageReport([
+                    createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
+                    createArtifactEntryFixture({
+                        path: 'index.js',
+                        sizeBytes: 3,
+                        sourcePath: '/workspace/pkg-b/index.js',
+                        status: 'unchanged',
+                        badges: []
+                    })
+                ])
+            }
+        });
+        const result = Result.ok([
+            createBuildResultFixture({
+                contents: [
+                    createAnalyzedResource({
+                        sourceFilePath: '/workspace/src/index.js',
+                        targetFilePath: 'dist/index.js',
+                        content: 'export const changed = 1;\n'
+                    }),
+                    createAnalyzedResource({
+                        sourceFilePath: '/workspace/types/internal/index.d.ts',
+                        targetFilePath: 'types/internal/index.d.ts',
+                        content: 'export declare const kept: number;\n'
+                    })
+                ]
+            }),
             createBuildResultFixture({
                 packageName: 'pkg-b',
-                version: '0.0.1',
-                status: 'initial-version',
                 contents: [
                     createAnalyzedResource({
                         sourceFilePath: '/workspace/pkg-b/index.js',
                         targetFilePath: 'index.js',
-                        content: 'export {};\n'
+                        content: 'ok\n'
                     })
                 ]
             })
-        ]),
-        dryRun: true,
-        fileManager: workspaceFileManager(workspaceReader({ '/workspace/src/index.js': 'export const removed = 1;\n' }))
+        ]);
+        const document = await buildPreviewDocument({
+            report,
+            result,
+            dryRun: true,
+            fileManager: workspaceFileManager(
+                workspaceReader({
+                    '/workspace/src/index.js': 'export const original = 1;\n',
+                    '/workspace/types/internal/index.d.ts': 'export declare const kept: number;\n',
+                    '/workspace/pkg-b/index.js': 'ok\n'
+                })
+            )
+        });
+
+        assert.deepStrictEqual(document.summary, {
+            totalPackages: 2,
+            changedPackages: 1,
+            unchangedPackages: 1,
+            failedPackages: 0,
+            emittedArtifacts: 5,
+            changedArtifacts: 1,
+            eliminatedSourceFiles: 1
+        });
+        assert.deepStrictEqual(
+            requirePackageAt(document, 0).tree.map((entry) => [entry.path, entry.depth, entry.type]),
+            [
+                ['package.json', 0, 'file'],
+                ['dist', 1, 'directory'],
+                ['dist/index.js', 1, 'file'],
+                ['types', 1, 'directory'],
+                ['types/internal', 2, 'directory'],
+                ['types/internal/index.d.ts', 2, 'file']
+            ]
+        );
+        assert.deepStrictEqual(
+            requirePackageAt(document, 1).tree.map((entry) => [entry.path, entry.depth, entry.type]),
+            [
+                ['package.json', 0, 'file'],
+                ['index.js', 0, 'file']
+            ]
+        );
     });
 
-    assert.deepStrictEqual(
-        document.packages.map((pkg) => [pkg.name, pkg.versionTransition]),
-        [
-            ['pkg-a', '1.0.0 -> 1.0.1'],
-            ['pkg-b', '0.0.1']
-        ]
-    );
-});
+    test('buildPreviewDocument keeps eliminated files separate from the emitted tree', async function () {
+        const document = await buildPreviewDocument({
+            report: baseReport(),
+            result: Result.ok([buildResult()]),
+            dryRun: true,
+            fileManager: workspaceFileManager(async () => 'export {};\n')
+        });
 
-test('buildPreviewDocument sorts package.json first and creates diffs only for changed source files', async () => {
-    const document = await buildPreviewDocument({
-        report: baseReport(),
-        result: Result.ok([buildResult()]),
-        dryRun: true,
-        fileManager: workspaceFileManager(
-            workspaceReader({
-                '/workspace/src/index.js': 'export const removed = 1;\n',
-                '/workspace/src/index.js.map': '{"version":2}',
-                '/workspace/types/index.d.ts': 'export declare const kept: number;\n'
-            })
-        )
+        const pkg = requireSinglePackage(document);
+        assert.deepStrictEqual(pkg.eliminatedSourceFiles, [eliminatedUnusedFile]);
+        assert.strictEqual(
+            pkg.tree.some((entry) => entry.path === eliminatedUnusedFile.path),
+            false
+        );
     });
 
-    const pkg = requireSinglePackage(document);
-    assert.strictEqual(requireTreeNodeAt(document, 0, 0).path, 'package.json');
-    assert.deepStrictEqual(
-        pkg.tree
-            .filter((entry) => entry.type === 'file' && entry.artifact.diff !== undefined)
-            .map((entry) => entry.path),
-        ['src/index.js']
-    );
-});
+    test('buildPreviewDocument treats eliminated-only packages as changed and opens them by default', async function () {
+        const document = await buildUnchangedPackageDocument({ eliminatedSourceFiles: [eliminatedUnusedFile] });
 
-test('buildPreviewDocument builds exact tree ordering, depths, and summary counts', async () => {
-    const report = createBuildReportFixture({
-        packages: {
-            'pkg-a': createPackageReport(
-                [
-                    createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
-                    createArtifactEntryFixture({
-                        path: 'dist/index.js',
-                        sizeBytes: 10,
-                        sourcePath: '/workspace/src/index.js',
-                        status: 'changed',
-                        badges: []
-                    }),
-                    createArtifactEntryFixture({
-                        path: 'types/internal/index.d.ts',
-                        sizeBytes: 5,
-                        sourcePath: '/workspace/types/internal/index.d.ts',
-                        status: 'unchanged',
-                        badges: []
-                    })
-                ],
-                {
-                    eliminatedSourceFiles: [
-                        { path: '/workspace/src/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
-                    ]
+        assert.strictEqual(requirePackageAt(document, 0).hasChanges, true);
+        assert.strictEqual(requirePackageAt(document, 0).openByDefault, true);
+    });
+
+    test('buildPreviewDocument reports failure-only runs with direct issues', async function () {
+        const document = await buildPreviewDocument({
+            report: { ...baseReport(), packages: {} },
+            result: Result.err({ type: 'checks', issues: ['bundle is too large'] }),
+            dryRun: true,
+            fileManager: workspaceFileManager(async () => 'export {};\n')
+        });
+
+        assert.strictEqual(document.previewable, false);
+        assert.strictEqual(document.resultType, 'checks');
+        assert.deepStrictEqual(document.issues, ['bundle is too large']);
+    });
+
+    test('buildPreviewDocument marks a partial run with succeeded packages as previewable', async function () {
+        const document = await buildPreviewDocument({
+            report: baseReport(),
+            result: Result.err({ type: 'partial', succeeded: [buildResult()], failures: [new Error('boom')] }),
+            dryRun: true,
+            fileManager: workspaceFileManager(async () => 'export {};\n')
+        });
+
+        assert.strictEqual(document.previewable, true);
+        assert.strictEqual(document.resultType, 'partial');
+        assert.deepStrictEqual(document.issues, ['boom']);
+    });
+
+    test('buildPreviewDocument keeps unchanged packages closed unless they failed', async function () {
+        const unchangedDocument = await buildUnchangedPackageDocument({ eliminatedSourceFiles: [] });
+        const failedDocument = await buildUnchangedPackageDocument({
+            eliminatedSourceFiles: [],
+            failure: { stage: 'publish', message: 'boom' }
+        });
+
+        assert.strictEqual(requirePackageAt(unchangedDocument, 0).hasChanges, false);
+        assert.strictEqual(requirePackageAt(unchangedDocument, 0).openByDefault, false);
+        assert.strictEqual(requirePackageAt(failedDocument, 0).openByDefault, true);
+        assert.strictEqual(failedDocument.summary.failedPackages, 1);
+    });
+
+    test('buildPreviewDocument leaves versionTransition undefined when no version decision exists', async function () {
+        const document = await buildPreviewDocument({
+            report: createBuildReportFixture({
+                packages: {
+                    'pkg-a': createPackageReport([
+                        createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
+                    ])
                 }
-            ),
-            'pkg-b': createPackageReport([
-                createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
+            }),
+            result: Result.ok([buildResult()]),
+            dryRun: true,
+            fileManager: workspaceFileManager(async () => 'export {};\n')
+        });
+
+        assert.strictEqual(requirePackageAt(document, 0).versionTransition, undefined);
+    });
+
+    test('buildPreviewDocument uses publish mode when dryRun is false', async function () {
+        const document = await buildSingleArtifactDocument({ dryRun: false });
+
+        assert.strictEqual(document.modeLabel, 'Publish');
+    });
+
+    test('buildPreviewDocument omits diffs when the artifact source path does not match the emitted content source', async function () {
+        const document = await buildSingleArtifactDocument({
+            artifactSourcePath: '/workspace/actual.js',
+            reportSourcePath: '/workspace/other.js',
+            emittedContent: 'export const changed = 1;\n',
+            workspaceContent: 'export const original = 1;\n'
+        });
+
+        assertFirstFileHasNoDiff(document);
+    });
+
+    test('buildPreviewDocument reads workspace files through the injected file manager', async function () {
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), 'packtory-preview-test-'));
+        const sourceFilePath = path.join(tempDir, 'index.js');
+        await writeFile(sourceFilePath, 'export const original = 1;\n');
+        const fileManager = createFileManager({ hostFileSystem: fs.promises });
+
+        const document = await buildPreviewDocument({
+            report: reportForPkgA([
                 createArtifactEntryFixture({
                     path: 'index.js',
-                    sizeBytes: 3,
-                    sourcePath: '/workspace/pkg-b/index.js',
-                    status: 'unchanged',
+                    sizeBytes: 10,
+                    sourcePath: sourceFilePath,
                     badges: []
                 })
-            ])
+            ]),
+            result: Result.ok([
+                createBuildResultFixture({
+                    contents: [
+                        createAnalyzedResource({
+                            sourceFilePath,
+                            targetFilePath: 'index.js',
+                            content: 'export const changed = 1;\n'
+                        })
+                    ]
+                })
+            ]),
+            dryRun: true,
+            fileManager
+        });
+
+        const fileNode = requirePackageAt(document, 0).tree.find(
+            (entry) => entry.type === 'file' && entry.path === 'index.js'
+        );
+        if (fileNode?.type !== 'file') {
+            assert.fail('expected index.js file node');
         }
+        assert.ok(fileNode.artifact.diff !== undefined);
     });
-    const result = Result.ok([
-        createBuildResultFixture({
-            contents: [
-                createAnalyzedResource({
-                    sourceFilePath: '/workspace/src/index.js',
-                    targetFilePath: 'dist/index.js',
-                    content: 'export const changed = 1;\n'
-                }),
-                createAnalyzedResource({
-                    sourceFilePath: '/workspace/types/internal/index.d.ts',
-                    targetFilePath: 'types/internal/index.d.ts',
-                    content: 'export declare const kept: number;\n'
-                })
+
+    test('buildPreviewDocument orders directories before files and sorts alphabetically after package.json', async function () {
+        await expectTreePaths(
+            [
+                tinyUnchangedSource('z-last.js'),
+                createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
+                tinyUnchangedSource('a/inside.js')
+            ],
+            ['package.json', 'a', 'a/inside.js', 'z-last.js']
+        );
+    });
+
+    test('buildPreviewDocument limits diffs to two hunks and drops patch metadata lines', async function () {
+        const document = await buildChangedSourceDiffDocument(
+            'a();\nkeep1();\nkeep2();\nkeep3();\nkeep4();\nkeep5();\nkeep6();\nkeep7();\nkeep8();\nb();\nkeep9();\nkeep10();\nkeep11();\nkeep12();\nkeep13();\nkeep14();\nkeep15();\nkeep16();\nc();\n',
+            'oldA();\nkeep1();\nkeep2();\nkeep3();\nkeep4();\nkeep5();\nkeep6();\nkeep7();\nkeep8();\noldB();\nkeep9();\nkeep10();\nkeep11();\nkeep12();\nkeep13();\nkeep14();\nkeep15();\nkeep16();\noldC();\n'
+        );
+
+        const { diff } = requireFileNodeByPath(document, 0, 'src/index.js').artifact;
+        if (diff === undefined) {
+            assert.fail('expected diff');
+        }
+        assert.deepStrictEqual(
+            diff.map((hunk) => [hunk.header, hunk.lines.some((line) => line.text.startsWith('\\'))]),
+            [
+                ['@@ -1,4 +1,4 @@', false],
+                ['@@ -7,7 +7,7 @@', false]
             ]
-        }),
-        createBuildResultFixture({
-            packageName: 'pkg-b',
-            contents: [
-                createAnalyzedResource({
-                    sourceFilePath: '/workspace/pkg-b/index.js',
-                    targetFilePath: 'index.js',
-                    content: 'ok\n'
-                })
-            ]
-        })
-    ]);
-    const document = await buildPreviewDocument({
-        report,
-        result,
-        dryRun: true,
-        fileManager: workspaceFileManager(
-            workspaceReader({
-                '/workspace/src/index.js': 'export const original = 1;\n',
-                '/workspace/types/internal/index.d.ts': 'export declare const kept: number;\n',
-                '/workspace/pkg-b/index.js': 'ok\n'
+        );
+    });
+
+    test('buildPreviewDocument drops no-newline markers from diff lines', async function () {
+        const document = await buildChangedSourceDiffDocument('changed', 'original');
+
+        const { diff } = requireFileNodeByPath(document, 0, 'src/index.js').artifact;
+        if (diff === undefined) {
+            assert.fail('expected diff');
+        }
+        assert.ok(
+            diff.every((hunk) => {
+                return hunk.lines.every((line) => {
+                    return !line.text.startsWith('\\');
+                });
             })
-        )
+        );
     });
 
-    assert.deepStrictEqual(document.summary, {
-        totalPackages: 2,
-        changedPackages: 1,
-        unchangedPackages: 1,
-        failedPackages: 0,
-        emittedArtifacts: 5,
-        changedArtifacts: 1,
-        eliminatedSourceFiles: 1
-    });
-    assert.deepStrictEqual(
-        requirePackageAt(document, 0).tree.map((entry) => [entry.path, entry.depth, entry.type]),
-        [
-            ['package.json', 0, 'file'],
-            ['dist', 1, 'directory'],
-            ['dist/index.js', 1, 'file'],
-            ['types', 1, 'directory'],
-            ['types/internal', 2, 'directory'],
-            ['types/internal/index.d.ts', 2, 'file']
-        ]
-    );
-    assert.deepStrictEqual(
-        requirePackageAt(document, 1).tree.map((entry) => [entry.path, entry.depth, entry.type]),
-        [
-            ['package.json', 0, 'file'],
-            ['index.js', 0, 'file']
-        ]
-    );
-});
+    test('buildPreviewDocument does not attach a diff property when no diff exists', async function () {
+        const document = await buildSingleArtifactDocument();
+        const fileNode = requireFileNodeAt(document, 0, 0);
 
-test('buildPreviewDocument keeps eliminated files separate from the emitted tree', async () => {
-    const document = await buildPreviewDocument({
-        report: baseReport(),
-        result: Result.ok([buildResult()]),
-        dryRun: true,
-        fileManager: workspaceFileManager(async () => 'export {};\n')
+        assert.strictEqual('diff' in fileNode.artifact, false);
     });
 
-    const pkg = requireSinglePackage(document);
-    assert.deepStrictEqual(pkg.eliminatedSourceFiles, [eliminatedUnusedFile]);
-    assert.strictEqual(
-        pkg.tree.some((entry) => entry.path === eliminatedUnusedFile.path),
-        false
-    );
-});
-
-test('buildPreviewDocument treats eliminated-only packages as changed and opens them by default', async () => {
-    const document = await buildUnchangedPackageDocument({ eliminatedSourceFiles: [eliminatedUnusedFile] });
-
-    assert.strictEqual(requirePackageAt(document, 0).hasChanges, true);
-    assert.strictEqual(requirePackageAt(document, 0).openByDefault, true);
-});
-
-test('buildPreviewDocument reports failure-only runs with direct issues', async () => {
-    const document = await buildPreviewDocument({
-        report: { ...baseReport(), packages: {} },
-        result: Result.err({ type: 'checks', issues: ['bundle is too large'] }),
-        dryRun: true,
-        fileManager: workspaceFileManager(async () => 'export {};\n')
+    test('buildPreviewDocument skips diffs when the emitted artifact content matches the workspace file', async function () {
+        assertFirstFileHasNoDiff(await buildSingleArtifactDocument());
     });
 
-    assert.strictEqual(document.previewable, false);
-    assert.strictEqual(document.resultType, 'checks');
-    assert.deepStrictEqual(document.issues, ['bundle is too large']);
-});
-
-test('buildPreviewDocument marks a partial run with succeeded packages as previewable', async () => {
-    const document = await buildPreviewDocument({
-        report: baseReport(),
-        result: Result.err({ type: 'partial', succeeded: [buildResult()], failures: [new Error('boom')] }),
-        dryRun: true,
-        fileManager: workspaceFileManager(async () => 'export {};\n')
-    });
-
-    assert.strictEqual(document.previewable, true);
-    assert.strictEqual(document.resultType, 'partial');
-    assert.deepStrictEqual(document.issues, ['boom']);
-});
-
-test('buildPreviewDocument keeps unchanged packages closed unless they failed', async () => {
-    const unchangedDocument = await buildUnchangedPackageDocument({ eliminatedSourceFiles: [] });
-    const failedDocument = await buildUnchangedPackageDocument({
-        eliminatedSourceFiles: [],
-        failure: { stage: 'publish', message: 'boom' }
-    });
-
-    assert.strictEqual(requirePackageAt(unchangedDocument, 0).hasChanges, false);
-    assert.strictEqual(requirePackageAt(unchangedDocument, 0).openByDefault, false);
-    assert.strictEqual(requirePackageAt(failedDocument, 0).openByDefault, true);
-    assert.strictEqual(failedDocument.summary.failedPackages, 1);
-});
-
-test('buildPreviewDocument leaves versionTransition undefined when no version decision exists', async () => {
-    const document = await buildPreviewDocument({
-        report: createBuildReportFixture({
-            packages: {
-                'pkg-a': createPackageReport([
-                    createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
-                ])
-            }
-        }),
-        result: Result.ok([buildResult()]),
-        dryRun: true,
-        fileManager: workspaceFileManager(async () => 'export {};\n')
-    });
-
-    assert.strictEqual(requirePackageAt(document, 0).versionTransition, undefined);
-});
-
-test('buildPreviewDocument uses publish mode when dryRun is false', async () => {
-    const document = await buildSingleArtifactDocument({ dryRun: false });
-
-    assert.strictEqual(document.modeLabel, 'Publish');
-});
-
-test('buildPreviewDocument omits diffs when the artifact source path does not match the emitted content source', async () => {
-    const document = await buildSingleArtifactDocument({
-        artifactSourcePath: '/workspace/actual.js',
-        reportSourcePath: '/workspace/other.js',
-        emittedContent: 'export const changed = 1;\n',
-        workspaceContent: 'export const original = 1;\n'
-    });
-
-    assertFirstFileHasNoDiff(document);
-});
-
-test('buildPreviewDocument reads workspace files through the injected file manager', async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'packtory-preview-test-'));
-    const sourceFilePath = path.join(tempDir, 'index.js');
-    await writeFile(sourceFilePath, 'export const original = 1;\n');
-    const fileManager = createFileManager({ hostFileSystem: fs.promises });
-
-    const document = await buildPreviewDocument({
-        report: reportForPkgA([
-            createArtifactEntryFixture({
-                path: 'index.js',
-                sizeBytes: 10,
-                sourcePath: sourceFilePath,
-                badges: []
+    test('buildPreviewDocument skips diffs when the report source path does not match the emitted artifact source path', async function () {
+        assertFirstFileHasNoDiff(
+            await buildSingleArtifactDocument({
+                reportSourcePath: '/workspace/report-index.js',
+                workspaceContent: 'export const same = 1;\n'
             })
-        ]),
-        result: Result.ok([
-            createBuildResultFixture({
-                contents: [
-                    createAnalyzedResource({
-                        sourceFilePath,
-                        targetFilePath: 'index.js',
-                        content: 'export const changed = 1;\n'
-                    })
-                ]
-            })
-        ]),
-        dryRun: true,
-        fileManager
+        );
     });
 
-    const fileNode = requirePackageAt(document, 0).tree.find(
-        (entry) => entry.type === 'file' && entry.path === 'index.js'
-    );
-    if (fileNode?.type !== 'file') {
-        assert.fail('expected index.js file node');
-    }
-    assert.ok(fileNode.artifact.diff !== undefined);
-});
-
-test('buildPreviewDocument orders directories before files and sorts alphabetically after package.json', async () => {
-    await expectTreePaths(
-        [
-            tinyUnchangedSource('z-last.js'),
-            createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] }),
-            tinyUnchangedSource('a/inside.js')
-        ],
-        ['package.json', 'a', 'a/inside.js', 'z-last.js']
-    );
-});
-
-test('buildPreviewDocument limits diffs to two hunks and drops patch metadata lines', async () => {
-    const document = await buildChangedSourceDiffDocument(
-        'a();\nkeep1();\nkeep2();\nkeep3();\nkeep4();\nkeep5();\nkeep6();\nkeep7();\nkeep8();\nb();\nkeep9();\nkeep10();\nkeep11();\nkeep12();\nkeep13();\nkeep14();\nkeep15();\nkeep16();\nc();\n',
-        'oldA();\nkeep1();\nkeep2();\nkeep3();\nkeep4();\nkeep5();\nkeep6();\nkeep7();\nkeep8();\noldB();\nkeep9();\nkeep10();\nkeep11();\nkeep12();\nkeep13();\nkeep14();\nkeep15();\nkeep16();\noldC();\n'
-    );
-
-    const { diff } = requireFileNodeByPath(document, 0, 'src/index.js').artifact;
-    if (diff === undefined) {
-        assert.fail('expected diff');
-    }
-    assert.deepStrictEqual(
-        diff.map((hunk) => [hunk.header, hunk.lines.some((line) => line.text.startsWith('\\'))]),
-        [
-            ['@@ -1,4 +1,4 @@', false],
-            ['@@ -7,7 +7,7 @@', false]
-        ]
-    );
-});
-
-test('buildPreviewDocument drops no-newline markers from diff lines', async () => {
-    const document = await buildChangedSourceDiffDocument('changed', 'original');
-
-    const { diff } = requireFileNodeByPath(document, 0, 'src/index.js').artifact;
-    if (diff === undefined) {
-        assert.fail('expected diff');
-    }
-    assert.ok(
-        diff.every((hunk) => {
-            return hunk.lines.every((line) => {
-                return !line.text.startsWith('\\');
-            });
-        })
-    );
-});
-
-test('buildPreviewDocument does not attach a diff property when no diff exists', async () => {
-    const document = await buildSingleArtifactDocument();
-    const fileNode = requireFileNodeAt(document, 0, 0);
-
-    assert.strictEqual('diff' in fileNode.artifact, false);
-});
-
-test('buildPreviewDocument skips diffs when the emitted artifact content matches the workspace file', async () => {
-    assertFirstFileHasNoDiff(await buildSingleArtifactDocument());
-});
-
-test('buildPreviewDocument skips diffs when the report source path does not match the emitted artifact source path', async () => {
-    assertFirstFileHasNoDiff(
-        await buildSingleArtifactDocument({
-            reportSourcePath: '/workspace/report-index.js',
-            workspaceContent: 'export const same = 1;\n'
-        })
-    );
-});
-
-test('buildPreviewDocument labels unchanged context lines in generated diffs', async () => {
-    const document = await buildSingleArtifactDocument({
-        emittedContent: 'keep();\nnewLine();\n',
-        workspaceContent: 'keep();\noldLine();\n'
+    test('buildPreviewDocument labels unchanged context lines in generated diffs', async function () {
+        const document = await buildSingleArtifactDocument({
+            emittedContent: 'keep();\nnewLine();\n',
+            workspaceContent: 'keep();\noldLine();\n'
+        });
+        const { artifact } = requireFileNodeAt(document, 0, 0);
+        const { diff } = artifact;
+        if (diff === undefined) {
+            assert.fail('expected diff');
+        }
+        assert.strictEqual(
+            diff.some((hunk) => hunk.lines.some((line) => line.type === 'context')),
+            true
+        );
     });
-    const { artifact } = requireFileNodeAt(document, 0, 0);
-    const { diff } = artifact;
-    if (diff === undefined) {
-        assert.fail('expected diff');
-    }
-    assert.strictEqual(
-        diff.some((hunk) => hunk.lines.some((line) => line.type === 'context')),
-        true
-    );
-});
 
-test('buildPreviewDocument handles failed packages without outputs and publish-mode labels', async () => {
-    const document = await buildPreviewDocument({
-        report: createBuildReportFixture({
-            packages: {
-                'pkg-a': {
-                    decisions: {},
-                    failure: { stage: 'publish', message: 'boom' },
-                    timings: {}
+    test('buildPreviewDocument handles failed packages without outputs and publish-mode labels', async function () {
+        const document = await buildPreviewDocument({
+            report: createBuildReportFixture({
+                packages: {
+                    'pkg-a': {
+                        decisions: {},
+                        failure: { stage: 'publish', message: 'boom' },
+                        timings: {}
+                    }
                 }
-            }
-        }),
-        result: Result.err({ type: 'partial', succeeded: [], failures: [new Error('boom')] }),
-        dryRun: false,
-        fileManager: workspaceFileManager(async () => 'export {};\n')
+            }),
+            result: Result.err({ type: 'partial', succeeded: [], failures: [new Error('boom')] }),
+            dryRun: false,
+            fileManager: workspaceFileManager(async () => 'export {};\n')
+        });
+
+        assert.strictEqual(document.modeLabel, 'Publish');
+        const pkg = requireSinglePackage(document);
+        if (pkg.failure === undefined) {
+            assert.fail('expected package failure');
+        }
+        assert.strictEqual(pkg.failure.message, 'boom');
+        assert.strictEqual(pkg.openByDefault, true);
+        assert.deepStrictEqual(pkg.tree, []);
+        assert.deepStrictEqual(document.summary, {
+            totalPackages: 1,
+            changedPackages: 0,
+            unchangedPackages: 0,
+            failedPackages: 1,
+            emittedArtifacts: 0,
+            changedArtifacts: 0,
+            eliminatedSourceFiles: 0
+        });
     });
 
-    assert.strictEqual(document.modeLabel, 'Publish');
-    const pkg = requireSinglePackage(document);
-    if (pkg.failure === undefined) {
-        assert.fail('expected package failure');
-    }
-    assert.strictEqual(pkg.failure.message, 'boom');
-    assert.strictEqual(pkg.openByDefault, true);
-    assert.deepStrictEqual(pkg.tree, []);
-    assert.deepStrictEqual(document.summary, {
-        totalPackages: 1,
-        changedPackages: 0,
-        unchangedPackages: 0,
-        failedPackages: 1,
-        emittedArtifacts: 0,
-        changedArtifacts: 0,
-        eliminatedSourceFiles: 0
+    test('buildPreviewDocument reuses existing directories and supports nested directory sorting', async function () {
+        await expectTreePaths(
+            [
+                tinyUnchangedSource('top.js'),
+                tinyUnchangedSource('nested/deeper/a.js'),
+                tinyUnchangedSource('nested/deeper/b.js')
+            ],
+            ['nested', 'nested/deeper', 'nested/deeper/a.js', 'nested/deeper/b.js', 'top.js']
+        );
     });
-});
 
-test('buildPreviewDocument reuses existing directories and supports nested directory sorting', async () => {
-    await expectTreePaths(
-        [
-            tinyUnchangedSource('top.js'),
-            tinyUnchangedSource('nested/deeper/a.js'),
-            tinyUnchangedSource('nested/deeper/b.js')
-        ],
-        ['nested', 'nested/deeper', 'nested/deeper/a.js', 'nested/deeper/b.js', 'top.js']
-    );
-});
+    test('artifactStatusLabel returns the canonical "generated", "changed", or "unchanged" string for each artifact status', function () {
+        assert.strictEqual(artifactStatusLabel('generated'), 'generated');
+        assert.strictEqual(artifactStatusLabel('changed'), 'changed');
+        assert.strictEqual(artifactStatusLabel('unchanged'), 'unchanged');
+    });
 
-test('artifactStatusLabel returns the canonical "generated", "changed", or "unchanged" string for each artifact status', () => {
-    assert.strictEqual(artifactStatusLabel('generated'), 'generated');
-    assert.strictEqual(artifactStatusLabel('changed'), 'changed');
-    assert.strictEqual(artifactStatusLabel('unchanged'), 'unchanged');
-});
-
-test('artifactBadgeLabel returns "DCE" for dead-code-elimination and "rewrite" for import-path-rewrite', () => {
-    assert.strictEqual(artifactBadgeLabel('dead-code-elimination'), 'DCE');
-    assert.strictEqual(artifactBadgeLabel('import-path-rewrite'), 'rewrite');
+    test('artifactBadgeLabel returns "DCE" for dead-code-elimination and "rewrite" for import-path-rewrite', function () {
+        assert.strictEqual(artifactBadgeLabel('dead-code-elimination'), 'DCE');
+        assert.strictEqual(artifactBadgeLabel('import-path-rewrite'), 'rewrite');
+    });
 });

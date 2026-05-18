@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { hasProp } from 'remeda';
 import type { AdditionalPackageJsonAttributes } from '../../config/package-json.ts';
 import type { VersionedBundle } from '../versioned-bundle.ts';
@@ -109,46 +109,48 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
         } satisfies VersionedBundle;
     });
 
-test('buildPackageManifest() keeps generated manifest fields coherent with the bundle inputs', () => {
-    fc.assert(
-        fc.property(bundleArbitrary, (bundle) => {
-            const manifest = buildPackageManifest(bundle);
+suite('builder', function () {
+    test('buildPackageManifest() keeps generated manifest fields coherent with the bundle inputs', function () {
+        fc.assert(
+            fc.property(bundleArbitrary, (bundle) => {
+                const manifest = buildPackageManifest(bundle);
 
-            assert.strictEqual(manifest.name, bundle.name);
-            assert.strictEqual(manifest.version, bundle.version);
-            assert.deepStrictEqual(manifest.exports, bundle.exportsField);
-            assert.strictEqual(manifest.type, bundle.packageType);
+                assert.strictEqual(manifest.name, bundle.name);
+                assert.strictEqual(manifest.version, bundle.version);
+                assert.deepStrictEqual(manifest.exports, bundle.exportsField);
+                assert.strictEqual(manifest.type, bundle.packageType);
 
-            if (Object.keys(bundle.dependencies).length === 0) {
-                assert.strictEqual('dependencies' in manifest, false);
-            } else {
-                assert.deepStrictEqual(manifest.dependencies, bundle.dependencies);
-            }
+                if (Object.keys(bundle.dependencies).length === 0) {
+                    assert.strictEqual('dependencies' in manifest, false);
+                } else {
+                    assert.deepStrictEqual(manifest.dependencies, bundle.dependencies);
+                }
 
-            if (Object.keys(bundle.peerDependencies).length === 0) {
-                assert.strictEqual('peerDependencies' in manifest, false);
-            } else {
-                assert.deepStrictEqual(manifest.peerDependencies, bundle.peerDependencies);
-            }
-        })
-    );
-});
+                if (Object.keys(bundle.peerDependencies).length === 0) {
+                    assert.strictEqual('peerDependencies' in manifest, false);
+                } else {
+                    assert.deepStrictEqual(manifest.peerDependencies, bundle.peerDependencies);
+                }
+            })
+        );
+    });
 
-test('buildPackageManifest() preserves additional attributes without leaking dependency groups into each other', () => {
-    fc.assert(
-        fc.property(bundleArbitrary, (bundle) => {
-            const manifest = buildPackageManifest(bundle);
+    test('buildPackageManifest() preserves additional attributes without leaking dependency groups into each other', function () {
+        fc.assert(
+            fc.property(bundleArbitrary, (bundle) => {
+                const manifest = buildPackageManifest(bundle);
 
-            Object.entries(bundle.additionalAttributes).forEach(([key, value]) => {
-                assert.deepStrictEqual(manifest[key], value);
-            });
+                Object.entries(bundle.additionalAttributes).forEach(([key, value]) => {
+                    assert.deepStrictEqual(manifest[key], value);
+                });
 
-            Object.keys(bundle.dependencies).forEach((dependencyName) => {
-                assert.strictEqual(hasProp(manifest.peerDependencies ?? {}, dependencyName), false);
-            });
-            Object.keys(bundle.peerDependencies).forEach((dependencyName) => {
-                assert.strictEqual(hasProp(manifest.dependencies ?? {}, dependencyName), false);
-            });
-        })
-    );
+                Object.keys(bundle.dependencies).forEach((dependencyName) => {
+                    assert.strictEqual(hasProp(manifest.peerDependencies ?? {}, dependencyName), false);
+                });
+                Object.keys(bundle.peerDependencies).forEach((dependencyName) => {
+                    assert.strictEqual(hasProp(manifest.dependencies ?? {}, dependencyName), false);
+                });
+            })
+        );
+    });
 });

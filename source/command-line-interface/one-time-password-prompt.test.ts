@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { createFakeClock, type FakeClock } from '../test-libraries/fake-clock.ts';
 import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
@@ -49,70 +49,72 @@ function createPrompt(overrides: Overrides = {}) {
     };
 }
 
-test('throws when one-time-password prompting is attempted without an interactive terminal', async () => {
-    const { prompt, stopSpinner, question, close } = createPrompt({
-        isInteractiveTerminal: () => false
+suite('one-time-password-prompt', function () {
+    test('throws when one-time-password prompting is attempted without an interactive terminal', async function () {
+        const { prompt, stopSpinner, question, close } = createPrompt({
+            isInteractiveTerminal: () => false
+        });
+
+        await expectFailure(async () => {
+            await prompt();
+        }, /^Error: The registry requested a one-time password, but prompting requires an interactive terminal$/u);
+
+        assert.strictEqual(stopSpinner.callCount, 0);
+        assert.strictEqual(question.callCount, 0);
+        assert.strictEqual(close.callCount, 0);
     });
 
-    await expectFailure(async () => {
-        await prompt();
-    }, /^Error: The registry requested a one-time password, but prompting requires an interactive terminal$/u);
+    test('stops the spinner before prompting and trims the entered one-time password', async function () {
+        const stopSpinner = fake();
+        const question = fake.resolves(' 123456 ');
+        const { prompt } = createPrompt({ stopSpinner, question });
 
-    assert.strictEqual(stopSpinner.callCount, 0);
-    assert.strictEqual(question.callCount, 0);
-    assert.strictEqual(close.callCount, 0);
-});
+        const result = await withPromiseDeadline(prompt(), 'one-time password prompt success');
 
-test('stops the spinner before prompting and trims the entered one-time password', async () => {
-    const stopSpinner = fake();
-    const question = fake.resolves(' 123456 ');
-    const { prompt } = createPrompt({ stopSpinner, question });
-
-    const result = await withPromiseDeadline(prompt(), 'one-time password prompt success');
-
-    assert.strictEqual(result, '123456');
-    assert.strictEqual(stopSpinner.callCount, 1);
-    assert.deepStrictEqual(question.firstCall.args, ['Registry one-time password: ']);
-    assert.ok(stopSpinner.calledBefore(question));
-});
-
-test('closes the prompt interface after a successful prompt', async () => {
-    const close = fake();
-    const { prompt } = createPrompt({ close });
-
-    await withPromiseDeadline(prompt(), 'one-time password prompt close');
-
-    assert.strictEqual(close.callCount, 1);
-});
-
-test('closes the prompt interface when the prompt times out', async () => {
-    const close = fake();
-    const clock = createFakeClock();
-    const { prompt } = createPrompt({
-        clock,
-        close,
-        question: async () => {
-            return new Promise<string>(() => {
-                // Intentionally unresolved to exercise the timeout path.
-            });
-        }
+        assert.strictEqual(result, '123456');
+        assert.strictEqual(stopSpinner.callCount, 1);
+        assert.deepStrictEqual(question.firstCall.args, ['Registry one-time password: ']);
+        assert.ok(stopSpinner.calledBefore(question));
     });
 
-    const promptPromise = prompt();
-    clock.tick(90_000);
-    await expectFailure(async () => {
-        await withPromiseDeadline(promptPromise, 'one-time password prompt timeout');
-    }, /^Error: One-time password input timed out or was empty$/u);
+    test('closes the prompt interface after a successful prompt', async function () {
+        const close = fake();
+        const { prompt } = createPrompt({ close });
 
-    assert.strictEqual(close.callCount, 1);
-});
+        await withPromiseDeadline(prompt(), 'one-time password prompt close');
 
-test('throws when the entered one-time password is empty after trimming', async () => {
-    const { prompt } = createPrompt({
-        question: fake.resolves('   ')
+        assert.strictEqual(close.callCount, 1);
     });
 
-    await expectFailure(async () => {
-        await withPromiseDeadline(prompt(), 'one-time password prompt empty input');
-    }, /^Error: One-time password input timed out or was empty$/u);
+    test('closes the prompt interface when the prompt times out', async function () {
+        const close = fake();
+        const clock = createFakeClock();
+        const { prompt } = createPrompt({
+            clock,
+            close,
+            question: async () => {
+                return new Promise<string>(() => {
+                    // Intentionally unresolved to exercise the timeout path.
+                });
+            }
+        });
+
+        const promptPromise = prompt();
+        clock.tick(90_000);
+        await expectFailure(async () => {
+            await withPromiseDeadline(promptPromise, 'one-time password prompt timeout');
+        }, /^Error: One-time password input timed out or was empty$/u);
+
+        assert.strictEqual(close.callCount, 1);
+    });
+
+    test('throws when the entered one-time password is empty after trimming', async function () {
+        const { prompt } = createPrompt({
+            question: fake.resolves('   ')
+        });
+
+        await expectFailure(async () => {
+            await withPromiseDeadline(prompt(), 'one-time password prompt empty input');
+        }, /^Error: One-time password input timed out or was empty$/u);
+    });
 });

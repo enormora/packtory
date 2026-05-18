@@ -1,167 +1,169 @@
 import path from 'node:path';
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
-test('includes all required local files and references correct node modules but ignores builtin modules', async () => {
-    const fixture = path.join(
-        process.cwd(),
-        'integration-tests/fixtures/with-local-builtin-and-node-module-dependencies'
-    );
-    const result = await packageProcessor.build({
-        name: 'the-package-name',
-        version: '42.0.0',
-        sourcesFolder: path.join(fixture, 'src'),
-        roots: { main: { js: path.join(fixture, 'src/entry.js') } },
-        mainPackageJson: await loadPackageJson(fixture),
-        includeSourceMapFiles: false,
-        additionalFiles: [],
-        bundleDependencies: [],
-        bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: [],
-        deadCodeElimination: { enabled: false }
+suite('package-types', function () {
+    test('includes all required local files and references correct node modules but ignores builtin modules', async function () {
+        const fixture = path.join(
+            process.cwd(),
+            'integration-tests/fixtures/with-local-builtin-and-node-module-dependencies'
+        );
+        const result = await packageProcessor.build({
+            name: 'the-package-name',
+            version: '42.0.0',
+            sourcesFolder: path.join(fixture, 'src'),
+            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
+            mainPackageJson: await loadPackageJson(fixture),
+            includeSourceMapFiles: false,
+            additionalFiles: [],
+            bundleDependencies: [],
+            bundlePeerDependencies: [],
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: [],
+            deadCodeElimination: { enabled: false }
+        });
+
+        assert.deepStrictEqual(
+            result,
+            asImplicitExportsBundle({
+                additionalAttributes: {},
+                packageJson: {
+                    dependencies: { 'example-module': '1.2.3' },
+                    name: 'the-package-name',
+                    sideEffects: false,
+                    type: 'module',
+                    version: '42.0.0'
+                },
+                manifestFile: {
+                    isExecutable: false,
+                    content: '',
+                    filePath: 'package.json'
+                },
+                contents: [
+                    {
+                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        fileDescription: {
+                            content: "import { foo } from './foo';\n",
+                            isExecutable: false,
+                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            targetFilePath: 'entry.js'
+                        },
+                        isExplicitlyIncluded: false,
+                        isSubstituted: false,
+                        analysis: bindingAnalysis('foo')
+                    },
+                    {
+                        directDependencies: new Set([path.join(fixture, 'src/bar.js')]),
+                        fileDescription: {
+                            content:
+                                "import { bar } from './bar';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
+                            isExecutable: false,
+                            sourceFilePath: path.join(fixture, 'src/foo.js'),
+                            targetFilePath: 'foo.js'
+                        },
+                        isExplicitlyIncluded: false,
+                        isSubstituted: false,
+                        analysis: bindingAnalysis('bar', 'path', 'foo')
+                    },
+                    {
+                        directDependencies: new Set(),
+                        fileDescription: {
+                            content: "import { example } from 'example-module';\n\nexport const bar = 'bar';\n",
+                            isExecutable: false,
+                            sourceFilePath: path.join(fixture, 'src/bar.js'),
+                            targetFilePath: 'bar.js'
+                        },
+                        isExplicitlyIncluded: false,
+                        isSubstituted: false,
+                        analysis: bindingAnalysis('example', 'bar')
+                    }
+                ],
+                dependencies: {
+                    'example-module': '1.2.3'
+                },
+                mainFile: {
+                    content: "import { foo } from './foo';\n",
+                    isExecutable: false,
+                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    targetFilePath: 'entry.js'
+                },
+                name: 'the-package-name',
+                packageType: 'module',
+                peerDependencies: {},
+                sideEffectsField: false,
+                typesMainFile: undefined,
+                version: '42.0.0'
+            })
+        );
     });
 
-    assert.deepStrictEqual(
-        result,
-        asImplicitExportsBundle({
-            additionalAttributes: {},
-            packageJson: {
-                dependencies: { 'example-module': '1.2.3' },
-                name: 'the-package-name',
-                sideEffects: false,
-                type: 'module',
-                version: '42.0.0'
-            },
-            manifestFile: {
-                isExecutable: false,
-                content: '',
-                filePath: 'package.json'
-            },
-            contents: [
-                {
-                    directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
-                    fileDescription: {
-                        content: "import { foo } from './foo';\n",
-                        isExecutable: false,
-                        sourceFilePath: path.join(fixture, 'src/entry.js'),
-                        targetFilePath: 'entry.js'
-                    },
-                    isExplicitlyIncluded: false,
-                    isSubstituted: false,
-                    analysis: bindingAnalysis('foo')
-                },
-                {
-                    directDependencies: new Set([path.join(fixture, 'src/bar.js')]),
-                    fileDescription: {
-                        content:
-                            "import { bar } from './bar';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",
-                        isExecutable: false,
-                        sourceFilePath: path.join(fixture, 'src/foo.js'),
-                        targetFilePath: 'foo.js'
-                    },
-                    isExplicitlyIncluded: false,
-                    isSubstituted: false,
-                    analysis: bindingAnalysis('bar', 'path', 'foo')
-                },
-                {
-                    directDependencies: new Set(),
-                    fileDescription: {
-                        content: "import { example } from 'example-module';\n\nexport const bar = 'bar';\n",
-                        isExecutable: false,
-                        sourceFilePath: path.join(fixture, 'src/bar.js'),
-                        targetFilePath: 'bar.js'
-                    },
-                    isExplicitlyIncluded: false,
-                    isSubstituted: false,
-                    analysis: bindingAnalysis('example', 'bar')
-                }
-            ],
-            dependencies: {
-                'example-module': '1.2.3'
-            },
-            mainFile: {
-                content: "import { foo } from './foo';\n",
-                isExecutable: false,
-                sourceFilePath: path.join(fixture, 'src/entry.js'),
-                targetFilePath: 'entry.js'
-            },
+    test('includes peer dependencies correctly', async function () {
+        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/with-peer-dependencies');
+        const result = await packageProcessor.build({
             name: 'the-package-name',
-            packageType: 'module',
-            peerDependencies: {},
-            sideEffectsField: false,
-            typesMainFile: undefined,
-            version: '42.0.0'
-        })
-    );
-});
+            version: '42.0.0',
+            sourcesFolder: path.join(fixture, 'src'),
+            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
+            mainPackageJson: await loadPackageJson(fixture),
+            includeSourceMapFiles: false,
+            additionalFiles: [],
+            bundleDependencies: [],
+            bundlePeerDependencies: [],
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: [],
+            deadCodeElimination: { enabled: false }
+        });
 
-test('includes peer dependencies correctly', async () => {
-    const fixture = path.join(process.cwd(), 'integration-tests/fixtures/with-peer-dependencies');
-    const result = await packageProcessor.build({
-        name: 'the-package-name',
-        version: '42.0.0',
-        sourcesFolder: path.join(fixture, 'src'),
-        roots: { main: { js: path.join(fixture, 'src/entry.js') } },
-        mainPackageJson: await loadPackageJson(fixture),
-        includeSourceMapFiles: false,
-        additionalFiles: [],
-        bundleDependencies: [],
-        bundlePeerDependencies: [],
-        additionalPackageJsonAttributes: {},
-        allowMutableSpecifiers: [],
-        deadCodeElimination: { enabled: false }
+        assert.deepStrictEqual(
+            result,
+            asImplicitExportsBundle({
+                additionalAttributes: {},
+                packageJson: {
+                    peerDependencies: { 'example-module': '1.2.3' },
+                    name: 'the-package-name',
+                    sideEffects: false,
+                    type: 'module',
+                    version: '42.0.0'
+                },
+                manifestFile: {
+                    isExecutable: false,
+                    content: '',
+                    filePath: 'package.json'
+                },
+                contents: [
+                    {
+                        directDependencies: new Set(),
+                        fileDescription: {
+                            content: "import { example } from 'example-module';\nexport const foo = example;\n",
+                            isExecutable: false,
+                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            targetFilePath: 'entry.js'
+                        },
+                        isExplicitlyIncluded: false,
+                        isSubstituted: false,
+                        analysis: bindingAnalysis('example', 'foo')
+                    }
+                ],
+                dependencies: {},
+                mainFile: {
+                    content: "import { example } from 'example-module';\nexport const foo = example;\n",
+                    isExecutable: false,
+                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    targetFilePath: 'entry.js'
+                },
+                name: 'the-package-name',
+                packageType: 'module',
+                peerDependencies: {
+                    'example-module': '1.2.3'
+                },
+                sideEffectsField: false,
+                typesMainFile: undefined,
+                version: '42.0.0'
+            })
+        );
     });
-
-    assert.deepStrictEqual(
-        result,
-        asImplicitExportsBundle({
-            additionalAttributes: {},
-            packageJson: {
-                peerDependencies: { 'example-module': '1.2.3' },
-                name: 'the-package-name',
-                sideEffects: false,
-                type: 'module',
-                version: '42.0.0'
-            },
-            manifestFile: {
-                isExecutable: false,
-                content: '',
-                filePath: 'package.json'
-            },
-            contents: [
-                {
-                    directDependencies: new Set(),
-                    fileDescription: {
-                        content: "import { example } from 'example-module';\nexport const foo = example;\n",
-                        isExecutable: false,
-                        sourceFilePath: path.join(fixture, 'src/entry.js'),
-                        targetFilePath: 'entry.js'
-                    },
-                    isExplicitlyIncluded: false,
-                    isSubstituted: false,
-                    analysis: bindingAnalysis('example', 'foo')
-                }
-            ],
-            dependencies: {},
-            mainFile: {
-                content: "import { example } from 'example-module';\nexport const foo = example;\n",
-                isExecutable: false,
-                sourceFilePath: path.join(fixture, 'src/entry.js'),
-                targetFilePath: 'entry.js'
-            },
-            name: 'the-package-name',
-            packageType: 'module',
-            peerDependencies: {
-                'example-module': '1.2.3'
-            },
-            sideEffectsField: false,
-            typesMainFile: undefined,
-            version: '42.0.0'
-        })
-    );
 });

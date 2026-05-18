@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import type { PublishSettings } from '../config/publish-settings.ts';
@@ -80,261 +80,263 @@ function createPublishedBundleScenario(): {
     };
 }
 
-test('determineCurrentVersion() fetches the latest version when automatic versioning is enabled', async () => {
-    const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const emitter = emitterFactory({ fetchLatestVersion });
+suite('emitter', function () {
+    test('determineCurrentVersion() fetches the latest version when automatic versioning is enabled', async function () {
+        const fetchLatestVersion = fake.resolves(Maybe.nothing());
+        const emitter = emitterFactory({ fetchLatestVersion });
 
-    await emitter.determineCurrentVersion({
-        name: 'the-name',
-        registrySettings,
-        versioning: { automatic: true }
+        await emitter.determineCurrentVersion({
+            name: 'the-name',
+            registrySettings,
+            versioning: { automatic: true }
+        });
+
+        assert.strictEqual(fetchLatestVersion.callCount, 1);
+        assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
     });
 
-    assert.strictEqual(fetchLatestVersion.callCount, 1);
-    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
-});
+    test('determineCurrentVersion() returns the fetched version when automatic versioning is enabled', async function () {
+        const fetchLatestVersion = fake.resolves(Maybe.just({ version: 'the-version' }));
+        const emitter = emitterFactory({ fetchLatestVersion });
 
-test('determineCurrentVersion() returns the fetched version when automatic versioning is enabled', async () => {
-    const fetchLatestVersion = fake.resolves(Maybe.just({ version: 'the-version' }));
-    const emitter = emitterFactory({ fetchLatestVersion });
+        const result = await emitter.determineCurrentVersion({
+            name: 'the-name',
+            registrySettings,
+            versioning: { automatic: true }
+        });
 
-    const result = await emitter.determineCurrentVersion({
-        name: 'the-name',
-        registrySettings,
-        versioning: { automatic: true }
+        assert.deepStrictEqual(result, Maybe.just('the-version'));
     });
 
-    assert.deepStrictEqual(result, Maybe.just('the-version'));
-});
+    test('determineCurrentVersion() doesn’t fetches the latest version when manual versioning is enabled', async function () {
+        const fetchLatestVersion = fake.resolves(Maybe.nothing());
+        const emitter = emitterFactory({ fetchLatestVersion });
 
-test('determineCurrentVersion() doesn’t fetches the latest version when manual versioning is enabled', async () => {
-    const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const emitter = emitterFactory({ fetchLatestVersion });
+        await emitter.determineCurrentVersion({
+            name: 'the-name',
+            registrySettings,
+            versioning: { automatic: false, version: '' }
+        });
 
-    await emitter.determineCurrentVersion({
-        name: 'the-name',
-        registrySettings,
-        versioning: { automatic: false, version: '' }
+        assert.strictEqual(fetchLatestVersion.callCount, 0);
     });
 
-    assert.strictEqual(fetchLatestVersion.callCount, 0);
-});
+    test('determineCurrentVersion() returns the given version when manual versioning is enabled', async function () {
+        const emitter = emitterFactory({});
 
-test('determineCurrentVersion() returns the given version when manual versioning is enabled', async () => {
-    const emitter = emitterFactory({});
+        const result = await emitter.determineCurrentVersion({
+            name: 'the-name',
+            registrySettings,
+            versioning: { automatic: false, version: 'manual-version' }
+        });
 
-    const result = await emitter.determineCurrentVersion({
-        name: 'the-name',
-        registrySettings,
-        versioning: { automatic: false, version: 'manual-version' }
+        assert.deepStrictEqual(result, Maybe.just('manual-version'));
     });
 
-    assert.deepStrictEqual(result, Maybe.just('manual-version'));
-});
+    test('checkBundleAlreadyPublished() fetches the latest version', async function () {
+        const fetchLatestVersion = fake.resolves(Maybe.nothing());
+        const emitter = emitterFactory({ fetchLatestVersion });
 
-test('checkBundleAlreadyPublished() fetches the latest version', async () => {
-    const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const emitter = emitterFactory({ fetchLatestVersion });
+        await emitter.checkBundleAlreadyPublished({
+            registrySettings,
+            bundle: namedBundle()
+        });
 
-    await emitter.checkBundleAlreadyPublished({
-        registrySettings,
-        bundle: namedBundle()
+        assert.strictEqual(fetchLatestVersion.callCount, 1);
+        assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
     });
 
-    assert.strictEqual(fetchLatestVersion.callCount, 1);
-    assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
-});
+    test('checkBundleAlreadyPublished() returns false when there is no latest version in the registry', async function () {
+        const fetchLatestVersion = fake.resolves(Maybe.nothing());
+        const collectContents = fake.returns([]);
+        const emitter = emitterFactory({ fetchLatestVersion, collectContents });
 
-test('checkBundleAlreadyPublished() returns false when there is no latest version in the registry', async () => {
-    const fetchLatestVersion = fake.resolves(Maybe.nothing());
-    const collectContents = fake.returns([]);
-    const emitter = emitterFactory({ fetchLatestVersion, collectContents });
+        const result = await emitter.checkBundleAlreadyPublished({
+            registrySettings,
+            bundle: namedBundle()
+        });
 
-    const result = await emitter.checkBundleAlreadyPublished({
-        registrySettings,
-        bundle: namedBundle()
+        assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
+        assert.strictEqual(collectContents.callCount, 0);
     });
 
-    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
-    assert.strictEqual(collectContents.callCount, 0);
-});
+    test('checkBundleAlreadyPublished() returns false when the latest version contents doesn’t match the given bundle', async function () {
+        const fetchLatestVersion = fake.resolves(
+            Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
+        );
+        const fetchTarball = fake.resolves(tarballWithOneFile);
+        const collectContents = fake.returns([]);
+        const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
 
-test('checkBundleAlreadyPublished() returns false when the latest version contents doesn’t match the given bundle', async () => {
-    const fetchLatestVersion = fake.resolves(
-        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
-    );
-    const fetchTarball = fake.resolves(tarballWithOneFile);
-    const collectContents = fake.returns([]);
-    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
+        const bundle = namedBundle();
+        const result = await emitter.checkBundleAlreadyPublished({
+            registrySettings,
+            bundle
+        });
 
-    const bundle = namedBundle();
-    const result = await emitter.checkBundleAlreadyPublished({
-        registrySettings,
-        bundle
+        assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
+        assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package', undefined]);
+        assert.deepStrictEqual(fetchTarball.firstCall.args, [
+            'https://registry.example.test/package.tgz',
+            registrySettings
+        ]);
     });
 
-    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
-    assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package', undefined]);
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [
-        'https://registry.example.test/package.tgz',
-        registrySettings
-    ]);
-});
+    test('checkBundleAlreadyPublished() forwards extra files to collectContents', async function () {
+        const checkScenario = createPublishedBundleScenario();
+        const bundle = namedBundle();
+        const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
+        await checkScenario.emitter.checkBundleAlreadyPublished({
+            registrySettings,
+            bundle,
+            extraFiles: [extraFile]
+        });
 
-test('checkBundleAlreadyPublished() forwards extra files to collectContents', async () => {
-    const checkScenario = createPublishedBundleScenario();
-    const bundle = namedBundle();
-    const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
-    await checkScenario.emitter.checkBundleAlreadyPublished({
-        registrySettings,
-        bundle,
-        extraFiles: [extraFile]
+        assert.deepStrictEqual(checkScenario.collectContents.firstCall.args, [bundle, 'package', [extraFile]]);
     });
 
-    assert.deepStrictEqual(checkScenario.collectContents.firstCall.args, [bundle, 'package', [extraFile]]);
-});
+    test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async function () {
+        const fetchLatestVersion = fake.resolves(
+            Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
+        );
+        const fetchTarball = fake.resolves(emptyTarball);
+        const collectContents = fake.returns([]);
+        const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
 
-test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async () => {
-    const fetchLatestVersion = fake.resolves(
-        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
-    );
-    const fetchTarball = fake.resolves(emptyTarball);
-    const collectContents = fake.returns([]);
-    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
+        const result = await emitter.checkBundleAlreadyPublished({
+            registrySettings,
+            bundle: namedBundle()
+        });
 
-    const result = await emitter.checkBundleAlreadyPublished({
-        registrySettings,
-        bundle: namedBundle()
+        assert.deepStrictEqual(result, { alreadyPublishedAsLatest: true });
+        assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
+        assert.deepStrictEqual(fetchTarball.firstCall.args, [
+            'https://registry.example.test/package.tgz',
+            registrySettings
+        ]);
     });
 
-    assert.deepStrictEqual(result, { alreadyPublishedAsLatest: true });
-    assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [
-        'https://registry.example.test/package.tgz',
-        registrySettings
-    ]);
-});
+    test('publish() publishes the given bundle', async function () {
+        const buildTarball = fake.resolves({ tarData: emptyTarball });
+        const publishPackage = fake.resolves(undefined);
+        const emitter = emitterFactory({ buildTarball, publishPackage });
+        const publishSettings = { access: 'public' } as const;
 
-test('publish() publishes the given bundle', async () => {
-    const buildTarball = fake.resolves({ tarData: emptyTarball });
-    const publishPackage = fake.resolves(undefined);
-    const emitter = emitterFactory({ buildTarball, publishPackage });
-    const publishSettings = { access: 'public' } as const;
+        await emitter.publish({
+            registrySettings,
+            bundle: namedBundle(),
+            publishSettings
+        });
 
-    await emitter.publish({
-        registrySettings,
-        bundle: namedBundle(),
-        publishSettings
+        assert.strictEqual(publishPackage.callCount, 1);
+        assert.deepStrictEqual(publishPackage.firstCall.args, [
+            { name: '', version: '' },
+            emptyTarball,
+            registrySettings,
+            publishSettings
+        ]);
     });
 
-    assert.strictEqual(publishPackage.callCount, 1);
-    assert.deepStrictEqual(publishPackage.firstCall.args, [
-        { name: '', version: '' },
-        emptyTarball,
-        registrySettings,
-        publishSettings
-    ]);
-});
+    test('publish() forwards extra files to buildTarball', async function () {
+        const buildTarball = fake.resolves({ tarData: emptyTarball });
+        const emitter = emitterFactory({ buildTarball });
+        const bundle = namedBundle();
+        const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
 
-test('publish() forwards extra files to buildTarball', async () => {
-    const buildTarball = fake.resolves({ tarData: emptyTarball });
-    const emitter = emitterFactory({ buildTarball });
-    const bundle = namedBundle();
-    const extraFile = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
+        await emitter.publish({
+            registrySettings,
+            bundle,
+            publishSettings: { access: 'public' },
+            extraFiles: [extraFile]
+        });
 
-    await emitter.publish({
-        registrySettings,
-        bundle,
-        publishSettings: { access: 'public' },
-        extraFiles: [extraFile]
+        assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, [extraFile]]);
     });
 
-    assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, [extraFile]]);
-});
+    function bundleWithRepository(repository: string | undefined): ReturnType<typeof versionedBundleWithManifest> {
+        const packageJson = repository === undefined ? { name: 'the-name' } : { name: 'the-name', repository };
+        return versionedBundleWithManifest({ packageJson });
+    }
 
-function bundleWithRepository(repository: string | undefined): ReturnType<typeof versionedBundleWithManifest> {
-    const packageJson = repository === undefined ? { name: 'the-name' } : { name: 'the-name', repository };
-    return versionedBundleWithManifest({ packageJson });
-}
+    test('publish() rejects under provenance auto mode when the manifest repository differs from the CI repository', async function () {
+        const buildTarball = fake.resolves({ tarData: emptyTarball });
+        const publishPackage = fake.resolves(undefined);
+        const emitter = emitterFactory({
+            buildTarball,
+            publishPackage,
+            ciRepositoryUrl: 'https://github.com/upstream/package'
+        });
 
-test('publish() rejects under provenance auto mode when the manifest repository differs from the CI repository', async () => {
-    const buildTarball = fake.resolves({ tarData: emptyTarball });
-    const publishPackage = fake.resolves(undefined);
-    const emitter = emitterFactory({
-        buildTarball,
-        publishPackage,
-        ciRepositoryUrl: 'https://github.com/upstream/package'
+        try {
+            await emitter.publish({
+                registrySettings,
+                bundle: bundleWithRepository('https://github.com/foo/forked-package'),
+                publishSettings: { access: 'public', provenance: { type: 'auto' } }
+            });
+        } catch (error) {
+            assert.ok(error instanceof Error);
+            assert.match(error.message, /repository URL does not match/u);
+            assert.strictEqual(buildTarball.callCount, 0);
+            assert.strictEqual(publishPackage.callCount, 0);
+            return;
+        }
+        assert.fail('Expected publish() to throw');
     });
 
-    try {
+    test('publish() does not run the coherence check under provenance file mode', async function () {
+        const buildTarball = fake.resolves({ tarData: emptyTarball });
+        const publishPackage = fake.resolves(undefined);
+        const emitter = emitterFactory({
+            buildTarball,
+            publishPackage,
+            ciRepositoryUrl: 'https://github.com/upstream/package'
+        });
+
         await emitter.publish({
             registrySettings,
             bundle: bundleWithRepository('https://github.com/foo/forked-package'),
-            publishSettings: { access: 'public', provenance: { type: 'auto' } }
+            publishSettings: { access: 'public', provenance: { type: 'file', path: '/build/bundle.sigstore' } }
         });
-    } catch (error) {
-        assert.ok(error instanceof Error);
-        assert.match(error.message, /repository URL does not match/u);
-        assert.strictEqual(buildTarball.callCount, 0);
-        assert.strictEqual(publishPackage.callCount, 0);
-        return;
-    }
-    assert.fail('Expected publish() to throw');
-});
 
-test('publish() does not run the coherence check under provenance file mode', async () => {
-    const buildTarball = fake.resolves({ tarData: emptyTarball });
-    const publishPackage = fake.resolves(undefined);
-    const emitter = emitterFactory({
-        buildTarball,
-        publishPackage,
-        ciRepositoryUrl: 'https://github.com/upstream/package'
+        assert.strictEqual(buildTarball.callCount, 1);
+        assert.strictEqual(publishPackage.callCount, 1);
     });
 
-    await emitter.publish({
-        registrySettings,
-        bundle: bundleWithRepository('https://github.com/foo/forked-package'),
-        publishSettings: { access: 'public', provenance: { type: 'file', path: '/build/bundle.sigstore' } }
+    test('publish() does not run the coherence check when provenance is unset', async function () {
+        const buildTarball = fake.resolves({ tarData: emptyTarball });
+        const publishPackage = fake.resolves(undefined);
+        const emitter = emitterFactory({
+            buildTarball,
+            publishPackage,
+            ciRepositoryUrl: undefined
+        });
+
+        await emitter.publish({
+            registrySettings,
+            bundle: bundleWithRepository(undefined),
+            publishSettings: { access: 'public' }
+        });
+
+        assert.strictEqual(buildTarball.callCount, 1);
+        assert.strictEqual(publishPackage.callCount, 1);
     });
 
-    assert.strictEqual(buildTarball.callCount, 1);
-    assert.strictEqual(publishPackage.callCount, 1);
-});
+    test('publish() does not run the coherence check when access is restricted even if provenance is set to auto', async function () {
+        const buildTarball = fake.resolves({ tarData: emptyTarball });
+        const publishPackage = fake.resolves(undefined);
+        const emitter = emitterFactory({
+            buildTarball,
+            publishPackage,
+            ciRepositoryUrl: 'https://github.com/upstream/package'
+        });
 
-test('publish() does not run the coherence check when provenance is unset', async () => {
-    const buildTarball = fake.resolves({ tarData: emptyTarball });
-    const publishPackage = fake.resolves(undefined);
-    const emitter = emitterFactory({
-        buildTarball,
-        publishPackage,
-        ciRepositoryUrl: undefined
+        await emitter.publish({
+            registrySettings,
+            bundle: bundleWithRepository('https://github.com/foo/forked-package'),
+            publishSettings: { access: 'restricted', provenance: { type: 'auto' } } as unknown as PublishSettings
+        });
+
+        assert.strictEqual(buildTarball.callCount, 1);
+        assert.strictEqual(publishPackage.callCount, 1);
     });
-
-    await emitter.publish({
-        registrySettings,
-        bundle: bundleWithRepository(undefined),
-        publishSettings: { access: 'public' }
-    });
-
-    assert.strictEqual(buildTarball.callCount, 1);
-    assert.strictEqual(publishPackage.callCount, 1);
-});
-
-test('publish() does not run the coherence check when access is restricted even if provenance is set to auto', async () => {
-    const buildTarball = fake.resolves({ tarData: emptyTarball });
-    const publishPackage = fake.resolves(undefined);
-    const emitter = emitterFactory({
-        buildTarball,
-        publishPackage,
-        ciRepositoryUrl: 'https://github.com/upstream/package'
-    });
-
-    await emitter.publish({
-        registrySettings,
-        bundle: bundleWithRepository('https://github.com/foo/forked-package'),
-        publishSettings: { access: 'restricted', provenance: { type: 'auto' } } as unknown as PublishSettings
-    });
-
-    assert.strictEqual(buildTarball.callCount, 1);
-    assert.strictEqual(publishPackage.callCount, 1);
 });

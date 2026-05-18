@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { fake, stub, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import { createDependencyGraph } from '../dependency-scanner/dependency-graph.ts';
@@ -107,154 +107,156 @@ function configureScanForJsAndDeclarationGraphs(
     return scan;
 }
 
-test('resolve() scans js roots and additional files and returns their file descriptions', async () => {
-    const jsGraph = createGraph({ rootFile: '/src/index.js', additionalLocalFiles: ['/src/internal.js'] });
-    const scan = fake.resolves(jsGraph);
-    const { resolver } = createResolver({ scan });
+suite('resource-resolver', function () {
+    test('resolve() scans js roots and additional files and returns their file descriptions', async function () {
+        const jsGraph = createGraph({ rootFile: '/src/index.js', additionalLocalFiles: ['/src/internal.js'] });
+        const scan = fake.resolves(jsGraph);
+        const { resolver } = createResolver({ scan });
 
-    const result = await resolver.resolve({
-        ...baseResolveOptions,
-        includeSourceMapFiles: true,
-        additionalFiles: ['readme.md']
-    });
-
-    assert.deepStrictEqual(scan.firstCall.args, [
-        '/src/index.js',
-        '/src',
-        {
+        const result = await resolver.resolve({
+            ...baseResolveOptions,
             includeSourceMapFiles: true,
-            resolveDeclarationFiles: false,
-            mainPackageJson: { type: 'module' }
-        }
-    ]);
-    assert.strictEqual(result.name, 'package-a');
-    assert.strictEqual(result.contents.length, 3);
-    assert.deepStrictEqual(result.roots, {
-        main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined }
-    });
-});
+            additionalFiles: ['readme.md']
+        });
 
-test('resolve() keeps declarationFile undefined when a root does not define one', async () => {
-    const jsGraph = createGraph({ rootFile: '/src/index.js' });
-    const scan = fake.resolves(jsGraph);
-    const { resolver } = createResolver({ scan });
-
-    const result = await resolver.resolve(baseResolveOptions);
-
-    assert.strictEqual(result.roots.main?.declarationFile, undefined);
-});
-
-test('resolve() scans declaration roots separately and merges local and external dependencies', async () => {
-    const jsGraph = createGraph({
-        rootFile: '/src/index.js',
-        additionalLocalFiles: ['/src/shared.js'],
-        externalDependencyName: 'left-pad'
-    });
-    const declarationGraph = createGraph({
-        rootFile: '/src/index.d.ts',
-        additionalLocalFiles: ['/src/shared.js'],
-        externalDependencyName: 'typescript'
-    });
-    const scan = configureScanForJsAndDeclarationGraphs(jsGraph, declarationGraph);
-    const { resolver } = createResolver({ scan });
-
-    const result = await resolver.resolve({
-        name: 'package-a',
-        sourcesFolder: '/src',
-        roots: { main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' } },
-        includeSourceMapFiles: false,
-        additionalFiles: [],
-        mainPackageJson: { type: 'module' }
+        assert.deepStrictEqual(scan.firstCall.args, [
+            '/src/index.js',
+            '/src',
+            {
+                includeSourceMapFiles: true,
+                resolveDeclarationFiles: false,
+                mainPackageJson: { type: 'module' }
+            }
+        ]);
+        assert.strictEqual(result.name, 'package-a');
+        assert.strictEqual(result.contents.length, 3);
+        assert.deepStrictEqual(result.roots, {
+            main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined }
+        });
     });
 
-    assert.strictEqual(scan.callCount, 2);
-    assert.deepStrictEqual(scan.secondCall.args, [
-        '/src/index.d.ts',
-        '/src',
-        {
-            includeSourceMapFiles: false,
-            resolveDeclarationFiles: true,
-            mainPackageJson: { type: 'module' }
-        }
-    ]);
-    assert.deepStrictEqual(
-        Array.from(result.externalDependencies.keys()).toSorted((left, right) => {
-            return left.localeCompare(right);
-        }),
-        ['left-pad', 'typescript']
-    );
-    assert.deepStrictEqual(result.roots, {
-        main: {
-            js: createTransferableFile('/src/index.js', 'index.js'),
-            declarationFile: createTransferableFile('/src/index.d.ts', 'index.d.ts')
-        }
-    });
-});
+    test('resolve() keeps declarationFile undefined when a root does not define one', async function () {
+        const jsGraph = createGraph({ rootFile: '/src/index.js' });
+        const scan = fake.resolves(jsGraph);
+        const { resolver } = createResolver({ scan });
 
-test('resolve() preserves additional modern roots', async () => {
-    const firstGraph = createGraph({ rootFile: '/src/index.js' });
-    const secondGraph = createGraph({ rootFile: '/src/feature.js' });
-    const scan = stub();
-    scan.onFirstCall().resolves(firstGraph);
-    scan.onSecondCall().resolves(secondGraph);
-    const { resolver } = createResolver({ scan });
+        const result = await resolver.resolve(baseResolveOptions);
 
-    const result = await resolver.resolve({
-        ...baseResolveOptions,
-        roots: {
-            main: { js: '/src/index.js' },
-            feature: { js: '/src/feature.js' }
-        }
+        assert.strictEqual(result.roots.main?.declarationFile, undefined);
     });
 
-    assert.deepStrictEqual(result.roots, {
-        main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined },
-        feature: { js: createTransferableFile('/src/feature.js', 'feature.js'), declarationFile: undefined }
-    });
-});
+    test('resolve() scans declaration roots separately and merges local and external dependencies', async function () {
+        const jsGraph = createGraph({
+            rootFile: '/src/index.js',
+            additionalLocalFiles: ['/src/shared.js'],
+            externalDependencyName: 'left-pad'
+        });
+        const declarationGraph = createGraph({
+            rootFile: '/src/index.d.ts',
+            additionalLocalFiles: ['/src/shared.js'],
+            externalDependencyName: 'typescript'
+        });
+        const scan = configureScanForJsAndDeclarationGraphs(jsGraph, declarationGraph);
+        const { resolver } = createResolver({ scan });
 
-test('resolve() throws when a root resource cannot be resolved from the scanned contents', async () => {
-    const graph = createGraph({ rootFile: '/src/index.js' });
-    const scan = fake.resolves(graph);
-    const { resolver } = createResolver({
-        scan,
-        transferableFileDescriptionResponder: () => {
-            return createTransferableFile('/src/not-the-entry.js');
-        }
-    });
-
-    try {
-        await resolver.resolve({
+        const result = await resolver.resolve({
             name: 'package-a',
             sourcesFolder: '/src',
-            roots: { main: { js: '/src/index.js' } },
+            roots: { main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' } },
             includeSourceMapFiles: false,
             additionalFiles: [],
             mainPackageJson: { type: 'module' }
         });
-        assert.fail('Expected resolve() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Failed to resolve resource for root /src/index.js');
-    }
-});
 
-test('resolve() throws when a declared root resource cannot be resolved from the scanned contents', async () => {
-    const graph = createGraph({ rootFile: '/src/missing.js' });
-    const scan = fake.resolves(graph);
-    const { resolver } = createResolver({
-        scan,
-        transferableFileDescriptionResponder: () => {
-            return createTransferableFile('/src/index.js');
+        assert.strictEqual(scan.callCount, 2);
+        assert.deepStrictEqual(scan.secondCall.args, [
+            '/src/index.d.ts',
+            '/src',
+            {
+                includeSourceMapFiles: false,
+                resolveDeclarationFiles: true,
+                mainPackageJson: { type: 'module' }
+            }
+        ]);
+        assert.deepStrictEqual(
+            Array.from(result.externalDependencies.keys()).toSorted((left, right) => {
+                return left.localeCompare(right);
+            }),
+            ['left-pad', 'typescript']
+        );
+        assert.deepStrictEqual(result.roots, {
+            main: {
+                js: createTransferableFile('/src/index.js', 'index.js'),
+                declarationFile: createTransferableFile('/src/index.d.ts', 'index.d.ts')
+            }
+        });
+    });
+
+    test('resolve() preserves additional modern roots', async function () {
+        const firstGraph = createGraph({ rootFile: '/src/index.js' });
+        const secondGraph = createGraph({ rootFile: '/src/feature.js' });
+        const scan = stub();
+        scan.onFirstCall().resolves(firstGraph);
+        scan.onSecondCall().resolves(secondGraph);
+        const { resolver } = createResolver({ scan });
+
+        const result = await resolver.resolve({
+            ...baseResolveOptions,
+            roots: {
+                main: { js: '/src/index.js' },
+                feature: { js: '/src/feature.js' }
+            }
+        });
+
+        assert.deepStrictEqual(result.roots, {
+            main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined },
+            feature: { js: createTransferableFile('/src/feature.js', 'feature.js'), declarationFile: undefined }
+        });
+    });
+
+    test('resolve() throws when a root resource cannot be resolved from the scanned contents', async function () {
+        const graph = createGraph({ rootFile: '/src/index.js' });
+        const scan = fake.resolves(graph);
+        const { resolver } = createResolver({
+            scan,
+            transferableFileDescriptionResponder: () => {
+                return createTransferableFile('/src/not-the-entry.js');
+            }
+        });
+
+        try {
+            await resolver.resolve({
+                name: 'package-a',
+                sourcesFolder: '/src',
+                roots: { main: { js: '/src/index.js' } },
+                includeSourceMapFiles: false,
+                additionalFiles: [],
+                mainPackageJson: { type: 'module' }
+            });
+            assert.fail('Expected resolve() should fail but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual((error as Error).message, 'Failed to resolve resource for root /src/index.js');
         }
     });
 
-    try {
-        await resolver.resolve({
-            ...baseResolveOptions,
-            roots: { main: { js: '/src/missing.js' } }
+    test('resolve() throws when a declared root resource cannot be resolved from the scanned contents', async function () {
+        const graph = createGraph({ rootFile: '/src/missing.js' });
+        const scan = fake.resolves(graph);
+        const { resolver } = createResolver({
+            scan,
+            transferableFileDescriptionResponder: () => {
+                return createTransferableFile('/src/index.js');
+            }
         });
-        assert.fail('Expected resolve() should fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Failed to resolve resource for root /src/missing.js');
-    }
+
+        try {
+            await resolver.resolve({
+                ...baseResolveOptions,
+                roots: { main: { js: '/src/missing.js' } }
+            });
+            assert.fail('Expected resolve() should fail but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual((error as Error).message, 'Failed to resolve resource for root /src/missing.js');
+        }
+    });
 });

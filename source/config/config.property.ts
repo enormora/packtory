@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import fc from 'fast-check';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { configToResolveAndLinkOptions } from '../packtory/map-config.ts';
 import { linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { PacktoryConfig } from './config.ts';
@@ -130,97 +130,99 @@ const validConfigArbitrary = fc
         };
     });
 
-test('packtoryConfigSchema accepts generated valid config shapes unchanged', () => {
-    fc.assert(
-        fc.property(validConfigArbitrary, (config) => {
-            const typedConfig = config as unknown as PacktoryConfig;
-            const result = safeParse(packtoryConfigSchema, typedConfig);
+suite('config', function () {
+    test('packtoryConfigSchema accepts generated valid config shapes unchanged', function () {
+        fc.assert(
+            fc.property(validConfigArbitrary, (config) => {
+                const typedConfig = config as unknown as PacktoryConfig;
+                const result = safeParse(packtoryConfigSchema, typedConfig);
 
-            assert.strictEqual(result.success, true);
-            if (result.success) {
-                assert.deepStrictEqual(result.data.registrySettings, typedConfig.registrySettings);
-                assert.strictEqual(result.data.packages.length, config.packages.length);
-                assert.deepStrictEqual(
-                    result.data.packages.map((entry) => {
-                        return entry.name;
-                    }),
-                    typedConfig.packages.map((entry) => {
-                        return entry.name;
-                    })
-                );
-                assert.deepStrictEqual(
-                    result.data.packages.map((entry) => {
-                        return entry.roots;
-                    }),
-                    typedConfig.packages.map((entry) => {
-                        return entry.roots;
-                    })
-                );
-                assert.deepStrictEqual(
-                    result.data.packages.map((entry) => {
-                        return entry.sourcesFolder;
-                    }),
-                    typedConfig.packages.map((entry) => {
-                        return entry.sourcesFolder;
-                    })
-                );
-                assert.deepStrictEqual(
-                    result.data.packages.map((entry) => {
-                        return entry.mainPackageJson;
-                    }),
-                    typedConfig.packages.map((entry) => {
-                        return entry.mainPackageJson;
-                    })
-                );
-                assert.deepStrictEqual(
-                    result.data.commonPackageSettings?.sourcesFolder,
-                    typedConfig.commonPackageSettings?.sourcesFolder
-                );
-                assert.deepStrictEqual(
-                    result.data.commonPackageSettings?.mainPackageJson,
-                    typedConfig.commonPackageSettings?.mainPackageJson
-                );
-            }
-        })
-    );
-});
+                assert.strictEqual(result.success, true);
+                if (result.success) {
+                    assert.deepStrictEqual(result.data.registrySettings, typedConfig.registrySettings);
+                    assert.strictEqual(result.data.packages.length, config.packages.length);
+                    assert.deepStrictEqual(
+                        result.data.packages.map((entry) => {
+                            return entry.name;
+                        }),
+                        typedConfig.packages.map((entry) => {
+                            return entry.name;
+                        })
+                    );
+                    assert.deepStrictEqual(
+                        result.data.packages.map((entry) => {
+                            return entry.roots;
+                        }),
+                        typedConfig.packages.map((entry) => {
+                            return entry.roots;
+                        })
+                    );
+                    assert.deepStrictEqual(
+                        result.data.packages.map((entry) => {
+                            return entry.sourcesFolder;
+                        }),
+                        typedConfig.packages.map((entry) => {
+                            return entry.sourcesFolder;
+                        })
+                    );
+                    assert.deepStrictEqual(
+                        result.data.packages.map((entry) => {
+                            return entry.mainPackageJson;
+                        }),
+                        typedConfig.packages.map((entry) => {
+                            return entry.mainPackageJson;
+                        })
+                    );
+                    assert.deepStrictEqual(
+                        result.data.commonPackageSettings?.sourcesFolder,
+                        typedConfig.commonPackageSettings?.sourcesFolder
+                    );
+                    assert.deepStrictEqual(
+                        result.data.commonPackageSettings?.mainPackageJson,
+                        typedConfig.commonPackageSettings?.mainPackageJson
+                    );
+                }
+            })
+        );
+    });
 
-test('configToResolveAndLinkOptions() keeps package-specific overrides over inherited common settings', () => {
-    fc.assert(
-        fc.property(validConfigArbitrary, (config) => {
-            const typedConfig = config as unknown as PacktoryConfig;
-            const [packageConfig] = typedConfig.packages;
-            if (packageConfig === undefined) {
-                assert.fail('Expected a package configuration');
-            }
-            const existingBundles = (packageConfig.bundleDependencies ?? []).map((dependencyName) => {
-                return linkedBundle({ name: dependencyName, contents: [] });
-            });
+    test('configToResolveAndLinkOptions() keeps package-specific overrides over inherited common settings', function () {
+        fc.assert(
+            fc.property(validConfigArbitrary, (config) => {
+                const typedConfig = config as unknown as PacktoryConfig;
+                const [packageConfig] = typedConfig.packages;
+                if (packageConfig === undefined) {
+                    assert.fail('Expected a package configuration');
+                }
+                const existingBundles = (packageConfig.bundleDependencies ?? []).map((dependencyName) => {
+                    return linkedBundle({ name: dependencyName, contents: [] });
+                });
 
-            const result = configToResolveAndLinkOptions(
-                packageConfig.name,
-                Object.fromEntries(
-                    typedConfig.packages.map((entry) => {
-                        return [entry.name, entry];
-                    })
-                ),
-                typedConfig,
-                existingBundles
-            );
+                const result = configToResolveAndLinkOptions(
+                    packageConfig.name,
+                    Object.fromEntries(
+                        typedConfig.packages.map((entry) => {
+                            return [entry.name, entry];
+                        })
+                    ),
+                    typedConfig,
+                    existingBundles
+                );
 
-            const expectedSourcesFolder =
-                packageConfig.sourcesFolder ?? typedConfig.commonPackageSettings?.sourcesFolder;
-            assert.strictEqual(result.sourcesFolder, expectedSourcesFolder);
+                const expectedSourcesFolder =
+                    packageConfig.sourcesFolder ?? typedConfig.commonPackageSettings?.sourcesFolder;
+                assert.strictEqual(result.sourcesFolder, expectedSourcesFolder);
 
-            if (packageConfig.mainPackageJson === undefined) {
-                assert.deepStrictEqual(result.mainPackageJson, typedConfig.commonPackageSettings?.mainPackageJson);
-            } else {
-                assert.deepStrictEqual(result.mainPackageJson, packageConfig.mainPackageJson);
-            }
+                if (packageConfig.mainPackageJson === undefined) {
+                    assert.deepStrictEqual(result.mainPackageJson, typedConfig.commonPackageSettings?.mainPackageJson);
+                } else {
+                    assert.deepStrictEqual(result.mainPackageJson, packageConfig.mainPackageJson);
+                }
 
-            if (packageConfig.includeSourceMapFiles !== undefined) {
-                assert.strictEqual(result.includeSourceMapFiles, packageConfig.includeSourceMapFiles);
-            }
-        })
-    );
+                if (packageConfig.includeSourceMapFiles !== undefined) {
+                    assert.strictEqual(result.includeSourceMapFiles, packageConfig.includeSourceMapFiles);
+                }
+            })
+        );
+    });
 });
