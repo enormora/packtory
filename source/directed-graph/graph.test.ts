@@ -7,6 +7,21 @@ const probeTestTimeoutMs = 10_000;
 
 type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
 
+function expectGraphMethodToThrow(
+    method: 'connect' | 'disconnect',
+    setup: ((graph: DirectedGraph<string, string>) => void) | undefined,
+    expectedMessage: string
+): void {
+    const graph = createDirectedGraph<string, string>();
+    setup?.(graph);
+    try {
+        graph[method]({ from: 'a', to: 'b' });
+        assert.fail(`Expected ${method}() to fail but it did not`);
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, expectedMessage);
+    }
+}
+
 test('hasNode() returns false when there is no node for the given id', () => {
     const graph = createDirectedGraph<string, string>();
     assert.strictEqual(graph.hasNode('foo'), false);
@@ -34,23 +49,8 @@ test('addNode() throws when adding a node with an id that already exist', () => 
 });
 
 test('connect() throws when the from and to node don’t exist', () => {
-    expectGraphMethodToThrow('connect', () => {}, 'Node with id "a" does not exist');
+    expectGraphMethodToThrow('connect', undefined, 'Node with id "a" does not exist');
 });
-
-function expectGraphMethodToThrow(
-    method: 'connect' | 'disconnect',
-    setup: (graph: DirectedGraph<string, string>) => void,
-    expectedMessage: string
-): void {
-    const graph = createDirectedGraph<string, string>();
-    setup(graph);
-    try {
-        graph[method]({ from: 'a', to: 'b' });
-        assert.fail(`Expected ${method}() to fail but it did not`);
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, expectedMessage);
-    }
-}
 
 test('connect() throws when the from node doesn’t exist but the to node does', () => {
     expectGraphMethodToThrow(
@@ -85,7 +85,7 @@ test('connect() throws when both nodes exist but there is already a connection',
 });
 
 test('disconnect() throws when the from and to node don’t exist', () => {
-    expectGraphMethodToThrow('disconnect', () => {}, 'Node with id "a" does not exist');
+    expectGraphMethodToThrow('disconnect', undefined, 'Node with id "a" does not exist');
 });
 
 test('disconnect() throws when the from node doesn’t exist but the to node does', () => {

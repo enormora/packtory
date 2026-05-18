@@ -227,23 +227,20 @@ test('checkMutationTimeoutReport returns a failure message for timeout mutants',
 });
 
 test('checkMutationTimeoutReport ignores malformed file reports and malformed mutants', async () => {
-    await withTemporaryReport(
-        malformedTimeoutReport,
-        async (reportPath) => {
-            const fileManager = createFakeFileManager({
-                simulatedReadFileResponses: [
-                    {
-                        value: JSON.stringify(malformedTimeoutReport)
-                    }
-                ]
-            });
+    await withTemporaryReport(malformedTimeoutReport, async (reportPath) => {
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [
+                {
+                    value: JSON.stringify(malformedTimeoutReport)
+                }
+            ]
+        });
 
-            assert.strictEqual(
-                await checkMutationTimeoutReport(reportPath, fileManager),
-                timeoutReportMessage('source/c.ts', 3, 4)
-            );
-        }
-    );
+        assert.strictEqual(
+            await checkMutationTimeoutReport(reportPath, fileManager),
+            timeoutReportMessage('source/c.ts', 3, 4)
+        );
+    });
 });
 
 test('checkMutationTimeoutReport throws when a mutant status is not a string', async () => {

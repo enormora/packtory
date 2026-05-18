@@ -108,8 +108,8 @@ function runWaitScenario(scenario: WaitScenario): {
     readonly mutation: number;
     readonly result: boolean;
 } {
-    const waitResults = [...(scenario.waitResults ?? [])];
-    const renderedMutations = [...scenario.renderedMutations];
+    const waitResults = Array.from(scenario.waitResults ?? []);
+    const renderedMutations = Array.from(scenario.renderedMutations);
     let mutation = 0;
     const atomics = createControlledAtomics({
         load(typedArray, index, realLoad) {
