@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import type { SbomPackage } from '../published-package/published-package.ts';
@@ -60,136 +60,151 @@ function createBundle(overrides: BundleOverrides): SbomPackage {
     };
 }
 
-test('generate() returns a single sbom.cdx.json FileDescription when SBOM is enabled', async () => {
-    const { builder } = createBuilder();
-    const result = await builder.generate(createBundle({ name: 'pkg', version: '1.0.0' }), [], enabledSbom);
+suite('sbom-file', function () {
+    test('generate() returns a single sbom.cdx.json FileDescription when SBOM is enabled', async function () {
+        const { builder } = createBuilder();
+        const result = await builder.generate(createBundle({ name: 'pkg', version: '1.0.0' }), [], enabledSbom);
 
-    assert.deepStrictEqual(result, [{ filePath: 'sbom.cdx.json', content: '{"sbom":"stub"}', isExecutable: false }]);
-});
+        assert.deepStrictEqual(result, [
+            { filePath: 'sbom.cdx.json', content: '{"sbom":"stub"}', isExecutable: false }
+        ]);
+    });
 
-test('generate() defaults to enabled when publish settings do not specify sbom', async () => {
-    const { builder } = createBuilder();
-    const result = await builder.generate(createBundle({ name: 'pkg', version: '1.0.0' }), [], defaultPublishSettings);
+    test('generate() defaults to enabled when publish settings do not specify sbom', async function () {
+        const { builder } = createBuilder();
+        const result = await builder.generate(
+            createBundle({ name: 'pkg', version: '1.0.0' }),
+            [],
+            defaultPublishSettings
+        );
 
-    assert.notStrictEqual(result, undefined);
-});
+        assert.notStrictEqual(result, undefined);
+    });
 
-test('generate() does not invoke the toolVersion provider when SBOM is disabled', async () => {
-    const toolVersionProvider = fake.resolves('tool-version');
-    const { builder } = createBuilder({ toolVersionProvider });
-    const result = await builder.generate(createBundle({ name: 'pkg', version: '1.0.0' }), [], disabledSbom);
+    test('generate() does not invoke the toolVersion provider when SBOM is disabled', async function () {
+        const toolVersionProvider = fake.resolves('tool-version');
+        const { builder } = createBuilder({ toolVersionProvider });
+        const result = await builder.generate(createBundle({ name: 'pkg', version: '1.0.0' }), [], disabledSbom);
 
-    assert.strictEqual(result, undefined);
-    assert.strictEqual(toolVersionProvider.callCount, 0);
-});
+        assert.strictEqual(result, undefined);
+        assert.strictEqual(toolVersionProvider.callCount, 0);
+    });
 
-test('generate() invokes the toolVersion provider when SBOM is enabled', async () => {
-    const toolVersionProvider = fake.resolves('tool-version');
-    const { builder } = createBuilder({ toolVersionProvider });
-    await builder.generate(createBundle({ name: 'pkg', version: '1.0.0' }), [], enabledSbom);
+    test('generate() invokes the toolVersion provider when SBOM is enabled', async function () {
+        const toolVersionProvider = fake.resolves('tool-version');
+        const { builder } = createBuilder({ toolVersionProvider });
+        await builder.generate(createBundle({ name: 'pkg', version: '1.0.0' }), [], enabledSbom);
 
-    assert.strictEqual(toolVersionProvider.callCount, 1);
-});
+        assert.strictEqual(toolVersionProvider.callCount, 1);
+    });
 
-test('generate() looks up licenses for external dependencies via the license resolver', async () => {
-    const resolveLicense = fake.resolves('MIT');
-    const { builder } = createBuilder({ resolveLicense });
-    await builder.generate(
-        createBundle({ name: 'pkg', version: '1.0.0', dependencies: { 'left-pad': '^1.0.0' } }),
-        [],
-        enabledSbom
-    );
+    test('generate() looks up licenses for external dependencies via the license resolver', async function () {
+        const resolveLicense = fake.resolves('MIT');
+        const { builder } = createBuilder({ resolveLicense });
+        await builder.generate(
+            createBundle({ name: 'pkg', version: '1.0.0', dependencies: { 'left-pad': '^1.0.0' } }),
+            [],
+            enabledSbom
+        );
 
-    assert.deepStrictEqual(resolveLicense.firstCall.args, [
-        { projectFolder: '/the-project', dependencyName: 'left-pad' }
-    ]);
-});
+        assert.deepStrictEqual(resolveLicense.firstCall.args, [
+            { projectFolder: '/the-project', dependencyName: 'left-pad' }
+        ]);
+    });
 
-test('generate() reuses the sibling bundle’s license instead of calling the resolver for bundle dependencies', async () => {
-    const resolveLicense = fake.resolves('MIT');
-    const { builder } = createBuilder({ resolveLicense });
-    await builder.generate(
-        createBundle({ name: 'pkg', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
-        [createSibling('bundle-sibling', 'BSD-3-Clause')],
-        enabledSbom
-    );
+    test('generate() reuses the sibling bundle’s license instead of calling the resolver for bundle dependencies', async function () {
+        const resolveLicense = fake.resolves('MIT');
+        const { builder } = createBuilder({ resolveLicense });
+        await builder.generate(
+            createBundle({ name: 'pkg', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
+            [createSibling('bundle-sibling', 'BSD-3-Clause')],
+            enabledSbom
+        );
 
-    assert.strictEqual(resolveLicense.callCount, 0);
-});
+        assert.strictEqual(resolveLicense.callCount, 0);
+    });
 
-async function captureSiblingLicenseCount(siblingLicense: string | undefined): Promise<number> {
-    const serialize = fake.returns('{"sbom":"stub"}');
-    const { builder } = createBuilder({ serialize });
-    await builder.generate(
-        createBundle({ name: 'pkg', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
-        [createSibling('bundle-sibling', siblingLicense)],
-        enabledSbom
-    );
-    const bom = serialize.firstCall.args[0] as { components: Iterable<{ name: string; licenses: Iterable<unknown> }> };
-    for (const component of bom.components) {
-        if (component.name === 'bundle-sibling') {
-            return Array.from(component.licenses).length;
+    async function captureSiblingLicenseCount(siblingLicense: string | undefined): Promise<number> {
+        const serialize = fake.returns('{"sbom":"stub"}');
+        const { builder } = createBuilder({ serialize });
+        await builder.generate(
+            createBundle({ name: 'pkg', version: '1.0.0', dependencies: { 'bundle-sibling': '0.0.1' } }),
+            [createSibling('bundle-sibling', siblingLicense)],
+            enabledSbom
+        );
+        const bom = serialize.firstCall.args[0] as {
+            components: Iterable<{ name: string; licenses: Iterable<unknown> }>;
+        };
+        for (const component of bom.components) {
+            if (component.name === 'bundle-sibling') {
+                return Array.from(component.licenses).length;
+            }
         }
+        return -1;
     }
-    return -1;
-}
 
-test('generate() emits the sibling’s license as the bundle dependency component license', async () => {
-    assert.strictEqual(await captureSiblingLicenseCount('BSD-3-Clause'), 1);
-});
+    test('generate() emits the sibling’s license as the bundle dependency component license', async function () {
+        assert.strictEqual(await captureSiblingLicenseCount('BSD-3-Clause'), 1);
+    });
 
-test('generate() leaves the sibling component without a license when the sibling has no license field', async () => {
-    assert.strictEqual(await captureSiblingLicenseCount(undefined), 0);
-});
+    test('generate() leaves the sibling component without a license when the sibling has no license field', async function () {
+        assert.strictEqual(await captureSiblingLicenseCount(undefined), 0);
+    });
 
-test('generate() looks up licenses for peer dependencies as well', async () => {
-    const resolveLicense = fake.resolves('Apache-2.0');
-    const { builder } = createBuilder({ resolveLicense });
-    await builder.generate(
-        createBundle({ name: 'pkg', version: '1.0.0', peerDependencies: { react: '>=18' } }),
-        [],
-        enabledSbom
-    );
+    test('generate() looks up licenses for peer dependencies as well', async function () {
+        const resolveLicense = fake.resolves('Apache-2.0');
+        const { builder } = createBuilder({ resolveLicense });
+        await builder.generate(
+            createBundle({ name: 'pkg', version: '1.0.0', peerDependencies: { react: '>=18' } }),
+            [],
+            enabledSbom
+        );
 
-    assert.deepStrictEqual(resolveLicense.firstCall.args, [{ projectFolder: '/the-project', dependencyName: 'react' }]);
-});
+        assert.deepStrictEqual(resolveLicense.firstCall.args, [
+            { projectFolder: '/the-project', dependencyName: 'react' }
+        ]);
+    });
 
-async function captureScopeFor(
-    name: string,
-    dependenciesShape: Pick<SbomPackage, 'dependencies' | 'peerDependencies'>
-): Promise<string | undefined> {
-    const serialize = fake.returns('{"sbom":"stub"}');
-    const { builder } = createBuilder({ serialize });
-    await builder.generate(
-        { ...createBundle({ name: 'pkg', version: '1.0.0' }), ...dependenciesShape },
-        [],
-        enabledSbom
-    );
-    const bom = serialize.firstCall.args[0] as { components: Iterable<{ name: string; scope?: string }> };
-    for (const component of bom.components) {
-        if (component.name === name) {
-            return component.scope;
+    async function captureScopeFor(
+        name: string,
+        dependenciesShape: Pick<SbomPackage, 'dependencies' | 'peerDependencies'>
+    ): Promise<string | undefined> {
+        const serialize = fake.returns('{"sbom":"stub"}');
+        const { builder } = createBuilder({ serialize });
+        await builder.generate(
+            { ...createBundle({ name: 'pkg', version: '1.0.0' }), ...dependenciesShape },
+            [],
+            enabledSbom
+        );
+        const bom = serialize.firstCall.args[0] as { components: Iterable<{ name: string; scope?: string }> };
+        for (const component of bom.components) {
+            if (component.name === name) {
+                return component.scope;
+            }
         }
+        return undefined;
     }
-    return undefined;
-}
 
-test('generate() emits required scope for runtime dependencies', async () => {
-    const scope = await captureScopeFor('left-pad', { dependencies: { 'left-pad': '^1.0.0' }, peerDependencies: {} });
-    assert.strictEqual(scope, 'required');
-});
+    test('generate() emits required scope for runtime dependencies', async function () {
+        const scope = await captureScopeFor('left-pad', {
+            dependencies: { 'left-pad': '^1.0.0' },
+            peerDependencies: {}
+        });
+        assert.strictEqual(scope, 'required');
+    });
 
-test('generate() emits optional scope for peer dependencies', async () => {
-    const scope = await captureScopeFor('react', { dependencies: {}, peerDependencies: { react: '>=18' } });
-    assert.strictEqual(scope, 'optional');
-});
+    test('generate() emits optional scope for peer dependencies', async function () {
+        const scope = await captureScopeFor('react', { dependencies: {}, peerDependencies: { react: '>=18' } });
+        assert.strictEqual(scope, 'optional');
+    });
 
-test('generate() places the published bundle name and version on the SBOM root component', async () => {
-    const serialize = fake.returns('{"sbom":"stub"}');
-    const { builder } = createBuilder({ serialize });
-    await builder.generate(createBundle({ name: 'my-pkg', version: '4.5.6' }), [], enabledSbom);
+    test('generate() places the published bundle name and version on the SBOM root component', async function () {
+        const serialize = fake.returns('{"sbom":"stub"}');
+        const { builder } = createBuilder({ serialize });
+        await builder.generate(createBundle({ name: 'my-pkg', version: '4.5.6' }), [], enabledSbom);
 
-    const bom = serialize.firstCall.args[0] as { metadata: { component: { name: string; version: string } } };
-    assert.strictEqual(bom.metadata.component.name, 'my-pkg');
-    assert.strictEqual(bom.metadata.component.version, '4.5.6');
+        const bom = serialize.firstCall.args[0] as { metadata: { component: { name: string; version: string } } };
+        assert.strictEqual(bom.metadata.component.name, 'my-pkg');
+        assert.strictEqual(bom.metadata.component.version, '4.5.6');
+    });
 });

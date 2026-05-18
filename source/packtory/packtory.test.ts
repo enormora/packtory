@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
@@ -221,264 +221,269 @@ function createPacktoryUnderTest(
     };
 }
 
-test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async () => {
-    const { packtory } = createPacktoryUnderTest();
+suite('packtory', function () {
+    test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async function () {
+        const { packtory } = createPacktoryUnderTest();
 
-    const { result } = await packtory.resolveAndLinkAll({ invalid: true });
+        const { result } = await packtory.resolveAndLinkAll({ invalid: true });
 
-    const error = getErrResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
-    assert.strictEqual(error.type, 'config');
-});
-
-function createPacktoryThatSharesSourceFile(): ReturnType<typeof createPacktoryUnderTest> {
-    return createPacktoryUnderTest({
-        resolveAndLink: fake(async (options: { name: string }) => {
-            return createLinkedBundle(options.name, '/shared.js');
-        })
-    });
-}
-
-test('resolveAndLinkAll() returns check failures after the linked bundles were built', async () => {
-    const { packtory } = createPacktoryThatSharesSourceFile();
-
-    const { result } = await packtory.resolveAndLinkAll(
-        createConfigWithoutRegistry({
-            checks: { noDuplicatedFiles: { enabled: true } },
-            packages: twoPackageEntries
-        })
-    );
-
-    assert.deepStrictEqual(
-        result,
-        Result.err({
-            type: 'checks',
-            issues: ['File "/shared.js" is included in multiple packages: package-a, package-b']
-        })
-    );
-});
-
-test('resolveAndLinkAll() returns all resolved packages on success', async () => {
-    const { packtory, resolveAndLink, scheduler } = createPacktoryUnderTest();
-
-    const { result } = await packtory.resolveAndLinkAll(
-        createConfigWithoutRegistry({
-            packages: [
-                { name: 'dependency', roots: { main: { js: 'dependency/index.js' } } },
-                {
-                    name: 'package-a',
-                    roots: { main: { js: 'package-a/index.js' } },
-                    bundleDependencies: ['dependency']
-                }
-            ]
-        })
-    );
-
-    const resolvedPackages = getOkResult(result, 'Expected resolveAndLinkAll() should succeed');
-    assert.strictEqual(resolveAndLink.callCount, 2);
-    assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 1);
-    assert.deepStrictEqual(
-        resolvedPackages.map((entry) => {
-            return entry.name;
-        }),
-        ['dependency', 'package-a']
-    );
-});
-
-test('buildAndPublishAll() returns config issues when the config with registry is invalid', async () => {
-    const { packtory } = createPacktoryUnderTest();
-
-    const { result } = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true });
-
-    assert.deepStrictEqual(
-        result,
-        Result.err({
-            type: 'config',
-            issues: ['at registrySettings: missing property', 'invalid value doesn’t match expected union']
-        })
-    );
-});
-
-test('buildAndPublishAll() returns check failures without entering publish mode', async () => {
-    const buildAndPublish = fake();
-    const tryBuildAndPublish = fake();
-    const { packtory } = createPacktoryUnderTest({
-        resolveAndLink: fake(async (options: { name: string }) => {
-            return createLinkedBundle(options.name, '/shared.js');
-        }),
-        buildAndPublish,
-        tryBuildAndPublish
+        const error = getErrResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
+        assert.strictEqual(error.type, 'config');
     });
 
-    const { result } = await packtory.buildAndPublishAll(
-        createConfig({
-            checks: { noDuplicatedFiles: { enabled: true } },
-            packages: twoPackageEntries
-        }),
-        { dryRun: false }
-    );
+    function createPacktoryThatSharesSourceFile(): ReturnType<typeof createPacktoryUnderTest> {
+        return createPacktoryUnderTest({
+            resolveAndLink: fake(async (options: { name: string }) => {
+                return createLinkedBundle(options.name, '/shared.js');
+            })
+        });
+    }
 
-    assert.deepStrictEqual(
-        result,
-        Result.err({
-            type: 'checks',
-            issues: ['File "/shared.js" is included in multiple packages: package-a, package-b']
-        })
-    );
-    assert.strictEqual(tryBuildAndPublish.callCount, 0);
-    assert.strictEqual(buildAndPublish.callCount, 0);
-});
+    test('resolveAndLinkAll() returns check failures after the linked bundles were built', async function () {
+        const { packtory } = createPacktoryThatSharesSourceFile();
 
-test('buildAndPublishAll() uses tryBuildAndPublish() in dry-run mode and returns successful publish results', async () => {
-    const { packtory, tryBuildAndPublish, buildAndPublish, scheduler } = createPacktoryUnderTest();
+        const { result } = await packtory.resolveAndLinkAll(
+            createConfigWithoutRegistry({
+                checks: { noDuplicatedFiles: { enabled: true } },
+                packages: twoPackageEntries
+            })
+        );
 
-    const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
-
-    assert.deepStrictEqual(
-        result,
-        Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'initial-version' }])
-    );
-    assert.strictEqual(tryBuildAndPublish.callCount, 1);
-    assert.strictEqual(buildAndPublish.callCount, 0);
-    assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 2);
-});
-
-test('buildAndPublishAll() uses buildAndPublish() outside dry-run mode', async () => {
-    const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
-
-    const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
-
-    assert.deepStrictEqual(result, Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'new-version' }]));
-    assert.strictEqual(tryBuildAndPublish.callCount, 0);
-    assert.strictEqual(buildAndPublish.callCount, 1);
-});
-
-function subscribeToPackageFailed(
-    progressBroadcaster: PacktoryUnderTest['progressBroadcaster']
-): { packageName: string; stage: string; message: string }[] {
-    const received: { packageName: string; stage: string; message: string }[] = [];
-    progressBroadcaster.consumer.on('packageFailed', (payload) => {
-        received.push({ packageName: payload.packageName, stage: payload.stage, message: payload.message });
-    });
-    return received;
-}
-
-test('resolveAndLinkAll() emits packageFailed with stage "resolveAndLink" when the resolve step throws', async () => {
-    const resolveAndLink = fake(async () => {
-        throw new Error('resolve crashed');
-    });
-    const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-        resolveAndLink,
-        resolveStage: runPublishStageUntilFailure
-    });
-    const received = subscribeToPackageFailed(progressBroadcaster);
-
-    await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
-
-    assert.deepStrictEqual(received, [
-        { packageName: 'package-a', stage: 'resolveAndLink', message: 'resolve crashed' }
-    ]);
-});
-
-test('buildAndPublishAll() emits packageFailed with stage "publish" when the publish step throws', async () => {
-    const buildAndPublish = fake(async () => {
-        throw new Error('publish crashed');
-    });
-    const tryBuildAndPublish = fake(async () => {
-        throw new Error('publish crashed');
-    });
-    const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-        buildAndPublish,
-        tryBuildAndPublish,
-        publishStage: runPublishStageUntilFailure
-    });
-    const received = subscribeToPackageFailed(progressBroadcaster);
-
-    await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
-
-    const publishFailures = received.filter((entry) => {
-        return entry.stage === 'publish';
-    });
-    assert.deepStrictEqual(publishFailures, [
-        { packageName: 'package-a', stage: 'publish', message: 'publish crashed' }
-    ]);
-});
-
-test('resolveAndLinkAll() disposes the report aggregator after the call completes', async () => {
-    const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-
-    await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
-
-    assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-});
-
-test('resolveAndLinkAll() disposes the report aggregator even when the call throws', async () => {
-    const resolveAndLink = fake(async () => {
-        throw new Error('boom');
-    });
-    const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-        resolveAndLink,
-        resolveStage: runPublishStageUntilFailure
+        assert.deepStrictEqual(
+            result,
+            Result.err({
+                type: 'checks',
+                issues: ['File "/shared.js" is included in multiple packages: package-a, package-b']
+            })
+        );
     });
 
-    await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
+    test('resolveAndLinkAll() returns all resolved packages on success', async function () {
+        const { packtory, resolveAndLink, scheduler } = createPacktoryUnderTest();
 
-    assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-});
+        const { result } = await packtory.resolveAndLinkAll(
+            createConfigWithoutRegistry({
+                packages: [
+                    { name: 'dependency', roots: { main: { js: 'dependency/index.js' } } },
+                    {
+                        name: 'package-a',
+                        roots: { main: { js: 'package-a/index.js' } },
+                        bundleDependencies: ['dependency']
+                    }
+                ]
+            })
+        );
 
-test('buildAndPublishAll() disposes the report aggregator after the call completes', async () => {
-    const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-
-    await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
-
-    assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-});
-
-test('buildAndPublishAll() disposes the report aggregator even when the call throws', async () => {
-    const buildAndPublish = fake(async () => {
-        throw new Error('boom');
+        const resolvedPackages = getOkResult(result, 'Expected resolveAndLinkAll() should succeed');
+        assert.strictEqual(resolveAndLink.callCount, 2);
+        assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 1);
+        assert.deepStrictEqual(
+            resolvedPackages.map((entry) => {
+                return entry.name;
+            }),
+            ['dependency', 'package-a']
+        );
     });
-    const tryBuildAndPublish = fake(async () => {
-        throw new Error('boom');
+
+    test('buildAndPublishAll() returns config issues when the config with registry is invalid', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const { result } = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true });
+
+        assert.deepStrictEqual(
+            result,
+            Result.err({
+                type: 'config',
+                issues: ['at registrySettings: missing property', 'invalid value doesn’t match expected union']
+            })
+        );
     });
-    const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-        buildAndPublish,
-        tryBuildAndPublish,
-        publishStage: runPublishStageUntilFailure
+
+    test('buildAndPublishAll() returns check failures without entering publish mode', async function () {
+        const buildAndPublish = fake();
+        const tryBuildAndPublish = fake();
+        const { packtory } = createPacktoryUnderTest({
+            resolveAndLink: fake(async (options: { name: string }) => {
+                return createLinkedBundle(options.name, '/shared.js');
+            }),
+            buildAndPublish,
+            tryBuildAndPublish
+        });
+
+        const { result } = await packtory.buildAndPublishAll(
+            createConfig({
+                checks: { noDuplicatedFiles: { enabled: true } },
+                packages: twoPackageEntries
+            }),
+            { dryRun: false }
+        );
+
+        assert.deepStrictEqual(
+            result,
+            Result.err({
+                type: 'checks',
+                issues: ['File "/shared.js" is included in multiple packages: package-a, package-b']
+            })
+        );
+        assert.strictEqual(tryBuildAndPublish.callCount, 0);
+        assert.strictEqual(buildAndPublish.callCount, 0);
     });
 
-    await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+    test('buildAndPublishAll() uses tryBuildAndPublish() in dry-run mode and returns successful publish results', async function () {
+        const { packtory, tryBuildAndPublish, buildAndPublish, scheduler } = createPacktoryUnderTest();
 
-    assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-});
+        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
 
-test('resolveAndLinkAll() with collectReport=true returns a non-undefined getReport', async () => {
-    const { packtory } = createPacktoryUnderTest();
+        assert.deepStrictEqual(
+            result,
+            Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'initial-version' }])
+        );
+        assert.strictEqual(tryBuildAndPublish.callCount, 1);
+        assert.strictEqual(buildAndPublish.callCount, 0);
+        assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 2);
+    });
 
-    const outcome = await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
+    test('buildAndPublishAll() uses buildAndPublish() outside dry-run mode', async function () {
+        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
 
-    assert.notStrictEqual(outcome.getReport(), undefined);
-});
+        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
 
-test('resolveAndLinkAll() without collectReport returns a getReport that yields undefined', async () => {
-    const { packtory } = createPacktoryUnderTest();
+        assert.deepStrictEqual(
+            result,
+            Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'new-version' }])
+        );
+        assert.strictEqual(tryBuildAndPublish.callCount, 0);
+        assert.strictEqual(buildAndPublish.callCount, 1);
+    });
 
-    const outcome = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
+    function subscribeToPackageFailed(
+        progressBroadcaster: PacktoryUnderTest['progressBroadcaster']
+    ): { packageName: string; stage: string; message: string }[] {
+        const received: { packageName: string; stage: string; message: string }[] = [];
+        progressBroadcaster.consumer.on('packageFailed', (payload) => {
+            received.push({ packageName: payload.packageName, stage: payload.stage, message: payload.message });
+        });
+        return received;
+    }
 
-    assert.strictEqual(outcome.getReport(), undefined);
-});
+    test('resolveAndLinkAll() emits packageFailed with stage "resolveAndLink" when the resolve step throws', async function () {
+        const resolveAndLink = fake(async () => {
+            throw new Error('resolve crashed');
+        });
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
+            resolveAndLink,
+            resolveStage: runPublishStageUntilFailure
+        });
+        const received = subscribeToPackageFailed(progressBroadcaster);
 
-test('buildAndPublishAll() with collectReport=true returns a non-undefined getReport', async () => {
-    const { packtory } = createPacktoryUnderTest();
+        await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
 
-    const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+        assert.deepStrictEqual(received, [
+            { packageName: 'package-a', stage: 'resolveAndLink', message: 'resolve crashed' }
+        ]);
+    });
 
-    assert.notStrictEqual(outcome.getReport(), undefined);
-});
+    test('buildAndPublishAll() emits packageFailed with stage "publish" when the publish step throws', async function () {
+        const buildAndPublish = fake(async () => {
+            throw new Error('publish crashed');
+        });
+        const tryBuildAndPublish = fake(async () => {
+            throw new Error('publish crashed');
+        });
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
+            buildAndPublish,
+            tryBuildAndPublish,
+            publishStage: runPublishStageUntilFailure
+        });
+        const received = subscribeToPackageFailed(progressBroadcaster);
 
-test('buildAndPublishAll() without collectReport returns a getReport that yields undefined', async () => {
-    const { packtory } = createPacktoryUnderTest();
+        await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
 
-    const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+        const publishFailures = received.filter((entry) => {
+            return entry.stage === 'publish';
+        });
+        assert.deepStrictEqual(publishFailures, [
+            { packageName: 'package-a', stage: 'publish', message: 'publish crashed' }
+        ]);
+    });
 
-    assert.strictEqual(outcome.getReport(), undefined);
+    test('resolveAndLinkAll() disposes the report aggregator after the call completes', async function () {
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+        await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
+    });
+
+    test('resolveAndLinkAll() disposes the report aggregator even when the call throws', async function () {
+        const resolveAndLink = fake(async () => {
+            throw new Error('boom');
+        });
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
+            resolveAndLink,
+            resolveStage: runPublishStageUntilFailure
+        });
+
+        await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
+    });
+
+    test('buildAndPublishAll() disposes the report aggregator after the call completes', async function () {
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
+    });
+
+    test('buildAndPublishAll() disposes the report aggregator even when the call throws', async function () {
+        const buildAndPublish = fake(async () => {
+            throw new Error('boom');
+        });
+        const tryBuildAndPublish = fake(async () => {
+            throw new Error('boom');
+        });
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
+            buildAndPublish,
+            tryBuildAndPublish,
+            publishStage: runPublishStageUntilFailure
+        });
+
+        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
+    });
+
+    test('resolveAndLinkAll() with collectReport=true returns a non-undefined getReport', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const outcome = await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
+
+        assert.notStrictEqual(outcome.getReport(), undefined);
+    });
+
+    test('resolveAndLinkAll() without collectReport returns a getReport that yields undefined', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const outcome = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
+
+        assert.strictEqual(outcome.getReport(), undefined);
+    });
+
+    test('buildAndPublishAll() with collectReport=true returns a non-undefined getReport', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+
+        assert.notStrictEqual(outcome.getReport(), undefined);
+    });
+
+    test('buildAndPublishAll() without collectReport returns a getReport that yields undefined', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+
+        assert.strictEqual(outcome.getReport(), undefined);
+    });
 });

@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { Maybe } from 'true-myth';
 import { type SinonSpy, fake } from 'sinon';
 import {
@@ -28,173 +28,175 @@ function dependencyGraphNodeDataFactory(overrides: Overrides = {}): DependencyGr
     } as unknown as DependencyGraphNodeData;
 }
 
-test('isKnown() returns false when the given file hasn’t been added', () => {
-    const graph = createDependencyGraph();
-    assert.strictEqual(graph.isKnown('foo.js'), false);
-});
-
-test('isKnown() returns true when the given file has been added', () => {
-    const graph = createDependencyGraph();
-
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
-
-    assert.strictEqual(graph.isKnown('foo.js'), true);
-});
-
-test('hasConnection() returns false when the given files are not connected', () => {
-    const graph = createDependencyGraph();
-
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
-    graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
-
-    assert.strictEqual(graph.hasConnection('foo.js', 'bar.js'), false);
-});
-
-test('hasConnection() returns true when the given files are connected', () => {
-    const graph = createDependencyGraph();
-
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
-    graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
-    graph.connect('foo.js', 'bar.js');
-
-    assert.strictEqual(graph.hasConnection('foo.js', 'bar.js'), true);
-});
-
-function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): readonly DependencyNode[] {
-    const collected: DependencyNode[] = [];
-
-    graph.walk(startFilePath, (node) => {
-        collected.push(node);
+suite('dependency-graph', function () {
+    test('isKnown() returns false when the given file hasn’t been added', function () {
+        const graph = createDependencyGraph();
+        assert.strictEqual(graph.isKnown('foo.js'), false);
     });
 
-    return collected;
-}
+    test('isKnown() returns true when the given file has been added', function () {
+        const graph = createDependencyGraph();
 
-test('walk() visits the start node only if it has no connections', () => {
-    const graph = createDependencyGraph();
-    const getProject = fake.returns({});
+        graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
 
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ getProject }));
-    const result = collectVisitorNodes(graph, 'foo.js');
-
-    assert.deepStrictEqual(result, [
-        {
-            filePath: 'foo.js',
-            sourceMapFilePath: Maybe.nothing(),
-            externalDependencies: [],
-            localFiles: [],
-            project: { getProject }
-        }
-    ]);
-});
-
-test('walk() visits the start node and all its connections', () => {
-    const graph = createDependencyGraph();
-    const getProject = fake.returns({});
-
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ getProject }));
-    graph.addDependency('bar.js', dependencyGraphNodeDataFactory({ getProject }));
-    graph.addDependency('baz.js', dependencyGraphNodeDataFactory({ getProject }));
-    graph.connect('foo.js', 'bar.js');
-    graph.connect('bar.js', 'baz.js');
-
-    const result = collectVisitorNodes(graph, 'foo.js');
-
-    assert.deepStrictEqual(result, [
-        {
-            filePath: 'foo.js',
-            sourceMapFilePath: Maybe.nothing(),
-            externalDependencies: [],
-            localFiles: ['bar.js'],
-            project: { getProject }
-        },
-        {
-            filePath: 'bar.js',
-            sourceMapFilePath: Maybe.nothing(),
-            externalDependencies: [],
-            localFiles: ['baz.js'],
-            project: { getProject }
-        },
-        {
-            filePath: 'baz.js',
-            sourceMapFilePath: Maybe.nothing(),
-            externalDependencies: [],
-            localFiles: [],
-            project: { getProject }
-        }
-    ]);
-});
-
-const fooBarLocalFiles = [
-    { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
-    { directDependencies: new Set(), filePath: 'bar.js', project: {} }
-];
-
-test('flatten() collects all nodes and returns a single list for all local files', () => {
-    const graph = createDependencyGraph();
-
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
-    graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
-    graph.connect('foo.js', 'bar.js');
-    const result = graph.flatten('foo.js');
-
-    assert.deepStrictEqual(result, {
-        localFiles: fooBarLocalFiles,
-        externalDependencies: new Map()
+        assert.strictEqual(graph.isKnown('foo.js'), true);
     });
-});
 
-test('flatten() collects all nodes and returns a single map for topLevelDependencies eliminating duplicates', () => {
-    const graph = createDependencyGraph();
+    test('hasConnection() returns false when the given files are not connected', function () {
+        const graph = createDependencyGraph();
 
-    graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ topLevelDependencies: ['a', 'b'] }));
-    graph.addDependency('bar.js', dependencyGraphNodeDataFactory({ topLevelDependencies: ['b', 'c'] }));
-    graph.connect('foo.js', 'bar.js');
-    const result = graph.flatten('foo.js');
+        graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
+        graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
 
-    assert.deepStrictEqual(result, {
-        localFiles: fooBarLocalFiles,
-        externalDependencies: new Map([
-            ['a', { name: 'a', referencedFrom: ['foo.js'] }],
-            ['b', { name: 'b', referencedFrom: ['foo.js', 'bar.js'] }],
-            ['c', { name: 'c', referencedFrom: ['bar.js'] }]
-        ])
+        assert.strictEqual(graph.hasConnection('foo.js', 'bar.js'), false);
     });
-});
 
-test('mergeDependencyFiles() merges two sets of dependency files', () => {
-    const firstSet: DependencyFiles = {
-        localFiles: [
-            { filePath: 'foo.js', directDependencies: new Set() },
-            { filePath: 'bar.js', directDependencies: new Set() }
-        ],
-        externalDependencies: new Map([
-            ['a', { name: 'a', referencedFrom: ['foo.js'] }],
-            ['b', { name: 'b', referencedFrom: ['foo.js'] }]
-        ])
-    };
-    const secondSet: DependencyFiles = {
-        localFiles: [
-            { filePath: 'bar.js', directDependencies: new Set() },
-            { filePath: 'baz.js', directDependencies: new Set() }
-        ],
-        externalDependencies: new Map([
-            ['b', { name: 'b', referencedFrom: ['baz.js'] }],
-            ['d', { name: 'c', referencedFrom: ['baz.js'] }]
-        ])
-    };
-    const result = mergeDependencyFiles(firstSet, secondSet);
+    test('hasConnection() returns true when the given files are connected', function () {
+        const graph = createDependencyGraph();
 
-    assert.deepStrictEqual(result, {
-        localFiles: [
-            { filePath: 'foo.js', directDependencies: new Set() },
-            { filePath: 'bar.js', directDependencies: new Set() },
-            { filePath: 'baz.js', directDependencies: new Set() }
-        ],
-        externalDependencies: new Map([
-            ['a', { name: 'a', referencedFrom: ['foo.js'] }],
-            ['b', { name: 'b', referencedFrom: ['foo.js', 'baz.js'] }],
-            ['c', { name: 'c', referencedFrom: ['baz.js'] }]
-        ])
+        graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
+        graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
+        graph.connect('foo.js', 'bar.js');
+
+        assert.strictEqual(graph.hasConnection('foo.js', 'bar.js'), true);
+    });
+
+    function collectVisitorNodes(graph: DependencyGraph, startFilePath: string): readonly DependencyNode[] {
+        const collected: DependencyNode[] = [];
+
+        graph.walk(startFilePath, (node) => {
+            collected.push(node);
+        });
+
+        return collected;
+    }
+
+    test('walk() visits the start node only if it has no connections', function () {
+        const graph = createDependencyGraph();
+        const getProject = fake.returns({});
+
+        graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ getProject }));
+        const result = collectVisitorNodes(graph, 'foo.js');
+
+        assert.deepStrictEqual(result, [
+            {
+                filePath: 'foo.js',
+                sourceMapFilePath: Maybe.nothing(),
+                externalDependencies: [],
+                localFiles: [],
+                project: { getProject }
+            }
+        ]);
+    });
+
+    test('walk() visits the start node and all its connections', function () {
+        const graph = createDependencyGraph();
+        const getProject = fake.returns({});
+
+        graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ getProject }));
+        graph.addDependency('bar.js', dependencyGraphNodeDataFactory({ getProject }));
+        graph.addDependency('baz.js', dependencyGraphNodeDataFactory({ getProject }));
+        graph.connect('foo.js', 'bar.js');
+        graph.connect('bar.js', 'baz.js');
+
+        const result = collectVisitorNodes(graph, 'foo.js');
+
+        assert.deepStrictEqual(result, [
+            {
+                filePath: 'foo.js',
+                sourceMapFilePath: Maybe.nothing(),
+                externalDependencies: [],
+                localFiles: ['bar.js'],
+                project: { getProject }
+            },
+            {
+                filePath: 'bar.js',
+                sourceMapFilePath: Maybe.nothing(),
+                externalDependencies: [],
+                localFiles: ['baz.js'],
+                project: { getProject }
+            },
+            {
+                filePath: 'baz.js',
+                sourceMapFilePath: Maybe.nothing(),
+                externalDependencies: [],
+                localFiles: [],
+                project: { getProject }
+            }
+        ]);
+    });
+
+    const fooBarLocalFiles = [
+        { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
+        { directDependencies: new Set(), filePath: 'bar.js', project: {} }
+    ];
+
+    test('flatten() collects all nodes and returns a single list for all local files', function () {
+        const graph = createDependencyGraph();
+
+        graph.addDependency('foo.js', dependencyGraphNodeDataFactory());
+        graph.addDependency('bar.js', dependencyGraphNodeDataFactory());
+        graph.connect('foo.js', 'bar.js');
+        const result = graph.flatten('foo.js');
+
+        assert.deepStrictEqual(result, {
+            localFiles: fooBarLocalFiles,
+            externalDependencies: new Map()
+        });
+    });
+
+    test('flatten() collects all nodes and returns a single map for topLevelDependencies eliminating duplicates', function () {
+        const graph = createDependencyGraph();
+
+        graph.addDependency('foo.js', dependencyGraphNodeDataFactory({ topLevelDependencies: ['a', 'b'] }));
+        graph.addDependency('bar.js', dependencyGraphNodeDataFactory({ topLevelDependencies: ['b', 'c'] }));
+        graph.connect('foo.js', 'bar.js');
+        const result = graph.flatten('foo.js');
+
+        assert.deepStrictEqual(result, {
+            localFiles: fooBarLocalFiles,
+            externalDependencies: new Map([
+                ['a', { name: 'a', referencedFrom: ['foo.js'] }],
+                ['b', { name: 'b', referencedFrom: ['foo.js', 'bar.js'] }],
+                ['c', { name: 'c', referencedFrom: ['bar.js'] }]
+            ])
+        });
+    });
+
+    test('mergeDependencyFiles() merges two sets of dependency files', function () {
+        const firstSet: DependencyFiles = {
+            localFiles: [
+                { filePath: 'foo.js', directDependencies: new Set() },
+                { filePath: 'bar.js', directDependencies: new Set() }
+            ],
+            externalDependencies: new Map([
+                ['a', { name: 'a', referencedFrom: ['foo.js'] }],
+                ['b', { name: 'b', referencedFrom: ['foo.js'] }]
+            ])
+        };
+        const secondSet: DependencyFiles = {
+            localFiles: [
+                { filePath: 'bar.js', directDependencies: new Set() },
+                { filePath: 'baz.js', directDependencies: new Set() }
+            ],
+            externalDependencies: new Map([
+                ['b', { name: 'b', referencedFrom: ['baz.js'] }],
+                ['d', { name: 'c', referencedFrom: ['baz.js'] }]
+            ])
+        };
+        const result = mergeDependencyFiles(firstSet, secondSet);
+
+        assert.deepStrictEqual(result, {
+            localFiles: [
+                { filePath: 'foo.js', directDependencies: new Set() },
+                { filePath: 'bar.js', directDependencies: new Set() },
+                { filePath: 'baz.js', directDependencies: new Set() }
+            ],
+            externalDependencies: new Map([
+                ['a', { name: 'a', referencedFrom: ['foo.js'] }],
+                ['b', { name: 'b', referencedFrom: ['foo.js', 'baz.js'] }],
+                ['c', { name: 'c', referencedFrom: ['baz.js'] }]
+            ])
+        });
     });
 });

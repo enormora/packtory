@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import type { Node as TsMorphNode, Statement } from 'ts-morph';
 import {
     bindingId,
@@ -32,38 +32,40 @@ function fileBindings(sourceFilePath: string, bindings: readonly BindingDescript
     return { sourceFilePath, bindings };
 }
 
-test('bindingId joins the file path and name with a double colon delimiter', () => {
-    assert.strictEqual(bindingId('/src/a.ts', 'foo'), '/src/a.ts::foo');
-});
+suite('binding-id', function () {
+    test('bindingId joins the file path and name with a double colon delimiter', function () {
+        assert.strictEqual(bindingId('/src/a.ts', 'foo'), '/src/a.ts::foo');
+    });
 
-test('buildDeclarationNodeIndex maps every declaration node to its binding id', () => {
-    const declarationA = { id: 'decl-a' };
-    const declarationB = { id: 'decl-b' };
+    test('buildDeclarationNodeIndex maps every declaration node to its binding id', function () {
+        const declarationA = { id: 'decl-a' };
+        const declarationB = { id: 'decl-b' };
 
-    const a = descriptor('a', { declarationNode: declarationA as unknown as TsMorphNode });
+        const a = descriptor('a', { declarationNode: declarationA as unknown as TsMorphNode });
 
-    const b = descriptor('b', { declarationNode: declarationB as unknown as TsMorphNode });
-    const index = buildDeclarationNodeIndex([fileBindings('/src/a.ts', [a, b])]);
-    assert.strictEqual(index.get(declarationA as unknown as TsMorphNode), '/src/a.ts::a');
+        const b = descriptor('b', { declarationNode: declarationB as unknown as TsMorphNode });
+        const index = buildDeclarationNodeIndex([fileBindings('/src/a.ts', [a, b])]);
+        assert.strictEqual(index.get(declarationA as unknown as TsMorphNode), '/src/a.ts::a');
 
-    assert.strictEqual(index.get(declarationB as unknown as TsMorphNode), '/src/a.ts::b');
-});
+        assert.strictEqual(index.get(declarationB as unknown as TsMorphNode), '/src/a.ts::b');
+    });
 
-test('buildBindingsByFile groups binding ids by their source file', () => {
-    const result = buildBindingsByFile([
-        fileBindings('/src/a.ts', [descriptor('a'), descriptor('b')]),
-        fileBindings('/src/b.ts', [descriptor('c')])
-    ]);
+    test('buildBindingsByFile groups binding ids by their source file', function () {
+        const result = buildBindingsByFile([
+            fileBindings('/src/a.ts', [descriptor('a'), descriptor('b')]),
+            fileBindings('/src/b.ts', [descriptor('c')])
+        ]);
 
-    assert.deepStrictEqual(result.get('/src/a.ts'), new Set(['/src/a.ts::a', '/src/a.ts::b']));
-    assert.deepStrictEqual(result.get('/src/b.ts'), new Set(['/src/b.ts::c']));
-});
+        assert.deepStrictEqual(result.get('/src/a.ts'), new Set(['/src/a.ts::a', '/src/a.ts::b']));
+        assert.deepStrictEqual(result.get('/src/b.ts'), new Set(['/src/b.ts::c']));
+    });
 
-test('buildNodeById maps every binding id back to its reference node', () => {
-    const referenceA = { id: 'ref-a' };
+    test('buildNodeById maps every binding id back to its reference node', function () {
+        const referenceA = { id: 'ref-a' };
 
-    const a = descriptor('a', { referenceNode: referenceA as unknown as TsMorphNode });
-    const map = buildNodeById([fileBindings('/src/a.ts', [a])]);
+        const a = descriptor('a', { referenceNode: referenceA as unknown as TsMorphNode });
+        const map = buildNodeById([fileBindings('/src/a.ts', [a])]);
 
-    assert.strictEqual(map.get('/src/a.ts::a'), referenceA as unknown as TsMorphNode);
+        assert.strictEqual(map.get('/src/a.ts::a'), referenceA as unknown as TsMorphNode);
+    });
 });

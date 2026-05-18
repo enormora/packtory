@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import {
     buildInvalidProvenanceFileMessage,
     buildMissingProvenanceFileMessage,
@@ -10,34 +10,36 @@ import {
     unsupportedProviderMarker
 } from './publish-error-messages.ts';
 
-test('unsupportedProviderMarker exposes the canonical marker substring', () => {
-    assert.strictEqual(unsupportedProviderMarker, 'not supported for provider:');
-});
+suite('publish-error-messages', function () {
+    test('unsupportedProviderMarker exposes the canonical marker substring', function () {
+        assert.strictEqual(unsupportedProviderMarker, 'not supported for provider:');
+    });
 
-test('githubActionsIdTokenMessage references the id-token write permission', () => {
-    assert.ok(githubActionsIdTokenMessage.includes('permissions: id-token: write'));
-});
+    test('githubActionsIdTokenMessage references the id-token write permission', function () {
+        assert.ok(githubActionsIdTokenMessage.includes('permissions: id-token: write'));
+    });
 
-test('gitlabSigstoreIdTokenMessage references the sigstore audience', () => {
-    assert.ok(gitlabSigstoreIdTokenMessage.includes('sigstore'));
-});
+    test('gitlabSigstoreIdTokenMessage references the sigstore audience', function () {
+        assert.ok(gitlabSigstoreIdTokenMessage.includes('sigstore'));
+    });
 
-test('buildUnsupportedProviderMessage embeds the detected CI name in the message', () => {
-    assert.ok(buildUnsupportedProviderMessage('CircleCI').includes('Detected CI: CircleCI.'));
-});
+    test('buildUnsupportedProviderMessage embeds the detected CI name in the message', function () {
+        assert.ok(buildUnsupportedProviderMessage('CircleCI').includes('Detected CI: CircleCI.'));
+    });
 
-test('buildMissingProvenanceFileMessage embeds the file path in the message', () => {
-    assert.ok(buildMissingProvenanceFileMessage('/p/bundle.json').includes('"/p/bundle.json"'));
-});
+    test('buildMissingProvenanceFileMessage embeds the file path in the message', function () {
+        assert.ok(buildMissingProvenanceFileMessage('/p/bundle.json').includes('"/p/bundle.json"'));
+    });
 
-test('buildInvalidProvenanceFileMessage embeds the file path and mentions sigstore', () => {
-    const message = buildInvalidProvenanceFileMessage('/p/bundle.json');
-    assert.ok(message.includes('"/p/bundle.json"'));
-    assert.ok(message.includes('sigstore'));
-});
+    test('buildInvalidProvenanceFileMessage embeds the file path and mentions sigstore', function () {
+        const message = buildInvalidProvenanceFileMessage('/p/bundle.json');
+        assert.ok(message.includes('"/p/bundle.json"'));
+        assert.ok(message.includes('sigstore'));
+    });
 
-test('buildProvenanceDigestMismatchMessage embeds the file path and warns about defeating provenance', () => {
-    const message = buildProvenanceDigestMismatchMessage('/p/bundle.json');
-    assert.ok(message.includes('/p/bundle.json'));
-    assert.ok(message.includes('defeat'));
+    test('buildProvenanceDigestMismatchMessage embeds the file path and warns about defeating provenance', function () {
+        const message = buildProvenanceDigestMismatchMessage('/p/bundle.json');
+        assert.ok(message.includes('/p/bundle.json'));
+        assert.ok(message.includes('defeat'));
+    });
 });

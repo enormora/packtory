@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { stub, fake, type SinonSpy, type SinonStub } from 'sinon';
 import {
     createTypescriptProjectAnalyzer,
@@ -117,94 +117,96 @@ function runAnalyzeProjectExpectingArgs(testArgs: {
     assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [[testArgs.expectedFilesGlob]]);
 }
 
-test('creates a project for all js files in the given folder with module resolution', () => {
-    const withVirtualPackageJson = fake.returns('virtualized-filtering-declaration-files');
-    runAnalyzeProjectExpectingArgs({
-        resolveDeclarationFiles: false,
-        fileSystemAdapters: {
-            fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files',
-            withVirtualPackageJson
-        },
-        expectedModule: 100,
-        expectedFileSystem: 'virtualized-filtering-declaration-files',
-        expectedFilesGlob: '/foo/**/*.js',
-        expectedExtra: { typeRoots: [], types: [] }
-    });
-});
-
-test('creates a project for all d.ts files in the given folder', () => {
-    const withVirtualPackageJson = fake.returns('virtualized-no-filtering');
-    runAnalyzeProjectExpectingArgs({
-        resolveDeclarationFiles: true,
-        fileSystemAdapters: {
-            fileSystemHostWithoutFilter: 'no-filtering',
-            withVirtualPackageJson
-        },
-        expectedModule: 100,
-        expectedFileSystem: 'virtualized-no-filtering',
-        expectedFilesGlob: '/foo/**/*.d.ts'
-    });
-});
-
-test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', () => {
-    const getSourceFile = fake.returns(undefined);
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    const project = analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: false,
-        mainPackageJson: { type: 'module' }
-    });
-    const result = project.getReferencedSourceFilePaths('/foo/bar.js');
-
-    assert.deepStrictEqual(result, []);
-});
-
-test('getProject() exposes the underlying ts-morph project instance', () => {
-    const TSMorphProject = createFakeTSMorphProject();
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
-
-    const project = analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: false,
-        mainPackageJson: { type: 'module' }
+suite('typescript-project-analyzer', function () {
+    test('creates a project for all js files in the given folder with module resolution', function () {
+        const withVirtualPackageJson = fake.returns('virtualized-filtering-declaration-files');
+        runAnalyzeProjectExpectingArgs({
+            resolveDeclarationFiles: false,
+            fileSystemAdapters: {
+                fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files',
+                withVirtualPackageJson
+            },
+            expectedModule: 100,
+            expectedFileSystem: 'virtualized-filtering-declaration-files',
+            expectedFilesGlob: '/foo/**/*.js',
+            expectedExtra: { typeRoots: [], types: [] }
+        });
     });
 
-    assert.strictEqual(project.getProject(), TSMorphProject.firstCall.returnValue);
-});
-
-test('getReferencedSourceFilePaths() returns the referenced source file paths', () => {
-    const getReferencedSourceFiles = fake.returns([
-        createFakeSourceFile({ filePath: '/foo/b.d.ts', isDeclarationFile: true }),
-        createFakeSourceFile({ filePath: '/foo/c.js', isDeclarationFile: false })
-    ]);
-    const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
-    const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-    const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
-
-    const project = analyzer.analyzeProject('/foo', {
-        resolveDeclarationFiles: false,
-        mainPackageJson: { type: 'module' }
-    });
-    const result = project.getReferencedSourceFilePaths('/foo/a.js');
-
-    assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
-});
-
-test('passes the configured mainPackageJson into the virtual file-system overlay', () => {
-    const addSourceFilesAtPaths = fake();
-    const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
-    const withVirtualPackageJson = fake.returns('virtualized-file-system');
-    const analyzer = typescriptProjectAnalyzerFactory({
-        TSMorphProject,
-        fileSystemAdapters: {
-            fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files',
-            withVirtualPackageJson
-        }
+    test('creates a project for all d.ts files in the given folder', function () {
+        const withVirtualPackageJson = fake.returns('virtualized-no-filtering');
+        runAnalyzeProjectExpectingArgs({
+            resolveDeclarationFiles: true,
+            fileSystemAdapters: {
+                fileSystemHostWithoutFilter: 'no-filtering',
+                withVirtualPackageJson
+            },
+            expectedModule: 100,
+            expectedFileSystem: 'virtualized-no-filtering',
+            expectedFilesGlob: '/foo/**/*.d.ts'
+        });
     });
 
-    const mainPackageJson = { type: 'module' as const, imports: { '#foo': './src/foo.js' } };
+    test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', function () {
+        const getSourceFile = fake.returns(undefined);
+        const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+        const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
 
-    analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false, mainPackageJson });
+        const project = analyzer.analyzeProject('/foo', {
+            resolveDeclarationFiles: false,
+            mainPackageJson: { type: 'module' }
+        });
+        const result = project.getReferencedSourceFilePaths('/foo/bar.js');
 
-    assert.deepStrictEqual(withVirtualPackageJson.args, [['filtering-declaration-files', '/foo', mainPackageJson]]);
+        assert.deepStrictEqual(result, []);
+    });
+
+    test('getProject() exposes the underlying ts-morph project instance', function () {
+        const TSMorphProject = createFakeTSMorphProject();
+        const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
+
+        const project = analyzer.analyzeProject('/foo', {
+            resolveDeclarationFiles: false,
+            mainPackageJson: { type: 'module' }
+        });
+
+        assert.strictEqual(project.getProject(), TSMorphProject.firstCall.returnValue);
+    });
+
+    test('getReferencedSourceFilePaths() returns the referenced source file paths', function () {
+        const getReferencedSourceFiles = fake.returns([
+            createFakeSourceFile({ filePath: '/foo/b.d.ts', isDeclarationFile: true }),
+            createFakeSourceFile({ filePath: '/foo/c.js', isDeclarationFile: false })
+        ]);
+        const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
+        const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
+        const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
+
+        const project = analyzer.analyzeProject('/foo', {
+            resolveDeclarationFiles: false,
+            mainPackageJson: { type: 'module' }
+        });
+        const result = project.getReferencedSourceFilePaths('/foo/a.js');
+
+        assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
+    });
+
+    test('passes the configured mainPackageJson into the virtual file-system overlay', function () {
+        const addSourceFilesAtPaths = fake();
+        const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
+        const withVirtualPackageJson = fake.returns('virtualized-file-system');
+        const analyzer = typescriptProjectAnalyzerFactory({
+            TSMorphProject,
+            fileSystemAdapters: {
+                fileSystemHostFilteringDeclarationFiles: 'filtering-declaration-files',
+                withVirtualPackageJson
+            }
+        });
+
+        const mainPackageJson = { type: 'module' as const, imports: { '#foo': './src/foo.js' } };
+
+        analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false, mainPackageJson });
+
+        assert.deepStrictEqual(withVirtualPackageJson.args, [['filtering-declaration-files', '/foo', mainPackageJson]]);
+    });
 });

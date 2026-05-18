@@ -1,6 +1,6 @@
 import path from 'node:path';
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
@@ -73,76 +73,82 @@ function findResource(
     return match;
 }
 
-test('happy path: removes an unused exported helper from a shared module while keeping the used one', async () => {
-    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
-    const config = await singlePackageConfig(fixturePath);
-    const result = await resolveAndLinkAll(config);
-    const packages = expectOk(result);
-    const pkg = findPackage(packages, 'pkg');
-    const helpers = findResource(pkg, 'shared/helpers.js');
+suite('dead-code-elimination', function () {
+    test('happy path: removes an unused exported helper from a shared module while keeping the used one', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
+        const config = await singlePackageConfig(fixturePath);
+        const result = await resolveAndLinkAll(config);
+        const packages = expectOk(result);
+        const pkg = findPackage(packages, 'pkg');
+        const helpers = findResource(pkg, 'shared/helpers.js');
 
-    assert.ok(helpers.fileDescription.content.includes('used'), 'used() should remain');
-    assert.strictEqual(helpers.fileDescription.content.includes('unused'), false, 'unused() should be removed by DCE');
-});
+        assert.ok(helpers.fileDescription.content.includes('used'), 'used() should remain');
+        assert.strictEqual(
+            helpers.fileDescription.content.includes('unused'),
+            false,
+            'unused() should be removed by DCE'
+        );
+    });
 
-test('keeps a side-effecting file untouched and lists it in sideEffectsField', async () => {
-    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-side-effects');
-    const config = await singlePackageConfig(fixturePath);
-    const result = await resolveAndLinkAll(config);
-    const packages = expectOk(result);
-    const pkg = findPackage(packages, 'pkg');
-    const entry = findResource(pkg, 'pkg/index.js');
+    test('keeps a side-effecting file untouched and lists it in sideEffectsField', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-side-effects');
+        const config = await singlePackageConfig(fixturePath);
+        const result = await resolveAndLinkAll(config);
+        const packages = expectOk(result);
+        const pkg = findPackage(packages, 'pkg');
+        const entry = findResource(pkg, 'pkg/index.js');
 
-    assert.ok(
-        entry.fileDescription.content.includes('unusedHelper'),
-        'unusedHelper must be kept because the file has top-level side effects'
-    );
-    assert.deepStrictEqual(pkg.analyzedBundle.sideEffectsField, ['./pkg/index.js']);
-});
+        assert.ok(
+            entry.fileDescription.content.includes('unusedHelper'),
+            'unusedHelper must be kept because the file has top-level side effects'
+        );
+        assert.deepStrictEqual(pkg.analyzedBundle.sideEffectsField, ['./pkg/index.js']);
+    });
 
-test('preserves a binding in pkg-producer that pkg-consumer imports across bundles', async () => {
-    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-cross-bundle');
-    const config = await consumerProducerConfig(fixturePath);
-    const result = await resolveAndLinkAll(config);
-    const packages = expectOk(result);
-    const producer = findPackage(packages, 'pkg-producer');
-    const helpers = findResource(producer, 'pkg-producer/helpers.js');
+    test('preserves a binding in pkg-producer that pkg-consumer imports across bundles', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-cross-bundle');
+        const config = await consumerProducerConfig(fixturePath);
+        const result = await resolveAndLinkAll(config);
+        const packages = expectOk(result);
+        const producer = findPackage(packages, 'pkg-producer');
+        const helpers = findResource(producer, 'pkg-producer/helpers.js');
 
-    assert.ok(
-        helpers.fileDescription.content.includes('consumedExport'),
-        'consumedExport must remain because pkg-consumer imports it across the bundle boundary'
-    );
-    assert.strictEqual(
-        helpers.fileDescription.content.includes('unconsumedExport'),
-        false,
-        'unconsumedExport should be removed since neither pkg-producer entry nor pkg-consumer references it'
-    );
-});
+        assert.ok(
+            helpers.fileDescription.content.includes('consumedExport'),
+            'consumedExport must remain because pkg-consumer imports it across the bundle boundary'
+        );
+        assert.strictEqual(
+            helpers.fileDescription.content.includes('unconsumedExport'),
+            false,
+            'unconsumedExport should be removed since neither pkg-producer entry nor pkg-consumer references it'
+        );
+    });
 
-test('the smart noDuplicatedFiles rule reports shared declarations using symbol names', async () => {
-    const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-    const config: PacktoryConfigWithoutRegistry = {
-        commonPackageSettings: {
-            sourcesFolder: path.join(fixturePath, 'src'),
-            mainPackageJson: await loadPackageJson(fixturePath),
-            publishSettings: { access: 'public' }
-        },
-        packages: [
-            { name: 'pkg-a', roots: { main: { js: path.join(fixturePath, 'src/pkg-a/index.js') } } },
-            { name: 'pkg-b', roots: { main: { js: path.join(fixturePath, 'src/pkg-b/index.js') } } }
-        ],
-        checks: { noDuplicatedFiles: { enabled: true } }
-    };
-    const { result } = await resolveAndLinkAll(config);
-    if (!result.isErr) {
-        assert.fail('Expected the noDuplicatedFiles rule to fail');
-        return;
-    }
-    if (result.error.type !== 'checks') {
-        assert.fail(`Expected a checks failure, got ${result.error.type}`);
-    }
-    const [issue] = result.error.issues;
-    assert.ok(issue !== undefined);
-    assert.ok(issue.includes('shared/util.js'));
-    assert.ok(issue.includes('"sharedValue"'), 'message should name the shared declaration');
+    test('the smart noDuplicatedFiles rule reports shared declarations using symbol names', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+        const config: PacktoryConfigWithoutRegistry = {
+            commonPackageSettings: {
+                sourcesFolder: path.join(fixturePath, 'src'),
+                mainPackageJson: await loadPackageJson(fixturePath),
+                publishSettings: { access: 'public' }
+            },
+            packages: [
+                { name: 'pkg-a', roots: { main: { js: path.join(fixturePath, 'src/pkg-a/index.js') } } },
+                { name: 'pkg-b', roots: { main: { js: path.join(fixturePath, 'src/pkg-b/index.js') } } }
+            ],
+            checks: { noDuplicatedFiles: { enabled: true } }
+        };
+        const { result } = await resolveAndLinkAll(config);
+        if (!result.isErr) {
+            assert.fail('Expected the noDuplicatedFiles rule to fail');
+            return;
+        }
+        if (result.error.type !== 'checks') {
+            assert.fail(`Expected a checks failure, got ${result.error.type}`);
+        }
+        const [issue] = result.error.issues;
+        assert.ok(issue !== undefined);
+        assert.ok(issue.includes('shared/util.js'));
+        assert.ok(issue.includes('"sharedValue"'), 'message should name the shared declaration');
+    });
 });

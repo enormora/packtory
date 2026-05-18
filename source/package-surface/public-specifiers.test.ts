@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
 import type { BundleLike } from './package-shape.ts';
 import { getPublicModuleSpecifierForSourcePath, resolvePublicModuleSourceFilePath } from './public-specifiers.ts';
@@ -23,18 +23,20 @@ const implicitBundle: BundleLike = {
     surface: { mode: 'implicit', defaultModuleRoot: 'main' }
 };
 
-test('getPublicModuleSpecifierForSourcePath dispatches to the explicit builder for explicit surfaces', () => {
-    assert.strictEqual(getPublicModuleSpecifierForSourcePath(explicitBundle, '/src/index.js'), 'package-a');
-});
+suite('public-specifiers', function () {
+    test('getPublicModuleSpecifierForSourcePath dispatches to the explicit builder for explicit surfaces', function () {
+        assert.strictEqual(getPublicModuleSpecifierForSourcePath(explicitBundle, '/src/index.js'), 'package-a');
+    });
 
-test('getPublicModuleSpecifierForSourcePath dispatches to the implicit builder for implicit surfaces', () => {
-    assert.strictEqual(getPublicModuleSpecifierForSourcePath(implicitBundle, '/src/index.js'), 'package-a');
-});
+    test('getPublicModuleSpecifierForSourcePath dispatches to the implicit builder for implicit surfaces', function () {
+        assert.strictEqual(getPublicModuleSpecifierForSourcePath(implicitBundle, '/src/index.js'), 'package-a');
+    });
 
-test('resolvePublicModuleSourceFilePath dispatches to the explicit resolver for explicit surfaces', () => {
-    assert.strictEqual(resolvePublicModuleSourceFilePath(explicitBundle, 'package-a'), '/src/index.js');
-});
+    test('resolvePublicModuleSourceFilePath dispatches to the explicit resolver for explicit surfaces', function () {
+        assert.strictEqual(resolvePublicModuleSourceFilePath(explicitBundle, 'package-a'), '/src/index.js');
+    });
 
-test('resolvePublicModuleSourceFilePath dispatches to the implicit resolver for implicit surfaces', () => {
-    assert.strictEqual(resolvePublicModuleSourceFilePath(implicitBundle, 'package-a'), '/src/index.js');
+    test('resolvePublicModuleSourceFilePath dispatches to the implicit resolver for implicit surfaces', function () {
+        assert.strictEqual(resolvePublicModuleSourceFilePath(implicitBundle, 'package-a'), '/src/index.js');
+    });
 });

@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { SyntaxKind, type Node as TsMorphNode, type SourceFile } from 'ts-morph';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { collectIdentifierTargets, type DeclarationNodeIndex } from './identifier-target-collector.ts';
 
@@ -18,34 +18,36 @@ function indexedDeclaration(sourceFile: SourceFile, statementOffset: number, bin
     return new Map<TsMorphNode, string>([[declaration, bindingId]]);
 }
 
-test('collectIdentifierTargets returns an empty set when the root has no identifiers', () => {
-    assert.deepStrictEqual(collectIdentifierTargets(rootSourceFile(''), new Map()), new Set<string>());
-});
+suite('identifier-target-collector', function () {
+    test('collectIdentifierTargets returns an empty set when the root has no identifiers', function () {
+        assert.deepStrictEqual(collectIdentifierTargets(rootSourceFile(''), new Map()), new Set<string>());
+    });
 
-test('collectIdentifierTargets returns an empty set when no identifier matches a known declaration', () => {
-    const sourceFile = rootSourceFile('const x = 1;\nconsole.log(x);');
+    test('collectIdentifierTargets returns an empty set when no identifier matches a known declaration', function () {
+        const sourceFile = rootSourceFile('const x = 1;\nconsole.log(x);');
 
-    assert.deepStrictEqual(collectIdentifierTargets(sourceFile, new Map()), new Set<string>());
-});
+        assert.deepStrictEqual(collectIdentifierTargets(sourceFile, new Map()), new Set<string>());
+    });
 
-test('collectIdentifierTargets maps each identifier symbol back to its declaration id when indexed', () => {
-    const sourceFile = rootSourceFile('const x = 1;\nconst y = x;');
-    const declarationIndex = indexedDeclaration(sourceFile, 0, '/index.ts::x');
+    test('collectIdentifierTargets maps each identifier symbol back to its declaration id when indexed', function () {
+        const sourceFile = rootSourceFile('const x = 1;\nconst y = x;');
+        const declarationIndex = indexedDeclaration(sourceFile, 0, '/index.ts::x');
 
-    const targets = collectIdentifierTargets(sourceFile, declarationIndex);
+        const targets = collectIdentifierTargets(sourceFile, declarationIndex);
 
-    assert.strictEqual(targets.has('/index.ts::x'), true);
-});
+        assert.strictEqual(targets.has('/index.ts::x'), true);
+    });
 
-test('collectIdentifierTargets follows shorthand property assignments to the referenced symbol', () => {
-    const sourceFile = rootSourceFile('const x = 1;\nconst obj = { x };');
-    const declarationIndex = indexedDeclaration(sourceFile, 0, '/index.ts::x');
-    const objStatement = sourceFile.getStatements()[1];
-    if (objStatement === undefined) {
-        assert.fail('expected obj declaration statement');
-    }
+    test('collectIdentifierTargets follows shorthand property assignments to the referenced symbol', function () {
+        const sourceFile = rootSourceFile('const x = 1;\nconst obj = { x };');
+        const declarationIndex = indexedDeclaration(sourceFile, 0, '/index.ts::x');
+        const objStatement = sourceFile.getStatements()[1];
+        if (objStatement === undefined) {
+            assert.fail('expected obj declaration statement');
+        }
 
-    const targets = collectIdentifierTargets(objStatement, declarationIndex);
+        const targets = collectIdentifierTargets(objStatement, declarationIndex);
 
-    assert.strictEqual(targets.has('/index.ts::x'), true);
+        assert.strictEqual(targets.has('/index.ts::x'), true);
+    });
 });

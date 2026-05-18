@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
 import type { AuthResolution, NpmFetchOptions } from './registry-auth-config.ts';
 import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
@@ -34,49 +34,51 @@ async function expectRethrown(
     }
 }
 
-test('retryWithFallbackAuth returns the run() result when it succeeds on the first attempt', async () => {
-    const callOptions: NpmFetchOptions[] = [];
+suite('metadata-auth-retry', function () {
+    test('retryWithFallbackAuth returns the run() result when it succeeds on the first attempt', async function () {
+        const callOptions: NpmFetchOptions[] = [];
 
-    const result = await retryWithFallbackAuth({ auth: tokenAuth }, authResolution(), async (options) => {
-        callOptions.push(options);
-        return 'ok' as const;
+        const result = await retryWithFallbackAuth({ auth: tokenAuth }, authResolution(), async (options) => {
+            callOptions.push(options);
+            return 'ok' as const;
+        });
+
+        assert.strictEqual(result, 'ok');
+        assert.strictEqual(callOptions.length, 1);
     });
 
-    assert.strictEqual(result, 'ok');
-    assert.strictEqual(callOptions.length, 1);
-});
+    test('retryWithFallbackAuth rethrows the error when retry is not allowed', async function () {
+        await expectRethrown({ auth: tokenAuth }, authResolution(), 401);
+    });
 
-test('retryWithFallbackAuth rethrows the error when retry is not allowed', async () => {
-    await expectRethrown({ auth: tokenAuth }, authResolution(), 401);
-});
+    test('retryWithFallbackAuth rethrows non-auth failures even when retry is allowed', async function () {
+        await expectRethrown({ auth: tokenAuth }, authResolution({ allowsAutomaticRetry: true }), 500);
+    });
 
-test('retryWithFallbackAuth rethrows non-auth failures even when retry is allowed', async () => {
-    await expectRethrown({ auth: tokenAuth }, authResolution({ allowsAutomaticRetry: true }), 500);
-});
+    test('retryWithFallbackAuth retries with publish auth options on auth failure when retry is allowed', async function () {
+        const settings: RegistrySettings = { auth: tokenAuth };
+        let attempts = 0;
+        const callOptions: NpmFetchOptions[] = [];
 
-test('retryWithFallbackAuth retries with publish auth options on auth failure when retry is allowed', async () => {
-    const settings: RegistrySettings = { auth: tokenAuth };
-    let attempts = 0;
-    const callOptions: NpmFetchOptions[] = [];
-
-    const result = await retryWithFallbackAuth(
-        settings,
-        authResolution({ allowsAutomaticRetry: true }),
-        async (options) => {
-            callOptions.push(options);
-            attempts += 1;
-            if (attempts === 1) {
-                throw authFailure(403);
+        const result = await retryWithFallbackAuth(
+            settings,
+            authResolution({ allowsAutomaticRetry: true }),
+            async (options) => {
+                callOptions.push(options);
+                attempts += 1;
+                if (attempts === 1) {
+                    throw authFailure(403);
+                }
+                return 'fallback' as const;
             }
-            return 'fallback' as const;
-        }
-    );
+        );
 
-    assert.strictEqual(result, 'fallback');
-    assert.strictEqual(attempts, 2);
-    assert.deepStrictEqual((callOptions[1] as { forceAuth?: { token?: string } }).forceAuth, { token: 'abc' });
-});
+        assert.strictEqual(result, 'fallback');
+        assert.strictEqual(attempts, 2);
+        assert.deepStrictEqual((callOptions[1] as { forceAuth?: { token?: string } }).forceAuth, { token: 'abc' });
+    });
 
-test('retryWithFallbackAuth rethrows when retry is allowed but publish auth is npm-oidc', async () => {
-    await expectRethrown({ auth: { type: 'npm-oidc' } }, authResolution({ allowsAutomaticRetry: true }), 401);
+    test('retryWithFallbackAuth rethrows when retry is allowed but publish auth is npm-oidc', async function () {
+        await expectRethrown({ auth: { type: 'npm-oidc' } }, authResolution({ allowsAutomaticRetry: true }), 401);
+    });
 });

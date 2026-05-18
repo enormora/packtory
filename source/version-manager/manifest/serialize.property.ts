@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import type { PackageJson } from 'type-fest';
 import { serializePackageJson } from './serialize.ts';
 
@@ -88,24 +88,26 @@ function canonicalizeValue(value: JsonValue, path: readonly string[] = []): Json
     return value;
 }
 
-test('serializePackageJson() returns valid JSON with recursively sorted object keys', () => {
-    fc.assert(
-        fc.property(packageJsonLikeArbitrary, (value) => {
-            const result = serializePackageJson(value as PackageJson);
-            const parsed = JSON.parse(result) as JsonValue;
+suite('serialize', function () {
+    test('serializePackageJson() returns valid JSON with recursively sorted object keys', function () {
+        fc.assert(
+            fc.property(packageJsonLikeArbitrary, (value) => {
+                const result = serializePackageJson(value as PackageJson);
+                const parsed = JSON.parse(result) as JsonValue;
 
-            assert.deepStrictEqual(parsed, canonicalizeValue(value));
-        })
-    );
-});
+                assert.deepStrictEqual(parsed, canonicalizeValue(value));
+            })
+        );
+    });
 
-test('serializePackageJson() is stable once a package json has been serialized', () => {
-    fc.assert(
-        fc.property(packageJsonLikeArbitrary, (value) => {
-            const serialized = serializePackageJson(value as PackageJson);
-            const reparsed = JSON.parse(serialized) as PackageJsonLike;
+    test('serializePackageJson() is stable once a package json has been serialized', function () {
+        fc.assert(
+            fc.property(packageJsonLikeArbitrary, (value) => {
+                const serialized = serializePackageJson(value as PackageJson);
+                const reparsed = JSON.parse(serialized) as PackageJsonLike;
 
-            assert.strictEqual(serializePackageJson(reparsed as PackageJson), serialized);
-        })
-    );
+                assert.strictEqual(serializePackageJson(reparsed as PackageJson), serialized);
+            })
+        );
+    });
 });

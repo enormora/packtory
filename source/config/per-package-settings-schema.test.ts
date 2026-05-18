@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { safeParse } from '@schema-hub/zod-error-formatter';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import {
     checkValidationFailure,
     checkValidationSuccess,
@@ -17,88 +17,90 @@ const validPerPackageSettings = {
     bundlePeerDependencies: ['peer']
 };
 
-test('per-package settings schema accepts a valid package definition', () => {
-    assert.strictEqual(safeParse(perPackageSettingsSchema, validPerPackageSettings).success, true);
-});
+suite('per-package-settings-schema', function () {
+    test('per-package settings schema accepts a valid package definition', function () {
+        assert.strictEqual(safeParse(perPackageSettingsSchema, validPerPackageSettings).success, true);
+    });
 
-test('per-package settings schema rejects missing roots', () => {
-    assert.strictEqual(safeParse(perPackageSettingsSchema, { name: 'pkg' }).success, false);
-});
+    test('per-package settings schema rejects missing roots', function () {
+        assert.strictEqual(safeParse(perPackageSettingsSchema, { name: 'pkg' }).success, false);
+    });
 
-createTestCasesForRequiredField({
-    schema: perPackageSettingsSchema,
-    data: validPerPackageSettings,
-    path: 'name',
-    expectedFieldType: 'string'
-});
-
-createTestCasesForRequiredField({
-    schema: perPackageSettingsSchema,
-    data: validPerPackageSettings,
-    path: 'roots',
-    expectedFieldType: 'record'
-});
-
-createTestCasesForOptionalField({
-    schema: perPackageSettingsSchema,
-    data: validPerPackageSettings,
-    path: 'versioning',
-    expectedFieldType: 'object'
-});
-
-createTestCasesForOptionalField({
-    schema: perPackageSettingsSchema,
-    data: validPerPackageSettings,
-    path: 'bundleDependencies',
-    expectedFieldType: 'array'
-});
-
-createTestCasesForOptionalField({
-    schema: perPackageSettingsSchema,
-    data: validPerPackageSettings,
-    path: 'bundlePeerDependencies',
-    expectedFieldType: 'array'
-});
-
-createTestCasesForOptionalField({
-    schema: perPackageSettingsSchema,
-    data: validPerPackageSettings,
-    path: 'checks',
-    expectedFieldType: 'object'
-});
-
-test(
-    'per package settings schema: validation succeeds with required fields',
-    checkValidationSuccess({
+    createTestCasesForRequiredField({
         schema: perPackageSettingsSchema,
         data: validPerPackageSettings,
-        expectedData: validPerPackageSettings
-    })
-);
+        path: 'name',
+        expectedFieldType: 'string'
+    });
 
-test(
-    'per package settings schema: validation fails when name is missing',
-    checkValidationFailure({
+    createTestCasesForRequiredField({
         schema: perPackageSettingsSchema,
-        data: { roots: { main: { js: 'index.js' } } },
-        expectedMessages: ['at name: missing property']
-    })
-);
+        data: validPerPackageSettings,
+        path: 'roots',
+        expectedFieldType: 'record'
+    });
 
-test(
-    'per package settings schema: validation fails when roots is missing',
-    checkValidationFailure({
+    createTestCasesForOptionalField({
         schema: perPackageSettingsSchema,
-        data: { name: 'pkg' },
-        expectedMessages: ['at roots: missing property']
-    })
-);
+        data: validPerPackageSettings,
+        path: 'versioning',
+        expectedFieldType: 'object'
+    });
 
-test(
-    'per package settings schema: validation fails when an additional property is given',
-    checkValidationFailure({
+    createTestCasesForOptionalField({
         schema: perPackageSettingsSchema,
-        data: { ...validPerPackageSettings, extra: true },
-        expectedMessages: ['unexpected additional property: "extra"']
-    })
-);
+        data: validPerPackageSettings,
+        path: 'bundleDependencies',
+        expectedFieldType: 'array'
+    });
+
+    createTestCasesForOptionalField({
+        schema: perPackageSettingsSchema,
+        data: validPerPackageSettings,
+        path: 'bundlePeerDependencies',
+        expectedFieldType: 'array'
+    });
+
+    createTestCasesForOptionalField({
+        schema: perPackageSettingsSchema,
+        data: validPerPackageSettings,
+        path: 'checks',
+        expectedFieldType: 'object'
+    });
+
+    test(
+        'per package settings schema: validation succeeds with required fields',
+        checkValidationSuccess({
+            schema: perPackageSettingsSchema,
+            data: validPerPackageSettings,
+            expectedData: validPerPackageSettings
+        })
+    );
+
+    test(
+        'per package settings schema: validation fails when name is missing',
+        checkValidationFailure({
+            schema: perPackageSettingsSchema,
+            data: { roots: { main: { js: 'index.js' } } },
+            expectedMessages: ['at name: missing property']
+        })
+    );
+
+    test(
+        'per package settings schema: validation fails when roots is missing',
+        checkValidationFailure({
+            schema: perPackageSettingsSchema,
+            data: { name: 'pkg' },
+            expectedMessages: ['at roots: missing property']
+        })
+    );
+
+    test(
+        'per package settings schema: validation fails when an additional property is given',
+        checkValidationFailure({
+            schema: perPackageSettingsSchema,
+            data: { ...validPerPackageSettings, extra: true },
+            expectedMessages: ['unexpected additional property: "extra"']
+        })
+    );
+});

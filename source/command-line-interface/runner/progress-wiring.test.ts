@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { registerProgressListeners } from './progress-wiring.ts';
@@ -32,87 +32,89 @@ function captureSpinner(): { readonly renderer: TerminalSpinnerRenderer; readonl
     return { renderer, calls };
 }
 
-test('registerProgressListeners adds a spinner when a scheduled event arrives', () => {
-    const broadcaster = createProgressBroadcaster();
-    const sink = captureSpinner();
-    registerProgressListeners(broadcaster.consumer, sink.renderer);
+suite('progress-wiring', function () {
+    test('registerProgressListeners adds a spinner when a scheduled event arrives', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-    broadcaster.provider.emit('scheduled', { packageName: 'pkg-a' });
+        broadcaster.provider.emit('scheduled', { packageName: 'pkg-a' });
 
-    assert.deepStrictEqual(sink.calls, [{ kind: 'add', id: 'pkg-a', label: 'pkg-a', message: 'Scheduled …' }]);
-});
+        assert.deepStrictEqual(sink.calls, [{ kind: 'add', id: 'pkg-a', label: 'pkg-a', message: 'Scheduled …' }]);
+    });
 
-test('registerProgressListeners stops the spinner with a failure on an error event', () => {
-    const broadcaster = createProgressBroadcaster();
-    const sink = captureSpinner();
-    registerProgressListeners(broadcaster.consumer, sink.renderer);
+    test('registerProgressListeners stops the spinner with a failure on an error event', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-    broadcaster.provider.emit('error', { packageName: 'pkg-a', error: new Error('boom') });
+        broadcaster.provider.emit('error', { packageName: 'pkg-a', error: new Error('boom') });
 
-    assert.deepStrictEqual(sink.calls, [{ kind: 'stop', id: 'pkg-a', status: 'failure', message: 'boom' }]);
-});
+        assert.deepStrictEqual(sink.calls, [{ kind: 'stop', id: 'pkg-a', status: 'failure', message: 'boom' }]);
+    });
 
-test('registerProgressListeners reports already-published status on a done event', () => {
-    const broadcaster = createProgressBroadcaster();
-    const sink = captureSpinner();
-    registerProgressListeners(broadcaster.consumer, sink.renderer);
+    test('registerProgressListeners reports already-published status on a done event', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-    broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'already-published', version: '1.0.0' });
+        broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'already-published', version: '1.0.0' });
 
-    assert.deepStrictEqual(sink.calls, [
-        {
-            kind: 'stop',
-            id: 'pkg-a',
-            status: 'success',
-            message: 'Nothing has changed, published version 1.0.0 is already up-to-date'
-        }
-    ]);
-});
+        assert.deepStrictEqual(sink.calls, [
+            {
+                kind: 'stop',
+                id: 'pkg-a',
+                status: 'success',
+                message: 'Nothing has changed, published version 1.0.0 is already up-to-date'
+            }
+        ]);
+    });
 
-test('registerProgressListeners reports initial-version status on a done event', () => {
-    const broadcaster = createProgressBroadcaster();
-    const sink = captureSpinner();
-    registerProgressListeners(broadcaster.consumer, sink.renderer);
+    test('registerProgressListeners reports initial-version status on a done event', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-    broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'initial-version', version: '1.0.0' });
+        broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'initial-version', version: '1.0.0' });
 
-    assert.deepStrictEqual(sink.calls, [
-        { kind: 'stop', id: 'pkg-a', status: 'success', message: 'First version 1.0.0 has been published' }
-    ]);
-});
+        assert.deepStrictEqual(sink.calls, [
+            { kind: 'stop', id: 'pkg-a', status: 'success', message: 'First version 1.0.0 has been published' }
+        ]);
+    });
 
-test('registerProgressListeners falls back to "New version" for an unknown done status', () => {
-    const broadcaster = createProgressBroadcaster();
-    const sink = captureSpinner();
-    registerProgressListeners(broadcaster.consumer, sink.renderer);
+    test('registerProgressListeners falls back to "New version" for an unknown done status', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-    broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'new-version', version: '2.0.0' });
+        broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'new-version', version: '2.0.0' });
 
-    assert.deepStrictEqual(sink.calls, [
-        { kind: 'stop', id: 'pkg-a', status: 'success', message: 'New version 2.0.0 published' }
-    ]);
-});
+        assert.deepStrictEqual(sink.calls, [
+            { kind: 'stop', id: 'pkg-a', status: 'success', message: 'New version 2.0.0 published' }
+        ]);
+    });
 
-test('registerProgressListeners updates the spinner message on a building event', () => {
-    const broadcaster = createProgressBroadcaster();
-    const sink = captureSpinner();
-    registerProgressListeners(broadcaster.consumer, sink.renderer);
+    test('registerProgressListeners updates the spinner message on a building event', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-    broadcaster.provider.emit('building', { packageName: 'pkg-a', version: '1.2.3' });
+        broadcaster.provider.emit('building', { packageName: 'pkg-a', version: '1.2.3' });
 
-    assert.deepStrictEqual(sink.calls, [
-        { kind: 'updateMessage', id: 'pkg-a', message: 'Building package with version 1.2.3' }
-    ]);
-});
+        assert.deepStrictEqual(sink.calls, [
+            { kind: 'updateMessage', id: 'pkg-a', message: 'Building package with version 1.2.3' }
+        ]);
+    });
 
-test('registerProgressListeners updates the spinner message on a rebuilding event', () => {
-    const broadcaster = createProgressBroadcaster();
-    const sink = captureSpinner();
-    registerProgressListeners(broadcaster.consumer, sink.renderer);
+    test('registerProgressListeners updates the spinner message on a rebuilding event', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-    broadcaster.provider.emit('rebuilding', { packageName: 'pkg-a', version: '1.2.4' });
+        broadcaster.provider.emit('rebuilding', { packageName: 'pkg-a', version: '1.2.4' });
 
-    assert.deepStrictEqual(sink.calls, [
-        { kind: 'updateMessage', id: 'pkg-a', message: 'Rebuilding package with version 1.2.4' }
-    ]);
+        assert.deepStrictEqual(sink.calls, [
+            { kind: 'updateMessage', id: 'pkg-a', message: 'Rebuilding package with version 1.2.4' }
+        ]);
+    });
 });

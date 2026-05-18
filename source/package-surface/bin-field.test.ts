@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { executableShebangRoot } from '../test-libraries/package-surface-fixtures.ts';
 import { buildBinField, type SurfaceBundleLike } from './bin-field.ts';
 
@@ -18,10 +18,12 @@ const implicitCliBundle: SurfaceBundleLike = {
     surface: { mode: 'implicit', defaultModuleRoot: 'cli' }
 };
 
-test('buildBinField dispatches to the explicit bin builder for an explicit surface', () => {
-    assert.deepStrictEqual(buildBinField(explicitCliBundle), { 'pkg-a-cli': './cli.js' });
-});
+suite('bin-field', function () {
+    test('buildBinField dispatches to the explicit bin builder for an explicit surface', function () {
+        assert.deepStrictEqual(buildBinField(explicitCliBundle), { 'pkg-a-cli': './cli.js' });
+    });
 
-test('buildBinField dispatches to the implicit bin builder for an implicit surface', () => {
-    assert.deepStrictEqual(buildBinField(implicitCliBundle), { 'package-a': './cli.js' });
+    test('buildBinField dispatches to the implicit bin builder for an implicit surface', function () {
+        assert.deepStrictEqual(buildBinField(implicitCliBundle), { 'package-a': './cli.js' });
+    });
 });

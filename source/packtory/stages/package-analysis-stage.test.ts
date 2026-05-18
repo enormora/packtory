@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import type { DeadCodeEliminator } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
 import { analyzeResolvedPackages } from './package-analysis-stage.ts';
@@ -53,78 +53,80 @@ function captureTransformationsEnabled() {
     };
 }
 
-test('analyzeResolvedPackages returns an empty array when no linked packages are given', async () => {
-    const result = await analyzeResolvedPackages(
-        { deadCodeEliminator: stubEliminator(() => []) },
-        configWithPackages(),
-        []
-    );
+suite('package-analysis-stage', function () {
+    test('analyzeResolvedPackages returns an empty array when no linked packages are given', async function () {
+        const result = await analyzeResolvedPackages(
+            { deadCodeEliminator: stubEliminator(() => []) },
+            configWithPackages(),
+            []
+        );
 
-    assert.deepStrictEqual(result, []);
-});
-
-test('analyzeResolvedPackages passes each linked bundle into the dead-code eliminator', async () => {
-    const linkedPackage = linkedPackageNamed('pkg-a');
-    const analyzed = [{ name: 'pkg-a' } as never];
-    const eliminator = stubEliminator((inputs) => {
-        assert.strictEqual(inputs[0]?.bundle, linkedPackage.linkedBundle);
-        return analyzed;
+        assert.deepStrictEqual(result, []);
     });
 
-    const result = await analyzeResolvedPackages(
-        { deadCodeEliminator: eliminator },
-        configWithPackages({ name: 'pkg-a' }),
-        [linkedPackage]
-    );
+    test('analyzeResolvedPackages passes each linked bundle into the dead-code eliminator', async function () {
+        const linkedPackage = linkedPackageNamed('pkg-a');
+        const analyzed = [{ name: 'pkg-a' } as never];
+        const eliminator = stubEliminator((inputs) => {
+            assert.strictEqual(inputs[0]?.bundle, linkedPackage.linkedBundle);
+            return analyzed;
+        });
 
-    assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0]?.analyzedBundle, analyzed[0]);
-});
-
-test('analyzeResolvedPackages forwards the configured enabled flag through transformationsEnabled', async () => {
-    const { eliminator, getObserved } = captureTransformationsEnabled();
-
-    await analyzeResolvedPackages(
-        { deadCodeEliminator: eliminator },
-        configWithPackages({ name: 'pkg-a', enabled: false }),
-        [linkedPackageNamed('pkg-a')]
-    );
-
-    assert.strictEqual(getObserved(), false);
-});
-
-test('analyzeResolvedPackages defaults transformationsEnabled to true when no dead-code-elimination settings are configured', async () => {
-    const { eliminator, getObserved } = captureTransformationsEnabled();
-
-    await analyzeResolvedPackages({ deadCodeEliminator: eliminator }, configWithPackages({ name: 'pkg-a' }), [
-        linkedPackageNamed('pkg-a')
-    ]);
-
-    assert.strictEqual(getObserved(), true);
-});
-
-test('analyzeResolvedPackages throws when the dead-code eliminator returns fewer bundles than packages', async () => {
-    try {
-        await analyzeResolvedPackages(
-            { deadCodeEliminator: stubEliminator(() => []) },
-            configWithPackages({ name: 'pkg-missing' }),
-            [linkedPackageNamed('pkg-missing')]
+        const result = await analyzeResolvedPackages(
+            { deadCodeEliminator: eliminator },
+            configWithPackages({ name: 'pkg-a' }),
+            [linkedPackage]
         );
-        assert.fail('expected analyzeResolvedPackages to throw');
-    } catch (error) {
-        assert.ok(error instanceof Error);
-        assert.strictEqual(error.message, 'Analyzed bundle missing for package "pkg-missing"');
-    }
-});
 
-test('analyzeResolvedPackages throws when the package has no dead-code-elimination entry in the resolution map', async () => {
-    try {
-        await analyzeResolvedPackages({ deadCodeEliminator: stubEliminator(() => []) }, configWithPackages(), [
-            linkedPackageNamed('pkg-unmapped')
+        assert.strictEqual(result.length, 1);
+        assert.strictEqual(result[0]?.analyzedBundle, analyzed[0]);
+    });
+
+    test('analyzeResolvedPackages forwards the configured enabled flag through transformationsEnabled', async function () {
+        const { eliminator, getObserved } = captureTransformationsEnabled();
+
+        await analyzeResolvedPackages(
+            { deadCodeEliminator: eliminator },
+            configWithPackages({ name: 'pkg-a', enabled: false }),
+            [linkedPackageNamed('pkg-a')]
+        );
+
+        assert.strictEqual(getObserved(), false);
+    });
+
+    test('analyzeResolvedPackages defaults transformationsEnabled to true when no dead-code-elimination settings are configured', async function () {
+        const { eliminator, getObserved } = captureTransformationsEnabled();
+
+        await analyzeResolvedPackages({ deadCodeEliminator: eliminator }, configWithPackages({ name: 'pkg-a' }), [
+            linkedPackageNamed('pkg-a')
         ]);
-        assert.fail('expected analyzeResolvedPackages to throw');
-    } catch (error) {
-        assert.ok(error instanceof Error);
-        assert.strictEqual(error.message, 'Missing dead-code elimination settings for package "pkg-unmapped"');
-    }
+
+        assert.strictEqual(getObserved(), true);
+    });
+
+    test('analyzeResolvedPackages throws when the dead-code eliminator returns fewer bundles than packages', async function () {
+        try {
+            await analyzeResolvedPackages(
+                { deadCodeEliminator: stubEliminator(() => []) },
+                configWithPackages({ name: 'pkg-missing' }),
+                [linkedPackageNamed('pkg-missing')]
+            );
+            assert.fail('expected analyzeResolvedPackages to throw');
+        } catch (error) {
+            assert.ok(error instanceof Error);
+            assert.strictEqual(error.message, 'Analyzed bundle missing for package "pkg-missing"');
+        }
+    });
+
+    test('analyzeResolvedPackages throws when the package has no dead-code-elimination entry in the resolution map', async function () {
+        try {
+            await analyzeResolvedPackages({ deadCodeEliminator: stubEliminator(() => []) }, configWithPackages(), [
+                linkedPackageNamed('pkg-unmapped')
+            ]);
+            assert.fail('expected analyzeResolvedPackages to throw');
+        } catch (error) {
+            assert.ok(error instanceof Error);
+            assert.strictEqual(error.message, 'Missing dead-code elimination settings for package "pkg-unmapped"');
+        }
+    });
 });

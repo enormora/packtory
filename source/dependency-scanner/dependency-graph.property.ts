@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import { unique } from 'remeda';
 import { Maybe } from 'true-myth';
 import {
@@ -76,50 +76,52 @@ const localFilesArbitrary: fc.Arbitrary<readonly LocalFile[]> = fc
         });
     });
 
-test('flatten() only references known file paths or generated source-map files', () => {
-    fc.assert(
-        fc.property(dependencyFilesArbitrary, (dependencyFiles) => {
-            const filePaths = new Set(
-                dependencyFiles.localFiles.map((file) => {
+suite('dependency-graph', function () {
+    test('flatten() only references known file paths or generated source-map files', function () {
+        fc.assert(
+            fc.property(dependencyFilesArbitrary, (dependencyFiles) => {
+                const filePaths = new Set(
+                    dependencyFiles.localFiles.map((file) => {
+                        return file.filePath;
+                    })
+                );
+
+                for (const file of dependencyFiles.localFiles) {
+                    for (const dependency of file.directDependencies) {
+                        assert.ok(filePaths.has(dependency) || dependency.endsWith('.js.map'));
+                    }
+                }
+
+                for (const dependency of dependencyFiles.externalDependencies.values()) {
+                    for (const reference of dependency.referencedFrom) {
+                        assert.ok(filePaths.has(reference));
+                    }
+                }
+            }),
+            { numRuns: 5 }
+        );
+    });
+
+    test('mergeDependencyFiles() preserves uniqueness by file path', function () {
+        fc.assert(
+            fc.property(localFilesArbitrary, localFilesArbitrary, (firstLocalFiles, secondLocalFiles) => {
+                const first: DependencyFiles = {
+                    localFiles: firstLocalFiles,
+                    externalDependencies: new Map()
+                };
+                const second: DependencyFiles = {
+                    localFiles: secondLocalFiles,
+                    externalDependencies: new Map()
+                };
+
+                const merged = mergeDependencyFiles(first, second);
+                const mergedPaths = merged.localFiles.map((file) => {
                     return file.filePath;
-                })
-            );
-
-            dependencyFiles.localFiles.forEach((file) => {
-                file.directDependencies.forEach((dependency) => {
-                    assert.ok(filePaths.has(dependency) || dependency.endsWith('.js.map'));
                 });
-            });
 
-            dependencyFiles.externalDependencies.forEach((dependency) => {
-                dependency.referencedFrom.forEach((reference) => {
-                    assert.ok(filePaths.has(reference));
-                });
-            });
-        }),
-        { numRuns: 5 }
-    );
-});
-
-test('mergeDependencyFiles() preserves uniqueness by file path', () => {
-    fc.assert(
-        fc.property(localFilesArbitrary, localFilesArbitrary, (firstLocalFiles, secondLocalFiles) => {
-            const first: DependencyFiles = {
-                localFiles: firstLocalFiles,
-                externalDependencies: new Map()
-            };
-            const second: DependencyFiles = {
-                localFiles: secondLocalFiles,
-                externalDependencies: new Map()
-            };
-
-            const merged = mergeDependencyFiles(first, second);
-            const mergedPaths = merged.localFiles.map((file) => {
-                return file.filePath;
-            });
-
-            assert.deepStrictEqual(mergedPaths, unique(mergedPaths));
-        }),
-        { numRuns: 5 }
-    );
+                assert.deepStrictEqual(mergedPaths, unique(mergedPaths));
+            }),
+            { numRuns: 5 }
+        );
+    });
 });

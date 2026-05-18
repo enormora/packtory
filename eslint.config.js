@@ -15,7 +15,12 @@ export default [
     },
     {
         ...mochaConfig,
-        files: ['**/*.test.ts', '**/*.property.ts', 'integration-tests/**/*.ts']
+        files: ['**/*.test.ts', '**/*.property.ts', 'integration-tests/**/*.ts'],
+        rules: {
+            ...mochaConfig.rules,
+            // mirrors upcoming @enormora/eslint-config-mocha default; remove once that release lands
+            'mocha/no-setup-in-describe': 'off'
+        }
     },
     {
         ...nodeConfigFileConfig,
@@ -101,11 +106,6 @@ export default [
             'sonarjs/no-alphabetical-sort': 'off',
             'unicorn/no-array-reverse': 'off',
             'unicorn/no-array-sort': 'off'
-        },
-        settings: {
-            mocha: {
-                interface: 'TDD'
-            }
         }
     },
     {

@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { test } from 'mocha';
+import { suite, test } from 'mocha';
 import type { PacktoryConfig } from '../config/config.ts';
 import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
@@ -20,117 +20,119 @@ function createMinimalConfig(packageNames: readonly string[]): PacktoryConfig {
     } as unknown as PacktoryConfig;
 }
 
-test('maybeAttachAggregator() returns no-op getReport when collectReport is undefined', () => {
-    const broadcaster = createProgressBroadcaster();
+suite('report-attachment', function () {
+    test('maybeAttachAggregator() returns no-op getReport when collectReport is undefined', function () {
+        const broadcaster = createProgressBroadcaster();
 
-    const attachment = maybeAttachAggregator(broadcaster, undefined);
+        const attachment = maybeAttachAggregator(broadcaster, undefined);
 
-    assert.strictEqual(attachment.getReport(), undefined);
-});
-
-test('maybeAttachAggregator() returns no-op getReport when collectReport is false', () => {
-    const broadcaster = createProgressBroadcaster();
-
-    const attachment = maybeAttachAggregator(broadcaster, false);
-
-    assert.strictEqual(attachment.getReport(), undefined);
-});
-
-test('maybeAttachAggregator() no-op dispose is callable without throwing when collectReport is false', () => {
-    const broadcaster = createProgressBroadcaster();
-
-    const attachment = maybeAttachAggregator(broadcaster, false);
-
-    attachment.dispose();
-});
-
-test('maybeAttachAggregator() does not subscribe to broadcaster when collectReport is false', () => {
-    const broadcaster = createProgressBroadcaster();
-
-    maybeAttachAggregator(broadcaster, false);
-
-    assert.strictEqual(broadcaster.provider.hasSubscribers('inputsResolved'), false);
-    assert.strictEqual(broadcaster.provider.hasSubscribers('stageTimed'), false);
-});
-
-test('maybeAttachAggregator() subscribes to broadcaster events when collectReport is true', () => {
-    const broadcaster = createProgressBroadcaster();
-
-    maybeAttachAggregator(broadcaster, true);
-
-    assert.strictEqual(broadcaster.provider.hasSubscribers('inputsResolved'), true);
-    assert.strictEqual(broadcaster.provider.hasSubscribers('stageTimed'), true);
-});
-
-test('maybeAttachAggregator() getReport returns a materialized BuildReport when collectReport is true', () => {
-    const broadcaster = createProgressBroadcaster();
-
-    const attachment = maybeAttachAggregator(broadcaster, true);
-    const report = attachment.getReport();
-
-    if (report === undefined) {
-        assert.fail('expected a BuildReport');
-    }
-    assert.strictEqual(report.schemaVersion, 1);
-    assert.deepStrictEqual(report.packages, {});
-    assert.deepStrictEqual(report.aggregate, { crossBundleLinks: [] });
-});
-
-test('maybeAttachAggregator() getReport reflects events emitted before build', () => {
-    const broadcaster = createProgressBroadcaster();
-
-    const attachment = maybeAttachAggregator(broadcaster, true);
-    broadcaster.provider.emit('stageTimed', {
-        packageName: 'pkg-a',
-        stage: 'resolveAndLink',
-        durationMs: 12
+        assert.strictEqual(attachment.getReport(), undefined);
     });
 
-    const report = attachment.getReport();
-    if (report === undefined) {
-        assert.fail('expected a BuildReport');
-    }
-    assert.deepStrictEqual(report.packages['pkg-a']?.timings, { resolveAndLink: 12 });
-});
+    test('maybeAttachAggregator() returns no-op getReport when collectReport is false', function () {
+        const broadcaster = createProgressBroadcaster();
 
-test('maybeAttachAggregator() dispose unsubscribes the aggregator', () => {
-    const broadcaster = createProgressBroadcaster();
+        const attachment = maybeAttachAggregator(broadcaster, false);
 
-    const attachment = maybeAttachAggregator(broadcaster, true);
-    attachment.dispose();
-
-    assert.strictEqual(broadcaster.provider.hasSubscribers('inputsResolved'), false);
-    assert.strictEqual(broadcaster.provider.hasSubscribers('stageTimed'), false);
-});
-
-test('emitEffectiveConfigPerPackage() does not emit when no subscriber is registered', () => {
-    const wrapped = createSpyingBroadcaster();
-
-    emitEffectiveConfigPerPackage(wrapped, createMinimalConfig(['pkg-a', 'pkg-b']));
-
-    assert.strictEqual(wrapped.emitSpy.callCount, 0);
-});
-
-test('emitEffectiveConfigPerPackage() emits one effectiveConfigResolved per package when a subscriber is registered', () => {
-    const broadcaster = createProgressBroadcaster();
-    const received: string[] = [];
-    broadcaster.consumer.on('effectiveConfigResolved', (payload) => {
-        received.push(payload.packageName);
+        assert.strictEqual(attachment.getReport(), undefined);
     });
 
-    emitEffectiveConfigPerPackage(broadcaster, createMinimalConfig(['pkg-a', 'pkg-b']));
+    test('maybeAttachAggregator() no-op dispose is callable without throwing when collectReport is false', function () {
+        const broadcaster = createProgressBroadcaster();
 
-    assert.deepStrictEqual(received, ['pkg-a', 'pkg-b']);
-});
+        const attachment = maybeAttachAggregator(broadcaster, false);
 
-test('emitEffectiveConfigPerPackage() emits a redacted config with the package name', () => {
-    const broadcaster = createProgressBroadcaster();
-    const received: { packageName: string; configName: string }[] = [];
-    broadcaster.consumer.on('effectiveConfigResolved', (payload) => {
-        received.push({ packageName: payload.packageName, configName: String(payload.config.name) });
+        attachment.dispose();
     });
 
-    emitEffectiveConfigPerPackage(broadcaster, createMinimalConfig(['only-pkg']));
+    test('maybeAttachAggregator() does not subscribe to broadcaster when collectReport is false', function () {
+        const broadcaster = createProgressBroadcaster();
 
-    assert.deepStrictEqual(received, [{ packageName: 'only-pkg', configName: 'only-pkg' }]);
+        maybeAttachAggregator(broadcaster, false);
+
+        assert.strictEqual(broadcaster.provider.hasSubscribers('inputsResolved'), false);
+        assert.strictEqual(broadcaster.provider.hasSubscribers('stageTimed'), false);
+    });
+
+    test('maybeAttachAggregator() subscribes to broadcaster events when collectReport is true', function () {
+        const broadcaster = createProgressBroadcaster();
+
+        maybeAttachAggregator(broadcaster, true);
+
+        assert.strictEqual(broadcaster.provider.hasSubscribers('inputsResolved'), true);
+        assert.strictEqual(broadcaster.provider.hasSubscribers('stageTimed'), true);
+    });
+
+    test('maybeAttachAggregator() getReport returns a materialized BuildReport when collectReport is true', function () {
+        const broadcaster = createProgressBroadcaster();
+
+        const attachment = maybeAttachAggregator(broadcaster, true);
+        const report = attachment.getReport();
+
+        if (report === undefined) {
+            assert.fail('expected a BuildReport');
+        }
+        assert.strictEqual(report.schemaVersion, 1);
+        assert.deepStrictEqual(report.packages, {});
+        assert.deepStrictEqual(report.aggregate, { crossBundleLinks: [] });
+    });
+
+    test('maybeAttachAggregator() getReport reflects events emitted before build', function () {
+        const broadcaster = createProgressBroadcaster();
+
+        const attachment = maybeAttachAggregator(broadcaster, true);
+        broadcaster.provider.emit('stageTimed', {
+            packageName: 'pkg-a',
+            stage: 'resolveAndLink',
+            durationMs: 12
+        });
+
+        const report = attachment.getReport();
+        if (report === undefined) {
+            assert.fail('expected a BuildReport');
+        }
+        assert.deepStrictEqual(report.packages['pkg-a']?.timings, { resolveAndLink: 12 });
+    });
+
+    test('maybeAttachAggregator() dispose unsubscribes the aggregator', function () {
+        const broadcaster = createProgressBroadcaster();
+
+        const attachment = maybeAttachAggregator(broadcaster, true);
+        attachment.dispose();
+
+        assert.strictEqual(broadcaster.provider.hasSubscribers('inputsResolved'), false);
+        assert.strictEqual(broadcaster.provider.hasSubscribers('stageTimed'), false);
+    });
+
+    test('emitEffectiveConfigPerPackage() does not emit when no subscriber is registered', function () {
+        const wrapped = createSpyingBroadcaster();
+
+        emitEffectiveConfigPerPackage(wrapped, createMinimalConfig(['pkg-a', 'pkg-b']));
+
+        assert.strictEqual(wrapped.emitSpy.callCount, 0);
+    });
+
+    test('emitEffectiveConfigPerPackage() emits one effectiveConfigResolved per package when a subscriber is registered', function () {
+        const broadcaster = createProgressBroadcaster();
+        const received: string[] = [];
+        broadcaster.consumer.on('effectiveConfigResolved', (payload) => {
+            received.push(payload.packageName);
+        });
+
+        emitEffectiveConfigPerPackage(broadcaster, createMinimalConfig(['pkg-a', 'pkg-b']));
+
+        assert.deepStrictEqual(received, ['pkg-a', 'pkg-b']);
+    });
+
+    test('emitEffectiveConfigPerPackage() emits a redacted config with the package name', function () {
+        const broadcaster = createProgressBroadcaster();
+        const received: { packageName: string; configName: string }[] = [];
+        broadcaster.consumer.on('effectiveConfigResolved', (payload) => {
+            received.push({ packageName: payload.packageName, configName: String(payload.config.name) });
+        });
+
+        emitEffectiveConfigPerPackage(broadcaster, createMinimalConfig(['only-pkg']));
+
+        assert.deepStrictEqual(received, [{ packageName: 'only-pkg', configName: 'only-pkg' }]);
+    });
 });
