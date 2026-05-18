@@ -1,12 +1,12 @@
 import type { PackageJson } from 'type-fest';
-import { isEmpty } from 'remeda';
+import { hasProp, isDefined, isEmpty, pickBy } from 'remeda';
 import type { VersionedBundle, BundlePackageJson } from '../versioned-bundle.ts';
 
 type SideEffectsValue = string[] | false;
 
 // eslint-disable-next-line sonarjs/function-return-type -- distinct semantics for emit-false, emit-array, and omit
 function resolveSideEffectsValue(bundle: VersionedBundle): SideEffectsValue | undefined {
-    if (Object.hasOwn(bundle.additionalAttributes, 'sideEffects')) {
+    if (hasProp(bundle.additionalAttributes, 'sideEffects')) {
         return undefined;
     }
     const field = bundle.sideEffectsField;
@@ -42,11 +42,7 @@ function buildImportsEntry(
 function toPackageJsonBinTargets(
     binField: Exclude<NonNullable<VersionedBundle['binField']>, string>
 ): Readonly<Record<string, string>> {
-    return Object.fromEntries(
-        Object.entries(binField).flatMap(([name, target]) => {
-            return target === undefined ? [] : [[name, target]];
-        })
-    );
+    return pickBy(binField, isDefined);
 }
 
 function buildBinEntry(binField: VersionedBundle['binField']): Record<PropertyKey, never> | { bin: PackageJsonBin } {

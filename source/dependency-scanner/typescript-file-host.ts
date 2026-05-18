@@ -1,7 +1,8 @@
 import type { FileSystemHost } from 'ts-morph';
+import { isBoolean } from 'remeda';
 import type { MainPackageJson } from '../config/package-json.ts';
 import { isDeclarationFile, isTypesRootFolder } from './file-host-predicates.ts';
-import { bindRequiredMethod, isBoolean, syncMethodNames } from './host-method-binding.ts';
+import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 import { createVirtualPackageJsonHost } from './virtual-package-json-host.ts';
 
 export type FileSystemAdaptersDependencies = {

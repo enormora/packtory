@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { isPlainObject } from 'remeda';
+import { hasProp, isPlainObject } from 'remeda';
 
 export type ConfigLoaderDependencies = {
     readonly currentWorkingDirectory: string;
@@ -14,13 +14,6 @@ type UnknownFunction = (...args: unknown[]) => unknown;
 
 function isFunction(value: unknown): value is UnknownFunction {
     return typeof value === 'function';
-}
-
-function hasOwn<K extends PropertyKey>(
-    value: Readonly<Record<PropertyKey, unknown>>,
-    key: K
-): value is Readonly<Record<K, unknown> & Record<PropertyKey, unknown>> {
-    return Object.hasOwn(value, key);
 }
 
 export function createConfigLoader(dependencies: ConfigLoaderDependencies): ConfigLoader {
@@ -41,11 +34,11 @@ export function createConfigLoader(dependencies: ConfigLoaderDependencies): Conf
         async load() {
             const module = await importConfigModule();
 
-            if (hasOwn(module, 'config')) {
+            if (hasProp(module, 'config')) {
                 return module.config;
             }
 
-            if (hasOwn(module, 'buildConfig')) {
+            if (hasProp(module, 'buildConfig')) {
                 const { buildConfig } = module;
                 if (isFunction(buildConfig)) {
                     return buildConfig();

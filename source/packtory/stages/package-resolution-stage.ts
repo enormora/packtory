@@ -1,3 +1,4 @@
+import { mapValues } from 'remeda';
 import type { Result } from 'true-myth';
 import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
 import { resolveRootsAndSurface } from '../../resource-resolver/resource-resolve-options.ts';
@@ -39,11 +40,9 @@ function emitInputsResolved(
     const normalizedInputs = resolveRootsAndSurface(options);
     dependencies.progressBroadcaster.provider.emit('inputsResolved', {
         packageName: options.name,
-        roots: Object.fromEntries(
-            Object.entries(normalizedInputs.roots).map(([rootId, root]) => {
-                return [rootId, root.js];
-            })
-        ),
+        roots: mapValues(normalizedInputs.roots, (root) => {
+            return root.js;
+        }),
         sourceFileCount: 0,
         siblingVersions: {}
     });

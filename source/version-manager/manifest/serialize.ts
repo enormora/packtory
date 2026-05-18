@@ -1,16 +1,9 @@
+import { isArray, isPlainObject } from 'remeda';
 import type { PackageJson } from 'type-fest';
 import { compareValues } from './sort-values.ts';
 
 const indentationSize = 4;
 type RecordEntry = readonly [string, unknown];
-
-function isArray(value: unknown): value is unknown[] {
-    return Array.isArray(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function assertNoCircularStructures(value: unknown): void {
     const visitedObjects = new Set<unknown>();
@@ -41,7 +34,7 @@ function deepSortValue(value: unknown, path: readonly string[] = []): unknown {
         return shouldPreserveArrayOrder(path) ? mapped : mapped.toSorted(compareValues);
     }
 
-    if (isRecord(value)) {
+    if (isPlainObject(value)) {
         return Object.fromEntries(
             Object.entries(value)
                 .map<RecordEntry>(([key, nestedValue]) => {

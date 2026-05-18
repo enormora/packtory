@@ -1,3 +1,4 @@
+import { unique } from 'remeda';
 import { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { nonEmptyStringSchema } from '../../config/base-validations.ts';
@@ -24,7 +25,7 @@ function effectiveRequiredFiles(
     globalConfig: GlobalConfig,
     perPackageConfig: PerPackageConfig | undefined
 ): readonly string[] {
-    return Array.from(new Set([...(globalConfig.files ?? []), ...(perPackageConfig?.files ?? [])]));
+    return unique([...(globalConfig.files ?? []), ...(perPackageConfig?.files ?? [])]);
 }
 
 function findMissingFiles(bundle: AnalyzedBundle, requiredFiles: readonly string[]): readonly string[] {
