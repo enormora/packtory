@@ -1,18 +1,15 @@
 import HostedGitInfo from 'hosted-git-info';
+import { isPlainObject } from 'remeda';
 
 function isNonEmptyString(value: unknown): value is string {
     return typeof value === 'string' && value.length > 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function extractRawUrl(input: unknown): string | undefined {
     if (isNonEmptyString(input)) {
         return input;
     }
-    if (isRecord(input) && isNonEmptyString(input.url)) {
+    if (isPlainObject(input) && isNonEmptyString(input.url)) {
         return input.url;
     }
     return undefined;

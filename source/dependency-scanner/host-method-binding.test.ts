@@ -1,20 +1,8 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
+import { isString } from 'remeda';
 import type { FileSystemHost } from 'ts-morph';
-import { bindRequiredMethod, isBoolean, isString, syncMethodNames } from './host-method-binding.ts';
-
-test('isBoolean returns true only for boolean primitives', () => {
-    assert.strictEqual(isBoolean(true), true);
-    assert.strictEqual(isBoolean(false), true);
-    assert.strictEqual(isBoolean('true'), false);
-    assert.strictEqual(isBoolean(1), false);
-});
-
-test('isString returns true only for string primitives', () => {
-    assert.strictEqual(isString('x'), true);
-    assert.strictEqual(isString(''), true);
-    assert.strictEqual(isString(undefined), false);
-});
+import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 
 test('syncMethodNames maps each async name to its synchronous counterpart', () => {
     assert.deepStrictEqual(syncMethodNames, {

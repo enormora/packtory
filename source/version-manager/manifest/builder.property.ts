@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
 import { test } from 'mocha';
+import { hasProp } from 'remeda';
 import type { AdditionalPackageJsonAttributes } from '../../config/package-json.ts';
 import type { VersionedBundle } from '../versioned-bundle.ts';
 import { buildPackageManifest } from './builder.ts';
@@ -50,7 +51,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
     })
     .filter((bundle) => {
         return Object.keys(bundle.dependencies).every((name) => {
-            return !Object.hasOwn(bundle.peerDependencies, name);
+            return !hasProp(bundle.peerDependencies, name);
         });
     })
     .map((bundle) => {
@@ -143,10 +144,10 @@ test('buildPackageManifest() preserves additional attributes without leaking dep
             });
 
             Object.keys(bundle.dependencies).forEach((dependencyName) => {
-                assert.strictEqual(Object.hasOwn(manifest.peerDependencies ?? {}, dependencyName), false);
+                assert.strictEqual(hasProp(manifest.peerDependencies ?? {}, dependencyName), false);
             });
             Object.keys(bundle.peerDependencies).forEach((dependencyName) => {
-                assert.strictEqual(Object.hasOwn(manifest.dependencies ?? {}, dependencyName), false);
+                assert.strictEqual(hasProp(manifest.dependencies ?? {}, dependencyName), false);
             });
         })
     );

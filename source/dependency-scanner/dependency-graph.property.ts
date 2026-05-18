@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
 import { test } from 'mocha';
+import { unique } from 'remeda';
 import { Maybe } from 'true-myth';
 import {
     createDependencyGraph,
@@ -117,7 +118,7 @@ test('mergeDependencyFiles() preserves uniqueness by file path', () => {
                 return file.filePath;
             });
 
-            assert.deepStrictEqual(mergedPaths, Array.from(new Set(mergedPaths)));
+            assert.deepStrictEqual(mergedPaths, unique(mergedPaths));
         }),
         { numRuns: 5 }
     );

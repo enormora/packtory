@@ -1,3 +1,4 @@
+import { groupBy } from 'remeda';
 import type { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
@@ -14,21 +15,21 @@ type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
-    const sourcesByTarget = new Map<string, string[]>();
-    for (const resource of bundle.contents) {
-        const { targetFilePath, sourceFilePath } = resource.fileDescription;
-        const sources = sourcesByTarget.get(targetFilePath) ?? [];
-        sources.push(sourceFilePath);
-        sourcesByTarget.set(targetFilePath, sources);
-    }
+    const sourcesByTarget = groupBy(bundle.contents, (resource) => {
+        return resource.fileDescription.targetFilePath;
+    });
 
-    return Array.from(sourcesByTarget.entries()).flatMap(([targetFilePath, sources]) => {
-        if (sources.length <= 1) {
+    return Object.entries(sourcesByTarget).flatMap(([targetFilePath, resources]) => {
+        if (resources.length <= 1) {
             return [];
         }
-        const sortedSources = sources.toSorted((left, right) => {
-            return left.localeCompare(right);
-        });
+        const sortedSources = resources
+            .map((resource) => {
+                return resource.fileDescription.sourceFilePath;
+            })
+            .toSorted((left, right) => {
+                return left.localeCompare(right);
+            });
         return [`Package "${bundle.name}" maps multiple sources to "${targetFilePath}": ${sortedSources.join(', ')}`];
     });
 }

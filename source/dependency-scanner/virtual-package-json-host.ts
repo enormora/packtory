@@ -1,7 +1,8 @@
 import path from 'node:path';
 import type { FileSystemHost } from 'ts-morph';
+import { isBoolean, isString } from 'remeda';
 import type { MainPackageJson } from '../config/package-json.ts';
-import { bindRequiredMethod, isBoolean, isString, syncMethodNames } from './host-method-binding.ts';
+import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 
 const packageJsonIndentationSpaces = 2;
 

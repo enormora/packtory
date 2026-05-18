@@ -1,3 +1,5 @@
+import { isArray, isDefined, isPlainObject } from 'remeda';
+
 type MutationLocation = {
     readonly start: {
         readonly line: number;
@@ -18,17 +20,13 @@ export type MutationReport = {
     readonly files?: Readonly<Record<string, MutationReportFile | undefined>>;
 };
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-    return Object.prototype.toString.call(value) === '[object Object]';
-}
-
 function parseMutationLocation(value: unknown): MutationLocation | undefined {
-    if (!isRecord(value)) {
+    if (!isPlainObject(value)) {
         return undefined;
     }
 
     const { start } = value;
-    if (!isRecord(start) || typeof start.line !== 'number' || typeof start.column !== 'number') {
+    if (!isPlainObject(start) || typeof start.line !== 'number' || typeof start.column !== 'number') {
         return undefined;
     }
 
@@ -41,7 +39,7 @@ function parseMutationLocation(value: unknown): MutationLocation | undefined {
 }
 
 function parseMutant(value: unknown): ParsedMutant | undefined {
-    if (!isRecord(value)) {
+    if (!isPlainObject(value)) {
         return undefined;
     }
 
@@ -57,17 +55,13 @@ function parseMutant(value: unknown): ParsedMutant | undefined {
     return { status: value.status, location };
 }
 
-function isDefined<T>(value: T | undefined): value is T {
-    return value !== undefined;
-}
-
 function parseMutationReportFile(value: unknown): MutationReportFile | undefined {
-    if (!isRecord(value)) {
+    if (!isPlainObject(value)) {
         return undefined;
     }
 
     const { mutants } = value;
-    if (!Array.isArray(mutants)) {
+    if (!isArray(mutants)) {
         return {};
     }
 
@@ -77,7 +71,7 @@ function parseMutationReportFile(value: unknown): MutationReportFile | undefined
 }
 
 export function parseMutationReport(value: unknown): MutationReport {
-    if (!isRecord(value) || !isRecord(value.files)) {
+    if (!isPlainObject(value) || !isPlainObject(value.files)) {
         return {};
     }
 

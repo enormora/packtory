@@ -6,14 +6,6 @@ export const syncMethodNames = {
     readFile: 'readFileSync'
 } as const;
 
-export function isBoolean(value: unknown): value is boolean {
-    return typeof value === 'boolean';
-}
-
-export function isString(value: unknown): value is string {
-    return typeof value === 'string';
-}
-
 export function bindRequiredMethod<Result>(
     object: FileSystemHost,
     methodName: string,

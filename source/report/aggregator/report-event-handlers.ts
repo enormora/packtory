@@ -1,3 +1,4 @@
+import { sumBy } from 'remeda';
 import type { EliminatedSourceFile, ProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import { createEmptyMutablePackageReport, type MutablePackageReport } from './report-types.ts';
 
@@ -89,9 +90,9 @@ function registerOutcomeHandlers(state: AggregatorState, subscribe: Subscribe): 
         };
     });
     subscribe('artifactsCollected', (payload) => {
-        const totalBytes = payload.entries.reduce((sum, item) => {
-            return sum + item.sizeBytes;
-        }, 0);
+        const totalBytes = sumBy(payload.entries, (item) => {
+            return item.sizeBytes;
+        });
         getOrCreate(state, payload.packageName).outputs = {
             tarball: { entries: payload.entries, totalBytes }
         };
