@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import { test, type Func } from 'mocha';
-import { stub } from 'sinon';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 import { createDirectedGraph, type DirectedGraph } from './graph.ts';
 
@@ -915,73 +914,57 @@ test('getTopologicalGenerations() completes promptly for acyclic graphs', async 
 }).timeout(probeTestTimeoutMs);
 
 test('detectCycles() throws when cycle traversal exceeds the maximum depth', () => {
-    const graph = createDirectedGraph<string, string>();
+    const graph = createDirectedGraph<string, string>({
+        cyclePathIncludes() {
+            return false;
+        }
+    });
     graph.addNode('a', 'value');
     graph.connect({ from: 'a', to: 'a' });
 
-    const includesStub = stub(Array.prototype, 'includes').returns(false);
-
-    try {
-        assert.throws(() => {
-            graph.detectCycles();
-        }, /^Error: Cycle detection exceeded the maximum traversal depth$/u);
-    } finally {
-        includesStub.restore();
-    }
+    assert.throws(() => {
+        graph.detectCycles();
+    }, /^Error: Cycle detection exceeded the maximum traversal depth$/u);
 });
 
 test('getTopologicalGenerations() throws when generation discovery stops making progress', () => {
-    const graph = createDirectedGraph<string, string>();
+    const graph = createDirectedGraph<string, string>({
+        mergeDiscovered(_alreadyDiscovered, currentGeneration) {
+            return new Set(
+                currentGeneration.filter((id) => {
+                    return id !== 'a';
+                })
+            );
+        }
+    });
     graph.addNode('a', 'first');
     graph.addNode('b', 'second');
     graph.connect({ from: 'a', to: 'b' });
 
-    const realAdd = Set.prototype.add;
-    const addStub = stub(Set.prototype, 'add');
-    addStub.callsFake(function (this: Set<unknown>, value: unknown) {
-        if (value === 'a') {
-            // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.add requires the receiver
-            return this;
-        }
-        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.add requires the receiver
-        return Reflect.apply(realAdd, this, [value]);
-    });
-
-    try {
-        assert.throws(() => {
-            graph.getTopologicalGenerations();
-        }, /^Error: Topological generation discovery did not make progress after 3 attempts$/u);
-    } finally {
-        addStub.restore();
-    }
+    assert.throws(() => {
+        graph.getTopologicalGenerations();
+    }, /^Error: Topological generation discovery did not make progress after 3 attempts$/u);
 });
 
 test('visitBreadthFirstSearch() throws when traversal exceeds the iteration budget', () => {
-    const graph = createDirectedGraph<string, string>();
+    const graph = createDirectedGraph<string, string>({
+        visitedHas(visited, id) {
+            if (id === 'a' || id === 'b') {
+                return false;
+            }
+            return visited.has(id);
+        }
+    });
     graph.addNode('a', 'first');
     graph.addNode('b', 'second');
     graph.connect({ from: 'a', to: 'b' });
     graph.connect({ from: 'b', to: 'a' });
     let visitorCallCount = 0;
 
-    const realHas = Set.prototype.has;
-    const hasStub = stub(Set.prototype, 'has');
-    hasStub.callsFake(function (this: ReadonlySet<unknown>, value: unknown) {
-        if (value === 'a' || value === 'b') {
-            return false;
-        }
-        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.has requires the receiver
-        return Reflect.apply(realHas, this, [value]);
-    });
-
-    try {
-        assert.throws(() => {
-            graph.visitBreadthFirstSearch('a', () => {
-                visitorCallCount += 1;
-            });
-        }, /^Error: Breadth-first traversal exceeded the maximum iteration budget$/u);
-        assert.strictEqual(visitorCallCount, 5);
-    } finally {
-        hasStub.restore();
-    }
+    assert.throws(() => {
+        graph.visitBreadthFirstSearch('a', () => {
+            visitorCallCount += 1;
+        });
+    }, /^Error: Breadth-first traversal exceeded the maximum iteration budget$/u);
+    assert.strictEqual(visitorCallCount, 5);
 });

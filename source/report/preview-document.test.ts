@@ -6,10 +6,9 @@ import path from 'node:path';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { test } from 'mocha';
 import { Result } from 'true-myth';
+import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { ArtifactEntry } from '../progress/progress-broadcaster.ts';
-import type { FileManager } from '../file-manager/file-manager.ts';
-import { createFileManager } from '../file-manager/file-manager.ts';
 import {
     createAnalyzedResource,
     createArtifactEntryFixture,
@@ -168,9 +167,7 @@ function workspaceReader(contentByPath: Readonly<Record<string, string>>, fallba
     };
 }
 
-function workspaceFileManager(
-    readFile: (filePath: string) => Promise<string>
-): Pick<FileManager, 'readFile'> {
+function workspaceFileManager(readFile: (filePath: string) => Promise<string>): Pick<FileManager, 'readFile'> {
     return { readFile };
 }
 
@@ -351,11 +348,13 @@ test('buildPreviewDocument sorts package.json first and creates diffs only for c
         report: baseReport(),
         result: Result.ok([buildResult()]),
         dryRun: true,
-        fileManager: workspaceFileManager(workspaceReader({
-            '/workspace/src/index.js': 'export const removed = 1;\n',
-            '/workspace/src/index.js.map': '{"version":2}',
-            '/workspace/types/index.d.ts': 'export declare const kept: number;\n'
-        }))
+        fileManager: workspaceFileManager(
+            workspaceReader({
+                '/workspace/src/index.js': 'export const removed = 1;\n',
+                '/workspace/src/index.js.map': '{"version":2}',
+                '/workspace/types/index.d.ts': 'export declare const kept: number;\n'
+            })
+        )
     });
 
     const pkg = requireSinglePackage(document);
@@ -437,11 +436,13 @@ test('buildPreviewDocument builds exact tree ordering, depths, and summary count
         report,
         result,
         dryRun: true,
-        fileManager: workspaceFileManager(workspaceReader({
-            '/workspace/src/index.js': 'export const original = 1;\n',
-            '/workspace/types/internal/index.d.ts': 'export declare const kept: number;\n',
-            '/workspace/pkg-b/index.js': 'ok\n'
-        }))
+        fileManager: workspaceFileManager(
+            workspaceReader({
+                '/workspace/src/index.js': 'export const original = 1;\n',
+                '/workspace/types/internal/index.d.ts': 'export declare const kept: number;\n',
+                '/workspace/pkg-b/index.js': 'ok\n'
+            })
+        )
     });
 
     assert.deepStrictEqual(document.summary, {

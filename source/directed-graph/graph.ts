@@ -15,6 +15,12 @@ type GraphEdge<TId extends GraphNodeId> = {
 
 type Visitor<TId extends GraphNodeId, TData> = (node: Readonly<GraphNode<TId, TData>>) => void;
 
+type GraphDependencies<TId extends GraphNodeId> = {
+    readonly cyclePathIncludes: (visitedIds: readonly TId[], id: TId) => boolean;
+    readonly mergeDiscovered: (alreadyDiscovered: ReadonlySet<TId>, currentGeneration: readonly TId[]) => Set<TId>;
+    readonly visitedHas: (visited: ReadonlySet<TId>, id: TId) => boolean;
+};
+
 export type DirectedGraph<TId extends GraphNodeId, TData> = {
     addNode: (id: TId, data: TData) => void;
     connect: (edge: Readonly<GraphEdge<TId>>) => void;
@@ -90,7 +96,21 @@ function getNonVisitedAdjacentIds<TId extends GraphNodeId, TData>(
     return Array.from(node.adjacentNodeIds);
 }
 
-export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedGraph<TId, TData> {
+export function createDirectedGraph<TId extends GraphNodeId, TData>(
+    dependencies: Partial<GraphDependencies<TId>> = {}
+): DirectedGraph<TId, TData> {
+    const resolvedDependencies: GraphDependencies<TId> = {
+        cyclePathIncludes(visitedIds, id) {
+            return visitedIds.includes(id);
+        },
+        mergeDiscovered(alreadyDiscovered, currentGeneration) {
+            return new Set([...alreadyDiscovered, ...currentGeneration]);
+        },
+        visitedHas(visited, id) {
+            return visited.has(id);
+        },
+        ...dependencies
+    };
     const nodes = new Map<TId, GraphNode<TId, TData>>();
 
     function getNode(id: TId): Readonly<GraphNode<TId, TData>> {
@@ -153,7 +173,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         const cycles: (readonly TId[])[] = [];
 
         for (const id of baseNode.adjacentNodeIds) {
-            if (newVisitedIds.includes(id)) {
+            if (resolvedDependencies.cyclePathIncludes(newVisitedIds, id)) {
                 cycles.push([...newVisitedIds, id]);
                 continue;
             }
@@ -185,7 +205,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
         const idsWithinCycles = new Set<TId>();
 
         for (const baseNode of nodes.values()) {
-            if (!idsWithinCycles.has(baseNode.id)) {
+            if (!resolvedDependencies.visitedHas(idsWithinCycles, baseNode.id)) {
                 const cyclesForNode = detectCyclesForNode(baseNode, []);
                 cycles.push(...cyclesForNode);
                 for (const id of cyclesForNode.flat()) {
@@ -214,7 +234,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 return;
             }
 
-            if (visited.has(head.id)) {
+            if (resolvedDependencies.visitedHas(visited, head.id)) {
                 continue;
             }
 
@@ -303,7 +323,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
                 return generations;
             }
 
-            const currentlyDiscovered = new Set([...alreadyDiscovered, ...currentGeneration]);
+            const currentlyDiscovered = resolvedDependencies.mergeDiscovered(alreadyDiscovered, currentGeneration);
             generations.push(Array.from(currentGeneration));
             alreadyDiscovered = currentlyDiscovered;
             incomingEdgesPerNode = decreaseIncomingEdgesPerNodeForAdjacentNodes(
@@ -316,7 +336,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(): DirectedG
     }
 
     function reverse(): DirectedGraph<TId, TData> {
-        const reversedGraph = createDirectedGraph<TId, TData>();
+        const reversedGraph = createDirectedGraph<TId, TData>(resolvedDependencies);
 
         for (const node of nodes.values()) {
             reversedGraph.addNode(node.id, node.data);

@@ -5,6 +5,7 @@ import readline from 'node:readline/promises';
 import { createClock } from '../../common/clock.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
 import type * as configTypes from '../../config/config.ts';
+import { createFileManager } from '../../file-manager/file-manager.ts';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.ts';
 import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.ts';
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner-worker-backend.ts';
@@ -15,7 +16,6 @@ import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
 import { bootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
-import { createFileManager } from '../../file-manager/file-manager.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
@@ -28,9 +28,7 @@ const clock = createClock();
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
 const previewIo = createDefaultPreviewIo({
     platform: process.platform,
-    // eslint-disable-next-line node/no-process-env -- preview pager/open behavior is intentionally driven by the caller environment
     shell: process.env.SHELL,
-    // eslint-disable-next-line node/no-process-env -- preview pager/open behavior is intentionally driven by the caller environment
     pager: process.env.PAGER,
     stdoutIsTTY: process.stdout.isTTY
 });

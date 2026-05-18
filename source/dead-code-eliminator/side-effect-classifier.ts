@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- The purity classifier is maintained as a single table-driven module. */
 import {
     Node as TsMorphNode,
     SyntaxKind,
@@ -336,36 +335,6 @@ const expressionPurityRules: ReadonlyMap<SyntaxKind, PurityRule> = new Map<Synta
         }
     ],
     [
-        SyntaxKind.AsExpression,
-        (expression, recurse) => {
-            return recurse(expression.asKindOrThrow(SyntaxKind.AsExpression).getExpression());
-        }
-    ],
-    [
-        SyntaxKind.SatisfiesExpression,
-        (expression, recurse) => {
-            return recurse(expression.asKindOrThrow(SyntaxKind.SatisfiesExpression).getExpression());
-        }
-    ],
-    [
-        SyntaxKind.ParenthesizedExpression,
-        (expression, recurse) => {
-            return recurse(expression.asKindOrThrow(SyntaxKind.ParenthesizedExpression).getExpression());
-        }
-    ],
-    [
-        SyntaxKind.TypeAssertionExpression,
-        (expression, recurse) => {
-            return recurse(expression.asKindOrThrow(SyntaxKind.TypeAssertionExpression).getExpression());
-        }
-    ],
-    [
-        SyntaxKind.NonNullExpression,
-        (expression, recurse) => {
-            return recurse(expression.asKindOrThrow(SyntaxKind.NonNullExpression).getExpression());
-        }
-    ],
-    [
         SyntaxKind.PrefixUnaryExpression,
         (expression, recurse) => {
             const unary = expression.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
@@ -397,14 +366,15 @@ const expressionPurityRules: ReadonlyMap<SyntaxKind, PurityRule> = new Map<Synta
 ]);
 
 function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
+    const unwrapped = unwrapExpression(expression);
     const recurse = (candidate: Expression): boolean => {
         return isPureExpression(candidate, settings);
     };
-    const kind = expression.getKind();
+    const kind = unwrapped.getKind();
     if (pureLeafKinds.has(kind)) {
         return true;
     }
-    return expressionPurityRules.get(kind)?.(expression, recurse, settings) ?? false;
+    return expressionPurityRules.get(kind)?.(unwrapped, recurse, settings) ?? false;
 }
 
 function memberHasDecorators(member: TsMorphNode): boolean {

@@ -7,6 +7,10 @@ export type TarEntry = {
     readonly content: string;
 };
 
+type ExtractTarDependencies = {
+    readonly createSource: (buffer: Buffer) => Readable;
+};
+
 function toError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
 }
@@ -41,19 +45,43 @@ async function waitForStreamError(stream: ErrorEmitter): Promise<never> {
     });
 }
 
-export async function extractTarEntries(buffer: Buffer): Promise<TarEntry[]> {
+function appendOutcome(outcomes: Set<Promise<TarEntry[]>>, outcome: Promise<TarEntry[]>): Set<Promise<TarEntry[]>> {
+    outcomes.add(outcome);
+    return outcomes;
+}
+
+async function raceExtractionOutcomes(
+    stream: AsyncIterable<TarStreamEntry>,
+    source: ErrorEmitter,
+    gunzip: ErrorEmitter,
+    extractStream: ErrorEmitter
+): Promise<TarEntry[]> {
+    return await Promise.race(
+        appendOutcome(
+            appendOutcome(
+                appendOutcome(
+                    appendOutcome(new Set<Promise<TarEntry[]>>(), collectTarEntries(stream)),
+                    waitForStreamError(source)
+                ),
+                waitForStreamError(gunzip)
+            ),
+            waitForStreamError(extractStream)
+        )
+    );
+}
+
+export async function extractTarEntries(
+    buffer: Buffer,
+    dependencies: Partial<ExtractTarDependencies> = {}
+): Promise<TarEntry[]> {
+    const createSource = dependencies.createSource ?? Readable.from;
     const extractStream = extract();
-    const source = Readable.from(buffer);
+    const source = createSource(buffer);
     const gunzip = createGunzip();
     const stream = source.pipe(gunzip).pipe(extractStream) as AsyncIterable<TarStreamEntry>;
 
     try {
-        return await Promise.race([
-            collectTarEntries(stream),
-            waitForStreamError(source),
-            waitForStreamError(gunzip),
-            waitForStreamError(extractStream)
-        ]);
+        return await raceExtractionOutcomes(stream, source, gunzip, extractStream);
     } catch (error: unknown) {
         throw toError(error);
     }

@@ -1,7 +1,5 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import sinon from 'sinon';
-import { convert } from 'unix-permissions';
 import { isExecutableFileMode } from './permissions.ts';
 
 test('returns false when the given mode is invalid', () => {
@@ -55,13 +53,10 @@ test('returns true when the given mode is executable for all user, group and oth
 });
 
 test('returns false when converted permissions are missing entries', () => {
-    const convertObjectStub = sinon.stub(convert, 'object');
-    convertObjectStub.returns({ user: { execute: true } });
-
-    try {
-        const result = isExecutableFileMode(493);
-        assert.strictEqual(result, false);
-    } finally {
-        convertObjectStub.restore();
-    }
+    const result = isExecutableFileMode(493, {
+        convertObject: () => {
+            return { user: { execute: true } };
+        }
+    });
+    assert.strictEqual(result, false);
 });

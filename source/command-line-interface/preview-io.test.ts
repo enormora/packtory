@@ -278,6 +278,22 @@ test('createDefaultPreviewIo exposes the default preview helpers', () => {
     assert.ok(previewIo.createTemporaryPreviewHtmlPath().includes('packtory-preview-'));
 });
 
+test('createDefaultPreviewIo falls back to the default spawn process when no custom spawner is injected', async () => {
+    const previewIo = createDefaultPreviewIo({
+        platform: 'linux',
+        shell: 'sh',
+        pager: 'cat >/dev/null',
+        stdoutIsTTY: true,
+        randomUuid: () => 'uuid-123',
+        tmpdir: () => '/tmp'
+    });
+
+    assert.strictEqual(
+        await withPromiseDeadline(previewIo.pagePreviewOutput('hello'), 'default preview io fallback spawner'),
+        true
+    );
+});
+
 test('defaultSpawnProcess delegates to child_process.spawn with array args', async () => {
     const child = defaultSpawnProcess(process.execPath, ['-e', 'process.exit(0)'], {
         stdio: ['pipe', 'inherit', 'inherit']

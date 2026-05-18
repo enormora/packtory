@@ -28,6 +28,10 @@ export type ReachabilityIndex = {
     readonly expandWith: (externalSeeds: ReadonlySet<string> | undefined) => ReadonlySet<string>;
 };
 
+type ReachabilityDependencies = {
+    readonly visitedHas: <T>(visited: ReadonlySet<T>, value: T) => boolean;
+};
+
 type DeclarationNodeIndex = ReadonlyMap<TsMorphNode, string>;
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
 
@@ -149,13 +153,16 @@ function createTraversalState<T>(
 function enqueueUnvisitedNeighbors<T>(
     current: T,
     expand: (current: T) => Iterable<T>,
-    visited: Set<T>,
-    queue: T[]
+    traversalState: {
+        readonly visited: Set<T>;
+        readonly queue: T[];
+    },
+    visitedHas: ReachabilityDependencies['visitedHas']
 ): void {
     for (const neighbor of expand(current)) {
-        if (!visited.has(neighbor)) {
-            visited.add(neighbor);
-            queue.push(neighbor);
+        if (!visitedHas(traversalState.visited, neighbor)) {
+            traversalState.visited.add(neighbor);
+            traversalState.queue.push(neighbor);
         }
     }
 }
@@ -164,10 +171,17 @@ function bfsClosure<T>(
     seeds: Iterable<T>,
     expand: (current: T) => Iterable<T>,
     initialVisited: ReadonlySet<T>,
-    maximumNodeCount: number
+    options: {
+        readonly maximumNodeCount: number;
+        readonly dependencies: ReachabilityDependencies;
+    }
 ): Set<T> {
     const seedList = Array.from(seeds);
-    const maximumIterations = getMaximumTraversalIterations(initialVisited.size, seedList.length, maximumNodeCount);
+    const maximumIterations = getMaximumTraversalIterations(
+        initialVisited.size,
+        seedList.length,
+        options.maximumNodeCount
+    );
     const traversalState = createTraversalState(initialVisited, seedList);
 
     for (const remainingIterations of createTraversalBudget(maximumIterations)) {
@@ -176,7 +190,7 @@ function bfsClosure<T>(
             break;
         }
         assertTraversalIteration(remainingIterations);
-        enqueueUnvisitedNeighbors(current, expand, traversalState.visited, traversalState.queue);
+        enqueueUnvisitedNeighbors(current, expand, traversalState, options.dependencies.visitedHas);
     }
 
     return traversalState.visited;
@@ -214,8 +228,17 @@ function gatherLocalSeeds(
 }
 
 const emptyStringSet: ReadonlySet<string> = new Set<string>();
+const defaultReachabilityDependencies: ReachabilityDependencies = {
+    visitedHas(visited, value) {
+        return visited.has(value);
+    }
+};
 
-export function buildReachabilityIndex(input: ReachabilityInput): ReachabilityIndex {
+export function buildReachabilityIndex(
+    input: ReachabilityInput,
+    dependencies: Partial<ReachabilityDependencies> = {}
+): ReachabilityIndex {
+    const resolvedDependencies = { ...defaultReachabilityDependencies, ...dependencies };
     const declarationIndex = buildDeclarationNodeIndex(input.files);
     const nodeById = buildNodeById(input.files);
     const maximumNodeCount = nodeById.size;
@@ -229,7 +252,10 @@ export function buildReachabilityIndex(input: ReachabilityInput): ReachabilityIn
         declarationIndex,
         input.deadCodeElimination
     );
-    const localReachable = bfsClosure(localSeeds, expand, emptyStringSet, maximumNodeCount);
+    const localReachable = bfsClosure(localSeeds, expand, emptyStringSet, {
+        maximumNodeCount,
+        dependencies: resolvedDependencies
+    });
     return {
         localReachable,
         bindingIdsByFile: buildBindingsByFile(input.files),
@@ -237,7 +263,10 @@ export function buildReachabilityIndex(input: ReachabilityInput): ReachabilityIn
             if (externalSeeds === undefined || externalSeeds.size === 0) {
                 return localReachable;
             }
-            return bfsClosure(externalSeeds, expand, localReachable, maximumNodeCount);
+            return bfsClosure(externalSeeds, expand, localReachable, {
+                maximumNodeCount,
+                dependencies: resolvedDependencies
+            });
         }
     };
 }

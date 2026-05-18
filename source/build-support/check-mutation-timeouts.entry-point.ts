@@ -3,5 +3,8 @@ import { createFileManager } from '../file-manager/file-manager.ts';
 import { runMutationTimeoutCheck } from './check-mutation-timeouts.ts';
 
 process.exitCode = await runMutationTimeoutCheck(process.argv, {
-    fileManager: createFileManager({ hostFileSystem: fs.promises })
+    fileManager: createFileManager({ hostFileSystem: fs.promises }),
+    stderrWrite: (message) => {
+        process.stderr.write(message);
+    }
 });

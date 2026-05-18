@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import { test } from 'mocha';
-import { stub } from 'sinon';
 import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from './binding-extractor.ts';
@@ -182,6 +181,27 @@ test('expandWith preserves localReachable bindings that the external seeds do no
     assert.ok(reachable.has(bindingId('entry.ts', 'other')));
 });
 
+test('expandWith reuses the injected visitedHas dependency', () => {
+    const files = [
+        fileBindingsFor('entry.ts', 'function helper() { return pub(); }\nexport function pub() { return helper(); }')
+    ];
+    const index = buildReachabilityIndex(
+        { files, entryPointFilePaths: new Set<string>() },
+        {
+            visitedHas(visited, value) {
+                if (typeof value === 'string' && value.includes('::')) {
+                    return false;
+                }
+                return visited.has(value);
+            }
+        }
+    );
+
+    assert.throws(() => {
+        index.expandWith(new Set([bindingId('entry.ts', 'pub')]));
+    }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
+});
+
 test('does not record any unresolved binding ids when a function references its own parameters', () => {
     const files = [fileBindingsFor('entry.ts', 'export function pub(x: number) { return x; }')];
     const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
@@ -232,21 +252,14 @@ test('buildReachabilityIndex throws when traversal exceeds the iteration budget'
     const files = [
         fileBindingsFor('entry.ts', 'function helper() { return pub(); }\nexport function pub() { return helper(); }')
     ];
-    const realHas = Set.prototype.has;
-    const hasStub = stub(Set.prototype, 'has');
-    hasStub.callsFake(function (this: ReadonlySet<unknown>, value: unknown) {
+    const visitedHas = <T>(visited: ReadonlySet<T>, value: T): boolean => {
         if (typeof value === 'string' && value.includes('::')) {
             return false;
         }
-        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.has requires the receiver
-        return Reflect.apply(realHas, this, [value]);
-    });
+        return visited.has(value);
+    };
 
-    try {
-        assert.throws(() => {
-            buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
-        }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
-    } finally {
-        hasStub.restore();
-    }
+    assert.throws(() => {
+        buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) }, { visitedHas });
+    }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
 });

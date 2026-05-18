@@ -30,11 +30,22 @@ export type TimeoutMutant = {
 };
 
 export type ErrorWriter = (message: string) => void;
+type StderrWriter = (message: string) => void;
 
 export type MutationTimeoutCheckDependencies = {
     readonly fileManager: Pick<FileManager, 'readFile'>;
+    readonly stderrWrite: StderrWriter;
     readonly writeError?: ErrorWriter;
 };
+
+function resolveErrorWriter(dependencies: MutationTimeoutCheckDependencies): ErrorWriter {
+    return (
+        dependencies.writeError ??
+        ((message) => {
+            dependencies.stderrWrite(`${message}\n`);
+        })
+    );
+}
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return Object.prototype.toString.call(value) === '[object Object]';
@@ -180,11 +191,7 @@ export async function runMutationTimeoutCheck(
     argv: readonly string[],
     dependencies: MutationTimeoutCheckDependencies
 ): Promise<number> {
-    const writeError =
-        dependencies.writeError ??
-        ((message) => {
-            process.stderr.write(`${message}\n`);
-        });
+    const writeError = resolveErrorWriter(dependencies);
     try {
         const reportPath = argv[reportPathArgIndex] ?? defaultReportPath;
         const failureMessage = await checkMutationTimeoutReport(reportPath, dependencies.fileManager);

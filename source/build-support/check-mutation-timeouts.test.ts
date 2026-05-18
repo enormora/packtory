@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'mocha';
-import { stub } from 'sinon';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     checkMutationTimeoutReport,
@@ -136,6 +135,9 @@ async function runCheckWithCollectedErrors(
     const errors: string[] = [];
     const exitCode = await runMutationTimeoutCheck(argv, {
         fileManager,
+        stderrWrite: (message) => {
+            errors.push(message);
+        },
         writeError: (message) => {
             errors.push(message);
             writeError?.(message);
@@ -262,7 +264,9 @@ test('checkMutationTimeoutReport throws when a mutant status is not a string', a
         singleMutantReport({ location: { start: { line: 1, column: 2 } } }),
         async (reportPath) => {
             const fileManager = createFakeFileManager({
-                simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport({ location: { start: { line: 1, column: 2 } } })) }]
+                simulatedReadFileResponses: [
+                    { value: JSON.stringify(singleMutantReport({ location: { start: { line: 1, column: 2 } } })) }
+                ]
             });
             await expectCheckError(
                 checkMutationTimeoutReport(reportPath, fileManager),
@@ -287,7 +291,10 @@ test('checkMutationTimeoutReport throws a missing-file error with the ENOENT cau
         const fileManager = createFakeFileManager({
             simulatedReadFileResponses: [
                 {
-                    error: createReadFileError('ENOENT', `ENOENT: no such file or directory, open '${defaultMissingReportPath}'`)
+                    error: createReadFileError(
+                        'ENOENT',
+                        `ENOENT: no such file or directory, open '${defaultMissingReportPath}'`
+                    )
                 }
             ]
         });
@@ -369,30 +376,24 @@ test('runMutationTimeoutCheck writes missing-file errors and returns exit code 1
 
 test('runMutationTimeoutCheck uses the default stderr writer when no custom writer is passed', async () => {
     const writes: string[] = [];
-    const writeStub = stub(process.stderr, 'write').callsFake((chunk) => {
-        writes.push(String(chunk));
-        return true;
+    const exitCode = await runMutationTimeoutCheck(['node', 'check', '/definitely/missing/mutation-report.json'], {
+        fileManager: createFakeFileManager({
+            simulatedReadFileResponses: [
+                {
+                    error: createReadFileError(
+                        'ENOENT',
+                        "ENOENT: no such file or directory, open '/definitely/missing/mutation-report.json'"
+                    )
+                }
+            ]
+        }),
+        stderrWrite: (message) => {
+            writes.push(message);
+        }
     });
 
-    try {
-        const exitCode = await runMutationTimeoutCheck(['node', 'check', '/definitely/missing/mutation-report.json'], {
-            fileManager: createFakeFileManager({
-                simulatedReadFileResponses: [
-                    {
-                        error: createReadFileError(
-                            'ENOENT',
-                            'ENOENT: no such file or directory, open \'/definitely/missing/mutation-report.json\''
-                        )
-                    }
-                ]
-            })
-        });
-
-        assert.strictEqual(exitCode, 1);
-        assert.deepStrictEqual(writes, ['Mutation report not found at "/definitely/missing/mutation-report.json"\n']);
-    } finally {
-        writeStub.restore();
-    }
+    assert.strictEqual(exitCode, 1);
+    assert.deepStrictEqual(writes, ['Mutation report not found at "/definitely/missing/mutation-report.json"\n']);
 });
 
 test('runMutationTimeoutCheck writes invalid JSON errors and returns exit code 1', async () => {
@@ -413,6 +414,9 @@ test('runMutationTimeoutCheck stringifies non-Error failures', async () => {
     const errors: string[] = [];
     const exitCode = await runMutationTimeoutCheck(createArgvThrowingNonErrorOnReportPath(), {
         fileManager: createFakeFileManager(),
+        stderrWrite: () => {
+            throw new Error('stderrWrite should not be used when writeError is injected');
+        },
         writeError: (message) => {
             errors.push(message);
         }

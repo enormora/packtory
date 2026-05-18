@@ -85,11 +85,26 @@ export type SpinnerSharedAccessors = {
     };
 };
 
+type AtomicsLike = {
+    readonly add: (typedArray: Int32Array | Uint32Array, index: number, value: number) => number;
+    readonly load: (typedArray: Int32Array | Uint32Array, index: number) => number;
+    readonly notify: (typedArray: Int32Array, index: number, count?: number) => number;
+    readonly store: (typedArray: Int32Array | Uint32Array, index: number, value: number) => number;
+    readonly wait: (
+        typedArray: Int32Array,
+        index: number,
+        value: number,
+        timeout?: number
+    ) => 'not-equal' | 'ok' | 'timed-out';
+};
+
 type SpinnerSharedDependencies = {
+    readonly atomics: AtomicsLike;
     readonly now: () => number;
 };
 
 const defaultSpinnerSharedDependencies: SpinnerSharedDependencies = {
+    atomics: Atomics,
     now: Date.now
 };
 
@@ -128,27 +143,34 @@ type Views = {
     readonly slotData: (slotIndex: number) => DataView;
 };
 
-function waitForRenderedMutationStep(
-    headerInt32: Int32Array,
-    expectedMutation: number,
-    timeoutMs: number,
-    readRemainingMs: () => number
-): {
+function waitForRenderedMutationStep(args: {
+    readonly atomics: AtomicsLike;
+    readonly headerInt32: Int32Array;
+    readonly expectedMutation: number;
+    readonly timeoutMs: number;
+    readonly readRemainingMs: () => number;
+}): {
     readonly current: number;
     readonly remainingMs: number;
     readonly timedOutWithoutProgress: boolean;
 } {
-    const waitResult = Atomics.wait(headerInt32, headerRenderedMutationIndex, expectedMutation, timeoutMs);
-    const current = Atomics.load(headerInt32, headerRenderedMutationIndex);
+    const waitResult = args.atomics.wait(
+        args.headerInt32,
+        headerRenderedMutationIndex,
+        args.expectedMutation,
+        args.timeoutMs
+    );
+    const current = args.atomics.load(args.headerInt32, headerRenderedMutationIndex);
 
     return {
         current,
-        remainingMs: readRemainingMs(),
-        timedOutWithoutProgress: waitResult === 'timed-out' && current === expectedMutation
+        remainingMs: args.readRemainingMs(),
+        timedOutWithoutProgress: waitResult === 'timed-out' && current === args.expectedMutation
     };
 }
 
 function readRenderedMutationState(
+    atomics: AtomicsLike,
     headerInt32: Int32Array,
     readRemainingMs: () => number
 ): {
@@ -156,7 +178,7 @@ function readRenderedMutationState(
     readonly remainingMs: number;
 } {
     return {
-        current: Atomics.load(headerInt32, headerRenderedMutationIndex),
+        current: atomics.load(headerInt32, headerRenderedMutationIndex),
         remainingMs: readRemainingMs()
     };
 }
@@ -231,7 +253,7 @@ export function createSpinnerSharedAccessors(
     layout: SpinnerSharedLayout,
     dependencies: Partial<SpinnerSharedDependencies> = {}
 ): SpinnerSharedAccessors {
-    const { now } = { ...defaultSpinnerSharedDependencies, ...dependencies };
+    const { atomics, now } = { ...defaultSpinnerSharedDependencies, ...dependencies };
     const views = createViews(buffer, layout);
 
     function writeStateByte(slotIndex: number, stateByte: number): void {
@@ -239,7 +261,7 @@ export function createSpinnerSharedAccessors(
     }
 
     function readSlotGeneration(slotIndex: number): number {
-        return Atomics.load(views.slotInt32(slotIndex), slotGenerationIndex);
+        return atomics.load(views.slotInt32(slotIndex), slotGenerationIndex);
     }
 
     function readSlotAttempt(slotIndex: number): {
@@ -256,47 +278,48 @@ export function createSpinnerSharedAccessors(
         layout,
         buffer,
         setColumns(columns) {
-            Atomics.store(views.headerUint32, headerColumnsIndex, columns);
+            atomics.store(views.headerUint32, headerColumnsIndex, columns);
         },
         getColumns() {
-            return Atomics.load(views.headerUint32, headerColumnsIndex);
+            return atomics.load(views.headerUint32, headerColumnsIndex);
         },
         setIntervalMs(intervalMs) {
-            Atomics.store(views.headerUint32, headerIntervalIndex, intervalMs);
+            atomics.store(views.headerUint32, headerIntervalIndex, intervalMs);
         },
         getIntervalMs() {
-            return Atomics.load(views.headerUint32, headerIntervalIndex);
+            return atomics.load(views.headerUint32, headerIntervalIndex);
         },
         markMutation() {
-            return Atomics.add(views.headerInt32, headerMutationIndex, 1) + 1;
+            return atomics.add(views.headerInt32, headerMutationIndex, 1) + 1;
         },
         getLatestMutation() {
-            return Atomics.load(views.headerInt32, headerMutationIndex);
+            return atomics.load(views.headerInt32, headerMutationIndex);
         },
         acknowledgeRender(mutation) {
-            Atomics.store(views.headerInt32, headerRenderedMutationIndex, mutation);
-            Atomics.notify(views.headerInt32, headerRenderedMutationIndex);
+            atomics.store(views.headerInt32, headerRenderedMutationIndex, mutation);
+            atomics.notify(views.headerInt32, headerRenderedMutationIndex);
         },
         waitForRenderedMutation(mutation, timeoutMs) {
             const deadline = now() + timeoutMs;
             const readRemainingMs = (): number => {
                 return deadline - now();
             };
-            let state = readRenderedMutationState(views.headerInt32, readRemainingMs);
+            let state = readRenderedMutationState(atomics, views.headerInt32, readRemainingMs);
             let remainingAttempts = Math.min(maximumRenderedMutationWaitAttempts, Math.max(Math.ceil(timeoutMs), 1));
 
             for (
                 ;
                 shouldContinueWaitingForRenderedMutation(state, mutation) && remainingAttempts > 0;
-                state = readRenderedMutationState(views.headerInt32, readRemainingMs), remainingAttempts -= 1
+                state = readRenderedMutationState(atomics, views.headerInt32, readRemainingMs), remainingAttempts -= 1
             ) {
                 const waitTimeoutMs = Math.min(state.remainingMs, timeoutMs);
-                const step = waitForRenderedMutationStep(
-                    views.headerInt32,
-                    state.current,
-                    waitTimeoutMs,
+                const step = waitForRenderedMutationStep({
+                    atomics,
+                    headerInt32: views.headerInt32,
+                    expectedMutation: state.current,
+                    timeoutMs: waitTimeoutMs,
                     readRemainingMs
-                );
+                });
                 if (shouldAbortWaitingForRenderedMutation(state, step, mutation)) {
                     return step.current >= mutation;
                 }
@@ -305,13 +328,13 @@ export function createSpinnerSharedAccessors(
             return state.current >= mutation;
         },
         requestShutdown() {
-            Atomics.store(views.headerInt32, headerControlIndex, controlShutdownValue);
+            atomics.store(views.headerInt32, headerControlIndex, controlShutdownValue);
         },
         isShutdownRequested() {
-            return Atomics.load(views.headerInt32, headerControlIndex) !== controlIdleValue;
+            return atomics.load(views.headerInt32, headerControlIndex) !== controlIdleValue;
         },
         bumpSlotGeneration(slotIndex) {
-            Atomics.add(views.slotInt32(slotIndex), slotGenerationIndex, 1);
+            atomics.add(views.slotInt32(slotIndex), slotGenerationIndex, 1);
         },
         writeSlot(slotIndex, state, label, message) {
             writeStateByte(slotIndex, stateToByte(state));

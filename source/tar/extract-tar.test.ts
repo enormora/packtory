@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import { test } from 'mocha';
 import sinon from 'sinon';
 import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
@@ -110,15 +110,14 @@ async function runWithThrowingStream(thrown: () => never, expectedError: RegExp)
         },
         pipe: () => intermediateStream
     };
-    const stub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
-
-    try {
-        await expectFailure(async () => {
-            await withPromiseDeadline(extractTarEntries(Buffer.from('unused')), 'throwing tar extraction');
-        }, expectedError);
-    } finally {
-        stub.restore();
-    }
+    await expectFailure(async () => {
+        await withPromiseDeadline(
+            extractTarEntries(Buffer.from('unused'), {
+                createSource: () => source as unknown as Readable
+            }),
+            'throwing tar extraction'
+        );
+    }, expectedError);
 }
 
 test('rejects with an Error when iteration throws a non-Error value', async () => {
@@ -165,17 +164,62 @@ test('registers the shared error event handler on the source stream', async () =
             return gunzip;
         }
     };
-    const readableStub = sinon.stub(Readable, 'from').returns(source as unknown as Readable);
+    const entries = await withPromiseDeadline(
+        extractTarEntries(Buffer.from('unused'), {
+            createSource: () => source as unknown as Readable
+        }),
+        'source stream error registration'
+    );
 
-    try {
-        const entries = await withPromiseDeadline(
-            extractTarEntries(Buffer.from('unused')),
-            'source stream error registration'
+    assert.deepStrictEqual(entries, []);
+    assert.strictEqual(sourceOnce.firstCall.firstArg, 'error');
+});
+
+test('rejects when the injected source stream emits an error event', async () => {
+    let sourceErrorListener = (error: unknown): void => {
+        throw new Error(`expected the source error listener to be registered before piping: ${String(error)}`);
+    };
+    const extractStream = {
+        once() {
+            return extractStream;
+        },
+        [Symbol.asyncIterator](): AsyncIterator<unknown> {
+            return {
+                next: async (): Promise<IteratorResult<unknown>> => {
+                    return await new Promise<IteratorResult<unknown>>(() => {
+                        // keep pending so the error race decides the outcome
+                    });
+                }
+            };
+        }
+    };
+    const gunzip = {
+        once() {
+            return gunzip;
+        },
+        pipe() {
+            return extractStream;
+        }
+    };
+    const source = {
+        once(_eventName: 'error', listener: (error: unknown) => void) {
+            sourceErrorListener = listener;
+            return source;
+        },
+        pipe() {
+            queueMicrotask(() => {
+                sourceErrorListener(new Error('source boom'));
+            });
+            return gunzip;
+        }
+    };
+
+    await expectFailure(async () => {
+        await withPromiseDeadline(
+            extractTarEntries(Buffer.from('unused'), {
+                createSource: () => source as unknown as Readable
+            }),
+            'source stream error event'
         );
-
-        assert.deepStrictEqual(entries, []);
-        assert.strictEqual(sourceOnce.firstCall.firstArg, 'error');
-    } finally {
-        readableStub.restore();
-    }
+    }, /^Error: source boom$/u);
 });
