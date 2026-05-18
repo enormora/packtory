@@ -51,7 +51,7 @@ test-types:
 
 test-mutation:
     stryker run
-    node --experimental-strip-types --enable-source-maps ./source/build-support/check-mutation-timeouts.entry-point.ts
+    node --experimental-strip-types --enable-source-maps ./source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts
 
 test-integration:
     mocha --config mocha.config.integration-tests.cjs

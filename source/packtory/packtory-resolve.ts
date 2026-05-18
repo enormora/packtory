@@ -1,133 +1,13 @@
-/* eslint-disable import/max-dependencies -- This orchestration module composes validation, scheduling, linking, and checks. */
 import { Result } from 'true-myth';
-import {
-    resolveDeadCodeEliminationSettings,
-    type DeadCodeEliminationSettings
-} from '../config/dead-code-elimination-settings.ts';
-import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
-import { resolveRootsAndSurface } from '../resource-resolver/resource-resolve-options.ts';
-import { withFailureCapture } from '../report/decorators.ts';
-import { configToResolveAndLinkOptions, type ResolveAndLinkOptions } from './map-config.ts';
-import type { PackageProcessor } from './package-processor.ts';
-import { resolvePartialFailure, type PartialErrorResult, type ProgressBroadcaster } from './packtory-results.ts';
-import type { PartialError, Scheduler as PacktoryScheduler } from './scheduler.ts';
-import { buildChecksResult, createResolvedPackage, type CheckError, type ResolvedPackage } from './resolved-package.ts';
-
-type LinkedBundle = Awaited<ReturnType<PackageProcessor['resolveAndLink']>>;
-
-type LinkedPackage = {
-    readonly name: string;
-    readonly linkedBundle: LinkedBundle;
-    readonly resolveOptions: ResolveAndLinkOptions;
-};
+import { analyzeResolvedPackages, type PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
+import { resolvePackages, type PackageResolutionDependencies } from './stages/package-resolution-stage.ts';
+import { resolvePartialFailure, type PartialErrorResult } from './packtory-results.ts';
+import { buildChecksResult, type CheckError, type ResolvedPackage } from './resolved-package.ts';
 
 export type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
 
-type ResolveDependencies = {
-    readonly packageProcessor: PackageProcessor;
-    readonly scheduler: PacktoryScheduler;
-    readonly deadCodeEliminator: DeadCodeEliminator;
-    readonly progressBroadcaster: ProgressBroadcaster;
-};
-
-function resolveDeadCodeEliminationByName(
-    validated: ValidConfigWithoutRegistryResult
-): ReadonlyMap<string, DeadCodeEliminationSettings | undefined> {
-    const commonSettings = validated.packtoryConfig.commonPackageSettings?.deadCodeElimination;
-    return new Map(
-        validated.packtoryConfig.packages.map((packageConfig) => {
-            return [
-                packageConfig.name,
-                resolveDeadCodeEliminationSettings(packageConfig.deadCodeElimination, commonSettings)
-            ];
-        })
-    );
-}
-
-function createResolveOptions(
-    packageName: string,
-    existing: readonly LinkedBundle[],
-    config: ValidConfigWithoutRegistryResult
-): ResolveAndLinkOptions {
-    return configToResolveAndLinkOptions(packageName, config.packageConfigs, config.packtoryConfig, existing);
-}
-
-async function resolvePackages(
-    dependencies: Pick<ResolveDependencies, 'packageProcessor' | 'progressBroadcaster' | 'scheduler'>,
-    config: ValidConfigWithoutRegistryResult
-): Promise<Result<readonly LinkedPackage[], PartialError<LinkedPackage>>> {
-    return dependencies.scheduler.runForEachScheduledPackage<
-        LinkedPackage,
-        LinkedBundle,
-        ResolveAndLinkOptions,
-        ValidConfigWithoutRegistryResult['packtoryConfig']
-    >({
-        config,
-        createOptions: (context) => {
-            const options = createResolveOptions(context.packageName, context.existing, context.config);
-            if (dependencies.progressBroadcaster.provider.hasSubscribers('inputsResolved')) {
-                const normalizedInputs = resolveRootsAndSurface(options);
-                dependencies.progressBroadcaster.provider.emit('inputsResolved', {
-                    packageName: options.name,
-                    roots: Object.fromEntries(
-                        Object.entries(normalizedInputs.roots).map(([rootId, root]) => {
-                            return [rootId, root.js];
-                        })
-                    ),
-                    sourceFileCount: 0,
-                    siblingVersions: {}
-                });
-            }
-            return options;
-        },
-        execute: withFailureCapture(
-            dependencies.progressBroadcaster.provider,
-            'resolveAndLink',
-            async (resolveOptions) => {
-                const linkedBundle = await dependencies.packageProcessor.resolveAndLink(resolveOptions);
-                return {
-                    name: resolveOptions.name,
-                    linkedBundle,
-                    resolveOptions
-                } satisfies LinkedPackage;
-            }
-        ),
-        selectNext: (params) => {
-            return params.result.linkedBundle;
-        },
-        emitScheduledEvents: true
-    });
-}
-
-async function analyzeResolvedPackages(
-    dependencies: Pick<ResolveDependencies, 'deadCodeEliminator'>,
-    config: ValidConfigWithoutRegistryResult,
-    linkedPackages: readonly LinkedPackage[]
-): Promise<readonly ResolvedPackage[]> {
-    const deadCodeEliminationByName = resolveDeadCodeEliminationByName(config);
-    const analyzedBundles = await dependencies.deadCodeEliminator.eliminate(
-        linkedPackages.map((linkedPackage) => {
-            const deadCodeElimination = deadCodeEliminationByName.get(linkedPackage.name);
-            if (!deadCodeEliminationByName.has(linkedPackage.name)) {
-                throw new Error(`Missing dead-code elimination settings for package "${linkedPackage.name}"`);
-            }
-            return {
-                bundle: linkedPackage.linkedBundle,
-                transformationsEnabled: deadCodeElimination?.enabled ?? true,
-                deadCodeElimination
-            };
-        })
-    );
-
-    return linkedPackages.map((linkedPackage, index) => {
-        const analyzedBundle = analyzedBundles[index];
-        if (analyzedBundle === undefined) {
-            throw new Error(`Analyzed bundle missing for package "${linkedPackage.name}"`);
-        }
-        return createResolvedPackage(linkedPackage.name, analyzedBundle, linkedPackage.resolveOptions);
-    });
-}
+type ResolveDependencies = PackageAnalysisDependencies & PackageResolutionDependencies;
 
 export function createResolveAndLinkAllValidated(
     dependencies: ResolveDependencies

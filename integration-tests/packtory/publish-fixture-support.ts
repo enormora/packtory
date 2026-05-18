@@ -9,7 +9,7 @@ import {
     type PacktoryConfig,
     type PublishAllResult
 } from '../../source/packages/packtory/packtory.entry-point.ts';
-import { createRegistryClient } from '../../source/bundle-emitter/registry-client.ts';
+import { createRegistryClient } from '../../source/bundle-emitter/registry/registry-client.ts';
 import { extractPackageTarball } from '../../source/bundle-emitter/extract-package-tarball.ts';
 
 const timers = process.getBuiltinModule('node:timers');

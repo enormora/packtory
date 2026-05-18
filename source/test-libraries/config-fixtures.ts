@@ -52,3 +52,27 @@ export const minimalPackageConfigFactory = createFactory<MinimalPackageConfigSha
         roots: minimalRootsFactory
     };
 });
+
+type ValidationPackageConfigShape = {
+    readonly name: string;
+    readonly bundleDependencies?: readonly string[] | undefined;
+    readonly bundlePeerDependencies?: readonly string[] | undefined;
+    readonly roots: Readonly<Record<string, RootShape>>;
+    readonly sourcesFolder: string;
+};
+
+const validationRootFactory = createFactory<RootShape>(() => {
+    return { js: 'index.js' };
+});
+
+const validationRootsFactory = createFactory<Readonly<Record<string, RootShape>>>(() => {
+    return { main: validationRootFactory };
+});
+
+export const validationPackageConfigFactory = createFactory<ValidationPackageConfigShape>(() => {
+    return {
+        name: 'pkg-a',
+        roots: validationRootsFactory,
+        sourcesFolder: 'src'
+    };
+});

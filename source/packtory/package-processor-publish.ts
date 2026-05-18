@@ -2,9 +2,11 @@ import type { Maybe } from 'true-myth';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import type { SbomSiblingPackage } from '../published-package/published-package.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { BuildAndPublishOptions } from './map-config.ts';
+import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } from './options/version-trigger.ts';
 
 type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion']>>;
 type PublishDependencies = {
@@ -31,47 +33,7 @@ function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | un
     }
 }
 
-function determineBuildVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): string {
-    if (currentVersion.isJust) {
-        return currentVersion.value;
-    }
-
-    if (!options.versioning.automatic) {
-        return options.versioning.version;
-    }
-
-    return options.versioning.minimumVersion ?? '0.0.0';
-}
-
-function shouldIncreaseVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): boolean {
-    if (!options.versioning.automatic) {
-        return false;
-    }
-
-    return currentVersion.isJust || options.versioning.minimumVersion === undefined;
-}
-
-function inferVersionTrigger(
-    currentVersion: Maybe<string>,
-    options: BuildAndPublishOptions,
-    didBump: boolean
-): 'auto-patch-bump' | 'initial' | 'minimum' | 'pinned' {
-    if (didBump) {
-        return 'auto-patch-bump';
-    }
-    if (!options.versioning.automatic) {
-        return 'pinned';
-    }
-    if (currentVersion.isJust) {
-        return 'auto-patch-bump';
-    }
-    if (options.versioning.minimumVersion !== undefined) {
-        return 'minimum';
-    }
-    return 'initial';
-}
-
-function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly VersionedBundleWithManifest[] {
+function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly SbomSiblingPackage[] {
     return [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
 }
 

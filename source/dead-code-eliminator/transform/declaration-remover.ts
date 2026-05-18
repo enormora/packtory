@@ -1,12 +1,6 @@
-import {
-    Node as TsMorphNode,
-    SyntaxKind,
-    type SourceFile,
-    type Statement,
-    type VariableDeclaration,
-    type VariableStatement
-} from 'ts-morph';
-import { variableDeclarationSurvives } from '../variable-declaration-bindings.ts';
+import type { SourceFile } from 'ts-morph';
+import { processStatement } from './declaration-removal.ts';
+import { captureSurvivorsForStatement } from './survivor-capture.ts';
 
 export type RemovalPlan = {
     readonly survivingNames: ReadonlySet<string>;
@@ -22,99 +16,6 @@ export type RemovalResult = {
     readonly mutated: boolean;
     readonly atoms: readonly PositionAtom[];
 };
-
-type Survivor = {
-    readonly node: Statement | VariableDeclaration;
-    readonly originalStart: number;
-    readonly originalEnd: number;
-};
-
-const namedDeclarationKinds: ReadonlySet<SyntaxKind> = new Set([
-    SyntaxKind.FunctionDeclaration,
-    SyntaxKind.ClassDeclaration,
-    SyntaxKind.InterfaceDeclaration,
-    SyntaxKind.TypeAliasDeclaration,
-    SyntaxKind.EnumDeclaration,
-    SyntaxKind.ModuleDeclaration
-]);
-
-type NamedStatement = Statement & { getName: () => string | undefined };
-
-function isNamedDeclaration(statement: Statement): statement is NamedStatement {
-    return namedDeclarationKinds.has(statement.getKind());
-}
-
-function captureSurvivor(node: Statement | VariableDeclaration): Survivor {
-    return { node, originalStart: node.getStart(), originalEnd: node.getEnd() };
-}
-
-function captureNamedDeclarationSurvivor(
-    statement: NamedStatement,
-    survivingNames: ReadonlySet<string>
-): readonly Survivor[] {
-    const name = statement.getName();
-    if (name === undefined || survivingNames.has(name)) {
-        return [captureSurvivor(statement)];
-    }
-    return [];
-}
-
-function captureVariableStatementSurvivors(
-    statement: VariableStatement,
-    survivingNames: ReadonlySet<string>
-): readonly Survivor[] {
-    const declarators = statement.getDeclarations();
-    const survivingDeclarators = declarators.filter((declarator) => {
-        return variableDeclarationSurvives(declarator, survivingNames);
-    });
-    if (survivingDeclarators.length === declarators.length) {
-        return [captureSurvivor(statement)];
-    }
-    return survivingDeclarators.map(captureSurvivor);
-}
-
-function captureSurvivorsForStatement(statement: Statement, survivingNames: ReadonlySet<string>): readonly Survivor[] {
-    if (isNamedDeclaration(statement)) {
-        return captureNamedDeclarationSurvivor(statement, survivingNames);
-    }
-    if (TsMorphNode.isVariableStatement(statement)) {
-        return captureVariableStatementSurvivors(statement, survivingNames);
-    }
-    return [captureSurvivor(statement)];
-}
-
-function processNamedDeclaration(statement: Statement, survivingNames: ReadonlySet<string>): boolean {
-    if (!isNamedDeclaration(statement)) {
-        return false;
-    }
-    const name = statement.getName();
-    if (name === undefined || survivingNames.has(name)) {
-        return false;
-    }
-    statement.remove();
-    return true;
-}
-
-function processVariableStatement(statement: Statement, survivingNames: ReadonlySet<string>): boolean {
-    if (!TsMorphNode.isVariableStatement(statement)) {
-        return false;
-    }
-    let mutated = false;
-    for (const declarator of statement.getDeclarations()) {
-        if (!variableDeclarationSurvives(declarator, survivingNames)) {
-            declarator.remove();
-            mutated = true;
-        }
-    }
-    return mutated;
-}
-
-function processStatement(statement: Statement, survivingNames: ReadonlySet<string>): boolean {
-    if (processNamedDeclaration(statement, survivingNames)) {
-        return true;
-    }
-    return processVariableStatement(statement, survivingNames);
-}
 
 export function applyRemovalPlan(sourceFile: SourceFile, plan: RemovalPlan): RemovalResult {
     const statements = sourceFile.getStatements();

@@ -6,9 +6,9 @@ import type { RegistrySettings } from '../config/registry-settings.ts';
 import type { VersioningSettings } from '../config/versioning-settings.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { compareFileDescriptions } from '../file-manager/compare.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { ArtifactPublishPackage } from '../published-package/published-package.ts';
 import { extractPackageTarball } from './extract-package-tarball.ts';
-import type { RegistryClient } from './registry-client.ts';
+import type { RegistryClient } from './registry/registry-client.ts';
 import { assertRepositoryCoherence } from './repository-coherence.ts';
 
 export type BundleEmitterDependencies = {
@@ -18,14 +18,14 @@ export type BundleEmitterDependencies = {
 };
 
 type PublishOptions = {
-    readonly bundle: VersionedBundleWithManifest;
+    readonly bundle: ArtifactPublishPackage;
     readonly registrySettings: RegistrySettings;
     readonly publishSettings: PublishSettings;
     readonly extraFiles?: readonly FileDescription[];
 };
 
 type AlreadyPublishedCheckOptions = {
-    readonly bundle: VersionedBundleWithManifest;
+    readonly bundle: ArtifactPublishPackage;
     readonly registrySettings: RegistrySettings;
     readonly extraFiles?: readonly FileDescription[];
 };

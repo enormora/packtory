@@ -3,7 +3,9 @@ import { test } from 'mocha';
 import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from './binding-extractor.ts';
-import { bindingId, buildReachabilityIndex, type FileBindings } from './reachability.ts';
+import { bindingId } from './binding-id.ts';
+import type { FileBindings } from './local-seed-gathering.ts';
+import { buildReachabilityIndex } from './reachability.ts';
 
 const probeTestTimeoutMs = 10_000;
 

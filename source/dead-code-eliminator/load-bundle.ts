@@ -1,10 +1,11 @@
 import type { Project, SourceFile } from 'ts-morph';
 import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
-import { getEntryRootIds } from '../package-surface/modules.ts';
+import { getEntryRootIds } from '../package-surface/root-registry.ts';
 import type { EliminationInput } from './analyzed-bundle.ts';
 import { extractTopLevelBindings, type BindingDescriptor } from './reachability/binding-extractor.ts';
-import { buildReachabilityIndex, type FileBindings, type ReachabilityIndex } from './reachability/reachability.ts';
+import type { FileBindings } from './reachability/local-seed-gathering.ts';
+import { buildReachabilityIndex, type ReachabilityIndex } from './reachability/reachability.ts';
 
 export type CreateProject = () => Project;
 

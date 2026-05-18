@@ -1,10 +1,11 @@
-import path from 'node:path';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import { inspectArtifactSizes } from '../report/inspectors.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { ArtifactSourcePackage } from '../published-package/published-package.ts';
+import { inspectArtifactSizes } from '../report/inspectors/inspect-artifact-sizes.ts';
 import type { TarballBuilder } from '../tar/tarball-builder.ts';
+import { collectArtifactContents, describeArtifactsForReport } from './content-collection.ts';
+import { writeArtifactsToFolder } from './folder-writer.ts';
 
 export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;
@@ -16,103 +17,34 @@ type TarballArtifact = {
     readonly tarData: Buffer;
 };
 
-function isString(value: unknown): value is string {
-    return typeof value === 'string';
-}
-
 export type ArtifactsBuilder = {
     collectContents: (
-        bundle: VersionedBundleWithManifest,
+        bundle: ArtifactSourcePackage,
         prefix?: string,
         extraFiles?: readonly FileDescription[]
     ) => readonly FileDescription[];
-    buildTarball: (
-        bundle: VersionedBundleWithManifest,
-        extraFiles?: readonly FileDescription[]
-    ) => Promise<TarballArtifact>;
+    buildTarball: (bundle: ArtifactSourcePackage, extraFiles?: readonly FileDescription[]) => Promise<TarballArtifact>;
     buildFolder: (
-        bundle: VersionedBundleWithManifest,
+        bundle: ArtifactSourcePackage,
         targetFolder: string,
         extraFiles?: readonly FileDescription[]
     ) => Promise<void>;
 };
 
-export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
-    const { fileManager, tarballBuilder, progressBroadcaster } = artifactsBuilderDependencies;
-
-    function applyPrefix(filePath: string, prefix: string | undefined): string {
-        return prefix === undefined ? filePath : path.join(prefix, filePath);
-    }
-
-    function getExplicitBinTargetPaths(bundle: VersionedBundleWithManifest): ReadonlySet<string> {
-        if (bundle.binField === undefined) {
-            return new Set<string>();
-        }
-
-        const targets =
-            typeof bundle.binField === 'string' ? [bundle.binField] : Object.values(bundle.binField).filter(isString);
-        return new Set(
-            targets.map((target) => {
-                return target.replace(/^\.\//u, '');
-            })
-        );
-    }
+export function createArtifactsBuilder(dependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
+    const { fileManager, tarballBuilder, progressBroadcaster } = dependencies;
 
     function collectContents(
-        bundle: VersionedBundleWithManifest,
+        bundle: ArtifactSourcePackage,
         prefix?: string,
         extraFiles: readonly FileDescription[] = []
     ): readonly FileDescription[] {
-        const explicitBinTargetPaths = getExplicitBinTargetPaths(bundle);
-        const artifactContents: FileDescription[] = [
-            {
-                ...bundle.manifestFile,
-                filePath: applyPrefix(bundle.manifestFile.filePath, prefix)
-            }
-        ];
-
-        for (const entry of bundle.contents) {
-            artifactContents.push({
-                filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
-                content: entry.fileDescription.content,
-                isExecutable:
-                    entry.fileDescription.isExecutable ||
-                    explicitBinTargetPaths.has(entry.fileDescription.targetFilePath)
-            });
-        }
-
-        for (const extraFile of extraFiles) {
-            artifactContents.push({
-                filePath: applyPrefix(extraFile.filePath, prefix),
-                content: extraFile.content,
-                isExecutable: extraFile.isExecutable
-            });
-        }
+        const artifactContents = collectArtifactContents(bundle, prefix, extraFiles);
 
         if (progressBroadcaster.hasSubscribers('artifactsCollected')) {
             progressBroadcaster.emit('artifactsCollected', {
                 packageName: bundle.name,
-                entries: inspectArtifactSizes([
-                    {
-                        ...bundle.manifestFile,
-                        filePath: applyPrefix(bundle.manifestFile.filePath, prefix)
-                    },
-                    ...bundle.contents.map((entry) => {
-                        return {
-                            filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
-                            content: entry.fileDescription.content,
-                            isExecutable: entry.fileDescription.isExecutable,
-                            sourceFilePath: entry.fileDescription.sourceFilePath,
-                            isSubstituted: entry.isSubstituted
-                        };
-                    }),
-                    ...extraFiles.map((entry) => {
-                        return {
-                            ...entry,
-                            filePath: applyPrefix(entry.filePath, prefix)
-                        };
-                    })
-                ])
+                entries: inspectArtifactSizes(describeArtifactsForReport(bundle, prefix, extraFiles))
             });
         }
 
@@ -125,25 +57,12 @@ export function createArtifactsBuilder(artifactsBuilderDependencies: ArtifactsBu
         async buildTarball(bundle, extraFiles) {
             const contents = collectContents(bundle, 'package', extraFiles);
             const tarData = await tarballBuilder.build(contents);
-
             return { tarData };
         },
 
         async buildFolder(bundle, targetFolder, extraFiles) {
-            const readability = await fileManager.checkReadability(targetFolder);
-
-            if (readability.isReadable) {
-                throw new Error(`Folder ${targetFolder} already exists`);
-            }
-
             const contents = collectContents(bundle, undefined, extraFiles);
-
-            for (const entry of contents) {
-                const targetFilePath = path.join(targetFolder, entry.filePath);
-
-                await fileManager.writeFile(targetFilePath, entry.content);
-                await fileManager.setExecutable(targetFilePath, entry.isExecutable);
-            }
+            await writeArtifactsToFolder(fileManager, targetFolder, contents);
         }
     };
 }
