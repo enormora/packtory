@@ -3,7 +3,7 @@ import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
-import { createArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
+import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient } from '../bundle-emitter/registry/registry-client.ts';
 import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
@@ -36,6 +36,7 @@ export type PackageProcessorComposition = {
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly deadCodeEliminator: ReturnType<typeof createDeadCodeEliminator>;
+    readonly artifactsBuilder: ArtifactsBuilder;
 };
 
 export type PackageProcessorCompositionOptions = {
@@ -87,15 +88,9 @@ function buildSbomFileBuilder(fileManager: FileManager): ReturnType<typeof creat
 
 function buildBundleEmitter(
     options: PackageProcessorCompositionOptions,
-    fileManager: FileManager,
-    progressBroadcaster: ProgressBroadcaster
+    artifactsBuilder: ArtifactsBuilder
 ): ReturnType<typeof createBundleEmitter> {
     const registryClient = buildRegistryClient(options, createClock());
-    const artifactsBuilder = createArtifactsBuilder({
-        fileManager,
-        tarballBuilder: createTarballBuilder(),
-        progressBroadcaster: progressBroadcaster.provider
-    });
     return createBundleEmitter({
         registryClient,
         artifactsBuilder,
@@ -103,16 +98,10 @@ function buildBundleEmitter(
     });
 }
 
-export function buildPackageProcessorComposition(
-    options: PackageProcessorCompositionOptions
-): PackageProcessorComposition {
-    const fileManager = createFileManager({ hostFileSystem: fs.promises });
-    const dependencyScanner = createDependencyScannerWith(fileManager);
-    const progressBroadcaster = createProgressBroadcaster();
-    const bundleEmitter = buildBundleEmitter(options, fileManager, progressBroadcaster);
-    const resourceResolver = createResourceResolver({ fileManager, dependencyScanner });
-    const sbomFileBuilder = buildSbomFileBuilder(fileManager);
-    const deadCodeEliminator = createDeadCodeEliminator({
+function buildDeadCodeEliminator(
+    progressBroadcaster: ProgressBroadcaster
+): ReturnType<typeof createDeadCodeEliminator> {
+    return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
         createProject: () => {
             return new Project({
@@ -129,17 +118,57 @@ export function buildPackageProcessorComposition(
             });
         }
     });
+}
 
-    const basePackageProcessor = createPackageProcessor({
-        progressBroadcaster: progressBroadcaster.provider,
-        versionManager: createVersionManager({ progressBroadcaster: progressBroadcaster.provider }),
-        bundleEmitter,
-        linker: createBundleLinker(),
-        resourceResolver,
-        sbomFileBuilder,
-        deadCodeEliminator
+type CompositionParts = {
+    readonly fileManager: FileManager;
+    readonly progressBroadcaster: ProgressBroadcaster;
+    readonly artifactsBuilder: ArtifactsBuilder;
+    readonly bundleEmitter: ReturnType<typeof createBundleEmitter>;
+    readonly resourceResolver: ReturnType<typeof createResourceResolver>;
+    readonly sbomFileBuilder: ReturnType<typeof createSbomFileBuilder>;
+    readonly deadCodeEliminator: ReturnType<typeof createDeadCodeEliminator>;
+};
+
+function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {
+    const fileManager = createFileManager({ hostFileSystem: fs.promises });
+    const dependencyScanner = createDependencyScannerWith(fileManager);
+    const progressBroadcaster = createProgressBroadcaster();
+    const artifactsBuilder = createArtifactsBuilder({
+        fileManager,
+        tarballBuilder: createTarballBuilder(),
+        progressBroadcaster: progressBroadcaster.provider
     });
-    const packageProcessor = withStageTimings(basePackageProcessor, progressBroadcaster.provider);
+    return {
+        fileManager,
+        progressBroadcaster,
+        artifactsBuilder,
+        bundleEmitter: buildBundleEmitter(options, artifactsBuilder),
+        resourceResolver: createResourceResolver({ fileManager, dependencyScanner }),
+        sbomFileBuilder: buildSbomFileBuilder(fileManager),
+        deadCodeEliminator: buildDeadCodeEliminator(progressBroadcaster)
+    };
+}
 
-    return { packageProcessor, progressBroadcaster, deadCodeEliminator };
+export function buildPackageProcessorComposition(
+    options: PackageProcessorCompositionOptions
+): PackageProcessorComposition {
+    const parts = buildCompositionParts(options);
+    const basePackageProcessor = createPackageProcessor({
+        progressBroadcaster: parts.progressBroadcaster.provider,
+        versionManager: createVersionManager({ progressBroadcaster: parts.progressBroadcaster.provider }),
+        bundleEmitter: parts.bundleEmitter,
+        linker: createBundleLinker(),
+        resourceResolver: parts.resourceResolver,
+        sbomFileBuilder: parts.sbomFileBuilder,
+        deadCodeEliminator: parts.deadCodeEliminator
+    });
+    const packageProcessor = withStageTimings(basePackageProcessor, parts.progressBroadcaster.provider);
+
+    return {
+        packageProcessor,
+        progressBroadcaster: parts.progressBroadcaster,
+        deadCodeEliminator: parts.deadCodeEliminator,
+        artifactsBuilder: parts.artifactsBuilder
+    };
 }

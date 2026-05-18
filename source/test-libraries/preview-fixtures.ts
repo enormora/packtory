@@ -1,3 +1,4 @@
+import { Maybe } from 'true-myth';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { ArtifactEntry } from '../progress/progress-broadcaster.ts';
 import type { PreviewDocument, PreviewPackage } from '../report/preview/preview-document.ts';
@@ -44,6 +45,8 @@ export function createBuildResultFixture(
             packageJson: { name: packageName, version },
             contents: overrides.contents ?? [createAnalyzedResource()]
         }),
+        extraFiles: [],
+        previousReleaseArtifacts: Maybe.nothing(),
         ...overrides
     };
 }

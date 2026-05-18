@@ -1,6 +1,7 @@
 import type { Result } from 'true-myth';
 import type { ProgressBroadcaster as ProgressBroadcasterBase } from '../progress/progress-broadcaster.ts';
 import type { BuildReport as ReportBuildReport } from '../report/aggregator/report-types.ts';
+import type { PackageReleaseDiff } from '../report/release-diff/release-diff-document.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import type { CheckError, ResolvedPackage } from './resolved-package.ts';
 import type { PartialError } from './scheduler.ts';
@@ -69,8 +70,32 @@ export function resolvePartialFailure(error: PartialError<ResolvedPackage>): Par
 export type ResolveAndLinkFailure = CheckError | ConfigError | PartialErrorResult;
 export type ResolveAndLinkAllResult = Result<readonly ResolvedPackage[], ResolveAndLinkFailure>;
 
+export type ReleaseDiffAllOptions = {
+    readonly collectReport?: boolean;
+};
+
+export type ReleaseDiffFailure = CheckError | ConfigError | (PartialError<PackageReleaseDiff> & { type: 'partial' });
+export type ReleaseDiffAllResult = Result<readonly PackageReleaseDiff[], ReleaseDiffFailure>;
+
+export type ReleaseDiffAllOutcome = {
+    readonly result: ReleaseDiffAllResult;
+    readonly getReport: () => BuildReport | undefined;
+};
+
+export function createReleaseDiffAllOutcome(
+    result: ReleaseDiffAllResult,
+    getReport: () => BuildReport | undefined
+): ReleaseDiffAllOutcome {
+    return { result, getReport };
+}
+
+export function releaseDiffPartialFailure(error: PartialError<PackageReleaseDiff>): ReleaseDiffFailure {
+    return { type: 'partial', ...error };
+}
+
 export type Packtory = {
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
+    diffAgainstLatestPublished: (config: unknown, options?: ReleaseDiffAllOptions) => Promise<ReleaseDiffAllOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
 };
 

@@ -1,6 +1,9 @@
+/* eslint-disable import/max-dependencies -- the publish operation legitimately bridges bundle-emitter, version-manager, sbom, progress, and option-mapping helpers */
 import type { Maybe } from 'true-myth';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
+import type { PublishedReleaseArtifacts } from '../bundle-emitter/fetch-published-artifacts.ts';
+import type { FileDescription } from '../file-manager/file-description.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { SbomSiblingPackage } from '../published-package/published-package.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
@@ -19,6 +22,8 @@ type PublishDependencies = {
 export type BuildAndPublishResult = {
     readonly status: 'already-published' | 'initial-version' | 'new-version';
     readonly bundle: VersionedBundleWithManifest;
+    readonly extraFiles: readonly FileDescription[];
+    readonly previousReleaseArtifacts: Maybe<PublishedReleaseArtifacts>;
 };
 
 export type DetermineVersionAndPublishOptions = {
@@ -89,7 +94,11 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     function finalizeWithoutBump(
         buildContext: { versionedBundle: VersionedBundleWithManifest; currentVersion: Maybe<string> },
         options: BuildAndPublishOptions,
-        status: BuildAndPublishResult['status']
+        status: BuildAndPublishResult['status'],
+        extras: {
+            extraFiles: readonly FileDescription[];
+            previousReleaseArtifacts: Maybe<PublishedReleaseArtifacts>;
+        }
     ): BuildAndPublishResult {
         emitVersionDetermined({
             options,
@@ -97,7 +106,12 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             chosenVersion: buildContext.versionedBundle.version,
             didBump: false
         });
-        return { bundle: buildContext.versionedBundle, status };
+        return {
+            bundle: buildContext.versionedBundle,
+            status,
+            extraFiles: extras.extraFiles,
+            previousReleaseArtifacts: extras.previousReleaseArtifacts
+        };
     }
 
     async function bumpVersion(
@@ -121,12 +135,13 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     async function generateExtraFiles(
         versionedBundle: VersionedBundleWithManifest,
         buildOptions: BuildAndPublishOptions
-    ): ReturnType<SbomFileBuilder['generate']> {
-        return dependencies.sbomFileBuilder.generate(
+    ): Promise<readonly FileDescription[]> {
+        const result = await dependencies.sbomFileBuilder.generate(
             versionedBundle,
             siblingsFromOptions(buildOptions),
             buildOptions.publishSettings
         );
+        return result ?? [];
     }
 
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
@@ -135,26 +150,37 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             options.buildOptions,
             options.substitutionPublicModuleSourcePaths
         );
-        const extraFiles = await generateExtraFiles(buildContext.versionedBundle, options.buildOptions);
+        const preBumpExtraFiles = await generateExtraFiles(buildContext.versionedBundle, options.buildOptions);
         const alreadyPublished = await dependencies.bundleEmitter.checkBundleAlreadyPublished({
             bundle: buildContext.versionedBundle,
             registrySettings: options.buildOptions.registrySettings,
-            ...(extraFiles === undefined ? {} : { extraFiles })
+            ...(preBumpExtraFiles.length === 0 ? {} : { extraFiles: preBumpExtraFiles })
         });
+
         if (alreadyPublished.alreadyPublishedAsLatest) {
-            return finalizeWithoutBump(buildContext, options.buildOptions, 'already-published');
+            return finalizeWithoutBump(buildContext, options.buildOptions, 'already-published', {
+                extraFiles: preBumpExtraFiles,
+                previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
+            });
         }
         if (!shouldIncreaseVersion(buildContext.currentVersion, options.buildOptions)) {
             return finalizeWithoutBump(
                 buildContext,
                 options.buildOptions,
-                buildContext.currentVersion.isJust ? 'new-version' : 'initial-version'
+                buildContext.currentVersion.isJust ? 'new-version' : 'initial-version',
+                {
+                    extraFiles: preBumpExtraFiles,
+                    previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
+                }
             );
         }
         const newVersionedBundle = await bumpVersion(buildContext, options.buildOptions);
+        const extraFiles = await generateExtraFiles(newVersionedBundle, options.buildOptions);
         return {
             bundle: newVersionedBundle,
-            status: buildContext.currentVersion.isJust ? 'new-version' : 'initial-version'
+            status: buildContext.currentVersion.isJust ? 'new-version' : 'initial-version',
+            extraFiles,
+            previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
         };
     }
 
@@ -168,12 +194,11 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             packageName: options.buildOptions.name,
             version: result.bundle.version
         });
-        const extraFiles = await generateExtraFiles(result.bundle, options.buildOptions);
         await dependencies.bundleEmitter.publish({
             bundle: result.bundle,
             registrySettings: options.buildOptions.registrySettings,
             publishSettings: options.buildOptions.publishSettings,
-            ...(extraFiles === undefined ? {} : { extraFiles })
+            ...(result.extraFiles.length === 0 ? {} : { extraFiles: result.extraFiles })
         });
 
         return result;

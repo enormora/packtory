@@ -7,7 +7,7 @@ import type { VersioningSettings } from '../config/versioning-settings.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { compareFileDescriptions } from '../file-manager/compare.ts';
 import type { ArtifactPublishPackage } from '../published-package/published-package.ts';
-import { extractPackageTarball } from './extract-package-tarball.ts';
+import { fetchPublishedArtifacts, type PublishedReleaseArtifacts } from './fetch-published-artifacts.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { assertRepositoryCoherence } from './repository-coherence.ts';
 
@@ -36,8 +36,9 @@ type CurrentVersionLookupOptions = {
     readonly versioning: VersioningSettings;
 };
 
-type BundlePublishedCheckResult = {
+export type BundlePublishedCheckResult = {
     readonly alreadyPublishedAsLatest: boolean;
+    readonly previousReleaseArtifacts: Maybe<PublishedReleaseArtifacts>;
 };
 
 export type BundleEmitter = {
@@ -65,16 +66,17 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
 
         async checkBundleAlreadyPublished(options) {
             const { bundle, registrySettings, extraFiles } = options;
-            const latestVersion = await registryClient.fetchLatestVersion(bundle.name, registrySettings);
-            if (latestVersion.isNothing) {
-                return { alreadyPublishedAsLatest: false };
+            const previous = await fetchPublishedArtifacts(registryClient, bundle.name, registrySettings);
+            if (previous.isNothing) {
+                return { alreadyPublishedAsLatest: false, previousReleaseArtifacts: Maybe.nothing() };
             }
 
             const artifactContents = artifactsBuilder.collectContents(bundle, 'package', extraFiles);
-            const tarball = await registryClient.fetchTarball(latestVersion.value.tarballUrl, registrySettings);
-            const latestVersionArtifactContents = await extractPackageTarball(tarball);
-            const result = compareFileDescriptions(artifactContents, latestVersionArtifactContents);
-            return { alreadyPublishedAsLatest: result.status === 'equal' };
+            const comparison = compareFileDescriptions(artifactContents, previous.value.files);
+            return {
+                alreadyPublishedAsLatest: comparison.status === 'equal',
+                previousReleaseArtifacts: previous
+            };
         },
 
         async publish(options) {

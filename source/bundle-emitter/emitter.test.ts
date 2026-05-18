@@ -146,7 +146,7 @@ suite('emitter', function () {
         assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
     });
 
-    test('checkBundleAlreadyPublished() returns false when there is no latest version in the registry', async function () {
+    test('checkBundleAlreadyPublished() returns false and Nothing when there is no latest version in the registry', async function () {
         const fetchLatestVersion = fake.resolves(Maybe.nothing());
         const collectContents = fake.returns([]);
         const emitter = emitterFactory({ fetchLatestVersion, collectContents });
@@ -156,11 +156,12 @@ suite('emitter', function () {
             bundle: namedBundle()
         });
 
-        assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
+        assert.strictEqual(result.alreadyPublishedAsLatest, false);
+        assert.strictEqual(result.previousReleaseArtifacts.isNothing, true);
         assert.strictEqual(collectContents.callCount, 0);
     });
 
-    test('checkBundleAlreadyPublished() returns false when the latest version contents doesn’t match the given bundle', async function () {
+    test('checkBundleAlreadyPublished() returns false and the fetched artifacts when the contents differ', async function () {
         const fetchLatestVersion = fake.resolves(
             Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
         );
@@ -174,7 +175,12 @@ suite('emitter', function () {
             bundle
         });
 
-        assert.deepStrictEqual(result, { alreadyPublishedAsLatest: false });
+        assert.strictEqual(result.alreadyPublishedAsLatest, false);
+        if (result.previousReleaseArtifacts.isNothing) {
+            assert.fail('expected previousReleaseArtifacts to be present');
+        }
+        assert.strictEqual(result.previousReleaseArtifacts.value.version, '1.2.3');
+        assert.strictEqual(result.previousReleaseArtifacts.value.files.length, 1);
         assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package', undefined]);
         assert.deepStrictEqual(fetchTarball.firstCall.args, [
             'https://registry.example.test/package.tgz',
@@ -195,7 +201,7 @@ suite('emitter', function () {
         assert.deepStrictEqual(checkScenario.collectContents.firstCall.args, [bundle, 'package', [extraFile]]);
     });
 
-    test('checkBundleAlreadyPublished() returns true when the latest version contents match the given bundle contents', async function () {
+    test('checkBundleAlreadyPublished() returns true and the fetched artifacts when the latest version contents match', async function () {
         const fetchLatestVersion = fake.resolves(
             Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
         );
@@ -208,7 +214,11 @@ suite('emitter', function () {
             bundle: namedBundle()
         });
 
-        assert.deepStrictEqual(result, { alreadyPublishedAsLatest: true });
+        assert.strictEqual(result.alreadyPublishedAsLatest, true);
+        if (result.previousReleaseArtifacts.isNothing) {
+            assert.fail('expected previousReleaseArtifacts to be present');
+        }
+        assert.strictEqual(result.previousReleaseArtifacts.value.version, '1.2.3');
         assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
         assert.deepStrictEqual(fetchTarball.firstCall.args, [
             'https://registry.example.test/package.tgz',

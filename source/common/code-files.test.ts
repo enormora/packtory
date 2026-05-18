@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { isCodeFile, isDeclarationCodeFile } from './code-files.ts';
+import { isCodeFile, isDeclarationCodeFile, isTextDiffablePath } from './code-files.ts';
 
 suite('code-files', function () {
     test('isCodeFile recognizes .js as code', function () {
@@ -57,5 +57,38 @@ suite('code-files', function () {
 
     test('isCodeFile rejects markdown as not code', function () {
         assert.strictEqual(isCodeFile('readme.md'), false);
+    });
+
+    test('isTextDiffablePath recognizes code files', function () {
+        assert.strictEqual(isTextDiffablePath('src/index.ts'), true);
+        assert.strictEqual(isTextDiffablePath('src/index.d.ts'), true);
+    });
+
+    test('isTextDiffablePath recognizes package.json and other json files', function () {
+        assert.strictEqual(isTextDiffablePath('package.json'), true);
+        assert.strictEqual(isTextDiffablePath('sbom.cdx.json'), true);
+    });
+
+    test('isTextDiffablePath recognizes markdown, txt, yaml, and source-map extensions', function () {
+        assert.strictEqual(isTextDiffablePath('readme.md'), true);
+        assert.strictEqual(isTextDiffablePath('NOTES.txt'), true);
+        assert.strictEqual(isTextDiffablePath('action.yml'), true);
+        assert.strictEqual(isTextDiffablePath('config.yaml'), true);
+        assert.strictEqual(isTextDiffablePath('index.js.map'), true);
+    });
+
+    test('isTextDiffablePath recognizes LICENSE-style extension-less files by basename', function () {
+        assert.strictEqual(isTextDiffablePath('LICENSE'), true);
+        assert.strictEqual(isTextDiffablePath('packages/cli/LICENSE'), true);
+        assert.strictEqual(isTextDiffablePath('COPYING'), true);
+        assert.strictEqual(isTextDiffablePath('NOTICE'), true);
+        assert.strictEqual(isTextDiffablePath('CHANGELOG'), true);
+        assert.strictEqual(isTextDiffablePath('readme'), true);
+    });
+
+    test('isTextDiffablePath rejects opaque binary extensions', function () {
+        assert.strictEqual(isTextDiffablePath('logo.png'), false);
+        assert.strictEqual(isTextDiffablePath('font.woff2'), false);
+        assert.strictEqual(isTextDiffablePath('archive.zip'), false);
     });
 });

@@ -211,7 +211,8 @@ function createPacktoryUnderTest(
             packageProcessor,
             scheduler: scheduler as never,
             deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator(),
-            progressBroadcaster
+            progressBroadcaster,
+            artifactsBuilder: { collectContents: () => [] }
         }),
         resolveAndLink,
         tryBuildAndPublish,

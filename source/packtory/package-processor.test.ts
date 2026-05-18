@@ -126,7 +126,7 @@ function createProcessor(overrides: Overrides = {}): ProcessorContext {
         return fake.returns(createVersionedBundle('package-a', '1.2.4'));
     });
     const checkBundleAlreadyPublished = createSpy(overrides.checkBundleAlreadyPublished, () => {
-        return fake.resolves({ alreadyPublishedAsLatest: false });
+        return fake.resolves({ alreadyPublishedAsLatest: false, previousReleaseArtifacts: Maybe.nothing() });
     });
     const publish = createSpy(overrides.publish, () => {
         return fake.resolves(undefined);
@@ -332,7 +332,10 @@ suite('package-processor', function () {
 
     test('tryBuildAndPublish() returns already-published when the emitted bundle already matches the latest version', async function () {
         const versionedBundle = createVersionedBundle('package-a', '0.0.0');
-        const checkBundleAlreadyPublished = fake.resolves({ alreadyPublishedAsLatest: true });
+        const checkBundleAlreadyPublished = fake.resolves({
+            alreadyPublishedAsLatest: true,
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         const { processor, increaseVersion, emit } = createProcessor({
             addVersion: fake.returns(versionedBundle),
             checkBundleAlreadyPublished
@@ -343,7 +346,12 @@ suite('package-processor', function () {
             buildOptions: createBuildAndPublishOptions()
         });
 
-        assert.deepStrictEqual(result, { bundle: versionedBundle, status: 'already-published' });
+        assert.deepStrictEqual(result, {
+            bundle: versionedBundle,
+            status: 'already-published',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         assert.strictEqual(increaseVersion.callCount, 0);
         assert.deepStrictEqual(checkBundleAlreadyPublished.firstCall.args, [
             {
@@ -366,7 +374,12 @@ suite('package-processor', function () {
 
         const result = await tryBuildAndPublishDefault(processor);
 
-        assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'initial-version' });
+        assert.deepStrictEqual(result, {
+            bundle: rebuiltBundle,
+            status: 'initial-version',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         assert.deepStrictEqual(determineCurrentVersion.firstCall.args, [
             {
                 name: 'package-a',
@@ -391,7 +404,12 @@ suite('package-processor', function () {
 
         const result = await tryBuildAndPublishDefault(processor);
 
-        assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'new-version' });
+        assert.deepStrictEqual(result, {
+            bundle: rebuiltBundle,
+            status: 'new-version',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
     });
 
     test('tryBuildAndPublish() keeps the configured manual version without rebuilding on the initial publish', async function () {
@@ -410,7 +428,12 @@ suite('package-processor', function () {
             buildOptions
         });
 
-        assert.deepStrictEqual(result, { bundle: manualBundle, status: 'initial-version' });
+        assert.deepStrictEqual(result, {
+            bundle: manualBundle,
+            status: 'initial-version',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         assert.strictEqual(increaseVersion.callCount, 0);
         assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '4.5.6' }]]);
     });
@@ -431,7 +454,12 @@ suite('package-processor', function () {
             buildOptions
         });
 
-        assert.deepStrictEqual(result, { bundle: currentBundle, status: 'new-version' });
+        assert.deepStrictEqual(result, {
+            bundle: currentBundle,
+            status: 'new-version',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         assert.strictEqual(increaseVersion.callCount, 0);
         assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '2.0.0' }]]);
     });
@@ -452,14 +480,22 @@ suite('package-processor', function () {
             buildOptions
         });
 
-        assert.deepStrictEqual(result, { bundle: minimumVersionBundle, status: 'initial-version' });
+        assert.deepStrictEqual(result, {
+            bundle: minimumVersionBundle,
+            status: 'initial-version',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         assert.strictEqual(increaseVersion.callCount, 0);
         assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '1.2.3' }]]);
     });
 
     test('tryBuildAndPublish() forwards the fully built addVersion payload before publication checks', async function () {
         const addVersion = fake.returns(createVersionedBundle('package-a', '1.2.3'));
-        const checkBundleAlreadyPublished = fake.resolves({ alreadyPublishedAsLatest: false });
+        const checkBundleAlreadyPublished = fake.resolves({
+            alreadyPublishedAsLatest: false,
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         const { processor } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion,
@@ -495,7 +531,12 @@ suite('package-processor', function () {
             }
         });
 
-        assert.deepStrictEqual(result, { bundle: manualBundle, status: 'new-version' });
+        assert.deepStrictEqual(result, {
+            bundle: manualBundle,
+            status: 'new-version',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         assert.strictEqual(increaseVersion.callCount, 0);
         assert.deepStrictEqual(getCallArgs(emit), [['building', { packageName: 'package-a', version: '3.2.1' }]]);
     });
@@ -504,12 +545,17 @@ suite('package-processor', function () {
         const publish = fake.resolves(undefined);
         const alreadyPublishedResult: BuildAndPublishResult = {
             bundle: createVersionedBundle(),
-            status: 'already-published'
+            status: 'already-published',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
         };
         const { processor, emit } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion: fake.returns(createVersionedBundle()),
-            checkBundleAlreadyPublished: fake.resolves({ alreadyPublishedAsLatest: true }),
+            checkBundleAlreadyPublished: fake.resolves({
+                alreadyPublishedAsLatest: true,
+                previousReleaseArtifacts: Maybe.nothing()
+            }),
             publish
         });
 
@@ -539,7 +585,12 @@ suite('package-processor', function () {
         };
         const result = await processor.buildAndPublish(options);
 
-        assert.deepStrictEqual(result, { bundle: rebuiltBundle, status: 'new-version' });
+        assert.deepStrictEqual(result, {
+            bundle: rebuiltBundle,
+            status: 'new-version',
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         assert.deepStrictEqual(publish.firstCall.args, [
             {
                 bundle: rebuiltBundle,
@@ -566,7 +617,10 @@ suite('package-processor', function () {
         const bundle = createVersionedBundle('package-a', '1.2.3');
         const analyzedBundle = createAnalyzedBundle();
         const generateSbom = fake.resolves(sbomResult);
-        const checkBundleAlreadyPublished = fake.resolves({ alreadyPublishedAsLatest: false });
+        const checkBundleAlreadyPublished = fake.resolves({
+            alreadyPublishedAsLatest: false,
+            previousReleaseArtifacts: Maybe.nothing()
+        });
         const { processor } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion: fake.returns(bundle),
@@ -576,7 +630,7 @@ suite('package-processor', function () {
         return { bundle, analyzedBundle, generateSbom, checkBundleAlreadyPublished, processor };
     }
 
-    test('tryBuildAndPublish() invokes the sbomFileBuilder with the resolved bundle, siblings, and publish settings', async function () {
+    test('tryBuildAndPublish() invokes the sbomFileBuilder for the pre-bump bundle to feed the already-published check, then again for the post-bump bundle', async function () {
         const sbomFile = { filePath: 'sbom.cdx.json', content: '{"sbom":"stub"}', isExecutable: false };
         const { bundle, analyzedBundle, generateSbom, checkBundleAlreadyPublished, processor } = setupSbomScenario([
             sbomFile
@@ -588,13 +642,15 @@ suite('package-processor', function () {
         };
         await processor.tryBuildAndPublish({ analyzedBundle, buildOptions });
 
-        assert.strictEqual(generateSbom.callCount, 1);
+        assert.strictEqual(generateSbom.callCount, 2);
         const expectedSiblings = [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
         assert.deepStrictEqual(generateSbom.firstCall.args, [
             bundle,
             expectedSiblings,
             { access: 'public', sbom: { enabled: true } }
         ]);
+        const secondCallBundle = generateSbom.secondCall.args[0] as VersionedBundleWithManifest;
+        assert.strictEqual(secondCallBundle.version, '1.2.4');
         const checkArgs = checkBundleAlreadyPublished.firstCall.args[0] as { extraFiles: readonly unknown[] };
         assert.deepStrictEqual(checkArgs.extraFiles, [sbomFile]);
     });
@@ -810,7 +866,10 @@ suite('package-processor', function () {
             hasSubscribers: onlyVersionDeterminedSubscriber(),
             determineCurrentVersion: fake.resolves(Maybe.just('2.0.0')),
             addVersion: fake.returns(initialBundle),
-            checkBundleAlreadyPublished: fake.resolves({ alreadyPublishedAsLatest: true })
+            checkBundleAlreadyPublished: fake.resolves({
+                alreadyPublishedAsLatest: true,
+                previousReleaseArtifacts: Maybe.nothing()
+            })
         });
 
         await tryBuildAndPublishDefault(processor);
@@ -829,7 +888,10 @@ suite('package-processor', function () {
             hasSubscribers: onlyVersionDeterminedSubscriber(),
             determineCurrentVersion: fake.resolves(Maybe.nothing()),
             addVersion: fake.returns(initialBundle),
-            checkBundleAlreadyPublished: fake.resolves({ alreadyPublishedAsLatest: true })
+            checkBundleAlreadyPublished: fake.resolves({
+                alreadyPublishedAsLatest: true,
+                previousReleaseArtifacts: Maybe.nothing()
+            })
         });
 
         await tryBuildAndPublishDefault(processor);
@@ -846,7 +908,10 @@ suite('package-processor', function () {
         const { processor, emit } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
-            checkBundleAlreadyPublished: fake.resolves({ alreadyPublishedAsLatest: true })
+            checkBundleAlreadyPublished: fake.resolves({
+                alreadyPublishedAsLatest: true,
+                previousReleaseArtifacts: Maybe.nothing()
+            })
         });
 
         await tryBuildAndPublishDefault(processor);

@@ -7,9 +7,10 @@ import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts'
 import type { PublicProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
 
-const { packageProcessor, progressBroadcaster, deadCodeEliminator } = buildPackageProcessorComposition({
-    ciEnvironment: readCiEnvironment(process.env)
-});
+const { packageProcessor, progressBroadcaster, deadCodeEliminator, artifactsBuilder } =
+    buildPackageProcessorComposition({
+        ciEnvironment: readCiEnvironment(process.env)
+    });
 
 const scheduler = createScheduler({
     progressBroadcastProvider: progressBroadcaster.provider
@@ -19,10 +20,11 @@ const packtory = createPacktory({
     scheduler,
     packageProcessor,
     deadCodeEliminator,
-    progressBroadcaster
+    progressBroadcaster,
+    artifactsBuilder
 });
 
-export const { buildAndPublishAll, resolveAndLinkAll } = packtory;
+export const { buildAndPublishAll, diffAgainstLatestPublished, resolveAndLinkAll } = packtory;
 export const progressBroadcastConsumer: PublicProgressBroadcastConsumer = progressBroadcaster.consumer;
 
 export type PacktoryConfig = configTypes.PacktoryConfig;
@@ -34,4 +36,7 @@ export type ResolveAndLinkFailure = packtoryTypes.ResolveAndLinkFailure;
 export type ResolvedPackage = resolvedPackageTypes.ResolvedPackage;
 export type BuildAndPublishAllOptions = packtoryTypes.BuildAndPublishAllOptions;
 export type ResolveAndLinkAllOptions = packtoryTypes.ResolveAndLinkAllOptions;
+export type ReleaseDiffAllOptions = packtoryTypes.ReleaseDiffAllOptions;
+export type ReleaseDiffAllResult = packtoryTypes.ReleaseDiffAllResult;
+export type ReleaseDiffAllOutcome = packtoryTypes.ReleaseDiffAllOutcome;
 export type BuildReport = packtoryTypes.BuildReport;

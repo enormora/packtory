@@ -74,6 +74,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
                 return fake.resolves(undefined);
             }),
+            diffAgainstLatestPublished: fake.resolves(toOutcome(Result.ok([]))),
             resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([])))
         },
         log: (message) => {
