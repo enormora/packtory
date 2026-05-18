@@ -103,10 +103,9 @@ type SpinnerSharedDependencies = {
     readonly now: () => number;
 };
 
-const defaultSpinnerSharedDependencies: SpinnerSharedDependencies = {
-    atomics: Atomics,
-    now: Date.now
-};
+function getCurrentTimeInMilliseconds(): number {
+    return Date.now();
+}
 
 function stateToByte(state: SlotState): number {
     return stateToByteMap[state];
@@ -253,7 +252,8 @@ export function createSpinnerSharedAccessors(
     layout: SpinnerSharedLayout,
     dependencies: Partial<SpinnerSharedDependencies> = {}
 ): SpinnerSharedAccessors {
-    const { atomics, now } = { ...defaultSpinnerSharedDependencies, ...dependencies };
+    const atomics = dependencies.atomics ?? Atomics;
+    const now = dependencies.now ?? getCurrentTimeInMilliseconds;
     const views = createViews(buffer, layout);
 
     function writeStateByte(slotIndex: number, stateByte: number): void {
