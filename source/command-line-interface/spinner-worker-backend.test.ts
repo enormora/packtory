@@ -20,6 +20,38 @@ function buildRuntime(slotCount = 4): { runtime: SpinnerRuntime; accessors: Spin
     return { runtime: { accessors, slotCount }, accessors };
 }
 
+function buildRuntimeWithFakeAccessors(overrides: Partial<SpinnerSharedAccessors> = {}): {
+    runtime: SpinnerRuntime;
+    accessors: SpinnerSharedAccessors;
+} {
+    const accessors = {
+        ...createSpinnerSharedAccessors(
+            new SharedArrayBuffer(createSpinnerSharedLayout(4).bufferByteLength),
+            createSpinnerSharedLayout(4)
+        ),
+        ...overrides
+    };
+    return { runtime: { accessors, slotCount: 4 }, accessors };
+}
+
+function collectShutdownWaitCalls(intervalMs = 0): readonly (readonly [number, number])[] {
+    const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
+    const { runtime } = buildRuntimeWithFakeAccessors({
+        getIntervalMs: () => {
+            return intervalMs;
+        },
+        waitForRenderedMutation: (mutation, timeoutMs) => {
+            waitForRenderedMutationCalls.push([mutation, timeoutMs]);
+            return true;
+        }
+    });
+    const backend = createWorkerSpinnerBackend({ runtime });
+
+    backend.shutdown();
+
+    return waitForRenderedMutationCalls;
+}
+
 test('createSpinnerRuntime sets the shared buffer up with the resolved interval and column count', () => {
     const spawnWorker = fake();
 
@@ -44,6 +76,7 @@ test('createSpinnerRuntime hands the spawn helper the buffer, slot count and std
     const runtime = createSpinnerRuntime({
         slotCount: 2,
         stdoutFileDescriptor: 5,
+        stdoutColumns: 120,
         spawnWorker: (request) => {
             spawnWorker(request);
         }
@@ -56,10 +89,12 @@ test('createSpinnerRuntime hands the spawn helper the buffer, slot count and std
     assert.strictEqual(request.stdoutFileDescriptor, 5);
 });
 
-test('createSpinnerRuntime falls back to defaults when no options are provided', () => {
+test('createSpinnerRuntime falls back to default slot and interval settings', () => {
     const spawnWorker = fake();
 
     const runtime = createSpinnerRuntime({
+        stdoutFileDescriptor: 1,
+        stdoutColumns: 80,
         spawnWorker: (request) => {
             spawnWorker(request);
         }
@@ -67,7 +102,7 @@ test('createSpinnerRuntime falls back to defaults when no options are provided',
 
     assert.strictEqual(runtime.slotCount, 64);
     assert.strictEqual(runtime.accessors.getIntervalMs(), 80);
-    assert.ok(runtime.accessors.getColumns() > 0);
+    assert.strictEqual(runtime.accessors.getColumns(), 80);
 });
 
 test('createWorkerSpinnerBackend.add stores a running slot in the supplied runtime', () => {
@@ -77,6 +112,7 @@ test('createWorkerSpinnerBackend.add stores a running slot in the supplied runti
     backend.add(2, 'pkg', 'starting');
 
     assert.deepStrictEqual(accessors.readSlot(2), { state: 'running', label: 'pkg', message: 'starting' });
+    assert.strictEqual(accessors.getLatestMutation(), 1);
 });
 
 test('createWorkerSpinnerBackend.update writes a new running slot value', () => {
@@ -87,6 +123,7 @@ test('createWorkerSpinnerBackend.update writes a new running slot value', () => 
     backend.update(0, 'pkg', 'two');
 
     assert.deepStrictEqual(accessors.readSlot(0), { state: 'running', label: 'pkg', message: 'two' });
+    assert.strictEqual(accessors.getLatestMutation(), 2);
 });
 
 test('createWorkerSpinnerBackend.finish records the finished status', () => {
@@ -96,6 +133,7 @@ test('createWorkerSpinnerBackend.finish records the finished status', () => {
     backend.finish(1, 'succeeded', 'pkg', 'done');
 
     assert.deepStrictEqual(accessors.readSlot(1), { state: 'succeeded', label: 'pkg', message: 'done' });
+    assert.strictEqual(accessors.getLatestMutation(), 1);
 });
 
 test('createWorkerSpinnerBackend.add throws when the slot index is at or beyond the runtime capacity', () => {
@@ -132,4 +170,17 @@ test('createWorkerSpinnerBackend.shutdown forwards the shutdown signal to the su
     backend.shutdown();
 
     assert.strictEqual(accessors.isShutdownRequested(), true);
+    assert.strictEqual(accessors.getLatestMutation(), 1);
+});
+
+test('createWorkerSpinnerBackend.shutdown waits for the render acknowledgement when the worker interval is positive', () => {
+    assert.deepStrictEqual(collectShutdownWaitCalls(25), [[1, 100]]);
+});
+
+test('createWorkerSpinnerBackend.shutdown uses the interval-derived timeout when it exceeds the minimum', () => {
+    assert.deepStrictEqual(collectShutdownWaitCalls(80), [[1, 320]]);
+});
+
+test('createWorkerSpinnerBackend.shutdown skips waiting when the worker interval is zero', () => {
+    assert.deepStrictEqual(collectShutdownWaitCalls(), []);
 });

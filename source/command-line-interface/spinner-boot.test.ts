@@ -11,6 +11,8 @@ test('bootSpinnerRuntime spawns the worker via the supplied spawn function', () 
         spawnWorker: (request) => {
             spawnWorker(request);
         },
+        stdoutFileDescriptor: 1,
+        stdoutColumns: 80,
         initialLabel: 'lbl',
         initialMessage: 'msg'
     });
@@ -26,6 +28,8 @@ test('bootSpinnerRuntime writes the initial label and message to slot zero', () 
         spawnWorker: () => {
             // noop
         },
+        stdoutFileDescriptor: 1,
+        stdoutColumns: 80,
         initialLabel: 'packtory',
         initialMessage: 'Starting …'
     });
@@ -43,6 +47,8 @@ test('bootSpinnerRuntime leaves all other slots empty', () => {
         spawnWorker: () => {
             // noop
         },
+        stdoutFileDescriptor: 1,
+        stdoutColumns: 80,
         initialLabel: 'lbl',
         initialMessage: 'msg'
     });
@@ -59,6 +65,7 @@ test('bootSpinnerRuntime leaves all other slots empty', () => {
 test('bootSpinnerRuntime forwards runtime options like intervalMs and stdoutColumns', () => {
     const runtime = bootSpinnerRuntime({
         intervalMs: 25,
+        stdoutFileDescriptor: 1,
         stdoutColumns: 132,
         spawnWorker: () => {
             // noop

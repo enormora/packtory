@@ -1,12 +1,26 @@
 import assert from 'node:assert';
 import { test, type Func } from 'mocha';
-import { stub } from 'sinon';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 import { createDirectedGraph, type DirectedGraph } from './graph.ts';
 
 const probeTestTimeoutMs = 10_000;
 
 type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
+
+function expectGraphMethodToThrow(
+    method: 'connect' | 'disconnect',
+    setup: ((graph: DirectedGraph<string, string>) => void) | undefined,
+    expectedMessage: string
+): void {
+    const graph = createDirectedGraph<string, string>();
+    setup?.(graph);
+    try {
+        graph[method]({ from: 'a', to: 'b' });
+        assert.fail(`Expected ${method}() to fail but it did not`);
+    } catch (error: unknown) {
+        assert.strictEqual((error as Error).message, expectedMessage);
+    }
+}
 
 test('hasNode() returns false when there is no node for the given id', () => {
     const graph = createDirectedGraph<string, string>();
@@ -35,30 +49,8 @@ test('addNode() throws when adding a node with an id that already exist', () => 
 });
 
 test('connect() throws when the from and to node don’t exist', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    try {
-        graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
-    }
+    expectGraphMethodToThrow('connect', undefined, 'Node with id "a" does not exist');
 });
-
-function expectGraphMethodToThrow(
-    method: 'connect' | 'disconnect',
-    setup: (graph: DirectedGraph<string, string>) => void,
-    expectedMessage: string
-): void {
-    const graph = createDirectedGraph<string, string>();
-    setup(graph);
-    try {
-        graph[method]({ from: 'a', to: 'b' });
-        assert.fail(`Expected ${method}() to fail but it did not`);
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, expectedMessage);
-    }
-}
 
 test('connect() throws when the from node doesn’t exist but the to node does', () => {
     expectGraphMethodToThrow(
@@ -71,42 +63,29 @@ test('connect() throws when the from node doesn’t exist but the to node does',
 });
 
 test('connect() throws when the to node doesn’t exist but the from node does', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-
-    try {
-        graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
-    }
+    expectGraphMethodToThrow(
+        'connect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+        },
+        'Node with id "b" does not exist'
+    );
 });
 
 test('connect() throws when both nodes exist but there is already a connection', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-    graph.connect({ from: 'a', to: 'b' });
-
-    try {
-        graph.connect({ from: 'a', to: 'b' });
-        assert.fail('Expected connect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" already exists');
-    }
+    expectGraphMethodToThrow(
+        'connect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+            graph.addNode('b', 'bar');
+            graph.connect({ from: 'a', to: 'b' });
+        },
+        'Edge from "a" to "b" already exists'
+    );
 });
 
 test('disconnect() throws when the from and to node don’t exist', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    try {
-        graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "a" does not exist');
-    }
+    expectGraphMethodToThrow('disconnect', undefined, 'Node with id "a" does not exist');
 });
 
 test('disconnect() throws when the from node doesn’t exist but the to node does', () => {
@@ -120,30 +99,24 @@ test('disconnect() throws when the from node doesn’t exist but the to node doe
 });
 
 test('disconnect() throws when the to node doesn’t exist but the from node does', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-
-    try {
-        graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Node with id "b" does not exist');
-    }
+    expectGraphMethodToThrow(
+        'disconnect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+        },
+        'Node with id "b" does not exist'
+    );
 });
 
 test('disconnect() throws when both nodes exist but there is no connection', () => {
-    const graph = createDirectedGraph<string, string>();
-
-    graph.addNode('a', 'foo');
-    graph.addNode('b', 'bar');
-
-    try {
-        graph.disconnect({ from: 'a', to: 'b' });
-        assert.fail('Expected disconnect() to fail but it did not');
-    } catch (error: unknown) {
-        assert.strictEqual((error as Error).message, 'Edge from "a" to "b" does not exist');
-    }
+    expectGraphMethodToThrow(
+        'disconnect',
+        (graph) => {
+            graph.addNode('a', 'foo');
+            graph.addNode('b', 'bar');
+        },
+        'Edge from "a" to "b" does not exist'
+    );
 });
 
 test('hasConnection() returns false when there is no connection for the given ids', () => {
@@ -915,73 +888,57 @@ test('getTopologicalGenerations() completes promptly for acyclic graphs', async 
 }).timeout(probeTestTimeoutMs);
 
 test('detectCycles() throws when cycle traversal exceeds the maximum depth', () => {
-    const graph = createDirectedGraph<string, string>();
+    const graph = createDirectedGraph<string, string>({
+        cyclePathIncludes() {
+            return false;
+        }
+    });
     graph.addNode('a', 'value');
     graph.connect({ from: 'a', to: 'a' });
 
-    const includesStub = stub(Array.prototype, 'includes').returns(false);
-
-    try {
-        assert.throws(() => {
-            graph.detectCycles();
-        }, /^Error: Cycle detection exceeded the maximum traversal depth$/u);
-    } finally {
-        includesStub.restore();
-    }
+    assert.throws(() => {
+        graph.detectCycles();
+    }, /^Error: Cycle detection exceeded the maximum traversal depth$/u);
 });
 
 test('getTopologicalGenerations() throws when generation discovery stops making progress', () => {
-    const graph = createDirectedGraph<string, string>();
+    const graph = createDirectedGraph<string, string>({
+        mergeDiscovered(_alreadyDiscovered, currentGeneration) {
+            return new Set(
+                currentGeneration.filter((id) => {
+                    return id !== 'a';
+                })
+            );
+        }
+    });
     graph.addNode('a', 'first');
     graph.addNode('b', 'second');
     graph.connect({ from: 'a', to: 'b' });
 
-    const realAdd = Set.prototype.add;
-    const addStub = stub(Set.prototype, 'add');
-    addStub.callsFake(function (this: Set<unknown>, value: unknown) {
-        if (value === 'a') {
-            // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.add requires the receiver
-            return this;
-        }
-        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.add requires the receiver
-        return Reflect.apply(realAdd, this, [value]);
-    });
-
-    try {
-        assert.throws(() => {
-            graph.getTopologicalGenerations();
-        }, /^Error: Topological generation discovery did not make progress after 3 attempts$/u);
-    } finally {
-        addStub.restore();
-    }
+    assert.throws(() => {
+        graph.getTopologicalGenerations();
+    }, /^Error: Topological generation discovery did not make progress after 3 attempts$/u);
 });
 
 test('visitBreadthFirstSearch() throws when traversal exceeds the iteration budget', () => {
-    const graph = createDirectedGraph<string, string>();
+    const graph = createDirectedGraph<string, string>({
+        visitedHas(visited, id) {
+            if (id === 'a' || id === 'b') {
+                return false;
+            }
+            return visited.has(id);
+        }
+    });
     graph.addNode('a', 'first');
     graph.addNode('b', 'second');
     graph.connect({ from: 'a', to: 'b' });
     graph.connect({ from: 'b', to: 'a' });
     let visitorCallCount = 0;
 
-    const realHas = Set.prototype.has;
-    const hasStub = stub(Set.prototype, 'has');
-    hasStub.callsFake(function (this: ReadonlySet<unknown>, value: unknown) {
-        if (value === 'a' || value === 'b') {
-            return false;
-        }
-        // eslint-disable-next-line functional/no-this-expressions -- stubbing Set.prototype.has requires the receiver
-        return Reflect.apply(realHas, this, [value]);
-    });
-
-    try {
-        assert.throws(() => {
-            graph.visitBreadthFirstSearch('a', () => {
-                visitorCallCount += 1;
-            });
-        }, /^Error: Breadth-first traversal exceeded the maximum iteration budget$/u);
-        assert.strictEqual(visitorCallCount, 5);
-    } finally {
-        hasStub.restore();
-    }
+    assert.throws(() => {
+        graph.visitBreadthFirstSearch('a', () => {
+            visitorCallCount += 1;
+        });
+    }, /^Error: Breadth-first traversal exceeded the maximum iteration budget$/u);
+    assert.strictEqual(visitorCallCount, 5);
 });

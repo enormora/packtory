@@ -9,19 +9,18 @@ import type { PartialError } from '../packtory/scheduler.ts';
 import { buildPreviewDocument } from '../report/preview-document.ts';
 import { renderHtmlReport } from '../report/html-renderer.ts';
 import { renderFailureOnlyTerminalPreview, renderTerminalPreview } from '../report/terminal-preview-renderer.ts';
+import type { FileManager } from '../file-manager/file-manager.ts';
 import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 import type { ConfigLoader } from './config-loader.ts';
 
 type PublishPartialError = PartialError<BuildAndPublishResult>;
-
-type ReportWriter = (filePath: string, content: string) => Promise<void>;
 
 export type CommandLineInterfaceRunnerDependencies = {
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcastConsumer;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
-    readonly writeReportFile: ReportWriter;
+    readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
     readonly pageOutput: (content: string) => Promise<void>;
     readonly openFile: (filePath: string) => Promise<boolean>;
     readonly createTemporaryFilePath: () => string;
@@ -159,7 +158,7 @@ const jsonIndentSpaces = 2;
 
 // eslint-disable-next-line @typescript-eslint/max-params -- report persistence needs shared flags plus build outcome/report data
 async function writeReports(
-    writeReportFile: ReportWriter,
+    fileManager: Pick<FileManager, 'readFile' | 'writeFile'>,
     report: BuildReport | undefined,
     result: Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result'],
     flags: { readonly reportJson: boolean; readonly reportHtml: boolean },
@@ -169,11 +168,11 @@ async function writeReports(
         return;
     }
     if (flags.reportJson) {
-        await writeReportFile('packtory-report.json', `${JSON.stringify(report, undefined, jsonIndentSpaces)}\n`);
+        await fileManager.writeFile('packtory-report.json', `${JSON.stringify(report, undefined, jsonIndentSpaces)}\n`);
     }
     if (flags.reportHtml) {
-        const document = await buildPreviewDocument({ report, result, dryRun });
-        await writeReportFile('packtory-report.html', renderHtmlReport(document));
+        const document = await buildPreviewDocument({ report, result, dryRun, fileManager });
+        await fileManager.writeFile('packtory-report.html', renderHtmlReport(document));
     }
 }
 
@@ -182,13 +181,13 @@ type PublishHandlerDeps = {
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
-    readonly writeReportFile: ReportWriter;
+    readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
     readonly flags: { readonly noDryRun: boolean; readonly reportJson: boolean; readonly reportHtml: boolean };
 };
 
 async function reportOutcome(
     log: PublishHandlerDeps['log'],
-    writeReportFile: ReportWriter,
+    fileManager: PublishHandlerDeps['fileManager'],
     outcome: Awaited<ReturnType<Packtory['buildAndPublishAll']>>,
     flags: PublishHandlerDeps['flags']
 ): Promise<number> {
@@ -199,23 +198,35 @@ async function reportOutcome(
     } else {
         printSuccessSummary(log, outcome.result.value);
     }
-    await writeReports(writeReportFile, outcome.getReport(), outcome.result, flags, !flags.noDryRun);
+    await writeReports(fileManager, outcome.getReport(), outcome.result, flags, !flags.noDryRun);
     return exitCode;
 }
 
+async function stopSpinnersAndReportOutcome(args: {
+    readonly flags: PublishHandlerDeps['flags'];
+    readonly log: PublishHandlerDeps['log'];
+    readonly outcome: Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
+    readonly spinnerRenderer: TerminalSpinnerRenderer;
+    readonly fileManager: PublishHandlerDeps['fileManager'];
+}): Promise<number> {
+    args.spinnerRenderer.stopAll();
+    return await reportOutcome(args.log, args.fileManager, args.outcome, args.flags);
+}
+
 async function runPublishHandler(deps: PublishHandlerDeps): Promise<number> {
-    const { log, packtory, spinnerRenderer, configLoader, writeReportFile, flags } = deps;
-    const config = await configLoader.load();
-    const collectReport = flags.reportJson || flags.reportHtml;
+    const { log, packtory, spinnerRenderer, configLoader, fileManager, flags } = deps;
+    let shouldStopSpinners = true;
     try {
-        const outcome = await packtory.buildAndPublishAll(config, {
+        const outcome = await packtory.buildAndPublishAll(await configLoader.load(), {
             dryRun: !flags.noDryRun,
-            collectReport
+            collectReport: flags.reportJson || flags.reportHtml
         });
-        spinnerRenderer.stopAll();
-        return await reportOutcome(log, writeReportFile, outcome, flags);
+        shouldStopSpinners = false;
+        return await stopSpinnersAndReportOutcome({ spinnerRenderer, log, fileManager, outcome, flags });
     } finally {
-        spinnerRenderer.stopAll();
+        if (shouldStopSpinners) {
+            spinnerRenderer.stopAll();
+        }
         printDryRunNote(log, { noDryRun: flags.noDryRun });
     }
 }
@@ -241,7 +252,7 @@ type PreviewHandlerDeps = {
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
-    readonly writeReportFile: ReportWriter;
+    readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
     readonly flags: PreviewFlags;
 };
 
@@ -255,7 +266,7 @@ async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<number> {
         packtory,
         spinnerRenderer,
         configLoader,
-        writeReportFile,
+        fileManager,
         flags
     } = deps;
     try {
@@ -269,11 +280,12 @@ async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<number> {
         const document = await buildPreviewDocument({
             report,
             result: outcome.result,
-            dryRun: true
+            dryRun: true,
+            fileManager
         });
         if (flags.open) {
             const filePath = createTemporaryFilePath();
-            await writeReportFile(filePath, renderHtmlReport(document));
+            await fileManager.writeFile(filePath, renderHtmlReport(document));
             const opened = await openFile(filePath);
             if (!opened) {
                 log(filePath);
@@ -308,7 +320,7 @@ export function createCommandLineInterfaceRunner(
         progressBroadcaster,
         spinnerRenderer,
         configLoader,
-        writeReportFile,
+        fileManager,
         pageOutput,
         openFile,
         createTemporaryFilePath
@@ -333,7 +345,7 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader,
-                        writeReportFile,
+                        fileManager,
                         flags: { noDryRun, reportJson, reportHtml }
                     });
                     exitCode = handlerExitCode;
@@ -354,7 +366,7 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader,
-                        writeReportFile,
+                        fileManager,
                         flags: { open }
                     });
                     exitCode = handlerExitCode;

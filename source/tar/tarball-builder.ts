@@ -6,6 +6,10 @@ export type TarballBuilder = {
     build: (fileDescriptions: readonly FileDescription[]) => Promise<Buffer>;
 };
 
+type TarballBuilderDependencies = {
+    readonly createGzip: typeof zlib.createGzip;
+};
+
 const gzipHeaderOperationSystemTypeFieldIndex = 9;
 const gzipHeaderOperationSystemTypeUnknown = 255;
 
@@ -23,7 +27,9 @@ const staticFileModificationTime = new Date(0);
 const executableFileMode = 493;
 const nonExecutableFileMode = 420;
 
-export function createTarballBuilder(): TarballBuilder {
+export function createTarballBuilder(dependencies: Partial<TarballBuilderDependencies> = {}): TarballBuilder {
+    const createGzip = dependencies.createGzip ?? zlib.createGzip;
+
     function createPack(fileDescriptions: readonly FileDescription[]): Pack {
         const pack = tar.pack();
 
@@ -48,7 +54,7 @@ export function createTarballBuilder(): TarballBuilder {
         async build(fileDescriptions) {
             const pack = createPack(fileDescriptions);
 
-            const gzipStream = zlib.createGzip({ level: 9 });
+            const gzipStream = createGzip({ level: 9 });
             const tarballStream = pack.pipe(gzipStream);
             const chunks: Buffer[] = [];
 

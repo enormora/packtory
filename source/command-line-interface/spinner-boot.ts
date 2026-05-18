@@ -11,5 +11,6 @@ export function bootSpinnerRuntime(options: SpinnerBootOptions): SpinnerRuntime 
     const runtime = createSpinnerRuntime(options);
     runtime.accessors.writeSlot(bootSlotIndex, 'running', options.initialLabel, options.initialMessage);
     runtime.accessors.bumpSlotGeneration(bootSlotIndex);
+    runtime.accessors.markMutation();
     return runtime;
 }

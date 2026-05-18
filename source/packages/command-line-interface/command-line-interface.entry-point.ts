@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs/promises';
+import fs from 'node:fs';
 import readline from 'node:readline/promises';
 import { createClock } from '../../common/clock.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
 import type * as configTypes from '../../config/config.ts';
+import { createFileManager } from '../../file-manager/file-manager.ts';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.ts';
 import { createTerminalSpinnerRenderer } from '../../command-line-interface/terminal-spinner-renderer.ts';
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner-worker-backend.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
-import { previewIo } from '../../command-line-interface/preview-io.ts';
+import { createDefaultPreviewIo } from '../../command-line-interface/preview-io.ts';
 import { createPacktory } from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
@@ -24,6 +25,13 @@ const spinnerRenderer = createTerminalSpinnerRenderer({
     backend: createWorkerSpinnerBackend({ runtime: bootedSpinnerRuntime })
 });
 const clock = createClock();
+const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const previewIo = createDefaultPreviewIo({
+    platform: process.platform,
+    shell: process.env.SHELL,
+    pager: process.env.PAGER,
+    stdoutIsTTY: process.stdout.isTTY
+});
 
 const promptForOneTimePassword = createOneTimePasswordPrompt({
     clock,
@@ -61,9 +69,7 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     progressBroadcaster: progressBroadcaster.consumer,
     spinnerRenderer,
     configLoader: createConfigLoader({ currentWorkingDirectory: process.cwd(), importModule }),
-    writeReportFile: async (filePath, content) => {
-        await fs.writeFile(filePath, content);
-    },
+    fileManager,
     pageOutput: async (content) => {
         const didPage = await previewIo.pagePreviewOutput(content);
         if (!didPage) {

@@ -8,7 +8,8 @@ import type { SpinnerBackend } from './terminal-spinner-renderer.ts';
 
 const defaultSlotCount = 64;
 const defaultIntervalMs = 80;
-const defaultColumns = 80;
+const shutdownFlushIntervals = 4;
+const minimumShutdownFlushTimeoutMs = 100;
 
 export type WorkerSpawnRequest = {
     readonly buffer: SharedArrayBuffer;
@@ -21,8 +22,8 @@ type WorkerSpawner = (request: WorkerSpawnRequest) => void;
 export type SpinnerRuntimeOptions = {
     readonly slotCount?: number;
     readonly intervalMs?: number;
-    readonly stdoutFileDescriptor?: number;
-    readonly stdoutColumns?: number;
+    readonly stdoutFileDescriptor: number;
+    readonly stdoutColumns: number;
     readonly spawnWorker: WorkerSpawner;
 };
 
@@ -43,9 +44,8 @@ function resolveOptions(options: SpinnerRuntimeOptions): ResolvedOptions {
     return {
         slotCount: options.slotCount ?? defaultSlotCount,
         intervalMs: options.intervalMs ?? defaultIntervalMs,
-        stdoutFileDescriptor: options.stdoutFileDescriptor ?? process.stdout.fd,
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.stdout.columns is undefined at runtime when stdout is not a TTY, despite the type declaring it as number
-        stdoutColumns: options.stdoutColumns ?? process.stdout.columns ?? defaultColumns,
+        stdoutFileDescriptor: options.stdoutFileDescriptor,
+        stdoutColumns: options.stdoutColumns,
         spawnWorker: options.spawnWorker
     };
 }
@@ -80,6 +80,7 @@ type SlotUpdate = {
 function writeSlot(accessors: SpinnerSharedAccessors, update: SlotUpdate): void {
     accessors.writeSlot(update.slotIndex, update.state, update.label, update.message);
     accessors.bumpSlotGeneration(update.slotIndex);
+    accessors.markMutation();
 }
 
 export type WorkerSpinnerBackendDependencies = {
@@ -88,6 +89,10 @@ export type WorkerSpinnerBackendDependencies = {
 
 export function createWorkerSpinnerBackend(dependencies: WorkerSpinnerBackendDependencies): SpinnerBackend {
     const { runtime } = dependencies;
+    const shutdownFlushTimeoutMs = Math.max(
+        runtime.accessors.getIntervalMs() * shutdownFlushIntervals,
+        minimumShutdownFlushTimeoutMs
+    );
 
     function ensureSlotIndexFits(slotIndex: number): void {
         if (slotIndex >= runtime.slotCount) {
@@ -112,6 +117,10 @@ export function createWorkerSpinnerBackend(dependencies: WorkerSpinnerBackendDep
         },
         shutdown() {
             runtime.accessors.requestShutdown();
+            const shutdownMutation = runtime.accessors.markMutation();
+            if (runtime.accessors.getIntervalMs() > 0) {
+                runtime.accessors.waitForRenderedMutation(shutdownMutation, shutdownFlushTimeoutMs);
+            }
         }
     };
 }

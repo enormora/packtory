@@ -1,10 +1,12 @@
 /* eslint-disable import/max-dependencies -- the preview-document tests intentionally combine filesystem, fixtures, and report helpers */
 import assert from 'node:assert';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { test } from 'mocha';
 import { Result } from 'true-myth';
+import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { ArtifactEntry } from '../progress/progress-broadcaster.ts';
 import {
@@ -165,6 +167,10 @@ function workspaceReader(contentByPath: Readonly<Record<string, string>>, fallba
     };
 }
 
+function workspaceFileManager(readFile: (filePath: string) => Promise<string>): Pick<FileManager, 'readFile'> {
+    return { readFile };
+}
+
 function requireSinglePackage(document: PreviewDocument) {
     const [pkg] = document.packages;
     if (pkg === undefined) {
@@ -242,7 +248,7 @@ async function buildSingleArtifactDocument(
                 })
             ]),
         dryRun: options.dryRun ?? true,
-        readWorkspaceFile: async () => options.workspaceContent ?? 'export const same = 1;\n'
+        fileManager: workspaceFileManager(async () => options.workspaceContent ?? 'export const same = 1;\n')
     });
 }
 
@@ -255,7 +261,7 @@ async function buildUnchangedPackageDocument(overrides: Partial<PackageReport> =
         }),
         result: Result.ok([buildResult({ contents: [createAnalyzedResource({ content: 'export {};\n' })] })]),
         dryRun: true,
-        readWorkspaceFile: async () => 'export {};\n'
+        fileManager: workspaceFileManager(async () => 'export {};\n')
     });
 }
 
@@ -284,7 +290,7 @@ async function buildChangedSourceDiffDocument(
             })
         ]),
         dryRun: true,
-        readWorkspaceFile: async () => workspaceContent
+        fileManager: workspaceFileManager(async () => workspaceContent)
     });
 }
 
@@ -293,7 +299,7 @@ async function expectTreePaths(entries: readonly ArtifactEntry[], expectedPaths:
         report: reportForPkgA(entries),
         result: Result.ok([buildResult()]),
         dryRun: true,
-        readWorkspaceFile: async () => 'export {};\n'
+        fileManager: workspaceFileManager(async () => 'export {};\n')
     });
 
     assert.deepStrictEqual(
@@ -325,7 +331,7 @@ test('buildPreviewDocument orders packages by report order and formats version t
             })
         ]),
         dryRun: true,
-        readWorkspaceFile: workspaceReader({ '/workspace/src/index.js': 'export const removed = 1;\n' })
+        fileManager: workspaceFileManager(workspaceReader({ '/workspace/src/index.js': 'export const removed = 1;\n' }))
     });
 
     assert.deepStrictEqual(
@@ -342,11 +348,13 @@ test('buildPreviewDocument sorts package.json first and creates diffs only for c
         report: baseReport(),
         result: Result.ok([buildResult()]),
         dryRun: true,
-        readWorkspaceFile: workspaceReader({
-            '/workspace/src/index.js': 'export const removed = 1;\n',
-            '/workspace/src/index.js.map': '{"version":2}',
-            '/workspace/types/index.d.ts': 'export declare const kept: number;\n'
-        })
+        fileManager: workspaceFileManager(
+            workspaceReader({
+                '/workspace/src/index.js': 'export const removed = 1;\n',
+                '/workspace/src/index.js.map': '{"version":2}',
+                '/workspace/types/index.d.ts': 'export declare const kept: number;\n'
+            })
+        )
     });
 
     const pkg = requireSinglePackage(document);
@@ -428,11 +436,13 @@ test('buildPreviewDocument builds exact tree ordering, depths, and summary count
         report,
         result,
         dryRun: true,
-        readWorkspaceFile: workspaceReader({
-            '/workspace/src/index.js': 'export const original = 1;\n',
-            '/workspace/types/internal/index.d.ts': 'export declare const kept: number;\n',
-            '/workspace/pkg-b/index.js': 'ok\n'
-        })
+        fileManager: workspaceFileManager(
+            workspaceReader({
+                '/workspace/src/index.js': 'export const original = 1;\n',
+                '/workspace/types/internal/index.d.ts': 'export declare const kept: number;\n',
+                '/workspace/pkg-b/index.js': 'ok\n'
+            })
+        )
     });
 
     assert.deepStrictEqual(document.summary, {
@@ -469,7 +479,7 @@ test('buildPreviewDocument keeps eliminated files separate from the emitted tree
         report: baseReport(),
         result: Result.ok([buildResult()]),
         dryRun: true,
-        readWorkspaceFile: async () => 'export {};\n'
+        fileManager: workspaceFileManager(async () => 'export {};\n')
     });
 
     const pkg = requireSinglePackage(document);
@@ -491,7 +501,8 @@ test('buildPreviewDocument reports failure-only runs with direct issues', async 
     const document = await buildPreviewDocument({
         report: { ...baseReport(), packages: {} },
         result: Result.err({ type: 'checks', issues: ['bundle is too large'] }),
-        dryRun: true
+        dryRun: true,
+        fileManager: workspaceFileManager(async () => 'export {};\n')
     });
 
     assert.strictEqual(document.previewable, false);
@@ -504,7 +515,7 @@ test('buildPreviewDocument marks a partial run with succeeded packages as previe
         report: baseReport(),
         result: Result.err({ type: 'partial', succeeded: [buildResult()], failures: [new Error('boom')] }),
         dryRun: true,
-        readWorkspaceFile: async () => 'export {};\n'
+        fileManager: workspaceFileManager(async () => 'export {};\n')
     });
 
     assert.strictEqual(document.previewable, true);
@@ -536,7 +547,7 @@ test('buildPreviewDocument leaves versionTransition undefined when no version de
         }),
         result: Result.ok([buildResult()]),
         dryRun: true,
-        readWorkspaceFile: async () => 'export {};\n'
+        fileManager: workspaceFileManager(async () => 'export {};\n')
     });
 
     assert.strictEqual(requirePackageAt(document, 0).versionTransition, undefined);
@@ -559,10 +570,11 @@ test('buildPreviewDocument omits diffs when the artifact source path does not ma
     assertFirstFileHasNoDiff(document);
 });
 
-test('buildPreviewDocument uses the default workspace file reader when none is provided', async () => {
+test('buildPreviewDocument reads workspace files through the injected file manager', async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'packtory-preview-test-'));
     const sourceFilePath = path.join(tempDir, 'index.js');
     await writeFile(sourceFilePath, 'export const original = 1;\n');
+    const fileManager = createFileManager({ hostFileSystem: fs.promises });
 
     const document = await buildPreviewDocument({
         report: reportForPkgA([
@@ -584,7 +596,8 @@ test('buildPreviewDocument uses the default workspace file reader when none is p
                 ]
             })
         ]),
-        dryRun: true
+        dryRun: true,
+        fileManager
     });
 
     const fileNode = requirePackageAt(document, 0).tree.find(
@@ -867,7 +880,7 @@ test('buildPreviewDocument handles failed packages without outputs and publish-m
         }),
         result: Result.err({ type: 'partial', succeeded: [], failures: [new Error('boom')] }),
         dryRun: false,
-        readWorkspaceFile: async () => 'export {};\n'
+        fileManager: workspaceFileManager(async () => 'export {};\n')
     });
 
     assert.strictEqual(document.modeLabel, 'Publish');

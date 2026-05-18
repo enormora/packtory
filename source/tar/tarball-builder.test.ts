@@ -137,14 +137,11 @@ test('creates a tarball with many nested files', async () => {
 });
 
 test('creates gzip streams with the maximum compression level', async () => {
-    const createGzip = sinon.spy(zlib, 'createGzip');
+    const createGzip = sinon.spy((options?: zlib.ZlibOptions) => {
+        return zlib.createGzip(options);
+    });
+    const builder = createTarballBuilder({ createGzip });
+    await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
 
-    try {
-        const builder = createTarballBuilder();
-        await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
-
-        assert.deepStrictEqual(createGzip.firstCall.args, [{ level: 9 }]);
-    } finally {
-        createGzip.restore();
-    }
+    assert.deepStrictEqual(createGzip.firstCall.args, [{ level: 9 }]);
 });

@@ -11,6 +11,7 @@ import {
     createBuildResultFixture,
     createPackageReportFixture
 } from '../test-libraries/preview-fixtures.ts';
+import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import { toOutcome } from '../test-libraries/result-helpers.ts';
 import {
     createCommandLineInterfaceRunner,
@@ -22,7 +23,7 @@ type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
-    readonly writeReportFile?: SinonSpy;
+    readonly fileManager?: FakeFileManager;
     readonly pageOutput?: SinonSpy;
     readonly openFile?: SinonSpy;
     readonly createTemporaryFilePath?: () => string;
@@ -67,6 +68,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
     const progressBroadcaster = overrides.progressBroadcaster ?? createProgressBroadcaster();
     const log = createSpy(overrides.log, fake);
     const pageOutput = overrides.pageOutput ?? fake.resolves(undefined);
+    const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: CommandLineInterfaceRunnerDependencies = {
         packtory: {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
@@ -84,9 +86,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
         },
         progressBroadcaster: progressBroadcaster.consumer,
         spinnerRenderer: createSpinnerRenderer(overrides.spinnerRenderer),
-        writeReportFile: createSpy(overrides.writeReportFile, () => {
-            return fake.resolves(undefined);
-        }),
+        fileManager,
         pageOutput: async (message) => {
             pageOutput(stripVTControlCharacters(message));
         },
@@ -365,7 +365,7 @@ test('stops all spinners when buildAndPublishAll finishes without errors', async
     const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stopAll } });
 
     await runner.run(['foo', 'bar', 'publish']);
-    assert.ok(stopAll.callCount >= 1);
+    assert.strictEqual(stopAll.callCount, 1);
 });
 
 test('adds a spinner when progressBroadcaster receives a "scheduled" event', async () => {
@@ -489,76 +489,76 @@ test('publish with --report-html requests collectReport: true', async () => {
     await expectCollectReportFlag('--report-html');
 });
 
-async function runPublishWithReport(extraArgs: readonly string[]): Promise<SinonSpy> {
-    const writeReportFile = fake.resolves(undefined);
+async function runPublishWithReport(extraArgs: readonly string[]): Promise<FakeFileManager> {
+    const fileManager = createFakeFileManager();
     const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+    const runner = runnerFactory({ buildAndPublishAll, fileManager });
     await runner.run(['foo', 'bar', 'publish', ...extraArgs]);
-    return writeReportFile;
+    return fileManager;
 }
 
 test('publish writes packtory-report.json when --report-json is set and getReport returns a report', async () => {
-    const writeReportFile = await runPublishWithReport(['--report-json']);
+    const fileManager = await runPublishWithReport(['--report-json']);
 
-    assert.strictEqual(writeReportFile.callCount, 1);
-    assert.strictEqual(writeReportFile.firstCall.args[0], 'packtory-report.json');
-    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
+    assert.strictEqual(fileManager.getWriteFileCall(0).filePath, 'packtory-report.json');
+    const writtenContent = fileManager.getWriteFileCall(0).content;
     assert.ok(writtenContent.endsWith('\n'), 'json report must end with a newline');
     assert.deepStrictEqual(JSON.parse(writtenContent), sampleReport);
 });
 
 test('publish writes packtory-report.html when --report-html is set and getReport returns a report', async () => {
-    const writeReportFile = await runPublishWithReport(['--report-html']);
+    const fileManager = await runPublishWithReport(['--report-html']);
 
-    assert.strictEqual(writeReportFile.callCount, 1);
-    assert.strictEqual(writeReportFile.firstCall.args[0], 'packtory-report.html');
-    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
+    assert.strictEqual(fileManager.getWriteFileCall(0).filePath, 'packtory-report.html');
+    const writtenContent = fileManager.getWriteFileCall(0).content;
     assert.ok(writtenContent.startsWith('<!doctype html>'), 'html report must start with doctype');
     assert.ok(writtenContent.includes('Dry run'));
 });
 
 test('publish writes report html in publish mode when dry-run is disabled', async () => {
-    const writeReportFile = await runPublishWithReport(['--report-html', '--no-dry-run']);
+    const fileManager = await runPublishWithReport(['--report-html', '--no-dry-run']);
 
-    const writtenContent = String(writeReportFile.firstCall.args[1]);
+    const writtenContent = fileManager.getWriteFileCall(0).content;
     assert.ok(writtenContent.includes('Publish'));
     assert.ok(!writtenContent.includes('<div class="mode-label">Dry run</div>'));
 });
 
 test('publish writes both report files when --report-json and --report-html are set', async () => {
-    const writeReportFile = await runPublishWithReport(['--report-json', '--report-html']);
+    const fileManager = await runPublishWithReport(['--report-json', '--report-html']);
 
-    const writtenPaths = writeReportFile.getCalls().map((call): unknown => {
-        return call.args[0];
+    const writtenPaths = fileManager.getAllWriteFileCalls().map((call): unknown => {
+        return call.filePath;
     });
     assert.deepStrictEqual(writtenPaths, ['packtory-report.json', 'packtory-report.html']);
 });
 
 test('publish writes no report files when neither flag is set', async () => {
-    const writeReportFile = await runPublishWithReport([]);
+    const fileManager = await runPublishWithReport([]);
 
-    assert.strictEqual(writeReportFile.callCount, 0);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
 });
 
 test('publish writes no report files when getReport returns undefined even with --report-json set', async () => {
-    const writeReportFile = fake.resolves(undefined);
+    const fileManager = createFakeFileManager();
     const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+    const runner = runnerFactory({ buildAndPublishAll, fileManager });
 
     await runner.run(['foo', 'bar', 'publish', '--report-json']);
 
-    assert.strictEqual(writeReportFile.callCount, 0);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
 });
 
 test('publish writes the report even when the build failed', async () => {
-    const writeReportFile = fake.resolves(undefined);
+    const fileManager = createFakeFileManager();
     const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.err({ type: 'config', issues: ['boom'] })));
-    const runner = runnerFactory({ buildAndPublishAll, writeReportFile });
+    const runner = runnerFactory({ buildAndPublishAll, fileManager });
 
     const exitCode = await runner.run(['foo', 'bar', 'publish', '--report-json']);
 
     assert.strictEqual(exitCode, 1);
-    assert.strictEqual(writeReportFile.callCount, 1);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
 });
 
 test('preview pages previewable output and does not print it directly to stdout', async () => {
@@ -634,12 +634,12 @@ test('preview treats partial failures with no successful packages as failure-onl
 
 test('preview --open writes a temporary html report and invokes the opener', async () => {
     const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
-    const writeReportFile = fake.resolves(undefined);
+    const fileManager = createFakeFileManager();
     const openFile = fake.resolves(true);
     const log = fake();
     const runner = runnerFactory({
         buildAndPublishAll,
-        writeReportFile,
+        fileManager,
         openFile,
         log,
         createTemporaryFilePath: () => '/tmp/packtory-preview-test.html'
@@ -648,9 +648,9 @@ test('preview --open writes a temporary html report and invokes the opener', asy
     const exitCode = await runner.run(['foo', 'bar', 'preview', '--open']);
 
     assert.strictEqual(exitCode, 0);
-    assert.strictEqual(writeReportFile.callCount, 1);
-    assert.deepStrictEqual(writeReportFile.firstCall.args[0], '/tmp/packtory-preview-test.html');
-    assert.match(String(writeReportFile.firstCall.args[1]), /^<!doctype html>/);
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
+    assert.deepStrictEqual(fileManager.getWriteFileCall(0).filePath, '/tmp/packtory-preview-test.html');
+    assert.match(fileManager.getWriteFileCall(0).content, /^<!doctype html>/);
     assert.strictEqual(openFile.callCount, 1);
     assert.deepStrictEqual(openFile.firstCall.args, ['/tmp/packtory-preview-test.html']);
     assert.strictEqual(log.callCount, 0);
@@ -685,21 +685,21 @@ test('preview builds an empty fallback report when getReport returns undefined',
 });
 
 test('preview --open writes an empty fallback report when getReport returns undefined', async () => {
-    const writeReportFile = fake.resolves(undefined);
+    const fileManager = createFakeFileManager();
     const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'checks', issues: ['boom'] })));
     const runner = runnerFactory({
         buildAndPublishAll,
-        writeReportFile,
+        fileManager,
         createTemporaryFilePath: () => '/tmp/packtory-preview-fallback.html'
     });
 
     const exitCode = await runner.run(['foo', 'bar', 'preview', '--open']);
 
     assert.strictEqual(exitCode, 1);
-    assert.strictEqual(writeReportFile.callCount, 1);
-    assert.strictEqual(writeReportFile.firstCall.args[0], '/tmp/packtory-preview-fallback.html');
+    assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
+    assert.strictEqual(fileManager.getWriteFileCall(0).filePath, '/tmp/packtory-preview-fallback.html');
     assert.match(
-        String(writeReportFile.firstCall.args[1]),
+        fileManager.getWriteFileCall(0).content,
         /&quot;aggregate&quot;: \{\s+&quot;crossBundleLinks&quot;: \[\]/u
     );
 });
