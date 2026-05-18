@@ -23,11 +23,13 @@ function spawnWorker(request: WorkerSpawnRequest): void {
     worker.unref();
 }
 
-export const bootedSpinnerRuntime: SpinnerRuntime = bootSpinnerRuntime({
-    spawnWorker,
-    stdoutFileDescriptor: process.stdout.fd,
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.stdout.columns is undefined at runtime when stdout is not a TTY, despite the type declaring it as number
-    stdoutColumns: process.stdout.columns ?? defaultStdoutColumns,
-    initialLabel: 'packtory',
-    initialMessage: 'Starting …'
-});
+export function createBootedSpinnerRuntime(): SpinnerRuntime {
+    return bootSpinnerRuntime({
+        spawnWorker,
+        stdoutFileDescriptor: process.stdout.fd,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- process.stdout.columns is undefined at runtime when stdout is not a TTY, despite the type declaring it as number
+        stdoutColumns: process.stdout.columns ?? defaultStdoutColumns,
+        initialLabel: 'packtory',
+        initialMessage: 'Starting …'
+    });
+}
