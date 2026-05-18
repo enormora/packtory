@@ -1,4 +1,4 @@
-import type { ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
+import { rootHasDeclarationFile, type ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
 import { substituteDependencies } from './substitute-bundles.ts';
 import type { BundleSubstitutionSource, LinkedBundle } from './linked-bundle.ts';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
@@ -14,7 +14,7 @@ export type BundleLinker = {
 
 function flattenRoots(roots: ResolvedBundle['roots']): string[] {
     return Object.values(roots).flatMap((root) => {
-        if (root.declarationFile !== undefined) {
+        if (rootHasDeclarationFile(root)) {
             return [root.js.sourceFilePath, root.declarationFile.sourceFilePath];
         }
         return [root.js.sourceFilePath];

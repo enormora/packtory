@@ -1,7 +1,8 @@
 import type { PacktoryConfig } from '../config/config.ts';
 import type { ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { redactConfigForPackage } from '../report/config-redactor.ts';
-import { createReportAggregator, type BuildReport } from '../report/report-aggregator.ts';
+import { createReportAggregator } from '../report/aggregator/report-aggregator.ts';
+import type { BuildReport } from '../report/aggregator/report-types.ts';
 
 export type ReportAttachment = {
     readonly getReport: () => BuildReport | undefined;

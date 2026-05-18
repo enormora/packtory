@@ -4,7 +4,8 @@ import type { BundleLinker } from '../linker/linker.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import { resolveRootsAndSurface } from '../resource-resolver/resource-resolve-options.ts';
 import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
-import { inspectLinkerRewrites, inspectScanResults } from '../report/inspectors.ts';
+import { inspectLinkerRewrites } from '../report/inspectors/inspect-linker-rewrites.ts';
+import { inspectScanResults } from '../report/inspectors/inspect-scan-results.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 

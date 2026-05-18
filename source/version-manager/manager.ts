@@ -1,6 +1,6 @@
 import semver from 'semver';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import { inspectPackageJsonProvenance } from '../report/inspectors.ts';
+import { inspectPackageJsonProvenance } from '../report/inspectors/inspect-package-json-provenance.ts';
 import { buildPackageManifest } from './manifest/builder.ts';
 import { serializePackageJson } from './manifest/serialize.ts';
 import {

@@ -4,8 +4,12 @@ import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import { analyzedBundleResource, linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
-import { bindingId, buildReachabilityIndex, type FileBindings } from '../reachability/reachability.ts';
-import { buildCrossBundleSeeds, type CrossBundleInput, type SeedMap } from './cross-bundle-seeds.ts';
+import { bindingId } from '../reachability/binding-id.ts';
+import type { FileBindings } from '../reachability/local-seed-gathering.ts';
+import { buildReachabilityIndex } from '../reachability/reachability.ts';
+import { buildCrossBundleSeeds, type CrossBundleInput } from './cross-bundle-seeds.ts';
+
+type SeedMap = ReturnType<typeof buildCrossBundleSeeds>;
 
 function bundleWith(
     name: string,

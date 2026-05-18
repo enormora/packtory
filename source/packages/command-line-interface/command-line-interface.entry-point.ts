@@ -3,18 +3,18 @@
 import fs from 'node:fs';
 import readline from 'node:readline/promises';
 import { createClock } from '../../common/clock.ts';
-import { createLineSpinnerRenderer } from '../../command-line-interface/line-spinner-renderer.ts';
+import { createLineSpinnerRenderer } from '../../command-line-interface/spinner/line-spinner-renderer.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
 import type * as configTypes from '../../config/config.ts';
 import { createFileManager } from '../../file-manager/file-manager.ts';
-import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner.ts';
+import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner/runner.ts';
 import {
     createTerminalSpinnerRenderer,
     type TerminalSpinnerRenderer
-} from '../../command-line-interface/terminal-spinner-renderer.ts';
-import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner-worker-backend.ts';
+} from '../../command-line-interface/spinner/terminal-spinner-renderer.ts';
+import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner/spinner-worker-backend.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
-import { createDefaultPreviewIo } from '../../command-line-interface/preview-io.ts';
+import { createDefaultPreviewIo } from '../../command-line-interface/preview-io/preview-io.ts';
 import { createPacktory } from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';

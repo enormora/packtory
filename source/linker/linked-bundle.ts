@@ -17,3 +17,11 @@ export type LinkedBundle = {
 };
 
 export type BundleSubstitutionSource = Pick<LinkedBundle, 'contents' | 'name' | 'roots' | 'surface'>;
+
+export function getSubstitutedResources<TResource extends { readonly isSubstituted: boolean }>(bundle: {
+    readonly contents: readonly TResource[];
+}): readonly TResource[] {
+    return bundle.contents.filter((resource) => {
+        return resource.isSubstituted;
+    });
+}

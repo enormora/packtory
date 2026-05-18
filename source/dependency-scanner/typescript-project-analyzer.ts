@@ -1,23 +1,12 @@
 import path from 'node:path';
-import {
-    ModuleKind,
-    type Project as _Project,
-    type SourceFile,
-    ModuleResolutionKind,
-    type CompilerOptions
-} from 'ts-morph';
-import type { MainPackageJson } from '../config/package-json.ts';
+import type { Project as _Project, SourceFile } from 'ts-morph';
+import { analyzationOptionsToCompilerOptions, type AnalyzationOptions } from './typescript-compiler-options.ts';
 import type { FileSystemAdapters } from './typescript-file-host.ts';
 
 export type TypescriptProjectAnalyzerDependencies = {
     readonly Project: typeof _Project;
     readonly fileSystemAdapters: FileSystemAdapters;
     getReferencedSourceFiles: (sourceFile: Readonly<SourceFile>) => readonly Readonly<SourceFile>[];
-};
-
-type AnalyzationOptions = {
-    readonly resolveDeclarationFiles: boolean;
-    readonly mainPackageJson: MainPackageJson;
 };
 
 export type TypescriptProject = {
@@ -30,32 +19,7 @@ export type TypescriptProjectAnalyzer = {
 };
 
 export function getSourcePathFromSourceFile(sourceFile: Readonly<SourceFile>): string {
-    const filePath = sourceFile.getFilePath();
-
-    return filePath;
-}
-
-function analyzationOptionsToCompilerOptions(options: AnalyzationOptions): CompilerOptions {
-    const { resolveDeclarationFiles } = options;
-
-    const compilerOptions: CompilerOptions = {
-        moduleResolution: ModuleResolutionKind.Node16,
-        esModuleInterop: true,
-        maxNodeModuleJsDepth: 1,
-        noEmit: true,
-        allowJs: true,
-        noLib: true,
-        skipLibCheck: true,
-        module: ModuleKind.Node16,
-        resolvePackageJsonImports: true
-    };
-
-    if (!resolveDeclarationFiles) {
-        compilerOptions.types = [];
-        compilerOptions.typeRoots = [];
-    }
-
-    return compilerOptions;
+    return sourceFile.getFilePath();
 }
 
 export function createTypescriptProjectAnalyzer(
@@ -88,10 +52,7 @@ export function createTypescriptProjectAnalyzer(
                         return [];
                     }
 
-                    const referencedSourceFilePaths =
-                        getReferencedSourceFiles(currentSourceFile).map(getSourcePathFromSourceFile);
-
-                    return referencedSourceFilePaths;
+                    return getReferencedSourceFiles(currentSourceFile).map(getSourcePathFromSourceFile);
                 },
 
                 getProject() {

@@ -1,6 +1,6 @@
 import type { Result } from 'true-myth';
 import type { ProgressBroadcaster as ProgressBroadcasterBase } from '../progress/progress-broadcaster.ts';
-import type { BuildReport as ReportBuildReport } from '../report/report-aggregator.ts';
+import type { BuildReport as ReportBuildReport } from '../report/aggregator/report-types.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import type { CheckError, ResolvedPackage } from './resolved-package.ts';
 import type { PartialError } from './scheduler.ts';

@@ -1,19 +1,18 @@
 import type { PackageConfigsByName, PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { BundleSubstitutionSource } from '../linker/linked-bundle.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 import {
     preparePackageOptions,
-    resolvePublishSettings,
-    type PublishSettings,
     type SharedPackageOptions,
     type VersioningSettings
-} from './prepare-package-options.ts';
+} from './options/prepare-package-options.ts';
+import { resolvePublishSettings, type PublishSettings } from './options/setting-resolvers.ts';
 
-export type BuildOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
+export type BuildOptions = SharedPackageOptions<PublishedPackageWithManifest> & {
     readonly version: string;
 };
 
-export type BuildAndPublishOptions = SharedPackageOptions<VersionedBundleWithManifest> & {
+export type BuildAndPublishOptions = SharedPackageOptions<PublishedPackageWithManifest> & {
     readonly registrySettings: PacktoryConfig['registrySettings'];
     readonly publishSettings: PublishSettings;
     readonly versioning: VersioningSettings;
@@ -25,7 +24,7 @@ export function configToBuildAndPublishOptions(
     packageName: string,
     packageConfigs: PackageConfigsByName,
     packtoryConfig: PacktoryConfig,
-    existingBundles: readonly VersionedBundleWithManifest[]
+    existingBundles: readonly PublishedPackageWithManifest[]
 ): BuildAndPublishOptions {
     const { packageConfig, sharedOptions, versioning } = preparePackageOptions(
         packageName,

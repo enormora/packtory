@@ -1,9 +1,9 @@
 import { Maybe } from 'true-myth/maybe';
-import { unique } from 'remeda';
 import type { MainPackageJson } from '../config/package-json.ts';
+import { createDependencyGraph, type DependencyGraph, type DependencyGraphNodeData } from './dependency-graph.ts';
+import { determineExternalDependencies, determineLocalDependencies } from './module-path-classifier.ts';
 import type { SourceMapFileLocator } from './source-map-file-locator.ts';
-import type { TypescriptProjectAnalyzer, TypescriptProject } from './typescript-project-analyzer.ts';
-import { createDependencyGraph, type DependencyGraphNodeData, type DependencyGraph } from './dependency-graph.ts';
+import type { TypescriptProject, TypescriptProjectAnalyzer } from './typescript-project-analyzer.ts';
 
 type ScanOptions = {
     readonly includeSourceMapFiles: boolean;
@@ -16,39 +16,6 @@ type ScanOptionsInput = {
     readonly includeSourceMapFiles?: boolean;
     readonly resolveDeclarationFiles?: boolean;
 };
-
-function isNodeModulesPath(filePath: string): boolean {
-    return filePath.includes('/node_modules/');
-}
-
-function isLocalPath(filePath: string): boolean {
-    return !isNodeModulesPath(filePath);
-}
-
-function extractModuleName(nodeModulePath: string): string {
-    const prefix = '/node_modules/';
-    const pattern = /\/node_modules\/(?:[^@]+?|(?:@.+?\/.+?))\//;
-
-    const result = pattern.exec(nodeModulePath);
-
-    if (result === null) {
-        throw new Error(`Couldn’t find node_modules package name for '${nodeModulePath}'`);
-    }
-
-    return result[0].slice(prefix.length, -1);
-}
-
-function determineLocalDependencies(dependencies: readonly string[]): readonly string[] {
-    return dependencies.filter(isLocalPath);
-}
-
-function determineExternalDependencies(dependencies: readonly string[]): readonly string[] {
-    const modulePaths = dependencies.filter(isNodeModulesPath);
-    const moduleNames = modulePaths.map(extractModuleName);
-    const uniqueModuleNames = unique(moduleNames);
-
-    return uniqueModuleNames;
-}
 
 export type DependencyScannerDependencies = {
     readonly sourceMapFileLocator: SourceMapFileLocator;

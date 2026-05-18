@@ -1,0 +1,102 @@
+import assert from 'node:assert';
+import { test } from 'mocha';
+import type { PackageInterface } from '../config/package-interface.ts';
+import type { RootFileDescription } from '../resource-resolver/resolved-bundle.ts';
+import { resolveRepresentativeRoot } from './representative-root.ts';
+
+const indexRoot: RootFileDescription = {
+    js: { sourceFilePath: '/src/index.js', targetFilePath: 'index.js', content: '', isExecutable: false }
+};
+
+const featureRoot: RootFileDescription = {
+    js: { sourceFilePath: '/src/feature.js', targetFilePath: 'feature.js', content: '', isExecutable: false },
+    declarationFile: {
+        sourceFilePath: '/src/feature.d.ts',
+        targetFilePath: 'feature.d.ts',
+        content: '',
+        isExecutable: false
+    }
+};
+
+const cliRoot: RootFileDescription = {
+    js: {
+        sourceFilePath: '/src/cli.js',
+        targetFilePath: 'cli.js',
+        content: '#!/usr/bin/env node',
+        isExecutable: true
+    }
+};
+
+test('resolveRepresentativeRoot returns the implicit defaultModuleRoot for an implicit surface', () => {
+    assert.deepStrictEqual(
+        resolveRepresentativeRoot({
+            name: 'pkg-a',
+            roots: { main: indexRoot },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+        }),
+        indexRoot
+    );
+});
+
+test('resolveRepresentativeRoot returns the first explicit module root', () => {
+    assert.deepStrictEqual(
+        resolveRepresentativeRoot({
+            name: 'pkg-a',
+            roots: { main: indexRoot, feature: featureRoot },
+            surface: {
+                mode: 'explicit',
+                packageInterface: { modules: [{ root: 'feature', export: '.' }] }
+            }
+        }),
+        featureRoot
+    );
+});
+
+test('resolveRepresentativeRoot falls back to the first explicit bin root when no modules are declared', () => {
+    assert.deepStrictEqual(
+        resolveRepresentativeRoot({
+            name: 'pkg-a',
+            roots: { cli: cliRoot },
+            surface: {
+                mode: 'explicit',
+                packageInterface: { bins: [{ root: 'cli', name: 'pkg-a' }] }
+            }
+        }),
+        cliRoot
+    );
+});
+
+test('resolveRepresentativeRoot falls back to bins when the modules array is empty', () => {
+    const packageInterface = {
+        modules: [],
+        bins: [{ root: 'cli', name: 'pkg-a' }]
+    } as unknown as PackageInterface;
+    assert.deepStrictEqual(
+        resolveRepresentativeRoot({
+            name: 'pkg-a',
+            roots: { cli: cliRoot },
+            surface: { mode: 'explicit', packageInterface }
+        }),
+        cliRoot
+    );
+});
+
+test('resolveRepresentativeRoot throws when an explicit surface declares neither modules nor bins', () => {
+    try {
+        resolveRepresentativeRoot({
+            name: 'pkg-a',
+            roots: {},
+            surface: {
+                mode: 'explicit',
+                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- intentionally malformed surface
+                packageInterface: {} as never
+            }
+        });
+        assert.fail('Expected resolveRepresentativeRoot() to throw but it did not');
+    } catch (error: unknown) {
+        assert.strictEqual(
+            (error as Error).message,
+            'Package "pkg-a" explicit surface declares neither modules nor bins'
+        );
+    }
+});

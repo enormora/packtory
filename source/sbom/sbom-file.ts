@@ -1,6 +1,6 @@
 import type { PublishSettings } from '../config/publish-settings.ts';
-import type { FileDescription } from '../file-manager/file-description.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import { createFileDescription, type FileDescription } from '../file-manager/file-description.ts';
+import type { SbomPackage, SbomSiblingPackage } from '../published-package/published-package.ts';
 import { extractLicenseFromManifest } from './extract-license.ts';
 import type { LicenseResolver } from './license-resolver.ts';
 import type { SbomSerializer } from './sbom-serializer.ts';
@@ -17,12 +17,10 @@ type SbomFileBuilderDependencies = {
     readonly projectFolder: string;
 };
 
-type SbomSibling = Pick<VersionedBundleWithManifest, 'name' | 'packageJson'>;
-
 export type SbomFileBuilder = {
     generate: (
-        bundle: VersionedBundleWithManifest,
-        siblings: readonly SbomSibling[],
+        bundle: SbomPackage,
+        siblings: readonly SbomSiblingPackage[],
         publishSettings: PublishSettings
     ) => Promise<readonly FileDescription[] | undefined>;
 };
@@ -37,7 +35,7 @@ function isSbomEnabled(publishSettings: PublishSettings): boolean {
     return publishSettings.sbom?.enabled ?? true;
 }
 
-function listDependencyEntries(bundle: VersionedBundleWithManifest): readonly DependencyEntry[] {
+function listDependencyEntries(bundle: SbomPackage): readonly DependencyEntry[] {
     return [
         ...Object.entries(bundle.dependencies).map<DependencyEntry>(([name, specifier]) => {
             return { name, specifier, kind: 'runtime' };
@@ -52,8 +50,8 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
     const { licenseResolver, sbomSerializer, toolVersionProvider, projectFolder } = dependencies;
 
     async function resolveDependencyEntries(
-        bundle: VersionedBundleWithManifest,
-        siblings: readonly SbomSibling[]
+        bundle: SbomPackage,
+        siblings: readonly SbomSiblingPackage[]
     ): Promise<readonly SbomDependency[]> {
         const siblingsByName = new Map(
             siblings.map((sibling) => {
@@ -73,10 +71,7 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
         );
     }
 
-    async function buildFile(
-        bundle: VersionedBundleWithManifest,
-        siblings: readonly SbomSibling[]
-    ): Promise<FileDescription> {
+    async function buildFile(bundle: SbomPackage, siblings: readonly SbomSiblingPackage[]): Promise<FileDescription> {
         const [resolvedToolVersion, sbomDependencies] = await Promise.all([
             toolVersionProvider(),
             resolveDependencyEntries(bundle, siblings)
@@ -86,11 +81,7 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
             rootComponent: { name: bundle.packageJson.name, version: bundle.packageJson.version },
             dependencies: sbomDependencies
         });
-        return {
-            filePath: sbomFilePath,
-            content: sbomSerializer.serialize(bom),
-            isExecutable: false
-        };
+        return createFileDescription(sbomFilePath, sbomSerializer.serialize(bom));
     }
 
     return {

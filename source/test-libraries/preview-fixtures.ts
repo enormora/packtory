@@ -1,7 +1,7 @@
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { ArtifactEntry } from '../progress/progress-broadcaster.ts';
-import type { PreviewDocument, PreviewPackage } from '../report/preview-document.ts';
-import type { BuildReport, PackageReport } from '../report/report-aggregator.ts';
+import type { PreviewDocument, PreviewPackage } from '../report/preview/preview-document.ts';
+import type { BuildReport, PackageReport } from '../report/aggregator/report-types.ts';
 import type { AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { versionedBundleWithManifest } from './bundle-fixtures.ts';
 

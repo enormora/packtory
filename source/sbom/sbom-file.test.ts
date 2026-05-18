@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { PublishSettings } from '../config/publish-settings.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import type { SbomPackage } from '../published-package/published-package.ts';
 import { createSbomFileBuilder, type SbomFileBuilder } from './sbom-file.ts';
 
 type SbomSibling = Parameters<SbomFileBuilder['generate']>[1][number];
@@ -50,28 +50,13 @@ type BundleOverrides = {
     readonly peerDependencies?: Record<string, string>;
 };
 
-function createBundle(overrides: BundleOverrides): VersionedBundleWithManifest {
+function createBundle(overrides: BundleOverrides): SbomPackage {
     const dependencies = overrides.dependencies ?? {};
     const peerDependencies = overrides.peerDependencies ?? {};
     return {
-        name: overrides.name,
-        version: overrides.version,
-        contents: [],
-        roots: {
-            main: {
-                js: { sourceFilePath: '', targetFilePath: 'index.js', content: '', isExecutable: false }
-            }
-        },
-        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         dependencies,
         peerDependencies,
-        additionalAttributes: {},
-        exportsField: { '.': { import: './index.js' } },
-        mainFile: { sourceFilePath: '', targetFilePath: '', content: '', isExecutable: false },
-        packageType: 'module',
-        sideEffectsField: undefined,
-        packageJson: { name: overrides.name, version: overrides.version, dependencies, peerDependencies },
-        manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false }
+        packageJson: { name: overrides.name, version: overrides.version, dependencies, peerDependencies }
     };
 }
 
@@ -171,7 +156,7 @@ test('generate() looks up licenses for peer dependencies as well', async () => {
 
 async function captureScopeFor(
     name: string,
-    dependenciesShape: Pick<VersionedBundleWithManifest, 'dependencies' | 'peerDependencies'>
+    dependenciesShape: Pick<SbomPackage, 'dependencies' | 'peerDependencies'>
 ): Promise<string | undefined> {
     const serialize = fake.returns('{"sbom":"stub"}');
     const { builder } = createBuilder({ serialize });

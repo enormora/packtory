@@ -26,3 +26,9 @@ export type ResolvedBundle = {
     readonly exportPackageJson?: true | undefined;
     readonly externalDependencies: ExternalDependencies;
 };
+
+export function rootHasDeclarationFile(
+    root: RootFileDescription
+): root is RootFileDescription & { readonly declarationFile: TransferableFileDescription } {
+    return root.declarationFile !== undefined;
+}

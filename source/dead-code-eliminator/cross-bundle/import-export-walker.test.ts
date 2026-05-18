@@ -1,0 +1,43 @@
+import assert from 'node:assert';
+import { test } from 'mocha';
+import { linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
+import { createProject } from '../../test-libraries/typescript-project.ts';
+import { indexBundles, type IndexedBundle } from './bundle-index.ts';
+import { walkCrossBundleStatements } from './import-export-walker.ts';
+import { createSeedStore } from './seed-store.ts';
+
+function emptyIndex(): ReadonlyMap<string, IndexedBundle> {
+    return indexBundles([{ bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] }]);
+}
+
+function walkContent(
+    content: string,
+    localReachable: ReadonlySet<string> = new Set()
+): ReturnType<typeof createSeedStore> {
+    const project = createProject({ withFiles: [{ filePath: '/a/index.ts', content }] });
+    const sourceFile = project.getSourceFileOrThrow('/a/index.ts');
+    const seeds = createSeedStore();
+    walkCrossBundleStatements(sourceFile, {
+        indexed: emptyIndex(),
+        seeds,
+        sourceFilePath: sourceFile.getFilePath(),
+        localReachable
+    });
+    return seeds;
+}
+
+test('walkCrossBundleStatements does nothing when the file has no import or export statements', () => {
+    assert.strictEqual(walkContent('const x = 1;').size, 0);
+});
+
+test('walkCrossBundleStatements ignores imports whose specifier matches no indexed bundle', () => {
+    assert.strictEqual(walkContent('import { x } from "external";', new Set(['x'])).size, 0);
+});
+
+test('walkCrossBundleStatements ignores exports whose specifier matches no indexed bundle', () => {
+    assert.strictEqual(walkContent('export { x } from "external";').size, 0);
+});
+
+test('walkCrossBundleStatements skips bare re-exports that have no module specifier', () => {
+    assert.strictEqual(walkContent('function helper() { return 1; }\nexport { helper };').size, 0);
+});

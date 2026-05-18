@@ -18,15 +18,20 @@ const noSideEffectsAllowList = [
     'packages/package-processor.composition.js',
     'tar/tarball-builder.js',
     'config/packtory-config-without-registry-schema.js',
-    'bundle-emitter/publish-settings-bridge.js',
+    'bundle-emitter/registry/publish-settings-bridge.js',
+    'bundle-emitter/publish-error/publish-error-messages.js',
     'dead-code-eliminator/side-effect-classifier.js',
+    'dead-code-eliminator/statement-classifiers.js',
+    'dead-code-eliminator/syntax-kind-sets.js',
+    'dead-code-eliminator/pure-expression.js',
     'dead-code-eliminator/transform/declaration-remover.js',
+    'dead-code-eliminator/transform/named-declaration-kinds.js',
     'sbom/sbom-builder.js',
     'config/checks-schema.js',
     'config/package-schemas.js',
     'packages/command-line-interface/command-line-interface.entry-point.js',
     'packages/command-line-interface/spinner-boot.entry-point.js',
-    'command-line-interface/preview-io.js',
+    'command-line-interface/preview-io/preview-io.js',
     'packages/command-line-interface/spinner-worker.entry-point.js'
 ].map((filePath) => {
     return path.join(sourcesFolder, filePath);

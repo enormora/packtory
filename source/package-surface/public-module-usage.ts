@@ -1,7 +1,7 @@
 import { ts as typescript } from 'ts-morph';
 import { isCodeFile } from '../common/code-files.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { resolvePublicModuleSourceFilePath } from './modules.ts';
+import { resolvePublicModuleSourceFilePath } from './public-specifiers.ts';
 
 function recordUsage(usages: Map<string, Set<string>>, bundleName: string, sourceFilePath: string): void {
     const existing = usages.get(bundleName) ?? new Set<string>();
