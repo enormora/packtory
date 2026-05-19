@@ -70,21 +70,17 @@ export function resolvePartialFailure(error: PartialError<ResolvedPackage>): Par
 export type ResolveAndLinkFailure = CheckError | ConfigError | PartialErrorResult;
 export type ResolveAndLinkAllResult = Result<readonly ResolvedPackage[], ResolveAndLinkFailure>;
 
-export type ReleaseDiffAllOptions = {
-    readonly collectReport?: boolean;
-};
-
 export type ReleaseDiffFailure = CheckError | ConfigError | (PartialError<PackageReleaseDiff> & { type: 'partial' });
 export type ReleaseDiffAllResult = Result<readonly PackageReleaseDiff[], ReleaseDiffFailure>;
 
 export type ReleaseDiffAllOutcome = {
     readonly result: ReleaseDiffAllResult;
-    readonly getReport: () => BuildReport | undefined;
+    readonly getReport: () => BuildReport;
 };
 
 export function createReleaseDiffAllOutcome(
     result: ReleaseDiffAllResult,
-    getReport: () => BuildReport | undefined
+    getReport: () => BuildReport
 ): ReleaseDiffAllOutcome {
     return { result, getReport };
 }
@@ -95,7 +91,7 @@ export function releaseDiffPartialFailure(error: PartialError<PackageReleaseDiff
 
 export type Packtory = {
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
-    diffAgainstLatestPublished: (config: unknown, options?: ReleaseDiffAllOptions) => Promise<ReleaseDiffAllOutcome>;
+    diffAgainstLatestPublished: (config: unknown) => Promise<ReleaseDiffAllOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
 };
 

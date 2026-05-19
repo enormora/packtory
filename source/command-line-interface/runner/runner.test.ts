@@ -12,7 +12,7 @@ import {
     createPackageReportFixture
 } from '../../test-libraries/preview-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import { toOutcome } from '../../test-libraries/result-helpers.ts';
+import { toOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
 import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
@@ -76,7 +76,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
                 return fake.resolves(undefined);
             }),
             diffAgainstLatestPublished: createSpy(overrides.diffAgainstLatestPublished, () => {
-                return fake.resolves(toOutcome(Result.ok([])));
+                return fake.resolves(toReleaseDiffOutcome(Result.ok([])));
             }),
             resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([])))
         },
@@ -726,7 +726,7 @@ suite('runner', function () {
 
     test('release-diff command loads the config and invokes diffAgainstLatestPublished', async function () {
         const loadConfig = fake.resolves('the-config');
-        const diffAgainstLatestPublished = fake.resolves(toOutcome(Result.ok([])));
+        const diffAgainstLatestPublished = fake.resolves(toReleaseDiffOutcome(Result.ok([])));
         const runner = runnerFactory({ loadConfig, diffAgainstLatestPublished });
 
         const exitCode = await runner.run(['foo', 'bar', 'release-diff']);
@@ -735,12 +735,11 @@ suite('runner', function () {
         assert.strictEqual(loadConfig.callCount, 1);
         assert.strictEqual(diffAgainstLatestPublished.callCount, 1);
         assert.strictEqual(diffAgainstLatestPublished.firstCall.args[0], 'the-config');
-        assert.deepStrictEqual(diffAgainstLatestPublished.firstCall.args[1], { collectReport: true });
     });
 
     test('release-diff command returns exit code 1 when the result is an Err', async function () {
         const diffAgainstLatestPublished = fake.resolves(
-            toOutcome(Result.err({ type: 'config', issues: ['invalid config'] }))
+            toReleaseDiffOutcome(Result.err({ type: 'config', issues: ['invalid config'] }))
         );
         const runner = runnerFactory({ diffAgainstLatestPublished });
 

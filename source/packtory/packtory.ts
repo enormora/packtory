@@ -4,7 +4,7 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { validateConfig, validateConfigWithoutRegistry, type ValidConfigResult } from '../config/validation.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
-import { emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
+import { attachAggregator, emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 import { createResolveAndLinkAllValidated } from './packtory-resolve.ts';
 import { createRunBuildAndPublishValidated } from './packtory-publish.ts';
 import {
@@ -18,7 +18,6 @@ import {
     type ProgressBroadcaster,
     type PublishAllOutcome as PublishAllOutcomeBase,
     type PublishAllResult as PublishAllResultBase,
-    type ReleaseDiffAllOptions as ReleaseDiffAllOptionsBase,
     type ReleaseDiffAllOutcome as ReleaseDiffAllOutcomeBase,
     type ReleaseDiffAllResult as ReleaseDiffAllResultBase,
     type ResolveAndLinkFailure as ResolveAndLinkFailureBase,
@@ -31,7 +30,6 @@ import type { Scheduler as PacktoryScheduler } from './scheduler.ts';
 
 export type BuildAndPublishAllOptions = BuildAndPublishAllOptionsBase;
 export type ResolveAndLinkAllOptions = ResolveAndLinkAllOptionsBase;
-export type ReleaseDiffAllOptions = ReleaseDiffAllOptionsBase;
 export type BuildReport = BuildReportBase;
 export type PublishAllOutcome = PublishAllOutcomeBase;
 export type ResolveAndLinkAllOutcome = ResolveAndLinkAllOutcomeBase;
@@ -103,11 +101,8 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         }
     }
 
-    async function diffAgainstLatestPublishedPublic(
-        config: unknown,
-        options: ReleaseDiffAllOptions = {}
-    ): Promise<ReleaseDiffAllOutcome> {
-        const reporting = maybeAttachAggregator(progressBroadcaster, options.collectReport);
+    async function diffAgainstLatestPublishedPublic(config: unknown): Promise<ReleaseDiffAllOutcome> {
+        const reporting = attachAggregator(progressBroadcaster);
         try {
             const validation = validateConfig(config);
             if (validation.isErr) {
@@ -115,11 +110,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             }
 
             emitEffectiveConfigPerPackage(progressBroadcaster, validation.value.packtoryConfig);
-            const result = await diffAgainstLatestPublishedValidated(
-                validation.value,
-                resolveAndLinkAllValidated,
-                reporting.getReport
-            );
+            const result = await diffAgainstLatestPublishedValidated(validation.value, resolveAndLinkAllValidated);
             return createReleaseDiffAllOutcome(result, reporting.getReport);
         } finally {
             reporting.dispose();

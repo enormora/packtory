@@ -1,22 +1,23 @@
-import type { PackageReport } from '../aggregator/report-types.ts';
-
 const unpublishedLabel = '(unpublished)';
 
-export function buildReleaseVersionTransition(packageReport: PackageReport): string {
-    const { version } = packageReport.decisions;
-    if (version === undefined) {
+export type ReleaseVersionFields = {
+    readonly previousVersion: string | undefined;
+    readonly chosenVersion: string | undefined;
+};
+
+export function buildReleaseVersionTransition(fields: ReleaseVersionFields): string {
+    if (fields.chosenVersion === undefined) {
         return unpublishedLabel;
     }
-    if (version.previousVersion === undefined) {
-        return `${unpublishedLabel} -> ${version.chosenVersion}`;
+    if (fields.previousVersion === undefined) {
+        return `${unpublishedLabel} -> ${fields.chosenVersion}`;
     }
-    return `${version.previousVersion} -> ${version.chosenVersion}`;
+    return `${fields.previousVersion} -> ${fields.chosenVersion}`;
 }
 
-export function buildReleaseVersionLabel(packageReport: PackageReport): string {
-    const { version } = packageReport.decisions;
-    if (version?.previousVersion === undefined) {
+export function buildReleaseVersionLabel(fields: Pick<ReleaseVersionFields, 'previousVersion'>): string {
+    if (fields.previousVersion === undefined) {
         return unpublishedLabel;
     }
-    return version.previousVersion;
+    return fields.previousVersion;
 }

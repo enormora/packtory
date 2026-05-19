@@ -5,18 +5,26 @@ type PathTreeNodeLike = {
     readonly type: 'directory' | 'file';
 };
 
-export function pathNodeSortKey(node: PathTreeNodeLike): string {
+const manifestFilePriority = 0;
+const directoryPriority = 1;
+const regularFilePriority = 2;
+
+function priorityOf(node: PathTreeNodeLike): number {
     if (node.type === 'file' && node.name === 'package.json') {
-        return `0:${node.name}`;
+        return manifestFilePriority;
     }
     if (node.type === 'directory') {
-        return `1:${node.name}`;
+        return directoryPriority;
     }
-    return `2:${node.name}`;
+    return regularFilePriority;
 }
 
-export function comparePathNodes(left: PathTreeNodeLike, right: PathTreeNodeLike): number {
-    return pathNodeSortKey(left).localeCompare(pathNodeSortKey(right));
+function comparePathNodes(left: PathTreeNodeLike, right: PathTreeNodeLike): number {
+    const priorityDifference = priorityOf(left) - priorityOf(right);
+    if (priorityDifference !== 0) {
+        return priorityDifference;
+    }
+    return left.name.localeCompare(right.name);
 }
 
 type PathTreeDirectoryNode = {
@@ -54,7 +62,6 @@ type RootDirectory<T> = {
 type TreeChild<T> = {
     readonly node: PathTreeNode<T>;
     readonly directory?: MutableDirectory<T>;
-    readonly sortKey: string;
 };
 
 function createDirectory<T>(pathname: string, name: string, depth: number): MutableDirectory<T> {
@@ -82,7 +89,7 @@ function toDirectoryChildren<T>(directory: RootDirectory<T>): readonly TreeChild
             name: entry.name,
             depth: entry.depth
         };
-        return { node, directory: entry, sortKey: pathNodeSortKey(node) };
+        return { node, directory: entry };
     });
 }
 
@@ -96,7 +103,7 @@ function toFileChildren<T>(directory: RootDirectory<T>, getPath: (item: T) => st
             depth: directory.depth,
             item
         };
-        return { node, sortKey: pathNodeSortKey(node) };
+        return { node };
     });
 }
 

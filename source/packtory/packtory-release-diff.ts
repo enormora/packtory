@@ -1,6 +1,5 @@
 import { Result } from 'true-myth';
 import type { ValidConfigResult } from '../config/validation.ts';
-import type { BuildReport, PackageReport } from '../report/aggregator/report-types.ts';
 import type { PackageReleaseDiff } from '../report/release-diff/file-set-diff.ts';
 import {
     releaseDiffPartialFailure,
@@ -9,16 +8,10 @@ import {
     type ResolveAndLinkFailure
 } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
+import { mapResolveFailureToReleaseDiffFailure } from './release-diff-failure-mapping.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
 import { runReleaseDiffStage, type ReleaseDiffStageDependencies } from './stages/release-diff-stage.ts';
-
-export const emptyAggregateReport: BuildReport = {
-    schemaVersion: 1,
-    generatedAt: '1970-01-01T00:00:00.000Z',
-    packages: {},
-    aggregate: { crossBundleLinks: [] }
-};
 
 type ResolveAndLinkAllValidated = (
     config: ValidConfigResult
@@ -29,25 +22,14 @@ export type ReleaseDiffOrchestratorDependencies = PublishStageDependencies & Rel
 type PublishStageOutcome = Awaited<ReturnType<typeof determineVersionAndPublishAll>>;
 type ReleaseDiffStageOutcome = Awaited<ReturnType<typeof runReleaseDiffStage>>;
 
-export function mapResolveFailureToReleaseDiffFailure(error: ResolveAndLinkFailure): ReleaseDiffFailure {
-    if (error.type === 'partial') {
-        return { type: 'partial', succeeded: [], failures: error.error.failures };
-    }
-    return error;
-}
-
-export function succeededFromStage(stageResult: ReleaseDiffStageOutcome): readonly PackageReleaseDiff[] {
+function succeededFromStage(stageResult: ReleaseDiffStageOutcome): readonly PackageReleaseDiff[] {
     if (stageResult.isOk) {
         return stageResult.value;
     }
     return stageResult.error.succeeded;
 }
 
-export function ensureReport(report: BuildReport | undefined): BuildReport {
-    return report ?? emptyAggregateReport;
-}
-
-export function succeededFromPublish(publishResult: PublishStageOutcome): readonly BuildAndPublishResult[] {
+function succeededFromPublish(publishResult: PublishStageOutcome): readonly BuildAndPublishResult[] {
     if (publishResult.isOk) {
         return publishResult.value;
     }
@@ -65,36 +47,7 @@ function buildPartialFromPublish(
     };
 }
 
-export function synthesizeFallbackPackageReport(result: BuildAndPublishResult): PackageReport {
-    const previousVersion = result.previousReleaseArtifacts.isJust
-        ? result.previousReleaseArtifacts.value.version
-        : undefined;
-    return {
-        decisions: {
-            version: {
-                previousVersion,
-                chosenVersion: result.bundle.version,
-                trigger: previousVersion === undefined ? 'initial' : 'auto-patch-bump'
-            }
-        },
-        timings: {}
-    };
-}
-
-export function ensureReportPackages(report: BuildReport, succeeded: readonly BuildAndPublishResult[]): BuildReport {
-    const missingPackageReports: Record<string, PackageReport> = {};
-    for (const result of succeeded) {
-        if (!Object.hasOwn(report.packages, result.bundle.name)) {
-            missingPackageReports[result.bundle.name] = synthesizeFallbackPackageReport(result);
-        }
-    }
-    if (Object.keys(missingPackageReports).length === 0) {
-        return report;
-    }
-    return { ...report, packages: { ...report.packages, ...missingPackageReports } };
-}
-
-export function toFinalReleaseDiffResult(
+function toFinalReleaseDiffResult(
     publishResult: PublishStageOutcome,
     stageResult: ReleaseDiffStageOutcome
 ): ReleaseDiffAllResult {
@@ -111,10 +64,9 @@ export function createDiffAgainstLatestPublishedValidated(
     dependencies: ReleaseDiffOrchestratorDependencies
 ): (
     validated: ValidConfigResult,
-    resolveAndLinkAllValidated: ResolveAndLinkAllValidated,
-    getReport: () => BuildReport | undefined
+    resolveAndLinkAllValidated: ResolveAndLinkAllValidated
 ) => Promise<ReleaseDiffAllResult> {
-    return async function diffAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated, getReport) {
+    return async function diffAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated) {
         const resolved = await resolveAndLinkAllValidated(validated);
         if (resolved.isErr) {
             return Result.err(mapResolveFailureToReleaseDiffFailure(resolved.error));
@@ -123,8 +75,7 @@ export function createDiffAgainstLatestPublishedValidated(
             dryRun: true
         });
         const succeededPublish = succeededFromPublish(publishResult);
-        const report = ensureReportPackages(ensureReport(getReport()), succeededPublish);
-        const stageResult = await runReleaseDiffStage(dependencies, validated, succeededPublish, report);
+        const stageResult = await runReleaseDiffStage(dependencies, validated, succeededPublish);
         return toFinalReleaseDiffResult(publishResult, stageResult);
     };
 }

@@ -1,27 +1,19 @@
+/* eslint-disable import/max-dependencies -- orchestrator integration tests cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Maybe, Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../config/validation.ts';
-import type { BuildReport } from '../report/aggregator/report-types.ts';
-import {
-    emptyScheduler,
-    stubPackageProcessor,
-    stubProgressBroadcaster
-} from '../test-libraries/orchestrator-stub-fixtures.ts';
+import { createIteratingScheduler } from '../test-libraries/iterating-scheduler.ts';
+import { stubPackageProcessor, stubProgressBroadcaster } from '../test-libraries/orchestrator-stub-fixtures.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import {
     createDiffAgainstLatestPublishedValidated,
-    emptyAggregateReport,
-    ensureReport,
-    ensureReportPackages,
-    mapResolveFailureToReleaseDiffFailure,
-    succeededFromPublish,
-    succeededFromStage,
-    synthesizeFallbackPackageReport,
-    toFinalReleaseDiffResult
+    type ReleaseDiffOrchestratorDependencies
 } from './packtory-release-diff.ts';
+import type { ReleaseDiffAllResult } from './packtory-results.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
+import type { PartialError, Scheduler as PackageScheduler } from './scheduler.ts';
 
 const artifactsBuilder = { collectContents: () => [] } as unknown as Pick<ArtifactsBuilder, 'collectContents'>;
 
@@ -35,225 +27,223 @@ function configFor(packageNames: readonly string[]): ValidConfigResult {
     } as unknown as ValidConfigResult;
 }
 
-function emptyReport(): BuildReport {
-    return {
-        schemaVersion: 1,
-        generatedAt: '2026-05-19T00:00:00.000Z',
-        packages: {},
-        aggregate: { crossBundleLinks: [] }
+const okResolve = async () => {
+    return Result.ok([] as readonly ResolvedPackage[]);
+};
+
+function createDiff(scheduler: PackageScheduler): ReturnType<typeof createDiffAgainstLatestPublishedValidated> {
+    const dependencies: ReleaseDiffOrchestratorDependencies = {
+        artifactsBuilder,
+        packageProcessor: stubPackageProcessor,
+        progressBroadcaster: stubProgressBroadcaster,
+        scheduler
     };
+    return createDiffAgainstLatestPublishedValidated(dependencies);
 }
 
-function missingPkgResult(name: string, version: string): BuildAndPublishResult {
+function staged<TFirst, TSecond>(
+    firstReturn: () => Result<TFirst, PartialError<unknown>>,
+    secondReturn: () => Result<TSecond, PartialError<unknown>>
+): PackageScheduler {
+    let invocations = 0;
     return {
-        status: 'new-version',
-        bundle: { name, version },
-        extraFiles: [],
-        previousReleaseArtifacts: Maybe.nothing()
-    } as unknown as BuildAndPublishResult;
+        async runForEachScheduledPackage() {
+            invocations += 1;
+            if (invocations === 1) {
+                return firstReturn();
+            }
+            return secondReturn();
+        }
+    } as unknown as PackageScheduler;
 }
 
-function expectPartialFailureWithFailures(
-    finalResult: ReturnType<typeof toFinalReleaseDiffResult>,
-    failures: readonly Error[]
-): void {
-    if (finalResult.isOk) {
+function publishThenRunStage(succeededPublish: readonly BuildAndPublishResult[]): PackageScheduler {
+    let invocations = 0;
+    return {
+        async runForEachScheduledPackage(params: {
+            readonly config: { readonly packtoryConfig: { readonly packages: readonly { readonly name: string }[] } };
+            readonly createOptions: (context: {
+                readonly packageName: string;
+                readonly existing: readonly unknown[];
+                readonly config: unknown;
+            }) => unknown;
+            readonly execute: (options: unknown) => Promise<unknown>;
+        }) {
+            invocations += 1;
+            if (invocations === 1) {
+                return Result.ok(succeededPublish);
+            }
+            const stageResults: unknown[] = [];
+            for (const pkg of params.config.packtoryConfig.packages) {
+                const options = params.createOptions({
+                    packageName: pkg.name,
+                    existing: [],
+                    config: params.config
+                });
+                const result = await params.execute(options);
+                if (result !== undefined) {
+                    stageResults.push(result);
+                }
+            }
+            return Result.ok(stageResults);
+        }
+    } as unknown as PackageScheduler;
+}
+
+async function assertDerivedTransition(spec: {
+    readonly buildResult: BuildAndPublishResult;
+    readonly expectedState: 'changed' | 'first-publish' | 'unchanged';
+    readonly expectedVersionTransition: string;
+    readonly expectedPreviousVersionLabel: string;
+}): Promise<void> {
+    const diff = createDiff(publishThenRunStage([spec.buildResult]));
+
+    const result = await diff(configFor(['pkg-a']), okResolve);
+
+    if (result.isErr) {
+        assert.fail(`expected Ok, got ${result.error.type}`);
+    }
+    const [entry] = result.value;
+    assert.ok(entry);
+    assert.strictEqual(entry.state, spec.expectedState);
+    assert.strictEqual(entry.versionTransition, spec.expectedVersionTransition);
+    assert.strictEqual(entry.previousVersionLabel, spec.expectedPreviousVersionLabel);
+}
+
+function expectPartialErr(result: ReleaseDiffAllResult): PartialError<unknown> & { readonly type: 'partial' } {
+    if (result.isOk) {
         assert.fail('expected Err');
     }
-    if (finalResult.error.type !== 'partial') {
-        assert.fail(`expected partial failure, got ${finalResult.error.type}`);
+    if (result.error.type !== 'partial') {
+        assert.fail(`expected partial, got ${result.error.type}`);
     }
-    assert.deepStrictEqual(finalResult.error.failures, failures);
+    return result.error;
 }
 
 suite('packtory-release-diff', function () {
-    test('propagates a resolve-stage config failure as a release-diff config failure', async function () {
-        const diffAgainstLatestPublishedValidated = createDiffAgainstLatestPublishedValidated({
-            artifactsBuilder,
-            packageProcessor: stubPackageProcessor,
-            progressBroadcaster: stubProgressBroadcaster,
-            scheduler: emptyScheduler
+    test('returns a config Err when resolve-and-link returns a non-partial failure (unchanged passthrough)', async function () {
+        const diff = createDiff(createIteratingScheduler([]));
+
+        const result = await diff(configFor([]), async () => {
+            return Result.err({ type: 'config', issues: ['bad'] });
         });
-        const result = await diffAgainstLatestPublishedValidated(
-            configFor([]),
-            async () => Result.err({ type: 'config', issues: ['bad config'] }),
-            emptyReport
-        );
 
         if (result.isOk) {
-            assert.fail('expected an Err result');
+            assert.fail('expected Err');
         }
         assert.strictEqual(result.error.type, 'config');
     });
 
-    test('returns an Ok release-diff result when resolve and publish-stage both succeed', async function () {
-        const diffAgainstLatestPublishedValidated = createDiffAgainstLatestPublishedValidated({
-            artifactsBuilder,
-            packageProcessor: stubPackageProcessor,
-            progressBroadcaster: stubProgressBroadcaster,
-            scheduler: emptyScheduler
+    test('returns a partial Err with empty succeeded and the resolve-stage failures when resolve-and-link returns a partial failure', async function () {
+        const diff = createDiff(createIteratingScheduler([]));
+        const resolveFailures = [new Error('resolve a'), new Error('resolve b')];
+
+        const result = await diff(configFor([]), async () => {
+            return Result.err({ type: 'partial', error: { succeeded: [], failures: resolveFailures } });
         });
-        const result = await diffAgainstLatestPublishedValidated(
-            configFor([]),
-            async () => Result.ok([] as readonly ResolvedPackage[]),
-            emptyReport
-        );
+
+        const partial = expectPartialErr(result);
+        assert.deepStrictEqual(partial.succeeded, []);
+        assert.deepStrictEqual(partial.failures, resolveFailures);
+    });
+
+    test('returns Ok with an empty diff array when resolve, publish-stage, and release-diff-stage all succeed with no packages', async function () {
+        const diff = createDiff(createIteratingScheduler([]));
+
+        const result = await diff(configFor([]), okResolve);
 
         if (result.isErr) {
-            assert.fail('expected an Ok result');
+            assert.fail('expected Ok');
         }
         assert.deepStrictEqual(result.value, []);
     });
 
-    test('mapResolveFailureToReleaseDiffFailure passes through config and checks failures unchanged', function () {
-        const configFailure = { type: 'config' as const, issues: ['bad config'] };
-        const checksFailure = { type: 'checks' as const, issues: ['bad check'] };
-        assert.deepStrictEqual(mapResolveFailureToReleaseDiffFailure(configFailure), configFailure);
-        assert.deepStrictEqual(mapResolveFailureToReleaseDiffFailure(checksFailure), checksFailure);
+    test('returns a partial Err carrying the publish-stage failures when publish-stage returns Err', async function () {
+        const publishError = new Error('publish failed');
+        const diff = createDiff(
+            staged(
+                () => {
+                    return Result.err({ succeeded: [], failures: [publishError] });
+                },
+                () => {
+                    return Result.ok([]);
+                }
+            )
+        );
+
+        const partial = expectPartialErr(await diff(configFor(['pkg-a']), okResolve));
+        assert.deepStrictEqual(partial.failures, [publishError]);
+        assert.deepStrictEqual(partial.succeeded, []);
     });
 
-    test('mapResolveFailureToReleaseDiffFailure converts a resolve partial failure to an empty-succeeded release-diff partial failure', function () {
-        const resolveFailures = [new Error('a'), new Error('b')];
-        const releaseDiffFailure = mapResolveFailureToReleaseDiffFailure({
-            type: 'partial',
-            error: { succeeded: [], failures: resolveFailures }
-        });
-        if (releaseDiffFailure.type !== 'partial') {
-            assert.fail(`expected partial failure, got ${releaseDiffFailure.type}`);
-        }
-        assert.deepStrictEqual(releaseDiffFailure.succeeded, []);
-        assert.deepStrictEqual(releaseDiffFailure.failures, resolveFailures);
-    });
-
-    test('synthesizeFallbackPackageReport derives the version decision from previousReleaseArtifacts when present', function () {
-        const result = {
-            status: 'new-version',
-            bundle: { name: 'pkg-a', version: '1.0.1' },
-            extraFiles: [],
-            previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: [] })
-        } as unknown as BuildAndPublishResult;
-        const report = synthesizeFallbackPackageReport(result);
-        assert.deepStrictEqual(report.decisions.version, {
-            previousVersion: '1.0.0',
-            chosenVersion: '1.0.1',
-            trigger: 'auto-patch-bump'
-        });
-    });
-
-    test('synthesizeFallbackPackageReport marks the trigger as initial when there is no previousReleaseArtifacts', function () {
-        const result = {
-            status: 'initial-version',
-            bundle: { name: 'pkg-a', version: '1.0.0' },
-            extraFiles: [],
-            previousReleaseArtifacts: Maybe.nothing()
-        } as unknown as BuildAndPublishResult;
-        const report = synthesizeFallbackPackageReport(result);
-        assert.deepStrictEqual(report.decisions.version, {
-            previousVersion: undefined,
-            chosenVersion: '1.0.0',
-            trigger: 'initial'
-        });
-    });
-
-    test('ensureReportPackages returns the original report when every succeeded package is already represented', function () {
-        const baseReport: BuildReport = {
-            schemaVersion: 1,
-            generatedAt: '2026-05-19T00:00:00.000Z',
-            packages: {
-                'pkg-a': { decisions: {}, timings: {} }
-            },
-            aggregate: { crossBundleLinks: [] }
+    test('returns a partial Err combining publish-stage failures with the release-diff stage succeeded entries when both stages fail', async function () {
+        const publishError = new Error('publish failed');
+        const stageError = new Error('stage failed');
+        const partialStageSuccess = {
+            name: 'pkg-stage-survivor',
+            state: 'changed' as const,
+            versionTransition: '1.0.0 -> 1.0.1',
+            previousVersionLabel: '1.0.0',
+            files: { added: [], removed: [], modified: [], unchanged: [] }
         };
-        const result = {
-            status: 'new-version',
-            bundle: { name: 'pkg-a', version: '1.0.0' },
-            extraFiles: [],
-            previousReleaseArtifacts: Maybe.nothing()
-        } as unknown as BuildAndPublishResult;
-        assert.strictEqual(ensureReportPackages(baseReport, [result]), baseReport);
-    });
-
-    test('ensureReportPackages adds a fallback package entry for a succeeded package missing from the report', function () {
-        const baseReport = emptyReport();
-        const merged = ensureReportPackages(baseReport, [missingPkgResult('pkg-missing', '2.0.0')]);
-        const synthesizedReport = merged.packages['pkg-missing'];
-        assert.ok(synthesizedReport);
-        assert.strictEqual(synthesizedReport.decisions.version?.chosenVersion, '2.0.0');
-    });
-
-    test('toFinalReleaseDiffResult returns a partial Err with publish-stage failures when publish-stage failed', function () {
-        const publishFailure = new Error('publish failed');
-        const finalResult = toFinalReleaseDiffResult(
-            Result.err({ succeeded: [], failures: [publishFailure] }),
-            Result.ok([])
+        const diff = createDiff(
+            staged(
+                () => {
+                    return Result.err({ succeeded: [], failures: [publishError] });
+                },
+                () => {
+                    return Result.err({ succeeded: [partialStageSuccess], failures: [stageError] });
+                }
+            )
         );
-        expectPartialFailureWithFailures(finalResult, [publishFailure]);
+
+        const partial = expectPartialErr(await diff(configFor(['pkg-a']), okResolve));
+        assert.deepStrictEqual(partial.failures, [publishError]);
+        assert.deepStrictEqual(partial.succeeded, [partialStageSuccess]);
     });
 
-    test('toFinalReleaseDiffResult returns a partial Err with release-diff stage failures when only the stage failed', function () {
-        const stageFailure = new Error('stage failed');
-        const finalResult = toFinalReleaseDiffResult(
-            Result.ok([]),
-            Result.err({ succeeded: [], failures: [stageFailure] })
+    test('returns a partial Err carrying the release-diff stage failures when only the stage returns Err', async function () {
+        const stageError = new Error('stage failed');
+        const diff = createDiff(
+            staged(
+                () => {
+                    return Result.ok([]);
+                },
+                () => {
+                    return Result.err({ succeeded: [], failures: [stageError] });
+                }
+            )
         );
-        expectPartialFailureWithFailures(finalResult, [stageFailure]);
+
+        const partial = expectPartialErr(await diff(configFor(['pkg-a']), okResolve));
+        assert.deepStrictEqual(partial.failures, [stageError]);
     });
 
-    test('succeededFromStage returns the partial succeeded array when the stage failed', function () {
-        const partialSucceeded = [
-            {
-                name: 'pkg-a',
-                state: 'changed' as const,
-                versionTransition: '1 -> 2',
-                previousVersionLabel: '1',
-                files: { added: [], removed: [], modified: [], unchanged: [] },
-                diagnostics: { decisions: {}, timings: {} }
-            }
-        ];
-        const stageResult = Result.err({
-            succeeded: partialSucceeded,
-            failures: [new Error('boom')]
-        });
-        assert.strictEqual(succeededFromStage(stageResult), partialSucceeded);
-    });
-
-    test('emptyAggregateReport is a fixed placeholder report shape with no packages or cross-bundle links', function () {
-        assert.deepStrictEqual(emptyAggregateReport, {
-            schemaVersion: 1,
-            generatedAt: '1970-01-01T00:00:00.000Z',
-            packages: {},
-            aggregate: { crossBundleLinks: [] }
-        });
-    });
-
-    test('ensureReport returns the given report unchanged when present', function () {
-        const report = emptyReport();
-        assert.strictEqual(ensureReport(report), report);
-    });
-
-    test('ensureReport falls back to emptyAggregateReport when no report is given', function () {
-        assert.strictEqual(ensureReport(undefined), emptyAggregateReport);
-    });
-
-    test('ensureReportPackages returns a different report instance (not the original) when synthesizing missing entries', function () {
-        const baseReport = emptyReport();
-        const merged = ensureReportPackages(baseReport, [missingPkgResult('pkg-missing', '2.0.0')]);
-        assert.notStrictEqual(merged, baseReport);
-    });
-
-    test('succeededFromPublish returns the partial succeeded array when publish failed', function () {
-        const partialSucceeded = [
-            {
-                status: 'new-version',
+    test('derives a first-publish entry with versionTransition "(unpublished) -> X.Y.Z" from the build result when previousReleaseArtifacts is Nothing', async function () {
+        await assertDerivedTransition({
+            buildResult: {
+                status: 'initial-version',
                 bundle: { name: 'pkg-a', version: '1.0.0' },
                 extraFiles: [],
                 previousReleaseArtifacts: Maybe.nothing()
-            } as unknown as BuildAndPublishResult
-        ];
-        const publishResult = Result.err({
-            succeeded: partialSucceeded,
-            failures: [new Error('publish boom')]
+            } as unknown as BuildAndPublishResult,
+            expectedState: 'first-publish',
+            expectedVersionTransition: '(unpublished) -> 1.0.0',
+            expectedPreviousVersionLabel: '(unpublished)'
         });
-        assert.strictEqual(succeededFromPublish(publishResult), partialSucceeded);
+    });
+
+    test('derives a changed entry with versionTransition "PREV -> NEW" from the build result when previousReleaseArtifacts carries a previous version', async function () {
+        await assertDerivedTransition({
+            buildResult: {
+                status: 'new-version',
+                bundle: { name: 'pkg-a', version: '1.0.1' },
+                extraFiles: [],
+                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: [] })
+            } as unknown as BuildAndPublishResult,
+            expectedState: 'changed',
+            expectedVersionTransition: '1.0.0 -> 1.0.1',
+            expectedPreviousVersionLabel: '1.0.0'
+        });
     });
 });

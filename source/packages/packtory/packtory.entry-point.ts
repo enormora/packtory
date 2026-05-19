@@ -36,7 +36,6 @@ export type ResolveAndLinkFailure = packtoryTypes.ResolveAndLinkFailure;
 export type ResolvedPackage = resolvedPackageTypes.ResolvedPackage;
 export type BuildAndPublishAllOptions = packtoryTypes.BuildAndPublishAllOptions;
 export type ResolveAndLinkAllOptions = packtoryTypes.ResolveAndLinkAllOptions;
-export type ReleaseDiffAllOptions = packtoryTypes.ReleaseDiffAllOptions;
 export type ReleaseDiffAllResult = packtoryTypes.ReleaseDiffAllResult;
 export type ReleaseDiffAllOutcome = packtoryTypes.ReleaseDiffAllOutcome;
 export type BuildReport = packtoryTypes.BuildReport;

@@ -25,7 +25,7 @@ export function isDiffableArtifact(entry: ArtifactEntry): entry is ArtifactEntry
     );
 }
 
-export function toDiffLineType(line: string): PreviewDiffLineType {
+function toDiffLineType(line: string): PreviewDiffLineType {
     if (line.startsWith('+')) {
         return 'add';
     }

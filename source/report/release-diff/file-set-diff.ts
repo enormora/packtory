@@ -1,7 +1,6 @@
 import { isTextDiffablePath } from '../../common/code-files.ts';
 import { areFileDescriptionEqual } from '../../file-manager/equal.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import type { PackageReport } from '../aggregator/report-types.ts';
 import type { PreviewDiffHunk } from '../preview/preview-document-diff.ts';
 import { buildFileHunks } from './file-hunks.ts';
 
@@ -52,7 +51,6 @@ export type PackageReleaseDiff = {
     readonly versionTransition: string;
     readonly previousVersionLabel: string;
     readonly files: FileSetDiff;
-    readonly diagnostics: PackageReport;
 };
 
 export type PackageReleaseDiffStateView = Pick<PackageReleaseDiff, 'files' | 'state'>;

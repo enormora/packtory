@@ -7,7 +7,6 @@ export function createPackageReleaseDiff(overrides: Partial<PackageReleaseDiff> 
         versionTransition: '1.0.0 -> 1.0.1',
         previousVersionLabel: '1.0.0',
         files: { added: [], removed: [], modified: [], unchanged: [] },
-        diagnostics: { decisions: {}, timings: {} },
         ...overrides
     };
 }

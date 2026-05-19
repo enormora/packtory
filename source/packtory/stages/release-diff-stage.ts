@@ -2,7 +2,6 @@ import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import type { BuildReport, PackageReport } from '../../report/aggregator/report-types.ts';
 import {
     buildFileSetDiff,
     type FileSetDiff,
@@ -10,7 +9,8 @@ import {
 } from '../../report/release-diff/file-set-diff.ts';
 import {
     buildReleaseVersionLabel,
-    buildReleaseVersionTransition
+    buildReleaseVersionTransition,
+    type ReleaseVersionFields
 } from '../../report/release-diff/release-version-transition.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { PartialError, Scheduler as PacktoryScheduler } from '../scheduler.ts';
@@ -23,7 +23,6 @@ export type ReleaseDiffStageDependencies = {
 type ExecOptions = {
     readonly packageName: string;
     readonly buildResult: BuildAndPublishResult | undefined;
-    readonly packageReport: PackageReport | undefined;
 };
 
 type ExecResult = PackageReleaseDiff | undefined;
@@ -44,37 +43,45 @@ function asAddedFiles(files: readonly FileDescription[]): FileSetDiff {
     return { ...emptyFileSetDiff(), added: files.map(asAddedFile) };
 }
 
+function versionFieldsFor(buildResult: BuildAndPublishResult): ReleaseVersionFields {
+    return {
+        previousVersion: buildResult.previousReleaseArtifacts.isJust
+            ? buildResult.previousReleaseArtifacts.value.version
+            : undefined,
+        chosenVersion: buildResult.bundle.version
+    };
+}
+
 function diffEntry(
     packageName: string,
     state: PackageReleaseDiff['state'],
     files: FileSetDiff,
-    packageReport: PackageReport
+    versionFields: ReleaseVersionFields
 ): PackageReleaseDiff {
     return {
         name: packageName,
         state,
-        versionTransition: buildReleaseVersionTransition(packageReport),
-        previousVersionLabel: buildReleaseVersionLabel(packageReport),
-        files,
-        diagnostics: packageReport
+        versionTransition: buildReleaseVersionTransition(versionFields),
+        previousVersionLabel: buildReleaseVersionLabel(versionFields),
+        files
     };
 }
 
 function classifyDiff(
     artifactsBuilder: ReleaseDiffStageDependencies['artifactsBuilder'],
     packageName: string,
-    buildResult: BuildAndPublishResult,
-    packageReport: PackageReport
+    buildResult: BuildAndPublishResult
 ): PackageReleaseDiff {
+    const versionFields = versionFieldsFor(buildResult);
     if (buildResult.status === 'already-published') {
-        return diffEntry(packageName, 'unchanged', emptyFileSetDiff(), packageReport);
+        return diffEntry(packageName, 'unchanged', emptyFileSetDiff(), versionFields);
     }
     const newSideFiles = artifactsBuilder.collectContents(buildResult.bundle, 'package', buildResult.extraFiles);
     if (buildResult.previousReleaseArtifacts.isNothing) {
-        return diffEntry(packageName, 'first-publish', asAddedFiles(newSideFiles), packageReport);
+        return diffEntry(packageName, 'first-publish', asAddedFiles(newSideFiles), versionFields);
     }
     const files = buildFileSetDiff(buildResult.previousReleaseArtifacts.value.files, newSideFiles);
-    return diffEntry(packageName, 'changed', files, packageReport);
+    return diffEntry(packageName, 'changed', files, versionFields);
 }
 
 function isDiffEntry(entry: ExecResult): entry is PackageReleaseDiff {
@@ -92,8 +99,7 @@ function toPartialFailure(error: PartialError<ExecResult>): PartialError<Package
 export async function runReleaseDiffStage(
     dependencies: ReleaseDiffStageDependencies,
     config: ValidConfigResult,
-    succeededResults: readonly BuildAndPublishResult[],
-    report: BuildReport
+    succeededResults: readonly BuildAndPublishResult[]
 ): Promise<Result<readonly PackageReleaseDiff[], PartialError<PackageReleaseDiff>>> {
     const successByName = new Map(
         succeededResults.map((result) => {
@@ -111,20 +117,14 @@ export async function runReleaseDiffStage(
         createOptions: (context) => {
             return {
                 packageName: context.packageName,
-                buildResult: successByName.get(context.packageName),
-                packageReport: report.packages[context.packageName]
+                buildResult: successByName.get(context.packageName)
             };
         },
         execute: async (options) => {
-            if (options.buildResult === undefined || options.packageReport === undefined) {
+            if (options.buildResult === undefined) {
                 return undefined;
             }
-            return classifyDiff(
-                dependencies.artifactsBuilder,
-                options.packageName,
-                options.buildResult,
-                options.packageReport
-            );
+            return classifyDiff(dependencies.artifactsBuilder, options.packageName, options.buildResult);
         },
         selectNext: (params) => {
             return params.options.packageName;

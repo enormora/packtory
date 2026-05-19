@@ -6,7 +6,6 @@ import { Maybe, Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import type { BuildReport, PackageReport } from '../../report/aggregator/report-types.ts';
 import { createIteratingScheduler, type IteratingSchedulerCapture } from '../../test-libraries/iterating-scheduler.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { Scheduler as PackageScheduler } from '../scheduler.ts';
@@ -27,34 +26,12 @@ function buildResultFor(name: string, overrides: Partial<BuildAndPublishResult> 
         status: 'new-version',
         bundle: {
             name,
-            version: '1.0.1',
-            manifestFile: { filePath: 'package.json', content: `{"name":"${name}","version":"1.0.1"}\n` }
+            version: '1.0.0',
+            manifestFile: { filePath: 'package.json', content: `{"name":"${name}","version":"1.0.0"}\n` }
         } as never,
         extraFiles: [],
         previousReleaseArtifacts: Maybe.nothing(),
         ...overrides
-    };
-}
-
-function packageReportFor(previousVersion: string | undefined, chosenVersion: string): PackageReport {
-    return {
-        decisions: {
-            version: {
-                previousVersion,
-                chosenVersion,
-                trigger: previousVersion === undefined ? 'initial' : 'auto-patch-bump'
-            }
-        },
-        timings: {}
-    };
-}
-
-function reportFor(perPackage: Readonly<Record<string, PackageReport>>): BuildReport {
-    return {
-        schemaVersion: 1,
-        generatedAt: '2026-05-19T00:00:00.000Z',
-        packages: perPackage,
-        aggregate: { crossBundleLinks: [] }
     };
 }
 
@@ -72,8 +49,25 @@ async function runPkgAStage(
             scheduler: createIteratingScheduler(['pkg-a'])
         },
         configFor(['pkg-a']),
-        [buildResultFor('pkg-a', buildResultOverrides)],
-        reportFor({ 'pkg-a': packageReportFor(undefined, '1.0.0') })
+        [buildResultFor('pkg-a', buildResultOverrides)]
+    );
+}
+
+async function runAlreadyPublishedPkgAStage(artifactsBuilder: {
+    collectContents: SinonSpy;
+}): ReturnType<typeof runReleaseDiffStage> {
+    return runReleaseDiffStage(
+        {
+            artifactsBuilder: artifactsBuilder as unknown as ArtifactsBuilder,
+            scheduler: createIteratingScheduler(['pkg-a'])
+        },
+        configFor(['pkg-a']),
+        [
+            buildResultFor('pkg-a', {
+                status: 'already-published',
+                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: [] })
+            })
+        ]
     );
 }
 
@@ -85,8 +79,7 @@ suite('release-diff-stage', function () {
                 scheduler: createIteratingScheduler(['pkg-a', 'pkg-broken'])
             },
             configFor(['pkg-a', 'pkg-broken']),
-            [buildResultFor('pkg-a')],
-            reportFor({ 'pkg-a': packageReportFor(undefined, '1.0.0') })
+            [buildResultFor('pkg-a')]
         );
 
         if (result.isErr) {
@@ -98,50 +91,8 @@ suite('release-diff-stage', function () {
         assert.deepStrictEqual(names, ['pkg-a']);
     });
 
-    test('skips a package when only the PackageReport is missing', async function () {
-        const result = await runReleaseDiffStage(
-            {
-                artifactsBuilder: artifactsBuilderReturning([]) as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a'])
-            },
-            configFor(['pkg-a']),
-            [buildResultFor('pkg-a')],
-            reportFor({})
-        );
-
-        if (result.isErr) {
-            assert.fail('expected ok result');
-        }
-        assert.deepStrictEqual(result.value, []);
-    });
-
-    test('skips a package when only the BuildAndPublishResult is missing while the report has it', async function () {
-        const result = await runReleaseDiffStage(
-            {
-                artifactsBuilder: artifactsBuilderReturning([]) as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a'])
-            },
-            configFor(['pkg-a']),
-            [],
-            reportFor({ 'pkg-a': packageReportFor(undefined, '1.0.0') })
-        );
-
-        if (result.isErr) {
-            assert.fail('expected ok result');
-        }
-        assert.deepStrictEqual(result.value, []);
-    });
-
     test('produces an unchanged entry with all four file buckets empty when the BuildAndPublishResult is already-published', async function () {
-        const result = await runReleaseDiffStage(
-            {
-                artifactsBuilder: artifactsBuilderReturning([]) as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a'])
-            },
-            configFor(['pkg-a']),
-            [buildResultFor('pkg-a', { status: 'already-published' })],
-            reportFor({ 'pkg-a': packageReportFor('1.0.0', '1.0.0') })
-        );
+        const result = await runAlreadyPublishedPkgAStage(artifactsBuilderReturning([]));
 
         if (result.isErr) {
             assert.fail('expected ok result');
@@ -209,8 +160,7 @@ suite('release-diff-stage', function () {
                     extraFiles: [extraFile],
                     previousReleaseArtifacts: Maybe.nothing()
                 } as BuildAndPublishResult
-            ],
-            reportFor({ 'pkg-a': packageReportFor(undefined, '1.0.0') })
+            ]
         );
 
         assert.strictEqual(collectContents.callCount, 1);
@@ -219,15 +169,7 @@ suite('release-diff-stage', function () {
 
     test('does not call artifactsBuilder.collectContents for an already-published package', async function () {
         const collectContents = fake.returns([]);
-        await runReleaseDiffStage(
-            {
-                artifactsBuilder: { collectContents } as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a'])
-            },
-            configFor(['pkg-a']),
-            [buildResultFor('pkg-a', { status: 'already-published' })],
-            reportFor({ 'pkg-a': packageReportFor('1.0.0', '1.0.0') })
-        );
+        await runAlreadyPublishedPkgAStage({ collectContents });
         assert.strictEqual(collectContents.callCount, 0);
     });
 
@@ -248,8 +190,7 @@ suite('release-diff-stage', function () {
                 scheduler: failingScheduler
             },
             configFor(['pkg-a']),
-            [buildResultFor('pkg-a')],
-            reportFor({ 'pkg-a': packageReportFor(undefined, '1.0.0') })
+            [buildResultFor('pkg-a')]
         );
 
         if (result.isOk) {
@@ -267,8 +208,7 @@ suite('release-diff-stage', function () {
                 scheduler: createIteratingScheduler(['pkg-a'], capture)
             },
             configFor(['pkg-a']),
-            [buildResultFor('pkg-a')],
-            reportFor({ 'pkg-a': packageReportFor(undefined, '1.0.0') })
+            [buildResultFor('pkg-a')]
         );
         assert.strictEqual(capture.emitScheduledEvents, false);
     });
@@ -281,11 +221,7 @@ suite('release-diff-stage', function () {
                 scheduler: createIteratingScheduler(['pkg-a', 'pkg-b'], capture)
             },
             configFor(['pkg-a', 'pkg-b']),
-            [buildResultFor('pkg-a'), buildResultFor('pkg-b')],
-            reportFor({
-                'pkg-a': packageReportFor(undefined, '1.0.0'),
-                'pkg-b': packageReportFor(undefined, '1.0.0')
-            })
+            [buildResultFor('pkg-a'), buildResultFor('pkg-b')]
         );
         assert.deepStrictEqual(capture.selected, ['pkg-a', 'pkg-b']);
     });
@@ -309,10 +245,14 @@ suite('release-diff-stage', function () {
             configFor(['pkg-a']),
             [
                 buildResultFor('pkg-a', {
+                    bundle: {
+                        name: 'pkg-a',
+                        version: '1.0.1',
+                        manifestFile: { filePath: 'package.json', content: '{"name":"pkg-a","version":"1.0.1"}\n' }
+                    } as never,
                     previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: previousFiles })
                 })
-            ],
-            reportFor({ 'pkg-a': packageReportFor('1.0.0', '1.0.1') })
+            ]
         );
 
         if (result.isErr) {

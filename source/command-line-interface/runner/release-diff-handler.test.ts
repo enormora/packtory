@@ -18,7 +18,14 @@ function packtoryStub(outcome: ReleaseDiffOutcome): Packtory {
 
 function emptyOutcome(overrides: Partial<ReleaseDiffOutcome> = {}): ReleaseDiffOutcome {
     return {
-        getReport: () => undefined,
+        getReport: () => {
+            return {
+                schemaVersion: 1,
+                generatedAt: '2026-05-19T00:00:00.000Z',
+                packages: {},
+                aggregate: { crossBundleLinks: [] }
+            };
+        },
         result: { isOk: true, isErr: false, value: [] },
         ...overrides
     } as unknown as ReleaseDiffOutcome;
@@ -120,8 +127,7 @@ suite('release-diff-handler', function () {
                             state: 'first-publish',
                             versionTransition: '(unpublished) -> 1.0.0',
                             previousVersionLabel: '(unpublished)',
-                            files: { added: [], removed: [], modified: [], unchanged: [] },
-                            diagnostics: { decisions: {}, timings: {} }
+                            files: { added: [], removed: [], modified: [], unchanged: [] }
                         }
                     ],
                     failures: [new Error('failed package')]

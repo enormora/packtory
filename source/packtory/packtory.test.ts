@@ -543,26 +543,19 @@ suite('packtory', function () {
         assert.strictEqual(buildAndPublish.callCount, 0);
     });
 
-    test('diffAgainstLatestPublished() with collectReport returns a getReport that yields a report', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const outcome = await packtory.diffAgainstLatestPublished(createConfig(), { collectReport: true });
-
-        assert.notStrictEqual(outcome.getReport(), undefined);
-    });
-
-    test('diffAgainstLatestPublished() without collectReport returns a getReport that yields undefined', async function () {
+    test('diffAgainstLatestPublished() always exposes a getReport that returns a BuildReport with the version decisions made during the dry-run', async function () {
         const { packtory } = createPacktoryUnderTest();
 
         const outcome = await packtory.diffAgainstLatestPublished(createConfig());
 
-        assert.strictEqual(outcome.getReport(), undefined);
+        const report = outcome.getReport();
+        assert.ok(report.packages['package-a']);
     });
 
     test('diffAgainstLatestPublished() disposes the report aggregator on exit so no listeners are left dangling', async function () {
         const { packtory, progressBroadcaster } = createPacktoryUnderTest();
 
-        await packtory.diffAgainstLatestPublished(createConfig(), { collectReport: true });
+        await packtory.diffAgainstLatestPublished(createConfig());
 
         assert.strictEqual(progressBroadcaster.provider.hasSubscribers('versionDetermined'), false);
     });

@@ -6,7 +6,6 @@ import {
 } from '../../report/terminal-renderer/terminal-release-diff-renderer.ts';
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
-import { createEmptyReport } from './report-persistence.ts';
 
 type Logger = (message: string) => void;
 
@@ -43,11 +42,10 @@ export async function runReleaseDiffHandler(deps: ReleaseDiffHandlerDeps): Promi
     const { packtory, spinnerRenderer, configLoader } = deps;
     try {
         const config = await configLoader.load();
-        const outcome = await packtory.diffAgainstLatestPublished(config, { collectReport: true });
+        const outcome = await packtory.diffAgainstLatestPublished(config);
         spinnerRenderer.stopAll();
-        const report = outcome.getReport() ?? createEmptyReport();
         const document = buildReleaseDiffDocument({
-            report,
+            report: outcome.getReport(),
             result: outcome.result,
             packages: succeededPackagesFrom(outcome.result)
         });
