@@ -14,16 +14,14 @@ type ZipBuilderDependencies = {
 };
 
 const unixOperatingSystem = 3;
-const regularFileMarker = 0o10_0000;
-const executablePermissionBits = 0o755;
-const nonExecutablePermissionBits = 0o644;
-const executableUnixMode = regularFileMarker + executablePermissionBits;
-const nonExecutableUnixMode = regularFileMarker + nonExecutablePermissionBits;
+const executableUnixMode = 0o10_0755;
+const nonExecutableUnixMode = 0o10_0644;
 const highBytesScale = 65_536;
 const maxCompressionLevel = 9;
-const minimumDosYear = 1980;
-const safeUtcHour = 12;
-const staticFileModificationTime = new Date(Date.UTC(minimumDosYear, 0, 1, safeUtcHour, 0, 0));
+// 1980-01-01T12:00:00Z. Zip's DOS time format requires year >= 1980; the noon offset keeps
+// `getFullYear()` at 1980 across all timezones. Kept as a plain literal so the module has no
+// load-time side effects (tree-shake-friendly).
+const staticFileModificationTimestamp = 315_576_000_000;
 
 function externalAttributes(isExecutable: boolean): number {
     return (isExecutable ? executableUnixMode : nonExecutableUnixMode) * highBytesScale;
@@ -35,7 +33,7 @@ function buildFileEntry(fileDescription: FileDescription): [Uint8Array, AsyncZip
         {
             os: unixOperatingSystem,
             attrs: externalAttributes(fileDescription.isExecutable),
-            mtime: staticFileModificationTime,
+            mtime: staticFileModificationTimestamp,
             level: maxCompressionLevel
         }
     ];

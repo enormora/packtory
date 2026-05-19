@@ -14,7 +14,7 @@ import { createZipBuilder } from './zip-builder.ts';
 const nonExecutableUnixMode = 0o10_0644;
 const executableUnixMode = 0o10_0755;
 const unixOperatingSystem = 3;
-const staticFileModificationTime = new Date(Date.UTC(1980, 0, 1, 12, 0, 0));
+const staticFileModificationTimestamp = 315_576_000_000;
 const maxCompressionLevel = 9;
 const highBytesScale = 65_536;
 
@@ -108,7 +108,7 @@ suite('zip-builder', function () {
                 {
                     os: unixOperatingSystem,
                     attrs: nonExecutableUnixMode * highBytesScale,
-                    mtime: staticFileModificationTime,
+                    mtime: staticFileModificationTimestamp,
                     level: maxCompressionLevel
                 }
             ]
