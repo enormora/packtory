@@ -94,8 +94,9 @@ suite('zip-builder', function () {
     });
 
     test('passes the static modification time, unix os marker and maximum compression to fflate', async function () {
-        const zip =
-            sinon.spy<(data: AsyncZippable, options: AsyncZipOptions, callback: FlateCallback) => unknown>(fflateZip);
+        const zip = sinon.spy((data: AsyncZippable, options: AsyncZipOptions, callback: FlateCallback): void => {
+            fflateZip(data, options, callback);
+        });
         const builder = createZipBuilder({ zip });
 
         await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
