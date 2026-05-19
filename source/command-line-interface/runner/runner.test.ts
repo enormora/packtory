@@ -748,4 +748,14 @@ suite('runner', function () {
 
         assert.strictEqual(exitCode, 1);
     });
+
+    test('release-diff --help advertises the command as a registry-diff against the latest published version', async function () {
+        const log = fake();
+        const runner = runnerFactory({ log });
+
+        await runner.run(['foo', 'bar', 'release-diff', '--help']);
+
+        const helpText = String(log.firstCall.args[0]);
+        assert.match(helpText, /Compares the next dry-run build against the latest published version, per package\./u);
+    });
 });

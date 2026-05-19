@@ -43,12 +43,9 @@ suite('file-hunks', function () {
         assert.match(hunk.header, /^@@ -\d+,\d+ \+\d+,\d+ @@$/u);
     });
 
-    test('produces multiple hunks when the changes span distant regions', function () {
-        const padding = Array.from({ length: 12 }, (_value, index) => {
-            return `line-${index}`;
-        });
-        const previous = ['alpha', ...padding, 'omega'].join('\n');
-        const next = ['ALPHA', ...padding, 'OMEGA'].join('\n');
+    test('produces two hunks when changes are 8 lines apart - distinguishing the configured 3-line context from the diff library default', function () {
+        const previous = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].join('\n');
+        const next = ['A', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'I'].join('\n');
 
         const hunks = buildFileHunks('lines.txt', previous, next);
 

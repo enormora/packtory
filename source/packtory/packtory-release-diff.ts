@@ -13,7 +13,7 @@ import type { ResolvedPackage } from './resolved-package.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
 import { runReleaseDiffStage, type ReleaseDiffStageDependencies } from './stages/release-diff-stage.ts';
 
-const emptyAggregateReport: BuildReport = {
+export const emptyAggregateReport: BuildReport = {
     schemaVersion: 1,
     generatedAt: '1970-01-01T00:00:00.000Z',
     packages: {},
@@ -43,7 +43,7 @@ export function succeededFromStage(stageResult: ReleaseDiffStageOutcome): readon
     return stageResult.error.succeeded;
 }
 
-function ensureReport(report: BuildReport | undefined): BuildReport {
+export function ensureReport(report: BuildReport | undefined): BuildReport {
     return report ?? emptyAggregateReport;
 }
 

@@ -19,8 +19,7 @@ const textDiffablePatterns: readonly RegExp[] = [
 const textDiffableBasenames: ReadonlySet<string> = new Set(['LICENSE', 'COPYING', 'NOTICE', 'CHANGELOG', 'readme']);
 
 function basenameOf(targetFilePath: string): string {
-    const lastSlash = targetFilePath.lastIndexOf('/');
-    return lastSlash === -1 ? targetFilePath : targetFilePath.slice(lastSlash + 1);
+    return targetFilePath.slice(targetFilePath.lastIndexOf('/') + 1);
 }
 
 export function isTextDiffablePath(targetFilePath: string): boolean {

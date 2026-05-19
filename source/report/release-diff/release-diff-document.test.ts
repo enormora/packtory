@@ -3,8 +3,8 @@ import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import type { BuildReport, PackageReport } from '../aggregator/report-types.ts';
 import type { ReleaseDiffAllResult } from '../../packtory/packtory.ts';
+import { createPackageReleaseDiff as releaseDiffPackage } from '../../test-libraries/release-diff-fixtures.ts';
 import { buildReleaseDiffDocument } from './release-diff-document.ts';
-import type { PackageReleaseDiff } from './file-set-diff.ts';
 
 function packageReport(overrides: Partial<PackageReport> = {}): PackageReport {
     return { decisions: {}, timings: {}, ...overrides };
@@ -16,18 +16,6 @@ function buildReport(overrides: Partial<BuildReport> = {}): BuildReport {
         generatedAt: '2026-05-19T00:00:00.000Z',
         packages: {},
         aggregate: { crossBundleLinks: [] },
-        ...overrides
-    };
-}
-
-function releaseDiffPackage(overrides: Partial<PackageReleaseDiff> = {}): PackageReleaseDiff {
-    return {
-        name: 'pkg-a',
-        state: 'changed',
-        versionTransition: '1.0.0 -> 1.0.1',
-        previousVersionLabel: '1.0.0',
-        files: { added: [], removed: [], modified: [], unchanged: [] },
-        diagnostics: packageReport(),
         ...overrides
     };
 }
@@ -47,10 +35,11 @@ suite('release-diff-document', function () {
         assert.strictEqual(document.resultType, 'success');
     });
 
-    test('counts failed packages from the build report into the summary', function () {
+    test('counts only packages with a failure (asymmetric mix to detect equality-operator inversion)', function () {
         const report = buildReport({
             packages: {
                 'pkg-a': packageReport(),
+                'pkg-b': packageReport(),
                 'pkg-broken': packageReport({ failure: { stage: 'publish', message: 'kaboom' } })
             }
         });
@@ -60,7 +49,6 @@ suite('release-diff-document', function () {
             packages: [releaseDiffPackage()]
         });
         assert.strictEqual(document.summary.failedPackages, 1);
-        assert.strictEqual(document.summary.totalPackages, 2);
     });
 
     test('forwards the package list into the document verbatim', function () {

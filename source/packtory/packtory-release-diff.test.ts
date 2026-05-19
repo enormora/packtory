@@ -12,6 +12,8 @@ import {
 import type { BuildAndPublishResult } from './package-processor.ts';
 import {
     createDiffAgainstLatestPublishedValidated,
+    emptyAggregateReport,
+    ensureReport,
     ensureReportPackages,
     mapResolveFailureToReleaseDiffFailure,
     succeededFromPublish,
@@ -40,6 +42,28 @@ function emptyReport(): BuildReport {
         packages: {},
         aggregate: { crossBundleLinks: [] }
     };
+}
+
+function missingPkgResult(name: string, version: string): BuildAndPublishResult {
+    return {
+        status: 'new-version',
+        bundle: { name, version },
+        extraFiles: [],
+        previousReleaseArtifacts: Maybe.nothing()
+    } as unknown as BuildAndPublishResult;
+}
+
+function expectPartialFailureWithFailures(
+    finalResult: ReturnType<typeof toFinalReleaseDiffResult>,
+    failures: readonly Error[]
+): void {
+    if (finalResult.isOk) {
+        assert.fail('expected Err');
+    }
+    if (finalResult.error.type !== 'partial') {
+        assert.fail(`expected partial failure, got ${finalResult.error.type}`);
+    }
+    assert.deepStrictEqual(finalResult.error.failures, failures);
 }
 
 suite('packtory-release-diff', function () {
@@ -132,20 +156,26 @@ suite('packtory-release-diff', function () {
     });
 
     test('ensureReportPackages returns the original report when every succeeded package is already represented', function () {
-        const baseReport = emptyReport();
-        const succeeded: readonly BuildAndPublishResult[] = [];
-        assert.strictEqual(ensureReportPackages(baseReport, succeeded), baseReport);
+        const baseReport: BuildReport = {
+            schemaVersion: 1,
+            generatedAt: '2026-05-19T00:00:00.000Z',
+            packages: {
+                'pkg-a': { decisions: {}, timings: {} }
+            },
+            aggregate: { crossBundleLinks: [] }
+        };
+        const result = {
+            status: 'new-version',
+            bundle: { name: 'pkg-a', version: '1.0.0' },
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        } as unknown as BuildAndPublishResult;
+        assert.strictEqual(ensureReportPackages(baseReport, [result]), baseReport);
     });
 
     test('ensureReportPackages adds a fallback package entry for a succeeded package missing from the report', function () {
         const baseReport = emptyReport();
-        const result = {
-            status: 'new-version',
-            bundle: { name: 'pkg-missing', version: '2.0.0' },
-            extraFiles: [],
-            previousReleaseArtifacts: Maybe.nothing()
-        } as unknown as BuildAndPublishResult;
-        const merged = ensureReportPackages(baseReport, [result]);
+        const merged = ensureReportPackages(baseReport, [missingPkgResult('pkg-missing', '2.0.0')]);
         const synthesizedReport = merged.packages['pkg-missing'];
         assert.ok(synthesizedReport);
         assert.strictEqual(synthesizedReport.decisions.version?.chosenVersion, '2.0.0');
@@ -157,13 +187,7 @@ suite('packtory-release-diff', function () {
             Result.err({ succeeded: [], failures: [publishFailure] }),
             Result.ok([])
         );
-        if (finalResult.isOk) {
-            assert.fail('expected Err');
-        }
-        if (finalResult.error.type !== 'partial') {
-            assert.fail(`expected partial failure, got ${finalResult.error.type}`);
-        }
-        assert.deepStrictEqual(finalResult.error.failures, [publishFailure]);
+        expectPartialFailureWithFailures(finalResult, [publishFailure]);
     });
 
     test('toFinalReleaseDiffResult returns a partial Err with release-diff stage failures when only the stage failed', function () {
@@ -172,13 +196,7 @@ suite('packtory-release-diff', function () {
             Result.ok([]),
             Result.err({ succeeded: [], failures: [stageFailure] })
         );
-        if (finalResult.isOk) {
-            assert.fail('expected Err');
-        }
-        if (finalResult.error.type !== 'partial') {
-            assert.fail(`expected partial failure, got ${finalResult.error.type}`);
-        }
-        assert.deepStrictEqual(finalResult.error.failures, [stageFailure]);
+        expectPartialFailureWithFailures(finalResult, [stageFailure]);
     });
 
     test('succeededFromStage returns the partial succeeded array when the stage failed', function () {
@@ -197,6 +215,30 @@ suite('packtory-release-diff', function () {
             failures: [new Error('boom')]
         });
         assert.strictEqual(succeededFromStage(stageResult), partialSucceeded);
+    });
+
+    test('emptyAggregateReport is a fixed placeholder report shape with no packages or cross-bundle links', function () {
+        assert.deepStrictEqual(emptyAggregateReport, {
+            schemaVersion: 1,
+            generatedAt: '1970-01-01T00:00:00.000Z',
+            packages: {},
+            aggregate: { crossBundleLinks: [] }
+        });
+    });
+
+    test('ensureReport returns the given report unchanged when present', function () {
+        const report = emptyReport();
+        assert.strictEqual(ensureReport(report), report);
+    });
+
+    test('ensureReport falls back to emptyAggregateReport when no report is given', function () {
+        assert.strictEqual(ensureReport(undefined), emptyAggregateReport);
+    });
+
+    test('ensureReportPackages returns a different report instance (not the original) when synthesizing missing entries', function () {
+        const baseReport = emptyReport();
+        const merged = ensureReportPackages(baseReport, [missingPkgResult('pkg-missing', '2.0.0')]);
+        assert.notStrictEqual(merged, baseReport);
     });
 
     test('succeededFromPublish returns the partial succeeded array when publish failed', function () {

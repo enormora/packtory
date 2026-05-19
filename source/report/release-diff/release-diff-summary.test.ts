@@ -36,6 +36,19 @@ suite('release-diff-summary', function () {
         assert.strictEqual(summary.totalPackages, 4);
     });
 
+    test('keeps first-publish and unchanged buckets distinct when their counts differ (detects state-equality inversion)', function () {
+        const summary = summarizeReleaseDiff(
+            [
+                stateView({ state: 'first-publish' }),
+                stateView({ state: 'unchanged' }),
+                stateView({ state: 'unchanged' })
+            ],
+            0
+        );
+        assert.strictEqual(summary.firstPublishPackages, 1);
+        assert.strictEqual(summary.unchangedPackages, 2);
+    });
+
     test('includes the failed package count in total but not in any other state bucket', function () {
         const summary = summarizeReleaseDiff([stateView({ state: 'changed' })], 2);
         assert.strictEqual(summary.totalPackages, 3);

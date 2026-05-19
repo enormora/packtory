@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- shared test helper casts a partial mock of a complex orchestrator type */
+/* eslint-disable @typescript-eslint/no-unsafe-type-assertion, no-param-reassign -- shared test helper casts a partial mock and captures invocation parameters on the optional capture sink */
 import { Result } from 'true-myth';
 import type { Scheduler as PackageScheduler } from '../packtory/scheduler.ts';
 
@@ -17,6 +17,7 @@ type IterateParams = {
 export type IteratingSchedulerCapture = {
     readonly events: unknown[];
     readonly selected: unknown[];
+    emitScheduledEvents?: boolean | undefined;
 };
 
 export function createIteratingScheduler(
@@ -24,10 +25,13 @@ export function createIteratingScheduler(
     capture?: IteratingSchedulerCapture
 ): PackageScheduler {
     const value = {
-        async runForEachScheduledPackage(params: IterateParams) {
+        async runForEachScheduledPackage(params: IterateParams & { readonly emitScheduledEvents?: boolean }) {
             const results: unknown[] = [];
             const failures: Error[] = [];
             const existing: unknown[] = [];
+            if (capture !== undefined) {
+                capture.emitScheduledEvents = params.emitScheduledEvents;
+            }
             for (const packageName of packageNames) {
                 const options = params.createOptions({ packageName, existing, config: params.config });
                 try {

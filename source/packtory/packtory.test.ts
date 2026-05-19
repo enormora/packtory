@@ -534,6 +534,15 @@ suite('packtory', function () {
         assert.ok(result.value.length >= 0);
     });
 
+    test('diffAgainstLatestPublished() runs through the dry-run publish path (tryBuildAndPublish), never the real publish', async function () {
+        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
+
+        await packtory.diffAgainstLatestPublished(createConfig());
+
+        assert.strictEqual(tryBuildAndPublish.callCount, 1);
+        assert.strictEqual(buildAndPublish.callCount, 0);
+    });
+
     test('diffAgainstLatestPublished() with collectReport returns a getReport that yields a report', async function () {
         const { packtory } = createPacktoryUnderTest();
 
@@ -548,5 +557,13 @@ suite('packtory', function () {
         const outcome = await packtory.diffAgainstLatestPublished(createConfig());
 
         assert.strictEqual(outcome.getReport(), undefined);
+    });
+
+    test('diffAgainstLatestPublished() disposes the report aggregator on exit so no listeners are left dangling', async function () {
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+        await packtory.diffAgainstLatestPublished(createConfig(), { collectReport: true });
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('versionDetermined'), false);
     });
 });

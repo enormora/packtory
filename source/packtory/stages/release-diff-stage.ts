@@ -26,25 +26,22 @@ type ExecOptions = {
     readonly packageReport: PackageReport | undefined;
 };
 
-type ExecResult =
-    | { readonly diff: PackageReleaseDiff; readonly kind: 'diff' }
-    | { readonly kind: 'skip'; readonly packageName: string };
+type ExecResult = PackageReleaseDiff | undefined;
 
-const emptyFileSetDiff: FileSetDiff = { added: [], removed: [], modified: [], unchanged: [] };
+function emptyFileSetDiff(): FileSetDiff {
+    return { added: [], removed: [], modified: [], unchanged: [] };
+}
+
+function asAddedFile(file: FileDescription): FileSetDiff['added'][number] {
+    return {
+        path: file.filePath,
+        sizeBytes: Buffer.byteLength(file.content),
+        isExecutable: file.isExecutable
+    };
+}
 
 function asAddedFiles(files: readonly FileDescription[]): FileSetDiff {
-    return {
-        added: files.map((file) => {
-            return {
-                path: file.filePath,
-                sizeBytes: Buffer.byteLength(file.content, 'utf8'),
-                isExecutable: file.isExecutable
-            };
-        }),
-        removed: [],
-        modified: [],
-        unchanged: []
-    };
+    return { ...emptyFileSetDiff(), added: files.map(asAddedFile) };
 }
 
 function diffEntry(
@@ -70,7 +67,7 @@ function classifyDiff(
     packageReport: PackageReport
 ): PackageReleaseDiff {
     if (buildResult.status === 'already-published') {
-        return diffEntry(packageName, 'unchanged', emptyFileSetDiff, packageReport);
+        return diffEntry(packageName, 'unchanged', emptyFileSetDiff(), packageReport);
     }
     const newSideFiles = artifactsBuilder.collectContents(buildResult.bundle, 'package', buildResult.extraFiles);
     if (buildResult.previousReleaseArtifacts.isNothing) {
@@ -80,14 +77,12 @@ function classifyDiff(
     return diffEntry(packageName, 'changed', files, packageReport);
 }
 
-function isDiffEntry(entry: ExecResult): entry is Extract<ExecResult, { kind: 'diff' }> {
-    return entry.kind === 'diff';
+function isDiffEntry(entry: ExecResult): entry is PackageReleaseDiff {
+    return entry !== undefined;
 }
 
 function toReleaseDiffs(entries: readonly ExecResult[]): readonly PackageReleaseDiff[] {
-    return entries.filter(isDiffEntry).map((entry) => {
-        return entry.diff;
-    });
+    return entries.filter(isDiffEntry);
 }
 
 function toPartialFailure(error: PartialError<ExecResult>): PartialError<PackageReleaseDiff> {
@@ -108,7 +103,7 @@ export async function runReleaseDiffStage(
 
     const stageResult = await dependencies.scheduler.runForEachScheduledPackage<
         ExecResult,
-        undefined,
+        string,
         ExecOptions,
         typeof config.packtoryConfig
     >({
@@ -122,18 +117,17 @@ export async function runReleaseDiffStage(
         },
         execute: async (options) => {
             if (options.buildResult === undefined || options.packageReport === undefined) {
-                return { kind: 'skip', packageName: options.packageName };
+                return undefined;
             }
-            const diff = classifyDiff(
+            return classifyDiff(
                 dependencies.artifactsBuilder,
                 options.packageName,
                 options.buildResult,
                 options.packageReport
             );
-            return { kind: 'diff', diff };
         },
-        selectNext: () => {
-            return undefined;
+        selectNext: (params) => {
+            return params.options.packageName;
         },
         emitScheduledEvents: false
     });
