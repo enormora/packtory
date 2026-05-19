@@ -21,6 +21,7 @@ import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress
 import { withStageTimings } from '../report/decorators.ts';
 import { createResourceResolver, type ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
+import { createZipBuilder } from '../zip/zip-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
 import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
@@ -133,6 +134,7 @@ function buildCompositionParts(options: PackageProcessorCompositionOptions): Com
     const artifactsBuilder = createArtifactsBuilder({
         fileManager,
         tarballBuilder: createTarballBuilder(),
+        zipBuilder: createZipBuilder(),
         progressBroadcaster: progressBroadcaster.provider
     });
     return {

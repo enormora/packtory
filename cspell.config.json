@@ -15,6 +15,9 @@
         "sonarjs",
         "EUSAGE",
         "cyclonedx",
-        "canonicalizer"
+        "canonicalizer",
+        "fflate",
+        "Flate",
+        "Zippable"
     ]
 }

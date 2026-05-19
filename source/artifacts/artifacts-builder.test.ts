@@ -40,11 +40,10 @@ function bundleWithExplicitBin(
 type Overrides = {
     readonly fileManager?: FakeFileManager;
     readonly tarballBuilder?: { readonly build?: SinonSpy };
+    readonly zipBuilder?: { readonly build?: SinonSpy };
 };
 
-function createTarballBuilderDependencies(overrides: Overrides['tarballBuilder'] = {}): {
-    readonly build: SinonSpy;
-} {
+function createBuildStub(overrides: { readonly build?: SinonSpy } = {}): { readonly build: SinonSpy } {
     return {
         build: overrides.build ?? fake.resolves(Buffer.from([-1]))
     };
@@ -57,7 +56,8 @@ function artifactsBuilderFactory(overrides: Overrides = {}): {
     const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: ArtifactsBuilderDependencies = {
         fileManager,
-        tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder),
+        tarballBuilder: createBuildStub(overrides.tarballBuilder),
+        zipBuilder: createBuildStub(overrides.zipBuilder),
         progressBroadcaster: {
             emit: (): void => undefined,
             hasSubscribers: (): boolean => false
@@ -273,6 +273,53 @@ suite('artifacts-builder', function () {
         ]);
     });
 
+    test('buildZip() returns the zipData', async function () {
+        const zipBuilder = { build: fake.resolves(Buffer.from([42])) };
+        const { builder } = artifactsBuilderFactory({ zipBuilder });
+        const result = await builder.buildZip(bundleWithContents([]));
+
+        assert.deepStrictEqual(result, {
+            zipData: Buffer.from([42])
+        });
+    });
+
+    test('buildZip() passes all given contents to the zipBuilder without applying a path prefix', async function () {
+        const zipBuilder = { build: fake.resolves(Buffer.from([])) };
+        const { builder } = artifactsBuilderFactory({ zipBuilder });
+        const contents: AnalyzedBundleResource[] = [
+            makeContent('handler.js', 'handler'),
+            makeContent('lib/helper.js', 'helper'),
+            makeContent('lib/cli.js', 'cli', true)
+        ];
+        await builder.buildZip(bundleWithContents(contents, 'manifest.json'));
+
+        assert.strictEqual(zipBuilder.build.callCount, 1);
+        assert.deepStrictEqual(zipBuilder.build.firstCall.args, [
+            [
+                { filePath: 'manifest.json', content: '{}', isExecutable: false },
+                { filePath: 'handler.js', content: 'handler', isExecutable: false },
+                { filePath: 'lib/helper.js', content: 'helper', isExecutable: false },
+                { filePath: 'lib/cli.js', content: 'cli', isExecutable: false }
+            ]
+        ]);
+    });
+
+    test('buildZip() forwards extra files to the zip builder alongside the bundle contents', async function () {
+        const zipBuilder = { build: fake.resolves(Buffer.from([])) };
+        const { builder } = artifactsBuilderFactory({ zipBuilder });
+        await builder.buildZip(bundleWithContents([makeContent('handler.js', 'handler')], 'manifest.json'), [
+            { filePath: 'extra.json', content: '{"kind":"extra"}', isExecutable: false }
+        ]);
+
+        assert.deepStrictEqual(zipBuilder.build.firstCall.args, [
+            [
+                { filePath: 'manifest.json', content: '{}', isExecutable: false },
+                { filePath: 'handler.js', content: 'handler', isExecutable: false },
+                { filePath: 'extra.json', content: '{"kind":"extra"}', isExecutable: false }
+            ]
+        ]);
+    });
+
     test('buildFolder() writes extra files alongside the bundle contents into the target folder', async function () {
         const { builder, fileManager } = builderWithUnreadableTargetFolder();
 
@@ -295,6 +342,7 @@ suite('artifacts-builder', function () {
         const dependencies: ArtifactsBuilderDependencies = {
             fileManager: createFakeFileManager(),
             tarballBuilder: { build: fake.resolves(Buffer.from([])) },
+            zipBuilder: { build: fake.resolves(Buffer.from([])) },
             progressBroadcaster: broadcaster.provider
         };
         return { builder: createArtifactsBuilder(dependencies), broadcaster };
@@ -390,6 +438,7 @@ suite('artifacts-builder', function () {
         const dependencies: ArtifactsBuilderDependencies = {
             fileManager: createFakeFileManager(),
             tarballBuilder: { build: fake.resolves(Buffer.from([])) },
+            zipBuilder: { build: fake.resolves(Buffer.from([])) },
             progressBroadcaster: spying.provider
         };
         const builder = createArtifactsBuilder(dependencies);
