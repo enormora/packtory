@@ -3,7 +3,9 @@ import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
 import type { PublishSettings } from '../config/publish-settings.ts';
+import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { buildSbomFixtureContent } from '../test-libraries/sbom-fixtures.ts';
 import { emptyTarball, tarballWithOneFile } from '../test-libraries/tarball-fixtures.ts';
 import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
 
@@ -65,6 +67,20 @@ function createPublishedBundleScenario(): {
         collectContents,
         fetchTarball
     };
+}
+
+async function runSbomComparison(previousSbom: string, currentSbom: string): Promise<boolean> {
+    const previousTarball = await createTarballBuilder().build([
+        { filePath: 'sbom.cdx.json', content: previousSbom, isExecutable: false }
+    ]);
+    const fetchLatestVersion = fake.resolves(
+        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
+    );
+    const fetchTarball = fake.resolves(previousTarball);
+    const collectContents = fake.returns([{ filePath: 'sbom.cdx.json', content: currentSbom, isExecutable: false }]);
+    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
+    const result = await emitter.checkBundleAlreadyPublished({ registrySettings, bundle: namedBundle() });
+    return result.alreadyPublishedAsLatest;
 }
 
 suite('emitter', function () {
@@ -211,6 +227,24 @@ suite('emitter', function () {
             'https://registry.example.test/package.tgz',
             registrySettings
         ]);
+    });
+
+    test('checkBundleAlreadyPublished() treats SBOMs as equal when only the packtory tool version differs', async function () {
+        const previousSbom = buildSbomFixtureContent({ packtoryVersion: '1.2.3' });
+        const currentSbom = buildSbomFixtureContent({ packtoryVersion: '9.9.9' });
+        assert.strictEqual(await runSbomComparison(previousSbom, currentSbom), true);
+    });
+
+    test('checkBundleAlreadyPublished() still detects SBOM changes beyond the packtory tool version', async function () {
+        const previousSbom = buildSbomFixtureContent({
+            packtoryVersion: '1.2.3',
+            dependencyComponents: [{ name: 'old-dependency', version: '1.0.0' }]
+        });
+        const currentSbom = buildSbomFixtureContent({
+            packtoryVersion: '9.9.9',
+            dependencyComponents: [{ name: 'new-dependency', version: '2.0.0' }]
+        });
+        assert.strictEqual(await runSbomComparison(previousSbom, currentSbom), false);
     });
 
     test('publish() publishes the given bundle', async function () {

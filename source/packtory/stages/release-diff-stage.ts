@@ -12,6 +12,7 @@ import {
     buildReleaseVersionTransition,
     type ReleaseVersionFields
 } from '../../report/release-diff/release-version-transition.ts';
+import { canonicalizeSbomInFileSet } from '../../sbom/sbom-canonicalizer.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { PartialError, Scheduler as PacktoryScheduler } from '../scheduler.ts';
 
@@ -80,7 +81,10 @@ function classifyDiff(
     if (buildResult.previousReleaseArtifacts.isNothing) {
         return diffEntry(packageName, 'first-publish', asAddedFiles(newSideFiles), versionFields);
     }
-    const files = buildFileSetDiff(buildResult.previousReleaseArtifacts.value.files, newSideFiles);
+    const files = buildFileSetDiff(
+        canonicalizeSbomInFileSet(buildResult.previousReleaseArtifacts.value.files),
+        canonicalizeSbomInFileSet(newSideFiles)
+    );
     return diffEntry(packageName, 'changed', files, versionFields);
 }
 
