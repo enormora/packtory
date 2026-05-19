@@ -4,7 +4,7 @@ import type { ArtifactBadge, ArtifactStatus, EliminatedSourceFile } from '../../
 import type { BuildReport, PackageReport } from '../aggregator/report-types.ts';
 import { buildDiffForArtifact } from './artifact-diff-builder.ts';
 import { buildArtifactTree, type PreviewArtifact, type PreviewArtifactNode } from './artifact-tree-builder.ts';
-import { buildBundleArtifactIndex } from './bundle-artifact-index.ts';
+import { buildBundleArtifactIndex, type BundleArtifactIndex } from './bundle-artifact-index.ts';
 import { buildVersionTransition, hasMeaningfulChanges } from './preview-document-helpers.ts';
 import {
     getIssues,
@@ -47,7 +47,7 @@ type PreviewDocumentParams = {
 async function buildPreviewPackage(
     packageName: string,
     packageReport: PackageReport,
-    bundleArtifactIndex: ReturnType<typeof buildBundleArtifactIndex>,
+    bundleArtifactIndex: BundleArtifactIndex,
     readWorkspaceFile: (filePath: string) => Promise<string>
 ): Promise<PreviewPackage> {
     const emittedArtifacts = packageReport.outputs?.tarball.entries ?? [];

@@ -1,10 +1,10 @@
 import type { PacktoryConfig, PackageConfig } from '../config/config.ts';
 import { redactPublishSettings, type RedactedPublishSettings } from '../config/publish-settings.report.ts';
-import { redactRegistrySettings } from '../config/registry-settings.report.ts';
+import { redactRegistrySettings, type RedactedRegistrySettings } from '../config/registry-settings.report.ts';
 
 export type RedactedPackageConfig = {
     readonly name: string;
-    readonly registrySettings: ReturnType<typeof redactRegistrySettings>;
+    readonly registrySettings: RedactedRegistrySettings;
     readonly publishSettings?: RedactedPublishSettings;
     readonly sourcesFolder?: string;
 };

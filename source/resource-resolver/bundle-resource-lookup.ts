@@ -1,6 +1,6 @@
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { BundleResource, ResolvedBundle } from './resolved-bundle.ts';
-import type { resolveRootsAndSurface } from './resource-resolve-options.ts';
+import type { ResolvedRootsAndSurface } from './resource-resolve-options.ts';
 
 function requireFileDescriptionBySourcePath(
     filePath: string,
@@ -25,7 +25,7 @@ function resolveDeclarationFileResource(
 }
 
 export function buildResolvedRoots(
-    normalized: ReturnType<typeof resolveRootsAndSurface>,
+    normalized: ResolvedRootsAndSurface,
     contents: readonly BundleResource[]
 ): ResolvedBundle['roots'] {
     const resolvedRoots: Record<

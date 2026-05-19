@@ -1,6 +1,6 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
-import { buildPreviewDocument } from '../../report/preview/preview-document.ts';
+import { buildPreviewDocument, type PreviewDocument } from '../../report/preview/preview-document.ts';
 import { renderHtmlReport } from '../../report/html-renderer/html-renderer.ts';
 import {
     renderFailureOnlyTerminalPreview,
@@ -31,7 +31,7 @@ function isPreviewableResult(result: BuildOutcome['result']): boolean {
 
 async function renderOpenedReport(
     deps: Pick<PreviewHandlerDeps, 'createTemporaryFilePath' | 'fileManager' | 'log' | 'openFile'>,
-    document: Awaited<ReturnType<typeof buildPreviewDocument>>
+    document: PreviewDocument
 ): Promise<void> {
     const filePath = deps.createTemporaryFilePath();
     await deps.fileManager.writeFile(filePath, renderHtmlReport(document));
@@ -43,7 +43,7 @@ async function renderOpenedReport(
 
 async function renderInlinePreview(
     deps: Pick<PreviewHandlerDeps, 'log' | 'pageOutput'>,
-    document: Awaited<ReturnType<typeof buildPreviewDocument>>,
+    document: PreviewDocument,
     result: BuildOutcome['result']
 ): Promise<void> {
     if (isPreviewableResult(result)) {
@@ -55,7 +55,7 @@ async function renderInlinePreview(
 
 async function renderDocument(
     deps: PreviewHandlerDeps,
-    document: Awaited<ReturnType<typeof buildPreviewDocument>>,
+    document: PreviewDocument,
     result: BuildOutcome['result']
 ): Promise<void> {
     await (deps.flags.open ? renderOpenedReport(deps, document) : renderInlinePreview(deps, document, result));

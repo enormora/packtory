@@ -1,4 +1,5 @@
 import type { SourceFile } from 'ts-morph';
+import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { AnalyzedBundle, DeadCodeEliminator } from './analyzed-bundle.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import { buildCrossBundleSeeds, type CrossBundleInput } from './cross-bundle/cross-bundle-seeds.ts';
@@ -6,8 +7,6 @@ import { maybeEmitElimination } from './elimination-emitter.ts';
 import { loadBundle, type CreateProject, type LoadedBundle } from './load-bundle.ts';
 import { buildMapPathTransformIndex, recomposePairedSourceMaps } from './source-map-recomposition.ts';
 import { computeSideEffectsField } from './side-effects-field.ts';
-
-type ProgressBroadcastProvider = Parameters<typeof maybeEmitElimination>[0];
 
 function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
     const sourceFiles: SourceFile[] = [];

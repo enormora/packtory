@@ -5,7 +5,7 @@ import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster
 import { resolveRootsAndSurface } from '../resource-resolver/resource-resolve-options.ts';
 import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import { inspectLinkerRewrites } from '../report/inspectors/inspect-linker-rewrites.ts';
-import { inspectScanResults } from '../report/inspectors/inspect-scan-results.ts';
+import { inspectScanResults, type ScanInspectionInput } from '../report/inspectors/inspect-scan-results.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 
@@ -28,7 +28,7 @@ function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | un
 function maybeEmitScanCompleted(
     dependencies: Pick<ResolveAndBuildDependencies, 'progressBroadcaster'>,
     packageName: string,
-    resolved: Parameters<typeof inspectScanResults>[0]
+    resolved: ScanInspectionInput
 ): void {
     if (dependencies.progressBroadcaster.hasSubscribers('scanCompleted')) {
         dependencies.progressBroadcaster.emit('scanCompleted', { packageName, ...inspectScanResults(resolved) });

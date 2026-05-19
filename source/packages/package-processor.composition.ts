@@ -4,9 +4,10 @@ import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
-import { createBundleEmitter } from '../bundle-emitter/emitter.ts';
-import { createRegistryClient } from '../bundle-emitter/registry/registry-client.ts';
+import { createBundleEmitter, type BundleEmitter } from '../bundle-emitter/emitter.ts';
+import { createRegistryClient, type RegistryClient } from '../bundle-emitter/registry/registry-client.ts';
 import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
+import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
 import { getReferencedSourceFiles } from '../dependency-scanner/source-file-references.ts';
@@ -18,13 +19,13 @@ import { createBundleLinker } from '../linker/linker.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { withStageTimings } from '../report/decorators.ts';
-import { createResourceResolver } from '../resource-resolver/resource-resolver.ts';
+import { createResourceResolver, type ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
 import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
 import { createLicenseResolver } from '../sbom/license-resolver.ts';
-import { createSbomFileBuilder } from '../sbom/sbom-file.ts';
+import { createSbomFileBuilder, type SbomFileBuilder } from '../sbom/sbom-file.ts';
 import { createSbomSerializer } from '../sbom/sbom-serializer.ts';
 import { createPacktoryToolVersionResolver } from '../sbom/tool-version.ts';
 
@@ -35,7 +36,7 @@ async function importPackageJson(specifier: string): Promise<unknown> {
 export type PackageProcessorComposition = {
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
-    readonly deadCodeEliminator: ReturnType<typeof createDeadCodeEliminator>;
+    readonly deadCodeEliminator: DeadCodeEliminator;
     readonly artifactsBuilder: ArtifactsBuilder;
 };
 
@@ -60,10 +61,7 @@ function createDependencyScannerWith(fileManager: FileManager): DependencyScanne
     return createDependencyScanner({ sourceMapFileLocator, typescriptProjectAnalyzer });
 }
 
-function buildRegistryClient(
-    options: PackageProcessorCompositionOptions,
-    clock: Clock
-): ReturnType<typeof createRegistryClient> {
+function buildRegistryClient(options: PackageProcessorCompositionOptions, clock: Clock): RegistryClient {
     return createRegistryClient({
         npmFetch,
         publish,
@@ -77,7 +75,7 @@ function buildRegistryClient(
     });
 }
 
-function buildSbomFileBuilder(fileManager: FileManager): ReturnType<typeof createSbomFileBuilder> {
+function buildSbomFileBuilder(fileManager: FileManager): SbomFileBuilder {
     return createSbomFileBuilder({
         licenseResolver: createLicenseResolver({ fileManager }),
         sbomSerializer: createSbomSerializer(),
@@ -89,7 +87,7 @@ function buildSbomFileBuilder(fileManager: FileManager): ReturnType<typeof creat
 function buildBundleEmitter(
     options: PackageProcessorCompositionOptions,
     artifactsBuilder: ArtifactsBuilder
-): ReturnType<typeof createBundleEmitter> {
+): BundleEmitter {
     const registryClient = buildRegistryClient(options, createClock());
     return createBundleEmitter({
         registryClient,
@@ -98,9 +96,7 @@ function buildBundleEmitter(
     });
 }
 
-function buildDeadCodeEliminator(
-    progressBroadcaster: ProgressBroadcaster
-): ReturnType<typeof createDeadCodeEliminator> {
+function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): DeadCodeEliminator {
     return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
         createProject: () => {
@@ -124,10 +120,10 @@ type CompositionParts = {
     readonly fileManager: FileManager;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly artifactsBuilder: ArtifactsBuilder;
-    readonly bundleEmitter: ReturnType<typeof createBundleEmitter>;
-    readonly resourceResolver: ReturnType<typeof createResourceResolver>;
-    readonly sbomFileBuilder: ReturnType<typeof createSbomFileBuilder>;
-    readonly deadCodeEliminator: ReturnType<typeof createDeadCodeEliminator>;
+    readonly bundleEmitter: BundleEmitter;
+    readonly resourceResolver: ResourceResolver;
+    readonly sbomFileBuilder: SbomFileBuilder;
+    readonly deadCodeEliminator: DeadCodeEliminator;
 };
 
 function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {

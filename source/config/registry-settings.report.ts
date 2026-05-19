@@ -45,7 +45,7 @@ function redactMetadata(metadata: MetadataAuthMode): RedactedMetadata {
     return { strategy: redactPublishAuth(metadata satisfies MetadataAuthStrategy) };
 }
 
-type RedactedRegistrySettings = {
+export type RedactedRegistrySettings = {
     readonly registryUrl?: string;
     readonly auth: RedactedAuth | { readonly publish: RedactedAuth; readonly metadata?: RedactedMetadata };
 };
