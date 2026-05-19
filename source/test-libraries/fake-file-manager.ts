@@ -27,6 +27,11 @@ type WriteFileCall = {
     readonly content: string;
 };
 
+type WriteBinaryFileCall = {
+    readonly filePath: string;
+    readonly content: Buffer;
+};
+
 type CopyFileCall = {
     readonly from: string;
     readonly to: string;
@@ -52,6 +57,7 @@ type FakeFileManagerOptions = {
     readonly simulatedTransferableFileDescriptionResponses?: readonly SimulatedResponse<TransferableFileDescription>[];
     readonly transferableFileDescriptionResponder?: TransferableFileDescriptionResponder;
     readonly simulatedWriteFileResponses?: readonly SimulatedVoidResponse[];
+    readonly simulatedWriteBinaryFileResponses?: readonly SimulatedVoidResponse[];
     readonly simulatedCopyFileResponses?: readonly SimulatedVoidResponse[];
 };
 
@@ -63,6 +69,10 @@ export type FakeFileManager = FileManager & {
     readonly getWriteFileCallCount: () => number;
     readonly getWriteFileCall: (index: number) => WriteFileCall;
     readonly getAllWriteFileCalls: () => readonly WriteFileCall[];
+
+    readonly getWriteBinaryFileCallCount: () => number;
+    readonly getWriteBinaryFileCall: (index: number) => WriteBinaryFileCall;
+    readonly getAllWriteBinaryFileCalls: () => readonly WriteBinaryFileCall[];
 
     readonly getCopyFileCallCount: () => number;
     readonly getCopyFileCall: (index: number) => CopyFileCall;
@@ -111,11 +121,13 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
         simulatedTransferableFileDescriptionResponses = [],
         transferableFileDescriptionResponder,
         simulatedWriteFileResponses = [],
+        simulatedWriteBinaryFileResponses = [],
         simulatedCopyFileResponses = []
     } = options;
 
     const readFileCalls: ReadFileCall[] = [];
     const writeFileCalls: WriteFileCall[] = [];
+    const writeBinaryFileCalls: WriteBinaryFileCall[] = [];
     const copyFileCalls: CopyFileCall[] = [];
     const checkReadabilityCalls: CheckReadabilityCall[] = [];
     const transferableFileDescriptionCalls: TransferableFileDescriptionCall[] = [];
@@ -130,6 +142,12 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
         async writeFile(filePath, content) {
             const response = simulatedWriteFileResponses[writeFileCalls.length] ?? defaultVoidResponse;
             writeFileCalls.push({ filePath, content });
+            resolveVoidResponse(response);
+        },
+
+        async writeBinaryFile(filePath, content) {
+            const response = simulatedWriteBinaryFileResponses[writeBinaryFileCalls.length] ?? defaultVoidResponse;
+            writeBinaryFileCalls.push({ filePath, content });
             resolveVoidResponse(response);
         },
 
@@ -181,6 +199,16 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
         },
         getAllWriteFileCalls() {
             return writeFileCalls;
+        },
+
+        getWriteBinaryFileCallCount() {
+            return writeBinaryFileCalls.length;
+        },
+        getWriteBinaryFileCall(index) {
+            return getCallAtIndex(writeBinaryFileCalls, 'writeBinaryFile', index);
+        },
+        getAllWriteBinaryFileCalls() {
+            return writeBinaryFileCalls;
         },
 
         getCopyFileCallCount() {

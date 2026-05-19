@@ -6,6 +6,7 @@ import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morp
 import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { createBundleEmitter, type BundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient, type RegistryClient } from '../bundle-emitter/registry/registry-client.ts';
+import { createPackEmitter, type PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
@@ -39,6 +40,8 @@ export type PackageProcessorComposition = {
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly artifactsBuilder: ArtifactsBuilder;
+    readonly versionManager: ReturnType<typeof createVersionManager>;
+    readonly packEmitter: PackEmitter;
 };
 
 export type PackageProcessorCompositionOptions = {
@@ -152,9 +155,10 @@ export function buildPackageProcessorComposition(
     options: PackageProcessorCompositionOptions
 ): PackageProcessorComposition {
     const parts = buildCompositionParts(options);
+    const versionManager = createVersionManager({ progressBroadcaster: parts.progressBroadcaster.provider });
     const basePackageProcessor = createPackageProcessor({
         progressBroadcaster: parts.progressBroadcaster.provider,
-        versionManager: createVersionManager({ progressBroadcaster: parts.progressBroadcaster.provider }),
+        versionManager,
         bundleEmitter: parts.bundleEmitter,
         linker: createBundleLinker(),
         resourceResolver: parts.resourceResolver,
@@ -162,11 +166,17 @@ export function buildPackageProcessorComposition(
         deadCodeEliminator: parts.deadCodeEliminator
     });
     const packageProcessor = withStageTimings(basePackageProcessor, parts.progressBroadcaster.provider);
+    const packEmitter = createPackEmitter({
+        artifactsBuilder: parts.artifactsBuilder,
+        fileManager: parts.fileManager
+    });
 
     return {
         packageProcessor,
         progressBroadcaster: parts.progressBroadcaster,
         deadCodeEliminator: parts.deadCodeEliminator,
-        artifactsBuilder: parts.artifactsBuilder
+        artifactsBuilder: parts.artifactsBuilder,
+        versionManager,
+        packEmitter
     };
 }

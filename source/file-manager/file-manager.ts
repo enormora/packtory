@@ -15,6 +15,7 @@ export type FileManager = {
     checkReadability: (fileOrFolderPath: string) => Promise<FileOrFolderReadability>;
     readFile: (filePath: string) => Promise<string>;
     writeFile: (filePath: string, content: string) => Promise<void>;
+    writeBinaryFile: (filePath: string, content: Buffer) => Promise<void>;
     setExecutable: (filePath: string, executable: boolean) => Promise<void>;
     copyFile: (from: string, to: string) => Promise<void>;
     getTransferableFileDescriptionFromPath: (
@@ -38,15 +39,23 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         }
     }
 
-    async function writeFile(filePath: string, content: string): Promise<void> {
+    async function ensureContainingFolder(filePath: string): Promise<void> {
         const containingFolder = path.dirname(filePath);
         const parentReadability = await checkReadability(containingFolder);
 
         if (!parentReadability.isReadable) {
             await hostFileSystem.mkdir(containingFolder, { recursive: true });
         }
+    }
 
+    async function writeFile(filePath: string, content: string): Promise<void> {
+        await ensureContainingFolder(filePath);
         await hostFileSystem.writeFile(filePath, content, { encoding: 'utf8' });
+    }
+
+    async function writeBinaryFile(filePath: string, content: Buffer): Promise<void> {
+        await ensureContainingFolder(filePath);
+        await hostFileSystem.writeFile(filePath, content);
     }
 
     async function readFile(filePath: string): Promise<string> {
@@ -67,6 +76,8 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         checkReadability,
 
         writeFile,
+
+        writeBinaryFile,
 
         setExecutable,
 

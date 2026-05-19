@@ -1,19 +1,26 @@
-/* eslint-disable import/max-dependencies -- the packtory facade legitimately stitches together validation, resolve+link, publish, release-diff, and report attachment */
+/* eslint-disable import/max-dependencies -- the packtory facade legitimately stitches together validation, resolve+link, publish, release-diff, pack, and report attachment */
 import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { validateConfig, validateConfigWithoutRegistry, type ValidConfigResult } from '../config/validation.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { PackEmitter } from '../pack-emitter/pack-emitter.ts';
+import type { VersionManager } from '../version-manager/manager.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
+import { createRunPackValidated } from './packtory-pack.ts';
 import { attachAggregator, emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 import { createResolveAndLinkAllValidated } from './packtory-resolve.ts';
 import { createRunBuildAndPublishValidated } from './packtory-publish.ts';
 import {
     configError,
+    createPackOutcome,
     createPublishAllOutcome,
     createReleaseDiffAllOutcome,
     createResolveAndLinkAllOutcome,
     type BuildAndPublishAllOptions as BuildAndPublishAllOptionsBase,
     type BuildReport as BuildReportBase,
+    type PackOutcome as PackOutcomeBase,
+    type PackPublicOptions as PackPublicOptionsBase,
+    type PackResult as PackResultBase,
     type Packtory as PacktoryBase,
     type ProgressBroadcaster,
     type PublishAllOutcome as PublishAllOutcomeBase,
@@ -34,6 +41,9 @@ export type BuildReport = BuildReportBase;
 export type PublishAllOutcome = PublishAllOutcomeBase;
 export type ResolveAndLinkAllOutcome = ResolveAndLinkAllOutcomeBase;
 export type ReleaseDiffAllOutcome = ReleaseDiffAllOutcomeBase;
+export type PackOutcome = PackOutcomeBase;
+export type PackResult = PackResultBase;
+export type PackPublicOptions = PackPublicOptionsBase;
 export type PublishAllResult = PublishAllResultBase;
 export type ResolveAndLinkAllResult = ResolveAndLinkAllResultBase;
 export type ReleaseDiffAllResult = ReleaseDiffAllResultBase;
@@ -46,13 +56,34 @@ type PacktoryDependencies = {
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly artifactsBuilder: Pick<ArtifactsBuilder, 'collectContents'>;
+    readonly versionManager: VersionManager;
+    readonly packEmitter: PackEmitter;
 };
+
+type ValidatedRunners = {
+    readonly resolveAndLinkAllValidated: ReturnType<typeof createResolveAndLinkAllValidated>;
+    readonly runBuildAndPublishValidated: ReturnType<typeof createRunBuildAndPublishValidated>;
+    readonly diffAgainstLatestPublishedValidated: ReturnType<typeof createDiffAgainstLatestPublishedValidated>;
+    readonly runPackValidated: ReturnType<typeof createRunPackValidated>;
+};
+
+function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRunners {
+    return {
+        resolveAndLinkAllValidated: createResolveAndLinkAllValidated(dependencies),
+        runBuildAndPublishValidated: createRunBuildAndPublishValidated(dependencies),
+        diffAgainstLatestPublishedValidated: createDiffAgainstLatestPublishedValidated(dependencies),
+        runPackValidated: createRunPackValidated(dependencies)
+    };
+}
 
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const { progressBroadcaster } = dependencies;
-    const resolveAndLinkAllValidated = createResolveAndLinkAllValidated(dependencies);
-    const runBuildAndPublishValidated = createRunBuildAndPublishValidated(dependencies);
-    const diffAgainstLatestPublishedValidated = createDiffAgainstLatestPublishedValidated(dependencies);
+    const {
+        resolveAndLinkAllValidated,
+        runBuildAndPublishValidated,
+        diffAgainstLatestPublishedValidated,
+        runPackValidated
+    } = createValidatedRunners(dependencies);
 
     async function resolveAndLinkAllPublic(
         config: unknown,
@@ -101,6 +132,16 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         }
     }
 
+    async function packPackagePublic(config: unknown, options: PackPublicOptions): Promise<PackOutcome> {
+        const validation = validateConfigWithoutRegistry(config);
+        if (validation.isErr) {
+            return createPackOutcome(Result.err(configError(validation.error)));
+        }
+
+        const result = await runPackValidated(validation.value, options, resolveAndLinkAllValidated);
+        return createPackOutcome(result);
+    }
+
     async function diffAgainstLatestPublishedPublic(config: unknown): Promise<ReleaseDiffAllOutcome> {
         const reporting = attachAggregator(progressBroadcaster);
         try {
@@ -120,6 +161,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     return {
         buildAndPublishAll: buildAndPublishAllPublic,
         diffAgainstLatestPublished: diffAgainstLatestPublishedPublic,
-        resolveAndLinkAll: resolveAndLinkAllPublic
+        resolveAndLinkAll: resolveAndLinkAllPublic,
+        packPackage: packPackagePublic
     };
 }

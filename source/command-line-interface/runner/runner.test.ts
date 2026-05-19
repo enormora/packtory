@@ -22,6 +22,7 @@ import {
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly diffAgainstLatestPublished?: SinonSpy;
+    readonly packPackage?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
     readonly fileManager?: FakeFileManager;
@@ -78,7 +79,10 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             diffAgainstLatestPublished: createSpy(overrides.diffAgainstLatestPublished, () => {
                 return fake.resolves(toReleaseDiffOutcome(Result.ok([])));
             }),
-            resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([])))
+            resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([]))),
+            packPackage: createSpy(overrides.packPackage, () => {
+                return fake.resolves(toOutcome(Result.ok(undefined)));
+            })
         },
         log: (message) => {
             log(stripVTControlCharacters(message));
@@ -756,5 +760,113 @@ suite('runner', function () {
 
         const helpText = String(log.firstCall.args[0]);
         assert.match(helpText, /Compares the next dry-run build against the latest published version, per package\./u);
+    });
+
+    test('pack command loads the config and forwards the flags into packPackage', async function () {
+        const loadConfig = fake.resolves('the-config');
+        const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
+        const runner = runnerFactory({ loadConfig, packPackage });
+
+        const exitCode = await runner.run([
+            'foo',
+            'bar',
+            'pack',
+            'pkg-a',
+            '--format',
+            'zip',
+            '--out',
+            '/tmp/pkg-a.zip',
+            '--version',
+            '1.2.3'
+        ]);
+
+        assert.strictEqual(exitCode, 0);
+        assert.strictEqual(loadConfig.callCount, 1);
+        assert.strictEqual(packPackage.callCount, 1);
+        assert.strictEqual(packPackage.firstCall.args[0], 'the-config');
+        assert.deepStrictEqual(packPackage.firstCall.args[1], {
+            packageName: 'pkg-a',
+            format: 'zip',
+            outputPath: '/tmp/pkg-a.zip',
+            version: '1.2.3'
+        });
+    });
+
+    test('pack command defaults the version to 0.0.0 when --version is omitted', async function () {
+        const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
+        const runner = runnerFactory({ packPackage });
+
+        await runner.run(['foo', 'bar', 'pack', 'pkg-a', '--format', 'zip', '--out', '/tmp/pkg-a.zip']);
+
+        assert.deepStrictEqual(packPackage.firstCall.args[1], {
+            packageName: 'pkg-a',
+            format: 'zip',
+            outputPath: '/tmp/pkg-a.zip',
+            version: '0.0.0'
+        });
+    });
+
+    test('pack command returns exit code 1 when packPackage reports an Err', async function () {
+        const packPackage = fake.resolves(toOutcome(Result.err({ type: 'package-not-found', packageName: 'pkg-a' })));
+        const runner = runnerFactory({ packPackage });
+
+        const exitCode = await runner.run([
+            'foo',
+            'bar',
+            'pack',
+            'pkg-a',
+            '--format',
+            'tar',
+            '--out',
+            '/tmp/pkg-a.tgz'
+        ]);
+
+        assert.strictEqual(exitCode, 1);
+        assert.strictEqual(packPackage.callCount, 1);
+    });
+
+    test('pack command accepts each of the zip, tar, and folder format values and forwards them to packPackage', async function () {
+        for (const format of ['zip', 'tar', 'folder'] as const) {
+            const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
+            const runner = runnerFactory({ packPackage });
+
+            await runner.run(['foo', 'bar', 'pack', 'pkg-a', '--format', format, '--out', '/tmp/pkg-a.archive']);
+
+            assert.strictEqual(packPackage.callCount, 1);
+            const forwarded = packPackage.firstCall.args[1] as { readonly format: string };
+            assert.strictEqual(forwarded.format, format);
+        }
+    });
+
+    test('pack --help advertises the command, positional <package>, --format, --out, and --version flags', async function () {
+        const log = fake();
+        const runner = runnerFactory({ log });
+
+        await runner.run(['foo', 'bar', 'pack', '--help']);
+
+        const helpText = String(log.firstCall.args[0]);
+        assert.match(helpText, /Builds a single configured package and writes it as a zip, tar, or folder artifact\./u);
+        assert.match(helpText, /<package>/u);
+        assert.match(helpText, /--format/u);
+        assert.match(helpText, /--out/u);
+        assert.match(helpText, /--version/u);
+    });
+
+    test('pack command rejects --format values outside of zip, tar, or folder', async function () {
+        const log = fake();
+        const runner = runnerFactory({ log });
+
+        const exitCode = await runner.run([
+            'foo',
+            'bar',
+            'pack',
+            'pkg-a',
+            '--format',
+            'rar',
+            '--out',
+            '/tmp/pkg-a.rar'
+        ]);
+
+        assert.strictEqual(exitCode, 1);
     });
 });

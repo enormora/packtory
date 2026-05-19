@@ -89,6 +89,33 @@ suite('file-manager', function () {
         assert.deepStrictEqual(writeFile.args, [['/foo/bar.txt', 'the-content', { encoding: 'utf8' }]]);
     });
 
+    async function runWriteBinaryFile(
+        access: SinonSpy
+    ): Promise<{ readonly writeFile: SinonSpy; readonly mkdir: SinonSpy; readonly payload: Buffer }> {
+        const writeFile = fake.resolves(undefined);
+        const mkdir = fake.resolves(undefined);
+        const fileManager = fileManagerFactory({ access, writeFile, mkdir });
+        const payload = Buffer.from([7, 8, 9]);
+        await fileManager.writeBinaryFile('/dist/archive.zip', payload);
+        return { writeFile, mkdir, payload };
+    }
+
+    test('writeBinaryFile() writes the binary payload without applying utf-8 encoding when the parent folder is already readable', async function () {
+        const access = fake.resolves(undefined);
+        const { writeFile, mkdir, payload } = await runWriteBinaryFile(access);
+
+        assert.strictEqual(mkdir.callCount, 0);
+        assert.deepStrictEqual(access.args, [['/dist', fs.constants.R_OK]]);
+        assert.deepStrictEqual(writeFile.args, [['/dist/archive.zip', payload]]);
+    });
+
+    test('writeBinaryFile() recursively creates the parent folder before writing when the folder is missing', async function () {
+        const { writeFile, mkdir, payload } = await runWriteBinaryFile(fake.rejects(undefined));
+
+        assert.deepStrictEqual(mkdir.args, [['/dist', { recursive: true }]]);
+        assert.deepStrictEqual(writeFile.args, [['/dist/archive.zip', payload]]);
+    });
+
     test('readFile() reads the given file and returns its content', async function () {
         const readFile = fake.resolves('the-content');
         const fileManager = fileManagerFactory({ readFile });

@@ -61,7 +61,7 @@ const promptForOneTimePassword = createOneTimePasswordPrompt({
     }
 });
 
-const { packageProcessor, progressBroadcaster, deadCodeEliminator, artifactsBuilder } =
+const { packageProcessor, progressBroadcaster, deadCodeEliminator, artifactsBuilder, versionManager, packEmitter } =
     buildPackageProcessorComposition({
         promptForOneTimePassword,
         ciEnvironment: readCiEnvironment(process.env)
@@ -75,7 +75,9 @@ const packtory = createPacktory({
     packageProcessor,
     deadCodeEliminator,
     progressBroadcaster,
-    artifactsBuilder
+    artifactsBuilder,
+    versionManager,
+    packEmitter
 });
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
