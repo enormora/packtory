@@ -143,6 +143,23 @@ suite('pack-handler', function () {
         ]);
     });
 
+    test('returns 1 and lists each unsatisfied peer dependency on its own line when the closure is incomplete', async function () {
+        await expectFailure(
+            {
+                type: 'peer-dependencies-unsatisfied',
+                packageName: 'pkg-a',
+                items: [
+                    { packageName: 'react-dom', peer: 'react' },
+                    { packageName: 'styled-components', peer: 'react' }
+                ]
+            },
+            [
+                /Pack of "pkg-a" is missing 2 peer dependency\(ies\)/u,
+                /- "react-dom" needs peer "react"\n- "styled-components" needs peer "react"/u
+            ]
+        );
+    });
+
     test('returns 1 and summarises partial resolve failures with one line per failure', async function () {
         await expectFailure(
             { type: 'partial', error: { succeeded: [], failures: [new Error('resolve A'), new Error('resolve B')] } },

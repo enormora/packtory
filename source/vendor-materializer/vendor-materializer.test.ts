@@ -39,6 +39,7 @@ async function runWith(
         readonly isExecutable: boolean;
     }[];
     readonly packageNames: readonly string[];
+    readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
 }> {
     const fileManager = setupFileManager(setup);
     const materializer = createVendorMaterializer({ fileManager });
@@ -46,7 +47,7 @@ async function runWith(
 }
 
 suite('vendor-materializer', function () {
-    test('treats a package.json with malformed dependency maps as having no transitive dependencies and only collects its own files', async function () {
+    test('treats a package.json with malformed dependency maps as having no transitive dependencies and no peer requirements', async function () {
         const result = await runWith(
             {
                 readabilities: [{ value: { isReadable: true } }],
@@ -65,6 +66,7 @@ suite('vendor-materializer', function () {
                 isExecutable: false
             }
         ]);
+        assert.deepStrictEqual(Array.from(result.peerRequirements.entries()), [['broken', []]]);
     });
 
     test('returns an empty result when no initial dependencies are requested', async function () {

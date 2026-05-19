@@ -34,19 +34,64 @@ function formatPartialResolveFailure(error: PackFailure & { readonly type: 'part
     return [`${getErrorSymbol()} ${messages.length} package(s) failed to resolve`, ...messages].join('\n');
 }
 
-function formatPackFailure(error: PackFailure): string {
+function formatPeerFailure(error: PackFailure & { readonly type: 'peer-dependencies-unsatisfied' }): string {
+    const lines = error.items.map((item) => {
+        return `- "${item.packageName}" needs peer "${item.peer}"`;
+    });
+    const count = error.items.length;
+    const header = `${getErrorSymbol()} Pack of "${error.packageName}" is missing ${count} peer dependency(ies)`;
+    return [header, ...lines].join('\n');
+}
+
+function formatBundleDepFailure(packageName: string): string {
+    const note = 'declares bundleDependencies which pack does not yet support without --vendor-dependencies';
+    return `${getErrorSymbol()} Package "${packageName}" ${note}`;
+}
+
+function formatPackageNotFound(packageName: string): string {
+    return `${getErrorSymbol()} Package "${packageName}" is not declared in the packtory configuration`;
+}
+
+type ConfigOrCheckError = PackFailure & { readonly type: 'checks' | 'config' };
+type PackPackageError = PackFailure & {
+    readonly type: 'bundle-dependencies-unsupported' | 'package-not-found' | 'peer-dependencies-unsatisfied';
+};
+
+function formatIssueListFailure(error: ConfigOrCheckError): string {
     if (error.type === 'config') {
         return formatIssueList('The provided config is invalid', error.issues);
     }
-    if (error.type === 'checks') {
-        return formatIssueList('Checks failed', error.issues);
-    }
+    return formatIssueList('Checks failed', error.issues);
+}
+
+function formatPackPackageFailure(error: PackPackageError): string {
     if (error.type === 'package-not-found') {
-        return `${getErrorSymbol()} Package "${error.packageName}" is not declared in the packtory configuration`;
+        return formatPackageNotFound(error.packageName);
     }
     if (error.type === 'bundle-dependencies-unsupported') {
-        const note = 'declares bundleDependencies which pack does not yet support without --vendor-dependencies';
-        return `${getErrorSymbol()} Package "${error.packageName}" ${note}`;
+        return formatBundleDepFailure(error.packageName);
+    }
+    return formatPeerFailure(error);
+}
+
+function isConfigOrCheckError(error: PackFailure): error is ConfigOrCheckError {
+    return error.type === 'config' || error.type === 'checks';
+}
+
+function isPackPackageError(error: PackFailure): error is PackPackageError {
+    return (
+        error.type === 'package-not-found' ||
+        error.type === 'bundle-dependencies-unsupported' ||
+        error.type === 'peer-dependencies-unsatisfied'
+    );
+}
+
+function formatPackFailure(error: PackFailure): string {
+    if (isConfigOrCheckError(error)) {
+        return formatIssueListFailure(error);
+    }
+    if (isPackPackageError(error)) {
+        return formatPackPackageFailure(error);
     }
     return formatPartialResolveFailure(error);
 }
