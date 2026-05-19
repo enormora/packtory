@@ -3,16 +3,31 @@ import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type _npmFetch from 'npm-registry-fetch';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
-import { fetchLatestPackageVersion, fetchPackageTarball } from './package-metadata-fetcher.ts';
+import {
+    fetchLatestPackageReleaseMetadata,
+    fetchLatestPackageVersion,
+    fetchPackageTarball
+} from './package-metadata-fetcher.ts';
 
 type FakeNpmFetch = SinonSpy & { json: SinonSpy };
 
 const settings: RegistrySettings = { auth: { type: 'bearer-token', token: 'tok' } };
+const latestVersion = '1.2.3';
+const tarballUrl = 'https://example.com/pkg-a-1.2.3.tgz';
 
 function fakeNpmFetch(json: SinonSpy, buffer: SinonSpy = fake.resolves(Buffer.from([]))): typeof _npmFetch {
     const npmFetch: FakeNpmFetch = fake.resolves({ buffer }) as FakeNpmFetch;
     npmFetch.json = json;
     return npmFetch as unknown as typeof _npmFetch;
+}
+
+function latestPackageResponse(time?: string): Record<string, unknown> {
+    return {
+        name: 'pkg-a',
+        'dist-tags': { latest: latestVersion },
+        ...(time === undefined ? {} : { time: { [latestVersion]: time } }),
+        versions: { [latestVersion]: { dist: { tarball: tarballUrl } } }
+    };
 }
 
 async function expectError(npmFetch: typeof _npmFetch, expectedMessage: string): Promise<void> {
@@ -30,8 +45,8 @@ suite('package-metadata-fetcher', function () {
             fakeNpmFetch(
                 fake.resolves({
                     name: 'pkg-a',
-                    'dist-tags': { latest: '1.2.3' },
-                    versions: { '1.2.3': { dist: { tarball: 'https://example.com/pkg-a-1.2.3.tgz' } } }
+                    'dist-tags': { latest: latestVersion },
+                    versions: { [latestVersion]: { dist: { tarball: tarballUrl } } }
                 })
             ),
             'pkg-a',
@@ -39,8 +54,8 @@ suite('package-metadata-fetcher', function () {
         );
 
         assert.deepStrictEqual(result.unwrapOr({ version: '', tarballUrl: '' }), {
-            version: '1.2.3',
-            tarballUrl: 'https://example.com/pkg-a-1.2.3.tgz'
+            version: latestVersion,
+            tarballUrl
         });
     });
 
@@ -74,6 +89,81 @@ suite('package-metadata-fetcher', function () {
             fakeNpmFetch(fake.resolves({ name: 'pkg-a', 'dist-tags': { latest: '1.2.3' }, versions: {} })),
             'Version "1.2.3" for package "pkg-a" has no entry in the registry response'
         );
+    });
+
+    test('fetchLatestPackageReleaseMetadata returns the latest version details with publishedAt when the registry response is valid', async function () {
+        const result = await fetchLatestPackageReleaseMetadata(
+            fakeNpmFetch(fake.resolves(latestPackageResponse('2026-05-19T10:00:00.000Z'))),
+            'pkg-a',
+            settings
+        );
+
+        assert.deepStrictEqual(
+            result.unwrapOr({
+                version: '',
+                tarballUrl: '',
+                publishedAt: undefined
+            }),
+            {
+                version: latestVersion,
+                tarballUrl,
+                publishedAt: new Date('2026-05-19T10:00:00.000Z')
+            }
+        );
+    });
+
+    test('fetchLatestPackageReleaseMetadata returns undefined publishedAt when the registry omits the time entry', async function () {
+        const result = await fetchLatestPackageReleaseMetadata(
+            fakeNpmFetch(fake.resolves(latestPackageResponse())),
+            'pkg-a',
+            settings
+        );
+
+        assert.deepStrictEqual(
+            result.unwrapOr({
+                version: '',
+                tarballUrl: '',
+                publishedAt: undefined
+            }),
+            {
+                version: latestVersion,
+                tarballUrl,
+                publishedAt: undefined
+            }
+        );
+    });
+
+    test('fetchLatestPackageReleaseMetadata returns Nothing when the package is missing from the registry', async function () {
+        const result = await fetchLatestPackageReleaseMetadata(
+            fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
+            'pkg-a',
+            settings
+        );
+
+        assert.strictEqual(result.isNothing, true);
+    });
+
+    test('fetchLatestPackageReleaseMetadata returns Nothing when the full metadata has no latest dist-tag', async function () {
+        const result = await fetchLatestPackageReleaseMetadata(
+            fakeNpmFetch(fake.resolves({ name: 'pkg-a', 'dist-tags': {}, versions: {} })),
+            'pkg-a',
+            settings
+        );
+
+        assert.strictEqual(result.isNothing, true);
+    });
+
+    test('fetchLatestPackageReleaseMetadata throws when the publish time is invalid', async function () {
+        try {
+            await fetchLatestPackageReleaseMetadata(
+                fakeNpmFetch(fake.resolves(latestPackageResponse('not-a-date'))),
+                'pkg-a',
+                settings
+            );
+            assert.fail('Expected fetchLatestPackageReleaseMetadata() to throw but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual((error as Error).message, 'Version publish time "not-a-date" is not a valid timestamp');
+        }
     });
 
     test('fetchPackageTarball returns the buffered tarball contents', async function () {

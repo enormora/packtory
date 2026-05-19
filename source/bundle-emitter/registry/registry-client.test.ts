@@ -225,6 +225,25 @@ suite('registry-client', function () {
         ]);
     });
 
+    test('fetchLatestReleaseMetadata() uses the full metadata endpoint with inherited metadata auth', async function () {
+        const npmFetchJson = buildLatestVersionFetchJson();
+        const registryClient = registryClientFactory({ npmFetchJson });
+
+        await registryClient.fetchLatestReleaseMetadata('the-name', {
+            auth: { type: 'bearer-token', token: 'the-token' }
+        });
+
+        assert.deepStrictEqual(npmFetchJson.firstCall.args, [
+            '/the-name',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                forceAuth: { token: 'the-token' },
+                headers: undefined
+            }
+        ]);
+    });
+
     test('fetchLatestVersion() uses anonymous metadata access by default for explicit npm oidc auth', async function () {
         const npmFetchJson = buildLatestVersionFetchJson();
         const registryClient = registryClientFactory({ npmFetchJson });

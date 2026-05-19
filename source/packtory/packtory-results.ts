@@ -119,7 +119,44 @@ export function createReleaseDiffAllOutcome(
     return { result, getReport };
 }
 
+export type PackageReleaseAnalysisClassification = 'dependency-only' | 'first-publish' | 'substantive' | 'unchanged';
+
+export type PackageReleaseAnalysis = {
+    readonly classification: PackageReleaseAnalysisClassification;
+    readonly latestPublishedAt?: Date | undefined;
+    readonly latestPublishedVersion?: string | undefined;
+    readonly name: string;
+};
+
+export type ReleaseAnalysis = {
+    readonly classification: PackageReleaseAnalysisClassification;
+    readonly mostRecentPublishedAt?: Date | undefined;
+    readonly packageAnalyses: readonly PackageReleaseAnalysis[];
+};
+
+export type ReleaseAnalysisFailure =
+    | CheckError
+    | ConfigError
+    | (PartialError<PackageReleaseAnalysis> & { type: 'partial' });
+export type ReleaseAnalysisResult = Result<ReleaseAnalysis, ReleaseAnalysisFailure>;
+
+export type ReleaseAnalysisOutcome = {
+    readonly result: ReleaseAnalysisResult;
+    readonly getReport: () => BuildReport;
+};
+
+export function createReleaseAnalysisOutcome(
+    result: ReleaseAnalysisResult,
+    getReport: () => BuildReport
+): ReleaseAnalysisOutcome {
+    return { result, getReport };
+}
+
 export function releaseDiffPartialFailure(error: PartialError<PackageReleaseDiff>): ReleaseDiffFailure {
+    return { type: 'partial', ...error };
+}
+
+export function releaseAnalysisPartialFailure(error: PartialError<PackageReleaseAnalysis>): ReleaseAnalysisFailure {
     return { type: 'partial', ...error };
 }
 
@@ -144,6 +181,7 @@ export function createPackOutcome(result: PackResult): PackOutcome {
 }
 
 export type Packtory = {
+    analyzeReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleaseAnalysisOutcome>;
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
     diffAgainstLatestPublished: (config: unknown) => Promise<ReleaseDiffAllOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;

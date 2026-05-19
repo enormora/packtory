@@ -1,6 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { parseAbbreviatedPackageResponse, parseOidcExchangeResponse } from './registry-response-schemas.ts';
+import {
+    parseAbbreviatedPackageResponse,
+    parseFullPackageResponse,
+    parseOidcExchangeResponse
+} from './registry-response-schemas.ts';
 
 suite('registry-response-schemas', function () {
     test('parseAbbreviatedPackageResponse returns the data when the response matches the schema', function () {
@@ -39,6 +43,34 @@ suite('registry-response-schemas', function () {
             'dist-tags': {},
             versions: {}
         });
+    });
+
+    test('parseFullPackageResponse returns the data when optional time entries are present', function () {
+        assert.deepStrictEqual(
+            parseFullPackageResponse({
+                name: 'pkg-a',
+                'dist-tags': { latest: '1.0.0' },
+                time: { '1.0.0': '2026-05-19T10:00:00.000Z' },
+                versions: { '1.0.0': { dist: { tarball: 'https://example.com/pkg-a-1.0.0.tgz' } } }
+            }),
+            {
+                name: 'pkg-a',
+                'dist-tags': { latest: '1.0.0' },
+                time: { '1.0.0': '2026-05-19T10:00:00.000Z' },
+                versions: { '1.0.0': { dist: { tarball: 'https://example.com/pkg-a-1.0.0.tgz' } } }
+            }
+        );
+    });
+
+    test('parseFullPackageResponse returns undefined when a version tarball is missing', function () {
+        assert.strictEqual(
+            parseFullPackageResponse({
+                name: 'pkg-a',
+                'dist-tags': { latest: '1.0.0' },
+                versions: { '1.0.0': { dist: {} } }
+            }),
+            undefined
+        );
     });
 
     test('parseOidcExchangeResponse returns the data when all token fields are present', function () {

@@ -10,6 +10,12 @@ import { emptyTarball, tarballWithOneFile } from '../test-libraries/tarball-fixt
 import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter } from './emitter.ts';
 
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
+const publishedAt = new Date('2026-05-20T00:00:00.000Z');
+const latestReleaseMetadata = {
+    version: '1.2.3',
+    tarballUrl: 'https://registry.example.test/package.tgz',
+    publishedAt
+} as const;
 
 function namedBundle(): ReturnType<typeof versionedBundleWithManifest> {
     return versionedBundleWithManifest({ name: 'the-name' });
@@ -19,6 +25,7 @@ type Overrides = {
     readonly buildTarball?: SinonSpy;
     readonly publishPackage?: SinonSpy;
     readonly fetchLatestVersion?: SinonSpy;
+    readonly fetchLatestReleaseMetadata?: SinonSpy;
     readonly collectContents?: SinonSpy;
     readonly fetchTarball?: SinonSpy;
     readonly ciRepositoryUrl?: string | undefined;
@@ -42,6 +49,7 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
         },
         registryClient: {
             publishPackage: createSpy(overrides.publishPackage, fake),
+            fetchLatestReleaseMetadata: createSpy(overrides.fetchLatestReleaseMetadata, fake),
             fetchLatestVersion: createSpy(overrides.fetchLatestVersion, fake),
             fetchTarball: createSpy(overrides.fetchTarball, () => {
                 return fake.resolves(emptyTarball);
@@ -58,13 +66,11 @@ function createPublishedBundleScenario(): {
     readonly collectContents: SinonSpy;
     readonly fetchTarball: SinonSpy;
 } {
-    const fetchLatestVersion = fake.resolves(
-        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
-    );
+    const fetchLatestReleaseMetadata = fake.resolves(Maybe.just(latestReleaseMetadata));
     const fetchTarball = fake.resolves(tarballWithOneFile);
     const collectContents = fake.returns([]);
     return {
-        emitter: emitterFactory({ fetchLatestVersion, fetchTarball, collectContents }),
+        emitter: emitterFactory({ fetchLatestReleaseMetadata, fetchTarball, collectContents }),
         collectContents,
         fetchTarball
     };
@@ -74,14 +80,34 @@ async function runSbomComparison(previousSbom: string, currentSbom: string): Pro
     const previousTarball = await createTarballBuilder().build([
         { filePath: 'sbom.cdx.json', content: previousSbom, isExecutable: false }
     ]);
-    const fetchLatestVersion = fake.resolves(
-        Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
+    const fetchLatestReleaseMetadata = fake.resolves(
+        Maybe.just({
+            version: latestReleaseMetadata.version,
+            tarballUrl: latestReleaseMetadata.tarballUrl,
+            publishedAt
+        })
     );
     const fetchTarball = fake.resolves(previousTarball);
     const collectContents = fake.returns([{ filePath: 'sbom.cdx.json', content: currentSbom, isExecutable: false }]);
-    const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
+    const emitter = emitterFactory({ fetchLatestReleaseMetadata, fetchTarball, collectContents });
     const result = await emitter.checkBundleAlreadyPublished({ registrySettings, bundle: namedBundle() });
     return result.alreadyPublishedAsLatest;
+}
+
+function assertPreviousReleaseArtifacts(
+    value: {
+        readonly version: string;
+        readonly publishedAt?: Date | undefined;
+        readonly files: readonly unknown[];
+    },
+    expectedFileCount?: number
+): void {
+    assert.strictEqual(value.version, latestReleaseMetadata.version);
+    assert.deepStrictEqual(value.publishedAt, publishedAt);
+
+    if (expectedFileCount !== undefined) {
+        assert.strictEqual(value.files.length, expectedFileCount);
+    }
 }
 
 suite('emitter', function () {
@@ -137,23 +163,23 @@ suite('emitter', function () {
         assert.deepStrictEqual(result, Maybe.just('manual-version'));
     });
 
-    test('checkBundleAlreadyPublished() fetches the latest version', async function () {
-        const fetchLatestVersion = fake.resolves(Maybe.nothing());
-        const emitter = emitterFactory({ fetchLatestVersion });
+    test('checkBundleAlreadyPublished() fetches the latest release metadata', async function () {
+        const fetchLatestReleaseMetadata = fake.resolves(Maybe.nothing());
+        const emitter = emitterFactory({ fetchLatestReleaseMetadata });
 
         await emitter.checkBundleAlreadyPublished({
             registrySettings,
             bundle: namedBundle()
         });
 
-        assert.strictEqual(fetchLatestVersion.callCount, 1);
-        assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
+        assert.strictEqual(fetchLatestReleaseMetadata.callCount, 1);
+        assert.deepStrictEqual(fetchLatestReleaseMetadata.firstCall.args, ['the-name', registrySettings]);
     });
 
     test('checkBundleAlreadyPublished() returns false and Nothing when there is no latest version in the registry', async function () {
-        const fetchLatestVersion = fake.resolves(Maybe.nothing());
+        const fetchLatestReleaseMetadata = fake.resolves(Maybe.nothing());
         const collectContents = fake.returns([]);
-        const emitter = emitterFactory({ fetchLatestVersion, collectContents });
+        const emitter = emitterFactory({ fetchLatestReleaseMetadata, collectContents });
 
         const result = await emitter.checkBundleAlreadyPublished({
             registrySettings,
@@ -166,12 +192,10 @@ suite('emitter', function () {
     });
 
     test('checkBundleAlreadyPublished() returns false and the fetched artifacts when the contents differ', async function () {
-        const fetchLatestVersion = fake.resolves(
-            Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
-        );
+        const fetchLatestReleaseMetadata = fake.resolves(Maybe.just(latestReleaseMetadata));
         const fetchTarball = fake.resolves(tarballWithOneFile);
         const collectContents = fake.returns([]);
-        const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
+        const emitter = emitterFactory({ fetchLatestReleaseMetadata, fetchTarball, collectContents });
 
         const bundle = namedBundle();
         const result = await emitter.checkBundleAlreadyPublished({
@@ -183,13 +207,9 @@ suite('emitter', function () {
         if (result.previousReleaseArtifacts.isNothing) {
             assert.fail('expected previousReleaseArtifacts to be present');
         }
-        assert.strictEqual(result.previousReleaseArtifacts.value.version, '1.2.3');
-        assert.strictEqual(result.previousReleaseArtifacts.value.files.length, 1);
+        assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value, 1);
         assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package', undefined]);
-        assert.deepStrictEqual(fetchTarball.firstCall.args, [
-            'https://registry.example.test/package.tgz',
-            registrySettings
-        ]);
+        assert.deepStrictEqual(fetchTarball.firstCall.args, [latestReleaseMetadata.tarballUrl, registrySettings]);
     });
 
     test('checkBundleAlreadyPublished() forwards extra files to collectContents', async function () {
@@ -206,12 +226,10 @@ suite('emitter', function () {
     });
 
     test('checkBundleAlreadyPublished() returns true and the fetched artifacts when the latest version contents match', async function () {
-        const fetchLatestVersion = fake.resolves(
-            Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
-        );
+        const fetchLatestReleaseMetadata = fake.resolves(Maybe.just(latestReleaseMetadata));
         const fetchTarball = fake.resolves(emptyTarball);
         const collectContents = fake.returns([]);
-        const emitter = emitterFactory({ fetchLatestVersion, fetchTarball, collectContents });
+        const emitter = emitterFactory({ fetchLatestReleaseMetadata, fetchTarball, collectContents });
 
         const result = await emitter.checkBundleAlreadyPublished({
             registrySettings,
@@ -222,12 +240,9 @@ suite('emitter', function () {
         if (result.previousReleaseArtifacts.isNothing) {
             assert.fail('expected previousReleaseArtifacts to be present');
         }
-        assert.strictEqual(result.previousReleaseArtifacts.value.version, '1.2.3');
+        assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value);
         assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
-        assert.deepStrictEqual(fetchTarball.firstCall.args, [
-            'https://registry.example.test/package.tgz',
-            registrySettings
-        ]);
+        assert.deepStrictEqual(fetchTarball.firstCall.args, [latestReleaseMetadata.tarballUrl, registrySettings]);
     });
 
     test('checkBundleAlreadyPublished() treats SBOMs as equal when only the packtory tool version differs', async function () {

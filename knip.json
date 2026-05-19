@@ -6,6 +6,7 @@
         "source/**/*.test.ts",
         "source/**/*.property.ts",
         "source/**/*.type-test.ts",
+        "source/github-release-gate/test-support.ts!",
         "source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts!",
         "source/build-support/mutation-timeout/check-mutation-timeouts.ts!",
         "integration-tests/**/*.ts",

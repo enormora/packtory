@@ -7,8 +7,10 @@ import type { PublishAuthStrategy, RegistrySettings } from '../../config/registr
 import type { PublishedPackageJson } from '../../published-package/published-package.ts';
 import { createOidcTokenExchanger } from './oidc-token-exchange.ts';
 import {
+    fetchLatestPackageReleaseMetadata,
     fetchLatestPackageVersion,
     fetchPackageTarball,
+    type PackageReleaseMetadata,
     type PackageVersionDetails
 } from './package-metadata-fetcher.ts';
 import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
@@ -25,6 +27,10 @@ export type RegistryClientDependencies = {
 };
 
 export type RegistryClient = {
+    fetchLatestReleaseMetadata: (
+        packageName: string,
+        config: RegistrySettings
+    ) => Promise<Maybe<PackageReleaseMetadata>>;
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
     publishPackage: (
         manifest: Readonly<PublishedPackageJson>,
@@ -75,6 +81,10 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
 
         async fetchLatestVersion(packageName, registrySettings) {
             return fetchLatestPackageVersion(npmFetch, packageName, registrySettings);
+        },
+
+        async fetchLatestReleaseMetadata(packageName, registrySettings) {
+            return fetchLatestPackageReleaseMetadata(npmFetch, packageName, registrySettings);
         }
     };
 }

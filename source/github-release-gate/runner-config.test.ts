@@ -1,0 +1,152 @@
+import assert from 'node:assert';
+import { suite, test } from 'mocha';
+import {
+    createGitHubRepositoryContext,
+    readGitHubReleaseGateRunnerConfig,
+    type GitHubReleaseGateRunnerConfig
+} from './runner-config.ts';
+
+type FakeEnvironment = Readonly<Record<string, string | undefined>>;
+
+function createEnvironmentVariableReader(
+    environmentVariables: FakeEnvironment
+): (variableName: string) => string | undefined {
+    return (variableName) => {
+        return environmentVariables[variableName];
+    };
+}
+
+function createRequiredEnvironment(overrides: FakeEnvironment = {}): FakeEnvironment {
+    return {
+        GITHUB_OUTPUT: '/workspace/github-output.txt',
+        GITHUB_REPOSITORY: 'enormora/packtory',
+        GITHUB_TOKEN: 'token',
+        ...overrides
+    };
+}
+
+function readConfig(overrides: FakeEnvironment = {}): Readonly<GitHubReleaseGateRunnerConfig> {
+    return readGitHubReleaseGateRunnerConfig(createEnvironmentVariableReader(createRequiredEnvironment(overrides)));
+}
+
+suite('github-release-gate-runner-config', function () {
+    test('readGitHubReleaseGateRunnerConfig uses defaults for optional environment variables', function () {
+        assert.deepStrictEqual(readConfig(), {
+            ciWorkflowFile: 'ci.yml',
+            dependencyOnlyMinAgeDays: 7,
+            defaultBranch: 'main',
+            githubApiBaseUrl: 'https://api.github.com',
+            githubOutputPath: '/workspace/github-output.txt',
+            maxLatencyHours: 24,
+            quietPeriodMinutes: 45,
+            repository: 'enormora/packtory',
+            token: 'token'
+        });
+    });
+
+    test('readGitHubReleaseGateRunnerConfig honors custom environment values', function () {
+        assert.deepStrictEqual(
+            readConfig({
+                CI_WORKFLOW_FILE: 'custom ci.yml',
+                DEFAULT_BRANCH: 'release',
+                DEPENDENCY_ONLY_MIN_AGE_DAYS: '9',
+                GITHUB_API_BASE_URL: 'https://example.invalid/api',
+                MAX_LATENCY_HOURS: '1',
+                QUIET_PERIOD_MINUTES: '3'
+            }),
+            {
+                ciWorkflowFile: 'custom ci.yml',
+                dependencyOnlyMinAgeDays: 9,
+                defaultBranch: 'release',
+                githubApiBaseUrl: 'https://example.invalid/api',
+                githubOutputPath: '/workspace/github-output.txt',
+                maxLatencyHours: 1,
+                quietPeriodMinutes: 3,
+                repository: 'enormora/packtory',
+                token: 'token'
+            }
+        );
+    });
+
+    test('readGitHubReleaseGateRunnerConfig requires GITHUB_OUTPUT', function () {
+        assert.throws(() => {
+            readGitHubReleaseGateRunnerConfig(
+                createEnvironmentVariableReader(
+                    createRequiredEnvironment({
+                        GITHUB_OUTPUT: undefined
+                    })
+                )
+            );
+        }, /Missing GITHUB_OUTPUT environment variable/u);
+    });
+
+    test('readGitHubReleaseGateRunnerConfig requires GITHUB_REPOSITORY', function () {
+        assert.throws(() => {
+            readGitHubReleaseGateRunnerConfig(
+                createEnvironmentVariableReader(
+                    createRequiredEnvironment({
+                        GITHUB_REPOSITORY: undefined
+                    })
+                )
+            );
+        }, /Missing GITHUB_REPOSITORY environment variable/u);
+    });
+
+    test('readGitHubReleaseGateRunnerConfig requires GITHUB_TOKEN', function () {
+        assert.throws(() => {
+            readGitHubReleaseGateRunnerConfig(
+                createEnvironmentVariableReader(
+                    createRequiredEnvironment({
+                        GITHUB_TOKEN: undefined
+                    })
+                )
+            );
+        }, /Missing GITHUB_TOKEN environment variable/u);
+    });
+
+    test('createGitHubRepositoryContext builds the GitHub repository context from config', function () {
+        assert.deepStrictEqual(createGitHubRepositoryContext(readConfig()), {
+            apiBaseUrl: 'https://api.github.com',
+            defaultBranch: 'main',
+            owner: 'enormora',
+            repo: 'packtory',
+            token: 'token'
+        });
+    });
+
+    test('createGitHubRepositoryContext rejects missing-slash', function () {
+        assert.throws(() => {
+            createGitHubRepositoryContext({
+                ...readConfig(),
+                repository: 'missing-slash'
+            });
+        }, /Invalid GITHUB_REPOSITORY value/u);
+    });
+
+    test('createGitHubRepositoryContext rejects /packtory', function () {
+        assert.throws(() => {
+            createGitHubRepositoryContext({
+                ...readConfig(),
+                repository: '/packtory'
+            });
+        }, /Invalid GITHUB_REPOSITORY value/u);
+    });
+
+    test('createGitHubRepositoryContext rejects enormora/', function () {
+        assert.throws(() => {
+            createGitHubRepositoryContext({
+                ...readConfig(),
+                repository: 'enormora/'
+            });
+        }, /Invalid GITHUB_REPOSITORY value/u);
+    });
+
+    test('createGitHubRepositoryContext rejects enormora/packtory/extra', function () {
+        assert.throws(() => {
+            createGitHubRepositoryContext({
+                ...readConfig(),
+                repository: 'enormora/packtory/extra'
+            });
+        }, /Invalid GITHUB_REPOSITORY value/u);
+    });
+});

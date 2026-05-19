@@ -1,0 +1,51 @@
+---
+name: Publish
+
+on:
+    schedule:
+        - cron: '*/10 * * * *'
+    workflow_dispatch:
+
+concurrency:
+    group: publish-main
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        permissions:
+            actions: read
+            contents: read
+            id-token: write
+            issues: read
+            pull-requests: read
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  ref: main
+            - name: Use Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 26.x
+            - name: Evaluate GitHub release gate
+              id: release-gate
+              run: node --experimental-strip-types --enable-source-maps ./source/packages/github-release-gate/github-release-gate.entry-point.ts
+              env:
+                  CI_WORKFLOW_FILE: ci.yml
+                  DEFAULT_BRANCH: main
+                  DEPENDENCY_ONLY_MIN_AGE_DAYS: '7'
+                  GITHUB_TOKEN: ${{ github.token }}
+                  MAX_LATENCY_HOURS: '24'
+                  QUIET_PERIOD_MINUTES: '45'
+            - name: Stop when release gate is closed
+              if: steps.release-gate.outputs.should_publish != 'true'
+              run: echo "Skipping publish because ${{ steps.release-gate.outputs.reason }}."
+            - uses: actions/checkout@v6
+              if: steps.release-gate.outputs.should_publish == 'true'
+              with:
+                  ref: ${{ steps.release-gate.outputs.main_head_sha }}
+            - name: Install dependencies
+              if: steps.release-gate.outputs.should_publish == 'true'
+              run: npm clean-install
+            - name: Publish packages
+              if: steps.release-gate.outputs.should_publish == 'true'
+              run: npx packtory publish --no-dry-run

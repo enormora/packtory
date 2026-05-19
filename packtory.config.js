@@ -7,7 +7,6 @@ import fs from 'node:fs/promises';
 const projectFolder = process.cwd();
 const sourcesFolder = path.join(projectFolder, 'target/build/source');
 
-const npmToken = process.env.NPM_TOKEN;
 const sharedLicensePath = path.join(projectFolder, 'LICENSE');
 const packtoryReadmePath = path.join(projectFolder, 'source/packages/packtory/readme.md');
 const cliReadmePath = path.join(projectFolder, 'source/packages/command-line-interface/readme.md');
@@ -42,13 +41,12 @@ export async function buildConfig() {
     const packageJsonContent = await fs.readFile('./package.json', { encoding: 'utf8' });
     const packageJson = JSON.parse(packageJsonContent);
 
-    if (npmToken === undefined) {
-        throw new Error('Missing NPM_TOKEN environment variable');
-    }
-
     return {
         registrySettings: {
-            auth: { type: 'bearer-token', token: npmToken }
+            auth: {
+                publish: { type: 'npm-oidc', provider: 'auto' },
+                metadata: 'auto'
+            }
         },
         checks: {
             noDuplicatedFiles: { enabled: true, allowList: [sharedLicensePath] },
@@ -71,7 +69,10 @@ export async function buildConfig() {
                 ],
                 pureConstructors: ['Set', 'Map', 'TextEncoder', 'TextDecoder']
             },
-            publishSettings: { access: 'public' },
+            publishSettings: {
+                access: 'public',
+                provenance: { type: 'auto' }
+            },
             additionalFiles: [
                 {
                     sourceFilePath: sharedLicensePath,
