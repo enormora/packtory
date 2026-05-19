@@ -18,6 +18,13 @@
         "canonicalizer",
         "fflate",
         "Flate",
-        "Zippable"
+        "Zippable",
+        "Materializer",
+        "materializer",
+        "materializers",
+        "materialize",
+        "materializing",
+        "materialized",
+        "materializes"
     ]
 }

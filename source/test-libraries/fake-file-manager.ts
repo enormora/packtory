@@ -1,6 +1,8 @@
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 
+type DirectoryEntry = Awaited<ReturnType<FileManager['listDirectoryEntries']>>[number];
+
 type SimulatedSuccess<TValue> = {
     readonly value: TValue;
     readonly error?: undefined;
@@ -22,6 +24,10 @@ type ReadFileCall = {
     readonly filePath: string;
 };
 
+type ReadFileBytesCall = {
+    readonly filePath: string;
+};
+
 type WriteFileCall = {
     readonly filePath: string;
     readonly content: string;
@@ -35,6 +41,19 @@ type WriteBinaryFileCall = {
 type CopyFileCall = {
     readonly from: string;
     readonly to: string;
+};
+
+type CopyFileBytesCall = {
+    readonly from: string;
+    readonly to: string;
+};
+
+type ListDirectoryCall = {
+    readonly directoryPath: string;
+};
+
+type RealPathCall = {
+    readonly filePath: string;
 };
 
 type CheckReadabilityCall = {
@@ -53,18 +72,26 @@ type TransferableFileDescriptionResponder = (
 
 type FakeFileManagerOptions = {
     readonly simulatedReadFileResponses?: readonly SimulatedResponse<string>[];
+    readonly simulatedReadFileBytesResponses?: readonly SimulatedResponse<Buffer>[];
     readonly simulatedCheckReadabilityResponses?: readonly SimulatedResponse<ReadabilityResult>[];
     readonly simulatedTransferableFileDescriptionResponses?: readonly SimulatedResponse<TransferableFileDescription>[];
     readonly transferableFileDescriptionResponder?: TransferableFileDescriptionResponder;
     readonly simulatedWriteFileResponses?: readonly SimulatedVoidResponse[];
     readonly simulatedWriteBinaryFileResponses?: readonly SimulatedVoidResponse[];
     readonly simulatedCopyFileResponses?: readonly SimulatedVoidResponse[];
+    readonly simulatedCopyFileBytesResponses?: readonly SimulatedVoidResponse[];
+    readonly simulatedListDirectoryResponses?: readonly SimulatedResponse<readonly DirectoryEntry[]>[];
+    readonly simulatedRealPathResponses?: readonly SimulatedResponse<string>[];
 };
 
 export type FakeFileManager = FileManager & {
     readonly getReadFileCallCount: () => number;
     readonly getReadFileCall: (index: number) => ReadFileCall;
     readonly getAllReadFileCalls: () => readonly ReadFileCall[];
+
+    readonly getReadFileBytesCallCount: () => number;
+    readonly getReadFileBytesCall: (index: number) => ReadFileBytesCall;
+    readonly getAllReadFileBytesCalls: () => readonly ReadFileBytesCall[];
 
     readonly getWriteFileCallCount: () => number;
     readonly getWriteFileCall: (index: number) => WriteFileCall;
@@ -78,6 +105,18 @@ export type FakeFileManager = FileManager & {
     readonly getCopyFileCall: (index: number) => CopyFileCall;
     readonly getAllCopyFileCalls: () => readonly CopyFileCall[];
 
+    readonly getCopyFileBytesCallCount: () => number;
+    readonly getCopyFileBytesCall: (index: number) => CopyFileBytesCall;
+    readonly getAllCopyFileBytesCalls: () => readonly CopyFileBytesCall[];
+
+    readonly getListDirectoryCallCount: () => number;
+    readonly getListDirectoryCall: (index: number) => ListDirectoryCall;
+    readonly getAllListDirectoryCalls: () => readonly ListDirectoryCall[];
+
+    readonly getRealPathCallCount: () => number;
+    readonly getRealPathCall: (index: number) => RealPathCall;
+    readonly getAllRealPathCalls: () => readonly RealPathCall[];
+
     readonly getCheckReadabilityCallCount: () => number;
     readonly getCheckReadabilityCall: (index: number) => CheckReadabilityCall;
     readonly getAllCheckReadabilityCalls: () => readonly CheckReadabilityCall[];
@@ -88,6 +127,7 @@ export type FakeFileManager = FileManager & {
 };
 
 const defaultReadFileResponse: SimulatedResponse<string> = { value: '' };
+const defaultReadFileBytesResponse: SimulatedResponse<Buffer> = { value: Buffer.alloc(0) };
 const defaultCheckReadabilityResponse: SimulatedResponse<ReadabilityResult> = { value: { isReadable: true } };
 const defaultVoidResponse: SimulatedVoidResponse = {};
 
@@ -117,18 +157,26 @@ function getCallAtIndex<TCall>(calls: readonly TCall[], methodName: string, inde
 export function createFakeFileManager(options: FakeFileManagerOptions = {}): FakeFileManager {
     const {
         simulatedReadFileResponses = [],
+        simulatedReadFileBytesResponses = [],
         simulatedCheckReadabilityResponses = [],
         simulatedTransferableFileDescriptionResponses = [],
         transferableFileDescriptionResponder,
         simulatedWriteFileResponses = [],
         simulatedWriteBinaryFileResponses = [],
-        simulatedCopyFileResponses = []
+        simulatedCopyFileResponses = [],
+        simulatedCopyFileBytesResponses = [],
+        simulatedListDirectoryResponses = [],
+        simulatedRealPathResponses = []
     } = options;
 
     const readFileCalls: ReadFileCall[] = [];
+    const readFileBytesCalls: ReadFileBytesCall[] = [];
     const writeFileCalls: WriteFileCall[] = [];
     const writeBinaryFileCalls: WriteBinaryFileCall[] = [];
     const copyFileCalls: CopyFileCall[] = [];
+    const copyFileBytesCalls: CopyFileBytesCall[] = [];
+    const listDirectoryCalls: ListDirectoryCall[] = [];
+    const realPathCalls: RealPathCall[] = [];
     const checkReadabilityCalls: CheckReadabilityCall[] = [];
     const transferableFileDescriptionCalls: TransferableFileDescriptionCall[] = [];
 
@@ -136,6 +184,12 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
         async readFile(filePath) {
             const response = simulatedReadFileResponses[readFileCalls.length] ?? defaultReadFileResponse;
             readFileCalls.push({ filePath });
+            return resolveValueResponse(response);
+        },
+
+        async readFileBytes(filePath) {
+            const response = simulatedReadFileBytesResponses[readFileBytesCalls.length] ?? defaultReadFileBytesResponse;
+            readFileBytesCalls.push({ filePath });
             return resolveValueResponse(response);
         },
 
@@ -159,6 +213,24 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             const response = simulatedCopyFileResponses[copyFileCalls.length] ?? defaultVoidResponse;
             copyFileCalls.push({ from, to });
             resolveVoidResponse(response);
+        },
+
+        async copyFileBytes(from, to) {
+            const response = simulatedCopyFileBytesResponses[copyFileBytesCalls.length] ?? defaultVoidResponse;
+            copyFileBytesCalls.push({ from, to });
+            resolveVoidResponse(response);
+        },
+
+        async listDirectoryEntries(directoryPath) {
+            const response = simulatedListDirectoryResponses[listDirectoryCalls.length] ?? { value: [] };
+            listDirectoryCalls.push({ directoryPath });
+            return resolveValueResponse(response);
+        },
+
+        async getRealPath(filePath) {
+            const response = simulatedRealPathResponses[realPathCalls.length] ?? { value: filePath };
+            realPathCalls.push({ filePath });
+            return resolveValueResponse(response);
         },
 
         async checkReadability(fileOrFolderPath) {
@@ -191,6 +263,16 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             return readFileCalls;
         },
 
+        getReadFileBytesCallCount() {
+            return readFileBytesCalls.length;
+        },
+        getReadFileBytesCall(index) {
+            return getCallAtIndex(readFileBytesCalls, 'readFileBytes', index);
+        },
+        getAllReadFileBytesCalls() {
+            return readFileBytesCalls;
+        },
+
         getWriteFileCallCount() {
             return writeFileCalls.length;
         },
@@ -219,6 +301,36 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
         },
         getAllCopyFileCalls() {
             return copyFileCalls;
+        },
+
+        getCopyFileBytesCallCount() {
+            return copyFileBytesCalls.length;
+        },
+        getCopyFileBytesCall(index) {
+            return getCallAtIndex(copyFileBytesCalls, 'copyFileBytes', index);
+        },
+        getAllCopyFileBytesCalls() {
+            return copyFileBytesCalls;
+        },
+
+        getListDirectoryCallCount() {
+            return listDirectoryCalls.length;
+        },
+        getListDirectoryCall(index) {
+            return getCallAtIndex(listDirectoryCalls, 'listDirectoryEntries', index);
+        },
+        getAllListDirectoryCalls() {
+            return listDirectoryCalls;
+        },
+
+        getRealPathCallCount() {
+            return realPathCalls.length;
+        },
+        getRealPathCall(index) {
+            return getCallAtIndex(realPathCalls, 'getRealPath', index);
+        },
+        getAllRealPathCalls() {
+            return realPathCalls;
         },
 
         getCheckReadabilityCallCount() {

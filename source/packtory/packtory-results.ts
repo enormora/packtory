@@ -99,6 +99,7 @@ export type PackPublicOptions = {
     readonly format: PackFormat;
     readonly outputPath: string;
     readonly version: string;
+    readonly vendorDependencies: boolean;
 };
 
 export type PackFailure = CheckError | ConfigError | PackPackageFailure | PartialErrorResult;

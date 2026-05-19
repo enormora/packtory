@@ -48,4 +48,29 @@ suite('folder-writer', function () {
         });
         assert.deepStrictEqual(fileManager.getWriteFileCall(1), { filePath: '/target/data.txt', content: 'data' });
     });
+
+    test('writeArtifactsToFolder copies vendor entries byte-for-byte after writing inline contents', async function () {
+        const fileManager = createFakeFileManager({
+            simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }]
+        });
+
+        await writeArtifactsToFolder(
+            fileManager,
+            '/target',
+            [{ filePath: 'inline.txt', content: 'inline', isExecutable: false }],
+            [
+                {
+                    sourceAbsolutePath: '/repo/node_modules/pkg/index.js',
+                    targetRelativePath: 'node_modules/pkg/index.js',
+                    isExecutable: false
+                }
+            ]
+        );
+
+        assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
+        assert.deepStrictEqual(fileManager.getCopyFileBytesCall(0), {
+            from: '/repo/node_modules/pkg/index.js',
+            to: '/target/node_modules/pkg/index.js'
+        });
+    });
 });

@@ -149,4 +149,77 @@ suite('tarball-builder', function () {
 
         assert.deepStrictEqual(createGzip.firstCall.args, [{ level: 9 }]);
     });
+
+    test('includes vendor entries with raw bytes from the file manager alongside inline file descriptions', async function () {
+        const builder = createTarballBuilder({
+            fileManager: {
+                readFileBytes: async () => {
+                    return Buffer.from('vendored-bytes', 'utf8');
+                }
+            }
+        });
+
+        const tarballBuffer = await builder.build(
+            [{ filePath: 'index.js', content: 'console.log(0);', isExecutable: false }],
+            [
+                {
+                    sourceAbsolutePath: '/repo/node_modules/pkg/dist/main.js',
+                    targetRelativePath: 'node_modules/pkg/main.js',
+                    isExecutable: false
+                }
+            ]
+        );
+        const entries = await withPromiseDeadline(extractTarEntries(tarballBuffer), 'vendor tar extraction');
+
+        const names = entries.map((entry) => {
+            return entry.header.name;
+        });
+        assert.deepStrictEqual(names, ['index.js', 'node_modules/pkg/main.js']);
+        const vendorEntry = entries.find((entry) => {
+            return entry.header.name === 'node_modules/pkg/main.js';
+        });
+        assert.ok(vendorEntry);
+        assert.strictEqual(vendorEntry.content, 'vendored-bytes');
+    });
+
+    test('marks executable vendor entries with the executable mode in the tarball', async function () {
+        const builder = createTarballBuilder({
+            fileManager: {
+                readFileBytes: async () => {
+                    return Buffer.from('#!/bin/sh', 'utf8');
+                }
+            }
+        });
+
+        const tarballBuffer = await builder.build(
+            [],
+            [
+                {
+                    sourceAbsolutePath: '/repo/bin/run.sh',
+                    targetRelativePath: 'node_modules/pkg/bin/run.sh',
+                    isExecutable: true
+                }
+            ]
+        );
+        const [entry] = await withPromiseDeadline(extractTarEntries(tarballBuffer), 'executable vendor tar extraction');
+        assert.ok(entry);
+        assert.strictEqual(entry.header.mode, 493);
+    });
+
+    test('rejects vendor materialization when no file manager is wired into the tarball builder', async function () {
+        const builder = createTarballBuilder();
+        const vendorEntry = {
+            sourceAbsolutePath: '/missing',
+            targetRelativePath: 'node_modules/pkg/lib.js',
+            isExecutable: false
+        };
+        let capturedMessage = '';
+        try {
+            await builder.build([], [vendorEntry]);
+            assert.fail('expected build() to reject because the tarball builder lacks readFileBytes');
+        } catch (error: unknown) {
+            capturedMessage = (error as Error).message;
+        }
+        assert.strictEqual(capturedMessage, 'readFileBytes is required to materialize vendor entries into the tarball');
+    });
 });

@@ -239,6 +239,11 @@ function createPacktoryUnderTest(
                     (async () => {
                         throw new Error('packEmitter.pack not implemented in tests');
                     })) as never
+            },
+            vendorMaterializer: {
+                materializeExternals: async () => {
+                    return { entries: [], packageNames: [] };
+                }
             }
         }),
         resolveAndLink,
@@ -581,7 +586,8 @@ suite('packtory', function () {
         packageName: 'package-a',
         format: 'zip' as const,
         outputPath: '/out/package-a.zip',
-        version: '1.0.0'
+        version: '1.0.0',
+        vendorDependencies: false
     };
 
     test('packPackage() returns a config failure when the supplied config is invalid', async function () {

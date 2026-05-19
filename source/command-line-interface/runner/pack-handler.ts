@@ -11,6 +11,7 @@ type PackFlags = {
     readonly format: 'folder' | 'tar' | 'zip';
     readonly outputPath: string;
     readonly version: string;
+    readonly vendorDependencies: boolean;
 };
 
 export type PackHandlerDeps = {
@@ -66,7 +67,8 @@ export async function runPackHandler(deps: PackHandlerDeps): Promise<number> {
             packageName: flags.packageName,
             format: flags.format,
             outputPath: flags.outputPath,
-            version: flags.version
+            version: flags.version,
+            vendorDependencies: flags.vendorDependencies
         });
         spinnerRenderer.stopAll();
         return reportOutcome(log, outcome, flags);

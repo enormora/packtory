@@ -7,6 +7,7 @@ import { createArtifactsBuilder, type ArtifactsBuilder } from '../artifacts/arti
 import { createBundleEmitter, type BundleEmitter } from '../bundle-emitter/emitter.ts';
 import { createRegistryClient, type RegistryClient } from '../bundle-emitter/registry/registry-client.ts';
 import { createPackEmitter, type PackEmitter } from '../pack-emitter/pack-emitter.ts';
+import { createVendorMaterializer, type VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
 import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/repository-coherence.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
@@ -42,6 +43,7 @@ export type PackageProcessorComposition = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly versionManager: ReturnType<typeof createVersionManager>;
     readonly packEmitter: PackEmitter;
+    readonly vendorMaterializer: VendorMaterializer;
 };
 
 export type PackageProcessorCompositionOptions = {
@@ -136,8 +138,8 @@ function buildCompositionParts(options: PackageProcessorCompositionOptions): Com
     const progressBroadcaster = createProgressBroadcaster();
     const artifactsBuilder = createArtifactsBuilder({
         fileManager,
-        tarballBuilder: createTarballBuilder(),
-        zipBuilder: createZipBuilder(),
+        tarballBuilder: createTarballBuilder({ fileManager }),
+        zipBuilder: createZipBuilder({ fileManager }),
         progressBroadcaster: progressBroadcaster.provider
     });
     return {
@@ -170,6 +172,7 @@ export function buildPackageProcessorComposition(
         artifactsBuilder: parts.artifactsBuilder,
         fileManager: parts.fileManager
     });
+    const vendorMaterializer = createVendorMaterializer({ fileManager: parts.fileManager });
 
     return {
         packageProcessor,
@@ -177,6 +180,7 @@ export function buildPackageProcessorComposition(
         deadCodeEliminator: parts.deadCodeEliminator,
         artifactsBuilder: parts.artifactsBuilder,
         versionManager,
-        packEmitter
+        packEmitter,
+        vendorMaterializer
     };
 }

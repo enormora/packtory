@@ -34,6 +34,7 @@ function defaultFlags(overrides: Partial<PackFlags> = {}): PackFlags {
         format: 'zip',
         outputPath: '/out/pkg-a.zip',
         version: '0.0.0',
+        vendorDependencies: false,
         ...overrides
     };
 }
@@ -95,7 +96,8 @@ suite('pack-handler', function () {
             packageName: 'pkg-b',
             format: 'tar',
             outputPath: '/out/pkg-b.tgz',
-            version: '1.2.3'
+            version: '1.2.3',
+            vendorDependencies: false
         });
     });
 

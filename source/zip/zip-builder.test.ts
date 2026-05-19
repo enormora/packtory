@@ -116,6 +116,96 @@ suite('zip-builder', function () {
         assert.deepStrictEqual(options, {});
     });
 
+    test('includes vendor entries with raw bytes from the file manager alongside inline file descriptions', async function () {
+        const builder = createZipBuilder({
+            fileManager: {
+                readFileBytes: async () => {
+                    return Buffer.from('vendored-bytes', 'utf8');
+                }
+            }
+        });
+
+        const zipBuffer = await builder.build(
+            [{ filePath: 'index.js', content: 'console.log(0);', isExecutable: false }],
+            [
+                {
+                    sourceAbsolutePath: '/repo/node_modules/pkg/dist/main.js',
+                    targetRelativePath: 'node_modules/pkg/main.js',
+                    isExecutable: false
+                }
+            ]
+        );
+        const entries = await extractZipEntries(zipBuffer);
+
+        assert.deepStrictEqual(entries, [
+            {
+                name: 'index.js',
+                content: 'console.log(0);',
+                unixMode: nonExecutableUnixMode,
+                osOfOrigin: unixOperatingSystem
+            },
+            {
+                name: 'node_modules/pkg/main.js',
+                content: 'vendored-bytes',
+                unixMode: nonExecutableUnixMode,
+                osOfOrigin: unixOperatingSystem
+            }
+        ]);
+    });
+
+    test('marks executable vendor entries with the executable unix mode in the zip output', async function () {
+        const builder = createZipBuilder({
+            fileManager: {
+                readFileBytes: async () => {
+                    return Buffer.from('#!/bin/sh\necho hi', 'utf8');
+                }
+            }
+        });
+
+        const zipBuffer = await builder.build(
+            [],
+            [
+                {
+                    sourceAbsolutePath: '/repo/node_modules/pkg/bin/run.sh',
+                    targetRelativePath: 'node_modules/pkg/bin/run.sh',
+                    isExecutable: true
+                }
+            ]
+        );
+        const entries = await extractZipEntries(zipBuffer);
+
+        assert.deepStrictEqual(entries, [
+            {
+                name: 'node_modules/pkg/bin/run.sh',
+                content: '#!/bin/sh\necho hi',
+                unixMode: executableUnixMode,
+                osOfOrigin: unixOperatingSystem
+            }
+        ]);
+    });
+
+    test('throws a clear error when vendor entries are requested without a configured file manager', async function () {
+        const builder = createZipBuilder();
+        try {
+            await builder.build(
+                [],
+                [
+                    {
+                        sourceAbsolutePath: '/anywhere',
+                        targetRelativePath: 'node_modules/pkg/index.js',
+                        isExecutable: false
+                    }
+                ]
+            );
+            assert.fail('expected build() to reject because readFileBytes is not configured');
+        } catch (error: unknown) {
+            assert.strictEqual(
+                (error as Error).message,
+                'readFileBytes is required to materialize vendor entries into the zip'
+            );
+        }
+    });
+
     test('rejects when fflate reports an error', async function () {
         const errorFromFflate: FlateError = Object.assign(new Error('fflate-failure'), {
             code: 99 as FlateError['code']

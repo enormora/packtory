@@ -788,7 +788,8 @@ suite('runner', function () {
             packageName: 'pkg-a',
             format: 'zip',
             outputPath: '/tmp/pkg-a.zip',
-            version: '1.2.3'
+            version: '1.2.3',
+            vendorDependencies: false
         });
     });
 
@@ -802,7 +803,8 @@ suite('runner', function () {
             packageName: 'pkg-a',
             format: 'zip',
             outputPath: '/tmp/pkg-a.zip',
-            version: '0.0.0'
+            version: '0.0.0',
+            vendorDependencies: false
         });
     });
 
@@ -823,6 +825,15 @@ suite('runner', function () {
 
         assert.strictEqual(exitCode, 1);
         assert.strictEqual(packPackage.callCount, 1);
+    });
+
+    test('pack command forwards --vendor-dependencies as true when the flag is supplied', async function () {
+        const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
+        const argv = 'foo,bar,pack,pkg-a,--format,zip,--out,/tmp/pkg-a.zip,--vendor-dependencies'.split(',');
+        await runnerFactory({ packPackage }).run(argv);
+
+        const forwarded = packPackage.firstCall.args[1] as { readonly vendorDependencies: boolean };
+        assert.strictEqual(forwarded.vendorDependencies, true);
     });
 
     test('pack command accepts each of the zip, tar, and folder format values and forwards them to packPackage', async function () {

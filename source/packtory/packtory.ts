@@ -4,6 +4,7 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { validateConfig, validateConfigWithoutRegistry, type ValidConfigResult } from '../config/validation.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackEmitter } from '../pack-emitter/pack-emitter.ts';
+import type { VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
 import { createRunPackValidated } from './packtory-pack.ts';
@@ -58,6 +59,7 @@ type PacktoryDependencies = {
     readonly artifactsBuilder: Pick<ArtifactsBuilder, 'collectContents'>;
     readonly versionManager: VersionManager;
     readonly packEmitter: PackEmitter;
+    readonly vendorMaterializer: VendorMaterializer;
 };
 
 type ValidatedRunners = {

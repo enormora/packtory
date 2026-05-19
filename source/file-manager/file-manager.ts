@@ -11,13 +11,23 @@ type FileOrFolderReadability = {
     readonly isReadable: boolean;
 };
 
+type DirectoryEntry = {
+    readonly name: string;
+    readonly isDirectory: boolean;
+    readonly isSymbolicLink: boolean;
+};
+
 export type FileManager = {
     checkReadability: (fileOrFolderPath: string) => Promise<FileOrFolderReadability>;
     readFile: (filePath: string) => Promise<string>;
+    readFileBytes: (filePath: string) => Promise<Buffer>;
     writeFile: (filePath: string, content: string) => Promise<void>;
     writeBinaryFile: (filePath: string, content: Buffer) => Promise<void>;
     setExecutable: (filePath: string, executable: boolean) => Promise<void>;
     copyFile: (from: string, to: string) => Promise<void>;
+    copyFileBytes: (from: string, to: string) => Promise<void>;
+    listDirectoryEntries: (directoryPath: string) => Promise<readonly DirectoryEntry[]>;
+    getRealPath: (filePath: string) => Promise<string>;
     getTransferableFileDescriptionFromPath: (
         sourceFilePath: string,
         targetFilePath: string
@@ -62,6 +72,10 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         return hostFileSystem.readFile(filePath, { encoding: 'utf8' });
     }
 
+    async function readFileBytes(filePath: string): Promise<Buffer> {
+        return hostFileSystem.readFile(filePath);
+    }
+
     async function getFileMode(filePath: string): Promise<number> {
         const stats = await hostFileSystem.stat(filePath);
         return stats.mode;
@@ -83,6 +97,8 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
 
         readFile,
 
+        readFileBytes,
+
         async getTransferableFileDescriptionFromPath(sourceFilePath, targetFilePath) {
             const mode = await getFileMode(sourceFilePath);
 
@@ -97,6 +113,26 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
         async copyFile(from, to) {
             const content = await readFile(from);
             await writeFile(to, content);
+        },
+
+        async copyFileBytes(from, to) {
+            await ensureContainingFolder(to);
+            await hostFileSystem.copyFile(from, to);
+        },
+
+        async listDirectoryEntries(directoryPath) {
+            const entries = await hostFileSystem.readdir(directoryPath, { withFileTypes: true });
+            return entries.map((entry) => {
+                return {
+                    name: entry.name,
+                    isDirectory: entry.isDirectory(),
+                    isSymbolicLink: entry.isSymbolicLink()
+                };
+            });
+        },
+
+        async getRealPath(filePath) {
+            return hostFileSystem.realpath(filePath);
         }
     };
 }

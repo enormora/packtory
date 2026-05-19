@@ -38,10 +38,10 @@ suite('pack-emitter', function () {
         const emitter = createPackEmitter(deps);
         const bundle = makeBundle();
 
-        await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip' });
+        await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip', vendorEntries: [] });
 
         assert.strictEqual(buildZip.callCount, 1);
-        assert.deepStrictEqual(buildZip.firstCall.args, [bundle]);
+        assert.deepStrictEqual(buildZip.firstCall.args, [bundle, undefined, []]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
         assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
             filePath: '/out/fn.zip',
@@ -56,10 +56,10 @@ suite('pack-emitter', function () {
         const emitter = createPackEmitter(deps);
         const bundle = makeBundle();
 
-        await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz' });
+        await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz', vendorEntries: [] });
 
         assert.strictEqual(buildTarball.callCount, 1);
-        assert.deepStrictEqual(buildTarball.firstCall.args, [bundle]);
+        assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, undefined, []]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
         assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
             filePath: '/out/pkg.tgz',
@@ -73,10 +73,10 @@ suite('pack-emitter', function () {
         const emitter = createPackEmitter(deps);
         const bundle = makeBundle();
 
-        await emitter.pack({ bundle, format: 'folder', outputPath: '/out/extracted' });
+        await emitter.pack({ bundle, format: 'folder', outputPath: '/out/extracted', vendorEntries: [] });
 
         assert.strictEqual(buildFolder.callCount, 1);
-        assert.deepStrictEqual(buildFolder.firstCall.args, [bundle, '/out/extracted']);
+        assert.deepStrictEqual(buildFolder.firstCall.args, [bundle, '/out/extracted', undefined, []]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 0);
     });
 });
