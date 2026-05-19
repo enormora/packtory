@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- the CLI runner wires three subcommands plus shared dependencies */
 import { binary, command, flag, runSafely, subcommands } from 'cmd-ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
@@ -6,6 +7,7 @@ import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { getParseExitCode } from './command-parsing.ts';
 import { runPreviewHandler } from './preview-handler.ts';
+import { runReleaseDiffHandler } from './release-diff-handler.ts';
 import { registerProgressListeners } from './progress-wiring.ts';
 import { runPublishHandler } from './publish-handler.ts';
 
@@ -42,6 +44,7 @@ export function createCommandLineInterfaceRunner(
     let exitCode = 0;
     const publishCommandName = 'publish';
     const previewCommandName = 'preview';
+    const releaseDiffCommandName = 'release-diff';
     const baseCommand = subcommands({
         name: 'packtory',
         cmds: {
@@ -79,6 +82,20 @@ export function createCommandLineInterfaceRunner(
                         configLoader,
                         fileManager,
                         flags: { open }
+                    });
+                }
+            }),
+            [releaseDiffCommandName]: command({
+                name: releaseDiffCommandName,
+                description: 'Compares the next dry-run build against the latest published version, per package.',
+                args: {},
+                async handler() {
+                    exitCode = await runReleaseDiffHandler({
+                        log,
+                        pageOutput,
+                        packtory,
+                        spinnerRenderer,
+                        configLoader
                     });
                 }
             })

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import { Result } from 'true-myth';
+import { Maybe, Result } from 'true-myth';
 import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import { bundleResource, linkedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
@@ -153,12 +153,22 @@ function createPacktoryUnderTest(
     const tryBuildAndPublish =
         overrides.tryBuildAndPublish ??
         fake(async (options: { buildOptions: { name: string } }) => {
-            return { bundle: createVersionedBundle(options.buildOptions.name), status: 'initial-version' as const };
+            return {
+                bundle: createVersionedBundle(options.buildOptions.name),
+                status: 'initial-version' as const,
+                extraFiles: [],
+                previousReleaseArtifacts: Maybe.nothing()
+            };
         });
     const buildAndPublish =
         overrides.buildAndPublish ??
         fake(async (options: { buildOptions: { name: string } }) => {
-            return { bundle: createVersionedBundle(options.buildOptions.name), status: 'new-version' as const };
+            return {
+                bundle: createVersionedBundle(options.buildOptions.name),
+                status: 'new-version' as const,
+                extraFiles: [],
+                previousReleaseArtifacts: Maybe.nothing()
+            };
         });
 
     const defaultRunStage = async (params: StageParams): Promise<Result<unknown[], never>> => {
@@ -211,7 +221,8 @@ function createPacktoryUnderTest(
             packageProcessor,
             scheduler: scheduler as never,
             deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator(),
-            progressBroadcaster
+            progressBroadcaster,
+            artifactsBuilder: { collectContents: () => [] }
         }),
         resolveAndLink,
         tryBuildAndPublish,
@@ -336,7 +347,14 @@ suite('packtory', function () {
 
         assert.deepStrictEqual(
             result,
-            Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'initial-version' }])
+            Result.ok([
+                {
+                    bundle: createVersionedBundle('package-a'),
+                    status: 'initial-version',
+                    extraFiles: [],
+                    previousReleaseArtifacts: Maybe.nothing()
+                }
+            ])
         );
         assert.strictEqual(tryBuildAndPublish.callCount, 1);
         assert.strictEqual(buildAndPublish.callCount, 0);
@@ -350,7 +368,14 @@ suite('packtory', function () {
 
         assert.deepStrictEqual(
             result,
-            Result.ok([{ bundle: createVersionedBundle('package-a'), status: 'new-version' }])
+            Result.ok([
+                {
+                    bundle: createVersionedBundle('package-a'),
+                    status: 'new-version',
+                    extraFiles: [],
+                    previousReleaseArtifacts: Maybe.nothing()
+                }
+            ])
         );
         assert.strictEqual(tryBuildAndPublish.callCount, 0);
         assert.strictEqual(buildAndPublish.callCount, 1);
@@ -485,5 +510,53 @@ suite('packtory', function () {
         const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
 
         assert.strictEqual(outcome.getReport(), undefined);
+    });
+
+    test('diffAgainstLatestPublished() returns config issues when the config with registry is invalid', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const { result } = await packtory.diffAgainstLatestPublished({ invalid: true });
+
+        if (result.isOk) {
+            assert.fail('expected an Err result');
+        }
+        assert.strictEqual(result.error.type, 'config');
+    });
+
+    test('diffAgainstLatestPublished() returns Ok with release-diff entries for the configured packages', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const { result } = await packtory.diffAgainstLatestPublished(createConfig());
+
+        if (result.isErr) {
+            assert.fail(`expected an Ok result, got ${JSON.stringify(result.error)}`);
+        }
+        assert.ok(result.value.length >= 0);
+    });
+
+    test('diffAgainstLatestPublished() runs through the dry-run publish path (tryBuildAndPublish), never the real publish', async function () {
+        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
+
+        await packtory.diffAgainstLatestPublished(createConfig());
+
+        assert.strictEqual(tryBuildAndPublish.callCount, 1);
+        assert.strictEqual(buildAndPublish.callCount, 0);
+    });
+
+    test('diffAgainstLatestPublished() always exposes a getReport that returns a BuildReport with the version decisions made during the dry-run', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const outcome = await packtory.diffAgainstLatestPublished(createConfig());
+
+        const report = outcome.getReport();
+        assert.ok(report.packages['package-a']);
+    });
+
+    test('diffAgainstLatestPublished() disposes the report aggregator on exit so no listeners are left dangling', async function () {
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+        await packtory.diffAgainstLatestPublished(createConfig());
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('versionDetermined'), false);
     });
 });

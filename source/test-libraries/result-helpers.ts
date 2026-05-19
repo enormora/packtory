@@ -6,6 +6,7 @@ import {
     type ProgressBroadcaster,
     type ProgressBroadcastProvider
 } from '../progress/progress-broadcaster.ts';
+import type { BuildReport } from '../report/aggregator/report-types.ts';
 
 export function getErrResult<TValue, TError>(result: Result<TValue, TError>, message: string): TError {
     if (result.isErr) {
@@ -30,6 +31,23 @@ export function toOutcome<TResult>(result: TResult): { readonly result: TResult;
         result,
         getReport: () => {
             return undefined;
+        }
+    };
+}
+
+export function toReleaseDiffOutcome<TResult>(result: TResult): {
+    readonly result: TResult;
+    readonly getReport: () => BuildReport;
+} {
+    return {
+        result,
+        getReport: () => {
+            return {
+                schemaVersion: 1,
+                generatedAt: '2026-05-19T00:00:00.000Z',
+                packages: {},
+                aggregate: { crossBundleLinks: [] }
+            };
         }
     };
 }

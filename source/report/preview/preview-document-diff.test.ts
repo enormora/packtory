@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
-import { isDiffableArtifact, toDiffLineType } from './preview-document-diff.ts';
+import { isDiffableArtifact, toPreviewDiffHunk } from './preview-document-diff.ts';
 
 const diffable: ArtifactEntry = {
     path: 'src/index.js',
@@ -33,16 +33,34 @@ suite('preview-document-diff', function () {
         assert.strictEqual(isDiffableArtifact({ ...diffable, path: 'README.md' }), false);
     });
 
-    test('toDiffLineType returns "add" for lines starting with +', function () {
-        assert.strictEqual(toDiffLineType('+new'), 'add');
+    test('toPreviewDiffHunk classifies a "+" line as add, a "-" line as remove, and other lines as context', function () {
+        const hunk = toPreviewDiffHunk({
+            oldStart: 1,
+            oldLines: 1,
+            newStart: 1,
+            newLines: 1,
+            lines: ['+inserted', '-removed', ' context line']
+        });
+        assert.deepStrictEqual(hunk.lines, [
+            { type: 'add', text: '+inserted' },
+            { type: 'remove', text: '-removed' },
+            { type: 'context', text: ' context line' }
+        ]);
     });
 
-    test('toDiffLineType returns "remove" for lines starting with -', function () {
-        assert.strictEqual(toDiffLineType('-gone'), 'remove');
+    test('toPreviewDiffHunk strips "\\ No newline at end of file" continuation markers from the hunk lines', function () {
+        const hunk = toPreviewDiffHunk({
+            oldStart: 1,
+            oldLines: 1,
+            newStart: 1,
+            newLines: 1,
+            lines: ['+kept', '\\ No newline at end of file']
+        });
+        assert.deepStrictEqual(hunk.lines, [{ type: 'add', text: '+kept' }]);
     });
 
-    test('toDiffLineType returns "context" for lines starting with anything else', function () {
-        assert.strictEqual(toDiffLineType(' same'), 'context');
-        assert.strictEqual(toDiffLineType('@@ hunk'), 'context');
+    test('toPreviewDiffHunk renders the hunk header with the unified-diff line-range format', function () {
+        const hunk = toPreviewDiffHunk({ oldStart: 3, oldLines: 5, newStart: 7, newLines: 11, lines: [] });
+        assert.strictEqual(hunk.header, '@@ -3,5 +7,11 @@');
     });
 });

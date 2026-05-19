@@ -45,3 +45,15 @@ export function failingScheduler(error: {
     };
     return value as unknown as PackageScheduler;
 }
+
+export function failingDependencies(message: string): {
+    readonly packageProcessor: PackageProcessor;
+    readonly scheduler: PackageScheduler;
+    readonly progressBroadcaster: ProgressBroadcaster;
+} {
+    return {
+        packageProcessor: stubPackageProcessor,
+        scheduler: failingScheduler({ succeeded: [], failures: [new Error(message)] }),
+        progressBroadcaster: stubProgressBroadcaster
+    };
+}

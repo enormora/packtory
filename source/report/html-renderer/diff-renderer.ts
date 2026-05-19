@@ -1,6 +1,6 @@
 import { collectChangedArtifacts, type ChangedPreviewArtifact } from '../preview/changed-artifacts.ts';
 import type { PreviewPackage } from '../preview/preview-document.ts';
-import type { PreviewDiffLine } from '../preview/artifact-diff-builder.ts';
+import type { PreviewDiffLine } from '../preview/preview-document-diff.ts';
 import { escapeHtml } from './html-escaping.ts';
 
 function renderDiffLine(line: PreviewDiffLine): string {

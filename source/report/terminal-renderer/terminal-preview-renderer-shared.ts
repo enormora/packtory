@@ -1,5 +1,5 @@
 import { bold, dim, green, red, yellow } from 'yoctocolors';
-import type { PreviewDiffLine } from '../preview/artifact-diff-builder.ts';
+import type { PreviewDiffLine } from '../preview/preview-document-diff.ts';
 
 export type Colors = {
     readonly bold: (value: string) => string;
@@ -51,4 +51,31 @@ export function renderDiffLine(line: PreviewDiffLine, colors: Colors): string {
         return colors.red(line.text);
     }
     return line.text;
+}
+
+export type FailureDocumentHeader = {
+    readonly title: string;
+    readonly modeLabel: string;
+    readonly resultType: 'checks' | 'config' | 'partial' | 'success';
+    readonly issues: readonly string[];
+};
+
+const resultTypeHeadings = {
+    config: 'Configuration issues',
+    checks: 'Check failures',
+    partial: 'Package failures'
+} as const;
+
+export function renderFailureDocumentHeader(document: FailureDocumentHeader, colors: Colors): readonly string[] {
+    const chip = `[${document.modeLabel}]`;
+    const lines = [`${colors.bold(document.title)} ${colors.yellow(chip)}`];
+    if (document.resultType !== 'success') {
+        lines.push(colors.red(resultTypeHeadings[document.resultType]));
+    }
+    lines.push(
+        ...document.issues.map((issue) => {
+            return `- ${issue}`;
+        })
+    );
+    return lines;
 }

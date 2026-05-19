@@ -3,19 +3,10 @@ import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import type { ConfigLoader } from '../config-loader.ts';
-import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
+import { createConfigLoaderStub, createSpinnerRendererStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 
 type BuildOutcome = Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
-
-function spinnerRendererStub(): TerminalSpinnerRenderer {
-    return { stopAll: fake() } as unknown as TerminalSpinnerRenderer;
-}
-
-function configLoaderStub(): ConfigLoader {
-    return { load: fake.resolves({}) } as unknown as ConfigLoader;
-}
 
 function packtoryStub(outcome: BuildOutcome): Packtory {
     return { buildAndPublishAll: fake.resolves(outcome) } as unknown as Packtory;
@@ -39,8 +30,8 @@ suite('preview-handler', function () {
             openFile: fake.resolves(true),
             createTemporaryFilePath: () => '/var/folders/preview.html',
             packtory: packtoryStub(emptyOutcome()),
-            spinnerRenderer: spinnerRendererStub(),
-            configLoader: configLoaderStub(),
+            spinnerRenderer: createSpinnerRendererStub(),
+            configLoader: createConfigLoaderStub(),
             fileManager: createFakeFileManager(),
             flags: { open: false }
         });
@@ -61,8 +52,8 @@ suite('preview-handler', function () {
                     result: { isOk: false, isErr: true, error: { type: 'config', issues: [] } } as never
                 })
             ),
-            spinnerRenderer: spinnerRendererStub(),
-            configLoader: configLoaderStub(),
+            spinnerRenderer: createSpinnerRendererStub(),
+            configLoader: createConfigLoaderStub(),
             fileManager: createFakeFileManager(),
             flags: { open: false }
         });
@@ -80,8 +71,8 @@ suite('preview-handler', function () {
             openFile: openSpy,
             createTemporaryFilePath: () => '/var/folders/preview.html',
             packtory: packtoryStub(emptyOutcome()),
-            spinnerRenderer: spinnerRendererStub(),
-            configLoader: configLoaderStub(),
+            spinnerRenderer: createSpinnerRendererStub(),
+            configLoader: createConfigLoaderStub(),
             fileManager,
             flags: { open: true }
         });
@@ -102,8 +93,8 @@ suite('preview-handler', function () {
             openFile: fake.resolves(false),
             createTemporaryFilePath: () => '/var/folders/preview.html',
             packtory: packtoryStub(emptyOutcome()),
-            spinnerRenderer: spinnerRendererStub(),
-            configLoader: configLoaderStub(),
+            spinnerRenderer: createSpinnerRendererStub(),
+            configLoader: createConfigLoaderStub(),
             fileManager: createFakeFileManager(),
             flags: { open: true }
         });

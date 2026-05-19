@@ -12,7 +12,7 @@ import {
     createPackageReportFixture
 } from '../../test-libraries/preview-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import { toOutcome } from '../../test-libraries/result-helpers.ts';
+import { toOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
 import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
@@ -21,6 +21,7 @@ import {
 
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
+    readonly diffAgainstLatestPublished?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
     readonly fileManager?: FakeFileManager;
@@ -73,6 +74,9 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
         packtory: {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
                 return fake.resolves(undefined);
+            }),
+            diffAgainstLatestPublished: createSpy(overrides.diffAgainstLatestPublished, () => {
+                return fake.resolves(toReleaseDiffOutcome(Result.ok([])));
             }),
             resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([])))
         },
@@ -718,5 +722,39 @@ suite('runner', function () {
         }
 
         assert.strictEqual(stopAll.callCount, 1);
+    });
+
+    test('release-diff command loads the config and invokes diffAgainstLatestPublished', async function () {
+        const loadConfig = fake.resolves('the-config');
+        const diffAgainstLatestPublished = fake.resolves(toReleaseDiffOutcome(Result.ok([])));
+        const runner = runnerFactory({ loadConfig, diffAgainstLatestPublished });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release-diff']);
+
+        assert.strictEqual(exitCode, 0);
+        assert.strictEqual(loadConfig.callCount, 1);
+        assert.strictEqual(diffAgainstLatestPublished.callCount, 1);
+        assert.strictEqual(diffAgainstLatestPublished.firstCall.args[0], 'the-config');
+    });
+
+    test('release-diff command returns exit code 1 when the result is an Err', async function () {
+        const diffAgainstLatestPublished = fake.resolves(
+            toReleaseDiffOutcome(Result.err({ type: 'config', issues: ['invalid config'] }))
+        );
+        const runner = runnerFactory({ diffAgainstLatestPublished });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release-diff']);
+
+        assert.strictEqual(exitCode, 1);
+    });
+
+    test('release-diff --help advertises the command as a registry-diff against the latest published version', async function () {
+        const log = fake();
+        const runner = runnerFactory({ log });
+
+        await runner.run(['foo', 'bar', 'release-diff', '--help']);
+
+        const helpText = String(log.firstCall.args[0]);
+        assert.match(helpText, /Compares the next dry-run build against the latest published version, per package\./u);
     });
 });

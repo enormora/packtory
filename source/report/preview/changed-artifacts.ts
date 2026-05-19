@@ -1,4 +1,4 @@
-import type { PreviewDiffHunk } from './artifact-diff-builder.ts';
+import type { PreviewDiffHunk } from './preview-document-diff.ts';
 import type { PreviewArtifact, PreviewArtifactNode } from './artifact-tree-builder.ts';
 
 export type ChangedPreviewArtifact = PreviewArtifact & {

@@ -1,7 +1,7 @@
-/* eslint-disable max-statements, sonarjs/no-nested-template-literals, no-continue, @stylistic/max-len -- terminal rendering is intentionally linear and string-heavy */
+/* eslint-disable sonarjs/no-nested-template-literals, no-continue, @stylistic/max-len -- terminal rendering is intentionally linear and string-heavy */
 import type { PreviewDocument } from '../preview/preview-document.ts';
 import { renderPackage } from './terminal-package-renderer.ts';
-import { createColors } from './terminal-preview-renderer-shared.ts';
+import { createColors, renderFailureDocumentHeader } from './terminal-preview-renderer-shared.ts';
 
 type TerminalPreviewRendererOptions = {
     readonly color?: boolean | undefined;
@@ -36,20 +36,7 @@ export function renderFailureOnlyTerminalPreview(
     options: TerminalPreviewRendererOptions = {}
 ): string {
     const colors = createColors(options.color);
-    const lines = [`${colors.bold(document.title)} ${colors.yellow(`[${document.modeLabel}]`)}`];
-    const headings = {
-        config: 'Configuration issues',
-        checks: 'Check failures',
-        partial: 'Package failures'
-    } as const;
-    if (document.resultType !== 'success') {
-        lines.push(colors.red(headings[document.resultType]));
-    }
-    lines.push(
-        ...document.issues.map((issue) => {
-            return `- ${issue}`;
-        })
-    );
+    const lines = Array.from(renderFailureDocumentHeader(document, colors));
     for (const pkg of document.packages) {
         if (pkg.failure === undefined) {
             continue;

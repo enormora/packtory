@@ -9,6 +9,23 @@ export type ReportAttachment = {
     readonly dispose: () => void;
 };
 
+export type RequiredReportAttachment = {
+    readonly getReport: () => BuildReport;
+    readonly dispose: () => void;
+};
+
+export function attachAggregator(progressBroadcaster: ProgressBroadcaster): RequiredReportAttachment {
+    const aggregator = createReportAggregator(progressBroadcaster.consumer);
+    return {
+        getReport() {
+            return aggregator.build();
+        },
+        dispose() {
+            aggregator.unsubscribe();
+        }
+    };
+}
+
 export function emitEffectiveConfigPerPackage(
     progressBroadcaster: ProgressBroadcaster,
     packtoryConfig: PacktoryConfig
