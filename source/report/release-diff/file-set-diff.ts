@@ -1,7 +1,8 @@
 import { isTextDiffablePath } from '../../common/code-files.ts';
 import { areFileDescriptionEqual } from '../../file-manager/equal.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import type { PreviewDiffHunk } from '../preview/artifact-diff-builder.ts';
+import type { PackageReport } from '../aggregator/report-types.ts';
+import type { PreviewDiffHunk } from '../preview/preview-document-diff.ts';
 import { buildFileHunks } from './file-hunks.ts';
 
 export type AddedFile = {
@@ -16,13 +17,13 @@ export type RemovedFile = {
     readonly isExecutable: boolean;
 };
 
-export type UnchangedFile = {
+type UnchangedFile = {
     readonly path: string;
     readonly sizeBytes: number;
     readonly isExecutable: boolean;
 };
 
-export type ModifiedFileContentChange =
+type ModifiedFileContentChange =
     | { readonly kind: 'binary' }
     | { readonly kind: 'mode-only' }
     | { readonly kind: 'text'; readonly hunks: readonly PreviewDiffHunk[] };
@@ -42,6 +43,19 @@ export type FileSetDiff = {
     readonly modified: readonly ModifiedFile[];
     readonly unchanged: readonly UnchangedFile[];
 };
+
+type PackageReleaseDiffState = 'changed' | 'first-publish' | 'unchanged';
+
+export type PackageReleaseDiff = {
+    readonly name: string;
+    readonly state: PackageReleaseDiffState;
+    readonly versionTransition: string;
+    readonly previousVersionLabel: string;
+    readonly files: FileSetDiff;
+    readonly diagnostics: PackageReport;
+};
+
+export type PackageReleaseDiffStateView = Pick<PackageReleaseDiff, 'files' | 'state'>;
 
 function sizeOf(content: string): number {
     return Buffer.byteLength(content, 'utf8');
@@ -88,20 +102,36 @@ function toModified(previous: FileDescription, current: FileDescription): Modifi
     };
 }
 
-type FilePairEntry = {
+type BothPair = {
+    readonly kind: 'both';
     readonly path: string;
-    readonly previous: FileDescription | undefined;
-    readonly current: FileDescription | undefined;
+    readonly previous: FileDescription;
+    readonly current: FileDescription;
 };
+
+type FilePair =
+    | BothPair
+    | { readonly kind: 'current-only'; readonly current: FileDescription }
+    | { readonly kind: 'previous-only'; readonly previous: FileDescription };
 
 function pairsByPath(
     previousIndex: ReadonlyMap<string, FileDescription>,
     newIndex: ReadonlyMap<string, FileDescription>
-): readonly FilePairEntry[] {
+): readonly FilePair[] {
     const allPaths = new Set<string>([...previousIndex.keys(), ...newIndex.keys()]);
-    return Array.from(allPaths, (path) => {
-        return { path, previous: previousIndex.get(path), current: newIndex.get(path) };
-    });
+    const pairs: FilePair[] = [];
+    for (const path of allPaths) {
+        const previous = previousIndex.get(path);
+        const current = newIndex.get(path);
+        if (previous !== undefined && current !== undefined) {
+            pairs.push({ kind: 'both', path, previous, current });
+        } else if (previous !== undefined) {
+            pairs.push({ kind: 'previous-only', previous });
+        } else if (current !== undefined) {
+            pairs.push({ kind: 'current-only', current });
+        }
+    }
+    return pairs;
 }
 
 function isEqual(previous: FileDescription, current: FileDescription, path: string): boolean {
@@ -115,34 +145,29 @@ type FileSetDiffBuckets = {
     readonly unchanged: UnchangedFile[];
 };
 
-function appendOneSidedEntry(buckets: FileSetDiffBuckets, entry: FilePairEntry): boolean {
-    if (entry.previous !== undefined && entry.current === undefined) {
-        buckets.removed.push(toRemoved(entry.previous));
-        return true;
+function appendBothSidedPair(
+    buckets: FileSetDiffBuckets,
+    path: string,
+    previous: FileDescription,
+    current: FileDescription
+): void {
+    if (isEqual(previous, current, path)) {
+        buckets.unchanged.push(toUnchanged(current));
+        return;
     }
-    if (entry.previous === undefined && entry.current !== undefined) {
-        buckets.added.push(toAdded(entry.current));
-        return true;
-    }
-    return false;
+    buckets.modified.push(toModified(previous, current));
 }
 
-function appendBothSidedEntry(buckets: FileSetDiffBuckets, entry: FilePairEntry): void {
-    if (entry.previous === undefined || entry.current === undefined) {
+function appendPairToBuckets(buckets: FileSetDiffBuckets, pair: FilePair): void {
+    if (pair.kind === 'previous-only') {
+        buckets.removed.push(toRemoved(pair.previous));
         return;
     }
-    if (isEqual(entry.previous, entry.current, entry.path)) {
-        buckets.unchanged.push(toUnchanged(entry.current));
+    if (pair.kind === 'current-only') {
+        buckets.added.push(toAdded(pair.current));
         return;
     }
-    buckets.modified.push(toModified(entry.previous, entry.current));
-}
-
-function appendEntryToBuckets(buckets: FileSetDiffBuckets, entry: FilePairEntry): void {
-    if (appendOneSidedEntry(buckets, entry)) {
-        return;
-    }
-    appendBothSidedEntry(buckets, entry);
+    appendBothSidedPair(buckets, pair.path, pair.previous, pair.current);
 }
 
 export function buildFileSetDiff(
@@ -152,8 +177,8 @@ export function buildFileSetDiff(
     const previousIndex = indexByPath(previousFiles);
     const newIndex = indexByPath(newFiles);
     const buckets: FileSetDiffBuckets = { added: [], removed: [], modified: [], unchanged: [] };
-    for (const entry of pairsByPath(previousIndex, newIndex)) {
-        appendEntryToBuckets(buckets, entry);
+    for (const pair of pairsByPath(previousIndex, newIndex)) {
+        appendPairToBuckets(buckets, pair);
     }
     return buckets;
 }

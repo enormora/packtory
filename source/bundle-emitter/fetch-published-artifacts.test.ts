@@ -2,14 +2,11 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
+import { emptyTarball } from '../test-libraries/tarball-fixtures.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
 
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
-
-const emptyTarball = Buffer.from([
-    31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 99, 96, 24, 5, 163, 96, 20, 140, 84, 0, 0, 46, 175, 181, 239, 0, 4, 0, 0
-]);
 
 function registryClientWith(overrides: {
     readonly fetchLatestVersion?: RegistryClient['fetchLatestVersion'];

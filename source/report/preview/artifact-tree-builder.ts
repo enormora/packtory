@@ -1,6 +1,6 @@
 import { buildPathTree, type PathTreeNode } from '../../common/path-tree.ts';
 import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
-import type { PreviewDiffHunk } from './artifact-diff-builder.ts';
+import type { PreviewDiffHunk } from './preview-document-diff.ts';
 
 export type PreviewArtifact = ArtifactEntry & {
     readonly diff?: readonly PreviewDiffHunk[];

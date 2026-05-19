@@ -1,38 +1,15 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { Result } from 'true-myth';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import type { ProgressBroadcaster } from '../packtory-results.ts';
-import type { Scheduler as PackageScheduler } from '../scheduler.ts';
+import { createIteratingScheduler as iteratingScheduler } from '../../test-libraries/iterating-scheduler.ts';
 import {
     emptyScheduler,
-    failingScheduler,
+    failingDependencies,
     stubPackageProcessor,
     stubProgressBroadcaster
 } from '../../test-libraries/orchestrator-stub-fixtures.ts';
 import { resolvePackages } from './package-resolution-stage.ts';
-
-function iteratingScheduler(packageNames: readonly string[]): PackageScheduler {
-    const value = {
-        async runForEachScheduledPackage(params: {
-            readonly config: { readonly packtoryConfig: { readonly packages: readonly { readonly name: string }[] } };
-            readonly createOptions: (context: unknown) => unknown;
-            readonly execute: (options: unknown) => Promise<unknown>;
-            readonly selectNext: (params: { readonly result: unknown; readonly options: unknown }) => unknown;
-        }) {
-            const results: unknown[] = [];
-            const existing: unknown[] = [];
-            for (const packageName of packageNames) {
-                const options = params.createOptions({ packageName, existing, config: params.config });
-                const result = await params.execute(options);
-                results.push(result);
-                existing.push(params.selectNext({ result, options }));
-            }
-            return Result.ok(results);
-        }
-    };
-    return value as unknown as PackageScheduler;
-}
 
 function configWithPackage(name: string) {
     return {
@@ -71,14 +48,10 @@ suite('package-resolution-stage', function () {
     });
 
     test('resolvePackages forwards scheduler failures unchanged to its caller', async function () {
-        const result = await resolvePackages(
-            {
-                packageProcessor: stubPackageProcessor,
-                scheduler: failingScheduler({ succeeded: [], failures: [new Error('boom')] }),
-                progressBroadcaster: stubProgressBroadcaster
-            },
-            { packageConfigs: {}, packtoryConfig: { packages: [] } } as never
-        );
+        const result = await resolvePackages(failingDependencies('boom'), {
+            packageConfigs: {},
+            packtoryConfig: { packages: [] }
+        } as never);
 
         assert.strictEqual(result.isErr, true);
     });

@@ -1,4 +1,4 @@
-import type { PackageReleaseDiffStateView } from './release-diff-document.ts';
+import type { PackageReleaseDiffStateView } from './file-set-diff.ts';
 
 export type ReleaseDiffSummary = {
     readonly totalPackages: number;

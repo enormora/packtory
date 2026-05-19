@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
+/* eslint-disable @typescript-eslint/consistent-type-assertions, import/max-dependencies -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Maybe, Result } from 'true-myth';
@@ -6,38 +6,10 @@ import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import type { BuildReport, PackageReport } from '../../report/aggregator/report-types.ts';
+import { createIteratingScheduler } from '../../test-libraries/iterating-scheduler.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { Scheduler as PackageScheduler } from '../scheduler.ts';
 import { runReleaseDiffStage } from './release-diff-stage.ts';
-
-type IterateParams = {
-    readonly config: ValidConfigResult;
-    readonly createOptions: (context: { readonly packageName: string }) => unknown;
-    readonly execute: (options: unknown) => Promise<unknown>;
-    readonly selectNext: (params: { readonly result: unknown; readonly options: unknown }) => unknown;
-};
-
-function iteratingScheduler(packageNames: readonly string[]): PackageScheduler {
-    return {
-        async runForEachScheduledPackage(params: IterateParams) {
-            const results: unknown[] = [];
-            const failures: Error[] = [];
-            for (const packageName of packageNames) {
-                const options = params.createOptions({ packageName });
-                try {
-                    const result = await params.execute(options);
-                    results.push(result);
-                } catch (error) {
-                    failures.push(error as Error);
-                }
-            }
-            if (failures.length > 0) {
-                return Result.err({ succeeded: results, failures });
-            }
-            return Result.ok(results);
-        }
-    } as unknown as PackageScheduler;
-}
 
 function configFor(packageNames: readonly string[]): ValidConfigResult {
     return {
@@ -98,7 +70,7 @@ suite('release-diff-stage', function () {
         const result = await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning([]),
-                scheduler: iteratingScheduler(['pkg-a', 'pkg-broken'])
+                scheduler: createIteratingScheduler(['pkg-a', 'pkg-broken'])
             },
             configFor(['pkg-a', 'pkg-broken']),
             [buildResultFor('pkg-a')],
@@ -118,7 +90,7 @@ suite('release-diff-stage', function () {
         const result = await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning([]),
-                scheduler: iteratingScheduler(['pkg-a'])
+                scheduler: createIteratingScheduler(['pkg-a'])
             },
             configFor(['pkg-a']),
             [buildResultFor('pkg-a', { status: 'already-published' })],
@@ -143,7 +115,7 @@ suite('release-diff-stage', function () {
         const result = await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning(newFiles),
-                scheduler: iteratingScheduler(['pkg-a'])
+                scheduler: createIteratingScheduler(['pkg-a'])
             },
             configFor(['pkg-a']),
             [buildResultFor('pkg-a')],
@@ -161,6 +133,34 @@ suite('release-diff-stage', function () {
         assert.strictEqual(first.versionTransition, '(unpublished) -> 1.0.0');
     });
 
+    test('forwards a scheduler partial failure as a release-diff partial failure with diff successes', async function () {
+        const failingError = new Error('something exploded');
+        const failingScheduler = {
+            async runForEachScheduledPackage() {
+                return Result.err({
+                    succeeded: [{ kind: 'skip', packageName: 'pkg-skipped' }],
+                    failures: [failingError]
+                });
+            }
+        } as unknown as PackageScheduler;
+
+        const result = await runReleaseDiffStage(
+            {
+                artifactsBuilder: artifactsBuilderReturning([]),
+                scheduler: failingScheduler
+            },
+            configFor(['pkg-a']),
+            [buildResultFor('pkg-a')],
+            reportFor({ 'pkg-a': packageReportFor(undefined, '1.0.0') })
+        );
+
+        if (result.isOk) {
+            assert.fail('expected Err');
+        }
+        assert.deepStrictEqual(result.error.failures, [failingError]);
+        assert.deepStrictEqual(result.error.succeeded, []);
+    });
+
     test('produces a changed state with a file-set diff when there is a previous release', async function () {
         const newFiles: readonly FileDescription[] = [
             { filePath: 'package.json', content: '{"version":"1.0.1"}\n', isExecutable: false },
@@ -175,7 +175,7 @@ suite('release-diff-stage', function () {
         const result = await runReleaseDiffStage(
             {
                 artifactsBuilder: artifactsBuilderReturning(newFiles),
-                scheduler: iteratingScheduler(['pkg-a'])
+                scheduler: createIteratingScheduler(['pkg-a'])
             },
             configFor(['pkg-a']),
             [

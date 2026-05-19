@@ -1,9 +1,18 @@
+import type { Result } from 'true-myth';
 import type { BuildAndPublishResult } from '../../packtory/package-processor.ts';
 import type { PublishAllResult } from '../../packtory/packtory.ts';
+import type { PartialError } from '../../packtory/scheduler.ts';
 
 export type PreviewResultType = 'checks' | 'config' | 'partial' | 'success';
 
-export function isPreviewableResult(result: PublishAllResult): boolean {
+type FailureLike<T> =
+    | { readonly type: 'checks'; readonly issues: readonly string[] }
+    | { readonly type: 'config'; readonly issues: readonly string[] }
+    | (PartialError<T> & { readonly type: 'partial' });
+
+type ResultLike<T> = Result<readonly T[], FailureLike<T>>;
+
+export function isPreviewableResult<T>(result: ResultLike<T>): boolean {
     return result.isOk || (result.error.type === 'partial' && result.error.succeeded.length > 0);
 }
 
@@ -17,7 +26,7 @@ export function getSucceededResults(result: PublishAllResult): readonly BuildAnd
     return [];
 }
 
-export function getIssues(result: PublishAllResult): readonly string[] {
+export function getIssues<T>(result: ResultLike<T>): readonly string[] {
     if (result.isOk) {
         return [];
     }
@@ -29,7 +38,7 @@ export function getIssues(result: PublishAllResult): readonly string[] {
     return result.error.issues;
 }
 
-export function getResultType(result: PublishAllResult): PreviewResultType {
+export function getResultType<T>(result: ResultLike<T>): PreviewResultType {
     if (result.isOk) {
         return 'success';
     }

@@ -19,7 +19,7 @@ export function comparePathNodes(left: PathTreeNodeLike, right: PathTreeNodeLike
     return pathNodeSortKey(left).localeCompare(pathNodeSortKey(right));
 }
 
-export type PathTreeDirectoryNode = {
+type PathTreeDirectoryNode = {
     readonly type: 'directory';
     readonly path: string;
     readonly name: string;

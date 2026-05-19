@@ -3,8 +3,11 @@ import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import type { BuildReport, PackageReport } from '../../report/aggregator/report-types.ts';
-import { buildFileSetDiff, type FileSetDiff } from '../../report/release-diff/file-set-diff.ts';
-import type { PackageReleaseDiff } from '../../report/release-diff/release-diff-document.ts';
+import {
+    buildFileSetDiff,
+    type FileSetDiff,
+    type PackageReleaseDiff
+} from '../../report/release-diff/file-set-diff.ts';
 import {
     buildReleaseVersionLabel,
     buildReleaseVersionTransition

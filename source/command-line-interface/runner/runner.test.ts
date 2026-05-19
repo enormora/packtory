@@ -21,6 +21,7 @@ import {
 
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
+    readonly diffAgainstLatestPublished?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
     readonly fileManager?: FakeFileManager;
@@ -74,7 +75,9 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
                 return fake.resolves(undefined);
             }),
-            diffAgainstLatestPublished: fake.resolves(toOutcome(Result.ok([]))),
+            diffAgainstLatestPublished: createSpy(overrides.diffAgainstLatestPublished, () => {
+                return fake.resolves(toOutcome(Result.ok([])));
+            }),
             resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([])))
         },
         log: (message) => {
@@ -719,5 +722,30 @@ suite('runner', function () {
         }
 
         assert.strictEqual(stopAll.callCount, 1);
+    });
+
+    test('release-diff command loads the config and invokes diffAgainstLatestPublished', async function () {
+        const loadConfig = fake.resolves('the-config');
+        const diffAgainstLatestPublished = fake.resolves(toOutcome(Result.ok([])));
+        const runner = runnerFactory({ loadConfig, diffAgainstLatestPublished });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release-diff']);
+
+        assert.strictEqual(exitCode, 0);
+        assert.strictEqual(loadConfig.callCount, 1);
+        assert.strictEqual(diffAgainstLatestPublished.callCount, 1);
+        assert.strictEqual(diffAgainstLatestPublished.firstCall.args[0], 'the-config');
+        assert.deepStrictEqual(diffAgainstLatestPublished.firstCall.args[1], { collectReport: true });
+    });
+
+    test('release-diff command returns exit code 1 when the result is an Err', async function () {
+        const diffAgainstLatestPublished = fake.resolves(
+            toOutcome(Result.err({ type: 'config', issues: ['invalid config'] }))
+        );
+        const runner = runnerFactory({ diffAgainstLatestPublished });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release-diff']);
+
+        assert.strictEqual(exitCode, 1);
     });
 });

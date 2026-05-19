@@ -1,10 +1,18 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import { buildFileSetDiff } from './file-set-diff.ts';
+import { buildFileSetDiff, type ModifiedFile } from './file-set-diff.ts';
 
 function file(filePath: string, content: string, isExecutable = false): FileDescription {
     return { filePath, content, isExecutable };
+}
+
+function singleModifiedEntry(previous: readonly FileDescription[], current: readonly FileDescription[]): ModifiedFile {
+    const diff = buildFileSetDiff(previous, current);
+    assert.strictEqual(diff.modified.length, 1);
+    const [entry] = diff.modified;
+    assert.ok(entry);
+    return entry;
 }
 
 suite('file-set-diff', function () {
@@ -40,24 +48,20 @@ suite('file-set-diff', function () {
     });
 
     test('classifies same content with different exec bit as modified with mode-only change', function () {
-        const previous = [file('bin/cli.js', '#!/usr/bin/env node\n', false)];
-        const current = [file('bin/cli.js', '#!/usr/bin/env node\n', true)];
-        const diff = buildFileSetDiff(previous, current);
-        assert.strictEqual(diff.modified.length, 1);
-        const [entry] = diff.modified;
-        assert.ok(entry);
+        const entry = singleModifiedEntry(
+            [file('bin/cli.js', '#!/usr/bin/env node\n', false)],
+            [file('bin/cli.js', '#!/usr/bin/env node\n', true)]
+        );
         assert.strictEqual(entry.contentChange.kind, 'mode-only');
         assert.strictEqual(entry.oldIsExecutable, false);
         assert.strictEqual(entry.newIsExecutable, true);
     });
 
     test('classifies different text content as modified with text hunks', function () {
-        const previous = [file('package.json', '{"name":"p","version":"1.0.0"}\n')];
-        const current = [file('package.json', '{"name":"p","version":"1.0.1"}\n')];
-        const diff = buildFileSetDiff(previous, current);
-        assert.strictEqual(diff.modified.length, 1);
-        const [entry] = diff.modified;
-        assert.ok(entry);
+        const entry = singleModifiedEntry(
+            [file('package.json', '{"name":"p","version":"1.0.0"}\n')],
+            [file('package.json', '{"name":"p","version":"1.0.1"}\n')]
+        );
         if (entry.contentChange.kind !== 'text') {
             assert.fail(`expected text content change but got ${entry.contentChange.kind}`);
         }
@@ -65,12 +69,10 @@ suite('file-set-diff', function () {
     });
 
     test('classifies different content with no text-diffable extension as binary modified', function () {
-        const previous = [file('assets/logo.png', 'previous-bytes')];
-        const current = [file('assets/logo.png', 'current-bytes')];
-        const diff = buildFileSetDiff(previous, current);
-        assert.strictEqual(diff.modified.length, 1);
-        const [entry] = diff.modified;
-        assert.ok(entry);
+        const entry = singleModifiedEntry(
+            [file('assets/logo.png', 'previous-bytes')],
+            [file('assets/logo.png', 'current-bytes')]
+        );
         assert.strictEqual(entry.contentChange.kind, 'binary');
     });
 

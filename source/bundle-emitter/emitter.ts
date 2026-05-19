@@ -36,7 +36,7 @@ type CurrentVersionLookupOptions = {
     readonly versioning: VersioningSettings;
 };
 
-export type BundlePublishedCheckResult = {
+type BundlePublishedCheckResult = {
     readonly alreadyPublishedAsLatest: boolean;
     readonly previousReleaseArtifacts: Maybe<PublishedReleaseArtifacts>;
 };

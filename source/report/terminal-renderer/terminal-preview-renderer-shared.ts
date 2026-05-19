@@ -1,5 +1,5 @@
 import { bold, dim, green, red, yellow } from 'yoctocolors';
-import type { PreviewDiffLine } from '../preview/artifact-diff-builder.ts';
+import type { PreviewDiffLine } from '../preview/preview-document-diff.ts';
 
 export type Colors = {
     readonly bold: (value: string) => string;

@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { FileSetDiff } from './file-set-diff.ts';
-import type { PackageReleaseDiffStateView } from './release-diff-document.ts';
+import type { FileSetDiff, PackageReleaseDiffStateView } from './file-set-diff.ts';
 import { summarizeReleaseDiff } from './release-diff-summary.ts';
 
 const emptyFiles: FileSetDiff = { added: [], removed: [], modified: [], unchanged: [] };

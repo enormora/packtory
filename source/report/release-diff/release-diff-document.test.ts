@@ -3,7 +3,8 @@ import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import type { BuildReport, PackageReport } from '../aggregator/report-types.ts';
 import type { ReleaseDiffAllResult } from '../../packtory/packtory.ts';
-import { buildReleaseDiffDocument, type PackageReleaseDiff } from './release-diff-document.ts';
+import { buildReleaseDiffDocument } from './release-diff-document.ts';
+import type { PackageReleaseDiff } from './file-set-diff.ts';
 
 function packageReport(overrides: Partial<PackageReport> = {}): PackageReport {
     return { decisions: {}, timings: {}, ...overrides };

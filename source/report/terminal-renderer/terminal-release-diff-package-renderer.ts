@@ -1,7 +1,12 @@
 /* eslint-disable sonarjs/no-nested-template-literals, @stylistic/max-len -- terminal rendering is intentionally linear and string-heavy */
 import { buildPathTree, type PathTreeFileNode, type PathTreeNode } from '../../common/path-tree.ts';
-import type { AddedFile, FileSetDiff, ModifiedFile, RemovedFile } from '../release-diff/file-set-diff.ts';
-import type { PackageReleaseDiff } from '../release-diff/release-diff-document.ts';
+import type {
+    AddedFile,
+    FileSetDiff,
+    ModifiedFile,
+    PackageReleaseDiff,
+    RemovedFile
+} from '../release-diff/file-set-diff.ts';
 import { formatTerminalBytes } from './terminal-artifact-renderer.ts';
 import { renderDiffLine, type Colors } from './terminal-preview-renderer-shared.ts';
 

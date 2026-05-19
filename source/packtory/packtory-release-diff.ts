@@ -1,7 +1,7 @@
 import { Result } from 'true-myth';
 import type { ValidConfigResult } from '../config/validation.ts';
 import type { BuildReport, PackageReport } from '../report/aggregator/report-types.ts';
-import type { PackageReleaseDiff } from '../report/release-diff/release-diff-document.ts';
+import type { PackageReleaseDiff } from '../report/release-diff/file-set-diff.ts';
 import {
     releaseDiffPartialFailure,
     type ReleaseDiffAllResult,
@@ -29,14 +29,14 @@ export type ReleaseDiffOrchestratorDependencies = PublishStageDependencies & Rel
 type PublishStageOutcome = Awaited<ReturnType<typeof determineVersionAndPublishAll>>;
 type ReleaseDiffStageOutcome = Awaited<ReturnType<typeof runReleaseDiffStage>>;
 
-function mapResolveFailureToReleaseDiffFailure(error: ResolveAndLinkFailure): ReleaseDiffFailure {
+export function mapResolveFailureToReleaseDiffFailure(error: ResolveAndLinkFailure): ReleaseDiffFailure {
     if (error.type === 'partial') {
         return { type: 'partial', succeeded: [], failures: error.error.failures };
     }
     return error;
 }
 
-function succeededFromStage(stageResult: ReleaseDiffStageOutcome): readonly PackageReleaseDiff[] {
+export function succeededFromStage(stageResult: ReleaseDiffStageOutcome): readonly PackageReleaseDiff[] {
     if (stageResult.isOk) {
         return stageResult.value;
     }
@@ -47,7 +47,7 @@ function ensureReport(report: BuildReport | undefined): BuildReport {
     return report ?? emptyAggregateReport;
 }
 
-function succeededFromPublish(publishResult: PublishStageOutcome): readonly BuildAndPublishResult[] {
+export function succeededFromPublish(publishResult: PublishStageOutcome): readonly BuildAndPublishResult[] {
     if (publishResult.isOk) {
         return publishResult.value;
     }
@@ -65,7 +65,7 @@ function buildPartialFromPublish(
     };
 }
 
-function synthesizeFallbackPackageReport(result: BuildAndPublishResult): PackageReport {
+export function synthesizeFallbackPackageReport(result: BuildAndPublishResult): PackageReport {
     const previousVersion = result.previousReleaseArtifacts.isJust
         ? result.previousReleaseArtifacts.value.version
         : undefined;
@@ -81,7 +81,7 @@ function synthesizeFallbackPackageReport(result: BuildAndPublishResult): Package
     };
 }
 
-function ensureReportPackages(report: BuildReport, succeeded: readonly BuildAndPublishResult[]): BuildReport {
+export function ensureReportPackages(report: BuildReport, succeeded: readonly BuildAndPublishResult[]): BuildReport {
     const missingPackageReports: Record<string, PackageReport> = {};
     for (const result of succeeded) {
         if (!Object.hasOwn(report.packages, result.bundle.name)) {
@@ -94,7 +94,10 @@ function ensureReportPackages(report: BuildReport, succeeded: readonly BuildAndP
     return { ...report, packages: { ...report.packages, ...missingPackageReports } };
 }
 
-function toFinalResult(publishResult: PublishStageOutcome, stageResult: ReleaseDiffStageOutcome): ReleaseDiffAllResult {
+export function toFinalReleaseDiffResult(
+    publishResult: PublishStageOutcome,
+    stageResult: ReleaseDiffStageOutcome
+): ReleaseDiffAllResult {
     if (publishResult.isErr) {
         return Result.err(buildPartialFromPublish(publishResult, stageResult));
     }
@@ -122,6 +125,6 @@ export function createDiffAgainstLatestPublishedValidated(
         const succeededPublish = succeededFromPublish(publishResult);
         const report = ensureReportPackages(ensureReport(getReport()), succeededPublish);
         const stageResult = await runReleaseDiffStage(dependencies, validated, succeededPublish, report);
-        return toFinalResult(publishResult, stageResult);
+        return toFinalReleaseDiffResult(publishResult, stageResult);
     };
 }
