@@ -14,6 +14,7 @@
         "htpasswd",
         "sonarjs",
         "EUSAGE",
-        "cyclonedx"
+        "cyclonedx",
+        "canonicalizer"
     ]
 }

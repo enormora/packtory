@@ -1,56 +1,11 @@
-import { isArray, isPlainObject } from 'remeda';
 import type { PackageJson } from 'type-fest';
-import { compareValues } from './sort-values.ts';
-
-const indentationSize = 4;
-type RecordEntry = readonly [string, unknown];
-
-function assertNoCircularStructures(value: unknown): void {
-    const visitedObjects = new Set<unknown>();
-
-    JSON.stringify(value, (_key, currentValue: unknown) => {
-        if (typeof currentValue === 'object' && currentValue !== null) {
-            if (visitedObjects.has(currentValue)) {
-                throw new Error('Circular structures are not supported');
-            }
-
-            visitedObjects.add(currentValue);
-        }
-
-        return currentValue;
-    });
-}
+import { serializeStableJson } from '../../common/stable-json.ts';
 
 function shouldPreserveArrayOrder(path: readonly string[]): boolean {
     const [topLevelKey] = path;
     return topLevelKey === 'imports' || topLevelKey === 'exports';
 }
 
-function deepSortValue(value: unknown, path: readonly string[] = []): unknown {
-    if (isArray(value)) {
-        const mapped = value.map((entry, index) => {
-            return deepSortValue(entry, [...path, String(index)]);
-        });
-        return shouldPreserveArrayOrder(path) ? mapped : mapped.toSorted(compareValues);
-    }
-
-    if (isPlainObject(value)) {
-        return Object.fromEntries(
-            Object.entries(value)
-                .map<RecordEntry>(([key, nestedValue]) => {
-                    return [key, deepSortValue(nestedValue, [...path, key])];
-                })
-                .toSorted(([leftKey]: RecordEntry, [rightKey]: RecordEntry) => {
-                    return compareValues(leftKey, rightKey);
-                })
-        );
-    }
-
-    return value;
-}
-
 export function serializePackageJson(data: Readonly<PackageJson>): string {
-    assertNoCircularStructures(data);
-    const sortedData = deepSortValue(data);
-    return JSON.stringify(sortedData, null, indentationSize);
+    return serializeStableJson(data, { shouldPreserveArrayOrder });
 }

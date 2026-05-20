@@ -7,8 +7,10 @@ import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import { createIteratingScheduler, type IteratingSchedulerCapture } from '../../test-libraries/iterating-scheduler.ts';
+import { buildSbomFixtureContent } from '../../test-libraries/sbom-fixtures.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { Scheduler as PackageScheduler } from '../scheduler.ts';
+import type { FileSetDiff } from '../../report/release-diff/file-set-diff.ts';
 import { runReleaseDiffStage } from './release-diff-stage.ts';
 
 function configFor(packageNames: readonly string[]): ValidConfigResult {
@@ -51,6 +53,33 @@ async function runPkgAStage(
         configFor(['pkg-a']),
         [buildResultFor('pkg-a', buildResultOverrides)]
     );
+}
+
+async function runSbomDiff(previousSbom: string, currentSbom: string): Promise<FileSetDiff> {
+    const newFiles: readonly FileDescription[] = [
+        { filePath: 'sbom.cdx.json', content: currentSbom, isExecutable: false }
+    ];
+    const previousFiles: readonly FileDescription[] = [
+        { filePath: 'sbom.cdx.json', content: previousSbom, isExecutable: false }
+    ];
+    const result = await runReleaseDiffStage(
+        {
+            artifactsBuilder: artifactsBuilderReturning(newFiles) as unknown as ArtifactsBuilder,
+            scheduler: createIteratingScheduler(['pkg-a'])
+        },
+        configFor(['pkg-a']),
+        [
+            buildResultFor('pkg-a', {
+                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: previousFiles })
+            })
+        ]
+    );
+    if (result.isErr) {
+        assert.fail('expected ok result');
+    }
+    const [entry] = result.value;
+    assert.ok(entry);
+    return entry.files;
 }
 
 async function runAlreadyPublishedPkgAStage(artifactsBuilder: {
@@ -265,5 +294,28 @@ suite('release-diff-stage', function () {
         assert.strictEqual(entry.files.removed.length, 1);
         assert.strictEqual(entry.files.added.length, 0);
         assert.strictEqual(entry.versionTransition, '1.0.0 -> 1.0.1');
+    });
+
+    test('classifies an SBOM that differs only in the packtory tool version as unchanged', async function () {
+        const previousSbom = buildSbomFixtureContent({ packtoryVersion: '1.2.3' });
+        const currentSbom = buildSbomFixtureContent({ packtoryVersion: '9.9.9' });
+        const files = await runSbomDiff(previousSbom, currentSbom);
+        assert.strictEqual(files.modified.length, 0);
+        assert.strictEqual(files.unchanged.length, 1);
+        assert.strictEqual(files.unchanged[0]?.path, 'sbom.cdx.json');
+    });
+
+    test('still flags an SBOM as modified when it has changes beyond the packtory tool version', async function () {
+        const previousSbom = buildSbomFixtureContent({
+            packtoryVersion: '1.2.3',
+            dependencyComponents: [{ name: 'old-dependency', version: '1.0.0' }]
+        });
+        const currentSbom = buildSbomFixtureContent({
+            packtoryVersion: '9.9.9',
+            dependencyComponents: [{ name: 'new-dependency', version: '2.0.0' }]
+        });
+        const files = await runSbomDiff(previousSbom, currentSbom);
+        assert.strictEqual(files.modified.length, 1);
+        assert.strictEqual(files.modified[0]?.path, 'sbom.cdx.json');
     });
 });

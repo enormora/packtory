@@ -7,6 +7,7 @@ import type { VersioningSettings } from '../config/versioning-settings.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { compareFileDescriptions } from '../file-manager/compare.ts';
 import type { ArtifactPublishPackage } from '../published-package/published-package.ts';
+import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
 import { fetchPublishedArtifacts, type PublishedReleaseArtifacts } from './fetch-published-artifacts.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { assertRepositoryCoherence } from './repository-coherence.ts';
@@ -72,7 +73,10 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
             }
 
             const artifactContents = artifactsBuilder.collectContents(bundle, 'package', extraFiles);
-            const comparison = compareFileDescriptions(artifactContents, previous.value.files);
+            const comparison = compareFileDescriptions(
+                canonicalizeSbomInFileSet(artifactContents),
+                canonicalizeSbomInFileSet(previous.value.files)
+            );
             return {
                 alreadyPublishedAsLatest: comparison.status === 'equal',
                 previousReleaseArtifacts: previous
