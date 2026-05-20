@@ -21,6 +21,8 @@ export type ReleaseDiffStageDependencies = {
     readonly scheduler: PacktoryScheduler;
 };
 
+export type ReleaseDiffStageResult = Result<readonly PackageReleaseDiff[], PartialError<PackageReleaseDiff>>;
+
 type ExecOptions = {
     readonly packageName: string;
     readonly buildResult: BuildAndPublishResult | undefined;
@@ -104,7 +106,7 @@ export async function runReleaseDiffStage(
     dependencies: ReleaseDiffStageDependencies,
     config: ValidConfigResult,
     succeededResults: readonly BuildAndPublishResult[]
-): Promise<Result<readonly PackageReleaseDiff[], PartialError<PackageReleaseDiff>>> {
+): Promise<ReleaseDiffStageResult> {
     const successByName = new Map(
         succeededResults.map((result) => {
             return [result.bundle.name, result] as const;

@@ -21,12 +21,14 @@ export type PublishStageDependencies = {
     readonly progressBroadcaster: ProgressBroadcaster;
 };
 
+export type PublishStageResult = Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>;
+
 export async function determineVersionAndPublishAll(
     dependencies: PublishStageDependencies,
     config: ValidConfigResult,
     resolvedPackages: readonly ResolvedPackage[],
     options: BuildAndPublishAllOptions
-): Promise<Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>> {
+): Promise<PublishStageResult> {
     const analyzedBundlesByName: Readonly<Record<string, ResolvedPackage['analyzedBundle']>> = Object.fromEntries(
         resolvedPackages.map((resolvedPackage) => {
             return [resolvedPackage.name, resolvedPackage.analyzedBundle];

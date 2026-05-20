@@ -1,14 +1,16 @@
 import type { ExcludedFile, IncludedFile } from '../../progress/progress-broadcaster.ts';
 
-type ResolvedBundleLike = {
+export type ScanInspectionInput = {
     readonly contents: readonly { readonly fileDescription: { readonly sourceFilePath: string } }[];
     readonly externalDependencies: ReadonlyMap<string, unknown>;
 };
 
-export function inspectScanResults(bundle: ResolvedBundleLike): {
+export type ScanInspectionResult = {
     readonly included: readonly IncludedFile[];
     readonly excluded: readonly ExcludedFile[];
-} {
+};
+
+export function inspectScanResults(bundle: ScanInspectionInput): ScanInspectionResult {
     const included: IncludedFile[] = bundle.contents.map((entry) => {
         return { path: entry.fileDescription.sourceFilePath, reason: 'reachable-from-entry' };
     });

@@ -1,8 +1,19 @@
-import type * as configTypes from '../../config/config.ts';
-import { createPacktory } from '../../packtory/packtory.ts';
+import type { PacktoryConfig as PublicPacktoryConfig } from '../../config/config.ts';
+import {
+    createPacktory,
+    type BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
+    type BuildReport as PublicBuildReport,
+    type PublishAllOutcome as PublicPublishAllOutcome,
+    type PublishAllResult as PublicPublishAllResult,
+    type ReleaseDiffAllOutcome as PublicReleaseDiffAllOutcome,
+    type ReleaseDiffAllResult as PublicReleaseDiffAllResult,
+    type ResolveAndLinkAllOptions as PublicResolveAndLinkAllOptions,
+    type ResolveAndLinkAllOutcome as PublicResolveAndLinkAllOutcome,
+    type ResolveAndLinkAllResult as PublicResolveAndLinkAllResult,
+    type ResolveAndLinkFailure as PublicResolveAndLinkFailure
+} from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
-import type * as packtoryTypes from '../../packtory/packtory.ts';
-import type * as resolvedPackageTypes from '../../packtory/resolved-package.ts';
+import type { ResolvedPackage as PublicResolvedPackage } from '../../packtory/resolved-package.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import type { PublicProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
@@ -27,15 +38,15 @@ const packtory = createPacktory({
 export const { buildAndPublishAll, diffAgainstLatestPublished, resolveAndLinkAll } = packtory;
 export const progressBroadcastConsumer: PublicProgressBroadcastConsumer = progressBroadcaster.consumer;
 
-export type PacktoryConfig = configTypes.PacktoryConfig;
-export type PublishAllResult = packtoryTypes.PublishAllResult;
-export type PublishAllOutcome = packtoryTypes.PublishAllOutcome;
-export type ResolveAndLinkAllResult = packtoryTypes.ResolveAndLinkAllResult;
-export type ResolveAndLinkAllOutcome = packtoryTypes.ResolveAndLinkAllOutcome;
-export type ResolveAndLinkFailure = packtoryTypes.ResolveAndLinkFailure;
-export type ResolvedPackage = resolvedPackageTypes.ResolvedPackage;
-export type BuildAndPublishAllOptions = packtoryTypes.BuildAndPublishAllOptions;
-export type ResolveAndLinkAllOptions = packtoryTypes.ResolveAndLinkAllOptions;
-export type ReleaseDiffAllResult = packtoryTypes.ReleaseDiffAllResult;
-export type ReleaseDiffAllOutcome = packtoryTypes.ReleaseDiffAllOutcome;
-export type BuildReport = packtoryTypes.BuildReport;
+export type PacktoryConfig = PublicPacktoryConfig;
+export type BuildAndPublishAllOptions = PublicBuildAndPublishAllOptions;
+export type BuildReport = PublicBuildReport;
+export type PublishAllOutcome = PublicPublishAllOutcome;
+export type PublishAllResult = PublicPublishAllResult;
+export type ReleaseDiffAllOutcome = PublicReleaseDiffAllOutcome;
+export type ReleaseDiffAllResult = PublicReleaseDiffAllResult;
+export type ResolveAndLinkAllOptions = PublicResolveAndLinkAllOptions;
+export type ResolveAndLinkAllOutcome = PublicResolveAndLinkAllOutcome;
+export type ResolveAndLinkAllResult = PublicResolveAndLinkAllResult;
+export type ResolveAndLinkFailure = PublicResolveAndLinkFailure;
+export type ResolvedPackage = PublicResolvedPackage;

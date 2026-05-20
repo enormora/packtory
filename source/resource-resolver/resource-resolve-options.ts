@@ -16,10 +16,12 @@ export type ResourceResolveOptions = {
     readonly surface?: PackageSurface | undefined;
 };
 
-export function resolveRootsAndSurface(options: ResourceResolveOptions): {
+export type ResolvedRootsAndSurface = {
     readonly roots: Roots;
     readonly surface: PackageSurface;
-} {
+};
+
+export function resolveRootsAndSurface(options: ResourceResolveOptions): ResolvedRootsAndSurface {
     const rootEntries = Object.entries(options.roots);
     const [firstRootEntry] = rootEntries;
     if (firstRootEntry === undefined) {

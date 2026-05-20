@@ -10,8 +10,16 @@ import {
 import type { BuildAndPublishResult } from './package-processor.ts';
 import { mapResolveFailureToReleaseDiffFailure } from './release-diff-failure-mapping.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
-import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
-import { runReleaseDiffStage, type ReleaseDiffStageDependencies } from './stages/release-diff-stage.ts';
+import {
+    determineVersionAndPublishAll,
+    type PublishStageDependencies,
+    type PublishStageResult
+} from './stages/publish-stage.ts';
+import {
+    runReleaseDiffStage,
+    type ReleaseDiffStageDependencies,
+    type ReleaseDiffStageResult
+} from './stages/release-diff-stage.ts';
 
 type ResolveAndLinkAllValidated = (
     config: ValidConfigResult
@@ -19,17 +27,14 @@ type ResolveAndLinkAllValidated = (
 
 export type ReleaseDiffOrchestratorDependencies = PublishStageDependencies & ReleaseDiffStageDependencies;
 
-type PublishStageOutcome = Awaited<ReturnType<typeof determineVersionAndPublishAll>>;
-type ReleaseDiffStageOutcome = Awaited<ReturnType<typeof runReleaseDiffStage>>;
-
-function succeededFromStage(stageResult: ReleaseDiffStageOutcome): readonly PackageReleaseDiff[] {
+function succeededFromStage(stageResult: ReleaseDiffStageResult): readonly PackageReleaseDiff[] {
     if (stageResult.isOk) {
         return stageResult.value;
     }
     return stageResult.error.succeeded;
 }
 
-function succeededFromPublish(publishResult: PublishStageOutcome): readonly BuildAndPublishResult[] {
+function succeededFromPublish(publishResult: PublishStageResult): readonly BuildAndPublishResult[] {
     if (publishResult.isOk) {
         return publishResult.value;
     }
@@ -37,8 +42,8 @@ function succeededFromPublish(publishResult: PublishStageOutcome): readonly Buil
 }
 
 function buildPartialFromPublish(
-    publishResult: Extract<PublishStageOutcome, { isErr: true }>,
-    stageResult: ReleaseDiffStageOutcome
+    publishResult: Extract<PublishStageResult, { isErr: true }>,
+    stageResult: ReleaseDiffStageResult
 ): ReleaseDiffFailure {
     return {
         type: 'partial',
@@ -48,8 +53,8 @@ function buildPartialFromPublish(
 }
 
 function toFinalReleaseDiffResult(
-    publishResult: PublishStageOutcome,
-    stageResult: ReleaseDiffStageOutcome
+    publishResult: PublishStageResult,
+    stageResult: ReleaseDiffStageResult
 ): ReleaseDiffAllResult {
     if (publishResult.isErr) {
         return Result.err(buildPartialFromPublish(publishResult, stageResult));

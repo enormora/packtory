@@ -5,7 +5,7 @@ import readline from 'node:readline/promises';
 import { createClock } from '../../common/clock.ts';
 import { createLineSpinnerRenderer } from '../../command-line-interface/spinner/line-spinner-renderer.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
-import type * as configTypes from '../../config/config.ts';
+import type { PacktoryConfig as PublicPacktoryConfig } from '../../config/config.ts';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner/runner.ts';
 import {
@@ -111,4 +111,4 @@ function crash(error: unknown): void {
 
 main().catch(crash);
 
-export type PacktoryConfig = configTypes.PacktoryConfig;
+export type PacktoryConfig = PublicPacktoryConfig;
