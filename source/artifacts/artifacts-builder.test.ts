@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { createProgressBroadcaster, type ArtifactEntry } from '../progress/progress-broadcaster.ts';
 import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
@@ -334,18 +334,37 @@ suite('artifacts-builder', function () {
         });
     });
 
+    function buildEmptyArtifactDependencies(
+        progressBroadcaster: ArtifactsBuilderDependencies['progressBroadcaster']
+    ): ArtifactsBuilderDependencies {
+        return {
+            fileManager: createFakeFileManager(),
+            tarballBuilder: { build: fake.resolves(Buffer.from([])) },
+            zipBuilder: { build: fake.resolves(Buffer.from([])) },
+            progressBroadcaster
+        };
+    }
+
+    function captureArtifactEntries<TProjected>(
+        broadcaster: ReturnType<typeof createProgressBroadcaster>,
+        project: (entry: ArtifactEntry) => TProjected
+    ): readonly { readonly entries: readonly TProjected[] }[] {
+        const received: { readonly entries: readonly TProjected[] }[] = [];
+        broadcaster.consumer.on('artifactsCollected', (payload) => {
+            received.push({ entries: payload.entries.map(project) });
+        });
+        return received;
+    }
+
     function artifactsBuilderWithBroadcaster(): {
         readonly builder: ArtifactsBuilder;
         readonly broadcaster: ReturnType<typeof createProgressBroadcaster>;
     } {
         const broadcaster = createProgressBroadcaster();
-        const dependencies: ArtifactsBuilderDependencies = {
-            fileManager: createFakeFileManager(),
-            tarballBuilder: { build: fake.resolves(Buffer.from([])) },
-            zipBuilder: { build: fake.resolves(Buffer.from([])) },
-            progressBroadcaster: broadcaster.provider
+        return {
+            builder: createArtifactsBuilder(buildEmptyArtifactDependencies(broadcaster.provider)),
+            broadcaster
         };
-        return { builder: createArtifactsBuilder(dependencies), broadcaster };
     }
 
     test('collectContents() emits an artifactsCollected event with the package name when a subscriber is registered', function () {
@@ -362,29 +381,15 @@ suite('artifacts-builder', function () {
 
     test('collectContents() emits artifact entries with size and kind classification', function () {
         const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
-        const received: {
-            entries: readonly {
-                path: string;
-                sizeBytes: number;
-                kind: string;
-                sourcePath?: string;
-                status: string;
-                badges: readonly string[];
-            }[];
-        }[] = [];
-        broadcaster.consumer.on('artifactsCollected', (payload) => {
-            received.push({
-                entries: payload.entries.map((entry) => {
-                    return {
-                        path: entry.path,
-                        sizeBytes: entry.sizeBytes,
-                        kind: entry.kind,
-                        ...(entry.sourcePath === undefined ? {} : { sourcePath: entry.sourcePath }),
-                        status: entry.status,
-                        badges: entry.badges
-                    };
-                })
-            });
+        const received = captureArtifactEntries(broadcaster, (entry) => {
+            return {
+                path: entry.path,
+                sizeBytes: entry.sizeBytes,
+                kind: entry.kind,
+                ...(entry.sourcePath === undefined ? {} : { sourcePath: entry.sourcePath }),
+                status: entry.status,
+                badges: entry.badges
+            };
         });
 
         builder.collectContents(bundleWithContents([makeContent('a.js', 'abc', true)], 'package.json'));
@@ -408,15 +413,8 @@ suite('artifacts-builder', function () {
 
     test('collectContents() emits extra generated files in artifactsCollected when subscribed', function () {
         const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
-        const received: {
-            entries: readonly { path: string; status: string; kind: string }[];
-        }[] = [];
-        broadcaster.consumer.on('artifactsCollected', (payload) => {
-            received.push({
-                entries: payload.entries.map((entry) => {
-                    return { path: entry.path, status: entry.status, kind: entry.kind };
-                })
-            });
+        const received = captureArtifactEntries(broadcaster, (entry) => {
+            return { path: entry.path, status: entry.status, kind: entry.kind };
         });
 
         builder.collectContents(bundleWithContents([], 'package.json'), undefined, [
@@ -435,13 +433,7 @@ suite('artifacts-builder', function () {
 
     test('collectContents() does NOT emit artifactsCollected when no subscriber is registered', function () {
         const spying = createSpyingBroadcaster();
-        const dependencies: ArtifactsBuilderDependencies = {
-            fileManager: createFakeFileManager(),
-            tarballBuilder: { build: fake.resolves(Buffer.from([])) },
-            zipBuilder: { build: fake.resolves(Buffer.from([])) },
-            progressBroadcaster: spying.provider
-        };
-        const builder = createArtifactsBuilder(dependencies);
+        const builder = createArtifactsBuilder(buildEmptyArtifactDependencies(spying.provider));
 
         builder.collectContents(bundleWithContents([], 'package.json'));
 
