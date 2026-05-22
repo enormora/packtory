@@ -63,6 +63,18 @@ suite('pure-expression', function () {
         assert.strictEqual(isPureExpression(expression, settings), true);
     });
 
+    test('isPureExpression returns true for a Symbol call with pure arguments', function () {
+        const expression = firstInitializer('const a = Symbol("x");');
+
+        assert.strictEqual(isPureExpression(expression, undefined), true);
+    });
+
+    test('isPureExpression returns false for a Symbol call with an impure argument', function () {
+        const expression = firstInitializer('declare const f: () => string;\nconst a = Symbol(f());');
+
+        assert.strictEqual(isPureExpression(expression, undefined), false);
+    });
+
     test('isPureExpression returns true for a new expression of a trusted pureConstructor name', function () {
         const settings: DeadCodeEliminationSettings = { enabled: true, pureConstructors: ['Foo'] };
         const expression = firstInitializer('declare class Foo {}\nconst a = new Foo();');

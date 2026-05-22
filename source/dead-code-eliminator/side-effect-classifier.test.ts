@@ -299,6 +299,10 @@ suite('side-effect-classifier', function () {
         assert.deepStrictEqual(classify('const x = compute();'), [{ line: 1, kind: 'variable initializer' }]);
     });
 
+    test('treats a const with a Symbol call as pure', function () {
+        assert.deepStrictEqual(classify('const x = Symbol("marker");'), []);
+    });
+
     test('treats a const with a trusted imported call as pure', function () {
         assert.deepStrictEqual(
             classify('import { bold } from "yoctocolors"; const x = bold("hi");', {

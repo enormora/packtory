@@ -50,10 +50,6 @@ function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescriptio
     return parseJsonFile(file);
 }
 
-function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
-    return previousValue === invalidJson || newValue === invalidJson;
-}
-
 function maxClassificationPriority(
     current: ClassificationPriority,
     nextPriority: ClassificationPriority
@@ -68,6 +64,10 @@ function hasLatestPublishedAt(
     analysis: PackageReleaseAnalysis
 ): analysis is PackageReleaseAnalysis & { readonly latestPublishedAt: Date } {
     return analysis.latestPublishedAt !== undefined;
+}
+
+function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
+    return previousValue === invalidJson || newValue === invalidJson;
 }
 
 function normalizePackageJsonForDependencyComparison(value: unknown): unknown {

@@ -39,12 +39,26 @@ function isPurePropertyAssignment(property: TsMorphNode, recurse: ExpressionPuri
     return inherentlyPurePropertyKinds.has(property.getKind());
 }
 
+function isPureBuiltinCallExpression(
+    callTarget: Expression,
+    expression: CallExpression,
+    recurse: ExpressionPurityChecker
+): boolean {
+    return TsMorphNode.isIdentifier(callTarget) && callTarget.getText() === 'Symbol'
+        ? arePureCallArguments(expression.getArguments(), recurse)
+        : false;
+}
+
 function isPureCallExpression(
     expression: CallExpression,
     recurse: ExpressionPurityChecker,
     settings: DeadCodeEliminationSettings | undefined
 ): boolean {
-    return resolveImportedExpressionOrigin(expression, recurse, settings) !== undefined;
+    const callTarget = unwrapExpression(expression.getExpression());
+    return (
+        isPureBuiltinCallExpression(callTarget, expression, recurse) ||
+        resolveImportedExpressionOrigin(expression, recurse, settings) !== undefined
+    );
 }
 
 function isPureNewExpression(

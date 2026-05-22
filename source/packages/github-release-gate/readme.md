@@ -107,7 +107,3 @@ When run inside GitHub Actions, the tool writes these values to `$GITHUB_OUTPUT`
 - `DEPENDENCY_ONLY_MIN_AGE_DAYS` defaults to `7`.
 - `QUIET_PERIOD_MINUTES` defaults to `45`.
 - `MAX_LATENCY_HOURS` defaults to `24`.
-
-## Scope
-
-This package is intentionally GitHub-specific for now. A generic `release-gate` package would only make sense after the policy and interface have been proven across multiple repositories and CI environments.
