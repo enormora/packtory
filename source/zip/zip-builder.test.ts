@@ -1,15 +1,19 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import sinon from 'sinon';
-import {
-    zip as fflateZip,
-    type AsyncZippable,
-    type AsyncZipOptions,
-    type FlateCallback,
-    type FlateError
-} from 'fflate';
+import { zip as fflateZip } from 'fflate';
 import { extractZipEntries } from '../test-libraries/extract-zip.ts';
 import { createZipBuilder } from './zip-builder.ts';
+
+type ZipEntryOptions = {
+    readonly os: number;
+    readonly attrs: number;
+    readonly mtime: number;
+    readonly level: number;
+};
+
+type ZippableFileMap = Record<string, readonly [Uint8Array, ZipEntryOptions]>;
+type ZipCallback = (error: unknown, data: unknown) => void;
 
 const nonExecutableUnixMode = 0o10_0644;
 const executableUnixMode = 0o10_0755;
@@ -17,6 +21,14 @@ const unixOperatingSystem = 3;
 const staticFileModificationTimestamp = 315_576_000_000;
 const maxCompressionLevel = 9;
 const highBytesScale = 65_536;
+
+function runFflateZip(data: ZippableFileMap, options: Record<string, never>, callback: ZipCallback): void {
+    const zipValue: unknown = fflateZip;
+    if (typeof zipValue !== 'function') {
+        throw new TypeError('fflate zip export is not callable');
+    }
+    Reflect.apply(zipValue, undefined, [data, options, callback]);
+}
 
 suite('zip-builder', function () {
     test('creates an empty zip', async function () {
@@ -94,8 +106,8 @@ suite('zip-builder', function () {
     });
 
     test('passes the static modification time, unix os marker and maximum compression to fflate', async function () {
-        const zip = sinon.spy((data: AsyncZippable, options: AsyncZipOptions, callback: FlateCallback): void => {
-            fflateZip(data, options, callback);
+        const zip = sinon.spy((data: ZippableFileMap, options: Record<string, never>, callback: ZipCallback): void => {
+            runFflateZip(data, options, callback);
         });
         const builder = createZipBuilder({ zip });
 
@@ -207,10 +219,10 @@ suite('zip-builder', function () {
     });
 
     test('rejects when fflate reports an error', async function () {
-        const errorFromFflate: FlateError = Object.assign(new Error('fflate-failure'), {
-            code: 99 as FlateError['code']
+        const errorFromFflate = Object.assign(new Error('fflate-failure'), {
+            code: 99
         });
-        const failingZip = (_data: AsyncZippable, _options: AsyncZipOptions, callback: FlateCallback): void => {
+        const failingZip = (_data: ZippableFileMap, _options: Record<string, never>, callback: ZipCallback): void => {
             queueMicrotask(() => {
                 callback(errorFromFflate, new Uint8Array());
             });

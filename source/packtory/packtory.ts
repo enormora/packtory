@@ -89,7 +89,8 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
         resolveAndLinkAllValidated: createResolveAndLinkAllValidated(dependencies),
         runBuildAndPublishValidated: createRunBuildAndPublishValidated(dependencies),
         diffAgainstLatestPublishedValidated: createDiffAgainstLatestPublishedValidated(dependencies),
-        analyzeReleaseAgainstLatestPublishedValidated: createAnalyzeReleaseAgainstLatestPublishedValidated(dependencies),
+        analyzeReleaseAgainstLatestPublishedValidated:
+            createAnalyzeReleaseAgainstLatestPublishedValidated(dependencies),
         runPackValidated: createRunPackValidated(dependencies)
     };
 }
