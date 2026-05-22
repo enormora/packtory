@@ -160,6 +160,22 @@ suite('pack-handler', function () {
         );
     });
 
+    test('returns 1 and surfaces the vendored package, escaped entry path, and resolved target when a vendor symlink leaves its package directory', async function () {
+        await expectFailure(
+            {
+                type: 'vendor-symlink-target-outside-package',
+                packageName: 'pkg-a',
+                vendoredPackageName: 'evil-helper',
+                entryRelativePath: 'config/defaults.json',
+                resolvedTargetPath: '/Users/victim/.npmrc'
+            },
+            [
+                /Pack of "pkg-a" rejected a vendored dependency with a symlink that escapes its package directory/u,
+                /"evil-helper" contains "config\/defaults\.json" which resolves to "\/Users\/victim\/\.npmrc"/u
+            ]
+        );
+    });
+
     test('returns 1 and summarises partial resolve failures with one line per failure', async function () {
         await expectFailure(
             { type: 'partial', error: { succeeded: [], failures: [new Error('resolve A'), new Error('resolve B')] } },

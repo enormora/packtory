@@ -18,8 +18,17 @@ type PeerDependenciesUnsatisfiedFailure = {
     readonly items: readonly UnsatisfiedPeerDependency[];
 };
 
+type VendorSymlinkOutsidePackageFailure = {
+    readonly type: 'vendor-symlink-target-outside-package';
+    readonly packageName: string;
+    readonly vendoredPackageName: string;
+    readonly entryRelativePath: string;
+    readonly resolvedTargetPath: string;
+};
+
 export type PackPackageFailure =
     | PeerDependenciesUnsatisfiedFailure
+    | VendorSymlinkOutsidePackageFailure
     | { readonly type: 'bundle-dependencies-unsupported'; readonly packageName: string }
     | { readonly type: 'package-not-found'; readonly packageName: string };
 

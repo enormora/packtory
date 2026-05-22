@@ -52,9 +52,23 @@ function formatPackageNotFound(packageName: string): string {
     return `${getErrorSymbol()} Package "${packageName}" is not declared in the packtory configuration`;
 }
 
+function formatVendorSymlinkOutsidePackageFailure(
+    error: PackFailure & { readonly type: 'vendor-symlink-target-outside-package' }
+): string {
+    const reason = 'rejected a vendored dependency with a symlink that escapes its package directory';
+    const header = `${getErrorSymbol()} Pack of "${error.packageName}" ${reason}`;
+    const target = `which resolves to "${error.resolvedTargetPath}"`;
+    const details = `- "${error.vendoredPackageName}" contains "${error.entryRelativePath}" ${target}`;
+    return [header, details].join('\n');
+}
+
 type ConfigOrCheckError = PackFailure & { readonly type: 'checks' | 'config' };
 type PackPackageError = PackFailure & {
-    readonly type: 'bundle-dependencies-unsupported' | 'package-not-found' | 'peer-dependencies-unsatisfied';
+    readonly type:
+        | 'bundle-dependencies-unsupported'
+        | 'package-not-found'
+        | 'peer-dependencies-unsatisfied'
+        | 'vendor-symlink-target-outside-package';
 };
 
 function formatIssueListFailure(error: ConfigOrCheckError): string {
@@ -71,6 +85,9 @@ function formatPackPackageFailure(error: PackPackageError): string {
     if (error.type === 'bundle-dependencies-unsupported') {
         return formatBundleDepFailure(error.packageName);
     }
+    if (error.type === 'vendor-symlink-target-outside-package') {
+        return formatVendorSymlinkOutsidePackageFailure(error);
+    }
     return formatPeerFailure(error);
 }
 
@@ -82,7 +99,8 @@ function isPackPackageError(error: PackFailure): error is PackPackageError {
     return (
         error.type === 'package-not-found' ||
         error.type === 'bundle-dependencies-unsupported' ||
-        error.type === 'peer-dependencies-unsatisfied'
+        error.type === 'peer-dependencies-unsatisfied' ||
+        error.type === 'vendor-symlink-target-outside-package'
     );
 }
 

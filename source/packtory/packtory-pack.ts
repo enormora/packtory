@@ -9,7 +9,10 @@ import { serializePackageJson } from '../version-manager/manifest/serialize.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
-import type { VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
+import type {
+    SymlinkTargetOutsidePackageFailure,
+    VendorMaterializer
+} from '../vendor-materializer/vendor-materializer.ts';
 import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import type { InternalResolveAndLinkFailure } from './packtory-resolve.ts';
@@ -225,32 +228,52 @@ type VendoredInputs = {
     readonly version: string;
 };
 
+type MaterializedExternalsResult = Awaited<
+    ReturnType<PackRunDependencies['vendorMaterializer']['materializeExternals']>
+>;
+
+function mapMaterializerFailure(
+    packageName: string,
+    materializerFailure: SymlinkTargetOutsidePackageFailure
+): PackPackageFailure {
+    return {
+        type: 'vendor-symlink-target-outside-package',
+        packageName,
+        vendoredPackageName: materializerFailure.packageName,
+        entryRelativePath: materializerFailure.entryRelativePath,
+        resolvedTargetPath: materializerFailure.resolvedTargetPath
+    };
+}
+
+function checkClosurePeers(
+    bundleClosure: BundleDepClosure,
+    externals: MaterializedExternalsResult & { readonly isOk: true }
+): readonly UnsatisfiedPeerDependency[] {
+    const closurePackageNames = new Set<string>([...bundleClosure.packageNames, ...externals.value.packageNames]);
+    const allPeerRequirements = mergePeerRequirements(bundleClosure.peerRequirements, externals.value.peerRequirements);
+    return findUnsatisfiedPeers(closurePackageNames, allPeerRequirements);
+}
+
 async function prepareVendoredArtifact(
     dependencies: PackRunDependencies,
     inputs: VendoredInputs
 ): Promise<Result<VendoredArtifact, PackPackageFailure>> {
     const { target, resolved, built, version } = inputs;
     const bundleClosure = collectBundleDependencies(target, resolved, dependencies.versionManager, version);
-    const externalsMaterialized = await dependencies.vendorMaterializer.materializeExternals({
+    const materializationResult = await dependencies.vendorMaterializer.materializeExternals({
         initialDependencyNames: Array.from(target.analyzedBundle.externalDependencies.keys()),
         projectFolder: target.resolveOptions.sourcesFolder
     });
-    const closurePackageNames = new Set<string>([...bundleClosure.packageNames, ...externalsMaterialized.packageNames]);
-    const allPeerRequirements = mergePeerRequirements(
-        bundleClosure.peerRequirements,
-        externalsMaterialized.peerRequirements
-    );
-    const unsatisfiedPeers = findUnsatisfiedPeers(closurePackageNames, allPeerRequirements);
+    if (materializationResult.isErr) {
+        return Result.err(mapMaterializerFailure(target.name, materializationResult.error));
+    }
+    const unsatisfiedPeers = checkClosurePeers(bundleClosure, materializationResult);
     if (unsatisfiedPeers.length > 0) {
-        return Result.err({
-            type: 'peer-dependencies-unsatisfied',
-            packageName: target.name,
-            items: unsatisfiedPeers
-        });
+        return Result.err({ type: 'peer-dependencies-unsatisfied', packageName: target.name, items: unsatisfiedPeers });
     }
     return Result.ok({
         bundle: slimManifestForVendoredArtifact(built),
-        vendorEntries: externalsMaterialized.entries,
+        vendorEntries: materializationResult.value.entries,
         extraFiles: bundleClosure.extraFiles
     });
 }
