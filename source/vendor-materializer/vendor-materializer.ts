@@ -97,9 +97,6 @@ function parseManifestSummary(content: string): ParsedManifestSummary {
 
 function isInside(rootDirectory: string, candidate: string): boolean {
     const relative = path.relative(rootDirectory, candidate);
-    if (relative === '') {
-        return true;
-    }
     if (relative.startsWith(`..${path.sep}`) || relative === '..') {
         return false;
     }
@@ -143,12 +140,14 @@ async function checkSymlinkInsidePackage(
     }
 }
 
+type EntryEvaluation = { readonly kind: 'leaf'; readonly vendorEntry: VendorEntry } | { readonly kind: 'recurse' };
+
 async function evaluatePackageEntry(
     walker: FileWalkerDependencies,
     request: CollectRequest,
     relativeEntryPath: string,
     entry: { readonly isDirectory: boolean; readonly isSymbolicLink: boolean }
-): Promise<Result<{ readonly shouldRecurse: boolean }, SymlinkTargetOutsidePackageFailure>> {
+): Promise<Result<EntryEvaluation, SymlinkTargetOutsidePackageFailure>> {
     if (entry.isSymbolicLink) {
         const symlinkCheck = await checkSymlinkInsidePackage(
             walker,
@@ -161,10 +160,10 @@ async function evaluatePackageEntry(
         }
     }
     if (entry.isDirectory) {
-        return Result.ok({ shouldRecurse: true });
+        return Result.ok({ kind: 'recurse' });
     }
-    request.collected.push(buildVendorEntry(request.rootDirectory, request.packageName, relativeEntryPath));
-    return Result.ok({ shouldRecurse: false });
+    const vendorEntry = buildVendorEntry(request.rootDirectory, request.packageName, relativeEntryPath);
+    return Result.ok({ kind: 'leaf', vendorEntry });
 }
 
 type RecurseFn = (relativeDirectory: string) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
@@ -178,9 +177,10 @@ async function processSinglePackageEntry(
     if (evaluated.isErr) {
         return Result.err(evaluated.error);
     }
-    if (evaluated.value.shouldRecurse) {
+    if (evaluated.value.kind === 'recurse') {
         return await context.recurse(relativeEntryPath);
     }
+    context.request.collected.push(evaluated.value.vendorEntry);
     return Result.ok(undefined);
 }
 

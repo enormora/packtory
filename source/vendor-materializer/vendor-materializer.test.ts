@@ -398,6 +398,55 @@ suite('vendor-materializer', function () {
         });
     });
 
+    test('rejects a symlink whose resolved target is the immediate parent of the package directory', async function () {
+        const failure = await runExpectingFailure(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules' }],
+                listings: [
+                    {
+                        value: [{ name: 'parent-link', isDirectory: false, isSymbolicLink: true }]
+                    }
+                ],
+                fileReads: [{ value: '{}' }]
+            },
+            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(failure, {
+            type: 'symlink-target-outside-package',
+            packageName: 'pkg',
+            entryRelativePath: 'parent-link',
+            resolvedTargetPath: '/repo/node_modules'
+        });
+    });
+
+    test('reports a nested symlink-entry path with forward slashes regardless of platform separators', async function () {
+        const failure = await runExpectingFailure(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/Users/victim/.ssh/id_rsa' }],
+                listings: [
+                    {
+                        value: [{ name: 'config', isDirectory: true, isSymbolicLink: false }]
+                    },
+                    {
+                        value: [{ name: 'secret-link', isDirectory: false, isSymbolicLink: true }]
+                    }
+                ],
+                fileReads: [{ value: '{}' }]
+            },
+            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(failure, {
+            type: 'symlink-target-outside-package',
+            packageName: 'pkg',
+            entryRelativePath: 'config/secret-link',
+            resolvedTargetPath: '/Users/victim/.ssh/id_rsa'
+        });
+    });
+
     test('rejects a symlink whose target cannot be resolved (broken symlink) so packtory never blindly trusts it', async function () {
         const failure = await runExpectingFailure(
             {
