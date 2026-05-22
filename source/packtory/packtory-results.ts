@@ -1,10 +1,15 @@
 import type { Result } from 'true-myth';
+import type { PackFormat } from '../pack-emitter/pack-emitter.ts';
 import type { ProgressBroadcaster as ProgressBroadcasterBase } from '../progress/progress-broadcaster.ts';
 import type { BuildReport as ReportBuildReport } from '../report/aggregator/report-types.ts';
 import type { PackageReleaseDiff } from '../report/release-diff/file-set-diff.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import type { CheckError, ResolvedPackage } from './resolved-package.ts';
 import type { PartialError } from './scheduler.ts';
+
+export type PackPackageFailure =
+    | { readonly type: 'bundle-dependencies-unsupported'; readonly packageName: string }
+    | { readonly type: 'package-not-found'; readonly packageName: string };
 
 export type BuildAndPublishAllOptions = {
     readonly dryRun: boolean;
@@ -89,10 +94,30 @@ export function releaseDiffPartialFailure(error: PartialError<PackageReleaseDiff
     return { type: 'partial', ...error };
 }
 
+export type PackPublicOptions = {
+    readonly packageName: string;
+    readonly format: PackFormat;
+    readonly outputPath: string;
+    readonly version: string;
+};
+
+export type PackFailure = CheckError | ConfigError | PackPackageFailure | PartialErrorResult;
+
+export type PackResult = Result<undefined, PackFailure>;
+
+export type PackOutcome = {
+    readonly result: PackResult;
+};
+
+export function createPackOutcome(result: PackResult): PackOutcome {
+    return { result };
+}
+
 export type Packtory = {
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
     diffAgainstLatestPublished: (config: unknown) => Promise<ReleaseDiffAllOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
+    packPackage: (config: unknown, options: PackPublicOptions) => Promise<PackOutcome>;
 };
 
 export type ProgressBroadcaster = ProgressBroadcasterBase;

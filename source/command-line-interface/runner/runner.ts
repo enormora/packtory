@@ -1,11 +1,12 @@
-/* eslint-disable import/max-dependencies -- the CLI runner wires three subcommands plus shared dependencies */
-import { binary, command, flag, runSafely, subcommands } from 'cmd-ts';
+/* eslint-disable import/max-dependencies -- the CLI runner wires four subcommands plus shared dependencies */
+import { binary, command, flag, oneOf, option, positional, runSafely, string, subcommands } from 'cmd-ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import type { ProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { getParseExitCode } from './command-parsing.ts';
+import { runPackHandler } from './pack-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
 import { registerProgressListeners } from './progress-wiring.ts';
@@ -45,6 +46,8 @@ export function createCommandLineInterfaceRunner(
     const publishCommandName = 'publish';
     const previewCommandName = 'preview';
     const releaseDiffCommandName = 'release-diff';
+    const packCommandName = 'pack';
+    const defaultPackVersion = '0.0.0';
     const baseCommand = subcommands({
         name: 'packtory',
         cmds: {
@@ -96,6 +99,31 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader
+                    });
+                }
+            }),
+            [packCommandName]: command({
+                name: packCommandName,
+                description: 'Builds a single configured package and writes it as a zip, tar, or folder artifact.',
+                args: {
+                    packageName: positional({ type: string, displayName: 'package' }),
+                    format: option({ long: 'format', type: oneOf(['zip', 'tar', 'folder']) }),
+                    outputPath: option({ long: 'out', type: string }),
+                    version: option({
+                        long: 'version',
+                        type: string,
+                        defaultValue: () => {
+                            return defaultPackVersion;
+                        }
+                    })
+                },
+                async handler({ packageName, format, outputPath, version }) {
+                    exitCode = await runPackHandler({
+                        log,
+                        packtory,
+                        spinnerRenderer,
+                        configLoader,
+                        flags: { packageName, format, outputPath, version }
                     });
                 }
             })

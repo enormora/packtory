@@ -3,6 +3,9 @@ import {
     createPacktory,
     type BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
     type BuildReport as PublicBuildReport,
+    type PackOutcome as PublicPackOutcome,
+    type PackPublicOptions as PublicPackPublicOptions,
+    type PackResult as PublicPackResult,
     type PublishAllOutcome as PublicPublishAllOutcome,
     type PublishAllResult as PublicPublishAllResult,
     type ReleaseDiffAllOutcome as PublicReleaseDiffAllOutcome,
@@ -18,7 +21,7 @@ import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts'
 import type { PublicProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
 
-const { packageProcessor, progressBroadcaster, deadCodeEliminator, artifactsBuilder } =
+const { packageProcessor, progressBroadcaster, deadCodeEliminator, artifactsBuilder, versionManager, packEmitter } =
     buildPackageProcessorComposition({
         ciEnvironment: readCiEnvironment(process.env)
     });
@@ -32,15 +35,20 @@ const packtory = createPacktory({
     packageProcessor,
     deadCodeEliminator,
     progressBroadcaster,
-    artifactsBuilder
+    artifactsBuilder,
+    versionManager,
+    packEmitter
 });
 
-export const { buildAndPublishAll, diffAgainstLatestPublished, resolveAndLinkAll } = packtory;
+export const { buildAndPublishAll, diffAgainstLatestPublished, resolveAndLinkAll, packPackage } = packtory;
 export const progressBroadcastConsumer: PublicProgressBroadcastConsumer = progressBroadcaster.consumer;
 
 export type PacktoryConfig = PublicPacktoryConfig;
 export type BuildAndPublishAllOptions = PublicBuildAndPublishAllOptions;
 export type BuildReport = PublicBuildReport;
+export type PackOutcome = PublicPackOutcome;
+export type PackPublicOptions = PublicPackPublicOptions;
+export type PackResult = PublicPackResult;
 export type PublishAllOutcome = PublicPublishAllOutcome;
 export type PublishAllResult = PublicPublishAllResult;
 export type ReleaseDiffAllOutcome = PublicReleaseDiffAllOutcome;

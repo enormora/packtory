@@ -1,0 +1,82 @@
+import assert from 'node:assert';
+import { suite, test } from 'mocha';
+import { fake } from 'sinon';
+import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
+import { createPackEmitter, type PackEmitterDependencies } from './pack-emitter.ts';
+
+function makeBundle(): ReturnType<typeof versionedBundleWithManifest> {
+    return versionedBundleWithManifest({
+        contents: [],
+        packageJson: { name: 'the-pkg', version: '1.0.0' },
+        name: 'the-pkg',
+        manifestFile: { content: '{}', isExecutable: false, filePath: 'package.json' }
+    });
+}
+
+function createDependencies(overrides: Partial<PackEmitterDependencies['artifactsBuilder']> = {}): {
+    readonly deps: PackEmitterDependencies;
+    readonly fileManager: ReturnType<typeof createFakeFileManager>;
+} {
+    const fileManager = createFakeFileManager();
+    const artifactsBuilder = {
+        buildZip: overrides.buildZip ?? fake.resolves({ zipData: Buffer.from([80, 75]) }),
+        buildTarball: overrides.buildTarball ?? fake.resolves({ tarData: Buffer.from([31, 139]) }),
+        buildFolder: overrides.buildFolder ?? fake.resolves(undefined)
+    };
+    return {
+        deps: { artifactsBuilder, fileManager },
+        fileManager
+    };
+}
+
+suite('pack-emitter', function () {
+    test('writes the zip artifact bytes returned by buildZip to the output path', async function () {
+        const zipData = Buffer.from([80, 75, 5, 6]);
+        const buildZip = fake.resolves({ zipData });
+        const { deps, fileManager } = createDependencies({ buildZip });
+        const emitter = createPackEmitter(deps);
+        const bundle = makeBundle();
+
+        await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip' });
+
+        assert.strictEqual(buildZip.callCount, 1);
+        assert.deepStrictEqual(buildZip.firstCall.args, [bundle]);
+        assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
+        assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
+            filePath: '/out/fn.zip',
+            content: zipData
+        });
+    });
+
+    test('writes the tarball artifact bytes returned by buildTarball to the output path', async function () {
+        const tarData = Buffer.from([31, 139, 8, 0]);
+        const buildTarball = fake.resolves({ tarData });
+        const { deps, fileManager } = createDependencies({ buildTarball });
+        const emitter = createPackEmitter(deps);
+        const bundle = makeBundle();
+
+        await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz' });
+
+        assert.strictEqual(buildTarball.callCount, 1);
+        assert.deepStrictEqual(buildTarball.firstCall.args, [bundle]);
+        assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
+        assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
+            filePath: '/out/pkg.tgz',
+            content: tarData
+        });
+    });
+
+    test('delegates folder writes to buildFolder with the requested output path', async function () {
+        const buildFolder = fake.resolves(undefined);
+        const { deps, fileManager } = createDependencies({ buildFolder });
+        const emitter = createPackEmitter(deps);
+        const bundle = makeBundle();
+
+        await emitter.pack({ bundle, format: 'folder', outputPath: '/out/extracted' });
+
+        assert.strictEqual(buildFolder.callCount, 1);
+        assert.deepStrictEqual(buildFolder.firstCall.args, [bundle, '/out/extracted']);
+        assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 0);
+    });
+});

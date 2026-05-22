@@ -143,6 +143,8 @@ function createPacktoryUnderTest(
         readonly tryBuildAndPublish?: SinonSpy;
         readonly buildAndPublish?: SinonSpy;
         readonly deadCodeEliminator?: ReturnType<typeof createTestEliminator>;
+        readonly packEmitterPack?: SinonSpy;
+        readonly versionManagerAddVersion?: SinonSpy;
     } = {}
 ): PacktoryUnderTest {
     const resolveAndLink =
@@ -222,7 +224,22 @@ function createPacktoryUnderTest(
             scheduler: scheduler as never,
             deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator(),
             progressBroadcaster,
-            artifactsBuilder: { collectContents: () => [] }
+            artifactsBuilder: { collectContents: () => [] },
+            versionManager: {
+                addVersion: (overrides.versionManagerAddVersion ??
+                    (() => {
+                        throw new Error('versionManager.addVersion not implemented in tests');
+                    })) as never,
+                increaseVersion: () => {
+                    throw new Error('versionManager.increaseVersion not implemented in tests');
+                }
+            },
+            packEmitter: {
+                pack: (overrides.packEmitterPack ??
+                    (async () => {
+                        throw new Error('packEmitter.pack not implemented in tests');
+                    })) as never
+            }
         }),
         resolveAndLink,
         tryBuildAndPublish,
@@ -558,5 +575,33 @@ suite('packtory', function () {
         await packtory.diffAgainstLatestPublished(createConfig());
 
         assert.strictEqual(progressBroadcaster.provider.hasSubscribers('versionDetermined'), false);
+    });
+
+    const packPublicOptions = {
+        packageName: 'package-a',
+        format: 'zip' as const,
+        outputPath: '/out/package-a.zip',
+        version: '1.0.0'
+    };
+
+    test('packPackage() returns a config failure when the supplied config is invalid', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const { result } = await packtory.packPackage({ invalid: true }, packPublicOptions);
+
+        const error = getErrResult(result, 'expected packPackage() to fail with a config error');
+        assert.strictEqual(error.type, 'config');
+    });
+
+    test('packPackage() returns Ok and forwards the bundle to packEmitter.pack when the config validates and the package is resolvable', async function () {
+        const versionManagerAddVersion = fake.returns(createVersionedBundle('package-a'));
+        const packEmitterPack = fake.resolves(undefined);
+        const { packtory } = createPacktoryUnderTest({ versionManagerAddVersion, packEmitterPack });
+
+        const { result } = await packtory.packPackage(createConfigWithoutRegistry(), packPublicOptions);
+
+        getOkResult(result, 'expected packPackage() to succeed');
+        assert.strictEqual(versionManagerAddVersion.callCount, 1);
+        assert.strictEqual(packEmitterPack.callCount, 1);
     });
 });
