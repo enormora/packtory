@@ -124,7 +124,8 @@ suite('artifacts-builder', function () {
                 { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
                 { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
                 { filePath: 'package/qux.txt', content: 'qux', isExecutable: false }
-            ]
+            ],
+            []
         ]);
     });
 
@@ -269,7 +270,34 @@ suite('artifacts-builder', function () {
                 { filePath: 'package/package.json', content: '{}', isExecutable: false },
                 { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
                 { filePath: 'package/sbom.cdx.json', content: '{"bomFormat":"CycloneDX"}', isExecutable: false }
+            ],
+            []
+        ]);
+    });
+
+    test('buildTarball() prefixes each vendor entry target path with "package/" so the tarball mirrors the npm publish layout', async function () {
+        const tarballBuilder = { build: fake.resolves(Buffer.from([])) };
+        const { builder } = artifactsBuilderFactory({ tarballBuilder });
+        await builder.buildTarball(
+            bundleWithContents([], 'package.json'),
+            [],
+            [
+                {
+                    sourceAbsolutePath: '/host/node_modules/pkg/index.js',
+                    targetRelativePath: 'node_modules/pkg/index.js',
+                    isExecutable: false
+                }
             ]
+        );
+
+        const args = tarballBuilder.build.firstCall.args as readonly unknown[];
+        const vendorArgs = args[1];
+        assert.deepStrictEqual(vendorArgs, [
+            {
+                sourceAbsolutePath: '/host/node_modules/pkg/index.js',
+                targetRelativePath: 'package/node_modules/pkg/index.js',
+                isExecutable: false
+            }
         ]);
     });
 
@@ -300,7 +328,8 @@ suite('artifacts-builder', function () {
                 { filePath: 'handler.js', content: 'handler', isExecutable: false },
                 { filePath: 'lib/helper.js', content: 'helper', isExecutable: false },
                 { filePath: 'lib/cli.js', content: 'cli', isExecutable: false }
-            ]
+            ],
+            []
         ]);
     });
 
@@ -316,7 +345,8 @@ suite('artifacts-builder', function () {
                 { filePath: 'manifest.json', content: '{}', isExecutable: false },
                 { filePath: 'handler.js', content: 'handler', isExecutable: false },
                 { filePath: 'extra.json', content: '{"kind":"extra"}', isExecutable: false }
-            ]
+            ],
+            []
         ]);
     });
 

@@ -1,16 +1,19 @@
 import { promisify } from 'node:util';
 import { zip as fflateZip, type AsyncZippable, type AsyncZipOptions, type FlateCallback } from 'fflate';
 import type { FileDescription } from '../file-manager/file-description.ts';
+import type { FileManager } from '../file-manager/file-manager.ts';
+import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 
 type AsyncZipFunction = (data: AsyncZippable, options: AsyncZipOptions, callback: FlateCallback) => void;
 type PromisifiedZip = (data: AsyncZippable, options: AsyncZipOptions) => Promise<Uint8Array>;
 
 export type ZipBuilder = {
-    build: (fileDescriptions: readonly FileDescription[]) => Promise<Buffer>;
+    build: (fileDescriptions: readonly FileDescription[], vendorEntries?: readonly VendorEntry[]) => Promise<Buffer>;
 };
 
 type ZipBuilderDependencies = {
-    readonly zip: AsyncZipFunction;
+    readonly zip?: AsyncZipFunction;
+    readonly fileManager?: Pick<FileManager, 'readFileBytes'>;
 };
 
 const unixOperatingSystem = 3;
@@ -27,33 +30,52 @@ function externalAttributes(isExecutable: boolean): number {
     return (isExecutable ? executableUnixMode : nonExecutableUnixMode) * highBytesScale;
 }
 
-function buildFileEntry(fileDescription: FileDescription): [Uint8Array, AsyncZipOptions] {
+function buildFileEntry(payload: Uint8Array, isExecutable: boolean): [Uint8Array, AsyncZipOptions] {
     return [
-        new TextEncoder().encode(fileDescription.content),
+        payload,
         {
             os: unixOperatingSystem,
-            attrs: externalAttributes(fileDescription.isExecutable),
+            attrs: externalAttributes(isExecutable),
             mtime: staticFileModificationTimestamp,
             level: maxCompressionLevel
         }
     ];
 }
 
-function toFileMap(fileDescriptions: readonly FileDescription[]): AsyncZippable {
+async function toFileMap(
+    fileDescriptions: readonly FileDescription[],
+    vendorEntries: readonly VendorEntry[],
+    readFileBytes: (filePath: string) => Promise<Buffer>
+): Promise<AsyncZippable> {
     const fileMap: AsyncZippable = {};
     for (const fileDescription of fileDescriptions) {
-        fileMap[fileDescription.filePath] = buildFileEntry(fileDescription);
+        fileMap[fileDescription.filePath] = buildFileEntry(
+            new TextEncoder().encode(fileDescription.content),
+            fileDescription.isExecutable
+        );
+    }
+    for (const vendorEntry of vendorEntries) {
+        const payload = await readFileBytes(vendorEntry.sourceAbsolutePath);
+        fileMap[vendorEntry.targetRelativePath] = buildFileEntry(payload, vendorEntry.isExecutable);
     }
     return fileMap;
 }
 
-export function createZipBuilder(dependencies: Partial<ZipBuilderDependencies> = {}): ZipBuilder {
+export function createZipBuilder(dependencies: ZipBuilderDependencies = {}): ZipBuilder {
+    const fileManager = dependencies.fileManager ?? {
+        async readFileBytes(): Promise<Buffer> {
+            throw new Error('readFileBytes is required to materialize vendor entries into the zip');
+        }
+    };
     const zip = dependencies.zip ?? fflateZip;
     const runZip: PromisifiedZip = promisify(zip);
 
     return {
-        async build(fileDescriptions) {
-            const data = await runZip(toFileMap(fileDescriptions), {});
+        async build(fileDescriptions, vendorEntries = []) {
+            const fileMap = await toFileMap(fileDescriptions, vendorEntries, async (filePath) => {
+                return fileManager.readFileBytes(filePath);
+            });
+            const data = await runZip(fileMap, {});
             return Buffer.from(data);
         }
     };

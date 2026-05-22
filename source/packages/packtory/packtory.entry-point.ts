@@ -21,10 +21,17 @@ import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts'
 import type { PublicProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
 
-const { packageProcessor, progressBroadcaster, deadCodeEliminator, artifactsBuilder, versionManager, packEmitter } =
-    buildPackageProcessorComposition({
-        ciEnvironment: readCiEnvironment(process.env)
-    });
+const {
+    packageProcessor,
+    progressBroadcaster,
+    deadCodeEliminator,
+    artifactsBuilder,
+    versionManager,
+    packEmitter,
+    vendorMaterializer
+} = buildPackageProcessorComposition({
+    ciEnvironment: readCiEnvironment(process.env)
+});
 
 const scheduler = createScheduler({
     progressBroadcastProvider: progressBroadcaster.provider
@@ -37,7 +44,8 @@ const packtory = createPacktory({
     progressBroadcaster,
     artifactsBuilder,
     versionManager,
-    packEmitter
+    packEmitter,
+    vendorMaterializer
 });
 
 export const { buildAndPublishAll, diffAgainstLatestPublished, resolveAndLinkAll, packPackage } = packtory;

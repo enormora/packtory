@@ -115,15 +115,16 @@ export function createCommandLineInterfaceRunner(
                         defaultValue: () => {
                             return defaultPackVersion;
                         }
-                    })
+                    }),
+                    vendorDependencies: flag({ long: 'vendor-dependencies' })
                 },
-                async handler({ packageName, format, outputPath, version }) {
+                async handler({ packageName, format, outputPath, version, vendorDependencies }) {
                     exitCode = await runPackHandler({
                         log,
                         packtory,
                         spinnerRenderer,
                         configLoader,
-                        flags: { packageName, format, outputPath, version }
+                        flags: { packageName, format, outputPath, version, vendorDependencies }
                     });
                 }
             })

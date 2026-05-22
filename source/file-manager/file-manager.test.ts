@@ -11,6 +11,9 @@ type Overrides = {
     readonly readFile?: SinonSpy;
     readonly stat?: SinonSpy;
     readonly chmod?: SinonSpy;
+    readonly copyFile?: SinonSpy;
+    readonly readdir?: SinonSpy;
+    readonly realpath?: SinonSpy;
 };
 
 function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
@@ -25,7 +28,10 @@ function fileManagerFactory(overrides: Overrides = {}): FileManager {
         writeFile: createSpy(overrides.writeFile, fake),
         readFile: createSpy(overrides.readFile, fake),
         stat: createSpy(overrides.stat, fake),
-        chmod: createSpy(overrides.chmod, fake)
+        chmod: createSpy(overrides.chmod, fake),
+        copyFile: createSpy(overrides.copyFile, fake),
+        readdir: createSpy(overrides.readdir, fake),
+        realpath: createSpy(overrides.realpath, fake)
     };
     const dependencies: FileManagerDependencies = { hostFileSystem };
 
@@ -114,6 +120,70 @@ suite('file-manager', function () {
 
         assert.deepStrictEqual(mkdir.args, [['/dist', { recursive: true }]]);
         assert.deepStrictEqual(writeFile.args, [['/dist/archive.zip', payload]]);
+    });
+
+    test('readFileBytes() reads the given file as a Buffer without applying utf-8 decoding', async function () {
+        const expected = Buffer.from([222, 173, 190, 239]);
+        const readFile = fake.resolves(expected);
+        const fileManager = fileManagerFactory({ readFile });
+
+        const result = await fileManager.readFileBytes('/foo/native.node');
+
+        assert.strictEqual(readFile.callCount, 1);
+        assert.deepStrictEqual(readFile.firstCall.args, ['/foo/native.node']);
+        assert.strictEqual(result, expected);
+    });
+
+    test('copyFileBytes() copies the source file to the target via the host fs.copyFile primitive', async function () {
+        const access = fake.resolves(undefined);
+        const copyFile = fake.resolves(undefined);
+        const fileManager = fileManagerFactory({ access, copyFile });
+
+        await fileManager.copyFileBytes('/src/lib.node', '/dest/lib.node');
+
+        assert.strictEqual(access.callCount, 1);
+        assert.deepStrictEqual(access.firstCall.args, ['/dest', fs.constants.R_OK]);
+        assert.deepStrictEqual(copyFile.args, [['/src/lib.node', '/dest/lib.node']]);
+    });
+
+    test('copyFileBytes() creates the destination folder when it does not exist before copying', async function () {
+        const access = fake.rejects(undefined);
+        const copyFile = fake.resolves(undefined);
+        const mkdir = fake.resolves(undefined);
+        const fileManager = fileManagerFactory({ access, copyFile, mkdir });
+
+        await fileManager.copyFileBytes('/src/data.bin', '/out/extracted/data.bin');
+
+        assert.deepStrictEqual(mkdir.args, [['/out/extracted', { recursive: true }]]);
+        assert.deepStrictEqual(copyFile.args, [['/src/data.bin', '/out/extracted/data.bin']]);
+    });
+
+    test('listDirectoryEntries() returns the entries from host readdir tagged with type information', async function () {
+        const readdir = fake.resolves([
+            { name: 'file.txt', isDirectory: () => false, isSymbolicLink: () => false },
+            { name: 'sub', isDirectory: () => true, isSymbolicLink: () => false },
+            { name: 'linked', isDirectory: () => false, isSymbolicLink: () => true }
+        ]);
+        const fileManager = fileManagerFactory({ readdir });
+
+        const result = await fileManager.listDirectoryEntries('/some/folder');
+
+        assert.deepStrictEqual(readdir.firstCall.args, ['/some/folder', { withFileTypes: true }]);
+        assert.deepStrictEqual(result, [
+            { name: 'file.txt', isDirectory: false, isSymbolicLink: false },
+            { name: 'sub', isDirectory: true, isSymbolicLink: false },
+            { name: 'linked', isDirectory: false, isSymbolicLink: true }
+        ]);
+    });
+
+    test('getRealPath() delegates to host realpath', async function () {
+        const realpath = fake.resolves('/real/path/somewhere');
+        const fileManager = fileManagerFactory({ realpath });
+
+        const result = await fileManager.getRealPath('/symlinked/path');
+
+        assert.deepStrictEqual(realpath.firstCall.args, ['/symlinked/path']);
+        assert.strictEqual(result, '/real/path/somewhere');
     });
 
     test('readFile() reads the given file and returns its content', async function () {

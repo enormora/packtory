@@ -4,6 +4,7 @@ import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster
 import type { ArtifactSourcePackage } from '../published-package/published-package.ts';
 import { inspectArtifactSizes } from '../report/inspectors/inspect-artifact-sizes.ts';
 import type { TarballBuilder } from '../tar/tarball-builder.ts';
+import { applyPrefixToVendorEntry, type VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 import type { ZipBuilder } from '../zip/zip-builder.ts';
 import { collectArtifactContents, describeArtifactsForReport } from './content-collection.ts';
 import { writeArtifactsToFolder } from './folder-writer.ts';
@@ -29,12 +30,21 @@ export type ArtifactsBuilder = {
         prefix?: string,
         extraFiles?: readonly FileDescription[]
     ) => readonly FileDescription[];
-    buildTarball: (bundle: ArtifactSourcePackage, extraFiles?: readonly FileDescription[]) => Promise<TarballArtifact>;
-    buildZip: (bundle: ArtifactSourcePackage, extraFiles?: readonly FileDescription[]) => Promise<ZipArtifact>;
+    buildTarball: (
+        bundle: ArtifactSourcePackage,
+        extraFiles?: readonly FileDescription[],
+        vendorEntries?: readonly VendorEntry[]
+    ) => Promise<TarballArtifact>;
+    buildZip: (
+        bundle: ArtifactSourcePackage,
+        extraFiles?: readonly FileDescription[],
+        vendorEntries?: readonly VendorEntry[]
+    ) => Promise<ZipArtifact>;
     buildFolder: (
         bundle: ArtifactSourcePackage,
         targetFolder: string,
-        extraFiles?: readonly FileDescription[]
+        extraFiles?: readonly FileDescription[],
+        vendorEntries?: readonly VendorEntry[]
     ) => Promise<void>;
 };
 
@@ -61,21 +71,24 @@ export function createArtifactsBuilder(dependencies: ArtifactsBuilderDependencie
     return {
         collectContents,
 
-        async buildTarball(bundle, extraFiles) {
+        async buildTarball(bundle, extraFiles, vendorEntries = []) {
             const contents = collectContents(bundle, 'package', extraFiles);
-            const tarData = await tarballBuilder.build(contents);
+            const prefixedVendor = vendorEntries.map((entry) => {
+                return applyPrefixToVendorEntry('package', entry);
+            });
+            const tarData = await tarballBuilder.build(contents, prefixedVendor);
             return { tarData };
         },
 
-        async buildZip(bundle, extraFiles) {
+        async buildZip(bundle, extraFiles, vendorEntries = []) {
             const contents = collectContents(bundle, undefined, extraFiles);
-            const zipData = await zipBuilder.build(contents);
+            const zipData = await zipBuilder.build(contents, vendorEntries);
             return { zipData };
         },
 
-        async buildFolder(bundle, targetFolder, extraFiles) {
+        async buildFolder(bundle, targetFolder, extraFiles, vendorEntries = []) {
             const contents = collectContents(bundle, undefined, extraFiles);
-            await writeArtifactsToFolder(fileManager, targetFolder, contents);
+            await writeArtifactsToFolder(fileManager, targetFolder, contents, vendorEntries);
         }
     };
 }
