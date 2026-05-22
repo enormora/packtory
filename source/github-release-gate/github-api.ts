@@ -47,9 +47,6 @@ export type GitHubReleaseGateApi = {
     readonly getOpenPullRequestActivities: () => Promise<readonly PullRequestActivity[]>;
 };
 
-const apiVersion = '2022-11-28';
-const githubReleaseGateUserAgent = 'packtory-github-release-gate';
-
 const workflowRunSchema = z.object({
     conclusion: z.union([z.null(), z.string()]),
     event: z.string(),
@@ -89,8 +86,8 @@ function getHeaders(token: string): Readonly<Record<string, string>> {
     return {
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${token}`,
-        'User-Agent': githubReleaseGateUserAgent,
-        'X-GitHub-Api-Version': apiVersion
+        'User-Agent': 'packtory-github-release-gate',
+        'X-GitHub-Api-Version': '2022-11-28'
     };
 }
 

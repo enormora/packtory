@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import sinon from 'sinon';
 import { zip as fflateZip } from 'fflate';
 import { extractZipEntries } from '../test-libraries/extract-zip.ts';
+import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
 import { createZipBuilder } from './zip-builder.ts';
 
 type ZipEntryOptions = {
@@ -21,6 +22,7 @@ const unixOperatingSystem = 3;
 const staticFileModificationTimestamp = 315_576_000_000;
 const maxCompressionLevel = 9;
 const highBytesScale = 65_536;
+const zipBuildDeadlineMilliseconds = 50;
 
 function runFflateZip(data: ZippableFileMap, options: Record<string, never>, callback: ZipCallback): void {
     const zipValue: unknown = fflateZip;
@@ -30,10 +32,22 @@ function runFflateZip(data: ZippableFileMap, options: Record<string, never>, cal
     Reflect.apply(zipValue, undefined, [data, options, callback]);
 }
 
+async function buildZipWithDeadline(
+    builder: ReturnType<typeof createZipBuilder>,
+    fileDescriptions: Parameters<ReturnType<typeof createZipBuilder>['build']>[0],
+    vendorEntries?: Parameters<ReturnType<typeof createZipBuilder>['build']>[1]
+): Promise<Buffer> {
+    return await withPromiseDeadline(
+        builder.build(fileDescriptions, vendorEntries),
+        'zip builder completion',
+        zipBuildDeadlineMilliseconds
+    );
+}
+
 suite('zip-builder', function () {
     test('creates an empty zip', async function () {
         const builder = createZipBuilder();
-        const zipBuffer = await builder.build([]);
+        const zipBuffer = await buildZipWithDeadline(builder, []);
         const entries = await extractZipEntries(zipBuffer);
 
         assert.deepStrictEqual(entries, []);
@@ -42,7 +56,9 @@ suite('zip-builder', function () {
     test('creates a zip with one file', async function () {
         const builder = createZipBuilder();
 
-        const zipBuffer = await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
+        const zipBuffer = await buildZipWithDeadline(builder, [
+            { filePath: 'foo.txt', content: 'bar', isExecutable: false }
+        ]);
         const entries = await extractZipEntries(zipBuffer);
 
         assert.deepStrictEqual(entries, [
@@ -58,7 +74,9 @@ suite('zip-builder', function () {
     test('marks executable files with the executable unix mode', async function () {
         const builder = createZipBuilder();
 
-        const zipBuffer = await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: true }]);
+        const zipBuffer = await buildZipWithDeadline(builder, [
+            { filePath: 'foo.txt', content: 'bar', isExecutable: true }
+        ]);
         const entries = await extractZipEntries(zipBuffer);
 
         assert.deepStrictEqual(entries, [
@@ -74,7 +92,7 @@ suite('zip-builder', function () {
     test('creates a zip with many nested files', async function () {
         const builder = createZipBuilder();
 
-        const zipBuffer = await builder.build([
+        const zipBuffer = await buildZipWithDeadline(builder, [
             { filePath: 'root.md', content: 'root', isExecutable: false },
             { filePath: 'docs/intro.md', content: 'intro', isExecutable: false },
             { filePath: 'docs/api/index.md', content: 'index', isExecutable: false },
@@ -111,7 +129,7 @@ suite('zip-builder', function () {
         });
         const builder = createZipBuilder({ zip });
 
-        await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
+        await buildZipWithDeadline(builder, [{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
 
         const [data, options] = zip.firstCall.args;
         assert.deepStrictEqual(data, {
@@ -137,7 +155,8 @@ suite('zip-builder', function () {
             }
         });
 
-        const zipBuffer = await builder.build(
+        const zipBuffer = await buildZipWithDeadline(
+            builder,
             [{ filePath: 'index.js', content: 'console.log(0);', isExecutable: false }],
             [
                 {
@@ -174,7 +193,8 @@ suite('zip-builder', function () {
             }
         });
 
-        const zipBuffer = await builder.build(
+        const zipBuffer = await buildZipWithDeadline(
+            builder,
             [],
             [
                 {
@@ -199,7 +219,8 @@ suite('zip-builder', function () {
     test('throws a clear error when vendor entries are requested without a configured file manager', async function () {
         const builder = createZipBuilder();
         try {
-            await builder.build(
+            await buildZipWithDeadline(
+                builder,
                 [],
                 [
                     {
@@ -230,10 +251,60 @@ suite('zip-builder', function () {
         const builder = createZipBuilder({ zip: failingZip });
 
         try {
-            await builder.build([{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
+            await buildZipWithDeadline(builder, [{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]);
             assert.fail('Expected build() to reject but it did not');
         } catch (error: unknown) {
             assert.strictEqual(error, errorFromFflate);
         }
+    });
+
+    test('wraps non-Error zip failures into an Error', async function () {
+        const nonErrorFailure: unknown = 'fflate-failure';
+        const failingZip = (_data: ZippableFileMap, _options: Record<string, never>, callback: ZipCallback): void => {
+            queueMicrotask(() => {
+                callback(nonErrorFailure, new Uint8Array());
+            });
+        };
+        const builder = createZipBuilder({ zip: failingZip });
+
+        await assert.rejects(
+            async () => buildZipWithDeadline(builder, [{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]),
+            {
+                message: '"fflate-failure"'
+            }
+        );
+    });
+
+    test('throws a clear error when the configured zip implementation is not callable', async function () {
+        assert.throws(
+            () =>
+                createZipBuilder({
+                    zip: 123 as unknown as (
+                        data: ZippableFileMap,
+                        options: Record<string, never>,
+                        callback: ZipCallback
+                    ) => void
+                }),
+            {
+                name: 'TypeError',
+                message: 'fflate zip export is not callable'
+            }
+        );
+    });
+
+    test('rejects when the zip implementation returns a non-binary payload', async function () {
+        const invalidZip = (_data: ZippableFileMap, _options: Record<string, never>, callback: ZipCallback): void => {
+            queueMicrotask(() => {
+                callback(undefined, 'not-bytes');
+            });
+        };
+        const builder = createZipBuilder({ zip: invalidZip });
+
+        await assert.rejects(
+            async () => buildZipWithDeadline(builder, [{ filePath: 'foo.txt', content: 'bar', isExecutable: false }]),
+            {
+                message: 'fflate zip returned a non-binary payload'
+            }
+        );
     });
 });
