@@ -10,8 +10,10 @@ import type { VersionManager } from '../version-manager/manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import type {
+    InvalidDependencyNameFailure,
     SymlinkTargetOutsidePackageFailure,
-    VendorMaterializer
+    VendorMaterializer,
+    VendorMaterializerFailure
 } from '../vendor-materializer/vendor-materializer.ts';
 import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
@@ -232,7 +234,7 @@ type MaterializedExternalsResult = Awaited<
     ReturnType<PackRunDependencies['vendorMaterializer']['materializeExternals']>
 >;
 
-function mapMaterializerFailure(
+function mapSymlinkFailure(
     packageName: string,
     materializerFailure: SymlinkTargetOutsidePackageFailure
 ): PackPackageFailure {
@@ -243,6 +245,28 @@ function mapMaterializerFailure(
         entryRelativePath: materializerFailure.entryRelativePath,
         resolvedTargetPath: materializerFailure.resolvedTargetPath
     };
+}
+
+function mapInvalidDependencyNameFailure(
+    packageName: string,
+    materializerFailure: InvalidDependencyNameFailure
+): PackPackageFailure {
+    return {
+        type: 'vendor-invalid-dependency-name',
+        packageName,
+        sourcePackageName: materializerFailure.sourcePackageName,
+        invalidDependencyName: materializerFailure.invalidDependencyName
+    };
+}
+
+function mapMaterializerFailure(
+    packageName: string,
+    materializerFailure: VendorMaterializerFailure
+): PackPackageFailure {
+    if (materializerFailure.type === 'symlink-target-outside-package') {
+        return mapSymlinkFailure(packageName, materializerFailure);
+    }
+    return mapInvalidDependencyNameFailure(packageName, materializerFailure);
 }
 
 function checkClosurePeers(

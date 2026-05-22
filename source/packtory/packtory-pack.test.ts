@@ -367,37 +367,67 @@ suite('packtory-pack', function () {
         assert.strictEqual(fakes.packEmitterPack.callCount, 0);
     });
 
-    test('maps a vendor symlink-target-outside-package failure to the corresponding pack failure and never emits an artifact', async function () {
-        const materializerSpy = fake.resolves(
-            Result.err({
-                type: 'symlink-target-outside-package',
-                packageName: 'evil',
-                entryRelativePath: 'leak.json',
-                resolvedTargetPath: '/Users/victim/.npmrc'
-            })
-        );
+    async function runPackExpectingMaterializerFailure(
+        materializerError: unknown,
+        externalDependencyName: string
+    ): Promise<{ readonly failure: InternalPackFailure; readonly emitCallCount: number }> {
+        const materializerSpy = fake.resolves(Result.err(materializerError));
         const { dependencies, fakes } = createDependencies({
             materializerSpy,
             resolveResult: Result.ok([
-                makeResolvedPackage({ externalDependencyNames: ['evil'], sourcesFolder: '/repo/source' })
+                makeResolvedPackage({
+                    externalDependencyNames: [externalDependencyName],
+                    sourcesFolder: '/repo/source'
+                })
             ])
         });
         const runPack = createRunPackValidated(dependencies);
-
         const result = await runPack(
             validatedConfig,
             { ...baseOptions, vendorDependencies: true },
             fakes.resolveAndLinkAll
         );
+        return { failure: expectErr(result), emitCallCount: fakes.packEmitterPack.callCount };
+    }
 
-        assert.deepStrictEqual(expectErr(result), {
+    test('maps a vendor symlink-target-outside-package failure to the corresponding pack failure and never emits an artifact', async function () {
+        const outcome = await runPackExpectingMaterializerFailure(
+            {
+                type: 'symlink-target-outside-package',
+                packageName: 'evil',
+                entryRelativePath: 'leak.json',
+                resolvedTargetPath: '/Users/victim/.npmrc'
+            },
+            'evil'
+        );
+
+        assert.deepStrictEqual(outcome.failure, {
             type: 'vendor-symlink-target-outside-package',
             packageName: 'pkg-a',
             vendoredPackageName: 'evil',
             entryRelativePath: 'leak.json',
             resolvedTargetPath: '/Users/victim/.npmrc'
         });
-        assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+        assert.strictEqual(outcome.emitCallCount, 0);
+    });
+
+    test('maps a vendor invalid-dependency-name failure to the corresponding pack failure and never emits an artifact', async function () {
+        const outcome = await runPackExpectingMaterializerFailure(
+            {
+                type: 'invalid-dependency-name',
+                sourcePackageName: 'legit-utils',
+                invalidDependencyName: '../../legit-utils'
+            },
+            'legit-utils'
+        );
+
+        assert.deepStrictEqual(outcome.failure, {
+            type: 'vendor-invalid-dependency-name',
+            packageName: 'pkg-a',
+            sourcePackageName: 'legit-utils',
+            invalidDependencyName: '../../legit-utils'
+        });
+        assert.strictEqual(outcome.emitCallCount, 0);
     });
 
     test('aggregates peer requirements from both the bundle-dep closure and the external vendor closure', async function () {

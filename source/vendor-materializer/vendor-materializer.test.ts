@@ -3,11 +3,9 @@ import { suite, test } from 'mocha';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     createVendorMaterializer,
-    type SymlinkTargetOutsidePackageFailure,
-    type VendorMaterializer
+    type VendorMaterializer,
+    type VendorMaterializerFailure
 } from './vendor-materializer.ts';
-
-type VendorMaterializerFailure = SymlinkTargetOutsidePackageFailure;
 
 type ReadabilityResponse = { readonly value: { readonly isReadable: boolean } };
 type StringResponse = { readonly error: Error } | { readonly value: string };
@@ -52,9 +50,7 @@ function expectOk(result: Awaited<ReturnType<VendorMaterializer['materializeExte
     return result.value;
 }
 
-function expectErr(
-    result: Awaited<ReturnType<VendorMaterializer['materializeExternals']>>
-): SymlinkTargetOutsidePackageFailure {
+function expectErr(result: Awaited<ReturnType<VendorMaterializer['materializeExternals']>>): VendorMaterializerFailure {
     if (result.isOk) {
         assert.fail('expected materializeExternals to fail but it returned Ok');
     }
@@ -73,7 +69,7 @@ async function runWith(
 async function runExpectingFailure(
     setup: FakeSetup,
     request: { readonly initialDependencyNames: readonly string[]; readonly projectFolder: string }
-): Promise<SymlinkTargetOutsidePackageFailure> {
+): Promise<VendorMaterializerFailure> {
     const fileManager = setupFileManager(setup);
     const materializer = createVendorMaterializer({ fileManager });
     return expectErr(await materializer.materializeExternals(request));
@@ -466,5 +462,97 @@ suite('vendor-materializer', function () {
             entryRelativePath: 'broken.json',
             resolvedTargetPath: '/repo/node_modules/pkg/broken.json'
         });
+    });
+
+    test('rejects a vendored manifest whose dependencies key uses path traversal syntax so the materializer never probes outside node_modules', async function () {
+        const failure = await runExpectingFailure(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/legit-utils' }],
+                listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
+                fileReads: [{ value: JSON.stringify({ dependencies: { '../../legit-utils': '*' } }) }]
+            },
+            { initialDependencyNames: ['legit-utils'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(failure, {
+            type: 'invalid-dependency-name',
+            sourcePackageName: 'legit-utils',
+            invalidDependencyName: '../../legit-utils'
+        });
+    });
+
+    test('rejects an absolute-path dependency name in a vendored manifest', async function () {
+        const failure = await runExpectingFailure(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/pkg' }],
+                listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
+                fileReads: [{ value: JSON.stringify({ dependencies: { '/etc/passwd': '*' } }) }]
+            },
+            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(failure, {
+            type: 'invalid-dependency-name',
+            sourcePackageName: 'pkg',
+            invalidDependencyName: '/etc/passwd'
+        });
+    });
+
+    test('rejects an initial dependency name that is not a valid npm package name without touching the filesystem', async function () {
+        const fileManager = setupFileManager({ readabilities: [], realPaths: [], listings: [], fileReads: [] });
+        const materializer = createVendorMaterializer({ fileManager });
+
+        const failure = expectErr(
+            await materializer.materializeExternals({
+                initialDependencyNames: ['../escape'],
+                projectFolder: '/repo'
+            })
+        );
+
+        assert.deepStrictEqual(failure, {
+            type: 'invalid-dependency-name',
+            sourcePackageName: undefined,
+            invalidDependencyName: '../escape'
+        });
+        assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 0);
+    });
+
+    test('only flags the offending key when an earlier dependency key is valid and a later one is not parseable', async function () {
+        const failure = await runExpectingFailure(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/pkg' }],
+                listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
+                fileReads: [
+                    { value: JSON.stringify({ dependencies: { 'valid-one': '1.0.0', 'has space': '*' } }) }
+                ]
+            },
+            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(failure, {
+            type: 'invalid-dependency-name',
+            sourcePackageName: 'pkg',
+            invalidDependencyName: 'has space'
+        });
+    });
+
+    test('accepts a scoped package name in dependency keys', async function () {
+        const result = await runWith(
+            {
+                readabilities: [{ value: { isReadable: true } }, { value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/host' }, { value: '/repo/node_modules/@scope/sub' }],
+                listings: [
+                    { value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] },
+                    { value: [{ name: 'lib.js', isDirectory: false, isSymbolicLink: false }] }
+                ],
+                fileReads: [{ value: JSON.stringify({ dependencies: { '@scope/sub': '*' } }) }, { value: '{}' }]
+            },
+            { initialDependencyNames: ['host'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(result.packageNames, ['host', '@scope/sub']);
     });
 });
