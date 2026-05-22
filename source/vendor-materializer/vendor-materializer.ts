@@ -140,14 +140,32 @@ async function checkSymlinkInsidePackage(
     }
 }
 
-type EntryEvaluation = { readonly kind: 'leaf'; readonly vendorEntry: VendorEntry } | { readonly kind: 'recurse' };
+type RecurseFn = (relativeDirectory: string) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
+
+type EntryAction = (
+    request: CollectRequest,
+    recurse: RecurseFn
+) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
+
+function collectAction(vendorEntry: VendorEntry): EntryAction {
+    return async (request) => {
+        request.collected.push(vendorEntry);
+        return Result.ok(undefined);
+    };
+}
+
+function recurseAction(relativeEntryPath: string): EntryAction {
+    return async (_request, recurse) => {
+        return await recurse(relativeEntryPath);
+    };
+}
 
 async function evaluatePackageEntry(
     walker: FileWalkerDependencies,
     request: CollectRequest,
     relativeEntryPath: string,
     entry: { readonly isDirectory: boolean; readonly isSymbolicLink: boolean }
-): Promise<Result<EntryEvaluation, SymlinkTargetOutsidePackageFailure>> {
+): Promise<Result<EntryAction, SymlinkTargetOutsidePackageFailure>> {
     if (entry.isSymbolicLink) {
         const symlinkCheck = await checkSymlinkInsidePackage(
             walker,
@@ -160,13 +178,10 @@ async function evaluatePackageEntry(
         }
     }
     if (entry.isDirectory) {
-        return Result.ok({ kind: 'recurse' });
+        return Result.ok(recurseAction(relativeEntryPath));
     }
-    const vendorEntry = buildVendorEntry(request.rootDirectory, request.packageName, relativeEntryPath);
-    return Result.ok({ kind: 'leaf', vendorEntry });
+    return Result.ok(collectAction(buildVendorEntry(request.rootDirectory, request.packageName, relativeEntryPath)));
 }
-
-type RecurseFn = (relativeDirectory: string) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
 
 async function processSinglePackageEntry(
     context: { readonly walker: FileWalkerDependencies; readonly request: CollectRequest; readonly recurse: RecurseFn },
@@ -177,11 +192,7 @@ async function processSinglePackageEntry(
     if (evaluated.isErr) {
         return Result.err(evaluated.error);
     }
-    if (evaluated.value.kind === 'recurse') {
-        return await context.recurse(relativeEntryPath);
-    }
-    context.request.collected.push(evaluated.value.vendorEntry);
-    return Result.ok(undefined);
+    return await evaluated.value(context.request, context.recurse);
 }
 
 async function walkPackageDirectory(

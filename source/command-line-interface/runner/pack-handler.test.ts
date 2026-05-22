@@ -170,8 +170,7 @@ suite('pack-handler', function () {
                 resolvedTargetPath: '/Users/victim/.npmrc'
             },
             [
-                /Pack of "pkg-a" rejected a vendored dependency with a symlink that escapes its package directory/u,
-                /"evil-helper" contains "config\/defaults\.json" which resolves to "\/Users\/victim\/\.npmrc"/u
+                /escapes its package directory\n- "evil-helper" contains "config\/defaults\.json" which resolves to "\/Users\/victim\/\.npmrc"/u
             ]
         );
     });

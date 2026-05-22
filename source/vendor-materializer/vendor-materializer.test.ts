@@ -3,9 +3,11 @@ import { suite, test } from 'mocha';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     createVendorMaterializer,
-    type VendorMaterializer,
-    type SymlinkTargetOutsidePackageFailure
+    type SymlinkTargetOutsidePackageFailure,
+    type VendorMaterializer
 } from './vendor-materializer.ts';
+
+type VendorMaterializerFailure = SymlinkTargetOutsidePackageFailure;
 
 type ReadabilityResponse = { readonly value: { readonly isReadable: boolean } };
 type StringResponse = { readonly error: Error } | { readonly value: string };
@@ -398,20 +400,30 @@ suite('vendor-materializer', function () {
         });
     });
 
-    test('rejects a symlink whose resolved target is the immediate parent of the package directory', async function () {
-        const failure = await runExpectingFailure(
+    async function runSinglePackageSymlinkScenario(scenario: {
+        readonly initialName: string;
+        readonly packageRealPath: string;
+        readonly listings: FakeSetup['listings'];
+        readonly targetRealPath: { readonly error: Error } | { readonly value: string };
+    }): Promise<VendorMaterializerFailure> {
+        return await runExpectingFailure(
             {
                 readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules' }],
-                listings: [
-                    {
-                        value: [{ name: 'parent-link', isDirectory: false, isSymbolicLink: true }]
-                    }
-                ],
+                realPaths: [{ value: scenario.packageRealPath }, scenario.targetRealPath],
+                listings: scenario.listings,
                 fileReads: [{ value: '{}' }]
             },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+            { initialDependencyNames: [scenario.initialName], projectFolder: '/repo' }
         );
+    }
+
+    test('rejects a symlink whose resolved target is the immediate parent of the package directory', async function () {
+        const failure = await runSinglePackageSymlinkScenario({
+            initialName: 'pkg',
+            packageRealPath: '/repo/node_modules/pkg',
+            listings: [{ value: [{ name: 'parent-link', isDirectory: false, isSymbolicLink: true }] }],
+            targetRealPath: { value: '/repo/node_modules' }
+        });
 
         assert.deepStrictEqual(failure, {
             type: 'symlink-target-outside-package',
@@ -422,22 +434,15 @@ suite('vendor-materializer', function () {
     });
 
     test('reports a nested symlink-entry path with forward slashes regardless of platform separators', async function () {
-        const failure = await runExpectingFailure(
-            {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/Users/victim/.ssh/id_rsa' }],
-                listings: [
-                    {
-                        value: [{ name: 'config', isDirectory: true, isSymbolicLink: false }]
-                    },
-                    {
-                        value: [{ name: 'secret-link', isDirectory: false, isSymbolicLink: true }]
-                    }
-                ],
-                fileReads: [{ value: '{}' }]
-            },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
-        );
+        const failure = await runSinglePackageSymlinkScenario({
+            initialName: 'pkg',
+            packageRealPath: '/repo/node_modules/pkg',
+            listings: [
+                { value: [{ name: 'config', isDirectory: true, isSymbolicLink: false }] },
+                { value: [{ name: 'secret-link', isDirectory: false, isSymbolicLink: true }] }
+            ],
+            targetRealPath: { value: '/Users/victim/.ssh/id_rsa' }
+        });
 
         assert.deepStrictEqual(failure, {
             type: 'symlink-target-outside-package',
@@ -448,22 +453,12 @@ suite('vendor-materializer', function () {
     });
 
     test('rejects a symlink whose target cannot be resolved (broken symlink) so packtory never blindly trusts it', async function () {
-        const failure = await runExpectingFailure(
-            {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [
-                    { value: '/repo/node_modules/pkg' },
-                    { error: new Error('ENOENT: no such file or directory') }
-                ],
-                listings: [
-                    {
-                        value: [{ name: 'broken.json', isDirectory: false, isSymbolicLink: true }]
-                    }
-                ],
-                fileReads: [{ value: '{}' }]
-            },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
-        );
+        const failure = await runSinglePackageSymlinkScenario({
+            initialName: 'pkg',
+            packageRealPath: '/repo/node_modules/pkg',
+            listings: [{ value: [{ name: 'broken.json', isDirectory: false, isSymbolicLink: true }] }],
+            targetRealPath: { error: new Error('ENOENT: no such file or directory') }
+        });
 
         assert.deepStrictEqual(failure, {
             type: 'symlink-target-outside-package',
