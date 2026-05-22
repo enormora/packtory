@@ -525,9 +525,7 @@ suite('vendor-materializer', function () {
                 readabilities: [{ value: { isReadable: true } }],
                 realPaths: [{ value: '/repo/node_modules/pkg' }],
                 listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
-                fileReads: [
-                    { value: JSON.stringify({ dependencies: { 'valid-one': '1.0.0', 'has space': '*' } }) }
-                ]
+                fileReads: [{ value: JSON.stringify({ dependencies: { 'valid-one': '1.0.0', 'has space': '*' } }) }]
             },
             { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
         );
