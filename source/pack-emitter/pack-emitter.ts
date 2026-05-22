@@ -1,4 +1,5 @@
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
+import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { ArtifactSourcePackage } from '../published-package/published-package.ts';
 import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
@@ -10,6 +11,7 @@ type PackOptions = {
     readonly format: PackFormat;
     readonly outputPath: string;
     readonly vendorEntries: readonly VendorEntry[];
+    readonly extraFiles: readonly FileDescription[];
 };
 
 export type PackEmitter = {
@@ -25,17 +27,26 @@ export function createPackEmitter(dependencies: PackEmitterDependencies): PackEm
     const { artifactsBuilder, fileManager } = dependencies;
 
     async function packZip(options: PackOptions): Promise<void> {
-        const { zipData } = await artifactsBuilder.buildZip(options.bundle, undefined, options.vendorEntries);
+        const { zipData } = await artifactsBuilder.buildZip(options.bundle, options.extraFiles, options.vendorEntries);
         await fileManager.writeBinaryFile(options.outputPath, zipData);
     }
 
     async function packTarball(options: PackOptions): Promise<void> {
-        const { tarData } = await artifactsBuilder.buildTarball(options.bundle, undefined, options.vendorEntries);
+        const { tarData } = await artifactsBuilder.buildTarball(
+            options.bundle,
+            options.extraFiles,
+            options.vendorEntries
+        );
         await fileManager.writeBinaryFile(options.outputPath, tarData);
     }
 
     async function packFolder(options: PackOptions): Promise<void> {
-        await artifactsBuilder.buildFolder(options.bundle, options.outputPath, undefined, options.vendorEntries);
+        await artifactsBuilder.buildFolder(
+            options.bundle,
+            options.outputPath,
+            options.extraFiles,
+            options.vendorEntries
+        );
     }
 
     return {

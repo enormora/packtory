@@ -242,7 +242,11 @@ function createPacktoryUnderTest(
             },
             vendorMaterializer: {
                 materializeExternals: async () => {
-                    return { entries: [], packageNames: [] };
+                    return {
+                        entries: [],
+                        packageNames: [],
+                        peerRequirements: new Map<string, readonly string[]>()
+                    };
                 }
             }
         }),

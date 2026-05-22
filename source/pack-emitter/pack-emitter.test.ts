@@ -38,10 +38,10 @@ suite('pack-emitter', function () {
         const emitter = createPackEmitter(deps);
         const bundle = makeBundle();
 
-        await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip', vendorEntries: [] });
+        await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip', vendorEntries: [], extraFiles: [] });
 
         assert.strictEqual(buildZip.callCount, 1);
-        assert.deepStrictEqual(buildZip.firstCall.args, [bundle, undefined, []]);
+        assert.deepStrictEqual(buildZip.firstCall.args, [bundle, [], []]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
         assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
             filePath: '/out/fn.zip',
@@ -56,10 +56,10 @@ suite('pack-emitter', function () {
         const emitter = createPackEmitter(deps);
         const bundle = makeBundle();
 
-        await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz', vendorEntries: [] });
+        await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz', vendorEntries: [], extraFiles: [] });
 
         assert.strictEqual(buildTarball.callCount, 1);
-        assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, undefined, []]);
+        assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, [], []]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
         assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
             filePath: '/out/pkg.tgz',
@@ -73,10 +73,16 @@ suite('pack-emitter', function () {
         const emitter = createPackEmitter(deps);
         const bundle = makeBundle();
 
-        await emitter.pack({ bundle, format: 'folder', outputPath: '/out/extracted', vendorEntries: [] });
+        await emitter.pack({
+            bundle,
+            format: 'folder',
+            outputPath: '/out/extracted',
+            vendorEntries: [],
+            extraFiles: []
+        });
 
         assert.strictEqual(buildFolder.callCount, 1);
-        assert.deepStrictEqual(buildFolder.firstCall.args, [bundle, '/out/extracted', undefined, []]);
+        assert.deepStrictEqual(buildFolder.firstCall.args, [bundle, '/out/extracted', [], []]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 0);
     });
 });

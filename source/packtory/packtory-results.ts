@@ -7,7 +7,19 @@ import type { BuildAndPublishResult } from './package-processor.ts';
 import type { CheckError, ResolvedPackage } from './resolved-package.ts';
 import type { PartialError } from './scheduler.ts';
 
+export type UnsatisfiedPeerDependency = {
+    readonly packageName: string;
+    readonly peer: string;
+};
+
+type PeerDependenciesUnsatisfiedFailure = {
+    readonly type: 'peer-dependencies-unsatisfied';
+    readonly packageName: string;
+    readonly items: readonly UnsatisfiedPeerDependency[];
+};
+
 export type PackPackageFailure =
+    | PeerDependenciesUnsatisfiedFailure
     | { readonly type: 'bundle-dependencies-unsupported'; readonly packageName: string }
     | { readonly type: 'package-not-found'; readonly packageName: string };
 

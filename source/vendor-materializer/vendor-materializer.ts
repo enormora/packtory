@@ -7,6 +7,7 @@ import type { VendorEntry } from './vendor-entry.ts';
 type MaterializedExternals = {
     readonly entries: readonly VendorEntry[];
     readonly packageNames: readonly string[];
+    readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
 };
 
 export type VendorMaterializerDependencies = {
@@ -39,6 +40,7 @@ type Closure = {
     readonly visited: Set<string>;
     readonly entries: VendorEntry[];
     readonly queue: QueueItem[];
+    readonly peerRequirements: Map<string, readonly string[]>;
 };
 
 function ancestorFolders(startFolder: string): readonly string[] {
@@ -65,12 +67,22 @@ function enqueueDependencies(closure: Closure, fromFolder: string, dependencyNam
     }
 }
 
-function parseManifestDependencies(content: string): readonly string[] {
+type ParsedManifestSummary = {
+    readonly transitiveDependencyNames: readonly string[];
+    readonly peerDependencyNames: readonly string[];
+};
+
+function parseManifestSummary(content: string): ParsedManifestSummary {
     const parsed = safeParse(packageManifestSchema, JSON.parse(content));
     if (!parsed.success) {
-        return [];
+        return { transitiveDependencyNames: [], peerDependencyNames: [] };
     }
-    return [...Object.keys(parsed.data.dependencies ?? {}), ...Object.keys(parsed.data.peerDependencies ?? {})];
+    const dependencyNames = Object.keys(parsed.data.dependencies ?? {});
+    const peerDependencyNames = Object.keys(parsed.data.peerDependencies ?? {});
+    return {
+        transitiveDependencyNames: [...dependencyNames, ...peerDependencyNames],
+        peerDependencyNames
+    };
 }
 
 export function createVendorMaterializer(dependencies: VendorMaterializerDependencies): VendorMaterializer {
@@ -95,10 +107,10 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         return undefined;
     }
 
-    async function readDependencyNames(packageDirectory: string): Promise<readonly string[]> {
+    async function readManifestSummary(packageDirectory: string): Promise<ParsedManifestSummary> {
         const manifestPath = path.join(packageDirectory, 'package.json');
         const content = await fileManager.readFile(manifestPath);
-        return parseManifestDependencies(content);
+        return parseManifestSummary(content);
     }
 
     async function collectPackageFiles(rootDirectory: string, packageName: string): Promise<readonly VendorEntry[]> {
@@ -124,6 +136,15 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         return collected;
     }
 
+    async function ingestResolvedPackage(closure: Closure, name: string, realPath: string): Promise<void> {
+        closure.visited.add(name);
+        const summary = await readManifestSummary(realPath);
+        enqueueDependencies(closure, realPath, summary.transitiveDependencyNames);
+        closure.peerRequirements.set(name, summary.peerDependencyNames);
+        const packageEntries = await collectPackageFiles(realPath, name);
+        closure.entries.push(...packageEntries);
+    }
+
     async function processQueueItem(closure: Closure, item: QueueItem): Promise<void> {
         if (closure.visited.has(item.name)) {
             return;
@@ -132,11 +153,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         if (realPath === undefined) {
             return;
         }
-        closure.visited.add(item.name);
-        const dependencyNames = await readDependencyNames(realPath);
-        enqueueDependencies(closure, realPath, dependencyNames);
-        const packageEntries = await collectPackageFiles(realPath, item.name);
-        closure.entries.push(...packageEntries);
+        await ingestResolvedPackage(closure, item.name, realPath);
     }
 
     async function drainQueue(closure: Closure): Promise<void> {
@@ -155,10 +172,15 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
                 entries: [],
                 queue: options.initialDependencyNames.map((name) => {
                     return { name, fromFolder: options.projectFolder };
-                })
+                }),
+                peerRequirements: new Map<string, readonly string[]>()
             };
             await drainQueue(closure);
-            return { entries: closure.entries, packageNames: Array.from(closure.visited) };
+            return {
+                entries: closure.entries,
+                packageNames: Array.from(closure.visited),
+                peerRequirements: closure.peerRequirements
+            };
         }
     };
 }
