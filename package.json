@@ -38,6 +38,7 @@
         "cmd-ts": "0.15.0",
         "common-tags": "1.8.2",
         "diff": "9.0.0",
+        "fflate": "0.8.3",
         "hosted-git-info": "10.1.1",
         "libnpmpublish": "11.2.0",
         "npm-package-arg": "14.0.0",

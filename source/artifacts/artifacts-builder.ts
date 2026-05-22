@@ -4,17 +4,23 @@ import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster
 import type { ArtifactSourcePackage } from '../published-package/published-package.ts';
 import { inspectArtifactSizes } from '../report/inspectors/inspect-artifact-sizes.ts';
 import type { TarballBuilder } from '../tar/tarball-builder.ts';
+import type { ZipBuilder } from '../zip/zip-builder.ts';
 import { collectArtifactContents, describeArtifactsForReport } from './content-collection.ts';
 import { writeArtifactsToFolder } from './folder-writer.ts';
 
 export type ArtifactsBuilderDependencies = {
     readonly fileManager: FileManager;
     readonly tarballBuilder: TarballBuilder;
+    readonly zipBuilder: ZipBuilder;
     readonly progressBroadcaster: ProgressBroadcastProvider;
 };
 
 type TarballArtifact = {
     readonly tarData: Buffer;
+};
+
+type ZipArtifact = {
+    readonly zipData: Buffer;
 };
 
 export type ArtifactsBuilder = {
@@ -24,6 +30,7 @@ export type ArtifactsBuilder = {
         extraFiles?: readonly FileDescription[]
     ) => readonly FileDescription[];
     buildTarball: (bundle: ArtifactSourcePackage, extraFiles?: readonly FileDescription[]) => Promise<TarballArtifact>;
+    buildZip: (bundle: ArtifactSourcePackage, extraFiles?: readonly FileDescription[]) => Promise<ZipArtifact>;
     buildFolder: (
         bundle: ArtifactSourcePackage,
         targetFolder: string,
@@ -32,7 +39,7 @@ export type ArtifactsBuilder = {
 };
 
 export function createArtifactsBuilder(dependencies: ArtifactsBuilderDependencies): ArtifactsBuilder {
-    const { fileManager, tarballBuilder, progressBroadcaster } = dependencies;
+    const { fileManager, tarballBuilder, zipBuilder, progressBroadcaster } = dependencies;
 
     function collectContents(
         bundle: ArtifactSourcePackage,
@@ -58,6 +65,12 @@ export function createArtifactsBuilder(dependencies: ArtifactsBuilderDependencie
             const contents = collectContents(bundle, 'package', extraFiles);
             const tarData = await tarballBuilder.build(contents);
             return { tarData };
+        },
+
+        async buildZip(bundle, extraFiles) {
+            const contents = collectContents(bundle, undefined, extraFiles);
+            const zipData = await zipBuilder.build(contents);
+            return { zipData };
         },
 
         async buildFolder(bundle, targetFolder, extraFiles) {

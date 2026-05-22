@@ -37,7 +37,8 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
             collectContents: createSpy(overrides.collectContents, () => {
                 return fake.resolves([]);
             }),
-            buildFolder: fake()
+            buildFolder: fake(),
+            buildZip: fake()
         },
         registryClient: {
             publishPackage: createSpy(overrides.publishPackage, fake),

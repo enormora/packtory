@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { createProgressBroadcaster, type ArtifactEntry } from '../progress/progress-broadcaster.ts';
 import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
@@ -40,11 +40,10 @@ function bundleWithExplicitBin(
 type Overrides = {
     readonly fileManager?: FakeFileManager;
     readonly tarballBuilder?: { readonly build?: SinonSpy };
+    readonly zipBuilder?: { readonly build?: SinonSpy };
 };
 
-function createTarballBuilderDependencies(overrides: Overrides['tarballBuilder'] = {}): {
-    readonly build: SinonSpy;
-} {
+function createBuildStub(overrides: { readonly build?: SinonSpy } = {}): { readonly build: SinonSpy } {
     return {
         build: overrides.build ?? fake.resolves(Buffer.from([-1]))
     };
@@ -57,7 +56,8 @@ function artifactsBuilderFactory(overrides: Overrides = {}): {
     const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: ArtifactsBuilderDependencies = {
         fileManager,
-        tarballBuilder: createTarballBuilderDependencies(overrides.tarballBuilder),
+        tarballBuilder: createBuildStub(overrides.tarballBuilder),
+        zipBuilder: createBuildStub(overrides.zipBuilder),
         progressBroadcaster: {
             emit: (): void => undefined,
             hasSubscribers: (): boolean => false
@@ -273,6 +273,53 @@ suite('artifacts-builder', function () {
         ]);
     });
 
+    test('buildZip() returns the zipData', async function () {
+        const zipBuilder = { build: fake.resolves(Buffer.from([42])) };
+        const { builder } = artifactsBuilderFactory({ zipBuilder });
+        const result = await builder.buildZip(bundleWithContents([]));
+
+        assert.deepStrictEqual(result, {
+            zipData: Buffer.from([42])
+        });
+    });
+
+    test('buildZip() passes all given contents to the zipBuilder without applying a path prefix', async function () {
+        const zipBuilder = { build: fake.resolves(Buffer.from([])) };
+        const { builder } = artifactsBuilderFactory({ zipBuilder });
+        const contents: AnalyzedBundleResource[] = [
+            makeContent('handler.js', 'handler'),
+            makeContent('lib/helper.js', 'helper'),
+            makeContent('lib/cli.js', 'cli', true)
+        ];
+        await builder.buildZip(bundleWithContents(contents, 'manifest.json'));
+
+        assert.strictEqual(zipBuilder.build.callCount, 1);
+        assert.deepStrictEqual(zipBuilder.build.firstCall.args, [
+            [
+                { filePath: 'manifest.json', content: '{}', isExecutable: false },
+                { filePath: 'handler.js', content: 'handler', isExecutable: false },
+                { filePath: 'lib/helper.js', content: 'helper', isExecutable: false },
+                { filePath: 'lib/cli.js', content: 'cli', isExecutable: false }
+            ]
+        ]);
+    });
+
+    test('buildZip() forwards extra files to the zip builder alongside the bundle contents', async function () {
+        const zipBuilder = { build: fake.resolves(Buffer.from([])) };
+        const { builder } = artifactsBuilderFactory({ zipBuilder });
+        await builder.buildZip(bundleWithContents([makeContent('handler.js', 'handler')], 'manifest.json'), [
+            { filePath: 'extra.json', content: '{"kind":"extra"}', isExecutable: false }
+        ]);
+
+        assert.deepStrictEqual(zipBuilder.build.firstCall.args, [
+            [
+                { filePath: 'manifest.json', content: '{}', isExecutable: false },
+                { filePath: 'handler.js', content: 'handler', isExecutable: false },
+                { filePath: 'extra.json', content: '{"kind":"extra"}', isExecutable: false }
+            ]
+        ]);
+    });
+
     test('buildFolder() writes extra files alongside the bundle contents into the target folder', async function () {
         const { builder, fileManager } = builderWithUnreadableTargetFolder();
 
@@ -287,17 +334,37 @@ suite('artifacts-builder', function () {
         });
     });
 
+    function buildEmptyArtifactDependencies(
+        progressBroadcaster: ArtifactsBuilderDependencies['progressBroadcaster']
+    ): ArtifactsBuilderDependencies {
+        return {
+            fileManager: createFakeFileManager(),
+            tarballBuilder: { build: fake.resolves(Buffer.from([])) },
+            zipBuilder: { build: fake.resolves(Buffer.from([])) },
+            progressBroadcaster
+        };
+    }
+
+    function captureArtifactEntries<TProjected>(
+        broadcaster: ReturnType<typeof createProgressBroadcaster>,
+        project: (entry: ArtifactEntry) => TProjected
+    ): readonly { readonly entries: readonly TProjected[] }[] {
+        const received: { readonly entries: readonly TProjected[] }[] = [];
+        broadcaster.consumer.on('artifactsCollected', (payload) => {
+            received.push({ entries: payload.entries.map(project) });
+        });
+        return received;
+    }
+
     function artifactsBuilderWithBroadcaster(): {
         readonly builder: ArtifactsBuilder;
         readonly broadcaster: ReturnType<typeof createProgressBroadcaster>;
     } {
         const broadcaster = createProgressBroadcaster();
-        const dependencies: ArtifactsBuilderDependencies = {
-            fileManager: createFakeFileManager(),
-            tarballBuilder: { build: fake.resolves(Buffer.from([])) },
-            progressBroadcaster: broadcaster.provider
+        return {
+            builder: createArtifactsBuilder(buildEmptyArtifactDependencies(broadcaster.provider)),
+            broadcaster
         };
-        return { builder: createArtifactsBuilder(dependencies), broadcaster };
     }
 
     test('collectContents() emits an artifactsCollected event with the package name when a subscriber is registered', function () {
@@ -314,29 +381,15 @@ suite('artifacts-builder', function () {
 
     test('collectContents() emits artifact entries with size and kind classification', function () {
         const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
-        const received: {
-            entries: readonly {
-                path: string;
-                sizeBytes: number;
-                kind: string;
-                sourcePath?: string;
-                status: string;
-                badges: readonly string[];
-            }[];
-        }[] = [];
-        broadcaster.consumer.on('artifactsCollected', (payload) => {
-            received.push({
-                entries: payload.entries.map((entry) => {
-                    return {
-                        path: entry.path,
-                        sizeBytes: entry.sizeBytes,
-                        kind: entry.kind,
-                        ...(entry.sourcePath === undefined ? {} : { sourcePath: entry.sourcePath }),
-                        status: entry.status,
-                        badges: entry.badges
-                    };
-                })
-            });
+        const received = captureArtifactEntries(broadcaster, (entry) => {
+            return {
+                path: entry.path,
+                sizeBytes: entry.sizeBytes,
+                kind: entry.kind,
+                ...(entry.sourcePath === undefined ? {} : { sourcePath: entry.sourcePath }),
+                status: entry.status,
+                badges: entry.badges
+            };
         });
 
         builder.collectContents(bundleWithContents([makeContent('a.js', 'abc', true)], 'package.json'));
@@ -360,15 +413,8 @@ suite('artifacts-builder', function () {
 
     test('collectContents() emits extra generated files in artifactsCollected when subscribed', function () {
         const { builder, broadcaster } = artifactsBuilderWithBroadcaster();
-        const received: {
-            entries: readonly { path: string; status: string; kind: string }[];
-        }[] = [];
-        broadcaster.consumer.on('artifactsCollected', (payload) => {
-            received.push({
-                entries: payload.entries.map((entry) => {
-                    return { path: entry.path, status: entry.status, kind: entry.kind };
-                })
-            });
+        const received = captureArtifactEntries(broadcaster, (entry) => {
+            return { path: entry.path, status: entry.status, kind: entry.kind };
         });
 
         builder.collectContents(bundleWithContents([], 'package.json'), undefined, [
@@ -387,12 +433,7 @@ suite('artifacts-builder', function () {
 
     test('collectContents() does NOT emit artifactsCollected when no subscriber is registered', function () {
         const spying = createSpyingBroadcaster();
-        const dependencies: ArtifactsBuilderDependencies = {
-            fileManager: createFakeFileManager(),
-            tarballBuilder: { build: fake.resolves(Buffer.from([])) },
-            progressBroadcaster: spying.provider
-        };
-        const builder = createArtifactsBuilder(dependencies);
+        const builder = createArtifactsBuilder(buildEmptyArtifactDependencies(spying.provider));
 
         builder.collectContents(bundleWithContents([], 'package.json'));
 
