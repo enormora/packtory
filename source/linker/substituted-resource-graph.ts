@@ -66,7 +66,8 @@ function createFlattenCollectors(): FlattenCollectors {
             fileDescription: data.fileDescription,
             directDependencies,
             isSubstituted: data.isSubstituted,
-            isExplicitlyIncluded: data.isExplicitlyIncluded
+            isExplicitlyIncluded: data.isExplicitlyIncluded,
+            ...(data.isGeneratedManifest ? { isGeneratedManifest: true } : {})
         });
 
         for (const bundleDependencyName of data.bundleDependencies) {

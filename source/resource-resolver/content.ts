@@ -32,6 +32,7 @@ type ResolvedBundleFile = {
     readonly directDependencies: ReadonlySet<string>;
     readonly project?: Project | undefined;
     readonly isExplicitlyIncluded: boolean;
+    readonly isGeneratedManifest?: true | undefined;
 };
 
 export function combineAllBundleFiles(
@@ -40,14 +41,18 @@ export function combineAllBundleFiles(
     additionalFiles: readonly (AdditionalFileDescription | string)[]
 ): readonly ResolvedBundleFile[] {
     const resolvedLocalFiles = localDependencies.map((localFile) => {
-        const targetFilePath = path.relative(sourcesFolder, localFile.filePath);
-        return {
+        const targetFilePath = localFile.isGeneratedManifest
+            ? 'package.json'
+            : path.relative(sourcesFolder, localFile.filePath);
+        const resolvedBundleFile: ResolvedBundleFile = {
             sourceFilePath: localFile.filePath,
             targetFilePath,
             directDependencies: localFile.directDependencies,
-            project: localFile.project,
-            isExplicitlyIncluded: false
+            ...(localFile.project === undefined ? {} : { project: localFile.project }),
+            isExplicitlyIncluded: false,
+            ...(localFile.isGeneratedManifest ? { isGeneratedManifest: true } : {})
         };
+        return resolvedBundleFile;
     });
 
     const additionalContents = additionalFiles.map((additionalFile): ResolvedBundleFile => {

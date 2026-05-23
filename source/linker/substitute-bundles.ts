@@ -53,7 +53,8 @@ export function substituteDependencies(
             externalDependencies: node.data.externalDependencies,
             bundleDependencies: isSubstituted ? replacements.bundleDependencies : [],
             isSubstituted,
-            isExplicitlyIncluded: node.data.isExplicitlyIncluded
+            isExplicitlyIncluded: node.data.isExplicitlyIncluded,
+            ...(node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {})
         });
     });
 

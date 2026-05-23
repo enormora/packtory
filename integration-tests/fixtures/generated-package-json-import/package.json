@@ -1,0 +1,4 @@
+{
+    "type": "module",
+    "description": "source manifest content should not ship verbatim"
+}

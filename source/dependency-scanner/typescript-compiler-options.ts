@@ -15,6 +15,7 @@ export function analyzationOptionsToCompilerOptions(options: AnalyzationOptions)
         maxNodeModuleJsDepth: 1,
         noEmit: true,
         allowJs: true,
+        resolveJsonModule: true,
         noLib: true,
         skipLibCheck: true,
         module: ModuleKind.Node16,

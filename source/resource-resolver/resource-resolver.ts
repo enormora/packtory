@@ -15,6 +15,36 @@ export type ResourceResolver = {
     resolve: (options: ResourceResolveOptions) => Promise<ResolvedBundle>;
 };
 
+const packageJsonIndentationSpaces = 4;
+
+function serializeVirtualManifest(mainPackageJson: ResourceResolveOptions['mainPackageJson']): string {
+    return `${JSON.stringify(mainPackageJson, null, packageJsonIndentationSpaces)}\n`;
+}
+
+async function resolveFileDescription(
+    fileManager: FileManager,
+    bundleFile: {
+        readonly isGeneratedManifest?: true | undefined;
+        readonly sourceFilePath: string;
+        readonly targetFilePath: string;
+    },
+    mainPackageJson: ResourceResolveOptions['mainPackageJson']
+): Promise<ResolvedContent['fileDescription']> {
+    if (bundleFile.isGeneratedManifest) {
+        return {
+            content: serializeVirtualManifest(mainPackageJson),
+            isExecutable: false,
+            sourceFilePath: bundleFile.sourceFilePath,
+            targetFilePath: bundleFile.targetFilePath
+        };
+    }
+
+    return await fileManager.getTransferableFileDescriptionFromPath(
+        bundleFile.sourceFilePath,
+        bundleFile.targetFilePath
+    );
+}
+
 export function createResourceResolver(dependencies: ResourceResolverDependencies): ResourceResolver {
     const { dependencyScanner, fileManager } = dependencies;
 
@@ -31,16 +61,18 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
 
             const contents = await Promise.all(
                 bundleFiles.map(async (bundleFile): Promise<ResolvedContent> => {
-                    const fileDescription = await fileManager.getTransferableFileDescriptionFromPath(
-                        bundleFile.sourceFilePath,
-                        bundleFile.targetFilePath
+                    const fileDescription = await resolveFileDescription(
+                        fileManager,
+                        bundleFile,
+                        options.mainPackageJson
                     );
 
                     return {
                         fileDescription,
                         directDependencies: bundleFile.directDependencies,
                         project: bundleFile.project,
-                        isExplicitlyIncluded: bundleFile.isExplicitlyIncluded
+                        isExplicitlyIncluded: bundleFile.isExplicitlyIncluded,
+                        ...(bundleFile.isGeneratedManifest ? { isGeneratedManifest: true } : {})
                     };
                 })
             );

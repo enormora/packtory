@@ -14,6 +14,7 @@ type PublishedPackageContent = {
     readonly fileDescription: TransferableFileDescription;
     readonly isExplicitlyIncluded: boolean;
     readonly isSubstituted: boolean;
+    readonly isGeneratedManifest?: true | undefined;
 };
 
 export type PublishedPackage = {

@@ -63,4 +63,20 @@ suite('substituted-resource-graph', function () {
             new Map([['left-pad', { name: 'left-pad', referencedFrom: ['/entry.js', '/shared.js'] }]])
         );
     });
+
+    test('flatten() preserves the generated-manifest marker on collected resources', function () {
+        const graph = createSubstitutedResourceGraph();
+        graph.add('/package.json', {
+            fileDescription: createFileDescription('/package.json', 'package.json'),
+            externalDependencies: [],
+            bundleDependencies: [],
+            isSubstituted: false,
+            isExplicitlyIncluded: false,
+            isGeneratedManifest: true
+        });
+
+        const result = graph.flatten(['/package.json']);
+
+        assert.strictEqual(result.contents[0]?.isGeneratedManifest, true);
+    });
 });

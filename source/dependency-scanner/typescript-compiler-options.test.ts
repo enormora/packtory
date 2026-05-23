@@ -17,7 +17,7 @@ suite('typescript-compiler-options', function () {
         assert.strictEqual(options.module, ModuleKind.Node16);
     });
 
-    test('analyzationOptionsToCompilerOptions enables esModuleInterop, allowJs, noLib, skipLibCheck, and noEmit', function () {
+    test('analyzationOptionsToCompilerOptions enables esModuleInterop, allowJs, resolveJsonModule, noLib, skipLibCheck, and noEmit', function () {
         const options = analyzationOptionsToCompilerOptions({
             resolveDeclarationFiles: true,
             mainPackageJson: stubMainPackageJson
@@ -25,6 +25,7 @@ suite('typescript-compiler-options', function () {
 
         assert.strictEqual(options.esModuleInterop, true);
         assert.strictEqual(options.allowJs, true);
+        assert.strictEqual(options.resolveJsonModule, true);
         assert.strictEqual(options.noLib, true);
         assert.strictEqual(options.skipLibCheck, true);
         assert.strictEqual(options.noEmit, true);
