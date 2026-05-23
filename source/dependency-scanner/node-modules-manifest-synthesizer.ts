@@ -6,7 +6,7 @@ import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 const packageJsonIndentationSpaces = 2;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
+    return value !== null && !Array.isArray(value);
 }
 
 function injectTypesCondition(_key: string, value: unknown): unknown {
@@ -21,12 +21,14 @@ function injectTypesCondition(_key: string, value: unknown): unknown {
 }
 
 function rewriteManifestContent(content: string): string {
-    const parsed: unknown = JSON.parse(content);
-    if (!isPlainObject(parsed) || !('exports' in parsed)) {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JSON.parse returns any; the catch handles structural mismatch at runtime
+        const parsed: Record<string, unknown> = JSON.parse(content);
+        const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed.exports, injectTypesCondition));
+        return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageJsonIndentationSpaces);
+    } catch {
         return content;
     }
-    const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed.exports, injectTypesCondition));
-    return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageJsonIndentationSpaces);
 }
 
 function isNodeModulesManifestPath(filePath: string): boolean {

@@ -98,6 +98,16 @@ const passthroughCases: readonly PassthroughCase[] = [
         content: 'export const example = "example";\n'
     },
     {
+        title: 'passes through reads for non-package.json JSON files inside node_modules even when they contain an exports field',
+        filePath: path.join('/project', 'node_modules', 'something', 'data.json'),
+        content: JSON.stringify({ exports: { '.': { import: './lib/index.js' } } })
+    },
+    {
+        title: 'returns trailing-comma manifests unchanged so ts-morph can surface its own resolution error',
+        filePath: nodeModulesManifestPath('trailing-comma-module'),
+        content: '{\n    "types": "index.d.ts",\n}\n'
+    },
+    {
         title: 'returns non-object JSON manifests unchanged',
         filePath: nodeModulesManifestPath('array-module'),
         content: '[1, 2, 3]'
