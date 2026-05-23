@@ -150,6 +150,12 @@ A few details worth highlighting:
 
 If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If a root declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
 
+### Bridging TypeScript's exports strictness for JS-only dependencies
+
+Node.js's `exports` field is a runtime resolution map: only the `import`, `require`, and `default` conditions are part of the spec. The `types` condition is a TypeScript convention layered on top. Under `moduleResolution: node16`, TypeScript refuses to follow an `exports` entry that has no `types` condition (or sibling `.d.ts`), even when the target is a perfectly resolvable JavaScript file — so a spec-compliant JS-only dependency like `{ "exports": { ".": { "import": "./lib/index.js" } } }` becomes unresolvable to the scanner.
+
+Packtory bridges the gap with a virtual file-system layer wrapping the ts-morph host. When a `node_modules/<pkg>/package.json` is read, the layer walks the `exports` tree and, for every conditions object that has an `import` (or `default`) target but no `types` sibling, synthesizes a `types` condition pointing at the same JavaScript file. TypeScript then follows the synthetic condition, lands on the `.js`, and — because `allowJs` is enabled for the analysis project — loads it as a source file. Manifests with an explicit `types` condition, manifests without `exports`, and reads outside `node_modules` are left untouched. The patch lives at the analysis layer only; the user's own build configuration and the dependency's published manifest are never modified.
+
 ## 5. Stage: Linker — import path rewriting
 
 This is where packtory turns "monorepo with relative imports" into "npm package that references its siblings by name".

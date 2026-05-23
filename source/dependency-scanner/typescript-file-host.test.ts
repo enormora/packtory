@@ -257,7 +257,9 @@ suite('typescript-file-host', function () {
                     fileExists: fake(),
                     fileExistsSync: true,
                     directoryExists: fake(),
-                    directoryExistsSync: fake()
+                    directoryExistsSync: fake(),
+                    readFile: fake(),
+                    readFileSync: fake()
                 } as unknown as FileSystemAdaptersDependencies['fileSystemHost']
             });
             assert.fail('Expected createFileSystemAdapters() to throw but it did not');
