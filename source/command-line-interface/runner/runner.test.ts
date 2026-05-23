@@ -12,7 +12,7 @@ import {
     createPackageReportFixture
 } from '../../test-libraries/preview-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import { toOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
+import { toOutcome, toReleaseAnalysisOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
 import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
@@ -73,6 +73,15 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
     const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: CommandLineInterfaceRunnerDependencies = {
         packtory: {
+            analyzeReleaseAgainstLatestPublished: fake.resolves(
+                toReleaseAnalysisOutcome(
+                    Result.ok({
+                        classification: 'unchanged',
+                        mostRecentPublishedAt: undefined,
+                        packageAnalyses: []
+                    })
+                )
+            ),
             buildAndPublishAll: createSpy(overrides.buildAndPublishAll, () => {
                 return fake.resolves(undefined);
             }),

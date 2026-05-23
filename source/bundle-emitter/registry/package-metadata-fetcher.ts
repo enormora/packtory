@@ -3,7 +3,12 @@ import { Maybe } from 'true-myth';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
 import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
 import { resolveMetadataAuthOptions } from './registry-auth-config.ts';
-import { parseAbbreviatedPackageResponse, type AbbreviatedPackageResponse } from './registry-response-schemas.ts';
+import {
+    parseAbbreviatedPackageResponse,
+    parseFullPackageResponse,
+    type AbbreviatedPackageResponse,
+    type FullPackageResponse
+} from './registry-response-schemas.ts';
 
 const notFoundStatusCode = 404;
 const forbiddenStatusCode = 403;
@@ -12,6 +17,12 @@ const abbreviatedResponseAcceptHeader = 'application/vnd.npm.install-v1+json';
 export type PackageVersionDetails = {
     readonly version: string;
     readonly tarballUrl: string;
+};
+
+export type PackageReleaseMetadata = {
+    readonly publishedAt?: Date | undefined;
+    readonly tarballUrl: string;
+    readonly version: string;
 };
 
 function encodePackageName(name: string): string {
@@ -27,31 +38,68 @@ function isMissingPackageError(error: unknown): boolean {
     return statusCode === notFoundStatusCode || statusCode === forbiddenStatusCode;
 }
 
-async function fetchPackageMetadata(
+function parseTimestamp(timestamp: string): Date {
+    const parsed = new Date(timestamp);
+
+    if (Number.isNaN(parsed.getTime())) {
+        throw new TypeError(`Version publish time "${timestamp}" is not a valid timestamp`);
+    }
+
+    return parsed;
+}
+
+type PackageMetadataRequest<TPackageResponse extends Record<string, unknown>> = {
+    readonly headers?: Readonly<Record<string, string>>;
+    readonly parsePackageResponse: (response: unknown) => TPackageResponse | undefined;
+};
+
+async function fetchAndParsePackageMetadata<TPackageResponse extends Record<string, unknown>>(
     npmFetch: typeof _npmFetch,
     packageName: string,
-    registrySettings: RegistrySettings
-): Promise<Maybe<AbbreviatedPackageResponse>> {
+    registrySettings: RegistrySettings,
+    request: PackageMetadataRequest<TPackageResponse>
+): Promise<Maybe<TPackageResponse>> {
     const auth = resolveMetadataAuthOptions(registrySettings);
     try {
         const response = await retryWithFallbackAuth(registrySettings, auth, async (options) => {
             return npmFetch.json(`/${encodePackageName(packageName)}`, {
                 ...options,
-                headers: { accept: abbreviatedResponseAcceptHeader }
+                headers: request.headers
             });
         });
 
-        const result = parseAbbreviatedPackageResponse(response);
+        const result = request.parsePackageResponse(response);
         if (result === undefined) {
             throw new Error('Got an invalid response from registry API');
         }
         return Maybe.just(result);
     } catch (error: unknown) {
         if (isMissingPackageError(error)) {
-            return Maybe.nothing();
+            return Maybe.nothing<TPackageResponse>();
         }
         throw error;
     }
+}
+
+async function fetchPackageMetadata(
+    npmFetch: typeof _npmFetch,
+    packageName: string,
+    registrySettings: RegistrySettings
+): Promise<Maybe<AbbreviatedPackageResponse>> {
+    return fetchAndParsePackageMetadata(npmFetch, packageName, registrySettings, {
+        parsePackageResponse: parseAbbreviatedPackageResponse,
+        headers: { accept: abbreviatedResponseAcceptHeader }
+    });
+}
+
+async function fetchFullPackageMetadata(
+    npmFetch: typeof _npmFetch,
+    packageName: string,
+    registrySettings: RegistrySettings
+): Promise<Maybe<FullPackageResponse>> {
+    return fetchAndParsePackageMetadata(npmFetch, packageName, registrySettings, {
+        parsePackageResponse: parseFullPackageResponse
+    });
 }
 
 function extractLatestVersionDetails(
@@ -83,6 +131,30 @@ export async function fetchLatestPackageVersion(
         return Maybe.nothing();
     }
     return extractLatestVersionDetails(packageResponse.value, packageName);
+}
+
+export async function fetchLatestPackageReleaseMetadata(
+    npmFetch: typeof _npmFetch,
+    packageName: string,
+    registrySettings: RegistrySettings
+): Promise<Maybe<PackageReleaseMetadata>> {
+    const packageResponse = await fetchFullPackageMetadata(npmFetch, packageName, registrySettings);
+    if (packageResponse.isNothing) {
+        return Maybe.nothing();
+    }
+
+    const latestVersion = extractLatestVersionDetails(packageResponse.value, packageName);
+    if (latestVersion.isNothing) {
+        return Maybe.nothing();
+    }
+
+    const publishedAtTimestamp = packageResponse.value.time?.[latestVersion.value.version];
+
+    return Maybe.just({
+        version: latestVersion.value.version,
+        tarballUrl: latestVersion.value.tarballUrl,
+        publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp)
+    });
 }
 
 export async function fetchPackageTarball(

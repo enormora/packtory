@@ -9,10 +9,11 @@ const entryPointFiles = ['^source/packages/.+\\.entry-point\\.ts$'];
 const buildSupportFiles = ['^source/build-support/'];
 
 const testFiles = ['\\.(test|property|type-test)\\.ts$', '^integration-tests/'];
+const testSupportFiles = ['^source/.+/test-support\\.ts$'];
 const testLibraryFiles = ['^source/test-libraries/'];
 const excludedFiles = ['^(\\./)?integration-tests/fixtures/', '^(\\./)?target/'];
 
-const ignoreFromOrphans = [...configFiles, ...entryPointFiles, ...buildSupportFiles, ...testFiles];
+const ignoreFromOrphans = [...configFiles, ...entryPointFiles, ...buildSupportFiles, ...testFiles, ...testSupportFiles];
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 export default {
@@ -55,6 +56,7 @@ export default {
                 numberOfDependentsLessThan: 1,
                 pathNot: [
                     ...ignoreFromOrphans,
+                    ...testSupportFiles,
                     ...testLibraryFiles,
                     '.*(?<!\\.(ts|js))$',
                     '^node_modules/',

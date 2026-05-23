@@ -3,11 +3,16 @@ import {
     createPacktory,
     type BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
     type BuildReport as PublicBuildReport,
+    type PackageReleaseAnalysis as PublicPackageReleaseAnalysis,
+    type PackageReleaseAnalysisClassification as PublicPackageReleaseAnalysisClassification,
     type PackOutcome as PublicPackOutcome,
     type PackPublicOptions as PublicPackPublicOptions,
     type PackResult as PublicPackResult,
     type PublishAllOutcome as PublicPublishAllOutcome,
     type PublishAllResult as PublicPublishAllResult,
+    type ReleaseAnalysis as PublicReleaseAnalysis,
+    type ReleaseAnalysisOutcome as PublicReleaseAnalysisOutcome,
+    type ReleaseAnalysisResult as PublicReleaseAnalysisResult,
     type ReleaseDiffAllOutcome as PublicReleaseDiffAllOutcome,
     type ReleaseDiffAllResult as PublicReleaseDiffAllResult,
     type ResolveAndLinkAllOptions as PublicResolveAndLinkAllOptions,
@@ -48,17 +53,28 @@ const packtory = createPacktory({
     vendorMaterializer
 });
 
-export const { buildAndPublishAll, diffAgainstLatestPublished, resolveAndLinkAll, packPackage } = packtory;
+export const {
+    analyzeReleaseAgainstLatestPublished,
+    buildAndPublishAll,
+    diffAgainstLatestPublished,
+    resolveAndLinkAll,
+    packPackage
+} = packtory;
 export const progressBroadcastConsumer: PublicProgressBroadcastConsumer = progressBroadcaster.consumer;
 
 export type PacktoryConfig = PublicPacktoryConfig;
 export type BuildAndPublishAllOptions = PublicBuildAndPublishAllOptions;
 export type BuildReport = PublicBuildReport;
+export type PackageReleaseAnalysis = PublicPackageReleaseAnalysis;
+export type PackageReleaseAnalysisClassification = PublicPackageReleaseAnalysisClassification;
 export type PackOutcome = PublicPackOutcome;
 export type PackPublicOptions = PublicPackPublicOptions;
 export type PackResult = PublicPackResult;
 export type PublishAllOutcome = PublicPublishAllOutcome;
 export type PublishAllResult = PublicPublishAllResult;
+export type ReleaseAnalysis = PublicReleaseAnalysis;
+export type ReleaseAnalysisOutcome = PublicReleaseAnalysisOutcome;
+export type ReleaseAnalysisResult = PublicReleaseAnalysisResult;
 export type ReleaseDiffAllOutcome = PublicReleaseDiffAllOutcome;
 export type ReleaseDiffAllResult = PublicReleaseDiffAllResult;
 export type ResolveAndLinkAllOptions = PublicResolveAndLinkAllOptions;

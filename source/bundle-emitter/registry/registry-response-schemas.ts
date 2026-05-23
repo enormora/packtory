@@ -13,6 +13,14 @@ const abbreviatedPackageResponseSchema = z.object({
     }),
     versions: z.record(z.string(), packageVersionDetailsSchema)
 });
+const fullPackageResponseSchema = z.object({
+    name: z.string(),
+    'dist-tags': z.object({
+        latest: z.optional(z.string())
+    }),
+    time: z.optional(z.record(z.string(), z.string())),
+    versions: z.record(z.string(), packageVersionDetailsSchema)
+});
 
 const oidcExchangeResponseSchema = z.object({
     token_type: z.string(),
@@ -29,6 +37,15 @@ export type AbbreviatedPackageResponse = {
     readonly versions: Readonly<Record<string, { readonly dist: { readonly tarball: string } }>>;
 };
 
+export type FullPackageResponse = {
+    readonly name: string;
+    readonly 'dist-tags': {
+        readonly latest?: string | undefined;
+    };
+    readonly time?: Readonly<Record<string, string>> | undefined;
+    readonly versions: Readonly<Record<string, { readonly dist: { readonly tarball: string } }>>;
+};
+
 export type OidcExchangeResponse = {
     readonly token_type: string;
     readonly token: string;
@@ -38,6 +55,11 @@ export type OidcExchangeResponse = {
 
 export function parseAbbreviatedPackageResponse(response: unknown): AbbreviatedPackageResponse | undefined {
     const result = abbreviatedPackageResponseSchema.safeParse(response);
+    return result.success ? result.data : undefined;
+}
+
+export function parseFullPackageResponse(response: unknown): FullPackageResponse | undefined {
+    const result = fullPackageResponseSchema.safeParse(response);
     return result.success ? result.data : undefined;
 }
 

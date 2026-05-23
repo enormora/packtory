@@ -1,4 +1,4 @@
-import { unzip, type FlateError, type Unzipped } from 'fflate';
+import { unzip } from 'fflate';
 
 export type ZipEntry = {
     readonly name: string;
@@ -14,6 +14,10 @@ type CentralDirectoryEntry = {
     readonly nextOffset: number;
 };
 
+type DecodedZip = Readonly<Record<string, Uint8Array>>;
+type UnzipCallback = (error: unknown, decoded: unknown) => void;
+type UnzipFunction = (data: Uint8Array, callback: UnzipCallback) => void;
+
 const endOfCentralDirectorySignature = 101_010_256;
 const centralDirectoryEntrySignature = 33_639_248;
 const endOfCentralDirectoryLength = 22;
@@ -26,6 +30,31 @@ const extraFieldLengthOffset = 30;
 const fileCommentLengthOffset = 32;
 const externalAttributesOffset = 38;
 const highBytesScale = 65_536;
+
+function asError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(JSON.stringify(error));
+}
+
+function isDecodedZip(value: unknown): value is DecodedZip {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+
+    return Object.values(value).every((entry) => {
+        return entry instanceof Uint8Array;
+    });
+}
+
+function createUnzipFunction(): UnzipFunction {
+    const unzipValue: unknown = unzip;
+    if (typeof unzipValue !== 'function') {
+        throw new TypeError('fflate unzip export is not callable');
+    }
+
+    return (data, callback) => {
+        Reflect.apply(unzipValue, undefined, [data, callback]);
+    };
+}
 
 function findEndOfCentralDirectory(buffer: Buffer): number {
     for (let offset = buffer.length - endOfCentralDirectoryLength; offset >= 0; offset -= 1) {
@@ -70,15 +99,21 @@ function readCentralDirectoryMetadata(buffer: Buffer): Map<string, CentralDirect
     return metadataByName;
 }
 
-async function decodeZipContents(buffer: Buffer): Promise<Unzipped> {
-    return await new Promise<Unzipped>((resolve, reject) => {
+async function decodeZipContents(buffer: Buffer): Promise<DecodedZip> {
+    const unzipFunction = createUnzipFunction();
+
+    return await new Promise<DecodedZip>((resolve, reject) => {
         const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-        unzip(data, (error: FlateError | null, decoded: Unzipped) => {
-            if (error === null) {
+        unzipFunction(data, (error, decoded) => {
+            if (error === null || error === undefined) {
+                if (!isDecodedZip(decoded)) {
+                    reject(new Error('fflate unzip returned an invalid decoded payload'));
+                    return;
+                }
                 resolve(decoded);
                 return;
             }
-            reject(error);
+            reject(asError(error));
         });
     });
 }

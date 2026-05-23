@@ -36,8 +36,6 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     traverse: (visitor: Visitor<TId, TData>) => void;
 };
 
-const breadthFirstTraversalBudgetExceededErrorMessage = 'Breadth-first traversal exceeded the maximum iteration budget';
-
 function addAdjacentNodeId<TId extends GraphNodeId, TData>(
     node: Readonly<GraphNode<TId, TData>>,
     idToAdd: TId
@@ -247,7 +245,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
             }
         }
 
-        throw new Error(breadthFirstTraversalBudgetExceededErrorMessage);
+        throw new Error('Breadth-first traversal exceeded the maximum iteration budget');
     }
 
     function hasNode(id: TId): boolean {

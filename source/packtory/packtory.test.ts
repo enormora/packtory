@@ -83,8 +83,6 @@ type PacktoryUnderTest = {
     readonly progressBroadcaster: ReturnType<typeof createTestProgressBroadcaster>;
 };
 
-// helpers re-exported for backwards compatibility within this module
-
 const twoPackageEntries: readonly {
     readonly name: string;
     readonly roots: { readonly main: { readonly js: string } };
@@ -139,6 +137,11 @@ async function runPublishStageUntilFailure(params: {
 
 function createPacktoryUnderTest(
     overrides: SchedulerOverrides & {
+        readonly collectContents?: () => readonly {
+            readonly filePath: string;
+            readonly content: string;
+            readonly isExecutable: boolean;
+        }[];
         readonly resolveAndLink?: SinonSpy;
         readonly tryBuildAndPublish?: SinonSpy;
         readonly buildAndPublish?: SinonSpy;
@@ -224,7 +227,7 @@ function createPacktoryUnderTest(
             scheduler: scheduler as never,
             deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator(),
             progressBroadcaster,
-            artifactsBuilder: { collectContents: () => [] },
+            artifactsBuilder: { collectContents: overrides.collectContents ?? (() => []) },
             versionManager: {
                 addVersion: (overrides.versionManagerAddVersion ??
                     (() => {
@@ -584,6 +587,93 @@ suite('packtory', function () {
         await packtory.diffAgainstLatestPublished(createConfig());
 
         assert.strictEqual(progressBroadcaster.provider.hasSubscribers('versionDetermined'), false);
+    });
+
+    test('analyzeReleaseAgainstLatestPublished() returns config issues when the config with registry is invalid', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const { result } = await packtory.analyzeReleaseAgainstLatestPublished({ invalid: true });
+
+        if (result.isOk) {
+            assert.fail('expected an Err result');
+        }
+        assert.strictEqual(result.error.type, 'config');
+    });
+
+    test('analyzeReleaseAgainstLatestPublished() classifies first publishes through the dry-run publish path', async function () {
+        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
+
+        const { result } = await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
+
+        if (result.isErr) {
+            assert.fail(`expected an Ok result, got ${JSON.stringify(result.error)}`);
+        }
+        assert.strictEqual(result.value.classification, 'first-publish');
+        assert.strictEqual(tryBuildAndPublish.callCount, 1);
+        assert.strictEqual(buildAndPublish.callCount, 0);
+    });
+
+    test('analyzeReleaseAgainstLatestPublished() disposes the report aggregator after the call completes', async function () {
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+        await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
+    });
+
+    test('analyzeReleaseAgainstLatestPublished() disposes the report aggregator even when the call throws', async function () {
+        const resolveAndLink = fake(async () => {
+            throw new Error('boom');
+        });
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
+            resolveAndLink,
+            resolveStage: runPublishStageUntilFailure
+        });
+
+        await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
+
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
+    });
+
+    test('analyzeReleaseAgainstLatestPublished() exposes a getReport and classifies dependency-only package.json changes', async function () {
+        const { packtory } = createPacktoryUnderTest({
+            tryBuildAndPublish: fake(async (options: { buildOptions: { name: string } }) => {
+                return {
+                    bundle: createVersionedBundle(options.buildOptions.name, '1.0.1'),
+                    status: 'new-version' as const,
+                    extraFiles: [],
+                    previousReleaseArtifacts: Maybe.just({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        files: [
+                            {
+                                filePath: 'package.json',
+                                content: '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}',
+                                isExecutable: false
+                            }
+                        ]
+                    })
+                };
+            }),
+            collectContents: () => {
+                return [
+                    {
+                        filePath: 'package.json',
+                        content: '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}',
+                        isExecutable: false
+                    }
+                ];
+            }
+        });
+
+        const outcome = await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
+
+        if (outcome.result.isErr) {
+            assert.fail(`expected an Ok result, got ${JSON.stringify(outcome.result.error)}`);
+        }
+        assert.strictEqual(outcome.result.value.classification, 'dependency-only');
+        assert.deepStrictEqual(outcome.result.value.mostRecentPublishedAt, new Date('2026-05-01T00:00:00.000Z'));
+        assert.ok(outcome.getReport().packages['package-a']);
     });
 
     const packPublicOptions = {

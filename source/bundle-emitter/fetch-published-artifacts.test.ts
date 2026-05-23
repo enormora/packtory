@@ -9,11 +9,12 @@ import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
 
 function registryClientWith(overrides: {
-    readonly fetchLatestVersion?: RegistryClient['fetchLatestVersion'];
+    readonly fetchLatestReleaseMetadata?: RegistryClient['fetchLatestReleaseMetadata'];
     readonly fetchTarball?: RegistryClient['fetchTarball'];
 }): RegistryClient {
     return {
-        fetchLatestVersion: overrides.fetchLatestVersion ?? fake(),
+        fetchLatestReleaseMetadata: overrides.fetchLatestReleaseMetadata ?? fake(),
+        fetchLatestVersion: fake(),
         fetchTarball: overrides.fetchTarball ?? fake(),
         publishPackage: fake()
     };
@@ -21,24 +22,28 @@ function registryClientWith(overrides: {
 
 suite('fetch-published-artifacts', function () {
     test('returns Nothing when the registry has no latest version', async function () {
-        const fetchLatestVersion = fake.resolves(Maybe.nothing());
+        const fetchLatestReleaseMetadata = fake.resolves(Maybe.nothing());
         const fetchTarball = fake();
-        const client = registryClientWith({ fetchLatestVersion, fetchTarball });
+        const client = registryClientWith({ fetchLatestReleaseMetadata, fetchTarball });
 
         const result = await fetchPublishedArtifacts(client, 'the-name', registrySettings);
 
         assert.strictEqual(result.isNothing, true);
-        assert.strictEqual(fetchLatestVersion.callCount, 1);
-        assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
+        assert.strictEqual(fetchLatestReleaseMetadata.callCount, 1);
+        assert.deepStrictEqual(fetchLatestReleaseMetadata.firstCall.args, ['the-name', registrySettings]);
         assert.strictEqual(fetchTarball.callCount, 0);
     });
 
-    test('returns Just with the version and extracted files when the registry has a latest version', async function () {
-        const fetchLatestVersion = fake.resolves(
-            Maybe.just({ version: '1.2.3', tarballUrl: 'https://registry.example.test/package.tgz' })
+    test('returns Just with the version, publish time, and extracted files when the registry has a latest version', async function () {
+        const fetchLatestReleaseMetadata = fake.resolves(
+            Maybe.just({
+                version: '1.2.3',
+                tarballUrl: 'https://registry.example.test/package.tgz',
+                publishedAt: new Date('2026-05-20T00:00:00.000Z')
+            })
         );
         const fetchTarball = fake.resolves(emptyTarball);
-        const client = registryClientWith({ fetchLatestVersion, fetchTarball });
+        const client = registryClientWith({ fetchLatestReleaseMetadata, fetchTarball });
 
         const result = await fetchPublishedArtifacts(client, 'the-name', registrySettings);
 
@@ -46,6 +51,7 @@ suite('fetch-published-artifacts', function () {
             assert.fail('expected fetched artifacts');
         }
         assert.strictEqual(result.value.version, '1.2.3');
+        assert.deepStrictEqual(result.value.publishedAt, new Date('2026-05-20T00:00:00.000Z'));
         assert.deepStrictEqual(result.value.files, []);
         assert.deepStrictEqual(fetchTarball.firstCall.args, [
             'https://registry.example.test/package.tgz',

@@ -60,4 +60,4 @@ benchmark:
     node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts
 
 publish-dry-run:
-    NPM_TOKEN='{{ env_var_or_default("NPM_TOKEN", "dry-run-only-token") }}' packtory publish
+    node --experimental-strip-types --enable-source-maps ./source/packages/command-line-interface/command-line-interface.entry-point.ts publish

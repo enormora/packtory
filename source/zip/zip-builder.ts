@@ -1,11 +1,18 @@
-import { promisify } from 'node:util';
-import { zip as fflateZip, type AsyncZippable, type AsyncZipOptions, type FlateCallback } from 'fflate';
+import { zip as fflateZip } from 'fflate';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 
-type AsyncZipFunction = (data: AsyncZippable, options: AsyncZipOptions, callback: FlateCallback) => void;
-type PromisifiedZip = (data: AsyncZippable, options: AsyncZipOptions) => Promise<Uint8Array>;
+type ZipEntryOptions = {
+    readonly os: number;
+    readonly attrs: number;
+    readonly mtime: number;
+    readonly level: number;
+};
+
+type ZippableFileMap = Record<string, readonly [Uint8Array, ZipEntryOptions]>;
+type ZipCallback = (error: unknown, data: unknown) => void;
+type AsyncZipFunction = (data: ZippableFileMap, options: Record<string, never>, callback: ZipCallback) => void;
 
 export type ZipBuilder = {
     build: (fileDescriptions: readonly FileDescription[], vendorEntries?: readonly VendorEntry[]) => Promise<Buffer>;
@@ -30,7 +37,26 @@ function externalAttributes(isExecutable: boolean): number {
     return (isExecutable ? executableUnixMode : nonExecutableUnixMode) * highBytesScale;
 }
 
-function buildFileEntry(payload: Uint8Array, isExecutable: boolean): [Uint8Array, AsyncZipOptions] {
+function asError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(JSON.stringify(error));
+}
+
+function isUint8Array(value: unknown): value is Uint8Array {
+    return value instanceof Uint8Array;
+}
+
+function createZipFunction(zip: AsyncZipFunction | undefined): AsyncZipFunction {
+    const zipValue: unknown = zip ?? fflateZip;
+    if (typeof zipValue !== 'function') {
+        throw new TypeError('fflate zip export is not callable');
+    }
+
+    return (data, options, callback) => {
+        Reflect.apply(zipValue, undefined, [data, options, callback]);
+    };
+}
+
+function buildFileEntry(payload: Uint8Array, isExecutable: boolean): [Uint8Array, ZipEntryOptions] {
     return [
         payload,
         {
@@ -46,8 +72,8 @@ async function toFileMap(
     fileDescriptions: readonly FileDescription[],
     vendorEntries: readonly VendorEntry[],
     readFileBytes: (filePath: string) => Promise<Buffer>
-): Promise<AsyncZippable> {
-    const fileMap: AsyncZippable = {};
+): Promise<ZippableFileMap> {
+    const fileMap: ZippableFileMap = {};
     for (const fileDescription of fileDescriptions) {
         fileMap[fileDescription.filePath] = buildFileEntry(
             new TextEncoder().encode(fileDescription.content),
@@ -67,15 +93,26 @@ export function createZipBuilder(dependencies: ZipBuilderDependencies = {}): Zip
             throw new Error('readFileBytes is required to materialize vendor entries into the zip');
         }
     };
-    const zip = dependencies.zip ?? fflateZip;
-    const runZip: PromisifiedZip = promisify(zip);
+    const zip = createZipFunction(dependencies.zip);
 
     return {
         async build(fileDescriptions, vendorEntries = []) {
             const fileMap = await toFileMap(fileDescriptions, vendorEntries, async (filePath) => {
                 return fileManager.readFileBytes(filePath);
             });
-            const data = await runZip(fileMap, {});
+            const data = await new Promise<Uint8Array>((resolve, reject) => {
+                zip(fileMap, {}, (error, zippedData) => {
+                    if (error === null || error === undefined) {
+                        if (!isUint8Array(zippedData)) {
+                            reject(new Error('fflate zip returned a non-binary payload'));
+                            return;
+                        }
+                        resolve(zippedData);
+                        return;
+                    }
+                    reject(asError(error));
+                });
+            });
             return Buffer.from(data);
         }
     };

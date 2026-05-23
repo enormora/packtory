@@ -35,7 +35,7 @@ export function toOutcome<TResult>(result: TResult): { readonly result: TResult;
     };
 }
 
-export function toReleaseDiffOutcome<TResult>(result: TResult): {
+function toOutcomeWithBuildReport<TResult>(result: TResult): {
     readonly result: TResult;
     readonly getReport: () => BuildReport;
 } {
@@ -51,6 +51,13 @@ export function toReleaseDiffOutcome<TResult>(result: TResult): {
         }
     };
 }
+
+function createReleaseOutcomeAdapter() {
+    return toOutcomeWithBuildReport;
+}
+
+export const toReleaseDiffOutcome = createReleaseOutcomeAdapter();
+export const toReleaseAnalysisOutcome = createReleaseOutcomeAdapter();
 
 export const createTestProgressBroadcaster: () => ProgressBroadcaster = createProgressBroadcaster;
 

@@ -5,6 +5,7 @@ import { extractPackageTarball } from './extract-package-tarball.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 
 export type PublishedReleaseArtifacts = {
+    readonly publishedAt?: Date | undefined;
     readonly version: string;
     readonly files: readonly FileDescription[];
 };
@@ -14,11 +15,15 @@ export async function fetchPublishedArtifacts(
     name: string,
     registrySettings: RegistrySettings
 ): Promise<Maybe<PublishedReleaseArtifacts>> {
-    const latestVersion = await registryClient.fetchLatestVersion(name, registrySettings);
+    const latestVersion = await registryClient.fetchLatestReleaseMetadata(name, registrySettings);
     if (latestVersion.isNothing) {
         return Maybe.nothing();
     }
     const tarball = await registryClient.fetchTarball(latestVersion.value.tarballUrl, registrySettings);
     const files = await extractPackageTarball(tarball);
-    return Maybe.just({ version: latestVersion.value.version, files });
+    return Maybe.just({
+        version: latestVersion.value.version,
+        files,
+        publishedAt: latestVersion.value.publishedAt
+    });
 }
