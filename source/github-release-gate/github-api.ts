@@ -1,3 +1,4 @@
+import { isDefined } from 'remeda';
 import { z } from 'zod/mini';
 import {
     selectPullRequestActivityAt,
@@ -74,13 +75,6 @@ const timelineEventSchema = z.object({
     event: z.string()
 });
 
-function selectTimelineEventTimestamp(event: RawTimelineEvent): string | undefined {
-    if (event.event === 'committed') {
-        return event.committer?.date;
-    }
-    return event.created_at ?? undefined;
-}
-
 function parseTimestamp(timestamp: string): Date {
     const date = new Date(timestamp);
 
@@ -89,6 +83,21 @@ function parseTimestamp(timestamp: string): Date {
     }
 
     return date;
+}
+
+function selectTimelineEventTimestamp(event: RawTimelineEvent): string | undefined {
+    if (event.event === 'committed') {
+        return event.committer?.date;
+    }
+    return event.created_at ?? undefined;
+}
+
+function toPullRequestTimelineEvent(event: RawTimelineEvent): PullRequestTimelineEvent | undefined {
+    const timestamp = selectTimelineEventTimestamp(event);
+    if (timestamp === undefined) {
+        return undefined;
+    }
+    return { createdAt: parseTimestamp(timestamp), event: event.event };
 }
 
 function getHeaders(token: string): Readonly<Record<string, string>> {
@@ -195,13 +204,7 @@ async function getPullRequestActivity(
             return z.array(timelineEventSchema).parse(value);
         }
     );
-    const timelineEvents: PullRequestTimelineEvent[] = timeline.flatMap((event) => {
-        const timestamp = selectTimelineEventTimestamp(event);
-        if (timestamp === undefined) {
-            return [];
-        }
-        return [{ createdAt: parseTimestamp(timestamp), event: event.event }];
-    });
+    const timelineEvents = timeline.map(toPullRequestTimelineEvent).filter(isDefined);
 
     return {
         number: pullRequest.number,
