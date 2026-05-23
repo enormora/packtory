@@ -3,6 +3,7 @@ import { isBoolean } from 'remeda';
 import type { MainPackageJson } from '../config/package-json.ts';
 import { isDeclarationFile, isTypesRootFolder } from './file-host-predicates.ts';
 import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
+import { createNodeModulesManifestSynthesizingHost } from './node-modules-manifest-synthesizer.ts';
 import { createVirtualPackageJsonHost } from './virtual-package-json-host.ts';
 
 export type FileSystemAdaptersDependencies = {
@@ -67,9 +68,10 @@ function createDeclarationFilteringHost(fileSystemHost: FileSystemHost): FileSys
 
 export function createFileSystemAdapters(dependencies: FileSystemAdaptersDependencies): FileSystemAdapters {
     const { fileSystemHost } = dependencies;
+    const synthesizingHost = createNodeModulesManifestSynthesizingHost(fileSystemHost);
     return {
-        fileSystemHostWithoutFilter: fileSystemHost,
-        fileSystemHostFilteringDeclarationFiles: createDeclarationFilteringHost(fileSystemHost),
+        fileSystemHostWithoutFilter: synthesizingHost,
+        fileSystemHostFilteringDeclarationFiles: createDeclarationFilteringHost(synthesizingHost),
         withVirtualPackageJson: createVirtualPackageJsonHost
     };
 }
