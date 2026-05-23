@@ -21,6 +21,7 @@ packtory <command> [options]
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
+- **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection — `pack` never talks to a registry.
 
 **Options:**
 
@@ -28,6 +29,9 @@ packtory <command> [options]
 - **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
+- **pack &lt;package&gt; --format &lt;zip|tar|folder&gt; --out &lt;path&gt;:** Selects which package from the configuration to build and where to write it. `--format` and `--out` are required.
+- **pack --version &lt;version&gt;:** Stamps the produced manifest with the given version. Defaults to `0.0.0` when omitted, since `pack` is decoupled from the registry-driven automatic versioning used by `publish`.
+- **pack --vendor-dependencies:** Resolves every external (and bundle) dependency from the local `node_modules` and materializes them next to the package files inside the artifact. Use this for self-contained deployments where the runtime cannot run `npm install` (e.g. AWS Lambda zips). Without the flag, dependencies are recorded in the generated `package.json` only.
 
 **Preview behavior:**
 
@@ -48,6 +52,18 @@ packtory <command> [options]
 - Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output. Failure-only runs go directly to standard output.
 - `packtory release-diff` exits with code `0` on a clean run and `1` on config errors, check failures, or partial failures.
 - `release-diff` is read-only: it never publishes and never writes to the registry. It is currently terminal-only; an HTML/`--open` variant and an `--against <version>` selector are not part of this release.
+
+**Pack behavior:**
+
+- `packtory pack` runs the same validate → resolve → link → checks pipeline as the other commands, then emits the selected package's bundle to the path given by `--out`. It never reads from or writes to the configured registry.
+- Format choices:
+    - `zip` — single-file zip archive. The format AWS Lambda accepts directly. Uses static metadata (1980-01-01 entries, deterministic ordering) so byte-identical inputs yield byte-identical archives.
+    - `tar` — single-file gzipped tarball, the same shape `publish` would upload, but written to disk instead of the registry.
+    - `folder` — expanded directory; `--out` is treated as the directory path. Useful for inspecting the artifact, for `docker build` contexts, or for piping the contents through another tool.
+- `--vendor-dependencies` walks the local `node_modules` (resolving symlinks with `fs.realpath`, so npm, yarn-classic, and pnpm layouts all work) and copies every transitive runtime dependency into `node_modules/` inside the artifact. Files are streamed by path rather than read into memory, so binary assets and executables survive intact. Anything declared in `bundleDependencies` is materialized the same way without import-path rewriting, so cross-package imports keep their original form.
+- Strict peer-dependency check: when `--vendor-dependencies` is set, every `peerDependency` declared by a vendored package must be satisfied by another vendored package (or by the target package itself). An unsatisfied peer is reported as `peer-dependencies-unsatisfied` and pack exits with code 1.
+- Without `--vendor-dependencies`, packages that declare `bundleDependencies` are rejected with `bundle-dependencies-unsupported`. The flag is the only path that knows how to put a sibling package inside the artifact.
+- An unknown `<package>` argument is reported as `package-not-found`.
 
 **Preview vs release-diff:**
 

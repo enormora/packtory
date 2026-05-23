@@ -24,6 +24,7 @@ Say goodbye to:
 - **Clean and Efficient Packaging**: Package only essential files, excluding devDependencies, CI configurations, and tests. Keep your npm package clean and efficient.
 - **Revolutionary Automatic Versioning**: Choose manual versioning or let packtory handle it. In automatic mode, it calculates versions intelligently, ensuring reproducibility without complexity.
 - **Seamless CI Pipeline Integration**: Easily integrate packtory into your CI pipelines for automatic publishing with every commit. No more intricate checks to decide what to publish.
+- **On-Disk Artifacts for Non-Registry Targets**: Produce a single configured package as a zip, tarball, or expanded folder — ideal for AWS Lambda deployments, container builds, and any workflow where the destination isn't an npm registry.
 
 ## Quick Start
 
@@ -115,6 +116,23 @@ Packtory supports two versioning modes:
 
 2. **Manual Versioning:**
     - Provide the exact version number in the configuration.
+
+### Pack (on-disk artifacts)
+
+`packtory publish` is the registry-driven workflow; `packtory pack` is the disk-driven complement. Use it whenever you need the same bundled, dead-code-eliminated, linked output as a published package, but the destination is something other than an npm registry — AWS Lambda functions, Docker build contexts, OCI image layers, archived release artifacts, or local inspection of what would have been published.
+
+`pack` reuses the same validate → resolve → link → checks pipeline as the other commands. What changes is the emit stage:
+
+- **Format**: `zip` (the format AWS Lambda accepts directly, with deterministic metadata for byte-identical builds), `tar` (the same gzipped tarball shape `publish` would upload), or `folder` (the artifact expanded into a directory).
+- **Output path**: where to write the archive or, for `folder`, the directory to populate.
+- **Version**: stamped into the generated manifest. Defaults to `0.0.0` — `pack` is intentionally decoupled from the registry-driven automatic versioning, so the caller decides the version (often the CI build's release tag).
+- **Vendor dependencies**: an opt-in `--vendor-dependencies` (CLI) / `vendorDependencies: true` (API) flag materializes every transitive runtime dependency from the local `node_modules` directly into `node_modules/` inside the artifact. This is what makes the output self-contained for runtimes that cannot run `npm install` (AWS Lambda, distroless containers). Symlink layouts created by npm, yarn-classic, and pnpm are all handled. Packages declared in `bundleDependencies` are materialized too, with their original cross-package import paths preserved.
+
+```bash
+npx packtory pack image-resizer-cli --format zip --out ./dist/image-resizer-cli.zip --vendor-dependencies
+```
+
+See the [CLI documentation](./source/packages/command-line-interface/README.md) for the full flag reference and the programmatic API in [`packtory`](./source/packages/packtory/README.md) for `packPackage(config, options)`.
 
 For a deeper look at the pipeline, the package graph, parallel scheduling, the tree-shaking algorithm, import-path rewriting, and automatic version detection, see [How it works under the hood](./documentation/how-it-works.md).
 

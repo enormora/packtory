@@ -1,10 +1,10 @@
 # How it works under the hood
 
-This document explains the pipeline, the data structures, and the algorithms that drive bundling, dead-code elimination, import rewriting, automatic versioning, and parallel scheduling. It is written for engineers who want to contribute, debug, or simply understand the trade-offs — not for end users (read the [readme](../readme.md) for that).
+This document explains the pipeline, the data structures, and the algorithms that drive bundling, dead-code elimination, import rewriting, automatic versioning, on-disk artifact emission, and parallel scheduling. It is written for engineers who want to contribute, debug, or simply understand the trade-offs — not for end users (read the [readme](../readme.md) for that).
 
 ## 1. The pipeline
 
-A single `packtory publish` run is a chain of seven stages. Each stage produces an immutable artifact consumed by the next.
+A single `packtory publish` run is a chain of seven stages. Each stage produces an immutable artifact consumed by the next. `packtory pack` (§10) reuses every stage up through the version manager and swaps the bundle emitter for a disk-writing variant.
 
 ```mermaid
 flowchart LR
@@ -394,7 +394,50 @@ Key properties:
 
 If `publishSettings.access === 'public'` and `provenance.type === 'auto'`, the emitter asserts that the CI environment's repository URL matches `package.json#repository.url` _before_ publishing (`assertRepositoryCoherence`), then delegates the actual sigstore signing to `libnpmpublish`. The npm trusted-publishing token exchange is a separate OIDC resolver. Neither is on the hot path for this doc; see [supply-chain.md](./supply-chain.md) for the full story.
 
-## 10. Putting it all together
+## 10. Stage: Pack Emitter — on-disk artifacts
+
+`packtory pack` and the programmatic `packPackage(config, options)` share the same pipeline as `publish` through every prior stage (validation, resource resolution, linking, dead-code elimination, checks, version manager). What changes is the terminal stage: instead of comparing against a registry tarball and uploading, the Pack emitter takes the produced `VersionedBundleWithManifest` for the requested package and writes it to disk in one of three formats.
+
+### Why it exists
+
+The bundle / link / DCE / checks pipeline produces an artifact that is correct, minimal, and tree-shaken — and that work is just as valuable when the destination isn't an npm registry. AWS Lambda functions want zips. Container builds want directories. Release archives want tarballs. `pack` exposes the same artifact through a different sink so none of that pipeline work has to be re-implemented per destination.
+
+`pack` is also intentionally decoupled from automatic versioning. The registry is the source of truth for "what version comes next" — once you take the artifact off the registry path, there is no source of truth, so the caller has to supply a version. The CLI defaults the stamp to `0.0.0`; the API requires it explicitly.
+
+### Formats
+
+Three writers, one interface (`packEmitter.pack({ bundle, format, outputPath, vendorEntries, extraFiles })`):
+
+- **`zip`** — produced via `fflate` with maximum compression. Entry metadata is fully deterministic: every file is stamped with a fixed 1980-01-01 modification time, the Unix OS marker, and a fixed mode (`0644` for regular files, `0755` for executables). This makes byte-identical inputs produce byte-identical archives, which matters for reproducible-build claims and for Lambda's content-hash-based deduplication.
+- **`tar`** — the same gzipped tarball shape the publish path would upload, just written to a path instead of streamed to a registry.
+- **`folder`** — the artifact expanded onto disk. `outputPath` is treated as the target directory; files are written via the file manager's `writeBinaryFile`, executables get their bit set, and the layout mirrors what would be inside the zip/tar.
+
+### Vendor materialization
+
+The `--vendor-dependencies` / `vendorDependencies: true` flag turns the artifact into a self-contained drop. The materializer walks the consuming project's `node_modules` starting from every external dependency the linker recorded for the target package. For each visited package:
+
+- Resolves the package's real on-disk path via `fs.realpath`, which transparently handles npm's flat-with-symlinks layout, yarn-classic's nested layout, and pnpm's `node_modules/.pnpm` store with the `node_modules/<name>` symlinks. Resolution walks ancestor folders from the package's `sourcesFolder` upward until a matching `node_modules/<name>` is found.
+- Reads the resolved package's `package.json` and extracts both `dependencies` and `peerDependencies` to enqueue. Both are followed so the closure ends up self-contained.
+- Records every file under the package as a `VendorEntry` — a `{ sourceAbsolutePath, targetRelativePath, isExecutable }` reference. Files are referenced by path, not slurped into memory, so binary assets, native modules, and large blobs flow through without ever being decoded. Nested `node_modules` directories inside a visited package are skipped — each transitive dependency is visited independently from the project's top-level layout.
+- Recurses until a fixed point (every reachable dependency visited exactly once).
+
+The collected entries are passed to the artifact writers alongside the bundle's own files; the writers copy them into `node_modules/<name>/...` inside the artifact (or write directly for `folder`).
+
+**Bundle-dependency materialization** uses the same mechanism. A package the linker had previously substituted via cross-package import rewriting (§5) would, in a publish flow, ship without that sibling's source — the consumer's `npm install` would pull it from the registry. In a pack-with-vendor flow there is no consumer install, so the sibling has to be inside the artifact. The materializer treats `bundleDependencies` like any other dependency and copies the resolved sibling's files into `node_modules/`. The cross-package imports the linker rewrote during §5 (`./lib/foo.js` → `pkg/foo.js`) then resolve naturally once the sibling exists under `node_modules/pkg/`.
+
+**Strict peer-dependency check.** When `vendorDependencies` is on, every `peerDependency` declared by a vendored package — whether the vendored package is a sibling bundle or a vendored external — must be satisfied by another package in the same vendor closure. Peers cannot fall through to an ambient install at runtime, because there is no install. An unsatisfied peer is reported as `peer-dependencies-unsatisfied` with the offending package and peer names, and pack exits 1. This is policy, not a transport limitation: silently shipping an artifact whose peer expectations are unmet would defer the failure to runtime in someone else's environment.
+
+### Failure modes specific to pack
+
+The pack outcome's `PackFailure` discriminated union carries the union of the inherited resolve/link/checks failures plus three pack-specific variants:
+
+- `package-not-found` — the `<package>` argument doesn't match any configured package name.
+- `bundle-dependencies-unsupported` — the target package declares `bundleDependencies` but `--vendor-dependencies` is off. Without vendoring there is nowhere to put the sibling, so the request is rejected up front instead of producing a broken artifact.
+- `peer-dependencies-unsatisfied` — see the strict peer check above.
+
+All three are produced before any bytes are written, so a failed `pack` never leaves a partial artifact behind.
+
+## 11. Putting it all together
 
 A worked example: `image-resizer-cli` bundles `image-resizer-lib`.
 
