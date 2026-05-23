@@ -104,7 +104,8 @@ export function createBaseRoutes(): RouteMap {
         [timelinePath]: {
             body: [
                 {
-                    created_at: '2026-05-19T10:30:00.000Z',
+                    committer: { date: '2026-05-19T10:30:00.000Z' },
+                    created_at: null,
                     event: 'committed'
                 }
             ]

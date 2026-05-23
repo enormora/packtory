@@ -32,7 +32,8 @@ type BranchResponse = {
 };
 
 type RawTimelineEvent = {
-    readonly created_at: string;
+    readonly created_at?: string | null | undefined;
+    readonly committer?: { readonly date: string } | undefined;
     readonly event: string;
 };
 
@@ -68,9 +69,17 @@ const pullRequestSchema = z.object({
     number: z.number()
 });
 const timelineEventSchema = z.object({
-    created_at: z.string(),
+    created_at: z.optional(z.union([z.null(), z.string()])),
+    committer: z.optional(z.object({ date: z.string() })),
     event: z.string()
 });
+
+function selectTimelineEventTimestamp(event: RawTimelineEvent): string | undefined {
+    if (event.event === 'committed') {
+        return event.committer?.date;
+    }
+    return event.created_at ?? undefined;
+}
 
 function parseTimestamp(timestamp: string): Date {
     const date = new Date(timestamp);
@@ -186,11 +195,12 @@ async function getPullRequestActivity(
             return z.array(timelineEventSchema).parse(value);
         }
     );
-    const timelineEvents: PullRequestTimelineEvent[] = timeline.map((event) => {
-        return {
-            createdAt: parseTimestamp(event.created_at),
-            event: event.event
-        };
+    const timelineEvents: PullRequestTimelineEvent[] = timeline.flatMap((event) => {
+        const timestamp = selectTimelineEventTimestamp(event);
+        if (timestamp === undefined) {
+            return [];
+        }
+        return [{ createdAt: parseTimestamp(timestamp), event: event.event }];
     });
 
     return {
