@@ -12,7 +12,7 @@ import { getCiRepositoryUrl, type CiEnvironment } from '../bundle-emitter/reposi
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { createDeadCodeEliminator } from '../dead-code-eliminator/eliminator.ts';
 import { createDependencyScanner, type DependencyScanner } from '../dependency-scanner/scanner.ts';
-import { getReferencedSourceFiles } from '../dependency-scanner/source-file-references.ts';
+import { getReferencedModules } from '../dependency-scanner/source-file-references.ts';
 import { createSourceMapFileLocator } from '../dependency-scanner/source-map-file-locator.ts';
 import { createFileSystemAdapters } from '../dependency-scanner/typescript-file-host.ts';
 import { createTypescriptProjectAnalyzer } from '../dependency-scanner/typescript-project-analyzer.ts';
@@ -61,7 +61,7 @@ function createDependencyScannerWith(fileManager: FileManager): DependencyScanne
     const fileSystemAdapters = createFileSystemAdapters({ fileSystemHost: new RealFileSystemHost() });
     const typescriptProjectAnalyzer = createTypescriptProjectAnalyzer({
         Project,
-        getReferencedSourceFiles,
+        getReferencedModules,
         fileSystemAdapters
     });
     return createDependencyScanner({ sourceMapFileLocator, typescriptProjectAnalyzer });

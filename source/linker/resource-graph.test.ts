@@ -54,4 +54,66 @@ suite('resource-graph', function () {
             { id: '/other.js', externalDependencies: [] }
         ]);
     });
+
+    test('createGraphFromResolvedBundle() preserves the generated-manifest marker on resources', function () {
+        const root = {
+            js: {
+                sourceFilePath: '/entry.js',
+                targetFilePath: 'entry.js',
+                content: '',
+                isExecutable: false
+            }
+        } as const;
+        const graph = createGraphFromResolvedBundle({
+            name: 'package-a',
+            contents: [
+                {
+                    fileDescription: {
+                        sourceFilePath: '/entry.js',
+                        targetFilePath: 'entry.js',
+                        content: '',
+                        isExecutable: false
+                    },
+                    directDependencies: new Set(['/package.json']),
+                    isExplicitlyIncluded: false
+                },
+                {
+                    fileDescription: {
+                        sourceFilePath: '/package.json',
+                        targetFilePath: 'package.json',
+                        content: '{}',
+                        isExecutable: false
+                    },
+                    directDependencies: new Set(),
+                    isExplicitlyIncluded: false,
+                    isGeneratedManifest: true
+                }
+            ],
+            roots: { main: root },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
+            externalDependencies: new Map()
+        });
+        const manifestNodeData: { readonly isGeneratedManifest?: true | undefined }[] = [];
+
+        graph.visitBreadthFirstSearch('/entry.js', (node) => {
+            if (node.id === '/package.json') {
+                manifestNodeData.push(node.data);
+            }
+        });
+
+        assert.deepStrictEqual(manifestNodeData, [
+            {
+                fileDescription: {
+                    content: '{}',
+                    isExecutable: false,
+                    sourceFilePath: '/package.json',
+                    targetFilePath: 'package.json'
+                },
+                externalDependencies: [],
+                isExplicitlyIncluded: false,
+                isGeneratedManifest: true,
+                project: undefined
+            }
+        ]);
+    });
 });

@@ -12,6 +12,7 @@ type ResolvedContentDescription = {
     readonly content: string;
     readonly directDependencies?: readonly string[];
     readonly project?: Project;
+    readonly isGeneratedManifest?: true;
 };
 
 function buildInputGraph(
@@ -29,7 +30,8 @@ function buildInputGraph(
                     content: entry.content,
                     directDependencies: new Set(entry.directDependencies)
                 }),
-                project: entry.project
+                project: entry.project,
+                ...(entry.isGeneratedManifest === true ? { isGeneratedManifest: true } : {})
             };
         }),
         roots: { main: root },
@@ -279,5 +281,39 @@ suite('substitute-bundles', function () {
                 ['second-package', { name: 'second-package', referencedFrom: ['/foo.js'] }]
             ])
         });
+    });
+
+    test('preserves generated manifest markers while substituting dependencies', function () {
+        const project = createProject({
+            withFiles: [{ filePath: '/entry.js', content: 'import "./package.json" with { type: "json" };' }]
+        });
+        const inputGraph = buildInputGraph([
+            {
+                source: '/entry.js',
+                content: 'import "./package.json" with { type: "json" };',
+                directDependencies: ['/package.json'],
+                project
+            },
+            { source: '/package.json', content: '{"name":"test"}', isGeneratedManifest: true }
+        ]);
+
+        const substitutedGraph = substituteDependencies(inputGraph, []);
+        const result = substitutedGraph.flatten(['/entry.js']);
+
+        assert.deepStrictEqual(
+            result.contents.find((content) => content.fileDescription.sourceFilePath === '/package.json'),
+            {
+                directDependencies: new Set(),
+                fileDescription: {
+                    content: '{"name":"test"}',
+                    isExecutable: false,
+                    sourceFilePath: '/package.json',
+                    targetFilePath: 'package.json'
+                },
+                isSubstituted: false,
+                isExplicitlyIncluded: false,
+                isGeneratedManifest: true
+            }
+        );
     });
 });

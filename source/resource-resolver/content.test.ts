@@ -32,6 +32,30 @@ suite('content', function () {
         ]);
     });
 
+    test('pins generated manifest resources to package.json at package root', function () {
+        const result = combineAllBundleFiles(
+            '/src',
+            [
+                {
+                    filePath: '/package.json',
+                    directDependencies: new Set(),
+                    isGeneratedManifest: true
+                }
+            ],
+            []
+        );
+
+        assert.deepStrictEqual(result, [
+            {
+                sourceFilePath: '/package.json',
+                targetFilePath: 'package.json',
+                directDependencies: new Set(),
+                isExplicitlyIncluded: false,
+                isGeneratedManifest: true
+            }
+        ]);
+    });
+
     test('normalizes object-form additional files and marks them as explicitly included', function () {
         const result = combineAllBundleFiles(
             '/src',

@@ -37,7 +37,7 @@ function createFakeTSMorphProject(overrides: TSMorphProjectOverrides = {}): Read
 }
 
 type Overrides = {
-    readonly getReferencedSourceFiles?: SinonSpy;
+    readonly getReferencedModules?: SinonSpy;
     readonly TSMorphProject?: Readonly<SinonStub>;
     readonly fileSystemAdapters?: Record<string, unknown>;
 };
@@ -45,13 +45,13 @@ type Overrides = {
 function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): TypescriptProjectAnalyzer {
     const {
         TSMorphProject = createFakeTSMorphProject(),
-        getReferencedSourceFiles = fake.resolves([]),
+        getReferencedModules = fake.resolves([]),
         fileSystemAdapters = {
             withVirtualPackageJson: fake.returns('virtual-file-system')
         }
     } = overrides;
     const fakeDependencies = {
-        getReferencedSourceFiles,
+        getReferencedModules,
         Project: TSMorphProject,
         fileSystemAdapters
     } as unknown as TypescriptProjectAnalyzerDependencies;
@@ -74,6 +74,7 @@ function expectedProjectConstruction(args: {
                 noEmit: true,
                 moduleResolution: 3,
                 noLib: true,
+                resolveJsonModule: true,
                 skipLibCheck: true,
                 resolvePackageJsonImports: true,
                 ...args.extra
@@ -147,7 +148,7 @@ suite('typescript-project-analyzer', function () {
         });
     });
 
-    test('getReferencedSourceFilePaths() returns an empty array when the source file for given path doesn’t exist', function () {
+    test('getReferencedModules() returns an empty array when the source file for given path doesn’t exist', function () {
         const getSourceFile = fake.returns(undefined);
         const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
         const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject });
@@ -156,7 +157,7 @@ suite('typescript-project-analyzer', function () {
             resolveDeclarationFiles: false,
             mainPackageJson: { type: 'module' }
         });
-        const result = project.getReferencedSourceFilePaths('/foo/bar.js');
+        const result = project.getReferencedModules('/foo/bar.js');
 
         assert.deepStrictEqual(result, []);
     });
@@ -173,22 +174,29 @@ suite('typescript-project-analyzer', function () {
         assert.strictEqual(project.getProject(), TSMorphProject.firstCall.returnValue);
     });
 
-    test('getReferencedSourceFilePaths() returns the referenced source file paths', function () {
-        const getReferencedSourceFiles = fake.returns([
-            createFakeSourceFile({ filePath: '/foo/b.d.ts', isDeclarationFile: true }),
-            createFakeSourceFile({ filePath: '/foo/c.js', isDeclarationFile: false })
+    test('getReferencedModules() returns the referenced module descriptors', function () {
+        const getReferencedModules = fake.returns([
+            { kind: 'local-code', filePath: '/foo/b.d.ts' },
+            { kind: 'local-code', filePath: '/foo/c.js' }
         ]);
         const getSourceFile = fake.returns(createFakeSourceFile({ filePath: '/foo/a.js' }));
         const TSMorphProject = createFakeTSMorphProject({ getSourceFile });
-        const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedSourceFiles });
+        const analyzer = typescriptProjectAnalyzerFactory({ TSMorphProject, getReferencedModules });
 
         const project = analyzer.analyzeProject('/foo', {
             resolveDeclarationFiles: false,
             mainPackageJson: { type: 'module' }
         });
-        const result = project.getReferencedSourceFilePaths('/foo/a.js');
+        const result = project.getReferencedModules('/foo/a.js');
 
-        assert.deepStrictEqual(result, ['/foo/b.d.ts', '/foo/c.js']);
+        assert.deepStrictEqual(result, [
+            { kind: 'local-code', filePath: '/foo/b.d.ts' },
+            { kind: 'local-code', filePath: '/foo/c.js' }
+        ]);
+        assert.deepStrictEqual(getReferencedModules.firstCall.args, [
+            getSourceFile.firstCall.returnValue,
+            '/foo/package.json'
+        ]);
     });
 
     test('passes the configured mainPackageJson into the virtual file-system overlay', function () {

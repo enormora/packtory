@@ -7,6 +7,7 @@ export type BundleResource = {
     readonly fileDescription: TransferableFileDescription;
     readonly directDependencies: ReadonlySet<string>;
     readonly isExplicitlyIncluded: boolean;
+    readonly isGeneratedManifest?: true | undefined;
 };
 
 export type ResolvedContent = BundleResource & {

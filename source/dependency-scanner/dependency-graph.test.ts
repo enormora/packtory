@@ -126,6 +126,29 @@ suite('dependency-graph', function () {
         ]);
     });
 
+    test('walk() preserves generated-manifest markers', function () {
+        const graph = createDependencyGraph();
+
+        graph.addDependency('package.json', {
+            sourceMapFilePath: Maybe.nothing(),
+            externalDependencies: [],
+            isGeneratedManifest: true
+        });
+
+        const result = collectVisitorNodes(graph, 'package.json');
+
+        assert.deepStrictEqual(result, [
+            {
+                filePath: 'package.json',
+                sourceMapFilePath: Maybe.nothing(),
+                externalDependencies: [],
+                localFiles: [],
+                project: undefined,
+                isGeneratedManifest: true
+            }
+        ]);
+    });
+
     const fooBarLocalFiles = [
         { directDependencies: new Set(['bar.js']), filePath: 'foo.js', project: {} },
         { directDependencies: new Set(), filePath: 'bar.js', project: {} }
@@ -161,6 +184,22 @@ suite('dependency-graph', function () {
                 ['c', { name: 'c', referencedFrom: ['bar.js'] }]
             ])
         });
+    });
+
+    test('flatten() keeps source map files projectless when the owning node has no project', function () {
+        const graph = createDependencyGraph();
+
+        graph.addDependency('foo.js', {
+            sourceMapFilePath: Maybe.just('foo.js.map'),
+            externalDependencies: []
+        });
+
+        const result = graph.flatten('foo.js');
+
+        assert.deepStrictEqual(result.localFiles, [
+            { directDependencies: new Set(), filePath: 'foo.js.map', project: undefined },
+            { directDependencies: new Set(['foo.js.map']), filePath: 'foo.js', project: undefined }
+        ]);
     });
 
     test('mergeDependencyFiles() merges two sets of dependency files', function () {

@@ -19,7 +19,9 @@ export function collectArtifactContents(
         }
     ];
 
-    for (const entry of bundle.contents) {
+    for (const entry of bundle.contents.filter((content) => {
+        return !content.isGeneratedManifest;
+    })) {
         artifactContents.push({
             filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
             content: entry.fileDescription.content,
@@ -54,14 +56,19 @@ export function describeArtifactsForReport(
             ...bundle.manifestFile,
             filePath: applyPrefix(bundle.manifestFile.filePath, prefix)
         },
-        ...bundle.contents.map((entry) => {
-            return {
-                filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
-                content: entry.fileDescription.content,
-                isExecutable: entry.fileDescription.isExecutable,
-                sourceFilePath: entry.fileDescription.sourceFilePath,
-                isSubstituted: entry.isSubstituted
-            };
+        ...bundle.contents.flatMap((entry) => {
+            if (entry.isGeneratedManifest) {
+                return [];
+            }
+            return [
+                {
+                    filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
+                    content: entry.fileDescription.content,
+                    isExecutable: entry.fileDescription.isExecutable,
+                    sourceFilePath: entry.fileDescription.sourceFilePath,
+                    isSubstituted: entry.isSubstituted
+                }
+            ];
         }),
         ...extraFiles.map((entry) => {
             return {

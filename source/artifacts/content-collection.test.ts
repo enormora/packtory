@@ -8,12 +8,17 @@ type Content = ArtifactSourcePackage['contents'][number];
 function contentEntry(
     targetFilePath: string,
     content: string,
-    options: { readonly isSubstituted?: boolean; readonly isExecutable?: boolean } = {}
+    options: {
+        readonly isGeneratedManifest?: boolean;
+        readonly isSubstituted?: boolean;
+        readonly isExecutable?: boolean;
+    } = {}
 ): Content {
     return {
         isSubstituted: options.isSubstituted ?? false,
         isExplicitlyIncluded: false,
         directDependencies: new Set<string>(),
+        ...(options.isGeneratedManifest ? { isGeneratedManifest: true } : {}),
         fileDescription: {
             content,
             isExecutable: options.isExecutable ?? false,
@@ -31,6 +36,12 @@ function bundle(overrides: Partial<ArtifactSourcePackage> = {}): ArtifactSourceP
         contents: [],
         ...overrides
     };
+}
+
+function generatedManifestPlaceholderBundle(): ArtifactSourcePackage {
+    return bundle({
+        contents: [contentEntry('package.json', '{"name":"source"}', { isGeneratedManifest: true })]
+    });
 }
 
 suite('content-collection', function () {
@@ -54,6 +65,12 @@ suite('content-collection', function () {
                 { filePath: 'a.txt', content: 'a', isExecutable: false }
             ]
         );
+    });
+
+    test('collectArtifactContents skips generated-manifest placeholder contents', function () {
+        assert.deepStrictEqual(collectArtifactContents(generatedManifestPlaceholderBundle(), undefined, []), [
+            { filePath: 'package.json', content: '{}', isExecutable: false }
+        ]);
     });
 
     test('collectArtifactContents appends extra files after the bundle contents', function () {
@@ -165,6 +182,12 @@ suite('content-collection', function () {
                 }
             ]
         );
+    });
+
+    test('describeArtifactsForReport skips generated-manifest placeholder contents', function () {
+        assert.deepStrictEqual(describeArtifactsForReport(generatedManifestPlaceholderBundle(), undefined, []), [
+            { filePath: 'package.json', content: '{}', isExecutable: false }
+        ]);
     });
 
     test('describeArtifactsForReport applies the prefix to manifest, contents, and extra files', function () {

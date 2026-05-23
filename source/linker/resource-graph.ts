@@ -10,6 +10,7 @@ export type ResourceGraphNodeData = {
     readonly project?: Project | undefined;
     readonly externalDependencies: readonly string[];
     readonly isExplicitlyIncluded: boolean;
+    readonly isGeneratedManifest?: true | undefined;
 };
 
 export type ResourceGraph = DirectedGraph<string, ResourceGraphNodeData>;
@@ -39,7 +40,8 @@ export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceG
             fileDescription: resource.fileDescription,
             externalDependencies,
             project: resource.project,
-            isExplicitlyIncluded: resource.isExplicitlyIncluded
+            isExplicitlyIncluded: resource.isExplicitlyIncluded,
+            ...(resource.isGeneratedManifest ? { isGeneratedManifest: true } : {})
         });
     }
 

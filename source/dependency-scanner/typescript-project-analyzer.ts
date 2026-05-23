@@ -1,16 +1,20 @@
 import path from 'node:path';
 import type { Project as _Project, SourceFile } from 'ts-morph';
+import type { ModuleReference } from './source-file-references.ts';
 import { analyzationOptionsToCompilerOptions, type AnalyzationOptions } from './typescript-compiler-options.ts';
 import type { FileSystemAdapters } from './typescript-file-host.ts';
 
 export type TypescriptProjectAnalyzerDependencies = {
     readonly Project: typeof _Project;
     readonly fileSystemAdapters: FileSystemAdapters;
-    getReferencedSourceFiles: (sourceFile: Readonly<SourceFile>) => readonly Readonly<SourceFile>[];
+    getReferencedModules: (
+        sourceFile: Readonly<SourceFile>,
+        packageJsonPath: string
+    ) => readonly Readonly<ModuleReference>[];
 };
 
 export type TypescriptProject = {
-    getReferencedSourceFilePaths: (containingSourceFilePath: string) => readonly string[];
+    getReferencedModules: (containingSourceFilePath: string) => readonly Readonly<ModuleReference>[];
     getProject: () => _Project;
 };
 
@@ -25,10 +29,11 @@ export function getSourcePathFromSourceFile(sourceFile: Readonly<SourceFile>): s
 export function createTypescriptProjectAnalyzer(
     dependencies: TypescriptProjectAnalyzerDependencies
 ): TypescriptProjectAnalyzer {
-    const { fileSystemAdapters, Project, getReferencedSourceFiles } = dependencies;
+    const { fileSystemAdapters, Project, getReferencedModules } = dependencies;
 
     return {
         analyzeProject(folder, options) {
+            const packageJsonPath = path.join(folder, 'package.json');
             const project = new Project({
                 compilerOptions: analyzationOptionsToCompilerOptions(options),
                 fileSystem: fileSystemAdapters.withVirtualPackageJson(
@@ -45,14 +50,14 @@ export function createTypescriptProjectAnalyzer(
             project.addSourceFilesAtPaths([filesPattern]);
 
             return {
-                getReferencedSourceFilePaths(containingSourceFilePath) {
+                getReferencedModules(containingSourceFilePath) {
                     const currentSourceFile = project.getSourceFile(containingSourceFilePath);
 
                     if (currentSourceFile === undefined) {
                         return [];
                     }
 
-                    return getReferencedSourceFiles(currentSourceFile).map(getSourcePathFromSourceFile);
+                    return getReferencedModules(currentSourceFile, packageJsonPath);
                 },
 
                 getProject() {

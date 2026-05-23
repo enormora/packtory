@@ -145,6 +145,57 @@ suite('resource-resolver', function () {
         assert.strictEqual(result.roots.main?.declarationFile, undefined);
     });
 
+    test('resolve() synthesizes generated manifest resources instead of reading them from disk', async function () {
+        const graph = createGraph({ rootFile: '/src/index.js' });
+        graph.addDependency('/src/package.json', {
+            sourceMapFilePath: Maybe.nothing(),
+            externalDependencies: [],
+            isGeneratedManifest: true
+        });
+        graph.connect('/src/index.js', '/src/package.json');
+        const scan = fake.resolves(graph);
+        const fileDescriptionCalls: { readonly sourceFilePath: string; readonly targetFilePath: string }[] = [];
+        const dependencyScanner: ResourceResolverDependencies['dependencyScanner'] = { scan };
+        const fileManager = createFakeFileManager({
+            transferableFileDescriptionResponder: (sourceFilePath, targetFilePath) => {
+                if (targetFilePath === 'package.json') {
+                    throw new Error('should not read generated manifest');
+                }
+
+                fileDescriptionCalls.push({ sourceFilePath, targetFilePath });
+                return { value: createTransferableFile(sourceFilePath, targetFilePath) };
+            }
+        });
+        const dependencies: ResourceResolverDependencies = {
+            dependencyScanner,
+            fileManager
+        };
+
+        const result = await createResourceResolver(dependencies).resolve({
+            ...baseResolveOptions,
+            mainPackageJson: { type: 'module' }
+        });
+        const manifestResource = result.contents.find((entry) => {
+            return entry.fileDescription.targetFilePath === 'package.json';
+        });
+
+        assert.ok(manifestResource !== undefined);
+        assert.strictEqual(manifestResource.isGeneratedManifest, true);
+        assert.strictEqual(manifestResource.fileDescription.content, '{\n    "type": "module"\n}\n');
+        assert.strictEqual(manifestResource.fileDescription.isExecutable, false);
+        assert.strictEqual(fileManager.getTransferableFileDescriptionCallCount(), 1);
+        assert.deepStrictEqual(fileDescriptionCalls, [
+            {
+                sourceFilePath: '/src/index.js',
+                targetFilePath: 'index.js'
+            }
+        ]);
+        assert.deepStrictEqual(fileManager.getTransferableFileDescriptionCall(0), {
+            sourceFilePath: '/src/index.js',
+            targetFilePath: 'index.js'
+        });
+    });
+
     test('resolve() scans declaration roots separately and merges local and external dependencies', async function () {
         const jsGraph = createGraph({
             rootFile: '/src/index.js',

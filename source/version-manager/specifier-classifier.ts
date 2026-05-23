@@ -18,19 +18,24 @@ export type Classification =
 
 type NpaResultType = npa.Result['type'];
 
-const npaTypeKindMap: Readonly<Record<NpaResultType, Classification>> = {
-    alias: { kind: 'registry' },
-    version: { kind: 'registry' },
-    range: { kind: 'registry' },
-    tag: { kind: 'registry' },
-    git: { kind: 'mutable', npaType: 'git' },
-    remote: { kind: 'mutable', npaType: 'remote' },
-    file: { kind: 'mutable', npaType: 'file' },
-    directory: { kind: 'mutable', npaType: 'directory' }
-};
+const registryNpaTypes = new Set<NpaResultType>(['alias', 'version', 'range', 'tag']);
 
 function classifyNpaResult(result: npa.Result): Classification {
-    return npaTypeKindMap[result.type];
+    if (registryNpaTypes.has(result.type)) {
+        return { kind: 'registry' };
+    }
+
+    if (result.type === 'git') {
+        return { kind: 'mutable', npaType: 'git' };
+    }
+    if (result.type === 'remote') {
+        return { kind: 'mutable', npaType: 'remote' };
+    }
+    if (result.type === 'file') {
+        return { kind: 'mutable', npaType: 'file' };
+    }
+
+    return { kind: 'mutable', npaType: 'directory' };
 }
 
 export function classifySpecifier(name: string, specifier: string): Classification {
