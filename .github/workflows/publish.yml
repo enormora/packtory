@@ -26,6 +26,8 @@ jobs:
               uses: actions/setup-node@v6
               with:
                   node-version: 26.x
+            - name: Install dependencies for release gate
+              run: npm clean-install
             - name: Evaluate GitHub release gate
               id: release-gate
               run: node --experimental-strip-types --enable-source-maps ./source/packages/github-release-gate/github-release-gate.entry-point.ts
