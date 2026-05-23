@@ -133,7 +133,8 @@ suite('github-release-gate-cli-runner', function () {
         routes[timelinePath] = {
             body: [
                 {
-                    created_at: '2026-05-20T11:58:00.000Z',
+                    committer: { date: '2026-05-20T11:58:00.000Z' },
+                    created_at: null,
                     event: 'committed'
                 }
             ]
@@ -199,7 +200,8 @@ suite('github-release-gate-cli-runner', function () {
         routes[timelinePath] = {
             body: [
                 {
-                    created_at: new Date(now - 5 * 60 * 1000).toISOString(),
+                    committer: { date: new Date(now - 5 * 60 * 1000).toISOString() },
+                    created_at: null,
                     event: 'committed'
                 }
             ]

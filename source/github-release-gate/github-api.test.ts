@@ -155,7 +155,8 @@ suite('github-release-gate-github-api', function () {
         routes['/repos/enormora/packtory/issues/2/timeline?per_page=100'] = {
             body: [
                 {
-                    created_at: '2026-05-19T10:25:00.000Z',
+                    committer: { date: '2026-05-19T10:25:00.000Z' },
+                    created_at: null,
                     event: 'committed'
                 }
             ]
@@ -225,7 +226,8 @@ suite('github-release-gate-github-api', function () {
         routes[timelinePath] = {
             body: [
                 {
-                    created_at: 'not-a-timestamp',
+                    committer: { date: 'not-a-timestamp' },
+                    created_at: null,
                     event: 'committed'
                 }
             ]
@@ -235,5 +237,70 @@ suite('github-release-gate-github-api', function () {
         await assert.rejects(async () => {
             await api.getOpenPullRequestActivities();
         }, /Invalid timestamp/u);
+    });
+
+    test('getOpenPullRequestActivities uses created_at for non-committed branch-activity events', async function () {
+        const routes = createBaseRoutes() as Record<string, MockRoute>;
+        routes[timelinePath] = {
+            body: [
+                {
+                    created_at: '2026-05-19T11:00:00.000Z',
+                    event: 'head_ref_force_pushed'
+                }
+            ]
+        };
+        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+
+        assert.deepStrictEqual(await api.getOpenPullRequestActivities(), [
+            {
+                activityAt: new Date('2026-05-19T11:00:00.000Z'),
+                htmlUrl: 'https://github.com/enormora/packtory/pull/1',
+                number: 1
+            }
+        ]);
+    });
+
+    test('getOpenPullRequestActivities skips committed events without a committer date', async function () {
+        const routes = createBaseRoutes() as Record<string, MockRoute>;
+        routes[timelinePath] = {
+            body: [
+                {
+                    created_at: null,
+                    event: 'committed'
+                }
+            ]
+        };
+        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+
+        assert.deepStrictEqual(await api.getOpenPullRequestActivities(), [
+            {
+                activityAt: new Date('2026-05-19T10:15:00.000Z'),
+                htmlUrl: 'https://github.com/enormora/packtory/pull/1',
+                number: 1
+            }
+        ]);
+    });
+
+    test('getOpenPullRequestActivities skips timeline events without a timestamp', async function () {
+        const routes = createBaseRoutes() as Record<string, MockRoute>;
+        routes[timelinePath] = {
+            body: [
+                { event: 'reviewed', submitted_at: '2026-05-19T10:40:00.000Z' },
+                {
+                    committer: { date: '2026-05-19T10:45:00.000Z' },
+                    created_at: null,
+                    event: 'committed'
+                }
+            ]
+        };
+        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+
+        assert.deepStrictEqual(await api.getOpenPullRequestActivities(), [
+            {
+                activityAt: new Date('2026-05-19T10:45:00.000Z'),
+                htmlUrl: 'https://github.com/enormora/packtory/pull/1',
+                number: 1
+            }
+        ]);
     });
 });
