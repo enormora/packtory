@@ -175,6 +175,32 @@ suite('pack-handler', function () {
         );
     });
 
+    test('returns 1 and identifies the source manifest and offending key when a vendored package.json carries an invalid dependency name', async function () {
+        await expectFailure(
+            {
+                type: 'vendor-invalid-dependency-name',
+                packageName: 'pkg-a',
+                sourcePackageName: 'legit-utils',
+                invalidDependencyName: '../../legit-utils'
+            },
+            [
+                /invalid dependency name\n- "legit-utils" declares dependency "\.\.\/\.\.\/legit-utils" which is not a valid npm package name/u
+            ]
+        );
+    });
+
+    test('returns 1 and labels the source as the configured external set when an invalid dependency name is supplied directly to the materializer', async function () {
+        await expectFailure(
+            {
+                type: 'vendor-invalid-dependency-name',
+                packageName: 'pkg-a',
+                sourcePackageName: undefined,
+                invalidDependencyName: '../escape'
+            },
+            [/invalid dependency name\n- the configured external set declares dependency "\.\.\/escape"/u]
+        );
+    });
+
     test('returns 1 and summarises partial resolve failures with one line per failure', async function () {
         await expectFailure(
             { type: 'partial', error: { succeeded: [], failures: [new Error('resolve A'), new Error('resolve B')] } },

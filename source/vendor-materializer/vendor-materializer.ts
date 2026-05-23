@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { safeParse } from '@schema-hub/zod-error-formatter';
+import npa from 'npm-package-arg';
 import { Result } from 'true-myth';
 import { z } from 'zod/mini';
 import type { FileManager } from '../file-manager/file-manager.ts';
@@ -11,6 +12,14 @@ export type SymlinkTargetOutsidePackageFailure = {
     readonly entryRelativePath: string;
     readonly resolvedTargetPath: string;
 };
+
+export type InvalidDependencyNameFailure = {
+    readonly type: 'invalid-dependency-name';
+    readonly sourcePackageName: string | undefined;
+    readonly invalidDependencyName: string;
+};
+
+export type VendorMaterializerFailure = InvalidDependencyNameFailure | SymlinkTargetOutsidePackageFailure;
 
 type MaterializedExternals = {
     readonly entries: readonly VendorEntry[];
@@ -30,7 +39,7 @@ type MaterializeExternalsOptions = {
 export type VendorMaterializer = {
     materializeExternals: (
         options: MaterializeExternalsOptions
-    ) => Promise<Result<MaterializedExternals, SymlinkTargetOutsidePackageFailure>>;
+    ) => Promise<Result<MaterializedExternals, VendorMaterializerFailure>>;
 };
 
 const nodeModulesFolderName = 'node_modules';
@@ -82,17 +91,45 @@ type ParsedManifestSummary = {
     readonly peerDependencyNames: readonly string[];
 };
 
-function parseManifestSummary(content: string): ParsedManifestSummary {
+function rejectDependencyNameIfInvalid(name: string): string | undefined {
+    try {
+        if (npa(name).name === name) {
+            return undefined;
+        }
+        return name;
+    } catch {
+        return name;
+    }
+}
+
+function findFirstInvalidDependencyName(names: readonly string[]): string | undefined {
+    for (const name of names) {
+        const offending = rejectDependencyNameIfInvalid(name);
+        if (offending !== undefined) {
+            return offending;
+        }
+    }
+    return undefined;
+}
+
+function parseManifestSummary(
+    sourcePackageName: string,
+    content: string
+): Result<ParsedManifestSummary, InvalidDependencyNameFailure> {
     const parsed = safeParse(packageManifestSchema, JSON.parse(content));
     if (!parsed.success) {
-        return { transitiveDependencyNames: [], peerDependencyNames: [] };
+        return Result.ok({ transitiveDependencyNames: [], peerDependencyNames: [] });
     }
     const dependencyNames = Object.keys(parsed.data.dependencies ?? {});
     const peerDependencyNames = Object.keys(parsed.data.peerDependencies ?? {});
-    return {
+    const invalidDependencyName = findFirstInvalidDependencyName([...dependencyNames, ...peerDependencyNames]);
+    if (invalidDependencyName !== undefined) {
+        return Result.err({ type: 'invalid-dependency-name', sourcePackageName, invalidDependencyName });
+    }
+    return Result.ok({
         transitiveDependencyNames: [...dependencyNames, ...peerDependencyNames],
         peerDependencyNames
-    };
+    });
 }
 
 function isInside(rootDirectory: string, candidate: string): boolean {
@@ -253,21 +290,36 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         return undefined;
     }
 
-    async function readManifestSummary(packageDirectory: string): Promise<ParsedManifestSummary> {
+    async function readManifestSummary(
+        sourcePackageName: string,
+        packageDirectory: string
+    ): Promise<Result<ParsedManifestSummary, InvalidDependencyNameFailure>> {
         const manifestPath = path.join(packageDirectory, 'package.json');
         const content = await fileManager.readFile(manifestPath);
-        return parseManifestSummary(content);
+        return parseManifestSummary(sourcePackageName, content);
+    }
+
+    function recordResolvedSummary(
+        closure: Closure,
+        name: string,
+        realPath: string,
+        summary: ParsedManifestSummary
+    ): void {
+        enqueueDependencies(closure, realPath, summary.transitiveDependencyNames);
+        closure.peerRequirements.set(name, summary.peerDependencyNames);
     }
 
     async function ingestResolvedPackage(
         closure: Closure,
         name: string,
         realPath: string
-    ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
+    ): Promise<Result<undefined, VendorMaterializerFailure>> {
         closure.visited.add(name);
-        const summary = await readManifestSummary(realPath);
-        enqueueDependencies(closure, realPath, summary.transitiveDependencyNames);
-        closure.peerRequirements.set(name, summary.peerDependencyNames);
+        const summaryResult = await readManifestSummary(name, realPath);
+        if (summaryResult.isErr) {
+            return Result.err(summaryResult.error);
+        }
+        recordResolvedSummary(closure, name, realPath, summaryResult.value);
         const packageEntries = await collectPackageFiles(fileManager, realPath, name);
         if (packageEntries.isErr) {
             return Result.err(packageEntries.error);
@@ -279,7 +331,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
     async function processQueueItem(
         closure: Closure,
         item: QueueItem
-    ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
+    ): Promise<Result<undefined, VendorMaterializerFailure>> {
         if (closure.visited.has(item.name)) {
             return Result.ok(undefined);
         }
@@ -290,7 +342,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         return await ingestResolvedPackage(closure, item.name, realPath);
     }
 
-    async function drainQueue(closure: Closure): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
+    async function drainQueue(closure: Closure): Promise<Result<undefined, VendorMaterializerFailure>> {
         const item = closure.queue.shift();
         if (item === undefined) {
             return Result.ok(undefined);
@@ -304,6 +356,14 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
 
     return {
         async materializeExternals(options) {
+            const invalidInitialName = findFirstInvalidDependencyName(options.initialDependencyNames);
+            if (invalidInitialName !== undefined) {
+                return Result.err({
+                    type: 'invalid-dependency-name',
+                    sourcePackageName: undefined,
+                    invalidDependencyName: invalidInitialName
+                });
+            }
             const closure: Closure = {
                 visited: new Set<string>(),
                 entries: [],

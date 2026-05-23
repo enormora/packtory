@@ -26,8 +26,16 @@ type VendorSymlinkOutsidePackageFailure = {
     readonly resolvedTargetPath: string;
 };
 
+type VendorInvalidDependencyNameFailure = {
+    readonly type: 'vendor-invalid-dependency-name';
+    readonly packageName: string;
+    readonly sourcePackageName: string | undefined;
+    readonly invalidDependencyName: string;
+};
+
 export type PackPackageFailure =
     | PeerDependenciesUnsatisfiedFailure
+    | VendorInvalidDependencyNameFailure
     | VendorSymlinkOutsidePackageFailure
     | { readonly type: 'bundle-dependencies-unsupported'; readonly packageName: string }
     | { readonly type: 'package-not-found'; readonly packageName: string };

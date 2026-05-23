@@ -62,12 +62,25 @@ function formatVendorSymlinkOutsidePackageFailure(
     return [header, details].join('\n');
 }
 
+function formatVendorInvalidDependencyNameFailure(
+    error: PackFailure & { readonly type: 'vendor-invalid-dependency-name' }
+): string {
+    const reason = 'rejected a vendored package.json with an invalid dependency name';
+    const header = `${getErrorSymbol()} Pack of "${error.packageName}" ${reason}`;
+    const sourceLabel =
+        error.sourcePackageName === undefined ? 'the configured external set' : `"${error.sourcePackageName}"`;
+    const tail = 'which is not a valid npm package name';
+    const details = `- ${sourceLabel} declares dependency "${error.invalidDependencyName}" ${tail}`;
+    return [header, details].join('\n');
+}
+
 type ConfigOrCheckError = PackFailure & { readonly type: 'checks' | 'config' };
 type PackPackageError = PackFailure & {
     readonly type:
         | 'bundle-dependencies-unsupported'
         | 'package-not-found'
         | 'peer-dependencies-unsatisfied'
+        | 'vendor-invalid-dependency-name'
         | 'vendor-symlink-target-outside-package';
 };
 
@@ -88,6 +101,9 @@ function formatPackPackageFailure(error: PackPackageError): string {
     if (error.type === 'vendor-symlink-target-outside-package') {
         return formatVendorSymlinkOutsidePackageFailure(error);
     }
+    if (error.type === 'vendor-invalid-dependency-name') {
+        return formatVendorInvalidDependencyNameFailure(error);
+    }
     return formatPeerFailure(error);
 }
 
@@ -100,7 +116,8 @@ function isPackPackageError(error: PackFailure): error is PackPackageError {
         error.type === 'package-not-found' ||
         error.type === 'bundle-dependencies-unsupported' ||
         error.type === 'peer-dependencies-unsatisfied' ||
-        error.type === 'vendor-symlink-target-outside-package'
+        error.type === 'vendor-symlink-target-outside-package' ||
+        error.type === 'vendor-invalid-dependency-name'
     );
 }
 
