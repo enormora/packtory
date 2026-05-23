@@ -1,10 +1,16 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
-import { createVendorMaterializer } from './vendor-materializer.ts';
+import {
+    createVendorMaterializer,
+    type SymlinkTargetOutsidePackageFailure,
+    type VendorMaterializer
+} from './vendor-materializer.ts';
+
+type VendorMaterializerFailure = SymlinkTargetOutsidePackageFailure;
 
 type ReadabilityResponse = { readonly value: { readonly isReadable: boolean } };
-type StringResponse = { readonly value: string };
+type StringResponse = { readonly error: Error } | { readonly value: string };
 type DirectoryEntriesResponse = {
     readonly value: readonly {
         readonly name: string;
@@ -29,10 +35,7 @@ function setupFileManager(setup: FakeSetup): ReturnType<typeof createFakeFileMan
     });
 }
 
-async function runWith(
-    setup: FakeSetup,
-    request: { readonly initialDependencyNames: readonly string[]; readonly projectFolder: string }
-): Promise<{
+type MaterializedSnapshot = {
     readonly entries: readonly {
         readonly targetRelativePath: string;
         readonly sourceAbsolutePath: string;
@@ -40,10 +43,40 @@ async function runWith(
     }[];
     readonly packageNames: readonly string[];
     readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
-}> {
+};
+
+function expectOk(result: Awaited<ReturnType<VendorMaterializer['materializeExternals']>>): MaterializedSnapshot {
+    if (result.isErr) {
+        assert.fail(`expected materializeExternals to succeed but it returned ${JSON.stringify(result.error)}`);
+    }
+    return result.value;
+}
+
+function expectErr(
+    result: Awaited<ReturnType<VendorMaterializer['materializeExternals']>>
+): SymlinkTargetOutsidePackageFailure {
+    if (result.isOk) {
+        assert.fail('expected materializeExternals to fail but it returned Ok');
+    }
+    return result.error;
+}
+
+async function runWith(
+    setup: FakeSetup,
+    request: { readonly initialDependencyNames: readonly string[]; readonly projectFolder: string }
+): Promise<MaterializedSnapshot> {
     const fileManager = setupFileManager(setup);
     const materializer = createVendorMaterializer({ fileManager });
-    return await materializer.materializeExternals(request);
+    return expectOk(await materializer.materializeExternals(request));
+}
+
+async function runExpectingFailure(
+    setup: FakeSetup,
+    request: { readonly initialDependencyNames: readonly string[]; readonly projectFolder: string }
+): Promise<SymlinkTargetOutsidePackageFailure> {
+    const fileManager = setupFileManager(setup);
+    const materializer = createVendorMaterializer({ fileManager });
+    return expectErr(await materializer.materializeExternals(request));
 }
 
 suite('vendor-materializer', function () {
@@ -73,10 +106,12 @@ suite('vendor-materializer', function () {
         const fileManager = setupFileManager({ readabilities: [], realPaths: [], listings: [], fileReads: [] });
         const materializer = createVendorMaterializer({ fileManager });
 
-        const result = await materializer.materializeExternals({
-            initialDependencyNames: [],
-            projectFolder: '/repo'
-        });
+        const result = expectOk(
+            await materializer.materializeExternals({
+                initialDependencyNames: [],
+                projectFolder: '/repo'
+            })
+        );
 
         assert.deepStrictEqual(result.entries, []);
         assert.deepStrictEqual(result.packageNames, []);
@@ -98,10 +133,12 @@ suite('vendor-materializer', function () {
         });
         const materializer = createVendorMaterializer({ fileManager });
 
-        const result = await materializer.materializeExternals({
-            initialDependencyNames: ['leaf'],
-            projectFolder: '/repo'
-        });
+        const result = expectOk(
+            await materializer.materializeExternals({
+                initialDependencyNames: ['leaf'],
+                projectFolder: '/repo'
+            })
+        );
 
         assert.deepStrictEqual(result.packageNames, ['leaf']);
         assert.deepStrictEqual(result.entries, [
@@ -147,10 +184,12 @@ suite('vendor-materializer', function () {
         });
         const materializer = createVendorMaterializer({ fileManager });
 
-        const result = await materializer.materializeExternals({
-            initialDependencyNames: ['root'],
-            projectFolder: '/repo'
-        });
+        const result = expectOk(
+            await materializer.materializeExternals({
+                initialDependencyNames: ['root'],
+                projectFolder: '/repo'
+            })
+        );
 
         assert.deepStrictEqual(result.packageNames, ['root', 'dep', 'peer']);
         const targetPaths = result.entries.map((entry) => {
@@ -230,10 +269,12 @@ suite('vendor-materializer', function () {
         });
         const materializer = createVendorMaterializer({ fileManager });
 
-        const result = await materializer.materializeExternals({
-            initialDependencyNames: ['hoisted'],
-            projectFolder: '/workspace/packages/inner'
-        });
+        const result = expectOk(
+            await materializer.materializeExternals({
+                initialDependencyNames: ['hoisted'],
+                projectFolder: '/workspace/packages/inner'
+            })
+        );
 
         assert.deepStrictEqual(result.packageNames, ['hoisted']);
         assert.deepStrictEqual(fileManager.getAllCheckReadabilityCalls(), [
@@ -261,10 +302,12 @@ suite('vendor-materializer', function () {
         });
         const materializer = createVendorMaterializer({ fileManager });
 
-        const result = await materializer.materializeExternals({
-            initialDependencyNames: ['missing'],
-            projectFolder: '/some/deep/folder'
-        });
+        const result = expectOk(
+            await materializer.materializeExternals({
+                initialDependencyNames: ['missing'],
+                projectFolder: '/some/deep/folder'
+            })
+        );
 
         assert.deepStrictEqual(result.entries, []);
         assert.deepStrictEqual(result.packageNames, []);
@@ -305,5 +348,123 @@ suite('vendor-materializer', function () {
             return entry.targetRelativePath.startsWith('node_modules/shared/');
         }).length;
         assert.strictEqual(sharedCount, 1);
+    });
+
+    test('vendors a symlink whose resolved target stays inside the package directory', async function () {
+        const result = await runWith(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg/dist/index.js' }],
+                listings: [
+                    {
+                        value: [
+                            { name: 'dist', isDirectory: true, isSymbolicLink: false },
+                            { name: 'bin.js', isDirectory: false, isSymbolicLink: true }
+                        ]
+                    },
+                    {
+                        value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }]
+                    }
+                ],
+                fileReads: [{ value: '{}' }]
+            },
+            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+        );
+
+        const targetPaths = result.entries.map((entry) => {
+            return entry.targetRelativePath;
+        });
+        assert.deepStrictEqual(targetPaths, ['node_modules/pkg/dist/index.js', 'node_modules/pkg/bin.js']);
+    });
+
+    test('rejects a symlink whose resolved target escapes the package directory', async function () {
+        const failure = await runExpectingFailure(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/evil' }, { value: '/Users/victim/.npmrc' }],
+                listings: [
+                    {
+                        value: [{ name: 'leak.json', isDirectory: false, isSymbolicLink: true }]
+                    }
+                ],
+                fileReads: [{ value: '{}' }]
+            },
+            { initialDependencyNames: ['evil'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(failure, {
+            type: 'symlink-target-outside-package',
+            packageName: 'evil',
+            entryRelativePath: 'leak.json',
+            resolvedTargetPath: '/Users/victim/.npmrc'
+        });
+    });
+
+    async function runSinglePackageSymlinkScenario(scenario: {
+        readonly initialName: string;
+        readonly packageRealPath: string;
+        readonly listings: FakeSetup['listings'];
+        readonly targetRealPath: { readonly error: Error } | { readonly value: string };
+    }): Promise<VendorMaterializerFailure> {
+        return await runExpectingFailure(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: scenario.packageRealPath }, scenario.targetRealPath],
+                listings: scenario.listings,
+                fileReads: [{ value: '{}' }]
+            },
+            { initialDependencyNames: [scenario.initialName], projectFolder: '/repo' }
+        );
+    }
+
+    test('rejects a symlink whose resolved target is the immediate parent of the package directory', async function () {
+        const failure = await runSinglePackageSymlinkScenario({
+            initialName: 'pkg',
+            packageRealPath: '/repo/node_modules/pkg',
+            listings: [{ value: [{ name: 'parent-link', isDirectory: false, isSymbolicLink: true }] }],
+            targetRealPath: { value: '/repo/node_modules' }
+        });
+
+        assert.deepStrictEqual(failure, {
+            type: 'symlink-target-outside-package',
+            packageName: 'pkg',
+            entryRelativePath: 'parent-link',
+            resolvedTargetPath: '/repo/node_modules'
+        });
+    });
+
+    test('reports a nested symlink-entry path with forward slashes regardless of platform separators', async function () {
+        const failure = await runSinglePackageSymlinkScenario({
+            initialName: 'pkg',
+            packageRealPath: '/repo/node_modules/pkg',
+            listings: [
+                { value: [{ name: 'config', isDirectory: true, isSymbolicLink: false }] },
+                { value: [{ name: 'secret-link', isDirectory: false, isSymbolicLink: true }] }
+            ],
+            targetRealPath: { value: '/Users/victim/.ssh/id_rsa' }
+        });
+
+        assert.deepStrictEqual(failure, {
+            type: 'symlink-target-outside-package',
+            packageName: 'pkg',
+            entryRelativePath: 'config/secret-link',
+            resolvedTargetPath: '/Users/victim/.ssh/id_rsa'
+        });
+    });
+
+    test('rejects a symlink whose target cannot be resolved (broken symlink) so packtory never blindly trusts it', async function () {
+        const failure = await runSinglePackageSymlinkScenario({
+            initialName: 'pkg',
+            packageRealPath: '/repo/node_modules/pkg',
+            listings: [{ value: [{ name: 'broken.json', isDirectory: false, isSymbolicLink: true }] }],
+            targetRealPath: { error: new Error('ENOENT: no such file or directory') }
+        });
+
+        assert.deepStrictEqual(failure, {
+            type: 'symlink-target-outside-package',
+            packageName: 'pkg',
+            entryRelativePath: 'broken.json',
+            resolvedTargetPath: '/repo/node_modules/pkg/broken.json'
+        });
     });
 });

@@ -1,8 +1,16 @@
 import path from 'node:path';
 import { safeParse } from '@schema-hub/zod-error-formatter';
+import { Result } from 'true-myth';
 import { z } from 'zod/mini';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { VendorEntry } from './vendor-entry.ts';
+
+export type SymlinkTargetOutsidePackageFailure = {
+    readonly type: 'symlink-target-outside-package';
+    readonly packageName: string;
+    readonly entryRelativePath: string;
+    readonly resolvedTargetPath: string;
+};
 
 type MaterializedExternals = {
     readonly entries: readonly VendorEntry[];
@@ -20,7 +28,9 @@ type MaterializeExternalsOptions = {
 };
 
 export type VendorMaterializer = {
-    materializeExternals: (options: MaterializeExternalsOptions) => Promise<MaterializedExternals>;
+    materializeExternals: (
+        options: MaterializeExternalsOptions
+    ) => Promise<Result<MaterializedExternals, SymlinkTargetOutsidePackageFailure>>;
 };
 
 const nodeModulesFolderName = 'node_modules';
@@ -85,6 +95,142 @@ function parseManifestSummary(content: string): ParsedManifestSummary {
     };
 }
 
+function isInside(rootDirectory: string, candidate: string): boolean {
+    const relative = path.relative(rootDirectory, candidate);
+    if (relative.startsWith(`..${path.sep}`) || relative === '..') {
+        return false;
+    }
+    return !path.isAbsolute(relative);
+}
+
+type FileWalkerDependencies = Pick<FileManager, 'getRealPath' | 'listDirectoryEntries'>;
+
+type CollectRequest = {
+    readonly rootDirectory: string;
+    readonly packageName: string;
+    readonly collected: VendorEntry[];
+};
+
+async function checkSymlinkInsidePackage(
+    walker: FileWalkerDependencies,
+    rootDirectory: string,
+    packageName: string,
+    relativeEntryPath: string
+): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
+    const absoluteEntryPath = path.join(rootDirectory, relativeEntryPath);
+    const normalizedEntryRelativePath = relativeEntryPath.split(path.sep).join('/');
+    try {
+        const resolvedTargetPath = await walker.getRealPath(absoluteEntryPath);
+        if (!isInside(rootDirectory, resolvedTargetPath)) {
+            return Result.err({
+                type: 'symlink-target-outside-package',
+                packageName,
+                entryRelativePath: normalizedEntryRelativePath,
+                resolvedTargetPath
+            });
+        }
+        return Result.ok(undefined);
+    } catch {
+        return Result.err({
+            type: 'symlink-target-outside-package',
+            packageName,
+            entryRelativePath: normalizedEntryRelativePath,
+            resolvedTargetPath: absoluteEntryPath
+        });
+    }
+}
+
+type RecurseFn = (relativeDirectory: string) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
+
+type EntryAction = (
+    request: CollectRequest,
+    recurse: RecurseFn
+) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
+
+function collectAction(vendorEntry: VendorEntry): EntryAction {
+    return async (request) => {
+        request.collected.push(vendorEntry);
+        return Result.ok(undefined);
+    };
+}
+
+function recurseAction(relativeEntryPath: string): EntryAction {
+    return async (_request, recurse) => {
+        return await recurse(relativeEntryPath);
+    };
+}
+
+async function evaluatePackageEntry(
+    walker: FileWalkerDependencies,
+    request: CollectRequest,
+    relativeEntryPath: string,
+    entry: { readonly isDirectory: boolean; readonly isSymbolicLink: boolean }
+): Promise<Result<EntryAction, SymlinkTargetOutsidePackageFailure>> {
+    if (entry.isSymbolicLink) {
+        const symlinkCheck = await checkSymlinkInsidePackage(
+            walker,
+            request.rootDirectory,
+            request.packageName,
+            relativeEntryPath
+        );
+        if (symlinkCheck.isErr) {
+            return Result.err(symlinkCheck.error);
+        }
+    }
+    if (entry.isDirectory) {
+        return Result.ok(recurseAction(relativeEntryPath));
+    }
+    return Result.ok(collectAction(buildVendorEntry(request.rootDirectory, request.packageName, relativeEntryPath)));
+}
+
+async function processSinglePackageEntry(
+    context: { readonly walker: FileWalkerDependencies; readonly request: CollectRequest; readonly recurse: RecurseFn },
+    relativeEntryPath: string,
+    entry: { readonly isDirectory: boolean; readonly isSymbolicLink: boolean }
+): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
+    const evaluated = await evaluatePackageEntry(context.walker, context.request, relativeEntryPath, entry);
+    if (evaluated.isErr) {
+        return Result.err(evaluated.error);
+    }
+    return await evaluated.value(context.request, context.recurse);
+}
+
+async function walkPackageDirectory(
+    walker: FileWalkerDependencies,
+    request: CollectRequest,
+    relativeDirectory: string
+): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
+    const recurse: RecurseFn = async (childDirectory) => {
+        return await walkPackageDirectory(walker, request, childDirectory);
+    };
+    const absoluteDirectory = path.join(request.rootDirectory, relativeDirectory);
+    const entries = await walker.listDirectoryEntries(absoluteDirectory);
+    const includedEntries = entries.filter((entry) => {
+        return entry.name !== nodeModulesFolderName;
+    });
+    for (const entry of includedEntries) {
+        const relativeEntryPath = path.join(relativeDirectory, entry.name);
+        const processed = await processSinglePackageEntry({ walker, request, recurse }, relativeEntryPath, entry);
+        if (processed.isErr) {
+            return processed;
+        }
+    }
+    return Result.ok(undefined);
+}
+
+async function collectPackageFiles(
+    walker: FileWalkerDependencies,
+    rootDirectory: string,
+    packageName: string
+): Promise<Result<readonly VendorEntry[], SymlinkTargetOutsidePackageFailure>> {
+    const collected: VendorEntry[] = [];
+    const result = await walkPackageDirectory(walker, { rootDirectory, packageName, collected }, '');
+    if (result.isErr) {
+        return Result.err(result.error);
+    }
+    return Result.ok(collected);
+}
+
 export function createVendorMaterializer(dependencies: VendorMaterializerDependencies): VendorMaterializer {
     const { fileManager } = dependencies;
 
@@ -113,56 +259,47 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         return parseManifestSummary(content);
     }
 
-    async function collectPackageFiles(rootDirectory: string, packageName: string): Promise<readonly VendorEntry[]> {
-        const collected: VendorEntry[] = [];
-
-        async function walk(relativeDirectory: string): Promise<void> {
-            const absoluteDirectory = path.join(rootDirectory, relativeDirectory);
-            const entries = await fileManager.listDirectoryEntries(absoluteDirectory);
-            const includedEntries = entries.filter((entry) => {
-                return entry.name !== nodeModulesFolderName;
-            });
-            for (const entry of includedEntries) {
-                const relativeEntryPath = path.join(relativeDirectory, entry.name);
-                if (entry.isDirectory) {
-                    await walk(relativeEntryPath);
-                } else {
-                    collected.push(buildVendorEntry(rootDirectory, packageName, relativeEntryPath));
-                }
-            }
-        }
-
-        await walk('');
-        return collected;
-    }
-
-    async function ingestResolvedPackage(closure: Closure, name: string, realPath: string): Promise<void> {
+    async function ingestResolvedPackage(
+        closure: Closure,
+        name: string,
+        realPath: string
+    ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
         closure.visited.add(name);
         const summary = await readManifestSummary(realPath);
         enqueueDependencies(closure, realPath, summary.transitiveDependencyNames);
         closure.peerRequirements.set(name, summary.peerDependencyNames);
-        const packageEntries = await collectPackageFiles(realPath, name);
-        closure.entries.push(...packageEntries);
+        const packageEntries = await collectPackageFiles(fileManager, realPath, name);
+        if (packageEntries.isErr) {
+            return Result.err(packageEntries.error);
+        }
+        closure.entries.push(...packageEntries.value);
+        return Result.ok(undefined);
     }
 
-    async function processQueueItem(closure: Closure, item: QueueItem): Promise<void> {
+    async function processQueueItem(
+        closure: Closure,
+        item: QueueItem
+    ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
         if (closure.visited.has(item.name)) {
-            return;
+            return Result.ok(undefined);
         }
         const realPath = await findPackageRealPath(item.name, item.fromFolder);
         if (realPath === undefined) {
-            return;
+            return Result.ok(undefined);
         }
-        await ingestResolvedPackage(closure, item.name, realPath);
+        return await ingestResolvedPackage(closure, item.name, realPath);
     }
 
-    async function drainQueue(closure: Closure): Promise<void> {
+    async function drainQueue(closure: Closure): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
         const item = closure.queue.shift();
         if (item === undefined) {
-            return;
+            return Result.ok(undefined);
         }
-        await processQueueItem(closure, item);
-        await drainQueue(closure);
+        const processed = await processQueueItem(closure, item);
+        if (processed.isErr) {
+            return processed;
+        }
+        return await drainQueue(closure);
     }
 
     return {
@@ -175,12 +312,15 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
                 }),
                 peerRequirements: new Map<string, readonly string[]>()
             };
-            await drainQueue(closure);
-            return {
+            const drained = await drainQueue(closure);
+            if (drained.isErr) {
+                return Result.err(drained.error);
+            }
+            return Result.ok({
                 entries: closure.entries,
                 packageNames: Array.from(closure.visited),
                 peerRequirements: closure.peerRequirements
-            };
+            });
         }
     };
 }

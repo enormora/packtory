@@ -121,11 +121,13 @@ function createDependencies(overrides: {
     const resolveAndLinkAll = fake.resolves(overrides.resolveResult ?? Result.ok([makeResolvedPackage()]));
     const materializeExternals =
         overrides.materializerSpy ??
-        fake.resolves({
-            entries: overrides.vendorEntries ?? [],
-            packageNames: [],
-            peerRequirements: new Map<string, readonly string[]>()
-        });
+        fake.resolves(
+            Result.ok({
+                entries: overrides.vendorEntries ?? [],
+                packageNames: [],
+                peerRequirements: new Map<string, readonly string[]>()
+            })
+        );
     const vendorMaterializer = {
         materializeExternals:
             materializeExternals as unknown as PackRunDependencies['vendorMaterializer']['materializeExternals']
@@ -156,11 +158,13 @@ function buildDependenciesWith(
         packEmitter: { pack: packEmitterPackFake as never },
         vendorMaterializer: {
             materializeExternals: (materializerOverride ??
-                fake.resolves({
-                    entries: [],
-                    packageNames: [],
-                    peerRequirements: new Map<string, readonly string[]>()
-                })) as never
+                fake.resolves(
+                    Result.ok({
+                        entries: [],
+                        packageNames: [],
+                        peerRequirements: new Map<string, readonly string[]>()
+                    })
+                )) as never
         }
     };
 }
@@ -334,11 +338,13 @@ suite('packtory-pack', function () {
 
     test('returns a peer-dependencies-unsatisfied failure listing only the peers that are missing from the closure', async function () {
         // 'react' is in the closure (satisfied), 'react-router' is not (unsatisfied).
-        const materializerSpy = fake.resolves({
-            entries: [],
-            packageNames: ['react-dom', 'react'],
-            peerRequirements: new Map<string, readonly string[]>([['react-dom', ['react', 'react-router']]])
-        });
+        const materializerSpy = fake.resolves(
+            Result.ok({
+                entries: [],
+                packageNames: ['react-dom', 'react'],
+                peerRequirements: new Map<string, readonly string[]>([['react-dom', ['react', 'react-router']]])
+            })
+        );
         const { dependencies, fakes } = createDependencies({
             materializerSpy,
             resolveResult: Result.ok([
@@ -357,6 +363,39 @@ suite('packtory-pack', function () {
             type: 'peer-dependencies-unsatisfied',
             packageName: 'pkg-a',
             items: [{ packageName: 'react-dom', peer: 'react-router' }]
+        });
+        assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+    });
+
+    test('maps a vendor symlink-target-outside-package failure to the corresponding pack failure and never emits an artifact', async function () {
+        const materializerSpy = fake.resolves(
+            Result.err({
+                type: 'symlink-target-outside-package',
+                packageName: 'evil',
+                entryRelativePath: 'leak.json',
+                resolvedTargetPath: '/Users/victim/.npmrc'
+            })
+        );
+        const { dependencies, fakes } = createDependencies({
+            materializerSpy,
+            resolveResult: Result.ok([
+                makeResolvedPackage({ externalDependencyNames: ['evil'], sourcesFolder: '/repo/source' })
+            ])
+        });
+        const runPack = createRunPackValidated(dependencies);
+
+        const result = await runPack(
+            validatedConfig,
+            { ...baseOptions, vendorDependencies: true },
+            fakes.resolveAndLinkAll
+        );
+
+        assert.deepStrictEqual(expectErr(result), {
+            type: 'vendor-symlink-target-outside-package',
+            packageName: 'pkg-a',
+            vendoredPackageName: 'evil',
+            entryRelativePath: 'leak.json',
+            resolvedTargetPath: '/Users/victim/.npmrc'
         });
         assert.strictEqual(fakes.packEmitterPack.callCount, 0);
     });
@@ -466,11 +505,13 @@ suite('packtory-pack', function () {
                 isExecutable: false
             }
         ];
-        const materializerSpy = fake.resolves({
-            entries: vendorEntries,
-            packageNames: ['left-pad'],
-            peerRequirements: new Map<string, readonly string[]>()
-        });
+        const materializerSpy = fake.resolves(
+            Result.ok({
+                entries: vendorEntries,
+                packageNames: ['left-pad'],
+                peerRequirements: new Map<string, readonly string[]>()
+            })
+        );
         const { dependencies, fakes } = createDependencies({
             versionedBundle,
             materializerSpy,
