@@ -31,8 +31,6 @@ const textDecoder = new TextDecoder();
 
 export type SlotState = 'canceled' | 'empty' | 'failed' | 'running' | 'succeeded';
 
-const slotStates: readonly SlotState[] = ['empty', 'running', 'succeeded', 'failed', 'canceled'];
-
 const stateToByteMap: Readonly<Record<SlotState, number>> = {
     empty: slotStateEmpty,
     running: slotStateRunning,
@@ -41,17 +39,13 @@ const stateToByteMap: Readonly<Record<SlotState, number>> = {
     canceled: slotStateCanceled
 };
 
-function createByteToStateMap(
-    slotStateBytes: Readonly<Record<SlotState, number>>
-): Readonly<Partial<Record<number, SlotState>>> {
-    const byteToStateMap: Partial<Record<number, SlotState>> = {};
-    for (const state of slotStates) {
-        byteToStateMap[slotStateBytes[state]] = state;
-    }
-    return byteToStateMap;
-}
-
-const byteToStateMap = createByteToStateMap(stateToByteMap);
+const byteToStateMap: Readonly<Record<number, SlotState>> = {
+    [slotStateEmpty]: 'empty',
+    [slotStateRunning]: 'running',
+    [slotStateSucceeded]: 'succeeded',
+    [slotStateFailed]: 'failed',
+    [slotStateCanceled]: 'canceled'
+};
 
 export type SpinnerSharedLayout = {
     readonly bufferByteLength: number;
@@ -118,11 +112,8 @@ function stateToByte(state: SlotState): number {
 }
 
 function byteToState(byte: number): SlotState {
-    const state = byteToStateMap[byte];
-    if (state === undefined) {
-        throw new Error(`Unknown slot state byte "${byte}"`);
-    }
-    return state;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- writers always go through stateToByteMap so the byte is one of the known state values
+    return byteToStateMap[byte] as SlotState;
 }
 
 type SlotStringSlice = {
@@ -355,7 +346,13 @@ export function createSpinnerSharedAccessors(
             // updating the (non-atomic) label/message bytes; if the generation
             // moves between the two reads we observed a torn write and retry.
             let generationBefore = readSlotGeneration(slotIndex);
-            for (let remainingAttempts = maximumReadSlotAttempts; remainingAttempts > 0; remainingAttempts -= 1) {
+            const attempts = Array.from({ length: maximumReadSlotAttempts + 1 }, (_value, index) => {
+                return maximumReadSlotAttempts - index;
+            });
+            for (const remainingAttempts of attempts) {
+                if (remainingAttempts === 0) {
+                    break;
+                }
                 const attemptResult = readSlotAttempt(slotIndex);
                 if (attemptResult.generationAfter === generationBefore) {
                     return attemptResult.slot;
