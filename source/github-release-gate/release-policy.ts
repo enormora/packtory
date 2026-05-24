@@ -11,9 +11,10 @@ type PacktoryReleasePolicyInput = {
 };
 
 const hoursPerDay = 24;
-const millisecondsPerSecond = 1000;
 const minutesPerHour = 60;
 const secondsPerMinute = 60;
+const millisecondsPerSecond = 1000;
+const millisecondsPerDay = hoursPerDay * minutesPerHour * secondsPerMinute * millisecondsPerSecond;
 
 function formatPublishedAt(date: Date | undefined): string {
     return date === undefined ? '(unknown)' : date.toISOString();
@@ -34,10 +35,17 @@ function buildReleaseAnalysisLogs(releaseAnalysis: ReleaseAnalysis): readonly st
 }
 
 function minAgeElapsed(now: Date, publishedAt: Date, dependencyOnlyMinAgeDays: number): boolean {
-    return (
-        now.getTime() - publishedAt.getTime() >=
-        dependencyOnlyMinAgeDays * hoursPerDay * minutesPerHour * secondsPerMinute * millisecondsPerSecond
-    );
+    return now.getTime() - publishedAt.getTime() >= dependencyOnlyMinAgeDays * millisecondsPerDay;
+}
+
+function formatMinimumAgePendingLog(dependencyOnlyMinAgeDays: number): string {
+    const intro = 'Skipping publish: dependency-only releases must age for at least';
+    return `${intro} ${dependencyOnlyMinAgeDays} day(s).`;
+}
+
+function formatMinimumAgeElapsedLog(dependencyOnlyMinAgeDays: number): string {
+    const intro = 'Publishing is allowed because the dependency-only minimum age of';
+    return `${intro} ${dependencyOnlyMinAgeDays} day(s) has elapsed.`;
 }
 
 export function applyPacktoryReleasePolicy(input: PacktoryReleasePolicyInput): GitHubReleaseGateDecision {
@@ -73,25 +81,13 @@ export function applyPacktoryReleasePolicy(input: PacktoryReleasePolicyInput): G
         return {
             shouldPublish: false,
             reason: 'dependency_only_min_age_not_elapsed',
-            logs: [
-                ...logs,
-                [
-                    'Skipping publish: dependency-only releases must age for at least ',
-                    `${input.dependencyOnlyMinAgeDays} day(s).`
-                ].join('')
-            ]
+            logs: [...logs, formatMinimumAgePendingLog(input.dependencyOnlyMinAgeDays)]
         };
     }
 
     return {
         shouldPublish: true,
         reason: 'dependency_only_min_age_elapsed',
-        logs: [
-            ...logs,
-            [
-                'Publishing is allowed because the dependency-only minimum age of ',
-                `${input.dependencyOnlyMinAgeDays} day(s) has elapsed.`
-            ].join('')
-        ]
+        logs: [...logs, formatMinimumAgeElapsedLog(input.dependencyOnlyMinAgeDays)]
     };
 }

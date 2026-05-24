@@ -5,8 +5,6 @@ import { fake } from 'sinon';
 import { Result } from 'true-myth';
 import type { ReleaseAnalysisResult } from '../packages/packtory/packtory.entry-point.ts';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
-import { withDeadline } from '../test-libraries/with-deadline.ts';
-import { runGitHubReleaseGate } from './cli-runner.ts';
 import {
     ciRunsPath,
     createBaseEnvironment,
@@ -18,7 +16,9 @@ import {
     type RouteResponse,
     withGitHubApiServer,
     workspaceOutputPath
-} from './test-support.ts';
+} from '../test-libraries/github-release-gate-test-support.ts';
+import { withDeadline } from '../test-libraries/with-deadline.ts';
+import { runGitHubReleaseGate } from './cli-runner.ts';
 
 const entryPointPath = fileURLToPath(
     new URL('../packages/github-release-gate/github-release-gate.entry-point.ts', import.meta.url)

@@ -148,6 +148,12 @@ type CollectRequest = {
     readonly collected: VendorEntry[];
 };
 
+type PackageDirectoryEntry = {
+    readonly name: string;
+    readonly isDirectory: boolean;
+    readonly isSymbolicLink: boolean;
+};
+
 async function checkSymlinkInsidePackage(
     walker: FileWalkerDependencies,
     rootDirectory: string,
@@ -177,37 +183,25 @@ async function checkSymlinkInsidePackage(
     }
 }
 
-type RecurseFn = (relativeDirectory: string) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
+type DirectoryWalker = (relativeDirectory: string) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
 
-type EntryAction = (
-    request: CollectRequest,
-    recurse: RecurseFn
-) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
+type PackageDirectoryProcessingContext = {
+    readonly walker: FileWalkerDependencies;
+    readonly request: CollectRequest;
+    readonly walkDirectory: DirectoryWalker;
+};
 
-function collectAction(vendorEntry: VendorEntry): EntryAction {
-    return async (request) => {
-        request.collected.push(vendorEntry);
-        return Result.ok(undefined);
-    };
-}
-
-function recurseAction(relativeEntryPath: string): EntryAction {
-    return async (_request, recurse) => {
-        return await recurse(relativeEntryPath);
-    };
-}
-
-async function evaluatePackageEntry(
-    walker: FileWalkerDependencies,
-    request: CollectRequest,
-    relativeEntryPath: string,
-    entry: { readonly isDirectory: boolean; readonly isSymbolicLink: boolean }
-): Promise<Result<EntryAction, SymlinkTargetOutsidePackageFailure>> {
+async function processPackageDirectoryEntry(
+    context: PackageDirectoryProcessingContext,
+    relativeDirectory: string,
+    entry: PackageDirectoryEntry
+): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
+    const relativeEntryPath = path.join(relativeDirectory, entry.name);
     if (entry.isSymbolicLink) {
         const symlinkCheck = await checkSymlinkInsidePackage(
-            walker,
-            request.rootDirectory,
-            request.packageName,
+            context.walker,
+            context.request.rootDirectory,
+            context.request.packageName,
             relativeEntryPath
         );
         if (symlinkCheck.isErr) {
@@ -215,21 +209,12 @@ async function evaluatePackageEntry(
         }
     }
     if (entry.isDirectory) {
-        return Result.ok(recurseAction(relativeEntryPath));
+        return context.walkDirectory(relativeEntryPath);
     }
-    return Result.ok(collectAction(buildVendorEntry(request.rootDirectory, request.packageName, relativeEntryPath)));
-}
-
-async function processSinglePackageEntry(
-    context: { readonly walker: FileWalkerDependencies; readonly request: CollectRequest; readonly recurse: RecurseFn },
-    relativeEntryPath: string,
-    entry: { readonly isDirectory: boolean; readonly isSymbolicLink: boolean }
-): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
-    const evaluated = await evaluatePackageEntry(context.walker, context.request, relativeEntryPath, entry);
-    if (evaluated.isErr) {
-        return Result.err(evaluated.error);
-    }
-    return await evaluated.value(context.request, context.recurse);
+    context.request.collected.push(
+        buildVendorEntry(context.request.rootDirectory, context.request.packageName, relativeEntryPath)
+    );
+    return Result.ok(undefined);
 }
 
 async function walkPackageDirectory(
@@ -237,19 +222,18 @@ async function walkPackageDirectory(
     request: CollectRequest,
     relativeDirectory: string
 ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
-    const recurse: RecurseFn = async (childDirectory) => {
-        return await walkPackageDirectory(walker, request, childDirectory);
-    };
     const absoluteDirectory = path.join(request.rootDirectory, relativeDirectory);
     const entries = await walker.listDirectoryEntries(absoluteDirectory);
-    const includedEntries = entries.filter((entry) => {
-        return entry.name !== nodeModulesFolderName;
-    });
-    for (const entry of includedEntries) {
-        const relativeEntryPath = path.join(relativeDirectory, entry.name);
-        const processed = await processSinglePackageEntry({ walker, request, recurse }, relativeEntryPath, entry);
-        if (processed.isErr) {
-            return processed;
+    const walkDirectory: DirectoryWalker = async (childDirectory) => {
+        return walkPackageDirectory(walker, request, childDirectory);
+    };
+    const context: PackageDirectoryProcessingContext = { walker, request, walkDirectory };
+    for (const entry of entries) {
+        if (entry.name !== nodeModulesFolderName) {
+            const processed = await processPackageDirectoryEntry(context, relativeDirectory, entry);
+            if (processed.isErr) {
+                return processed;
+            }
         }
     }
     return Result.ok(undefined);
