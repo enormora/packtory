@@ -88,12 +88,6 @@ function decreaseIncomingEdges<TId extends GraphNodeId, TData>(
     return withAdjustedIncomingEdges(node, -1);
 }
 
-function getNonVisitedAdjacentIds<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>
-): readonly TId[] {
-    return Array.from(node.adjacentNodeIds);
-}
-
 export function createDirectedGraph<TId extends GraphNodeId, TData>(
     dependencies: Partial<GraphDependencies<TId>> = {}
 ): DirectedGraph<TId, TData> {
@@ -206,8 +200,10 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
             if (!resolvedDependencies.visitedHas(idsWithinCycles, baseNode.id)) {
                 const cyclesForNode = detectCyclesForNode(baseNode, []);
                 cycles.push(...cyclesForNode);
-                for (const id of cyclesForNode.flat()) {
-                    idsWithinCycles.add(id);
+                for (const cycle of cyclesForNode) {
+                    for (const id of cycle) {
+                        idsWithinCycles.add(id);
+                    }
                 }
             }
         }
@@ -238,8 +234,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
 
             visited.add(head.id);
             visitor(head);
-            const nonVisitedAdjacentIds = getNonVisitedAdjacentIds(head);
-            for (const id of nonVisitedAdjacentIds) {
+            for (const id of head.adjacentNodeIds) {
                 const adjacentNode = getNode(id);
                 queue.push(adjacentNode);
             }
@@ -308,12 +303,9 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
         const generations: TId[][] = [];
         let alreadyDiscovered = new Set<TId>();
         let incomingEdgesPerNode = getIncomingEdgesPerNode();
-        const generationAttempts = Array.from({ length: nodes.size + 1 }, (_unusedEntry, index) => {
-            return index + 1;
-        });
         let exhaustedAttempts = 0;
 
-        for (const attempt of generationAttempts) {
+        for (let attempt = 1; attempt <= nodes.size + 1; attempt += 1) {
             exhaustedAttempts = attempt;
             const currentGeneration = collectCurrentGeneration(alreadyDiscovered, incomingEdgesPerNode);
 

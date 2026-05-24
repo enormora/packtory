@@ -19,23 +19,29 @@ type ArtifactDescriptor = FileDescription & {
     readonly isSubstituted?: boolean | undefined;
 };
 
+function inferArtifactStatus(sourcePath: string | undefined, rewritten: boolean): ArtifactEntry['status'] {
+    if (sourcePath === undefined) {
+        return 'generated';
+    }
+    if (rewritten) {
+        return 'changed';
+    }
+    return 'unchanged';
+}
+
 export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): readonly ArtifactEntry[] {
     return contents.map((entry) => {
         const sourcePath = 'sourceFilePath' in entry ? entry.sourceFilePath : undefined;
         const rewritten = entry.isSubstituted === true;
-        let status: ArtifactEntry['status'] = 'unchanged';
+        const sizeBytes = Buffer.byteLength(entry.content);
+        const kind = inferArtifactKind(entry.filePath);
+        const status = inferArtifactStatus(sourcePath, rewritten);
+        const badges: ArtifactEntry['badges'] = rewritten ? ['import-path-rewrite'] : [];
+
         if (sourcePath === undefined) {
-            status = 'generated';
-        } else if (rewritten) {
-            status = 'changed';
+            return { path: entry.filePath, sizeBytes, kind, status, badges };
         }
-        return {
-            path: entry.filePath,
-            sizeBytes: Buffer.byteLength(entry.content),
-            kind: inferArtifactKind(entry.filePath),
-            ...(sourcePath === undefined ? {} : { sourcePath }),
-            status,
-            badges: rewritten ? ['import-path-rewrite'] : []
-        };
+
+        return { path: entry.filePath, sizeBytes, kind, sourcePath, status, badges };
     });
 }

@@ -259,6 +259,18 @@ suite('spinner-shared-state', function () {
         assert.deepStrictEqual(atomics.waitCalls[0], [4, 0, 10]);
     });
 
+    test('readSlot rejects an unknown state byte', function () {
+        const accessors = createAccessors();
+        const slotStateOffset = 4;
+        const data = new DataView(accessors.buffer, accessors.layout.headerByteLength, accessors.layout.slotByteLength);
+
+        data.setUint8(slotStateOffset, 99);
+
+        assert.throws(() => {
+            accessors.readSlot(0);
+        }, /Unknown slot state byte "99"/);
+    });
+
     test('waitForRenderedMutation keeps waiting after a timeout when the rendered mutation still makes progress', function () {
         const { atomics, result } = runWaitScenario({
             now: [100, 100, 101, 101, 102],
