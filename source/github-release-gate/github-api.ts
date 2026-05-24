@@ -1,4 +1,7 @@
 import { isDefined } from 'remeda';
+import { Octokit } from '@octokit/core';
+import { paginateRest } from '@octokit/plugin-paginate-rest';
+import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
 import { z } from 'zod/mini';
 import {
     selectPullRequestActivityAt,
@@ -38,7 +41,7 @@ type RawTimelineEvent = {
     readonly event: string;
 };
 
-type HttpContext = Pick<GitHubRepositoryContext, 'apiBaseUrl' | 'token'>;
+const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
 
 export type GitHubReleaseGateApi = {
     readonly getLatestSuccessfulMainCiRun: (
@@ -100,106 +103,104 @@ function toPullRequestTimelineEvent(event: RawTimelineEvent): PullRequestTimelin
     return { createdAt: parseTimestamp(timestamp), event: event.event };
 }
 
-function getHeaders(token: string): Readonly<Record<string, string>> {
+function createGitHubHeaders(token: string): Readonly<Record<string, string>> {
     return {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${token}`,
-        'User-Agent': 'packtory-github-release-gate',
-        'X-GitHub-Api-Version': '2022-11-28'
+        accept: 'application/vnd.github+json',
+        authorization: `Bearer ${token}`,
+        'user-agent': 'packtory-github-release-gate',
+        'x-github-api-version': '2022-11-28'
     };
 }
 
-async function fetchApi(
+type RepositoryRequestContext = {
+    readonly headers: Readonly<Record<string, string>>;
+    readonly owner: string;
+    readonly repo: string;
+};
+
+function createRepositoryRequestContext(context: GitHubRepositoryContext): RepositoryRequestContext {
+    return {
+        headers: createGitHubHeaders(context.token),
+        owner: context.owner,
+        repo: context.repo
+    };
+}
+
+type GitHubDataResponse = Promise<{
+    readonly data: unknown;
+}>;
+
+type GitHubPageResponses = AsyncIterable<{
+    readonly data: unknown;
+}>;
+
+function createGitHubRestClient(
     fetchImplementation: typeof globalThis.fetch,
-    context: HttpContext,
-    path: string
-): Promise<Response> {
-    const response = await fetchImplementation(new URL(path, context.apiBaseUrl), {
-        headers: getHeaders(context.token)
+    requestContext: RepositoryRequestContext,
+    context: GitHubRepositoryContext
+): InstanceType<typeof GitHubRestClient> {
+    return new GitHubRestClient({
+        baseUrl: context.apiBaseUrl,
+        request: {
+            fetch: fetchImplementation,
+            headers: requestContext.headers
+        }
     });
-
-    if (!response.ok) {
-        throw new Error(`GitHub API request failed (${response.status} ${response.statusText}) for ${path}`);
-    }
-
-    return response;
 }
 
-async function fetchJson<T>(
-    fetchImplementation: typeof globalThis.fetch,
-    context: HttpContext,
-    path: string,
-    parse: (value: unknown) => T
-): Promise<T> {
-    const response = await fetchApi(fetchImplementation, context, path);
-    return parse((await response.json()) as unknown);
+function formatFailedRequestPath(requestUrl: string): string {
+    const parsedUrl = new URL(requestUrl);
+    return `${parsedUrl.pathname}${parsedUrl.search}`;
 }
 
-function findNextLinkEntry(linkHeader: string): string | undefined {
-    return linkHeader
-        .split(',')
-        .map((entry) => {
-            return entry.trim();
+function rethrowGitHubRequestFailure(error: unknown): never {
+    const requestUrl = String(Reflect.get(new Object(Reflect.get(new Object(error), 'request')), 'url'));
+    const status = String(Reflect.get(new Object(error), 'status'));
+    throw new Error(`GitHub API request failed (${status}) for ${formatFailedRequestPath(requestUrl)}`);
+}
+
+async function requestGitHubData<T>(requestData: GitHubDataResponse, parseResponse: (value: unknown) => T): Promise<T> {
+    const data = await requestData
+        .then((response) => {
+            return response.data;
         })
-        .find((entry) => {
-            return entry.endsWith('rel="next"');
-        });
+        .catch(rethrowGitHubRequestFailure);
+
+    return parseResponse(data);
 }
 
-function getLinkHref(linkEntry: string): string {
-    return String(linkEntry.split(';')[0]).slice(1, -1);
-}
-
-function getNextPagePath(linkHeader: string | null): string | undefined {
-    if (linkHeader === null) {
-        return undefined;
-    }
-
-    const nextEntry = findNextLinkEntry(linkHeader);
-
-    if (nextEntry === undefined) {
-        return undefined;
-    }
-
-    const nextHref = getLinkHref(nextEntry);
-
-    if (nextHref.length === 0) {
-        return undefined;
-    }
-
-    const nextUrl = new URL(nextHref);
-    return `${nextUrl.pathname}${nextUrl.search}`;
-}
-
-async function fetchPaginated<T>(
-    fetchImplementation: typeof globalThis.fetch,
-    context: HttpContext,
-    path: string,
+async function paginateGitHubData<T>(
+    requestPages: GitHubPageResponses,
     parsePage: (value: unknown) => readonly T[]
 ): Promise<readonly T[]> {
-    async function collectPage(currentPath: string | undefined, values: T[]): Promise<readonly T[]> {
-        if (currentPath === undefined) {
-            return values;
-        }
+    const rawPages: unknown[] = [];
 
-        const response = await fetchApi(fetchImplementation, context, currentPath);
-        const pageValues = parsePage((await response.json()) as unknown);
-        values.push(...pageValues);
-        return collectPage(getNextPagePath(response.headers.get('link')), values);
+    try {
+        for await (const response of requestPages) {
+            rawPages.push(response.data);
+        }
+    } catch (error) {
+        rethrowGitHubRequestFailure(error);
     }
 
-    return collectPage(path, []);
+    const pages: T[] = [];
+    for (const rawPage of rawPages) {
+        pages.push(...parsePage(rawPage));
+    }
+    return pages;
 }
 
 async function getPullRequestActivity(
-    fetchImplementation: typeof globalThis.fetch,
-    context: GitHubRepositoryContext,
+    octokit: InstanceType<typeof GitHubRestClient>,
+    requestContext: RepositoryRequestContext,
     pullRequest: PullRequest
 ): Promise<PullRequestActivity> {
-    const timeline = await fetchPaginated<RawTimelineEvent>(
-        fetchImplementation,
-        context,
-        `/repos/${context.owner}/${context.repo}/issues/${pullRequest.number}/timeline?per_page=100`,
+    const timeline = await paginateGitHubData<RawTimelineEvent>(
+        octokit.paginate.iterator(octokit.rest.issues.listEventsForTimeline, {
+            ...requestContext,
+            issue_number: pullRequest.number,
+            per_page: 100
+        }),
         (value) => {
             return z.array(timelineEventSchema).parse(value);
         }
@@ -217,12 +218,16 @@ export function createGitHubReleaseGateApi(
     fetchImplementation: typeof globalThis.fetch,
     context: GitHubRepositoryContext
 ): GitHubReleaseGateApi {
+    const requestContext = createRepositoryRequestContext(context);
+    const octokit = createGitHubRestClient(fetchImplementation, requestContext, context);
+
     return {
         async getMainBranchHeadSha() {
-            const branch = await fetchJson<BranchResponse>(
-                fetchImplementation,
-                context,
-                `/repos/${context.owner}/${context.repo}/branches/${encodeURIComponent(context.defaultBranch)}`,
+            const branch = await requestGitHubData<BranchResponse>(
+                octokit.rest.repos.getBranch({
+                    ...requestContext,
+                    branch: context.defaultBranch
+                }),
                 (value) => {
                     return branchResponseSchema.parse(value);
                 }
@@ -232,14 +237,16 @@ export function createGitHubReleaseGateApi(
         },
 
         async getLatestSuccessfulMainCiRun(ciWorkflowFile, headSha) {
-            const response = await fetchJson<WorkflowRunsResponse>(
-                fetchImplementation,
-                context,
-                `/repos/${context.owner}/${context.repo}/actions/workflows/${encodeURIComponent(
-                    ciWorkflowFile
-                )}/runs?branch=${encodeURIComponent(
-                    context.defaultBranch
-                )}&event=push&head_sha=${encodeURIComponent(headSha)}&status=completed&per_page=100`,
+            const response = await requestGitHubData<WorkflowRunsResponse>(
+                octokit.rest.actions.listWorkflowRuns({
+                    ...requestContext,
+                    workflow_id: ciWorkflowFile,
+                    branch: context.defaultBranch,
+                    event: 'push',
+                    head_sha: headSha,
+                    status: 'completed',
+                    per_page: 100
+                }),
                 (value) => {
                     return workflowRunsResponseSchema.parse(value);
                 }
@@ -259,12 +266,13 @@ export function createGitHubReleaseGateApi(
         },
 
         async getOpenPullRequestActivities() {
-            const openPullRequests = await fetchPaginated<PullRequest>(
-                fetchImplementation,
-                context,
-                `/repos/${context.owner}/${context.repo}/pulls?state=open&base=${encodeURIComponent(
-                    context.defaultBranch
-                )}&per_page=100`,
+            const openPullRequests = await paginateGitHubData<PullRequest>(
+                octokit.paginate.iterator(octokit.rest.pulls.list, {
+                    ...requestContext,
+                    state: 'open',
+                    base: context.defaultBranch,
+                    per_page: 100
+                }),
                 (value) => {
                     return z.array(pullRequestSchema).parse(value);
                 }
@@ -272,7 +280,7 @@ export function createGitHubReleaseGateApi(
 
             return Promise.all(
                 openPullRequests.map(async (pullRequest) => {
-                    return getPullRequestActivity(fetchImplementation, context, pullRequest);
+                    return getPullRequestActivity(octokit, requestContext, pullRequest);
                 })
             );
         }

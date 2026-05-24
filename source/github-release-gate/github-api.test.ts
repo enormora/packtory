@@ -214,17 +214,58 @@ suite('github-release-gate-github-api', function () {
     });
 
     test('GitHub API methods propagate request failures', async function () {
+        const requests: RecordedRequest[] = [];
         const routes = createBaseRoutes() as Record<string, MockRoute>;
         routes['/repos/enormora/packtory/branches/main'] = {
             body: { message: 'boom' },
             status: 500,
             statusText: 'Internal Server Error'
         };
-        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+        const api = createGitHubReleaseGateApi(createJsonFetch(routes, requests), defaultContext);
 
         await assert.rejects(async () => {
             await api.getMainBranchHeadSha();
         }, /GitHub API request failed/u);
+        assert.strictEqual(requests.length, 1);
+    });
+
+    test('GitHub API methods preserve branch response parse failures', async function () {
+        const routes = createBaseRoutes() as Record<string, MockRoute>;
+        routes['/repos/enormora/packtory/branches/main'] = {
+            body: { nope: true }
+        };
+        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+
+        await assert.rejects(async () => {
+            await api.getMainBranchHeadSha();
+        });
+    });
+
+    test('getOpenPullRequestActivities preserves pull list parse failures', async function () {
+        const routes = createBaseRoutes() as Record<string, MockRoute>;
+        routes[pullsPath] = {
+            body: { nope: true }
+        };
+        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+
+        await assert.rejects(async () => {
+            await api.getOpenPullRequestActivities();
+        });
+    });
+
+    test('getOpenPullRequestActivities formats GitHub pagination failures with the failing request path', async function () {
+        const api = createGitHubReleaseGateApi(async () => {
+            throw Object.assign(new Error('boom'), {
+                request: {
+                    url: 'https://api.github.com/repos/enormora/packtory/pulls?state=open&base=main&per_page=100'
+                },
+                status: 500
+            });
+        }, defaultContext);
+
+        await assert.rejects(async () => {
+            await api.getOpenPullRequestActivities();
+        }, /GitHub API request failed \(500\) for \/repos\/enormora\/packtory\/pulls\?state=open&base=main&per_page=100/u);
     });
 
     test('GitHub API methods reject invalid timestamps', async function () {
