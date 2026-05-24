@@ -1,15 +1,14 @@
-/* eslint-disable no-undef -- the NodeJS namespace type is used for portable platform detection */
 import path from 'node:path';
-import { spawnDetached, spawnForCompletion, type SpawnFunction } from './preview-spawn.ts';
+import { spawnForCompletion, type SpawnFunction } from './preview-spawn.ts';
 
 export type PreviewIoDependencies = {
+    readonly openFile: (filePath: string) => Promise<void>;
     readonly spawnProcess: SpawnFunction;
     readonly randomUuid: () => string;
-    readonly tmpdir: () => string;
-    readonly platform: NodeJS.Platform;
-    readonly shell: string | undefined;
     readonly pager: string | undefined;
+    readonly shell: string | undefined;
     readonly stdoutIsTTY: boolean;
+    readonly tmpdir: () => string;
 };
 
 export type PreviewIo = {
@@ -43,13 +42,12 @@ export function createPreviewIo(dependencies: PreviewIoDependencies): PreviewIo 
             return spawnForCompletion(dependencies.spawnProcess, shell, ['-lc', 'less -R'], content);
         },
         async openPreviewFile(filePath) {
-            if (dependencies.platform === 'darwin') {
-                return spawnDetached(dependencies.spawnProcess, 'open', [filePath]);
+            try {
+                await dependencies.openFile(filePath);
+                return true;
+            } catch {
+                return false;
             }
-            if (dependencies.platform === 'win32') {
-                return spawnDetached(dependencies.spawnProcess, 'cmd', ['/c', 'start', '', filePath]);
-            }
-            return spawnDetached(dependencies.spawnProcess, 'xdg-open', [filePath]);
         }
     };
 }

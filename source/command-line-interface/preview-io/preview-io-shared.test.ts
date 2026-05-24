@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-syntax, functional/no-this-expressions, destructuring/in-params, sonarjs/publicly-writable-directories, no-undef -- fake child-process scaffolding is intentionally imperative in these tests */
+/* eslint-disable no-restricted-syntax, functional/no-this-expressions, destructuring/in-params, sonarjs/publicly-writable-directories -- fake child-process scaffolding is intentionally imperative in these tests */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { withPromiseDeadline } from '../../test-libraries/promise-with-deadline.ts';
@@ -13,8 +13,8 @@ type FakeSpawnResult = {
 };
 
 type PreviewIoFactoryOverrides = {
+    readonly openFile?: ((filePath: string) => Promise<void>) | undefined;
     readonly pager?: string | undefined;
-    readonly platform?: NodeJS.Platform;
     readonly shell?: string | undefined;
     readonly stdoutIsTTY?: boolean;
     readonly spawnHook?: ((result: FakeSpawnResult) => void) | undefined;
@@ -68,7 +68,18 @@ class FakeSpawnedProcess implements SpawnedProcess {
 
 function previewIoFactory(overrides: PreviewIoFactoryOverrides = {}) {
     const calls: FakeSpawnResult[] = [];
+    const openedFiles: string[] = [];
+    const openFile =
+        overrides.openFile ??
+        (async (_: string) => {
+            await Promise.resolve();
+        });
+
     const previewIo = createPreviewIo({
+        async openFile(filePath) {
+            openedFiles.push(filePath);
+            await openFile(filePath);
+        },
         spawnProcess: (command, args, options) => {
             const child = new FakeSpawnedProcess(overrides.stdinMode);
             const result = { command, args, options, child };
@@ -78,12 +89,11 @@ function previewIoFactory(overrides: PreviewIoFactoryOverrides = {}) {
         },
         randomUuid: () => 'uuid-123',
         tmpdir: () => '/tmp',
-        platform: overrides.platform ?? 'linux',
         shell: overrides.shell,
         pager: overrides.pager,
         stdoutIsTTY: overrides.stdoutIsTTY ?? true
     });
-    return { previewIo, calls };
+    return { previewIo, calls, openedFiles };
 }
 
 function requireFirstCall(calls: readonly FakeSpawnResult[]): FakeSpawnResult {
@@ -207,67 +217,26 @@ suite('preview-io-shared', function () {
         assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'preview null stdin'), false);
     });
 
-    test('openPreviewFile uses open on macOS', async function () {
-        const { previewIo: io, calls } = previewIoFactory({ platform: 'darwin' });
+    test('openPreviewFile delegates to the injected file opener', async function () {
+        const { previewIo: io, openedFiles } = previewIoFactory();
 
         assert.strictEqual(
-            await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview on macOS'),
+            await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview file'),
             true
         );
-        assert.deepStrictEqual(
-            calls.map((call) => [call.command, call.args]),
-            [['open', ['/tmp/report.html']]]
-        );
-        const firstCall = requireFirstCall(calls);
-        assert.deepStrictEqual(firstCall.options, { detached: true, stdio: 'ignore' });
-        assert.ok(firstCall.child.listeners.error !== undefined);
-        assert.strictEqual(firstCall.child.wasUnrefCalled, true);
-    });
-
-    test('openPreviewFile uses start on Windows', async function () {
-        const { previewIo: io, calls } = previewIoFactory({ platform: 'win32' });
-
-        assert.strictEqual(
-            await withPromiseDeadline(io.openPreviewFile('C:\\report.html'), 'open preview on Windows'),
-            true
-        );
-        assert.deepStrictEqual(
-            calls.map((call) => [call.command, call.args]),
-            [['cmd', ['/c', 'start', '', 'C:\\report.html']]]
-        );
-    });
-
-    test('openPreviewFile uses xdg-open on other platforms', async function () {
-        const { previewIo: io, calls } = previewIoFactory({ platform: 'linux' });
-
-        assert.strictEqual(
-            await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview on Linux'),
-            true
-        );
-        assert.deepStrictEqual(
-            calls.map((call) => [call.command, call.args]),
-            [['xdg-open', ['/tmp/report.html']]]
-        );
+        assert.deepStrictEqual(openedFiles, ['/tmp/report.html']);
     });
 
     test('openPreviewFile returns false when opening emits an error', async function () {
-        const { previewIo: io } = previewIoFactory({ spawnHook: emitProcessError('error') });
+        const { previewIo: io } = previewIoFactory({
+            openFile: async () => {
+                throw new Error('boom');
+            }
+        });
 
         assert.strictEqual(
             await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview error'),
             false
         );
-    });
-
-    test('openPreviewFile ignores an error emitted after the success path has already settled', async function () {
-        const { previewIo: io, calls } = previewIoFactory();
-
-        assert.strictEqual(
-            await withPromiseDeadline(io.openPreviewFile('/tmp/report.html'), 'open preview late error ignore'),
-            true
-        );
-        const firstCall = requireFirstCall(calls);
-        firstCall.child.listeners.error?.();
-        assert.strictEqual(firstCall.child.wasUnrefCalled, true);
     });
 });
