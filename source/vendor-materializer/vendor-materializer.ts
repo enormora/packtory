@@ -327,16 +327,15 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
     }
 
     async function drainQueue(closure: Closure): Promise<Result<undefined, VendorMaterializerFailure>> {
-        for (;;) {
-            const item = closure.queue.shift();
-            if (item === undefined) {
-                return Result.ok(undefined);
-            }
-            const processed = await processQueueItem(closure, item);
-            if (processed.isErr) {
-                return processed;
-            }
+        const item = closure.queue.shift();
+        if (item === undefined) {
+            return Result.ok(undefined);
         }
+        const processed = await processQueueItem(closure, item);
+        if (processed.isErr) {
+            return processed;
+        }
+        return await drainQueue(closure);
     }
 
     return {
