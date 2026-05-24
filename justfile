@@ -60,4 +60,4 @@ benchmark:
     node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts
 
 publish-dry-run:
-    node --experimental-strip-types --enable-source-maps ./source/packages/command-line-interface/command-line-interface.entry-point.ts publish
+    npx packtory publish

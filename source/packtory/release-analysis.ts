@@ -18,7 +18,6 @@ const dependencyOnlyPackageJsonFields = new Set([
     'version'
 ]);
 
-const invalidJson = Symbol('invalid-json');
 const unchangedPriority = 0;
 const dependencyOnlyPriority = 1;
 const substantivePriority = 2;
@@ -29,22 +28,24 @@ type ClassificationPriority =
     | typeof substantivePriority
     | typeof unchangedPriority;
 
-function parseJsonFile(file: FileDescription): unknown {
+type PackageJsonComparisonValue = { readonly invalid: false; readonly value: unknown } | { readonly invalid: true };
+
+function parseJsonFile(file: FileDescription): PackageJsonComparisonValue {
     const { content } = file;
 
     return (() => {
         try {
-            return JSON.parse(content) as unknown;
+            return { invalid: false, value: JSON.parse(content) as unknown };
         } catch {
-            return invalidJson;
+            return { invalid: true };
         }
     })();
 }
 
-function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): unknown {
+function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): PackageJsonComparisonValue {
     const file = index.get('package.json');
     if (file === undefined) {
-        return invalidJson;
+        return { invalid: true };
     }
 
     return parseJsonFile(file);
@@ -64,10 +65,6 @@ function hasLatestPublishedAt(
     analysis: PackageReleaseAnalysis
 ): analysis is PackageReleaseAnalysis & { readonly latestPublishedAt: Date } {
     return analysis.latestPublishedAt !== undefined;
-}
-
-function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
-    return previousValue === invalidJson || newValue === invalidJson;
 }
 
 function normalizePackageJsonForDependencyComparison(value: unknown): unknown {
@@ -103,13 +100,13 @@ function packageJsonChangeIsDependencyOnly(
     const previousPackageJsonValue = packageJsonValueForComparison(previousIndex);
     const newPackageJsonValue = packageJsonValueForComparison(newIndex);
 
-    if (hasInvalidPackageJsonValues(previousPackageJsonValue, newPackageJsonValue)) {
+    if (previousPackageJsonValue.invalid || newPackageJsonValue.invalid) {
         return false;
     }
 
     return isDeepStrictEqual(
-        normalizePackageJsonForDependencyComparison(previousPackageJsonValue),
-        normalizePackageJsonForDependencyComparison(newPackageJsonValue)
+        normalizePackageJsonForDependencyComparison(previousPackageJsonValue.value),
+        normalizePackageJsonForDependencyComparison(newPackageJsonValue.value)
     );
 }
 
