@@ -28,6 +28,8 @@ jobs:
                   node-version: 26.x
             - name: Install dependencies for release gate
               run: npm clean-install
+            - name: Compile TypeScript for release gate
+              run: npx just compile
             - name: Evaluate GitHub release gate
               id: release-gate
               run: node --experimental-strip-types --enable-source-maps ./source/packages/github-release-gate/github-release-gate.entry-point.ts
@@ -48,6 +50,9 @@ jobs:
             - name: Install dependencies
               if: steps.release-gate.outputs.should_publish == 'true'
               run: npm clean-install
+            - name: Compile TypeScript
+              if: steps.release-gate.outputs.should_publish == 'true'
+              run: npx just compile
             - name: Publish packages
               if: steps.release-gate.outputs.should_publish == 'true'
               run: npx packtory publish --no-dry-run
