@@ -47,20 +47,3 @@ export async function spawnForCompletion(
         child.stdin.end(content);
     });
 }
-
-export async function spawnDetached(
-    spawnProcess: SpawnFunction,
-    command: string,
-    args: readonly string[]
-): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-        const child = spawnProcess(command, args, { detached: true, stdio: 'ignore' });
-        child.on('error', () => {
-            resolve(false);
-        });
-        child.unref();
-        queueMicrotask(() => {
-            resolve(true);
-        });
-    });
-}

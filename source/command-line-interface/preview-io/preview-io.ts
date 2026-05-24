@@ -4,14 +4,14 @@ import { createPreviewIo, type PreviewIo, type PreviewIoDependencies } from './p
 import { defaultSpawnProcess } from './preview-spawn.ts';
 
 type DefaultPreviewIoDependencies = Partial<Pick<PreviewIoDependencies, 'randomUuid' | 'spawnProcess' | 'tmpdir'>> &
-    Pick<PreviewIoDependencies, 'pager' | 'platform' | 'shell' | 'stdoutIsTTY'>;
+    Pick<PreviewIoDependencies, 'openFile' | 'pager' | 'shell' | 'stdoutIsTTY'>;
 
 export function createDefaultPreviewIo(dependencies: DefaultPreviewIoDependencies): PreviewIo {
     return createPreviewIo({
+        openFile: dependencies.openFile,
         spawnProcess: dependencies.spawnProcess ?? defaultSpawnProcess,
         randomUuid: dependencies.randomUuid ?? randomUUID,
         tmpdir: dependencies.tmpdir ?? os.tmpdir,
-        platform: dependencies.platform,
         shell: dependencies.shell,
         pager: dependencies.pager,
         stdoutIsTTY: dependencies.stdoutIsTTY

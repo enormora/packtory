@@ -39,7 +39,10 @@ const spinnerRenderer = createSpinnerRenderer();
 const clock = createClock();
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
 const previewIo = createDefaultPreviewIo({
-    platform: process.platform,
+    async openFile(filePath) {
+        const { default: open } = await import('open');
+        await open(filePath, { wait: false });
+    },
     shell: process.env.SHELL,
     pager: process.env.PAGER,
     stdoutIsTTY: process.stdout.isTTY
