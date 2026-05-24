@@ -1,8 +1,14 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import {
+    ciRunsPath,
+    createBaseRoutes,
+    pullsPath,
+    timelinePath,
+    type RouteResponse
+} from '../test-libraries/github-release-gate-test-support.ts';
 import { createGitHubReleaseGateApi } from './github-api.ts';
 import type { GitHubRepositoryContext } from './runner-config.ts';
-import { ciRunsPath, createBaseRoutes, pullsPath, timelinePath, type RouteResponse } from './test-support.ts';
 
 type MockRoute = RouteResponse & {
     readonly statusText?: string;

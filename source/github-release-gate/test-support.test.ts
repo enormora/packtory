@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
-import { withDeadline } from '../test-libraries/with-deadline.ts';
 import {
     ciRunsPath,
     closeServer,
@@ -14,7 +13,8 @@ import {
     withGitHubApiServer,
     workspaceOutputPath,
     type EntryPointScriptDependencies
-} from './test-support.ts';
+} from '../test-libraries/github-release-gate-test-support.ts';
+import { withDeadline } from '../test-libraries/with-deadline.ts';
 
 type EntryPointScriptCall = {
     readonly execFile: {
