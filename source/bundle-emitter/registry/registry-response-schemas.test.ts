@@ -82,15 +82,28 @@ suite('registry-response-schemas', function () {
                 expires: '2026-01-01T01:00:00Z'
             }),
             {
-                token_type: 'Bearer',
-                token: 'abc',
-                created: '2026-01-01T00:00:00Z',
-                expires: '2026-01-01T01:00:00Z'
+                success: true,
+                data: {
+                    token_type: 'Bearer',
+                    token: 'abc',
+                    created: '2026-01-01T00:00:00Z',
+                    expires: '2026-01-01T01:00:00Z'
+                }
             }
         );
     });
 
-    test('parseOidcExchangeResponse returns undefined when a required field is missing', function () {
-        assert.strictEqual(parseOidcExchangeResponse({ token: 'abc' }), undefined);
+    test('parseOidcExchangeResponse accepts a response that omits token_type and created', function () {
+        assert.deepStrictEqual(parseOidcExchangeResponse({ token: 'abc', expires: '2026-01-01T01:00:00Z' }), {
+            success: true,
+            data: { token: 'abc', expires: '2026-01-01T01:00:00Z' }
+        });
+    });
+
+    test('parseOidcExchangeResponse reports validation issues when token or expires are missing', function () {
+        assert.deepStrictEqual(parseOidcExchangeResponse({ token: 'abc' }), {
+            success: false,
+            issues: ['at expires: missing property']
+        });
     });
 });

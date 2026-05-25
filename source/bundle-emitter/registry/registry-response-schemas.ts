@@ -1,3 +1,4 @@
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { z } from 'zod/mini';
 
 const packageVersionDetailsSchema = z.object({
@@ -23,10 +24,10 @@ const fullPackageResponseSchema = z.object({
 });
 
 const oidcExchangeResponseSchema = z.object({
-    token_type: z.string(),
     token: z.string(),
-    created: z.string(),
-    expires: z.string()
+    expires: z.string(),
+    token_type: z.optional(z.string()),
+    created: z.optional(z.string())
 });
 
 export type AbbreviatedPackageResponse = {
@@ -46,12 +47,16 @@ export type FullPackageResponse = {
     readonly versions: Readonly<Record<string, { readonly dist: { readonly tarball: string } }>>;
 };
 
-export type OidcExchangeResponse = {
-    readonly token_type: string;
+type OidcExchangeResponse = {
     readonly token: string;
-    readonly created: string;
     readonly expires: string;
+    readonly token_type?: string | undefined;
+    readonly created?: string | undefined;
 };
+
+export type OidcExchangeParseResult =
+    | { readonly success: false; readonly issues: readonly string[] }
+    | { readonly success: true; readonly data: OidcExchangeResponse };
 
 export function parseAbbreviatedPackageResponse(response: unknown): AbbreviatedPackageResponse | undefined {
     const result = abbreviatedPackageResponseSchema.safeParse(response);
@@ -63,7 +68,10 @@ export function parseFullPackageResponse(response: unknown): FullPackageResponse
     return result.success ? result.data : undefined;
 }
 
-export function parseOidcExchangeResponse(response: unknown): OidcExchangeResponse | undefined {
-    const result = oidcExchangeResponseSchema.safeParse(response);
-    return result.success ? result.data : undefined;
+export function parseOidcExchangeResponse(response: unknown): OidcExchangeParseResult {
+    const result = safeParse(oidcExchangeResponseSchema, response);
+    if (result.success) {
+        return { success: true, data: result.data as OidcExchangeResponse };
+    }
+    return { success: false, issues: result.error.issues };
 }

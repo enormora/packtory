@@ -1022,7 +1022,7 @@ suite('registry-client', function () {
                 },
                 { access: 'public' }
             );
-        }, /^TypeError: OIDC token exchange returned an invalid response$/u);
+        }, /^TypeError: OIDC token exchange returned an invalid response: /u);
     });
 
     test('publishPackage() rejects a non-object OIDC exchange response body', async function () {
@@ -1048,7 +1048,7 @@ suite('registry-client', function () {
                 },
                 { access: 'public' }
             );
-        }, /^TypeError: OIDC token exchange returned an invalid response$/u);
+        }, /^TypeError: OIDC token exchange returned an invalid response: /u);
     });
 
     test('publishPackage() rejects a null OIDC exchange response body', async function () {
@@ -1074,7 +1074,7 @@ suite('registry-client', function () {
                 },
                 { access: 'public' }
             );
-        }, /^TypeError: OIDC token exchange returned an invalid response$/u);
+        }, /^TypeError: OIDC token exchange returned an invalid response: /u);
     });
 
     test('publishPackage() rejects a failing OIDC exchange request', async function () {
@@ -1186,7 +1186,7 @@ suite('registry-client', function () {
                         },
                         { access: 'public' }
                     );
-                }, /^TypeError: OIDC token exchange returned an invalid response$/u);
+                }, /^TypeError: OIDC token exchange returned an invalid response: /u);
             });
         }
     });

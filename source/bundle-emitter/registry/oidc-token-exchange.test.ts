@@ -117,8 +117,20 @@ suite('oidc-token-exchange', function () {
                     fakeFetchResponse({ json: { token_type: 'oidc' } })
                 ) as unknown as typeof globalThis.fetch
             }),
-            'OIDC token exchange returned an invalid response'
+            'OIDC token exchange returned an invalid response: at token: missing property; at expires: missing property'
         );
+    });
+
+    test('exchangeToken accepts an OIDC response that omits token_type and created', async function () {
+        const exchanger = exchangerFactory({
+            fetch: fake.resolves(
+                fakeFetchResponse({
+                    json: { token: 'exchanged-token', expires: '2026-05-06T11:00:00.000Z' }
+                })
+            ) as unknown as typeof globalThis.fetch
+        });
+
+        assert.strictEqual(await exchanger.exchangeToken('pkg-a', npmSettings, oidcAuth), 'exchanged-token');
     });
 
     test('exchangeToken throws when the OIDC response expiry is not parseable', async function () {
