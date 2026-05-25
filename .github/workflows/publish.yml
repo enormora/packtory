@@ -3,7 +3,14 @@ name: Publish
 
 on:
     schedule:
-        - cron: '*/10 * * * *'
+        # GitHub Actions throttles scheduled workflows hard at the top of the hour.
+        # Spreading entries across off-peak minutes gives the cron a better shot at
+        # firing at least a couple of times per hour as a fallback for the
+        # self-rechain below.
+        - cron: '7 * * * *'
+        - cron: '23 * * * *'
+        - cron: '37 * * * *'
+        - cron: '53 * * * *'
     workflow_dispatch:
 
 concurrency:
@@ -13,7 +20,7 @@ jobs:
     publish:
         runs-on: ubuntu-latest
         permissions:
-            actions: read
+            actions: write
             contents: read
             id-token: write
             issues: read
@@ -56,3 +63,10 @@ jobs:
             - name: Publish packages
               if: steps.release-gate.outputs.should_publish == 'true'
               run: npx packtory publish --no-dry-run
+            - name: Schedule next tick
+              if: always()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  sleep 600
+                  gh workflow run publish.yml --ref main
