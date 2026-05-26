@@ -25,9 +25,7 @@ const fullPackageResponseSchema = z.object({
 
 const oidcExchangeResponseSchema = z.object({
     token: z.string(),
-    expires: z.string(),
-    token_type: z.optional(z.string()),
-    created: z.optional(z.string())
+    expires: z.coerce.date()
 });
 
 export type AbbreviatedPackageResponse = {
@@ -49,9 +47,7 @@ export type FullPackageResponse = {
 
 type OidcExchangeResponse = {
     readonly token: string;
-    readonly expires: string;
-    readonly token_type?: string | undefined;
-    readonly created?: string | undefined;
+    readonly expires: Date;
 };
 
 export type OidcExchangeParseResult =

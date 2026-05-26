@@ -80,11 +80,7 @@ export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies
         if (!parsed.success) {
             throw new TypeError(`OIDC token exchange returned an invalid response: ${parsed.issues.join('; ')}`);
         }
-        const expiresAt = Date.parse(parsed.data.expires);
-        if (!Number.isFinite(expiresAt)) {
-            throw new TypeError('OIDC token exchange returned an invalid expiry timestamp');
-        }
-        return { token: parsed.data.token, expiresAt };
+        return { token: parsed.data.token, expiresAt: parsed.data.expires.getTime() };
     }
 
     async function requestExchange(
