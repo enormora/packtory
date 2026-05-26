@@ -118,6 +118,7 @@ async function main(): Promise<void> {
 }
 
 function crash(error: unknown): void {
+    spinnerRenderer.stopAll();
     console.error(error);
     process.exitCode = 1;
 }

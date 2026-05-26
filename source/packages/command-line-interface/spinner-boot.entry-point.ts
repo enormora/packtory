@@ -20,7 +20,9 @@ function spawnWorker(request: WorkerSpawnRequest): void {
         },
         execArgv: workerExecArgv
     });
-    worker.unref();
+    worker.on('error', (error: Error) => {
+        process.stderr.write(`spinner worker error: ${error.message}\n`);
+    });
 }
 
 export function createBootedSpinnerRuntime(): SpinnerRuntime {
