@@ -1103,65 +1103,11 @@ suite('registry-client', function () {
         }, /^Error: OIDC token exchange failed with status 502$/u);
     });
 
-    test('publishPackage() rejects an invalid OIDC exchange expiry timestamp', async function () {
-        const fetchSpy = fake.resolves({
-            ok: true,
-            status: 201,
-            json: fake.resolves({
-                token_type: 'oidc',
-                token: 'oidc-exchange-token',
-                created: '2026-05-06T10:00:00.000Z',
-                expires: 'not-a-date'
-            })
-        }) as unknown as typeof globalThis.fetch;
-        const registryClient = registryClientFactory({
-            fetch: fetchSpy,
-            resolveIdToken: fake.resolves('upstream-id-token')
-        });
-
-        await expectFailure(async () => {
-            await registryClient.publishPackage(
-                { name: 'the-name', version: '1.0.0' },
-                Buffer.from([]),
-                {
-                    auth: {
-                        publish: { type: 'npm-oidc', provider: 'env' },
-                        metadata: 'anonymous'
-                    }
-                },
-                { access: 'public' }
-            );
-        }, /^TypeError: OIDC token exchange returned an invalid expiry timestamp$/u);
-    });
-
     suite('OIDC exchange invalid responses', function () {
         for (const [testName, response] of [
-            [
-                'token_type is invalid',
-                {
-                    token_type: 123,
-                    token: 'oidc-exchange-token',
-                    created: '2026-05-06T10:00:00.000Z',
-                    expires: '2026-05-06T11:00:00.000Z'
-                }
-            ],
-            [
-                'token is invalid',
-                {
-                    token_type: 'oidc',
-                    token: 123,
-                    created: '2026-05-06T10:00:00.000Z',
-                    expires: '2026-05-06T11:00:00.000Z'
-                }
-            ],
-            [
-                'created is invalid',
-                { token_type: 'oidc', token: 'oidc-exchange-token', created: 123, expires: '2026-05-06T11:00:00.000Z' }
-            ],
-            [
-                'expires is invalid',
-                { token_type: 'oidc', token: 'oidc-exchange-token', created: '2026-05-06T10:00:00.000Z', expires: 123 }
-            ]
+            ['token is the wrong shape', { token: 123, expires: '2026-05-06T11:00:00.000Z' }],
+            ['expires cannot be coerced to a date', { token: 'oidc-exchange-token', expires: 'not-a-date' }],
+            ['expires is the wrong shape', { token: 'oidc-exchange-token', expires: {} }]
         ] as const) {
             test(`publishPackage() rejects an OIDC exchange response when ${testName}`, async function () {
                 const fetchSpy = fake.resolves({

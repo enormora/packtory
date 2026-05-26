@@ -133,22 +133,48 @@ suite('oidc-token-exchange', function () {
         assert.strictEqual(await exchanger.exchangeToken('pkg-a', npmSettings, oidcAuth), 'exchanged-token');
     });
 
-    test('exchangeToken throws when the OIDC response expiry is not parseable', async function () {
-        await expectExchangeError(
-            exchangerFactory({
+    test('exchangeToken accepts an OIDC response with numeric expires and created in seconds', async function () {
+        const exchanger = exchangerFactory({
+            fetch: fake.resolves(
+                fakeFetchResponse({
+                    json: {
+                        token_type: 'oidc',
+                        token: 'exchanged-token',
+                        created: 1_746_525_600,
+                        expires: 1_746_529_200
+                    }
+                })
+            ) as unknown as typeof globalThis.fetch
+        });
+
+        assert.strictEqual(await exchanger.exchangeToken('pkg-a', npmSettings, oidcAuth), 'exchanged-token');
+    });
+
+    test('exchangeToken accepts an OIDC response with numeric expires in milliseconds', async function () {
+        const exchanger = exchangerFactory({
+            fetch: fake.resolves(
+                fakeFetchResponse({
+                    json: { token: 'exchanged-token', expires: 1_746_529_200_000 }
+                })
+            ) as unknown as typeof globalThis.fetch
+        });
+
+        assert.strictEqual(await exchanger.exchangeToken('pkg-a', npmSettings, oidcAuth), 'exchanged-token');
+    });
+
+    test('exchangeToken throws when the OIDC response expiry cannot be coerced to a date', async function () {
+        try {
+            await exchangerFactory({
                 fetch: fake.resolves(
                     fakeFetchResponse({
-                        json: {
-                            token_type: 'oidc',
-                            token: 'exchanged-token',
-                            created: '2026-05-06T10:00:00.000Z',
-                            expires: 'not-a-date'
-                        }
+                        json: { token: 'exchanged-token', expires: 'not-a-date' }
                     })
                 ) as unknown as typeof globalThis.fetch
-            }),
-            'OIDC token exchange returned an invalid expiry timestamp'
-        );
+            }).exchangeToken('pkg-a', npmSettings, oidcAuth);
+            assert.fail('Expected exchangeToken() to throw but it did not');
+        } catch (error: unknown) {
+            assert.match((error as Error).message, /^OIDC token exchange returned an invalid response: .*at expires/u);
+        }
     });
 
     test('resolveWriteAuthOptions returns bearer auth options when publish strategy is bearer-token', async function () {
