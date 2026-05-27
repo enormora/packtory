@@ -1,4 +1,5 @@
-import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
+import { isDefined, pickBy } from 'remeda';
+import { fileDecision, type ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 import { mergeArtifactEntry } from './artifact-entry-merger.ts';
 import type { MutablePackageReport, PackageReport } from './report-types.ts';
 
@@ -6,21 +7,24 @@ type Required<T> = NonNullable<T>;
 type Inputs = Required<PackageReport['inputs']>;
 
 function materializeInputs(entry: MutablePackageReport): Inputs {
-    const base: Inputs = {
+    const inputs: Inputs = {
         roots: entry.roots ?? {},
         siblingVersions: entry.siblingVersions ?? {},
         sourceFileCount: entry.sourceFileCount ?? 0
     };
+
     if (entry.effectiveConfig === undefined) {
-        return base;
+        return inputs;
     }
-    return { ...base, effectiveConfig: entry.effectiveConfig };
+
+    return { ...inputs, effectiveConfig: entry.effectiveConfig };
 }
 
 function buildInputs(entry: MutablePackageReport): Inputs | undefined {
     if (entry.roots === undefined && entry.effectiveConfig === undefined) {
         return undefined;
     }
+
     return materializeInputs(entry);
 }
 
@@ -29,29 +33,45 @@ function mergeArtifactEntries(
     rewrittenSourcePaths: ReadonlySet<string>,
     transformedSourcePaths: ReadonlySet<string>
 ): readonly ArtifactEntry[] {
-    return entries.map((entry) => {
-        return mergeArtifactEntry(entry, rewrittenSourcePaths, transformedSourcePaths);
-    });
+    const mergedEntries: ArtifactEntry[] = [];
+
+    for (const entry of entries) {
+        mergedEntries.push(mergeArtifactEntry(entry, rewrittenSourcePaths, transformedSourcePaths));
+    }
+
+    return mergedEntries;
 }
 
 function collectRewrittenSourcePaths(entry: MutablePackageReport): ReadonlySet<string> {
-    return new Set(
-        entry.decisions.linker?.rewrites.map((rewrite) => {
-            return rewrite.file;
-        })
-    );
+    const rewrittenSourcePaths = new Set<string>();
+    const rewrites = entry.decisions.linker?.rewrites;
+
+    if (rewrites === undefined) {
+        return rewrittenSourcePaths;
+    }
+
+    for (const rewrite of rewrites) {
+        rewrittenSourcePaths.add(rewrite.file);
+    }
+
+    return rewrittenSourcePaths;
 }
 
 function collectTransformedSourcePaths(entry: MutablePackageReport): ReadonlySet<string> {
-    return new Set(
-        entry.decisions.deadCodeElimination?.files
-            .filter((file) => {
-                return file.decision === 'transformed';
-            })
-            .map((file) => {
-                return file.path;
-            })
-    );
+    const transformedSourcePaths = new Set<string>();
+    const files = entry.decisions.deadCodeElimination?.files;
+
+    if (files === undefined) {
+        return transformedSourcePaths;
+    }
+
+    for (const file of files) {
+        if (file.decision === fileDecision.transformed) {
+            transformedSourcePaths.add(file.path);
+        }
+    }
+
+    return transformedSourcePaths;
 }
 
 function buildOutputs(entry: MutablePackageReport): PackageReport['outputs'] | undefined {
@@ -71,12 +91,15 @@ function buildOutputs(entry: MutablePackageReport): PackageReport['outputs'] | u
 export function toPackageReport(entry: MutablePackageReport): PackageReport {
     const inputs = buildInputs(entry);
     const outputs = buildOutputs(entry);
-    return {
-        decisions: entry.decisions,
-        timings: entry.timings,
-        ...(inputs === undefined ? {} : { inputs }),
-        ...(outputs === undefined ? {} : { outputs }),
-        ...(entry.eliminatedSourceFiles === undefined ? {} : { eliminatedSourceFiles: entry.eliminatedSourceFiles }),
-        ...(entry.failure === undefined ? {} : { failure: entry.failure })
-    };
+    return pickBy(
+        {
+            decisions: entry.decisions,
+            timings: entry.timings,
+            inputs,
+            outputs,
+            eliminatedSourceFiles: entry.eliminatedSourceFiles,
+            failure: entry.failure
+        },
+        isDefined
+    );
 }

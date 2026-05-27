@@ -12,14 +12,22 @@ export type UnsatisfiedPeerDependency = {
     readonly peer: string;
 };
 
+export const packPackageFailureType = {
+    bundleDependenciesUnsupported: 'bundle-dependencies-unsupported',
+    packageNotFound: 'package-not-found',
+    peerDependenciesUnsatisfied: 'peer-dependencies-unsatisfied',
+    vendorInvalidDependencyName: 'vendor-invalid-dependency-name',
+    vendorSymlinkTargetOutsidePackage: 'vendor-symlink-target-outside-package'
+} as const;
+
 type PeerDependenciesUnsatisfiedFailure = {
-    readonly type: 'peer-dependencies-unsatisfied';
+    readonly type: typeof packPackageFailureType.peerDependenciesUnsatisfied;
     readonly packageName: string;
     readonly items: readonly UnsatisfiedPeerDependency[];
 };
 
 type VendorSymlinkOutsidePackageFailure = {
-    readonly type: 'vendor-symlink-target-outside-package';
+    readonly type: typeof packPackageFailureType.vendorSymlinkTargetOutsidePackage;
     readonly packageName: string;
     readonly vendoredPackageName: string;
     readonly entryRelativePath: string;
@@ -27,7 +35,7 @@ type VendorSymlinkOutsidePackageFailure = {
 };
 
 type VendorInvalidDependencyNameFailure = {
-    readonly type: 'vendor-invalid-dependency-name';
+    readonly type: typeof packPackageFailureType.vendorInvalidDependencyName;
     readonly packageName: string;
     readonly sourcePackageName: string | undefined;
     readonly invalidDependencyName: string;
@@ -37,8 +45,8 @@ export type PackPackageFailure =
     | PeerDependenciesUnsatisfiedFailure
     | VendorInvalidDependencyNameFailure
     | VendorSymlinkOutsidePackageFailure
-    | { readonly type: 'bundle-dependencies-unsupported'; readonly packageName: string }
-    | { readonly type: 'package-not-found'; readonly packageName: string };
+    | { readonly type: typeof packPackageFailureType.bundleDependenciesUnsupported; readonly packageName: string }
+    | { readonly type: typeof packPackageFailureType.packageNotFound; readonly packageName: string };
 
 export type BuildAndPublishAllOptions = {
     readonly dryRun: boolean;
@@ -51,8 +59,24 @@ export type ResolveAndLinkAllOptions = {
 
 export type BuildReport = ReportBuildReport;
 
+export const checksErrorType = 'checks';
+export const configErrorType = 'config';
+export const partialFailureType = 'partial';
+export const previewResultType = {
+    checks: checksErrorType,
+    config: configErrorType,
+    partial: partialFailureType,
+    success: 'success'
+} as const;
+export const releaseAnalysisClassification = {
+    dependencyOnly: 'dependency-only',
+    firstPublish: 'first-publish',
+    substantive: 'substantive',
+    unchanged: 'unchanged'
+} as const;
+
 export function configError(issues: readonly string[]): ConfigError {
-    return { type: 'config', issues };
+    return { type: configErrorType, issues };
 }
 
 export type PublishAllOutcome = {
@@ -80,31 +104,37 @@ export function createResolveAndLinkAllOutcome(
 }
 
 export type ConfigError = {
-    type: 'config';
+    type: typeof configErrorType;
     issues: readonly string[];
 };
 
-export type PublishFailure = CheckError | ConfigError | (PartialError<BuildAndPublishResult> & { type: 'partial' });
+export type PublishFailure =
+    | CheckError
+    | ConfigError
+    | (PartialError<BuildAndPublishResult> & { type: typeof partialFailureType });
 
 export type PublishAllResult = Result<readonly BuildAndPublishResult[], PublishFailure>;
 
 export function publishPartialFailure(error: PartialError<BuildAndPublishResult>): PublishFailure {
-    return { type: 'partial', ...error };
+    return { type: partialFailureType, ...error };
 }
 
 export type PartialErrorResult = {
-    type: 'partial';
+    type: typeof partialFailureType;
     error: PartialError<ResolvedPackage>;
 };
 
 export function resolvePartialFailure(error: PartialError<ResolvedPackage>): PartialErrorResult {
-    return { type: 'partial', error };
+    return { type: partialFailureType, error };
 }
 
 export type ResolveAndLinkFailure = CheckError | ConfigError | PartialErrorResult;
 export type ResolveAndLinkAllResult = Result<readonly ResolvedPackage[], ResolveAndLinkFailure>;
 
-export type ReleaseDiffFailure = CheckError | ConfigError | (PartialError<PackageReleaseDiff> & { type: 'partial' });
+export type ReleaseDiffFailure =
+    | CheckError
+    | ConfigError
+    | (PartialError<PackageReleaseDiff> & { type: typeof partialFailureType });
 export type ReleaseDiffAllResult = Result<readonly PackageReleaseDiff[], ReleaseDiffFailure>;
 
 export type ReleaseDiffAllOutcome = {
@@ -119,7 +149,8 @@ export function createReleaseDiffAllOutcome(
     return { result, getReport };
 }
 
-export type PackageReleaseAnalysisClassification = 'dependency-only' | 'first-publish' | 'substantive' | 'unchanged';
+export type PackageReleaseAnalysisClassification =
+    (typeof releaseAnalysisClassification)[keyof typeof releaseAnalysisClassification];
 
 export type PackageReleaseAnalysis = {
     readonly classification: PackageReleaseAnalysisClassification;
@@ -137,7 +168,7 @@ export type ReleaseAnalysis = {
 export type ReleaseAnalysisFailure =
     | CheckError
     | ConfigError
-    | (PartialError<PackageReleaseAnalysis> & { type: 'partial' });
+    | (PartialError<PackageReleaseAnalysis> & { type: typeof partialFailureType });
 export type ReleaseAnalysisResult = Result<ReleaseAnalysis, ReleaseAnalysisFailure>;
 
 export type ReleaseAnalysisOutcome = {
@@ -153,11 +184,11 @@ export function createReleaseAnalysisOutcome(
 }
 
 export function releaseDiffPartialFailure(error: PartialError<PackageReleaseDiff>): ReleaseDiffFailure {
-    return { type: 'partial', ...error };
+    return { type: partialFailureType, ...error };
 }
 
 export function releaseAnalysisPartialFailure(error: PartialError<PackageReleaseAnalysis>): ReleaseAnalysisFailure {
-    return { type: 'partial', ...error };
+    return { type: partialFailureType, ...error };
 }
 
 export type PackPublicOptions = {

@@ -1,8 +1,14 @@
 import { isCodeFile } from '../../common/code-files.ts';
 import type { createStructuredPatch } from '../../common/typed-diff.ts';
-import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
+import { artifactKind, artifactStatus, type ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 
-type PreviewDiffLineType = 'add' | 'context' | 'remove';
+export const previewDiffLineType = {
+    add: 'add',
+    context: 'context',
+    remove: 'remove'
+} as const;
+
+type PreviewDiffLineType = (typeof previewDiffLineType)[keyof typeof previewDiffLineType];
 
 export type PreviewDiffLine = {
     readonly type: PreviewDiffLineType;
@@ -19,20 +25,20 @@ type StructuredHunk = ReturnType<typeof createStructuredPatch>['hunks'][number];
 export function isDiffableArtifact(entry: ArtifactEntry): entry is ArtifactEntry & { readonly sourcePath: string } {
     return (
         entry.sourcePath !== undefined &&
-        entry.status === 'changed' &&
-        entry.kind === 'source' &&
+        entry.status === artifactStatus.changed &&
+        entry.kind === artifactKind.source &&
         isCodeFile(entry.path)
     );
 }
 
 function toDiffLineType(line: string): PreviewDiffLineType {
     if (line.startsWith('+')) {
-        return 'add';
+        return previewDiffLineType.add;
     }
     if (line.startsWith('-')) {
-        return 'remove';
+        return previewDiffLineType.remove;
     }
-    return 'context';
+    return previewDiffLineType.context;
 }
 
 export function toPreviewDiffHunk(hunk: StructuredHunk): PreviewDiffHunk {

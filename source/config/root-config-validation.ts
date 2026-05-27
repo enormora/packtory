@@ -6,7 +6,16 @@ type ExplicitPackageConfig = Extract<
     { readonly packageInterface: NonNullable<PackageConfig['packageInterface']> }
 >;
 
+type ExplicitRootEntryValidation<TEntry extends { readonly root: string }> = {
+    readonly duplicateLabel: string;
+    readonly entries: readonly TEntry[];
+    readonly entryNameFor: (entry: TEntry) => string;
+    readonly referenceLabel: string;
+    readonly seenValues: Set<string>;
+};
+
 type ExplicitValidationState = {
+    readonly issues: string[];
     readonly usedRootIds: Set<string>;
     readonly publicRootIds: Set<string>;
     readonly seenExportKeys: Set<string>;
@@ -16,12 +25,109 @@ type ExplicitValidationState = {
 
 function createExplicitValidationState(): ExplicitValidationState {
     return {
+        issues: [],
         usedRootIds: new Set<string>(),
         publicRootIds: new Set<string>(),
         seenExportKeys: new Set<string>(),
         seenBinNames: new Set<string>(),
         seenPrivateRootIds: new Set<string>()
     };
+}
+
+function pushUnknownRootIssue(
+    packageConfig: PackageConfig,
+    state: Pick<ExplicitValidationState, 'issues'>,
+    referenceName: string,
+    rootId: string
+): void {
+    if (packageConfig.roots[rootId] === undefined) {
+        state.issues.push(`Package "${packageConfig.name}" ${referenceName} references unknown root "${rootId}"`);
+    }
+}
+
+function pushDuplicateIssue(
+    state: Pick<ExplicitValidationState, 'issues'>,
+    seenValues: Set<string>,
+    value: string,
+    message: string
+): void {
+    if (seenValues.has(value)) {
+        state.issues.push(message);
+    }
+}
+
+function validateExplicitRootEntries<TEntry extends { readonly root: string }>(
+    packageConfig: ExplicitPackageConfig,
+    state: ExplicitValidationState,
+    validation: ExplicitRootEntryValidation<TEntry>
+): void {
+    for (const entry of validation.entries) {
+        const entryName = validation.entryNameFor(entry);
+        pushUnknownRootIssue(packageConfig, state, `${validation.referenceLabel} "${entryName}"`, entry.root);
+        pushDuplicateIssue(
+            state,
+            validation.seenValues,
+            entryName,
+            `Package "${packageConfig.name}" declares duplicate ${validation.duplicateLabel} "${entryName}"`
+        );
+        validation.seenValues.add(entryName);
+        state.usedRootIds.add(entry.root);
+        state.publicRootIds.add(entry.root);
+    }
+}
+
+function validateExplicitPublicEntries(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): void {
+    validateExplicitRootEntries(packageConfig, state, {
+        duplicateLabel: 'export key',
+        entries: packageConfig.packageInterface.modules ?? [],
+        entryNameFor(entry) {
+            return entry.export;
+        },
+        referenceLabel: 'module export',
+        seenValues: state.seenExportKeys
+    });
+    validateExplicitRootEntries(packageConfig, state, {
+        duplicateLabel: 'bin name',
+        entries: packageConfig.packageInterface.bins ?? [],
+        entryNameFor(entry) {
+            return entry.name;
+        },
+        referenceLabel: 'bin',
+        seenValues: state.seenBinNames
+    });
+}
+
+function validateExplicitPrivateRoots(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): void {
+    for (const rootId of packageConfig.packageInterface.privateRoots ?? []) {
+        pushUnknownRootIssue(packageConfig, state, `private root "${rootId}"`, rootId);
+        pushDuplicateIssue(
+            state,
+            state.seenPrivateRootIds,
+            rootId,
+            `Package "${packageConfig.name}" declares duplicate private root "${rootId}"`
+        );
+        if (state.publicRootIds.has(rootId)) {
+            state.issues.push(`Package "${packageConfig.name}" root "${rootId}" cannot be both public and private`);
+        }
+        state.seenPrivateRootIds.add(rootId);
+        state.usedRootIds.add(rootId);
+    }
+}
+
+function pushExplicitUnusedRootIssues(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): void {
+    for (const rootId of Object.keys(packageConfig.roots)) {
+        if (!state.usedRootIds.has(rootId)) {
+            state.issues.push(`Package "${packageConfig.name}" defines unused root "${rootId}" in explicit mode`);
+        }
+    }
+}
+
+function validateExplicitRootConfiguration(packageConfig: ExplicitPackageConfig): readonly string[] {
+    const state = createExplicitValidationState();
+    validateExplicitPublicEntries(packageConfig, state);
+    validateExplicitPrivateRoots(packageConfig, state);
+    pushExplicitUnusedRootIssues(packageConfig, state);
+    return state.issues;
 }
 
 function validateDuplicateRootJavaScriptTargets(packageConfig: PackageConfig): readonly string[] {
@@ -41,11 +147,10 @@ function validateDuplicateRootJavaScriptTargets(packageConfig: PackageConfig): r
 }
 
 function validateImplicitRootConfiguration(packageConfig: ImplicitPackageConfig): readonly string[] {
-    const rootIds = Object.keys(packageConfig.roots);
-    const issues: string[] = [];
     const { defaultModuleRoot } = packageConfig;
+    const issues: string[] = [];
 
-    if (rootIds.length > 1 && defaultModuleRoot === undefined) {
+    if (Object.keys(packageConfig.roots).length > 1 && defaultModuleRoot === undefined) {
         issues.push(`Package "${packageConfig.name}" must define defaultModuleRoot when multiple roots exist`);
     }
 
@@ -56,99 +161,24 @@ function validateImplicitRootConfiguration(packageConfig: ImplicitPackageConfig)
     return issues;
 }
 
-function validateExplicitModules(
-    packageConfig: ExplicitPackageConfig,
-    state: ExplicitValidationState
-): readonly string[] {
-    const issues: string[] = [];
-    for (const entry of packageConfig.packageInterface.modules ?? []) {
-        if (packageConfig.roots[entry.root] === undefined) {
-            issues.push(
-                [
-                    `Package "${packageConfig.name}" module export "${entry.export}"`,
-                    `references unknown root "${entry.root}"`
-                ].join(' ')
-            );
-        }
-        if (state.seenExportKeys.has(entry.export)) {
-            issues.push(`Package "${packageConfig.name}" declares duplicate export key "${entry.export}"`);
-        }
-        state.seenExportKeys.add(entry.export);
-        state.usedRootIds.add(entry.root);
-        state.publicRootIds.add(entry.root);
-    }
-    return issues;
+function hasInvalidExplicitDefaultModuleRoot(packageConfig: ExplicitPackageConfig): boolean {
+    const packageRecord: Readonly<Record<string, unknown>> = packageConfig;
+    const { defaultModuleRoot } = packageRecord;
+    return typeof defaultModuleRoot === 'string';
 }
 
-function validateExplicitBins(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): readonly string[] {
-    const issues: string[] = [];
-    for (const entry of packageConfig.packageInterface.bins ?? []) {
-        if (packageConfig.roots[entry.root] === undefined) {
-            issues.push(`Package "${packageConfig.name}" bin "${entry.name}" references unknown root "${entry.root}"`);
-        }
-        if (state.seenBinNames.has(entry.name)) {
-            issues.push(`Package "${packageConfig.name}" declares duplicate bin name "${entry.name}"`);
-        }
-        state.seenBinNames.add(entry.name);
-        state.usedRootIds.add(entry.root);
-        state.publicRootIds.add(entry.root);
-    }
-    return issues;
-}
+function validateExplicitModeConfiguration(packageConfig: ExplicitPackageConfig): readonly string[] {
+    const issues = validateExplicitRootConfiguration(packageConfig);
 
-function validateExplicitPrivateRoots(
-    packageConfig: ExplicitPackageConfig,
-    state: ExplicitValidationState
-): readonly string[] {
-    return (packageConfig.packageInterface.privateRoots ?? []).flatMap((rootId) => {
-        const issues: string[] = [];
-        if (packageConfig.roots[rootId] === undefined) {
-            issues.push(`Package "${packageConfig.name}" private root "${rootId}" references unknown root "${rootId}"`);
-        }
-        if (state.seenPrivateRootIds.has(rootId)) {
-            issues.push(`Package "${packageConfig.name}" declares duplicate private root "${rootId}"`);
-        }
-        if (state.publicRootIds.has(rootId)) {
-            issues.push(`Package "${packageConfig.name}" root "${rootId}" cannot be both public and private`);
-        }
-        state.seenPrivateRootIds.add(rootId);
-        state.usedRootIds.add(rootId);
-        return issues;
-    });
-}
-
-function validateExplicitUnusedRoots(
-    packageConfig: ExplicitPackageConfig,
-    state: ExplicitValidationState
-): readonly string[] {
-    return Object.keys(packageConfig.roots).flatMap((rootId) => {
-        if (state.usedRootIds.has(rootId)) {
-            return [];
-        }
-        return [`Package "${packageConfig.name}" defines unused root "${rootId}" in explicit mode`];
-    });
-}
-
-function validateExplicitRootConfiguration(packageConfig: ExplicitPackageConfig): readonly string[] {
-    const state = createExplicitValidationState();
-    return [
-        ...validateExplicitModules(packageConfig, state),
-        ...validateExplicitBins(packageConfig, state),
-        ...validateExplicitPrivateRoots(packageConfig, state),
-        ...validateExplicitUnusedRoots(packageConfig, state)
-    ];
-}
-
-function buildMutualExclusionIssues(packageName: string, defaultModuleRoot: string | undefined): readonly string[] {
-    if (defaultModuleRoot === undefined) {
-        return [];
-    }
-    return [
-        [
-            `Package "${packageName}" cannot combine defaultModuleRoot with packageInterface;`,
+    if (hasInvalidExplicitDefaultModuleRoot(packageConfig)) {
+        const message = [
+            `Package "${packageConfig.name}" cannot combine defaultModuleRoot with packageInterface;`,
             'remove defaultModuleRoot in explicit mode'
-        ].join(' ')
-    ];
+        ].join(' ');
+        return [message, ...issues];
+    }
+
+    return issues;
 }
 
 function validateRootConfiguration(packageConfig: PackageConfig): readonly string[] {
@@ -158,17 +188,15 @@ function validateRootConfiguration(packageConfig: PackageConfig): readonly strin
         return [...duplicateRootIssues, ...validateImplicitRootConfiguration(packageConfig)];
     }
 
-    const packageConfigWithBothFields = packageConfig as PackageConfig & {
-        readonly defaultModuleRoot?: string | undefined;
-    };
-    const mutualExclusionIssues = buildMutualExclusionIssues(
-        packageConfig.name,
-        packageConfigWithBothFields.defaultModuleRoot
-    );
-
-    return [...duplicateRootIssues, ...mutualExclusionIssues, ...validateExplicitRootConfiguration(packageConfig)];
+    return [...duplicateRootIssues, ...validateExplicitModeConfiguration(packageConfig)];
 }
 
 export function validatePackageSurfaceRules(packageConfigs: PackageConfigsByName): readonly string[] {
-    return Object.values(packageConfigs).flatMap(validateRootConfiguration);
+    const issues: string[] = [];
+
+    for (const packageConfig of Object.values(packageConfigs)) {
+        issues.push(...validateRootConfiguration(packageConfig));
+    }
+
+    return issues;
 }

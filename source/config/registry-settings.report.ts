@@ -1,8 +1,9 @@
-import type {
-    MetadataAuthMode,
-    MetadataAuthStrategy,
-    PublishAuthStrategy,
-    RegistrySettings
+import {
+    publishAuthType,
+    type MetadataAuthMode,
+    type MetadataAuthStrategy,
+    type PublishAuthStrategy,
+    type RegistrySettings
 } from './registry-settings.ts';
 
 const redactedValue = '[redacted]';
@@ -18,19 +19,19 @@ type RedactedAuth = {
 };
 
 function redactPublishAuth(auth: PublishAuthStrategy): RedactedAuth {
-    if (auth.type === 'bearer-token') {
-        return { type: 'bearer-token', token: redactedValue };
+    if (auth.type === publishAuthType.bearerToken) {
+        return { type: publishAuthType.bearerToken, token: redactedValue };
     }
-    if (auth.type === 'basic') {
+    if (auth.type === publishAuthType.basic) {
         return {
-            type: 'basic',
+            type: publishAuthType.basic,
             username: auth.username,
             password: redactedValue,
             ...(auth.email === undefined ? {} : { email: auth.email })
         };
     }
     return {
-        type: 'npm-oidc',
+        type: publishAuthType.npmOidc,
         ...(auth.provider === undefined ? {} : { provider: auth.provider }),
         ...(auth.idTokenEnvVar === undefined ? {} : { idTokenEnvVar: auth.idTokenEnvVar })
     };

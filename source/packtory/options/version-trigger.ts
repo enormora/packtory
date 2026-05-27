@@ -1,5 +1,6 @@
 import type { Maybe } from 'true-myth';
 import type { BuildAndPublishOptions } from '../map-config.ts';
+import { versionTrigger, type VersionTrigger } from '../../progress/progress-broadcaster.ts';
 
 export function determineBuildVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): string {
     if (currentVersion.isJust) {
@@ -22,18 +23,18 @@ export function inferVersionTrigger(
     currentVersion: Maybe<string>,
     options: BuildAndPublishOptions,
     didBump: boolean
-): 'auto-patch-bump' | 'initial' | 'minimum' | 'pinned' {
+): VersionTrigger {
     if (didBump) {
-        return 'auto-patch-bump';
+        return versionTrigger.autoPatchBump;
     }
     if (!options.versioning.automatic) {
-        return 'pinned';
+        return versionTrigger.pinned;
     }
     if (currentVersion.isJust) {
-        return 'auto-patch-bump';
+        return versionTrigger.autoPatchBump;
     }
     if (options.versioning.minimumVersion !== undefined) {
-        return 'minimum';
+        return versionTrigger.minimum;
     }
-    return 'initial';
+    return versionTrigger.initial;
 }

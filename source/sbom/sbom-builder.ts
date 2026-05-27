@@ -6,12 +6,10 @@ type SbomRootComponent = {
     readonly version: string;
 };
 
-export type SbomDependencyKind = 'peer' | 'runtime';
-
 export type SbomDependency = {
     readonly name: string;
     readonly specifier: string;
-    readonly kind: SbomDependencyKind;
+    readonly scope: cdx.Enums.ComponentScope;
     readonly license: string | undefined;
 };
 
@@ -32,15 +30,6 @@ function isParseableSpdxExpression(value: string): boolean {
 
 function buildPurl(name: string, versionOrSpecifier: string): string {
     return `pkg:npm/${name}@${encodeURIComponent(versionOrSpecifier)}`;
-}
-
-const componentScopeByKind: Readonly<Record<SbomDependencyKind, cdx.Enums.ComponentScope>> = {
-    peer: cdx.Enums.ComponentScope.Optional,
-    runtime: cdx.Enums.ComponentScope.Required
-};
-
-function scopeFor(kind: SbomDependencyKind): cdx.Enums.ComponentScope {
-    return componentScopeByKind[kind];
 }
 
 function attachLicense(component: cdx.Models.Component, license: string | undefined): void {
@@ -69,7 +58,7 @@ function buildDependencyComponent(dependency: SbomDependency): cdx.Models.Compon
         version: dependency.specifier,
         bomRef: purl,
         purl,
-        scope: scopeFor(dependency.kind)
+        scope: dependency.scope
     });
     attachLicense(component, dependency.license);
     return component;

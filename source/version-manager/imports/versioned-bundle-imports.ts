@@ -4,6 +4,27 @@ import type { MainPackageJson } from '../../config/package-json.ts';
 import { collectHashImportSpecifiers } from './hash-import-scanner.ts';
 import { findMatchingImportEntryKey, type ImportsField } from './imports-key-matcher.ts';
 
+function buildMissingImportsFieldMessage(firstSpecifier: string | undefined): string {
+    return (
+        `Found surviving package.json imports specifier "${firstSpecifier}" ` +
+        'but mainPackageJson.imports is not configured'
+    );
+}
+
+function buildMissingImportEntryMessage(specifier: string): string {
+    return (
+        `Found surviving package.json imports specifier "${specifier}" ` +
+        'but no matching mainPackageJson.imports entry'
+    );
+}
+
+function buildUndefinedImportEntryMessage(specifier: string, matchingKey: string): string {
+    return (
+        `Found surviving package.json imports specifier "${specifier}" ` +
+        `but matching mainPackageJson.imports entry "${matchingKey}" is undefined`
+    );
+}
+
 function getConfiguredImportsOrThrow(
     mainPackageJson: MainPackageJson,
     referencedSpecifiers: ReadonlySet<string>
@@ -13,12 +34,7 @@ function getConfiguredImportsOrThrow(
     }
 
     const [firstSpecifier] = referencedSpecifiers;
-    throw new Error(
-        [
-            `Found surviving package.json imports specifier "${firstSpecifier}"`,
-            'but mainPackageJson.imports is not configured'
-        ].join(' ')
-    );
+    throw new Error(buildMissingImportsFieldMessage(firstSpecifier));
 }
 
 function collectReferencedImportsEntries(
@@ -30,22 +46,12 @@ function collectReferencedImportsEntries(
     for (const specifier of referencedSpecifiers) {
         const matchingKey = findMatchingImportEntryKey(specifier, configuredImports);
         if (matchingKey === undefined) {
-            throw new Error(
-                [
-                    `Found surviving package.json imports specifier "${specifier}"`,
-                    'but no matching mainPackageJson.imports entry'
-                ].join(' ')
-            );
+            throw new Error(buildMissingImportEntryMessage(specifier));
         }
 
         const matchingImport = configuredImports[matchingKey];
         if (matchingImport === undefined) {
-            throw new Error(
-                [
-                    `Found surviving package.json imports specifier "${specifier}"`,
-                    `but matching mainPackageJson.imports entry "${matchingKey}" is undefined`
-                ].join(' ')
-            );
+            throw new Error(buildUndefinedImportEntryMessage(specifier, matchingKey));
         }
 
         importsField[matchingKey] = matchingImport;

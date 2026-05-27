@@ -1,37 +1,22 @@
+import { bundledDependencyGroups } from '../common/bundled-dependency-groups.ts';
 import type { PackageConfigsByName } from './config.ts';
 
-function validateDependenciesExistForSinglePackage(
-    packageName: string,
-    allKnownPackageNames: readonly string[],
-    dependencies: readonly string[],
-    isPeer: boolean
-): readonly string[] {
-    const prefix = isPeer ? 'Bundle peer' : 'Bundle';
-    return dependencies
-        .filter((dependency) => {
-            return !allKnownPackageNames.includes(dependency);
-        })
-        .map((dependency) => {
-            return `${prefix} dependency "${dependency}" referenced in "${packageName}" does not exist`;
-        });
-}
-
 export function validateDependenciesExist(packageConfigs: PackageConfigsByName): readonly string[] {
-    const knownPackageNames = Object.keys(packageConfigs);
-    return Object.values(packageConfigs).flatMap((packageConfig) => {
-        return [
-            ...validateDependenciesExistForSinglePackage(
-                packageConfig.name,
-                knownPackageNames,
-                packageConfig.bundleDependencies ?? [],
-                false
-            ),
-            ...validateDependenciesExistForSinglePackage(
-                packageConfig.name,
-                knownPackageNames,
-                packageConfig.bundlePeerDependencies ?? [],
-                true
-            )
-        ];
-    });
+    const issues: string[] = [];
+    const knownPackageNames = new Set(Object.keys(packageConfigs));
+
+    for (const packageConfig of Object.values(packageConfigs)) {
+        for (const group of bundledDependencyGroups) {
+            for (const dependencyName of packageConfig[group.propertyName] ?? []) {
+                if (!knownPackageNames.has(dependencyName)) {
+                    const message =
+                        `${group.missingMessagePrefix} "${dependencyName}" referenced in "${packageConfig.name}" ` +
+                        'does not exist';
+                    issues.push(message);
+                }
+            }
+        }
+    }
+
+    return issues;
 }

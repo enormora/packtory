@@ -1,24 +1,25 @@
 /* eslint-disable import/max-dependencies -- the pack orchestrator wires resolve+link, version manager, vendor materializer, and pack emitter */
 import { Result } from 'true-myth';
 import { safeParse } from '@schema-hub/zod-error-formatter';
-import type { PackageJson } from 'type-fest';
 import { z } from 'zod/mini';
+import { bundledInstalledDependencyPath } from '../common/package-layout.ts';
+import { packageNameMap } from '../common/package-name-map.ts';
+import { serializeStableJson } from '../common/stable-json.ts';
+import { createWorklist } from '../common/worklist.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { PackEmitter, PackFormat } from '../pack-emitter/pack-emitter.ts';
-import { serializePackageJson } from '../version-manager/manifest/serialize.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
-import type {
-    InvalidDependencyNameFailure,
-    SymlinkTargetOutsidePackageFailure,
-    VendorMaterializer,
-    VendorMaterializerFailure
+import {
+    vendorMaterializerFailureType,
+    type VendorMaterializer,
+    type VendorMaterializerFailure
 } from '../vendor-materializer/vendor-materializer.ts';
 import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import type { InternalResolveAndLinkFailure } from './packtory-resolve.ts';
-import type { PackPackageFailure, UnsatisfiedPeerDependency } from './packtory-results.ts';
+import { packPackageFailureType, type PackPackageFailure, type UnsatisfiedPeerDependency } from './packtory-results.ts';
 
 export type PackOptions = {
     readonly packageName: string;
@@ -41,48 +42,10 @@ export type PackRunDependencies = {
 };
 
 const manifestSchema = z.record(z.string(), z.unknown());
-const nodeModulesFolderName = 'node_modules';
 
-function findPackage(
-    resolved: readonly ResolvedPackage[],
-    packageName: string
-): Result<ResolvedPackage, PackPackageFailure> {
-    const target = resolved.find((resolvedPackage) => {
-        return resolvedPackage.name === packageName;
-    });
-    if (target === undefined) {
-        return Result.err({ type: 'package-not-found', packageName });
-    }
-    return Result.ok(target);
-}
-
-function stripVendoredManifestFields(manifest: Readonly<Record<string, unknown>>): Record<string, unknown> {
-    const slim: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(manifest)) {
-        if (key !== 'dependencies' && key !== 'peerDependencies') {
-            slim[key] = value;
-        }
-    }
-    return slim;
-}
-
-function asPackageJson(record: Readonly<Record<string, unknown>>): PackageJson {
-    // serializePackageJson sorts and stringifies any plain object; the PackageJson cast keeps
-    // the public seam without forcing every test fixture through type-fest's deep type.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- structural compat
-    return record as PackageJson;
-}
-
-function slimManifestForVendoredArtifact(bundle: VersionedBundleWithManifest): VersionedBundleWithManifest {
-    const parsed = safeParse(manifestSchema, JSON.parse(bundle.manifestFile.content));
-    if (!parsed.success) {
-        return bundle;
-    }
-    const content = serializePackageJson(asPackageJson(stripVendoredManifestFields(parsed.data)));
-    return {
-        ...bundle,
-        manifestFile: { ...bundle.manifestFile, content }
-    };
+function shouldPreservePackageJsonArrayOrder(path: readonly string[]): boolean {
+    const [topLevelKey] = path;
+    return topLevelKey === 'imports' || topLevelKey === 'exports';
 }
 
 function buildVersionedBundle(
@@ -101,65 +64,41 @@ function buildVersionedBundle(
     });
 }
 
-function bundleDependencyAsExtraFiles(versioned: VersionedBundleWithManifest): readonly FileDescription[] {
-    const prefix = `${nodeModulesFolderName}/${versioned.name}`;
-    const manifest: FileDescription = {
-        filePath: `${prefix}/${versioned.manifestFile.filePath}`,
-        content: versioned.manifestFile.content,
-        isExecutable: versioned.manifestFile.isExecutable
-    };
-    const sources = versioned.contents.map((entry) => {
-        return {
-            filePath: `${prefix}/${entry.fileDescription.targetFilePath}`,
-            content: entry.fileDescription.content,
-            isExecutable: entry.fileDescription.isExecutable
-        };
-    });
-    return [manifest, ...sources];
-}
-
 type BundleDepClosure = {
     readonly extraFiles: readonly FileDescription[];
     readonly packageNames: ReadonlySet<string>;
     readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
 };
 
-type BundleDepClosureBuilder = {
+type MutableBundleDepClosure = {
     readonly extraFiles: FileDescription[];
     readonly packageNames: Set<string>;
     readonly peerRequirements: Map<string, readonly string[]>;
-    readonly resolvedByName: ReadonlyMap<string, ResolvedPackage>;
+    readonly pendingDependencyNames: ReturnType<typeof createWorklist<string>>;
 };
 
-function recordVisitedBundleDependency(
-    builder: BundleDepClosureBuilder,
+function appendBundleDependency(
+    closure: MutableBundleDepClosure,
     versionManager: VersionManager,
     fallbackVersion: string,
     pkg: ResolvedPackage
 ): void {
-    builder.packageNames.add(pkg.name);
     const versioned = buildVersionedBundle(versionManager, pkg, fallbackVersion);
-    builder.extraFiles.push(...bundleDependencyAsExtraFiles(versioned));
-    builder.peerRequirements.set(pkg.name, Object.keys(versioned.peerDependencies));
-}
-
-function visitBundleDependency(
-    builder: BundleDepClosureBuilder,
-    versionManager: VersionManager,
-    fallbackVersion: string,
-    name: string
-): void {
-    if (builder.packageNames.has(name)) {
-        return;
+    closure.packageNames.add(pkg.name);
+    closure.extraFiles.push({
+        filePath: bundledInstalledDependencyPath(versioned.name, versioned.manifestFile.filePath),
+        content: versioned.manifestFile.content,
+        isExecutable: versioned.manifestFile.isExecutable
+    });
+    for (const entry of versioned.contents) {
+        closure.extraFiles.push({
+            filePath: bundledInstalledDependencyPath(versioned.name, entry.fileDescription.targetFilePath),
+            content: entry.fileDescription.content,
+            isExecutable: entry.fileDescription.isExecutable
+        });
     }
-    const pkg = builder.resolvedByName.get(name);
-    if (pkg === undefined) {
-        return;
-    }
-    recordVisitedBundleDependency(builder, versionManager, fallbackVersion, pkg);
-    for (const transitiveName of pkg.analyzedBundle.linkedBundleDependencies.keys()) {
-        visitBundleDependency(builder, versionManager, fallbackVersion, transitiveName);
-    }
+    closure.peerRequirements.set(pkg.name, Object.keys(versioned.peerDependencies));
+    closure.pendingDependencyNames.scheduleAll(pkg.analyzedBundle.linkedBundleDependencies.keys());
 }
 
 function collectBundleDependencies(
@@ -168,59 +107,30 @@ function collectBundleDependencies(
     versionManager: VersionManager,
     fallbackVersion: string
 ): BundleDepClosure {
-    const builder: BundleDepClosureBuilder = {
+    const resolvedByName = new Map(packageNameMap(resolvedPackages));
+    const closure: MutableBundleDepClosure = {
         extraFiles: [],
         packageNames: new Set<string>(),
         peerRequirements: new Map<string, readonly string[]>(),
-        resolvedByName: new Map(
-            resolvedPackages.map((resolvedPackage) => {
-                return [resolvedPackage.name, resolvedPackage];
-            })
-        )
+        pendingDependencyNames: createWorklist(target.analyzedBundle.linkedBundleDependencies.keys())
     };
-    for (const name of target.analyzedBundle.linkedBundleDependencies.keys()) {
-        visitBundleDependency(builder, versionManager, fallbackVersion, name);
-    }
-    return {
-        extraFiles: builder.extraFiles,
-        packageNames: builder.packageNames,
-        peerRequirements: builder.peerRequirements
-    };
-}
 
-function findUnsatisfiedPeers(
-    closurePackageNames: ReadonlySet<string>,
-    peerRequirements: ReadonlyMap<string, readonly string[]>
-): readonly UnsatisfiedPeerDependency[] {
-    const unsatisfied: UnsatisfiedPeerDependency[] = [];
-    for (const [packageName, peers] of peerRequirements) {
-        for (const peer of peers) {
-            if (!closurePackageNames.has(peer)) {
-                unsatisfied.push({ packageName, peer });
-            }
+    for (
+        let dependencyName = closure.pendingDependencyNames.takeNext();
+        dependencyName !== undefined;
+        dependencyName = closure.pendingDependencyNames.takeNext()
+    ) {
+        const pkg = closure.packageNames.has(dependencyName) ? undefined : resolvedByName.get(dependencyName);
+        if (pkg !== undefined) {
+            appendBundleDependency(closure, versionManager, fallbackVersion, pkg);
         }
     }
-    return unsatisfied;
-}
 
-type VendoredArtifact = {
-    readonly bundle: VersionedBundleWithManifest;
-    readonly vendorEntries: readonly VendorEntry[];
-    readonly extraFiles: readonly FileDescription[];
-};
-
-function mergePeerRequirements(
-    left: ReadonlyMap<string, readonly string[]>,
-    right: ReadonlyMap<string, readonly string[]>
-): Map<string, readonly string[]> {
-    const merged = new Map<string, readonly string[]>();
-    for (const [name, peers] of left) {
-        merged.set(name, peers);
-    }
-    for (const [name, peers] of right) {
-        merged.set(name, peers);
-    }
-    return merged;
+    return {
+        extraFiles: closure.extraFiles,
+        packageNames: closure.packageNames,
+        peerRequirements: closure.peerRequirements
+    };
 }
 
 type VendoredInputs = {
@@ -230,58 +140,128 @@ type VendoredInputs = {
     readonly version: string;
 };
 
-type MaterializedExternalsResult = Awaited<
-    ReturnType<PackRunDependencies['vendorMaterializer']['materializeExternals']>
->;
+type VendoredClosureCheck = {
+    readonly closurePackageNames: ReadonlySet<string>;
+    readonly unsatisfiedPeers: readonly UnsatisfiedPeerDependency[];
+};
 
-function mapSymlinkFailure(
-    packageName: string,
-    materializerFailure: SymlinkTargetOutsidePackageFailure
-): PackPackageFailure {
-    return {
-        type: 'vendor-symlink-target-outside-package',
-        packageName,
-        vendoredPackageName: materializerFailure.packageName,
-        entryRelativePath: materializerFailure.entryRelativePath,
-        resolvedTargetPath: materializerFailure.resolvedTargetPath
-    };
-}
-
-function mapInvalidDependencyNameFailure(
-    packageName: string,
-    materializerFailure: InvalidDependencyNameFailure
-): PackPackageFailure {
-    return {
-        type: 'vendor-invalid-dependency-name',
-        packageName,
-        sourcePackageName: materializerFailure.sourcePackageName,
-        invalidDependencyName: materializerFailure.invalidDependencyName
-    };
-}
-
-function mapMaterializerFailure(
-    packageName: string,
-    materializerFailure: VendorMaterializerFailure
-): PackPackageFailure {
-    if (materializerFailure.type === 'symlink-target-outside-package') {
-        return mapSymlinkFailure(packageName, materializerFailure);
+function mapMaterializerFailure(packageName: string, error: VendorMaterializerFailure): PackPackageFailure {
+    if (error.type === vendorMaterializerFailureType.symlinkTargetOutsidePackage) {
+        return {
+            type: packPackageFailureType.vendorSymlinkTargetOutsidePackage,
+            packageName,
+            vendoredPackageName: error.packageName,
+            entryRelativePath: error.entryRelativePath,
+            resolvedTargetPath: error.resolvedTargetPath
+        };
     }
-    return mapInvalidDependencyNameFailure(packageName, materializerFailure);
+
+    return {
+        type: packPackageFailureType.vendorInvalidDependencyName,
+        packageName,
+        sourcePackageName: error.sourcePackageName,
+        invalidDependencyName: error.invalidDependencyName
+    };
 }
 
-function checkClosurePeers(
-    bundleClosure: BundleDepClosure,
-    externals: MaterializedExternalsResult & { readonly isOk: true }
+function buildUnsatisfiedPeers(
+    peerRequirements: ReadonlyMap<string, readonly string[]>,
+    closurePackageNames: ReadonlySet<string>
 ): readonly UnsatisfiedPeerDependency[] {
-    const closurePackageNames = new Set<string>([...bundleClosure.packageNames, ...externals.value.packageNames]);
-    const allPeerRequirements = mergePeerRequirements(bundleClosure.peerRequirements, externals.value.peerRequirements);
-    return findUnsatisfiedPeers(closurePackageNames, allPeerRequirements);
+    const unsatisfiedPeers: UnsatisfiedPeerDependency[] = [];
+
+    for (const [packageName, peers] of peerRequirements) {
+        for (const peer of peers) {
+            if (!closurePackageNames.has(peer)) {
+                unsatisfiedPeers.push({ packageName, peer });
+            }
+        }
+    }
+
+    return unsatisfiedPeers;
+}
+
+function buildVendoredClosureCheck(
+    bundleClosure: BundleDepClosure,
+    materializationResult: Awaited<ReturnType<VendorMaterializer['materializeExternals']>> & { readonly isOk: true }
+): VendoredClosureCheck {
+    const closurePackageNames = new Set<string>([
+        ...bundleClosure.packageNames,
+        ...materializationResult.value.packageNames
+    ]);
+    const allPeerRequirements = new Map<string, readonly string[]>([
+        ...bundleClosure.peerRequirements,
+        ...materializationResult.value.peerRequirements
+    ]);
+
+    return {
+        closurePackageNames,
+        unsatisfiedPeers: buildUnsatisfiedPeers(allPeerRequirements, closurePackageNames)
+    };
+}
+
+function stripVendoredManifestFields(manifest: Readonly<Record<string, unknown>>): Record<string, unknown> {
+    const slimManifest: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(manifest)) {
+        if (key !== 'dependencies' && key !== 'peerDependencies') {
+            slimManifest[key] = value;
+        }
+    }
+
+    return slimManifest;
+}
+
+function serializeVendoredManifest(bundle: VersionedBundleWithManifest): string | undefined {
+    const parsedManifest = safeParse(manifestSchema, JSON.parse(bundle.manifestFile.content));
+    if (!parsedManifest.success) {
+        return undefined;
+    }
+
+    return serializeStableJson(stripVendoredManifestFields(parsedManifest.data), {
+        shouldPreserveArrayOrder: shouldPreservePackageJsonArrayOrder
+    });
+}
+
+function slimManifestForVendoredArtifact(bundle: VersionedBundleWithManifest): VersionedBundleWithManifest {
+    const serializedManifest = serializeVendoredManifest(bundle);
+    if (serializedManifest === undefined) {
+        return bundle;
+    }
+
+    return {
+        ...bundle,
+        manifestFile: { ...bundle.manifestFile, content: serializedManifest }
+    };
+}
+
+function prepareVendoredArtifactFailure(
+    target: ResolvedPackage,
+    unsatisfiedPeers: readonly UnsatisfiedPeerDependency[]
+): Result<PreparedArtifact, PackPackageFailure> {
+    return Result.err({
+        type: packPackageFailureType.peerDependenciesUnsatisfied,
+        packageName: target.name,
+        items: unsatisfiedPeers
+    });
+}
+
+function prepareVendoredArtifactSuccess(
+    built: VersionedBundleWithManifest,
+    bundleClosure: BundleDepClosure,
+    materializationResult: Awaited<ReturnType<VendorMaterializer['materializeExternals']>> & { readonly isOk: true }
+): Result<PreparedArtifact, PackPackageFailure> {
+    return Result.ok({
+        bundle: slimManifestForVendoredArtifact(built),
+        vendorEntries: materializationResult.value.entries,
+        extraFiles: bundleClosure.extraFiles
+    });
 }
 
 async function prepareVendoredArtifact(
     dependencies: PackRunDependencies,
     inputs: VendoredInputs
-): Promise<Result<VendoredArtifact, PackPackageFailure>> {
+): Promise<Result<PreparedArtifact, PackPackageFailure>> {
     const { target, resolved, built, version } = inputs;
     const bundleClosure = collectBundleDependencies(target, resolved, dependencies.versionManager, version);
     const materializationResult = await dependencies.vendorMaterializer.materializeExternals({
@@ -291,15 +271,13 @@ async function prepareVendoredArtifact(
     if (materializationResult.isErr) {
         return Result.err(mapMaterializerFailure(target.name, materializationResult.error));
     }
-    const unsatisfiedPeers = checkClosurePeers(bundleClosure, materializationResult);
-    if (unsatisfiedPeers.length > 0) {
-        return Result.err({ type: 'peer-dependencies-unsatisfied', packageName: target.name, items: unsatisfiedPeers });
+
+    const closureCheck = buildVendoredClosureCheck(bundleClosure, materializationResult);
+    if (closureCheck.unsatisfiedPeers.length > 0) {
+        return prepareVendoredArtifactFailure(target, closureCheck.unsatisfiedPeers);
     }
-    return Result.ok({
-        bundle: slimManifestForVendoredArtifact(built),
-        vendorEntries: materializationResult.value.entries,
-        extraFiles: bundleClosure.extraFiles
-    });
+
+    return prepareVendoredArtifactSuccess(built, bundleClosure, materializationResult);
 }
 
 type PreparedArtifact = {
@@ -315,32 +293,21 @@ async function prepareArtifact(
     options: PackOptions
 ): Promise<Result<PreparedArtifact, PackPackageFailure>> {
     const built = buildVersionedBundle(dependencies.versionManager, target, options.version);
-    if (!options.vendorDependencies) {
-        if (target.resolveOptions.bundleDependencies.length > 0) {
-            return Result.err({ type: 'bundle-dependencies-unsupported', packageName: target.name });
-        }
-        return Result.ok({ bundle: built, vendorEntries: [], extraFiles: [] });
-    }
-    return await prepareVendoredArtifact(dependencies, {
-        target,
-        resolved,
-        built,
-        version: options.version
-    });
-}
 
-async function emitPreparedArtifact(
-    packEmitter: PackEmitter,
-    prepared: PreparedArtifact,
-    options: PackOptions
-): Promise<void> {
-    await packEmitter.pack({
-        bundle: prepared.bundle,
-        format: options.format,
-        outputPath: options.outputPath,
-        vendorEntries: prepared.vendorEntries,
-        extraFiles: prepared.extraFiles
-    });
+    if (options.vendorDependencies) {
+        return await prepareVendoredArtifact(dependencies, {
+            target,
+            resolved,
+            built,
+            version: options.version
+        });
+    }
+
+    if (target.resolveOptions.bundleDependencies.length > 0) {
+        return Result.err({ type: packPackageFailureType.bundleDependenciesUnsupported, packageName: target.name });
+    }
+
+    return Result.ok({ bundle: built, vendorEntries: [], extraFiles: [] });
 }
 
 async function packWithResolved(
@@ -348,15 +315,23 @@ async function packWithResolved(
     resolved: readonly ResolvedPackage[],
     options: PackOptions
 ): Promise<Result<undefined, InternalPackFailure>> {
-    const targetResult = findPackage(resolved, options.packageName);
-    if (targetResult.isErr) {
-        return Result.err(targetResult.error);
+    const target = resolved.find((resolvedPackage) => {
+        return resolvedPackage.name === options.packageName;
+    });
+    if (target === undefined) {
+        return Result.err({ type: packPackageFailureType.packageNotFound, packageName: options.packageName });
     }
-    const preparedResult = await prepareArtifact(dependencies, targetResult.value, resolved, options);
+    const preparedResult = await prepareArtifact(dependencies, target, resolved, options);
     if (preparedResult.isErr) {
         return Result.err(preparedResult.error);
     }
-    await emitPreparedArtifact(dependencies.packEmitter, preparedResult.value, options);
+    await dependencies.packEmitter.pack({
+        bundle: preparedResult.value.bundle,
+        format: options.format,
+        outputPath: options.outputPath,
+        vendorEntries: preparedResult.value.vendorEntries,
+        extraFiles: preparedResult.value.extraFiles
+    });
     return Result.ok(undefined);
 }
 

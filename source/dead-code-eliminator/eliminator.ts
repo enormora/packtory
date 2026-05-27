@@ -10,11 +10,13 @@ import { computeSideEffectsField } from './side-effects-field.ts';
 
 function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
     const sourceFiles: SourceFile[] = [];
+
     for (const entry of loaded.loaded) {
         if (entry.sourceFile !== undefined) {
             sourceFiles.push(entry.sourceFile);
         }
     }
+
     return {
         bundle: loaded.input.bundle,
         sourceFiles,

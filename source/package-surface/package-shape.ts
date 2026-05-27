@@ -1,4 +1,5 @@
 import type { PackageJson } from 'type-fest';
+import { isDefined, pickBy } from 'remeda';
 import type { PackageSurface } from './surface.ts';
 
 export type RootFileDescription = {
@@ -26,7 +27,6 @@ export type ImplicitSurface = Extract<PackageSurface, { readonly mode: 'implicit
 
 export type ExportsField = NonNullable<PackageJson['exports']>;
 export type ExportEntry = Readonly<Record<string, unknown>>;
-export type ExplicitPackageInterface = ExplicitSurface['packageInterface'];
 export type PackageJsonExportLike = Pick<BundleLike, 'exportPackageJson'>;
 
 export function toImportTarget(targetFilePath: string): string {
@@ -34,8 +34,11 @@ export function toImportTarget(targetFilePath: string): string {
 }
 
 export function buildExportEntry(root: RootFileDescription): ExportEntry {
-    return {
-        import: toImportTarget(root.js.targetFilePath),
-        ...(root.declarationFile === undefined ? {} : { types: toImportTarget(root.declarationFile.targetFilePath) })
-    };
+    return pickBy(
+        {
+            import: toImportTarget(root.js.targetFilePath),
+            types: root.declarationFile === undefined ? undefined : toImportTarget(root.declarationFile.targetFilePath)
+        },
+        isDefined
+    );
 }

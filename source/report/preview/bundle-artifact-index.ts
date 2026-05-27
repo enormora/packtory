@@ -1,3 +1,4 @@
+import { packageManifestFilePath } from '../../common/package-layout.ts';
 import type { BuildAndPublishResult } from '../../packtory/package-processor.ts';
 
 type FinalArtifactContent = {
@@ -11,7 +12,7 @@ export function buildBundleArtifactIndex(results: readonly BuildAndPublishResult
     return new Map(
         results.map((result) => {
             const entries = new Map<string, FinalArtifactContent>([
-                ['package.json', { content: result.bundle.manifestFile.content }]
+                [packageManifestFilePath, { content: result.bundle.manifestFile.content }]
             ]);
             for (const entry of result.bundle.contents) {
                 entries.set(entry.fileDescription.targetFilePath, {

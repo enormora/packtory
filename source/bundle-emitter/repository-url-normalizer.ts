@@ -16,14 +16,11 @@ function extractRawUrl(input: unknown): string | undefined {
 }
 
 function manualNormalize(url: string): string {
-    let normalized = url.startsWith('git+') ? url.slice('git+'.length) : url;
-    if (normalized.endsWith('.git')) {
-        normalized = normalized.slice(0, -'.git'.length);
-    }
-    if (normalized.endsWith('/')) {
-        normalized = normalized.slice(0, -1);
-    }
-    return normalized.toLowerCase();
+    return url
+        .replace(/^git\+/u, '')
+        .replace(/\.git$/u, '')
+        .replace(/\/$/u, '')
+        .toLowerCase();
 }
 
 export function normalizeRepositoryUrl(input: unknown): string | undefined {

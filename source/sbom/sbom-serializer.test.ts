@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import * as cdx from '@cyclonedx/cyclonedx-library';
 import { suite, test } from 'mocha';
 import { buildSbom } from './sbom-builder.ts';
 import { createSbomSerializer } from './sbom-serializer.ts';
@@ -23,7 +24,14 @@ suite('sbom-serializer', function () {
         const buildOptions = {
             toolVersion: '1.2.3',
             rootComponent: { name: 'my-pkg', version: '1.0.0' },
-            dependencies: [{ name: 'lodash', specifier: '^4.17.0', kind: 'runtime' as const, license: 'MIT' }]
+            dependencies: [
+                {
+                    name: 'lodash',
+                    specifier: '^4.17.0',
+                    scope: cdx.Enums.ComponentScope.Required,
+                    license: 'MIT'
+                }
+            ]
         };
 
         const first = serializer.serialize(buildSbom(buildOptions));
@@ -40,8 +48,18 @@ suite('sbom-serializer', function () {
                 toolVersion: '1.2.3',
                 rootComponent: { name: 'my-pkg', version: '1.0.0' },
                 dependencies: [
-                    { name: 'a-dep', specifier: '1.0.0', kind: 'runtime', license: 'MIT' },
-                    { name: 'z-dep', specifier: '1.0.0', kind: 'runtime', license: 'MIT' }
+                    {
+                        name: 'a-dep',
+                        specifier: '1.0.0',
+                        scope: cdx.Enums.ComponentScope.Required,
+                        license: 'MIT'
+                    },
+                    {
+                        name: 'z-dep',
+                        specifier: '1.0.0',
+                        scope: cdx.Enums.ComponentScope.Required,
+                        license: 'MIT'
+                    }
                 ]
             })
         );
@@ -50,8 +68,18 @@ suite('sbom-serializer', function () {
                 toolVersion: '1.2.3',
                 rootComponent: { name: 'my-pkg', version: '1.0.0' },
                 dependencies: [
-                    { name: 'z-dep', specifier: '1.0.0', kind: 'runtime', license: 'MIT' },
-                    { name: 'a-dep', specifier: '1.0.0', kind: 'runtime', license: 'MIT' }
+                    {
+                        name: 'z-dep',
+                        specifier: '1.0.0',
+                        scope: cdx.Enums.ComponentScope.Required,
+                        license: 'MIT'
+                    },
+                    {
+                        name: 'a-dep',
+                        specifier: '1.0.0',
+                        scope: cdx.Enums.ComponentScope.Required,
+                        license: 'MIT'
+                    }
                 ]
             })
         );

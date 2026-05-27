@@ -6,10 +6,6 @@ export type CiEnvironment = {
     readonly gitlabProjectUrl: string | undefined;
 };
 
-function isNonEmptyString(value: unknown): value is string {
-    return typeof value === 'string' && value.length > 0;
-}
-
 export function readCiEnvironment(env: Readonly<Record<string, string | undefined>>): CiEnvironment {
     return {
         githubServerUrl: env.GITHUB_SERVER_URL,
@@ -18,39 +14,41 @@ export function readCiEnvironment(env: Readonly<Record<string, string | undefine
     };
 }
 
+function isDefinedValue(value: string | undefined): value is string {
+    return value !== undefined && value !== '';
+}
+
 export function getCiRepositoryUrl(env: CiEnvironment): string | undefined {
-    if (isNonEmptyString(env.githubServerUrl) && isNonEmptyString(env.githubRepository)) {
+    if (isDefinedValue(env.githubServerUrl) && isDefinedValue(env.githubRepository)) {
         return `${env.githubServerUrl}/${env.githubRepository}`;
     }
 
-    if (isNonEmptyString(env.gitlabProjectUrl)) {
+    if (isDefinedValue(env.gitlabProjectUrl)) {
         return env.gitlabProjectUrl;
     }
 
     return undefined;
 }
 
-const noRepositoryDeclaredMessage = [
-    'Provenance is enabled but the package has no repository declared.',
-    'Add a "repository" entry to additionalPackageJsonAttributes',
-    "so consumers can verify the attestation's source claim."
-].join('\n');
+const noRepositoryDeclaredMessage =
+    'Provenance is enabled but the package has no repository declared.\n' +
+    'Add a "repository" entry to additionalPackageJsonAttributes\n' +
+    "so consumers can verify the attestation's source claim.";
 
-const noCiDetectedMessage = [
-    'Provenance auto mode is enabled but no CI repository was detected.',
-    'Provenance auto mode requires GitHub Actions or GitLab CI; expected',
-    'one of GITHUB_SERVER_URL+GITHUB_REPOSITORY or CI_PROJECT_URL.'
-].join('\n');
+const noCiDetectedMessage =
+    'Provenance auto mode is enabled but no CI repository was detected.\n' +
+    'Provenance auto mode requires GitHub Actions or GitLab CI; expected\n' +
+    'one of GITHUB_SERVER_URL+GITHUB_REPOSITORY or CI_PROJECT_URL.';
 
 function buildMismatchMessage(configuredUrl: string, ciUrl: string): string {
-    return [
-        "Provenance is enabled but the package's repository URL does not match",
-        'the CI repository.',
-        `Configured repository: ${configuredUrl}`,
-        `CI repository:         ${ciUrl}`,
-        'Either correct the package.json repository field, or disable provenance',
+    return (
+        "Provenance is enabled but the package's repository URL does not match\n" +
+        'the CI repository.\n' +
+        `Configured repository: ${configuredUrl}\n` +
+        `CI repository:         ${ciUrl}\n` +
+        'Either correct the package.json repository field, or disable provenance\n' +
         'if the mismatch is intentional.'
-    ].join('\n');
+    );
 }
 
 export function assertRepositoryCoherence(

@@ -76,70 +76,75 @@ function isPureNewExpression(
     );
 }
 
-const expressionPurityRules: ReadonlyMap<SyntaxKind, PurityRule> = new Map<SyntaxKind, PurityRule>([
-    [
-        SyntaxKind.TemplateExpression,
-        (expression, recurse) => {
-            return expression
-                .asKindOrThrow(SyntaxKind.TemplateExpression)
-                .getTemplateSpans()
-                .every((span) => {
-                    return recurse(span.getExpression());
-                });
-        }
-    ],
-    [
-        SyntaxKind.ArrayLiteralExpression,
-        (expression, recurse) => {
-            return expression
-                .asKindOrThrow(SyntaxKind.ArrayLiteralExpression)
-                .getElements()
-                .every((element) => {
-                    return isPureArrayElement(element, recurse);
-                });
-        }
-    ],
-    [
-        SyntaxKind.ObjectLiteralExpression,
-        (expression, recurse) => {
-            return expression
-                .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
-                .getProperties()
-                .every((property) => {
-                    return isPurePropertyAssignment(property, recurse);
-                });
-        }
-    ],
-    [
-        SyntaxKind.PrefixUnaryExpression,
-        (expression, recurse) => {
-            const unary = expression.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
-            return allowedPrefixUnaryOperators.has(unary.getOperatorToken()) && recurse(unary.getOperand());
-        }
-    ],
-    [
-        SyntaxKind.BinaryExpression,
-        (expression, recurse) => {
-            const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
-            if (!allowedBinaryOperators.has(binary.getOperatorToken().getKind())) {
-                return false;
-            }
-            return recurse(binary.getLeft()) && recurse(binary.getRight());
-        }
-    ],
-    [
-        SyntaxKind.CallExpression,
-        (expression, recurse, settings) => {
-            return isPureCallExpression(expression.asKindOrThrow(SyntaxKind.CallExpression), recurse, settings);
-        }
-    ],
-    [
-        SyntaxKind.NewExpression,
-        (expression, recurse, settings) => {
-            return isPureNewExpression(expression.asKindOrThrow(SyntaxKind.NewExpression), recurse, settings);
-        }
-    ]
-]);
+function templateExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+    return expression
+        .asKindOrThrow(SyntaxKind.TemplateExpression)
+        .getTemplateSpans()
+        .every((span) => {
+            return recurse(span.getExpression());
+        });
+}
+
+function arrayLiteralExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+    return expression
+        .asKindOrThrow(SyntaxKind.ArrayLiteralExpression)
+        .getElements()
+        .every((element) => {
+            return isPureArrayElement(element, recurse);
+        });
+}
+
+function objectLiteralExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+    return expression
+        .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
+        .getProperties()
+        .every((property) => {
+            return isPurePropertyAssignment(property, recurse);
+        });
+}
+
+function prefixUnaryExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+    const unary = expression.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
+    return allowedPrefixUnaryOperators.has(unary.getOperatorToken()) && recurse(unary.getOperand());
+}
+
+function binaryExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {
+    const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
+    if (!allowedBinaryOperators.has(binary.getOperatorToken().getKind())) {
+        return false;
+    }
+    return recurse(binary.getLeft()) && recurse(binary.getRight());
+}
+
+function callExpressionIsPure(
+    expression: Expression,
+    recurse: ExpressionPurityChecker,
+    settings: DeadCodeEliminationSettings | undefined
+): boolean {
+    return isPureCallExpression(expression.asKindOrThrow(SyntaxKind.CallExpression), recurse, settings);
+}
+
+function newExpressionIsPure(
+    expression: Expression,
+    recurse: ExpressionPurityChecker,
+    settings: DeadCodeEliminationSettings | undefined
+): boolean {
+    return isPureNewExpression(expression.asKindOrThrow(SyntaxKind.NewExpression), recurse, settings);
+}
+
+function createExpressionPurityRules(): ReadonlyMap<SyntaxKind, PurityRule> {
+    return new Map<SyntaxKind, PurityRule>([
+        [SyntaxKind.TemplateExpression, templateExpressionIsPure],
+        [SyntaxKind.ArrayLiteralExpression, arrayLiteralExpressionIsPure],
+        [SyntaxKind.ObjectLiteralExpression, objectLiteralExpressionIsPure],
+        [SyntaxKind.PrefixUnaryExpression, prefixUnaryExpressionIsPure],
+        [SyntaxKind.BinaryExpression, binaryExpressionIsPure],
+        [SyntaxKind.CallExpression, callExpressionIsPure],
+        [SyntaxKind.NewExpression, newExpressionIsPure]
+    ]);
+}
+
+const expressionPurityRules = createExpressionPurityRules();
 
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
     const unwrapped = unwrapExpression(expression);

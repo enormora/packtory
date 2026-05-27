@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { explicitPackageSurface, implicitPackageSurface, isImplicitPackageSurface } from './surface.ts';
+import { explicitPackageSurface, implicitPackageSurface } from './surface.ts';
 
 suite('surface', function () {
     test('implicitPackageSurface() creates an implicit runtime surface', function () {
@@ -10,7 +10,7 @@ suite('surface', function () {
             mode: 'implicit',
             defaultModuleRoot: 'main'
         });
-        assert.strictEqual(isImplicitPackageSurface(packageSurface), true);
+        assert.strictEqual(packageSurface.mode, 'implicit');
     });
 
     test('explicitPackageSurface() creates an explicit runtime surface', function () {
@@ -26,6 +26,6 @@ suite('surface', function () {
                 modules: [{ export: '.', root: 'main' }]
             }
         });
-        assert.strictEqual(isImplicitPackageSurface(packageSurface), false);
+        assert.strictEqual(packageSurface.mode, 'explicit');
     });
 });

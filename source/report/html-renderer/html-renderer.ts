@@ -42,7 +42,7 @@ export function renderHtmlReport(document: PreviewDocument): string {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Packtory build report</title>
-    <style>${htmlReportStyles}</style>
+    <style>${htmlReportStyles()}</style>
 </head>
 <body>
     <main>

@@ -6,8 +6,6 @@ import type { LicenseResolver } from './license-resolver.ts';
 import type { SbomSerializer } from './sbom-serializer.ts';
 import { buildSbom, type SbomDependency, type SbomDependencyKind } from './sbom-builder.ts';
 
-export const sbomFilePath = 'sbom.cdx.json';
-
 type ToolVersionProvider = () => Promise<string>;
 
 type SbomFileBuilderDependencies = {
@@ -30,6 +28,10 @@ type DependencyEntry = {
     readonly specifier: string;
     readonly kind: SbomDependencyKind;
 };
+
+export function sbomFilePath(): string {
+    return 'sbom.cdx.json';
+}
 
 function isSbomEnabled(publishSettings: PublishSettings): boolean {
     return publishSettings.sbom?.enabled ?? true;
@@ -81,7 +83,7 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
             rootComponent: { name: bundle.packageJson.name, version: bundle.packageJson.version },
             dependencies: sbomDependencies
         });
-        return createFileDescription(sbomFilePath, sbomSerializer.serialize(bom));
+        return createFileDescription(sbomFilePath(), sbomSerializer.serialize(bom));
     }
 
     return {

@@ -50,13 +50,13 @@ function classifyVariableStatement(
     statement: VariableStatement,
     settings: DeadCodeEliminationSettings | undefined
 ): string | undefined {
-    const hasImpureInitializer = statement.getDeclarations().some((declarator) => {
+    for (const declarator of statement.getDeclarations()) {
         const initializer = declarator.getInitializer();
-        return initializer !== undefined && !isPureExpression(initializer, settings);
-    });
-    if (hasImpureInitializer) {
-        return 'variable initializer';
+        if (initializer !== undefined && !isPureExpression(initializer, settings)) {
+            return 'variable initializer';
+        }
     }
+
     return undefined;
 }
 

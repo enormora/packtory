@@ -29,6 +29,6 @@
         "!source/test-libraries/**/*.ts!"
     ],
     "tags": ["-@internal"],
-    "ignoreDependencies": ["@ls-lint/ls-lint", "@packtory/cli", "c8", "eslint", "foo", "jscpd", "prettier"],
+    "ignoreDependencies": ["@ls-lint/ls-lint", "c8", "eslint", "foo", "jscpd", "prettier"],
     "ignoreBinaries": []
 }

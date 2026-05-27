@@ -1,17 +1,23 @@
+import { isPackageManifestPath } from '../../common/package-layout.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
+import {
+    artifactBadge,
+    artifactKind,
+    artifactStatus,
+    type ArtifactEntry
+} from '../../progress/progress-broadcaster.ts';
 
 function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
-    if (filePath === 'package.json' || filePath.endsWith('/package.json')) {
-        return 'manifest';
+    if (isPackageManifestPath(filePath)) {
+        return artifactKind.manifest;
     }
     if (filePath.endsWith('.sbom.json') || filePath.endsWith('.cdx.json')) {
-        return 'sbom';
+        return artifactKind.sbom;
     }
     if (/\.(?:cjs|d\.[cm]ts|jsx?|map|mjs|tsx?)$/.test(filePath)) {
-        return 'source';
+        return artifactKind.source;
     }
-    return 'additional';
+    return artifactKind.additional;
 }
 
 type ArtifactDescriptor = FileDescription & {
@@ -23,19 +29,29 @@ export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): r
     return contents.map((entry) => {
         const sourcePath = 'sourceFilePath' in entry ? entry.sourceFilePath : undefined;
         const rewritten = entry.isSubstituted === true;
-        let status: ArtifactEntry['status'] = 'unchanged';
+        let status: ArtifactEntry['status'] = artifactStatus.unchanged;
         if (sourcePath === undefined) {
-            status = 'generated';
+            status = artifactStatus.generated;
         } else if (rewritten) {
-            status = 'changed';
+            status = artifactStatus.changed;
         }
-        return {
+        const artifactEntry: {
+            path: string;
+            sizeBytes: number;
+            kind: ArtifactEntry['kind'];
+            status: ArtifactEntry['status'];
+            badges: ArtifactEntry['badges'];
+            sourcePath?: string;
+        } = {
             path: entry.filePath,
             sizeBytes: Buffer.byteLength(entry.content),
             kind: inferArtifactKind(entry.filePath),
-            ...(sourcePath === undefined ? {} : { sourcePath }),
             status,
-            badges: rewritten ? ['import-path-rewrite'] : []
+            badges: rewritten ? [artifactBadge.importPathRewrite] : []
         };
+        if (sourcePath !== undefined) {
+            artifactEntry.sourcePath = sourcePath;
+        }
+        return artifactEntry;
     });
 }

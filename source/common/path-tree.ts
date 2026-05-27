@@ -1,8 +1,14 @@
 import path from 'node:path';
+import { packageManifestFilePath } from './package-layout.ts';
+
+export const pathTreeNodeType = {
+    directory: 'directory',
+    file: 'file'
+} as const;
 
 type PathTreeNodeLike = {
     readonly name: string;
-    readonly type: 'directory' | 'file';
+    readonly type: (typeof pathTreeNodeType)[keyof typeof pathTreeNodeType];
 };
 
 const manifestFilePriority = 0;
@@ -10,10 +16,10 @@ const directoryPriority = 1;
 const regularFilePriority = 2;
 
 function priorityOf(node: PathTreeNodeLike): number {
-    if (node.type === 'file' && node.name === 'package.json') {
+    if (node.type === pathTreeNodeType.file && node.name === packageManifestFilePath) {
         return manifestFilePriority;
     }
-    if (node.type === 'directory') {
+    if (node.type === pathTreeNodeType.directory) {
         return directoryPriority;
     }
     return regularFilePriority;
@@ -28,14 +34,14 @@ function comparePathNodes(left: PathTreeNodeLike, right: PathTreeNodeLike): numb
 }
 
 type PathTreeDirectoryNode = {
-    readonly type: 'directory';
+    readonly type: typeof pathTreeNodeType.directory;
     readonly path: string;
     readonly name: string;
     readonly depth: number;
 };
 
 export type PathTreeFileNode<T> = {
-    readonly type: 'file';
+    readonly type: typeof pathTreeNodeType.file;
     readonly path: string;
     readonly name: string;
     readonly depth: number;
@@ -84,7 +90,7 @@ function insertItem<T>(root: RootDirectory<T>, item: T, itemPath: string): void 
 function toDirectoryChildren<T>(directory: RootDirectory<T>): readonly TreeChild<T>[] {
     return Array.from(directory.directories.values(), (entry) => {
         const node: PathTreeDirectoryNode = {
-            type: 'directory',
+            type: pathTreeNodeType.directory,
             path: entry.path,
             name: entry.name,
             depth: entry.depth
@@ -97,7 +103,7 @@ function toFileChildren<T>(directory: RootDirectory<T>, getPath: (item: T) => st
     return directory.files.map((item) => {
         const itemPath = getPath(item);
         const node: PathTreeFileNode<T> = {
-            type: 'file',
+            type: pathTreeNodeType.file,
             path: itemPath,
             name: path.posix.basename(itemPath),
             depth: directory.depth,

@@ -11,7 +11,8 @@ type WalkContext = {
 };
 
 function localNameOfNamedImport(namedImport: ReturnType<ImportDeclaration['getNamedImports']>[number]): string {
-    return namedImport.getAliasNode()?.getText() ?? namedImport.getName();
+    const aliasNode = namedImport.getAliasNode();
+    return aliasNode === undefined ? namedImport.getName() : aliasNode.getText();
 }
 
 function isLocalBindingReachable(context: WalkContext, localName: string): boolean {
@@ -72,7 +73,8 @@ function recordNamedReExportSeeds(
 }
 
 function processExportDeclaration(exportDeclaration: ExportDeclaration, context: WalkContext): void {
-    const target = resolveCrossBundleTarget(exportDeclaration.getModuleSpecifierValue(), context.indexed);
+    const specifier = exportDeclaration.getModuleSpecifierValue() ?? context.sourceFilePath;
+    const target = resolveCrossBundleTarget(specifier, context.indexed);
     if (target === undefined) {
         return;
     }

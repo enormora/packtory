@@ -1,16 +1,12 @@
-import { indexBy } from 'remeda';
 import type { PackageConfig } from '../../config/config.ts';
+import { packageNameMap } from '../../common/package-name-map.ts';
 
 function dependencyNamesToBundles<TBundle extends { name: string }>(
     dependencyNames: readonly string[],
-    bundles: readonly TBundle[]
+    bundlesByName: ReadonlyMap<string, TBundle>
 ): readonly TBundle[] {
-    const bundlesByName = indexBy(bundles, (bundle) => {
-        return bundle.name;
-    });
-
     return dependencyNames.map((dependencyName) => {
-        const matchingBundle = bundlesByName[dependencyName];
+        const matchingBundle = bundlesByName.get(dependencyName);
         if (matchingBundle === undefined) {
             throw new Error(`Dependent bundle "${dependencyName}" not found`);
         }
@@ -25,8 +21,10 @@ export function resolveBundleDependencies<TBundle extends { name: string }>(
     readonly bundleDependencies: readonly TBundle[];
     readonly bundlePeerDependencies: readonly TBundle[];
 } {
+    const bundlesByName = packageNameMap(existingBundles);
+
     return {
-        bundleDependencies: dependencyNamesToBundles(packageConfig.bundleDependencies ?? [], existingBundles),
-        bundlePeerDependencies: dependencyNamesToBundles(packageConfig.bundlePeerDependencies ?? [], existingBundles)
+        bundleDependencies: dependencyNamesToBundles(packageConfig.bundleDependencies ?? [], bundlesByName),
+        bundlePeerDependencies: dependencyNamesToBundles(packageConfig.bundlePeerDependencies ?? [], bundlesByName)
     };
 }

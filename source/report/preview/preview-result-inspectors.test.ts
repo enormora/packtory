@@ -67,6 +67,10 @@ suite('preview-result-inspectors', function () {
         assert.deepStrictEqual(getSucceededResults(errResult({ type: 'config', issues: [] } as never)), []);
     });
 
+    test('getSucceededResults returns an empty array for checks errors', function () {
+        assert.deepStrictEqual(getSucceededResults(errResult({ type: 'checks', issues: ['failed'] } as never)), []);
+    });
+
     test('getIssues returns an empty array for an ok result', function () {
         assert.deepStrictEqual(getIssues(okResult()), []);
     });
@@ -88,6 +92,10 @@ suite('preview-result-inspectors', function () {
         assert.deepStrictEqual(getIssues(errResult({ type: 'config', issues: ['missing'] } as never)), ['missing']);
     });
 
+    test('getIssues returns the checks issues for a checks error', function () {
+        assert.deepStrictEqual(getIssues(errResult({ type: 'checks', issues: ['failed'] } as never)), ['failed']);
+    });
+
     test('getResultType returns "success" for an ok result', function () {
         assert.strictEqual(getResultType(okResult()), 'success');
     });
@@ -97,5 +105,13 @@ suite('preview-result-inspectors', function () {
             getResultType(errResult({ type: 'partial', succeeded: [], failures: [] } as never)),
             'partial'
         );
+    });
+
+    test('getResultType returns "checks" for checks errors', function () {
+        assert.strictEqual(getResultType(errResult({ type: 'checks', issues: ['failed'] } as never)), 'checks');
+    });
+
+    test('getResultType returns "config" for config errors', function () {
+        assert.strictEqual(getResultType(errResult({ type: 'config', issues: ['missing'] } as never)), 'config');
     });
 });

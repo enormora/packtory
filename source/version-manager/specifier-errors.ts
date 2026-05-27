@@ -20,6 +20,12 @@ function entryWord(count: number): string {
     return count === 1 ? 'entry' : 'entries';
 }
 
+function appendLines<T>(lines: string[], items: readonly T[], renderItem: (item: T) => string): void {
+    for (const item of items) {
+        lines.push(renderItem(item));
+    }
+}
+
 export function renderMutableSpecifierMessage(offenders: readonly MutableOffender[]): string {
     const isSingular = offenders.length === 1;
     const verbAndNoun = isSingular ? 'uses a mutable specifier' : 'use mutable specifiers';
@@ -28,11 +34,13 @@ export function renderMutableSpecifierMessage(offenders: readonly MutableOffende
     const header =
         `Refusing to publish: ${offenders.length} ${noun} ${verbAndNoun},` +
         ` which ${bypassVerb} the npm registry's integrity guarantees:`;
-    const lines = offenders.map((offender) => {
+    const lines = [header];
+    appendLines(lines, offenders, (offender) => {
         return `  - "${offender.name}" → "${offender.specifier}" (${offender.npaType})`;
     });
     const footer = 'Add the dep name to dependencyPolicy.allowMutableSpecifiers to allow this on purpose.';
-    return [header, ...lines, footer].join('\n');
+    lines.push(footer);
+    return lines.join('\n');
 }
 
 export function renderMalformedSpecifierMessage(offenders: readonly MalformedOffender[]): string {
@@ -40,12 +48,14 @@ export function renderMalformedSpecifierMessage(offenders: readonly MalformedOff
     const verb = isSingular ? 'has' : 'have';
     const noun = dependencyWord(offenders.length);
     const header = `Refusing to publish: ${offenders.length} ${noun} ${verb} a specifier that npm cannot publish:`;
-    const lines = offenders.map((offender) => {
+    const lines = [header];
+    appendLines(lines, offenders, (offender) => {
         return `  - "${offender.name}" → "${offender.specifier}" (${offender.reason})`;
     });
     const replacementHint = 'Replace with a registry version (e.g. "^1.2.3").';
     const allowListHint = 'Mutable-specifier allow-listing does not apply here.';
-    return [header, ...lines, `${replacementHint} ${allowListHint}`].join('\n');
+    lines.push(`${replacementHint} ${allowListHint}`);
+    return lines.join('\n');
 }
 
 export function renderUnusedAllowListMessage(unusedEntries: readonly string[]): string {
@@ -55,9 +65,11 @@ export function renderUnusedAllowListMessage(unusedEntries: readonly string[]): 
     const header =
         `Refusing to publish: ${unusedEntries.length} ${noun} in` +
         ` dependencyPolicy.allowMutableSpecifiers ${verb} not in use:`;
-    const lines = unusedEntries.map((entry) => {
+    const lines = [header];
+    appendLines(lines, unusedEntries, (entry) => {
         return `  - "${entry}"`;
     });
     const footer = 'Remove unused entries — they reflect stale exceptions to the integrity policy.';
-    return [header, ...lines, footer].join('\n');
+    lines.push(footer);
+    return lines.join('\n');
 }

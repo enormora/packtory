@@ -12,7 +12,7 @@ const explicitBundle: BundleLike = {
     contents: [],
     surface: {
         mode: 'explicit',
-        packageInterface: { modules: [{ root: 'main', export: '.' }] }
+        packageInterface: { modules: [{ root: 'main', export: './entry' }] }
     }
 };
 
@@ -25,7 +25,7 @@ const implicitBundle: BundleLike = {
 
 suite('public-specifiers', function () {
     test('getPublicModuleSpecifierForSourcePath dispatches to the explicit builder for explicit surfaces', function () {
-        assert.strictEqual(getPublicModuleSpecifierForSourcePath(explicitBundle, '/src/index.js'), 'package-a');
+        assert.strictEqual(getPublicModuleSpecifierForSourcePath(explicitBundle, '/src/index.js'), 'package-a/entry');
     });
 
     test('getPublicModuleSpecifierForSourcePath dispatches to the implicit builder for implicit surfaces', function () {
@@ -33,10 +33,15 @@ suite('public-specifiers', function () {
     });
 
     test('resolvePublicModuleSourceFilePath dispatches to the explicit resolver for explicit surfaces', function () {
-        assert.strictEqual(resolvePublicModuleSourceFilePath(explicitBundle, 'package-a'), '/src/index.js');
+        assert.strictEqual(resolvePublicModuleSourceFilePath(explicitBundle, 'package-a/entry'), '/src/index.js');
     });
 
     test('resolvePublicModuleSourceFilePath dispatches to the implicit resolver for implicit surfaces', function () {
         assert.strictEqual(resolvePublicModuleSourceFilePath(implicitBundle, 'package-a'), '/src/index.js');
+    });
+
+    test('explicit and implicit dispatch keep different public-specifier shapes', function () {
+        assert.strictEqual(resolvePublicModuleSourceFilePath(explicitBundle, 'package-a'), undefined);
+        assert.strictEqual(resolvePublicModuleSourceFilePath(implicitBundle, 'package-a/entry'), undefined);
     });
 });

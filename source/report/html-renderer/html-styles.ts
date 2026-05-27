@@ -1,7 +1,8 @@
 /* cspell:words Palatino Menlo */
 /* eslint-disable @stylistic/max-len -- CSS literals are intentionally long */
 
-export const htmlReportStyles = `
+export function htmlReportStyles(): string {
+    return `
     :root {
         color-scheme: light;
         --bg: #f4f0e8;
@@ -175,3 +176,4 @@ export const htmlReportStyles = `
         .tree-badges, .package-summary { justify-content: flex-start; }
     }
 `;
+}

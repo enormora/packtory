@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { Project as _Project, SourceFile } from 'ts-morph';
+import { packageManifestPathIn } from '../common/package-layout.ts';
 import type { ModuleReference } from './source-file-references.ts';
 import { analyzationOptionsToCompilerOptions, type AnalyzationOptions } from './typescript-compiler-options.ts';
 import type { FileSystemAdapters } from './typescript-file-host.ts';
@@ -33,7 +34,7 @@ export function createTypescriptProjectAnalyzer(
 
     return {
         analyzeProject(folder, options) {
-            const packageJsonPath = path.join(folder, 'package.json');
+            const packageJsonPath = packageManifestPathIn(folder);
             const project = new Project({
                 compilerOptions: analyzationOptionsToCompilerOptions(options),
                 fileSystem: fileSystemAdapters.withVirtualPackageJson(

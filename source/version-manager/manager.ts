@@ -1,4 +1,5 @@
 import semver from 'semver';
+import { packageManifestFilePath } from '../common/package-layout.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import { inspectPackageJsonProvenance } from '../report/inspectors/inspect-package-json-provenance.ts';
 import { buildPackageManifest } from './manifest/builder.ts';
@@ -19,35 +20,41 @@ export type VersionManager = {
     increaseVersion: (bundle: VersionedBundle) => VersionedBundleWithManifest;
 };
 
+function toVersionedBundleWithManifest(versionedBundle: VersionedBundle): VersionedBundleWithManifest {
+    const manifest = buildPackageManifest(versionedBundle);
+    const packageJsonContent = serializePackageJson(manifest);
+
+    return {
+        ...versionedBundle,
+        packageJson: manifest,
+        manifestFile: {
+            content: packageJsonContent,
+            isExecutable: false,
+            filePath: packageManifestFilePath
+        }
+    };
+}
+
 export function createVersionManager(dependencies: VersionManagerDependencies): VersionManager {
     const { progressBroadcaster } = dependencies;
 
     return {
         addVersion(options) {
             const versionedBundle = buildVersionedBundle(options);
-            const manifest = buildPackageManifest(versionedBundle);
-            const packageJsonContent = serializePackageJson(manifest);
+            const materializedBundle = toVersionedBundleWithManifest(versionedBundle);
 
             if (progressBroadcaster.hasSubscribers('packageJsonAssembled')) {
                 progressBroadcaster.emit('packageJsonAssembled', {
-                    packageName: versionedBundle.name,
+                    packageName: materializedBundle.name,
                     fields: inspectPackageJsonProvenance(
-                        manifest as Readonly<Record<string, unknown>>,
+                        materializedBundle.packageJson as Readonly<Record<string, unknown>>,
                         options.mainPackageJson as Readonly<Record<string, unknown>>,
                         options.additionalPackageJsonAttributes as Readonly<Record<string, unknown>> | undefined
                     )
                 });
             }
 
-            return {
-                ...versionedBundle,
-                packageJson: manifest,
-                manifestFile: {
-                    content: packageJsonContent,
-                    isExecutable: false,
-                    filePath: 'package.json'
-                }
-            };
+            return materializedBundle;
         },
 
         increaseVersion(versionedBundle) {
@@ -60,18 +67,8 @@ export function createVersionManager(dependencies: VersionManagerDependencies): 
                 ...versionedBundle,
                 version: newVersion
             };
-            const manifest = buildPackageManifest(newVersionedBundle);
-            const packageJsonContent = serializePackageJson(manifest);
 
-            return {
-                ...newVersionedBundle,
-                packageJson: manifest,
-                manifestFile: {
-                    content: packageJsonContent,
-                    isExecutable: false,
-                    filePath: 'package.json'
-                }
-            };
+            return toVersionedBundleWithManifest(newVersionedBundle);
         }
     };
 }

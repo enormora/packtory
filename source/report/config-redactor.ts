@@ -1,3 +1,4 @@
+import { isDefined, pickBy } from 'remeda';
 import type { PacktoryConfig, PackageConfig } from '../config/config.ts';
 import { redactPublishSettings, type RedactedPublishSettings } from '../config/publish-settings.report.ts';
 import { redactRegistrySettings, type RedactedRegistrySettings } from '../config/registry-settings.report.ts';
@@ -29,10 +30,13 @@ function resolveSourcesFolder(config: PacktoryConfig, packageName: string): stri
 export function redactConfigForPackage(config: PacktoryConfig, packageName: string): RedactedPackageConfig {
     const publishSettings = resolvePublishSettings(config, packageName);
     const sourcesFolder = resolveSourcesFolder(config, packageName);
-    return {
-        name: packageName,
-        registrySettings: redactRegistrySettings(config.registrySettings),
-        ...(publishSettings === undefined ? {} : { publishSettings }),
-        ...(sourcesFolder === undefined ? {} : { sourcesFolder })
-    };
+    return pickBy(
+        {
+            name: packageName,
+            registrySettings: redactRegistrySettings(config.registrySettings),
+            publishSettings,
+            sourcesFolder
+        },
+        isDefined
+    );
 }

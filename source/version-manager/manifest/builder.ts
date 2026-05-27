@@ -65,13 +65,13 @@ export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson
 
     const packageJson: BundlePackageJson = {
         ...bundle.additionalAttributes,
-        ...sideEffectsEntry,
-        ...importsEntry,
-        ...binEntry,
         exports: bundle.exportsField,
         name: bundle.name,
         version: bundle.version,
         type: bundle.packageType,
+        ...sideEffectsEntry,
+        ...importsEntry,
+        ...binEntry,
         ...(isEmpty(bundle.dependencies) ? {} : { dependencies: bundle.dependencies }),
         ...(isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies })
     };

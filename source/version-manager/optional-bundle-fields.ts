@@ -1,4 +1,5 @@
 import type { PackageJson } from 'type-fest';
+import { isDefined, pickBy } from 'remeda';
 import type { FileDescription, TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { ImportsField } from './imports/imports-key-matcher.ts';
 
@@ -15,9 +16,5 @@ export function buildOptionalVersionedBundleFields(params: {
 }): OptionalFields {
     const { importsField, binField, typesMainFile } = params;
 
-    return {
-        ...(importsField === undefined ? {} : { importsField }),
-        ...(binField === undefined ? {} : { binField }),
-        ...(typesMainFile === undefined ? {} : { typesMainFile })
-    };
+    return pickBy({ importsField, binField, typesMainFile }, isDefined);
 }

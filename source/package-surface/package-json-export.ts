@@ -1,7 +1,8 @@
 import type { ExportEntry, PackageJsonExportLike } from './package-shape.ts';
 
-const packageJsonExportKey = './package.json';
-const packageJsonExportTarget = './package.json';
+function packageJsonExportPath(): './package.json' {
+    return './package.json';
+}
 
 export function decorateWithPackageJsonExport<TExports extends Record<string, ExportEntry | string>>(
     bundle: PackageJsonExportLike,
@@ -12,5 +13,5 @@ export function decorateWithPackageJsonExport<TExports extends Record<string, Ex
     }
 
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- spread preserves the generic record shape
-    return { ...exportsField, [packageJsonExportKey]: packageJsonExportTarget } as TExports;
+    return { ...exportsField, [packageJsonExportPath()]: packageJsonExportPath() } as TExports;
 }

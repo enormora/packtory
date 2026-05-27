@@ -336,4 +336,27 @@ suite('scanner', function () {
             }
         ]);
     });
+
+    test('doesn’t scan nested references for assets or generated manifests', async function () {
+        const getReferencedModules = stub()
+            .onFirstCall()
+            .returns([localAsset('/dir/data.json'), generatedManifest('/dir/package.json')]);
+        const result = await scanWithReferencedModuleStub(getReferencedModules);
+
+        assert.strictEqual(getReferencedModules.callCount, 1);
+        assert.deepStrictEqual(result.localFiles, [
+            {
+                directDependencies: new Set(['/dir/data.json', '/dir/package.json']),
+                filePath: '/dir/entry.js',
+                project: {}
+            },
+            { directDependencies: new Set(), filePath: '/dir/data.json', project: undefined },
+            {
+                directDependencies: new Set(),
+                filePath: '/dir/package.json',
+                isGeneratedManifest: true,
+                project: undefined
+            }
+        ]);
+    });
 });

@@ -32,9 +32,14 @@ suite('bundle-index', function () {
         assert.strictEqual(indexed.get('pkg-a')?.bundle, bundle);
     });
 
-    test('resolveCrossBundleTarget returns undefined when the specifier is undefined', function () {
-        const result = resolveCrossBundleTarget(undefined, new Map());
-        assert.strictEqual(result, undefined);
+    test('resolveCrossBundleTarget returns undefined when the indexed bundle does not expose the specifier', function () {
+        assert.strictEqual(
+            resolveCrossBundleTarget(
+                'pkg-a/private.js',
+                indexBundles([{ bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] }])
+            ),
+            undefined
+        );
     });
 
     test('resolveCrossBundleTarget returns undefined when no bundles are indexed', function () {

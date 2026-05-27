@@ -2,8 +2,13 @@ import { sortBy } from 'remeda';
 import { areFileDescriptionEqual } from './equal.ts';
 import type { FileDescription } from './file-description.ts';
 
+export const fileDescriptionComparisonStatus = {
+    equal: 'equal',
+    notEqual: 'not-equal'
+} as const;
+
 type FileDescriptionsComparisonResult = {
-    status: 'equal' | 'not-equal';
+    status: (typeof fileDescriptionComparisonStatus)[keyof typeof fileDescriptionComparisonStatus];
 };
 
 export function compareFileDescriptions(
@@ -11,7 +16,7 @@ export function compareFileDescriptions(
     fileDescriptionsB: readonly FileDescription[]
 ): FileDescriptionsComparisonResult {
     if (fileDescriptionsA.length !== fileDescriptionsB.length) {
-        return { status: 'not-equal' };
+        return { status: fileDescriptionComparisonStatus.notEqual };
     }
 
     const byFilePath = (fileDescription: FileDescription): string => {
@@ -24,9 +29,9 @@ export function compareFileDescriptions(
         const fileDescriptionB = sortedFileDescriptionsB[index];
 
         if (fileDescriptionB === undefined || !areFileDescriptionEqual(fileDescriptionA, fileDescriptionB)) {
-            return { status: 'not-equal' };
+            return { status: fileDescriptionComparisonStatus.notEqual };
         }
     }
 
-    return { status: 'equal' };
+    return { status: fileDescriptionComparisonStatus.equal };
 }

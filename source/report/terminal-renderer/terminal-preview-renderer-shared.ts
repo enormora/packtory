@@ -1,5 +1,6 @@
 import { bold, dim, green, red, yellow } from 'yoctocolors';
-import type { PreviewDiffLine } from '../preview/preview-document-diff.ts';
+import { previewResultType } from '../../packtory/packtory-results.ts';
+import { previewDiffLineType, type PreviewDiffLine } from '../preview/preview-document-diff.ts';
 
 export type Colors = {
     readonly bold: (value: string) => string;
@@ -44,10 +45,10 @@ export function createColors(enabled: boolean | undefined): Colors {
 }
 
 export function renderDiffLine(line: PreviewDiffLine, colors: Colors): string {
-    if (line.type === 'add') {
+    if (line.type === previewDiffLineType.add) {
         return colors.green(line.text);
     }
-    if (line.type === 'remove') {
+    if (line.type === previewDiffLineType.remove) {
         return colors.red(line.text);
     }
     return line.text;
@@ -56,20 +57,20 @@ export function renderDiffLine(line: PreviewDiffLine, colors: Colors): string {
 export type FailureDocumentHeader = {
     readonly title: string;
     readonly modeLabel: string;
-    readonly resultType: 'checks' | 'config' | 'partial' | 'success';
+    readonly resultType: (typeof previewResultType)[keyof typeof previewResultType];
     readonly issues: readonly string[];
 };
 
 const resultTypeHeadings = {
-    config: 'Configuration issues',
-    checks: 'Check failures',
-    partial: 'Package failures'
+    [previewResultType.config]: 'Configuration issues',
+    [previewResultType.checks]: 'Check failures',
+    [previewResultType.partial]: 'Package failures'
 } as const;
 
 export function renderFailureDocumentHeader(document: FailureDocumentHeader, colors: Colors): readonly string[] {
     const chip = `[${document.modeLabel}]`;
     const lines = [`${colors.bold(document.title)} ${colors.yellow(chip)}`];
-    if (document.resultType !== 'success') {
+    if (document.resultType !== previewResultType.success) {
         lines.push(colors.red(resultTypeHeadings[document.resultType]));
     }
     lines.push(

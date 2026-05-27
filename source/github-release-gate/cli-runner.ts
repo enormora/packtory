@@ -1,6 +1,5 @@
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { ReleaseAnalysisOutcome } from '../packages/packtory/packtory.entry-point.ts';
-import type { ReleaseAnalysisFailure } from '../packtory/packtory-results.ts';
 import { createGitHubReleaseGateApi } from './github-api.ts';
 import { applyPacktoryReleasePolicy } from './release-policy.ts';
 import { type GitHubReleaseGateDecision, evaluateGitHubReleaseGate } from './release-gate.ts';
@@ -18,17 +17,9 @@ export type GitHubReleaseGateRunnerDependencies = {
     readonly stdoutWrite: StdoutWriter;
 };
 
-function formatOutput(mainHeadSha: string, shouldPublish: boolean, reason: string): string {
-    return `main_head_sha=${mainHeadSha}\nshould_publish=${shouldPublish}\nreason=${reason}\n`;
-}
-
-function writeLogs(stdoutWrite: StdoutWriter, logs: readonly string[]): void {
-    for (const line of logs) {
-        stdoutWrite(line);
-    }
-}
-
-function releaseAnalysisFailureMessage(error: ReleaseAnalysisFailure): string {
+function formatReleaseAnalysisFailure(
+    error: Exclude<ReleaseAnalysisOutcome['result'], { readonly isOk: true }>['error']
+): string {
     if (error.type === 'partial') {
         return error.failures
             .map((failure: Error) => {
@@ -40,13 +31,31 @@ function releaseAnalysisFailureMessage(error: ReleaseAnalysisFailure): string {
     return error.issues.join('\n');
 }
 
-async function writeDecisionOutput(
-    fileManager: Pick<FileManager, 'writeFile'>,
-    githubOutputPath: string,
+function writeLogs(write: StdoutWriter, logs: readonly string[]): void {
+    for (const line of logs) {
+        write(line);
+    }
+}
+
+function buildGitHubOutput(mainHeadSha: string, decision: GitHubReleaseGateDecision): string {
+    return [
+        `main_head_sha=${mainHeadSha}`,
+        `should_publish=${decision.shouldPublish}`,
+        `reason=${decision.reason}`
+    ].join('\n');
+}
+
+async function writeDecision(
+    output: {
+        readonly fileManager: Pick<FileManager, 'writeFile'>;
+        readonly githubOutputPath: string;
+        readonly stdoutWrite: StdoutWriter;
+    },
     mainHeadSha: string,
     decision: GitHubReleaseGateDecision
 ): Promise<void> {
-    await fileManager.writeFile(githubOutputPath, formatOutput(mainHeadSha, decision.shouldPublish, decision.reason));
+    writeLogs(output.stdoutWrite, decision.logs);
+    await output.fileManager.writeFile(output.githubOutputPath, `${buildGitHubOutput(mainHeadSha, decision)}\n`);
 }
 
 async function evaluatePacktoryPolicy(
@@ -61,7 +70,7 @@ async function evaluatePacktoryPolicy(
     const packtoryConfig = await dependencies.loadPacktoryConfig();
     const releaseAnalysis = await dependencies.analyzeReleaseAgainstLatestPublished(packtoryConfig);
     if (releaseAnalysis.result.isErr) {
-        throw new Error(releaseAnalysisFailureMessage(releaseAnalysis.result.error));
+        throw new Error(formatReleaseAnalysisFailure(releaseAnalysis.result.error));
     }
 
     return applyPacktoryReleasePolicy({
@@ -103,8 +112,15 @@ export async function runGitHubReleaseGate(dependencies: GitHubReleaseGateRunner
     const { decision: timeGateDecision, mainHeadSha, now } = await loadGitHubTimeGateDecision(dependencies, config);
 
     if (!timeGateDecision.shouldPublish) {
-        writeLogs(dependencies.stdoutWrite, timeGateDecision.logs);
-        await writeDecisionOutput(dependencies.fileManager, config.githubOutputPath, mainHeadSha, timeGateDecision);
+        await writeDecision(
+            {
+                fileManager: dependencies.fileManager,
+                githubOutputPath: config.githubOutputPath,
+                stdoutWrite: dependencies.stdoutWrite
+            },
+            mainHeadSha,
+            timeGateDecision
+        );
         return;
     }
 
@@ -113,6 +129,13 @@ export async function runGitHubReleaseGate(dependencies: GitHubReleaseGateRunner
         shouldPublish: true
     });
 
-    writeLogs(dependencies.stdoutWrite, decision.logs);
-    await writeDecisionOutput(dependencies.fileManager, config.githubOutputPath, mainHeadSha, decision);
+    await writeDecision(
+        {
+            fileManager: dependencies.fileManager,
+            githubOutputPath: config.githubOutputPath,
+            stdoutWrite: dependencies.stdoutWrite
+        },
+        mainHeadSha,
+        decision
+    );
 }

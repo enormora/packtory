@@ -7,15 +7,15 @@ import {
 } from './publish-error-messages.ts';
 
 function getCiName(message: string): string {
-    const tail = message.slice(message.indexOf(unsupportedProviderMarker) + unsupportedProviderMarker.length).trim();
-    if (tail === '') {
+    const providerSection = message
+        .slice(message.indexOf(unsupportedProviderMarker) + unsupportedProviderMarker.length)
+        .trimStart();
+    if (providerSection === '') {
         return 'unknown';
     }
-    const whitespaceIndex = tail.search(/\s/u);
-    if (whitespaceIndex === -1) {
-        return tail;
-    }
-    return tail.slice(0, whitespaceIndex);
+
+    const providerEnd = providerSection.search(/\s/u);
+    return providerEnd === -1 ? providerSection : providerSection.slice(0, providerEnd);
 }
 
 export function matchAutoModeError(error: unknown): Error | undefined {

@@ -1,5 +1,5 @@
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
-import type { FileDecision, ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
+import { fileDecision, type FileDecision, type ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
 
 function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): readonly FileDecision[] {
@@ -14,7 +14,7 @@ function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): r
         if (emitted === undefined) {
             return {
                 path: entry.fileDescription.sourceFilePath,
-                decision: 'eliminated',
+                decision: fileDecision.eliminated,
                 reason: 'not-emitted-after-analysis',
                 sourceBytes
             };
@@ -23,7 +23,7 @@ function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): r
         if (entry.fileDescription.content !== emitted.fileDescription.content) {
             return {
                 path: entry.fileDescription.sourceFilePath,
-                decision: 'transformed',
+                decision: fileDecision.transformed,
                 reason: 'rewritten-after-analysis',
                 sourceBytes,
                 outputBytes
@@ -31,7 +31,7 @@ function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): r
         }
         return {
             path: entry.fileDescription.sourceFilePath,
-            decision: 'kept',
+            decision: fileDecision.kept,
             reason: 'reachable',
             sourceBytes
         };

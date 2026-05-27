@@ -27,9 +27,15 @@ type ReleaseDiffDocumentParams = {
 };
 
 function countFailedPackages(report: BuildReport): number {
-    return Object.values(report.packages).reduce((count, pkg) => {
-        return pkg.failure === undefined ? count : count + 1;
-    }, 0);
+    let failedPackages = 0;
+
+    for (const pkg of Object.values(report.packages)) {
+        if (pkg.failure !== undefined) {
+            failedPackages += 1;
+        }
+    }
+
+    return failedPackages;
 }
 
 export function buildReleaseDiffDocument(params: ReleaseDiffDocumentParams): ReleaseDiffDocument {

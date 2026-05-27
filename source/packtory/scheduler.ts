@@ -1,8 +1,8 @@
-import { partition } from 'remeda';
 import { Result } from 'true-myth';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { PackageConfig } from '../config/config.ts';
+import type { PublishedReleaseStatus } from './published-release-state.ts';
 
 export type PartialError<TResult> = {
     readonly succeeded: readonly TResult[];
@@ -19,18 +19,64 @@ type SchedulerDependencies = {
     readonly progressBroadcastProvider: ProgressBroadcastProvider;
 };
 
-function isFulfilledResult<T extends PromiseSettledResult<unknown>>(
-    result: T
-): result is Extract<T, { status: 'fulfilled' }> {
-    return result.status === 'fulfilled';
-}
-
 function toError(error: unknown): Error {
     if (error instanceof Error) {
         return error;
     }
 
     return new Error('Unknown error');
+}
+
+type GenerationSummary<TResult, TOptions> = {
+    readonly succeeded: PackageSuccess<TResult, TOptions>[];
+    readonly succeededResults: TResult[];
+    readonly failures: Error[];
+};
+
+function createGenerationSummary<TResult, TOptions>(): GenerationSummary<TResult, TOptions> {
+    return {
+        succeeded: [],
+        succeededResults: [],
+        failures: []
+    };
+}
+
+function recordGenerationResult<TResult, TOptions>(
+    summary: GenerationSummary<TResult, TOptions>,
+    result: PromiseSettledResult<PackageSuccess<TResult, TOptions>>
+): void {
+    if (result.status === 'fulfilled') {
+        summary.succeeded.push(result.value);
+        summary.succeededResults.push(result.value.result);
+        return;
+    }
+
+    summary.failures.push(toError(result.reason));
+}
+
+function summarizeCollectedResults<TResult, TOptions>(
+    summary: GenerationSummary<TResult, TOptions>
+): Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>> {
+    if (summary.failures.length > 0) {
+        return Result.err({
+            succeeded: summary.succeededResults,
+            failures: summary.failures
+        });
+    }
+
+    return Result.ok(summary.succeeded);
+}
+
+function summarizeGenerationResults<TResult, TOptions>(
+    results: readonly PromiseSettledResult<PackageSuccess<TResult, TOptions>>[]
+): Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>> {
+    const summary = createGenerationSummary<TResult, TOptions>();
+
+    for (const result of results) {
+        recordGenerationResult(summary, result);
+    }
+
+    return summarizeCollectedResults(summary);
 }
 
 type PackageExecutionContext<TNext, TConfig extends { packages: readonly PackageConfig[] }> = {
@@ -47,13 +93,15 @@ type PackageSuccess<TResult, TOptions> = {
 
 type ProgressEventReturnValue = {
     version: string;
-    status: 'already-published' | 'initial-version' | 'new-version';
+    status: PublishedReleaseStatus;
 };
 
 type SchedulerState<TResult, TNext> = {
     readonly nextItems: TNext[];
     readonly succeeded: TResult[];
 };
+
+type GenerationFailure<TResult> = Result<never, PartialError<TResult>>;
 
 type RunForEachScheduledPackageParams<
     TResult,
@@ -80,19 +128,15 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         existingItems: readonly TNext[],
         params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>
     ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>>> {
-        const buildPackageSuccess = async (packageName: string): Promise<PackageSuccess<TResult, TOptions>> => {
-            const options = params.createOptions({ packageName, existing: existingItems, config });
-            const result = await params.execute(options);
-            const progressEvent = params.createProgressEvent?.({ packageName, result, options });
-            if (progressEvent !== undefined) {
-                progressBroadcastProvider.emit('done', { packageName, ...progressEvent });
-            }
-            return { packageName, result, options } satisfies PackageSuccess<TResult, TOptions>;
-        };
-
         const executePackage = async (packageName: string): Promise<PackageSuccess<TResult, TOptions>> => {
+            const options = params.createOptions({ packageName, existing: existingItems, config });
             try {
-                return await buildPackageSuccess(packageName);
+                const result = await params.execute(options);
+                const progressEvent = params.createProgressEvent?.({ packageName, result, options });
+                if (progressEvent !== undefined) {
+                    progressBroadcastProvider.emit('done', { packageName, ...progressEvent });
+                }
+                return { packageName, result, options } satisfies PackageSuccess<TResult, TOptions>;
             } catch (error: unknown) {
                 progressBroadcastProvider.emit('error', { packageName, error: toError(error) });
                 throw error;
@@ -100,23 +144,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         };
 
         const results = await Promise.allSettled(packageNames.map(executePackage));
-        const [fulfilledResults, rejectedResults] = partition(results, isFulfilledResult);
-        const succeeded = fulfilledResults.map((entry) => {
-            return entry.value;
-        });
-
-        if (rejectedResults.length > 0) {
-            return Result.err({
-                succeeded: succeeded.map((entry) => {
-                    return entry.result;
-                }),
-                failures: rejectedResults.map((entry) => {
-                    return toError(entry.reason);
-                })
-            });
-        }
-
-        return Result.ok(succeeded);
+        return summarizeGenerationResults(results);
     }
 
     function emitScheduledEventForAllPackages<TConfig extends { packages: readonly PackageConfig[] }>(
@@ -134,6 +162,53 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         return reverseGraph().getTopologicalGenerations();
     }
 
+    function shouldEmitScheduledEvents(emitScheduledEvents: boolean | undefined): boolean {
+        return emitScheduledEvents ?? true;
+    }
+
+    function createSchedulerState<TResult, TNext>(): SchedulerState<TResult, TNext> {
+        return { nextItems: [], succeeded: [] };
+    }
+
+    function failGeneration<TResult, TNext>(
+        state: SchedulerState<TResult, TNext>,
+        generationError: PartialError<TResult>
+    ): GenerationFailure<TResult> {
+        return Result.err({
+            succeeded: [...state.succeeded, ...generationError.succeeded],
+            failures: generationError.failures
+        });
+    }
+
+    function appendGenerationSuccesses<TResult, TNext, TOptions>(
+        state: SchedulerState<TResult, TNext>,
+        succeeded: readonly PackageSuccess<TResult, TOptions>[],
+        selectNext: (params: { result: TResult; options: TOptions }) => TNext
+    ): void {
+        for (const entry of succeeded) {
+            state.nextItems.push(selectNext({ result: entry.result, options: entry.options }));
+            state.succeeded.push(entry.result);
+        }
+    }
+
+    async function runExecutionPlan<TResult, TNext, TOptions, TConfig extends { packages: readonly PackageConfig[] }>(
+        config: ConfigWithGraph<TConfig>,
+        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>
+    ): Promise<Result<readonly TResult[], PartialError<TResult>>> {
+        const state = createSchedulerState<TResult, TNext>();
+
+        for (const generation of getExecutionPlan(config)) {
+            const generationResult = await runForGeneration(generation, config, state.nextItems, params);
+            if (generationResult.isErr) {
+                return failGeneration(state, generationResult.error);
+            }
+
+            appendGenerationSuccesses(state, generationResult.value, params.selectNext);
+        }
+
+        return Result.ok(state.succeeded);
+    }
+
     return {
         async runForEachScheduledPackage<
             TResult,
@@ -142,39 +217,11 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
             TConfig extends { packages: readonly PackageConfig[] }
         >(params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>) {
             const { config } = params;
-            if (params.emitScheduledEvents ?? true) {
+            if (shouldEmitScheduledEvents(params.emitScheduledEvents)) {
                 emitScheduledEventForAllPackages(config);
             }
 
-            const state: SchedulerState<TResult, TNext> = { nextItems: [], succeeded: [] };
-
-            const processGeneration = async (
-                generation: readonly string[]
-            ): Promise<Result<undefined, PartialError<TResult>>> => {
-                const generationResult = await runForGeneration(generation, config, state.nextItems, params);
-                if (generationResult.isErr) {
-                    return Result.err({
-                        succeeded: [...state.succeeded, ...generationResult.error.succeeded],
-                        failures: generationResult.error.failures
-                    });
-                }
-
-                generationResult.value.forEach((entry) => {
-                    state.nextItems.push(params.selectNext({ result: entry.result, options: entry.options }));
-                    state.succeeded.push(entry.result);
-                });
-
-                return Result.ok(undefined);
-            };
-
-            for (const generation of getExecutionPlan(config)) {
-                const iterationResult = await processGeneration(generation);
-                if (iterationResult.isErr) {
-                    return Result.err(iterationResult.error);
-                }
-            }
-
-            return Result.ok(state.succeeded);
+            return runExecutionPlan(config, params);
         }
     };
 }

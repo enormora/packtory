@@ -21,31 +21,24 @@ const controlIdleValue = 0;
 const maximumReadSlotAttempts = 1024;
 const maximumRenderedMutationWaitAttempts = 256;
 
-const slotStateEmpty = 0;
-const slotStateRunning = 1;
-const slotStateSucceeded = 2;
-const slotStateFailed = 3;
-const slotStateCanceled = 4;
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-export type SlotState = 'canceled' | 'empty' | 'failed' | 'running' | 'succeeded';
+const slotStates = ['empty', 'running', 'succeeded', 'failed', 'canceled'] as const;
+const emptySlotStateIndex = 0;
+const runningSlotStateIndex = 1;
+const succeededSlotStateIndex = 2;
+const failedSlotStateIndex = 3;
+const canceledSlotStateIndex = 4;
+export const slotState = {
+    empty: slotStates[emptySlotStateIndex],
+    running: slotStates[runningSlotStateIndex],
+    succeeded: slotStates[succeededSlotStateIndex],
+    failed: slotStates[failedSlotStateIndex],
+    canceled: slotStates[canceledSlotStateIndex]
+} as const;
 
-const stateToByteMap: Readonly<Record<SlotState, number>> = {
-    empty: slotStateEmpty,
-    running: slotStateRunning,
-    succeeded: slotStateSucceeded,
-    failed: slotStateFailed,
-    canceled: slotStateCanceled
-};
-
-const byteToStateMap: Readonly<Record<number, SlotState>> = {
-    [slotStateEmpty]: 'empty',
-    [slotStateRunning]: 'running',
-    [slotStateSucceeded]: 'succeeded',
-    [slotStateFailed]: 'failed',
-    [slotStateCanceled]: 'canceled'
-};
+export type SlotState = (typeof slotStates)[number];
 
 export type SpinnerSharedLayout = {
     readonly bufferByteLength: number;
@@ -103,19 +96,6 @@ type SpinnerSharedDependencies = {
     readonly now: () => number;
 };
 
-function getCurrentTimeInMilliseconds(): number {
-    return Date.now();
-}
-
-function stateToByte(state: SlotState): number {
-    return stateToByteMap[state];
-}
-
-function byteToState(byte: number): SlotState {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- writers always go through stateToByteMap so the byte is one of the known state values
-    return byteToStateMap[byte] as SlotState;
-}
-
 type SlotStringSlice = {
     readonly contentOffset: number;
     readonly contentCapacity: number;
@@ -142,18 +122,48 @@ type Views = {
     readonly slotData: (slotIndex: number) => DataView;
 };
 
-function waitForRenderedMutationStep(args: {
-    readonly atomics: AtomicsLike;
-    readonly headerInt32: Int32Array;
-    readonly expectedMutation: number;
-    readonly timeoutMs: number;
-    readonly readRemainingMs: () => number;
-}): {
+type RenderedMutationWaitStep = {
     readonly current: number;
     readonly remainingMs: number;
     readonly timedOutWithoutProgress: boolean;
-} {
-    const waitResult = args.atomics.wait(
+};
+
+type PendingRenderedMutationWaitIteration = {
+    readonly nextCurrent: number;
+    readonly nextRemainingMs: number;
+};
+
+type FinishedRenderedMutationWaitIteration = {
+    readonly result: boolean;
+};
+
+type RenderedMutationWaitIteration = FinishedRenderedMutationWaitIteration | PendingRenderedMutationWaitIteration;
+
+function isPendingRenderedMutationWaitIteration(
+    iteration: Readonly<Record<string, unknown>> | RenderedMutationWaitIteration
+): iteration is PendingRenderedMutationWaitIteration {
+    return 'nextCurrent' in iteration;
+}
+
+function renderedMutationWaitIterationResult(
+    iteration: Readonly<Record<string, unknown>> | RenderedMutationWaitIteration
+): boolean {
+    return 'result' in iteration && iteration.result === true;
+}
+
+function getRenderedMutationWaitAttemptBudget(timeoutMs: number): number {
+    return Math.min(maximumRenderedMutationWaitAttempts, Math.max(Math.ceil(timeoutMs), 1));
+}
+
+function waitForRenderedMutationStep(args: {
+    readonly atomics: AtomicsLike;
+    readonly headerInt32: Int32Array;
+    readonly now: () => number;
+    readonly deadline: number;
+    readonly expectedMutation: number;
+    readonly timeoutMs: number;
+}): RenderedMutationWaitStep {
+    const waitStatus = args.atomics.wait(
         args.headerInt32,
         headerRenderedMutationIndex,
         args.expectedMutation,
@@ -163,63 +173,113 @@ function waitForRenderedMutationStep(args: {
 
     return {
         current,
-        remainingMs: args.readRemainingMs(),
-        timedOutWithoutProgress: waitResult === 'timed-out' && current === args.expectedMutation
+        remainingMs: args.deadline - args.now(),
+        timedOutWithoutProgress: waitStatus === 'timed-out' && current === args.expectedMutation
     };
 }
 
-function readRenderedMutationState(
-    atomics: AtomicsLike,
-    headerInt32: Int32Array,
-    readRemainingMs: () => number
-): {
+function getRenderedMutationWaitResult(current: number, remainingMs: number, mutation: number): boolean | undefined {
+    if (current >= mutation) {
+        return true;
+    }
+
+    if (remainingMs <= 0) {
+        return false;
+    }
+
+    return undefined;
+}
+
+function getRenderedMutationWaitStepResult(
+    current: number,
+    remainingMs: number,
+    step: RenderedMutationWaitStep,
+    mutation: number
+): boolean | undefined {
+    const waitResult = getRenderedMutationWaitResult(step.current, step.remainingMs, mutation);
+    if (waitResult !== undefined) {
+        return waitResult;
+    }
+
+    if (step.timedOutWithoutProgress) {
+        return false;
+    }
+
+    if (step.current === current && step.remainingMs > remainingMs) {
+        return false;
+    }
+
+    return undefined;
+}
+
+function advanceRenderedMutationWait(args: {
+    readonly atomics: AtomicsLike;
+    readonly headerInt32: Int32Array;
+    readonly now: () => number;
+    readonly deadline: number;
+    readonly mutation: number;
     readonly current: number;
     readonly remainingMs: number;
-} {
+    readonly timeoutMs: number;
+}): RenderedMutationWaitIteration {
+    const currentResult = getRenderedMutationWaitResult(args.current, args.remainingMs, args.mutation);
+    if (currentResult !== undefined) {
+        return { result: currentResult };
+    }
+
+    const step = waitForRenderedMutationStep({
+        atomics: args.atomics,
+        headerInt32: args.headerInt32,
+        now: args.now,
+        deadline: args.deadline,
+        expectedMutation: args.current,
+        timeoutMs: Math.min(args.remainingMs, args.timeoutMs)
+    });
+    const stepResult = getRenderedMutationWaitStepResult(args.current, args.remainingMs, step, args.mutation);
+    if (stepResult !== undefined) {
+        return { result: stepResult };
+    }
+
     return {
-        current: atomics.load(headerInt32, headerRenderedMutationIndex),
-        remainingMs: readRemainingMs()
+        nextCurrent: args.atomics.load(args.headerInt32, headerRenderedMutationIndex),
+        nextRemainingMs: args.deadline - args.now()
     };
 }
 
-function shouldContinueWaitingForRenderedMutation(
-    state: ReturnType<typeof readRenderedMutationState>,
-    mutation: number
-): boolean {
-    return state.current < mutation && state.remainingMs > 0;
-}
+function waitForRenderedMutationWithinBudget(args: {
+    readonly atomics: AtomicsLike;
+    readonly headerInt32: Int32Array;
+    readonly mutation: number;
+    readonly now: () => number;
+    readonly timeoutMs: number;
+}): boolean {
+    const deadline = args.now() + args.timeoutMs;
+    let current = args.atomics.load(args.headerInt32, headerRenderedMutationIndex);
+    let remainingMs = deadline - args.now();
 
-function shouldAbortWaitingForRenderedMutation(
-    state: ReturnType<typeof readRenderedMutationState>,
-    step: ReturnType<typeof waitForRenderedMutationStep>,
-    mutation: number
-): boolean {
-    return (
-        (step.current === state.current && step.remainingMs > state.remainingMs) ||
-        step.current >= mutation ||
-        step.timedOutWithoutProgress
-    );
-}
-
-function createViews(buffer: SharedArrayBuffer, layout: SpinnerSharedLayout): Views {
-    const headerInt32 = new Int32Array(buffer);
-    const headerUint32 = new Uint32Array(buffer);
-    const slotOffset = (slotIndex: number): number => {
-        return layout.headerByteLength + slotIndex * layout.slotByteLength;
-    };
-    return {
-        headerInt32,
-        headerUint32,
-        slotInt32: (slotIndex) => {
-            return new Int32Array(buffer, slotOffset(slotIndex), 1);
-        },
-        slotBytes: (slotIndex) => {
-            return new Uint8Array(buffer, slotOffset(slotIndex), layout.slotByteLength);
-        },
-        slotData: (slotIndex) => {
-            return new DataView(buffer, slotOffset(slotIndex), layout.slotByteLength);
+    for (
+        let remainingBudget = getRenderedMutationWaitAttemptBudget(args.timeoutMs);
+        remainingBudget > 0;
+        remainingBudget -= 1
+    ) {
+        const iteration = advanceRenderedMutationWait({
+            atomics: args.atomics,
+            headerInt32: args.headerInt32,
+            now: args.now,
+            deadline,
+            mutation: args.mutation,
+            current,
+            remainingMs,
+            timeoutMs: args.timeoutMs
+        });
+        if (!isPendingRenderedMutationWaitIteration(iteration)) {
+            return renderedMutationWaitIterationResult(iteration);
         }
-    };
+        current = iteration.nextCurrent;
+        remainingMs = iteration.nextRemainingMs;
+    }
+
+    return getRenderedMutationWaitResult(current, remainingMs, args.mutation) ?? false;
 }
 
 function writeStringIntoSlot(views: Views, slotIndex: number, slice: SlotStringSlice, value: string): void {
@@ -236,42 +296,64 @@ function readStringFromSlot(views: Views, slotIndex: number, slice: SlotStringSl
     return textDecoder.decode(views.slotBytes(slotIndex).subarray(slice.contentOffset, slice.contentOffset + length));
 }
 
-function readSlotContent(
-    views: Views,
-    slotIndex: number
-): { readonly state: SlotState; readonly label: string; readonly message: string } {
-    return {
-        state: byteToState(views.slotData(slotIndex).getUint8(slotStateOffset)),
-        label: readStringFromSlot(views, slotIndex, labelSlice),
-        message: readStringFromSlot(views, slotIndex, messageSlice)
-    };
-}
-
 export function createSpinnerSharedAccessors(
     buffer: SharedArrayBuffer,
     layout: SpinnerSharedLayout,
     dependencies: Partial<SpinnerSharedDependencies> = {}
 ): SpinnerSharedAccessors {
     const atomics = dependencies.atomics ?? Atomics;
-    const now = dependencies.now ?? getCurrentTimeInMilliseconds;
-    const views = createViews(buffer, layout);
+    const now = dependencies.now ?? Date.now;
+    const headerInt32 = new Int32Array(buffer);
+    const headerUint32 = new Uint32Array(buffer);
+    const slotOffset = (slotIndex: number): number => {
+        return layout.headerByteLength + slotIndex * layout.slotByteLength;
+    };
+    const views: Views = {
+        headerInt32,
+        headerUint32,
+        slotInt32: (slotIndex) => {
+            return new Int32Array(buffer, slotOffset(slotIndex), 1);
+        },
+        slotBytes: (slotIndex) => {
+            return new Uint8Array(buffer, slotOffset(slotIndex), layout.slotByteLength);
+        },
+        slotData: (slotIndex) => {
+            return new DataView(buffer, slotOffset(slotIndex), layout.slotByteLength);
+        }
+    };
 
-    function writeStateByte(slotIndex: number, stateByte: number): void {
-        views.slotData(slotIndex).setUint8(slotStateOffset, stateByte);
-    }
-
-    function readSlotGeneration(slotIndex: number): number {
-        return atomics.load(views.slotInt32(slotIndex), slotGenerationIndex);
-    }
-
-    function readSlotAttempt(slotIndex: number): {
-        readonly slot: ReturnType<SpinnerSharedAccessors['readSlot']>;
-        readonly generationAfter: number;
-    } {
+    function readSlotSnapshot(slotIndex: number): ReturnType<SpinnerSharedAccessors['readSlot']> {
         return {
-            slot: readSlotContent(views, slotIndex),
-            generationAfter: readSlotGeneration(slotIndex)
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- writers always use known slot state values
+            state: slotStates[views.slotData(slotIndex).getUint8(slotStateOffset)] as SlotState,
+            label: readStringFromSlot(views, slotIndex, labelSlice),
+            message: readStringFromSlot(views, slotIndex, messageSlice)
         };
+    }
+
+    function readStableSlotAfterGeneration(
+        slotIndex: number,
+        generationBefore: number,
+        remainingAttempts: number
+    ): ReturnType<SpinnerSharedAccessors['readSlot']> {
+        const slot = readSlotSnapshot(slotIndex);
+        const generationAfter = atomics.load(views.slotInt32(slotIndex), slotGenerationIndex);
+        if (generationAfter === generationBefore) {
+            return slot;
+        }
+        if (remainingAttempts > 1) {
+            return readStableSlotAfterGeneration(slotIndex, generationAfter, remainingAttempts - 1);
+        }
+
+        throw new Error('Failed to read a stable spinner slot snapshot');
+    }
+
+    function readStableSlot(slotIndex: number): ReturnType<SpinnerSharedAccessors['readSlot']> {
+        return readStableSlotAfterGeneration(
+            slotIndex,
+            atomics.load(views.slotInt32(slotIndex), slotGenerationIndex),
+            maximumReadSlotAttempts
+        );
     }
 
     return {
@@ -300,32 +382,13 @@ export function createSpinnerSharedAccessors(
             atomics.notify(views.headerInt32, headerRenderedMutationIndex);
         },
         waitForRenderedMutation(mutation, timeoutMs) {
-            const deadline = now() + timeoutMs;
-            const readRemainingMs = (): number => {
-                return deadline - now();
-            };
-            let state = readRenderedMutationState(atomics, views.headerInt32, readRemainingMs);
-            let remainingAttempts = Math.min(maximumRenderedMutationWaitAttempts, Math.max(Math.ceil(timeoutMs), 1));
-
-            for (
-                ;
-                shouldContinueWaitingForRenderedMutation(state, mutation) && remainingAttempts > 0;
-                state = readRenderedMutationState(atomics, views.headerInt32, readRemainingMs), remainingAttempts -= 1
-            ) {
-                const waitTimeoutMs = Math.min(state.remainingMs, timeoutMs);
-                const step = waitForRenderedMutationStep({
-                    atomics,
-                    headerInt32: views.headerInt32,
-                    expectedMutation: state.current,
-                    timeoutMs: waitTimeoutMs,
-                    readRemainingMs
-                });
-                if (shouldAbortWaitingForRenderedMutation(state, step, mutation)) {
-                    return step.current >= mutation;
-                }
-            }
-
-            return state.current >= mutation;
+            return waitForRenderedMutationWithinBudget({
+                atomics,
+                headerInt32: views.headerInt32,
+                mutation,
+                now,
+                timeoutMs
+            });
         },
         requestShutdown() {
             atomics.store(views.headerInt32, headerControlIndex, controlShutdownValue);
@@ -337,29 +400,10 @@ export function createSpinnerSharedAccessors(
             atomics.add(views.slotInt32(slotIndex), slotGenerationIndex, 1);
         },
         writeSlot(slotIndex, state, label, message) {
-            writeStateByte(slotIndex, stateToByte(state));
+            views.slotData(slotIndex).setUint8(slotStateOffset, slotStates.indexOf(state));
             writeStringIntoSlot(views, slotIndex, labelSlice, label);
             writeStringIntoSlot(views, slotIndex, messageSlice, message);
         },
-        readSlot(slotIndex) {
-            // Seqlock retry: writers atomically bump the slot generation after
-            // updating the (non-atomic) label/message bytes; if the generation
-            // moves between the two reads we observed a torn write and retry.
-            let generationBefore = readSlotGeneration(slotIndex);
-            const attempts = Array.from({ length: maximumReadSlotAttempts + 1 }, (_value, index) => {
-                return maximumReadSlotAttempts - index;
-            });
-            for (const remainingAttempts of attempts) {
-                if (remainingAttempts === 0) {
-                    break;
-                }
-                const attemptResult = readSlotAttempt(slotIndex);
-                if (attemptResult.generationAfter === generationBefore) {
-                    return attemptResult.slot;
-                }
-                generationBefore = attemptResult.generationAfter;
-            }
-            throw new Error('Failed to read a stable spinner slot snapshot');
-        }
+        readSlot: readStableSlot
     };
 }

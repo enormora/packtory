@@ -1,5 +1,5 @@
 import type { Clock } from '../../common/clock.ts';
-import type { PublishAuthStrategy, RegistrySettings } from '../../config/registry-settings.ts';
+import { publishAuthType, type NpmOidcPublishAuth, type RegistrySettings } from '../../config/registry-settings.ts';
 import {
     buildAuthOptions,
     createBaseOptions,
@@ -9,6 +9,7 @@ import {
     resolveRegistryUrl,
     type NpmFetchOptions
 } from './registry-auth-config.ts';
+import { toRegistryPackagePath } from './registry-package-path.ts';
 import { parseOidcExchangeResponse } from './registry-response-schemas.ts';
 
 const oidcExchangeRefreshThresholdInMilliseconds = 60_000;
@@ -21,28 +22,20 @@ type OidcExchangeToken = {
 type OidcExchangerDependencies = {
     readonly fetch: typeof globalThis.fetch;
     readonly clock: Clock;
-    readonly resolveIdToken: (auth: Extract<PublishAuthStrategy, { type: 'npm-oidc' }>) => Promise<string>;
+    readonly resolveIdToken: (auth: NpmOidcPublishAuth) => Promise<string>;
 };
 
 export type OidcTokenExchanger = {
     exchangeToken: (
         packageName: string,
         registrySettings: Readonly<RegistrySettings>,
-        auth: Extract<PublishAuthStrategy, { type: 'npm-oidc' }>
+        auth: NpmOidcPublishAuth
     ) => Promise<string>;
     resolveWriteAuthOptions: (
         packageName: string,
         registrySettings: Readonly<RegistrySettings>
     ) => Promise<NpmFetchOptions>;
 };
-
-function encodePackageName(name: string): string {
-    return name.replace('/', '%2F');
-}
-
-async function readJson(response: Response): Promise<unknown> {
-    return response.json() as Promise<unknown>;
-}
 
 export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies): OidcTokenExchanger {
     const { fetch: fetchImplementation, clock, resolveIdToken } = dependencies;
@@ -65,16 +58,6 @@ export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies
         return undefined;
     }
 
-    async function postExchangeRequest(packageName: string, idToken: string): Promise<Response> {
-        return fetchImplementation(
-            `${npmRegistryUrl}-/npm/v1/oidc/token/exchange/package/${encodePackageName(packageName)}`,
-            {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${idToken}` }
-            } satisfies RequestInit
-        );
-    }
-
     function parseExchangedToken(body: unknown): { readonly token: string; readonly expiresAt: number } {
         const parsed = parseOidcExchangeResponse(body);
         if (!parsed.success) {
@@ -85,20 +68,26 @@ export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies
 
     async function requestExchange(
         packageName: string,
-        auth: Extract<PublishAuthStrategy, { type: 'npm-oidc' }>
+        auth: NpmOidcPublishAuth
     ): Promise<{ readonly token: string; readonly expiresAt: number }> {
         const idToken = await resolveIdToken(auth);
-        const exchangeResponse = await postExchangeRequest(packageName, idToken);
+        const exchangeResponse = await fetchImplementation(
+            `${npmRegistryUrl}-/npm/v1/oidc/token/exchange/package/${toRegistryPackagePath(packageName)}`,
+            {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${idToken}` }
+            } satisfies RequestInit
+        );
         if (!exchangeResponse.ok) {
             throw new Error(`OIDC token exchange failed with status ${exchangeResponse.status}`);
         }
-        return parseExchangedToken(await readJson(exchangeResponse));
+        return parseExchangedToken((await exchangeResponse.json()) as unknown);
     }
 
     async function exchangeToken(
         packageName: string,
         registrySettings: Readonly<RegistrySettings>,
-        auth: Extract<PublishAuthStrategy, { type: 'npm-oidc' }>
+        auth: NpmOidcPublishAuth
     ): Promise<string> {
         const cacheKey = getCacheKey(packageName, registrySettings);
         const cached = readCachedToken(cacheKey);
@@ -120,7 +109,7 @@ export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies
 
         async resolveWriteAuthOptions(packageName, registrySettings) {
             const auth = resolvePublishAuth(registrySettings);
-            if (auth.type !== 'npm-oidc') {
+            if (auth.type !== publishAuthType.npmOidc) {
                 return buildAuthOptions(auth, registrySettings).options;
             }
 

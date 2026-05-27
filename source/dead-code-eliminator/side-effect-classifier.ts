@@ -2,7 +2,7 @@ import type { SourceFile, Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import type { SideEffectStatement } from './analyzed-bundle.ts';
 import { statementClassifiers } from './statement-classifiers.ts';
-import { controlFlowStatementKinds, pureDeclarationKinds } from './syntax-kind-sets.ts';
+import { describeControlFlowStatementKind, pureDeclarationKinds } from './syntax-kind-sets.ts';
 
 function classifyTopLevelStatement(
     statement: Statement,
@@ -12,7 +12,7 @@ function classifyTopLevelStatement(
     if (pureDeclarationKinds.has(kind)) {
         return undefined;
     }
-    const controlFlowKind = controlFlowStatementKinds.get(kind);
+    const controlFlowKind = describeControlFlowStatementKind(kind);
     if (controlFlowKind !== undefined) {
         return controlFlowKind;
     }

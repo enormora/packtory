@@ -107,48 +107,81 @@ export function createBuildReportFixture(overrides: Partial<BuildReport> = {}): 
 }
 
 export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> = {}): PreviewPackage {
+    const changedArtifact = {
+        ...createArtifactEntryFixture({
+            path: 'src/index.js',
+            sourcePath: '/workspace/src/index.js',
+            badges: ['dead-code-elimination']
+        }),
+        diff: [
+            {
+                header: '@@ -1,1 +1,1 @@',
+                lines: [
+                    { type: 'remove', text: '-export const removed = 1;' },
+                    { type: 'add', text: '+export const kept = 1;' }
+                ]
+            }
+        ]
+    };
+    const {
+        tree: overrideTree,
+        changedArtifacts: overrideChangedArtifacts,
+        artifactCounts: overrideArtifactCounts,
+        ...rest
+    } = overrides;
+    const tree: PreviewPackage['tree'] = overrideTree ?? [
+        {
+            path: 'package.json',
+            name: 'package.json',
+            depth: 0,
+            type: 'file',
+            artifact: createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
+        },
+        {
+            path: 'src',
+            name: 'src',
+            depth: 0,
+            type: 'directory'
+        },
+        {
+            path: 'src/index.js',
+            name: 'index.js',
+            depth: 1,
+            type: 'file',
+            artifact: changedArtifact
+        }
+    ];
+    const changedArtifacts =
+        overrideChangedArtifacts ??
+        tree.flatMap((node) => {
+            if (node.type !== 'file' || node.artifact.diff === undefined) {
+                return [];
+            }
+            return [{ ...node.artifact, diff: node.artifact.diff }];
+        });
+    const artifactCounts =
+        overrideArtifactCounts ??
+        tree.reduce(
+            (counts, node) => {
+                if (node.type !== 'file') {
+                    return counts;
+                }
+                return {
+                    emitted: counts.emitted + 1,
+                    changed: counts.changed + (node.artifact.status === 'changed' ? 1 : 0)
+                };
+            },
+            { emitted: 0, changed: 0 }
+        );
+
     return {
         name: 'pkg-a',
         versionTransition: '1.0.0 -> 1.0.1',
         hasChanges: true,
         openByDefault: true,
-        tree: [
-            {
-                path: 'package.json',
-                name: 'package.json',
-                depth: 0,
-                type: 'file',
-                artifact: createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
-            },
-            {
-                path: 'src',
-                name: 'src',
-                depth: 0,
-                type: 'directory'
-            },
-            {
-                path: 'src/index.js',
-                name: 'index.js',
-                depth: 1,
-                type: 'file',
-                artifact: {
-                    ...createArtifactEntryFixture({
-                        path: 'src/index.js',
-                        sourcePath: '/workspace/src/index.js',
-                        badges: ['dead-code-elimination']
-                    }),
-                    diff: [
-                        {
-                            header: '@@ -1,1 +1,1 @@',
-                            lines: [
-                                { type: 'remove', text: '-export const removed = 1;' },
-                                { type: 'add', text: '+export const kept = 1;' }
-                            ]
-                        }
-                    ]
-                }
-            }
-        ],
+        tree,
+        changedArtifacts,
+        artifactCounts,
         eliminatedSourceFiles: [
             { path: '/workspace/src/unused.js', reason: 'not-emitted-after-analysis', sourceBytes: 14 }
         ],
@@ -156,7 +189,7 @@ export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> =
             decisions: { linker: { rewrites: [] } },
             outputs: { tarball: { entries: [], totalBytes: 0 } }
         }),
-        ...overrides
+        ...rest
     };
 }
 
@@ -164,6 +197,8 @@ export function createManifestOnlyPreviewPackageFixture(overrides: Partial<Previ
     return createPreviewPackageFixture({
         versionTransition: undefined,
         eliminatedSourceFiles: [],
+        changedArtifacts: [],
+        artifactCounts: { emitted: 1, changed: 0 },
         tree: [
             {
                 path: 'package.json',
@@ -180,6 +215,8 @@ export function createManifestOnlyPreviewPackageFixture(overrides: Partial<Previ
 
 export function createDirectoryDiffPreviewPackageFixture(overrides: Partial<PreviewPackage> = {}): PreviewPackage {
     return createPreviewPackageFixture({
+        changedArtifacts: [],
+        artifactCounts: { emitted: 0, changed: 0 },
         tree: [
             {
                 path: 'src',

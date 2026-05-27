@@ -1,67 +1,70 @@
 import { isDeepStrictEqual } from 'node:util';
 import { maxDate } from '../common/max-date.ts';
+import { packageManifestFilePath } from '../common/package-layout.ts';
+import { fileDescriptionByPath } from '../file-manager/file-description-by-path.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { sbomFilePath } from '../sbom/sbom-file.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
-import type {
-    PackageReleaseAnalysis,
-    PackageReleaseAnalysisClassification,
-    ReleaseAnalysis
+import {
+    releaseAnalysisClassification,
+    type PackageReleaseAnalysis,
+    type PackageReleaseAnalysisClassification,
+    type ReleaseAnalysis
 } from './packtory-results.ts';
+import { publishedReleaseStatus } from './published-release-state.ts';
 
-const dependencyDerivedFilePaths = new Set(['package.json', sbomFilePath]);
+const invalidJson = Symbol('invalid-json');
 
-const dependencyOnlyPackageJsonFields = new Set([
-    'bundleDependencies',
-    'bundledDependencies',
-    'dependencies',
-    'optionalDependencies',
-    'peerDependencies',
-    'peerDependenciesMeta',
-    'version'
-]);
-
-const unchangedPriority = 0;
-const dependencyOnlyPriority = 1;
-const substantivePriority = 2;
-const firstPublishPriority = 3;
-type ClassificationPriority =
-    | typeof dependencyOnlyPriority
-    | typeof firstPublishPriority
-    | typeof substantivePriority
-    | typeof unchangedPriority;
-
-type PackageJsonComparisonValue = { readonly invalid: false; readonly value: unknown } | { readonly invalid: true };
-
-function parseJsonFile(file: FileDescription): PackageJsonComparisonValue {
-    const { content } = file;
-
-    return (() => {
-        try {
-            return { invalid: false, value: JSON.parse(content) as unknown };
-        } catch {
-            return { invalid: true };
-        }
-    })();
+function dependencyOnlyPackageJsonFields(): readonly string[] {
+    return [
+        'bundleDependencies',
+        'bundledDependencies',
+        'dependencies',
+        'optionalDependencies',
+        'peerDependencies',
+        'peerDependenciesMeta',
+        'version'
+    ];
 }
 
-function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): PackageJsonComparisonValue {
-    const file = index.get('package.json');
-    if (file === undefined) {
-        return { invalid: true };
+function isDependencyOnlyPackageJsonField(key: string): boolean {
+    return dependencyOnlyPackageJsonFields().includes(key);
+}
+
+function parseJsonFile(fileContent: string): unknown {
+    try {
+        return JSON.parse(fileContent) as unknown;
+    } catch {
+        return invalidJson;
+    }
+}
+
+function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): unknown {
+    const packageJsonFile = index.get(packageManifestFilePath);
+    return packageJsonFile === undefined ? invalidJson : parseJsonFile(packageJsonFile.content);
+}
+
+function includesClassification(
+    current: PackageReleaseAnalysisClassification,
+    next: PackageReleaseAnalysisClassification,
+    classification: PackageReleaseAnalysisClassification
+): boolean {
+    return current === classification || next === classification;
+}
+
+function moreSignificantClassification(
+    current: PackageReleaseAnalysisClassification,
+    next: PackageReleaseAnalysisClassification
+): PackageReleaseAnalysisClassification {
+    if (includesClassification(current, next, releaseAnalysisClassification.firstPublish)) {
+        return releaseAnalysisClassification.firstPublish;
     }
 
-    return parseJsonFile(file);
-}
+    if (includesClassification(current, next, releaseAnalysisClassification.substantive)) {
+        return releaseAnalysisClassification.substantive;
+    }
 
-function maxClassificationPriority(
-    current: ClassificationPriority,
-    nextPriority: ClassificationPriority
-): ClassificationPriority {
-    const [highestPriority = unchangedPriority] = [current, nextPriority].toSorted((left, right) => {
-        return right - left;
-    });
-    return highestPriority;
+    return releaseAnalysisClassification.dependencyOnly;
 }
 
 function hasLatestPublishedAt(
@@ -70,33 +73,34 @@ function hasLatestPublishedAt(
     return analysis.latestPublishedAt !== undefined;
 }
 
+function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
+    return previousValue === invalidJson || newValue === invalidJson;
+}
+
 function normalizePackageJsonForDependencyComparison(value: unknown): unknown {
     return JSON.parse(
         JSON.stringify(value, (key, entryValue: unknown) => {
-            return dependencyOnlyPackageJsonFields.has(key) ? undefined : entryValue;
+            return isDependencyOnlyPackageJsonField(key) ? undefined : entryValue;
         })
     ) as unknown;
 }
 
-function indexFiles(files: readonly FileDescription[]): ReadonlyMap<string, FileDescription> {
-    return new Map(
-        files.map((file) => {
-            return [file.filePath, file] as const;
-        })
-    );
+function isDependencyDerivedFilePath(filePath: string): boolean {
+    return filePath === packageManifestFilePath || filePath === sbomFilePath();
 }
 
 function nonDependencyDerivedFilesMatch(
     previousIndex: ReadonlyMap<string, FileDescription>,
     newIndex: ReadonlyMap<string, FileDescription>
 ): boolean {
-    return Array.from(previousIndex.entries()).every(([filePath, previousFile]) => {
-        if (dependencyDerivedFilePaths.has(filePath)) {
-            return true;
-        }
+    for (const [filePath, previousFile] of previousIndex.entries()) {
         const currentFile = newIndex.get(filePath);
-        return isDeepStrictEqual(previousFile, currentFile);
-    });
+        if (!isDependencyDerivedFilePath(filePath) && !isDeepStrictEqual(previousFile, currentFile)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function packageJsonChangeIsDependencyOnly(
@@ -106,13 +110,13 @@ function packageJsonChangeIsDependencyOnly(
     const previousPackageJsonValue = packageJsonValueForComparison(previousIndex);
     const newPackageJsonValue = packageJsonValueForComparison(newIndex);
 
-    if (previousPackageJsonValue.invalid || newPackageJsonValue.invalid) {
+    if (hasInvalidPackageJsonValues(previousPackageJsonValue, newPackageJsonValue)) {
         return false;
     }
 
     return isDeepStrictEqual(
-        normalizePackageJsonForDependencyComparison(previousPackageJsonValue.value),
-        normalizePackageJsonForDependencyComparison(newPackageJsonValue.value)
+        normalizePackageJsonForDependencyComparison(previousPackageJsonValue),
+        normalizePackageJsonForDependencyComparison(newPackageJsonValue)
     );
 }
 
@@ -124,8 +128,8 @@ function createComparisonIndexes(
     readonly newIndex: ReadonlyMap<string, FileDescription>;
 } {
     return {
-        previousIndex: indexFiles(previousFiles),
-        newIndex: indexFiles(newFiles)
+        previousIndex: fileDescriptionByPath(previousFiles),
+        newIndex: fileDescriptionByPath(newFiles)
     };
 }
 
@@ -157,9 +161,9 @@ export function classifyPackageRelease(
         ? buildResult.previousReleaseArtifacts.value.publishedAt
         : undefined;
 
-    if (buildResult.status === 'already-published') {
+    if (buildResult.status === publishedReleaseStatus.alreadyPublished) {
         return {
-            classification: 'unchanged',
+            classification: releaseAnalysisClassification.unchanged,
             latestPublishedAt,
             latestPublishedVersion,
             name: buildResult.bundle.name
@@ -168,7 +172,7 @@ export function classifyPackageRelease(
 
     if (buildResult.previousReleaseArtifacts.isNothing) {
         return {
-            classification: 'first-publish',
+            classification: releaseAnalysisClassification.firstPublish,
             name: buildResult.bundle.name
         };
     }
@@ -177,8 +181,8 @@ export function classifyPackageRelease(
         buildResult.previousReleaseArtifacts.value.files,
         newFiles
     )
-        ? 'dependency-only'
-        : 'substantive';
+        ? releaseAnalysisClassification.dependencyOnly
+        : releaseAnalysisClassification.substantive;
 
     return {
         classification,
@@ -189,36 +193,25 @@ export function classifyPackageRelease(
 }
 
 export function summarizeReleaseAnalysis(packageAnalyses: readonly PackageReleaseAnalysis[]): ReleaseAnalysis {
-    const changedAnalyses = packageAnalyses.filter((analysis) => {
-        return analysis.classification !== 'unchanged';
-    });
-    const classificationPriority: Readonly<Record<PackageReleaseAnalysisClassification, ClassificationPriority>> = {
-        unchanged: unchangedPriority,
-        'dependency-only': dependencyOnlyPriority,
-        substantive: substantivePriority,
-        'first-publish': firstPublishPriority
-    };
-    const classificationByPriority: Readonly<Record<ClassificationPriority, PackageReleaseAnalysisClassification>> = {
-        [unchangedPriority]: 'unchanged',
-        [dependencyOnlyPriority]: 'dependency-only',
-        [substantivePriority]: 'substantive',
-        [firstPublishPriority]: 'first-publish'
-    };
-    const highestPriority = changedAnalyses.reduce<ClassificationPriority>((current, analysis) => {
-        const nextPriority = classificationPriority[analysis.classification];
-        return maxClassificationPriority(current, nextPriority);
-    }, unchangedPriority);
-    const classification = classificationByPriority[highestPriority];
-    const publishedDates = changedAnalyses.filter(hasLatestPublishedAt).map((analysis) => {
-        return analysis.latestPublishedAt;
-    });
-    const mostRecentPublishedAt = publishedDates.reduce<Date | undefined>((current, publishedAt) => {
-        return current === undefined ? publishedAt : maxDate(current, [publishedAt]);
-    }, undefined);
+    let classification: PackageReleaseAnalysisClassification = releaseAnalysisClassification.unchanged;
+    let hasPublishedAt = false;
+    let mostRecentPublishedAt = new Date(0);
+
+    for (const analysis of packageAnalyses) {
+        if (analysis.classification !== releaseAnalysisClassification.unchanged) {
+            classification = moreSignificantClassification(classification, analysis.classification);
+            if (hasLatestPublishedAt(analysis)) {
+                mostRecentPublishedAt = hasPublishedAt
+                    ? maxDate(mostRecentPublishedAt, [analysis.latestPublishedAt])
+                    : analysis.latestPublishedAt;
+                hasPublishedAt = true;
+            }
+        }
+    }
 
     return {
         classification,
-        mostRecentPublishedAt,
+        mostRecentPublishedAt: hasPublishedAt ? mostRecentPublishedAt : undefined,
         packageAnalyses
     };
 }

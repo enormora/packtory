@@ -1,4 +1,4 @@
-import type { RegistrySettings } from '../../config/registry-settings.ts';
+import { publishAuthType, type RegistrySettings } from '../../config/registry-settings.ts';
 import {
     buildAuthOptions,
     resolvePublishAuth,
@@ -9,11 +9,11 @@ import {
 const unauthorizedStatusCode = 401;
 const forbiddenStatusCode = 403;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return value instanceof Object;
-}
-
-function isAuthFailureStatus(statusCode: unknown): boolean {
+function isAuthFailure(error: unknown): boolean {
+    const statusCode =
+        error instanceof Object && 'statusCode' in error
+            ? (error as { readonly statusCode?: unknown }).statusCode
+            : undefined;
     return statusCode === forbiddenStatusCode || statusCode === unauthorizedStatusCode;
 }
 
@@ -25,13 +25,12 @@ export async function retryWithFallbackAuth<T>(
     try {
         return await run(auth.options);
     } catch (error: unknown) {
-        const statusCode = isRecord(error) ? error.statusCode : undefined;
-        if (!auth.allowsAutomaticRetry || !isAuthFailureStatus(statusCode)) {
+        if (!auth.allowsAutomaticRetry || !isAuthFailure(error)) {
             throw error;
         }
 
         const publishAuth = resolvePublishAuth(registrySettings);
-        if (publishAuth.type === 'npm-oidc') {
+        if (publishAuth.type === publishAuthType.npmOidc) {
             throw error;
         }
 

@@ -25,7 +25,3 @@ export function explicitPackageSurface(packageInterface: PackageInterface): Expl
         packageInterface
     };
 }
-
-export function isImplicitPackageSurface(packageSurface: PackageSurface): packageSurface is ImplicitPackageSurface {
-    return packageSurface.mode === 'implicit';
-}

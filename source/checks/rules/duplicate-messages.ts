@@ -1,13 +1,12 @@
 import type { OwnerInfo } from './file-ownership.ts';
 
 function ownerNames(owners: readonly OwnerInfo[]): readonly string[] {
-    return owners
-        .map((owner) => {
-            return owner.bundleName;
-        })
-        .toSorted((left, right) => {
-            return left.localeCompare(right);
-        });
+    const bundleNames = owners.map((owner) => {
+        return owner.bundleName;
+    });
+    return bundleNames.toSorted((left, right) => {
+        return left.localeCompare(right);
+    });
 }
 
 export function formatSharedDeclarationsMessage(
@@ -19,12 +18,12 @@ export function formatSharedDeclarationsMessage(
     const sortedDeclarations = Array.from(sharedDeclarations).toSorted((left, right) => {
         return left.localeCompare(right);
     });
-    const lines = [
-        `File "${filePath}" has shared declarations across multiple packages:`,
-        ...sortedDeclarations.map((declaration) => {
-            return `  - "${declaration}" → ${ownersList}`;
-        })
-    ];
+    const lines = [`File "${filePath}" has shared declarations across multiple packages:`];
+
+    for (const declaration of sortedDeclarations) {
+        lines.push(`  - "${declaration}" → ${ownersList}`);
+    }
+
     return lines.join('\n');
 }
 

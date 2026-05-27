@@ -4,7 +4,7 @@ import { SyntaxKind } from 'ts-morph';
 import {
     allowedBinaryOperators,
     allowedPrefixUnaryOperators,
-    controlFlowStatementKinds,
+    describeControlFlowStatementKind,
     inherentlyPurePropertyKinds,
     pureDeclarationKinds,
     pureLeafKinds
@@ -71,11 +71,18 @@ suite('syntax-kind-sets', function () {
         }
     });
 
-    test('controlFlowStatementKinds maps if, for, while, switch, and try statements to a label', function () {
-        assert.strictEqual(controlFlowStatementKinds.get(SyntaxKind.IfStatement), 'if statement');
-        assert.strictEqual(controlFlowStatementKinds.get(SyntaxKind.ForStatement), 'for statement');
-        assert.strictEqual(controlFlowStatementKinds.get(SyntaxKind.WhileStatement), 'while statement');
-        assert.strictEqual(controlFlowStatementKinds.get(SyntaxKind.SwitchStatement), 'switch statement');
-        assert.strictEqual(controlFlowStatementKinds.get(SyntaxKind.TryStatement), 'try statement');
+    test('describeControlFlowStatementKind maps control-flow statements to labels', function () {
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.IfStatement), 'if statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ForStatement), 'for statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ForInStatement), 'for-in statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ForOfStatement), 'for-of statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.WhileStatement), 'while statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.DoStatement), 'do-while statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.SwitchStatement), 'switch statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.TryStatement), 'try statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ThrowStatement), 'throw statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.LabeledStatement), 'labeled statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.Block), 'block statement');
+        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ExpressionStatement), undefined);
     });
 });

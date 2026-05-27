@@ -1,9 +1,10 @@
 import type _npmFetch from 'npm-registry-fetch';
-import type {
-    MetadataAuthMode,
-    MetadataAuthStrategy,
-    PublishAuthStrategy,
-    RegistrySettings
+import {
+    metadataAuthMode,
+    publishAuthType,
+    type MetadataAuthStrategy,
+    type PublishAuthStrategy,
+    type RegistrySettings
 } from '../../config/registry-settings.ts';
 
 export const npmRegistryUrl = 'https://registry.npmjs.org/';
@@ -24,25 +25,8 @@ export function isNpmRegistry(registry: string | undefined): boolean {
     return new URL(registry ?? npmRegistryUrl).href === npmRegistryUrl;
 }
 
-function normalizeAuthConfig(registrySettings: Readonly<RegistrySettings>): {
-    readonly publish: PublishAuthStrategy;
-    readonly metadata: MetadataAuthMode | undefined;
-} {
-    if ('type' in registrySettings.auth) {
-        return {
-            publish: registrySettings.auth,
-            metadata: undefined
-        };
-    }
-
-    return {
-        publish: registrySettings.auth.publish,
-        metadata: registrySettings.auth.metadata
-    };
-}
-
 export function resolvePublishAuth(registrySettings: Readonly<RegistrySettings>): PublishAuthStrategy {
-    return normalizeAuthConfig(registrySettings).publish;
+    return 'type' in registrySettings.auth ? registrySettings.auth : registrySettings.auth.publish;
 }
 
 export function createBaseOptions(registrySettings: Readonly<RegistrySettings>): NpmFetchOptions {
@@ -59,7 +43,7 @@ export function buildAuthOptions(
     const registry = resolveRegistryUrl(registrySettings);
     const options = createBaseOptions(registrySettings);
 
-    if (auth.type === 'bearer-token') {
+    if (auth.type === publishAuthType.bearerToken) {
         return {
             allowsAutomaticRetry: false,
             registry,
@@ -80,7 +64,7 @@ export function buildAuthOptions(
             forceAuth: {
                 _auth: Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
             },
-            ...(auth.email === undefined ? {} : { email: auth.email })
+            ...(auth.email === undefined ? undefined : { email: auth.email })
         }
     };
 }
@@ -93,25 +77,39 @@ function createAnonymousAuthResolution(registrySettings: Readonly<RegistrySettin
     };
 }
 
+function createAutomaticRetryAuthResolution(registrySettings: Readonly<RegistrySettings>): AuthResolution {
+    return {
+        ...createAnonymousAuthResolution(registrySettings),
+        allowsAutomaticRetry: true
+    };
+}
+
+function resolveInheritedMetadataAuth(
+    publishAuth: PublishAuthStrategy,
+    registrySettings: Readonly<RegistrySettings>
+): AuthResolution {
+    return publishAuth.type === publishAuthType.npmOidc
+        ? createAnonymousAuthResolution(registrySettings)
+        : buildAuthOptions(publishAuth, registrySettings);
+}
+
 export function resolveMetadataAuthOptions(registrySettings: Readonly<RegistrySettings>): AuthResolution {
-    const { metadata: metadataMode, publish: publishAuth } = normalizeAuthConfig(registrySettings);
-    if (metadataMode === undefined || metadataMode === 'inherit-publish-auth') {
-        if (publishAuth.type === 'npm-oidc') {
-            return createAnonymousAuthResolution(registrySettings);
-        }
-        return buildAuthOptions(publishAuth, registrySettings);
+    if ('type' in registrySettings.auth) {
+        return resolveInheritedMetadataAuth(registrySettings.auth, registrySettings);
     }
 
-    if (metadataMode === 'auto') {
-        return {
-            ...createAnonymousAuthResolution(registrySettings),
-            allowsAutomaticRetry: true
-        };
+    const metadataMode = registrySettings.auth.metadata;
+    if (metadataMode === metadataAuthMode.auto) {
+        return createAutomaticRetryAuthResolution(registrySettings);
     }
 
-    if (typeof metadataMode !== 'object') {
+    if (metadataMode === metadataAuthMode.anonymous) {
         return createAnonymousAuthResolution(registrySettings);
     }
 
-    return buildAuthOptions(metadataMode, registrySettings);
+    if (typeof metadataMode === 'object') {
+        return buildAuthOptions(metadataMode, registrySettings);
+    }
+
+    return resolveInheritedMetadataAuth(registrySettings.auth.publish, registrySettings);
 }

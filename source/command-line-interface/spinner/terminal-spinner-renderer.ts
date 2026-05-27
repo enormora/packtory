@@ -1,4 +1,11 @@
-type Status = 'failure' | 'success';
+import { slotState } from './spinner-shared-state.ts';
+
+export const spinnerResultStatus = {
+    failure: 'failure',
+    success: 'success'
+} as const;
+
+type Status = (typeof spinnerResultStatus)[keyof typeof spinnerResultStatus];
 
 export type TerminalSpinnerRenderer = {
     add: (id: string, label: string, message: string) => void;
@@ -12,7 +19,7 @@ export type SpinnerBackend = {
     readonly update: (slotIndex: number, label: string, message: string) => void;
     readonly finish: (
         slotIndex: number,
-        status: 'canceled' | 'failed' | 'succeeded',
+        status: typeof slotState.canceled | typeof slotState.failed | typeof slotState.succeeded,
         label: string,
         message: string
     ) => void;
@@ -27,7 +34,7 @@ type SpinnerSlot = {
     readonly slotIndex: number;
     readonly label: string;
     message: string;
-    status: Status | 'running';
+    status: Status | typeof slotState.running;
 };
 
 const cancelMessage = 'Canceled …';
@@ -63,7 +70,7 @@ export function createTerminalSpinnerRenderer(
 
             const slotIndex = nextFreeSlotIndex();
             usedSlots.add(slotIndex);
-            spinners.set(id, { slotIndex, label, message, status: 'running' });
+            spinners.set(id, { slotIndex, label, message, status: slotState.running });
             backend.add(slotIndex, label, message);
         },
 
@@ -77,15 +84,15 @@ export function createTerminalSpinnerRenderer(
             const spinner = getSpinnerById(id);
             spinner.message = message;
             spinner.status = status;
-            const finalState = status === 'success' ? 'succeeded' : 'failed';
+            const finalState = status === spinnerResultStatus.success ? slotState.succeeded : slotState.failed;
             backend.finish(spinner.slotIndex, finalState, spinner.label, message);
         },
 
         stopAll() {
             for (const spinner of spinners.values()) {
-                if (spinner.status === 'running') {
+                if (spinner.status === slotState.running) {
                     spinner.message = cancelMessage;
-                    backend.finish(spinner.slotIndex, 'canceled', spinner.label, cancelMessage);
+                    backend.finish(spinner.slotIndex, slotState.canceled, spinner.label, cancelMessage);
                 }
             }
             spinners.clear();

@@ -27,10 +27,24 @@ suite('repository-url-normalizer', function () {
         assert.strictEqual(normalizeRepositoryUrl('git+ssh://example.com/owner/repo'), 'ssh://example.com/owner/repo');
     });
 
+    test('normalizeRepositoryUrl does not strip git+ when it appears outside the prefix', function () {
+        assert.strictEqual(
+            normalizeRepositoryUrl('https://example.com/owner/git+repo'),
+            'https://example.com/owner/git+repo'
+        );
+    });
+
     test('normalizeRepositoryUrl strips a trailing .git suffix from non-hosted URLs', function () {
         assert.strictEqual(
             normalizeRepositoryUrl('https://example.com/owner/repo.git'),
             'https://example.com/owner/repo'
+        );
+    });
+
+    test('normalizeRepositoryUrl does not strip .git when it is not a trailing suffix', function () {
+        assert.strictEqual(
+            normalizeRepositoryUrl('https://example.com/owner/repo.git/info'),
+            'https://example.com/owner/repo.git/info'
         );
     });
 

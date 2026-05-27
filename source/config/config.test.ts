@@ -10,8 +10,6 @@ suite('config', function () {
     test('getBundledDependencies combines direct and peer bundled dependencies', function () {
         assert.deepStrictEqual(
             getBundledDependencies({
-                name: 'foo',
-                roots: { main: { js: 'foo.js' } },
                 bundleDependencies: ['bar'],
                 bundlePeerDependencies: ['baz']
             }),
@@ -20,13 +18,7 @@ suite('config', function () {
     });
 
     test('getBundledDependencies returns an empty list when no bundled dependencies are defined', function () {
-        assert.deepStrictEqual(
-            getBundledDependencies({
-                name: 'foo',
-                roots: { main: { js: 'foo.js' } }
-            }),
-            []
-        );
+        assert.deepStrictEqual(getBundledDependencies({}), []);
     });
 
     test('config schema accepts a valid config', function () {

@@ -11,7 +11,6 @@ import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-render
 import { createEmptyReport } from './report-persistence.ts';
 
 type Logger = (message: string) => void;
-type BuildOutcome = Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
 
 export type PreviewHandlerDeps = {
     readonly log: Logger;
@@ -24,10 +23,6 @@ export type PreviewHandlerDeps = {
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
     readonly flags: { readonly open: boolean };
 };
-
-function isPreviewableResult(result: BuildOutcome['result']): boolean {
-    return result.isOk || (result.error.type === 'partial' && result.error.succeeded.length > 0);
-}
 
 async function renderOpenedReport(
     deps: Pick<PreviewHandlerDeps, 'createTemporaryFilePath' | 'fileManager' | 'log' | 'openFile'>,
@@ -43,22 +38,17 @@ async function renderOpenedReport(
 
 async function renderInlinePreview(
     deps: Pick<PreviewHandlerDeps, 'log' | 'pageOutput'>,
-    document: PreviewDocument,
-    result: BuildOutcome['result']
+    document: PreviewDocument
 ): Promise<void> {
-    if (isPreviewableResult(result)) {
+    if (document.previewable) {
         await deps.pageOutput(renderTerminalPreview(document));
     } else {
         deps.log(renderFailureOnlyTerminalPreview(document).trimEnd());
     }
 }
 
-async function renderDocument(
-    deps: PreviewHandlerDeps,
-    document: PreviewDocument,
-    result: BuildOutcome['result']
-): Promise<void> {
-    await (deps.flags.open ? renderOpenedReport(deps, document) : renderInlinePreview(deps, document, result));
+async function renderDocument(deps: PreviewHandlerDeps, document: PreviewDocument): Promise<void> {
+    await (deps.flags.open ? renderOpenedReport(deps, document) : renderInlinePreview(deps, document));
 }
 
 export async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<number> {
@@ -74,7 +64,7 @@ export async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<numbe
             dryRun: true,
             fileManager
         });
-        await renderDocument(deps, document, outcome.result);
+        await renderDocument(deps, document);
         return outcome.result.isErr ? 1 : 0;
     } finally {
         spinnerRenderer.stopAll();

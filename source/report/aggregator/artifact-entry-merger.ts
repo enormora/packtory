@@ -1,4 +1,9 @@
-import type { ArtifactBadge, ArtifactEntry } from '../../progress/progress-broadcaster.ts';
+import {
+    artifactBadge,
+    artifactStatus,
+    type ArtifactBadge,
+    type ArtifactEntry
+} from '../../progress/progress-broadcaster.ts';
 
 // eslint-disable-next-line max-statements -- artifact entry merging intentionally reconciles rewrite and DCE state in one pass
 export function mergeArtifactEntry(
@@ -12,12 +17,12 @@ export function mergeArtifactEntry(
     const badgeSet = new Set<ArtifactBadge>(entry.badges);
     let { status } = entry;
     if (rewrittenSourcePaths.has(entry.sourcePath)) {
-        badgeSet.add('import-path-rewrite');
-        status = 'changed';
+        badgeSet.add(artifactBadge.importPathRewrite);
+        status = artifactStatus.changed;
     }
     if (transformedSourcePaths.has(entry.sourcePath)) {
-        badgeSet.add('dead-code-elimination');
-        status = 'changed';
+        badgeSet.add(artifactBadge.deadCodeElimination);
+        status = artifactStatus.changed;
     }
     return {
         ...entry,

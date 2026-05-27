@@ -1,4 +1,5 @@
-import type { Packtory, ReleaseDiffAllResult } from '../../packtory/packtory.ts';
+import { succeededResultsFrom } from '../../packtory/partial-result.ts';
+import type { Packtory } from '../../packtory/packtory.ts';
 import { buildReleaseDiffDocument, type ReleaseDiffDocument } from '../../report/release-diff/release-diff-document.ts';
 import {
     renderFailureOnlyTerminalReleaseDiff,
@@ -16,16 +17,6 @@ export type ReleaseDiffHandlerDeps = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
 };
-
-function succeededPackagesFrom(result: ReleaseDiffAllResult): readonly ReleaseDiffDocument['packages'][number][] {
-    if (result.isOk) {
-        return result.value;
-    }
-    if (result.error.type === 'partial') {
-        return result.error.succeeded;
-    }
-    return [];
-}
 
 async function renderDocument(
     deps: Pick<ReleaseDiffHandlerDeps, 'log' | 'pageOutput'>,
@@ -47,7 +38,7 @@ export async function runReleaseDiffHandler(deps: ReleaseDiffHandlerDeps): Promi
         const document = buildReleaseDiffDocument({
             report: outcome.getReport(),
             result: outcome.result,
-            packages: succeededPackagesFrom(outcome.result)
+            packages: succeededResultsFrom(outcome.result)
         });
         await renderDocument(deps, document);
         return outcome.result.isErr ? 1 : 0;

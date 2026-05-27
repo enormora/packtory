@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { FileSystemHost } from 'ts-morph';
 import { isBoolean, isString } from 'remeda';
+import { packageManifestAbsolutePathIn } from '../common/package-layout.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
 import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 
@@ -15,7 +16,7 @@ export function createVirtualPackageJsonHost(
     folder: string,
     mainPackageJson: MainPackageJson
 ): FileSystemHost {
-    const packageJsonPath = path.resolve(folder, 'package.json');
+    const packageJsonPath = packageManifestAbsolutePathIn(folder);
     const serializedPackageJson = serializeMainPackageJson(mainPackageJson);
     const fileExistsSync = bindRequiredMethod(fileSystemHost, syncMethodNames.fileExists, 'a boolean', isBoolean);
     const readFileSync = bindRequiredMethod(fileSystemHost, syncMethodNames.readFile, 'a string', isString);

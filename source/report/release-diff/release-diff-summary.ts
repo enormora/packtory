@@ -1,4 +1,4 @@
-import type { PackageReleaseDiffStateView } from './file-set-diff.ts';
+import { packageReleaseDiffState, type PackageReleaseDiffStateView } from './file-set-diff.ts';
 
 export type ReleaseDiffSummary = {
     readonly totalPackages: number;
@@ -20,9 +20,9 @@ function classifyStateCounts(packages: readonly PackageReleaseDiffStateView[]): 
     let firstPublishPackages = 0;
     let unchangedPackages = 0;
     for (const pkg of packages) {
-        if (pkg.state === 'changed') {
+        if (pkg.state === packageReleaseDiffState.changed) {
             changedPackages += 1;
-        } else if (pkg.state === 'first-publish') {
+        } else if (pkg.state === packageReleaseDiffState.firstPublish) {
             firstPublishPackages += 1;
         } else {
             unchangedPackages += 1;
