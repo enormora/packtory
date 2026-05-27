@@ -4,6 +4,7 @@ import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import {
     buildFileSetDiff,
+    packageReleaseDiffState,
     type FileSetDiff,
     type PackageReleaseDiff
 } from '../../report/release-diff/file-set-diff.ts';
@@ -14,6 +15,7 @@ import {
 } from '../../report/release-diff/release-version-transition.ts';
 import { canonicalizeSbomInFileSet } from '../../sbom/sbom-canonicalizer.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
+import { publishedReleaseArtifactsOf, wasAlreadyPublished } from '../published-release-state.ts';
 import type { PartialError, Scheduler as PacktoryScheduler } from '../scheduler.ts';
 
 export type ReleaseDiffStageDependencies = {
@@ -47,10 +49,9 @@ function asAddedFiles(files: readonly FileDescription[]): FileSetDiff {
 }
 
 function versionFieldsFor(buildResult: BuildAndPublishResult): ReleaseVersionFields {
+    const publishedReleaseArtifacts = publishedReleaseArtifactsOf(buildResult);
     return {
-        previousVersion: buildResult.previousReleaseArtifacts.isJust
-            ? buildResult.previousReleaseArtifacts.value.version
-            : undefined,
+        previousVersion: publishedReleaseArtifacts?.version,
         chosenVersion: buildResult.bundle.version
     };
 }
@@ -76,18 +77,19 @@ function classifyDiff(
     buildResult: BuildAndPublishResult
 ): PackageReleaseDiff {
     const versionFields = versionFieldsFor(buildResult);
-    if (buildResult.status === 'already-published') {
-        return diffEntry(packageName, 'unchanged', emptyFileSetDiff(), versionFields);
+    if (wasAlreadyPublished(buildResult)) {
+        return diffEntry(packageName, packageReleaseDiffState.unchanged, emptyFileSetDiff(), versionFields);
     }
     const newSideFiles = artifactsBuilder.collectContents(buildResult.bundle, 'package', buildResult.extraFiles);
-    if (buildResult.previousReleaseArtifacts.isNothing) {
-        return diffEntry(packageName, 'first-publish', asAddedFiles(newSideFiles), versionFields);
+    const publishedReleaseArtifacts = publishedReleaseArtifactsOf(buildResult);
+    if (publishedReleaseArtifacts === undefined) {
+        return diffEntry(packageName, packageReleaseDiffState.firstPublish, asAddedFiles(newSideFiles), versionFields);
     }
     const files = buildFileSetDiff(
-        canonicalizeSbomInFileSet(buildResult.previousReleaseArtifacts.value.files),
+        canonicalizeSbomInFileSet(publishedReleaseArtifacts.files),
         canonicalizeSbomInFileSet(newSideFiles)
     );
-    return diffEntry(packageName, 'changed', files, versionFields);
+    return diffEntry(packageName, packageReleaseDiffState.changed, files, versionFields);
 }
 
 function isDiffEntry(entry: ExecResult): entry is PackageReleaseDiff {

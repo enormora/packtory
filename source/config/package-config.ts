@@ -1,3 +1,4 @@
+import { bundledDependenciesFrom } from '../common/bundled-dependency-groups.ts';
 import type { AdditionalFileDescription } from './additional-files.ts';
 import type { PackageChecksSettings } from './checks-schema.ts';
 import type { DeadCodeEliminationSettings } from './dead-code-elimination-settings.ts';
@@ -52,10 +53,4 @@ export type PackageConfig = ExplicitPackageConfig | ImplicitPackageConfig;
 
 export type PackageConfigsByName = Readonly<Record<string, PackageConfig>>;
 
-const bundledDependencyPropertyNames = ['bundleDependencies', 'bundlePeerDependencies'] as const;
-
-export function getBundledDependencies(packageConfig: PackageConfig): readonly string[] {
-    return bundledDependencyPropertyNames.flatMap((propertyName) => {
-        return packageConfig[propertyName] ?? [];
-    });
-}
+export const getBundledDependencies = bundledDependenciesFrom<string>;

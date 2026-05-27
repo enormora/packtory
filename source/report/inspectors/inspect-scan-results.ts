@@ -12,10 +12,16 @@ export type ScanInspectionResult = {
 
 export function inspectScanResults(bundle: ScanInspectionInput): ScanInspectionResult {
     const included: IncludedFile[] = bundle.contents.map((entry) => {
-        return { path: entry.fileDescription.sourceFilePath, reason: 'reachable-from-entry' };
+        return {
+            path: entry.fileDescription.sourceFilePath,
+            reason: 'reachable-from-entry'
+        };
     });
     const excluded: ExcludedFile[] = Array.from(bundle.externalDependencies.keys(), (specifier) => {
-        return { specifier, reason: 'external-module' };
+        return {
+            specifier,
+            reason: 'external-module'
+        };
     });
     return { included, excluded };
 }

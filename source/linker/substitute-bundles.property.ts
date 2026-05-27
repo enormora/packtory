@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
 import { suite, test } from 'mocha';
+import { packageManifestFilePath } from '../common/package-layout.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createGraphFromResolvedBundle } from './resource-graph.ts';
@@ -57,7 +58,7 @@ function createBundleDependency(index: number): VersionedBundleWithManifest {
         typesMainFile: undefined,
         packageType: 'module',
         sideEffectsField: undefined,
-        manifestFile: { content: '', isExecutable: false, filePath: 'package.json' }
+        manifestFile: { content: '', isExecutable: false, filePath: packageManifestFilePath }
     };
 }
 

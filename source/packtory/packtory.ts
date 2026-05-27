@@ -95,6 +95,11 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
     };
 }
 
+type Reporting<TReport> = {
+    readonly dispose: () => void;
+    readonly getReport: () => TReport;
+};
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const { progressBroadcaster } = dependencies;
     const {
@@ -105,25 +110,43 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         runPackValidated
     } = createValidatedRunners(dependencies);
 
+    async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(args: {
+        readonly config: unknown;
+        readonly attachReporting: () => Reporting<TReport>;
+        readonly validate: (config: unknown) => Result<TValidated, readonly string[]>;
+        readonly runValidated: (validated: TValidated) => Promise<TResult>;
+        readonly createValidationErrorResult: (issues: readonly string[]) => TResult;
+        readonly createOutcome: (result: TResult, getReport: () => TReport) => TOutcome;
+    }): Promise<TOutcome> {
+        const reporting = args.attachReporting();
+        try {
+            const validation = args.validate(args.config);
+            const result = validation.isErr
+                ? args.createValidationErrorResult(validation.error)
+                : await args.runValidated(validation.value);
+
+            return args.createOutcome(result, reporting.getReport);
+        } finally {
+            reporting.dispose();
+        }
+    }
+
     async function resolveAndLinkAllPublic(
         config: unknown,
         options?: ResolveAndLinkAllOptions
     ): Promise<ResolveAndLinkAllOutcome> {
-        const reporting = maybeAttachAggregator(progressBroadcaster, options?.collectReport);
-        try {
-            const validation = validateConfigWithoutRegistry(config);
-            if (validation.isErr) {
-                return createResolveAndLinkAllOutcome(Result.err(configError(validation.error)), reporting.getReport);
-            }
-
-            const result = await resolveAndLinkAllValidated(validation.value);
-            if (result.isErr) {
-                return createResolveAndLinkAllOutcome(Result.err(result.error), reporting.getReport);
-            }
-            return createResolveAndLinkAllOutcome(Result.ok(result.value), reporting.getReport);
-        } finally {
-            reporting.dispose();
-        }
+        return runReportedOperation({
+            config,
+            attachReporting() {
+                return maybeAttachAggregator(progressBroadcaster, options?.collectReport);
+            },
+            validate: validateConfigWithoutRegistry,
+            runValidated: resolveAndLinkAllValidated,
+            createValidationErrorResult(issues) {
+                return Result.err(configError(issues));
+            },
+            createOutcome: createResolveAndLinkAllOutcome
+        });
     }
 
     async function runBuildAndPublish(
@@ -138,18 +161,20 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         config: unknown,
         options: BuildAndPublishAllOptions
     ): Promise<PublishAllOutcome> {
-        const reporting = maybeAttachAggregator(progressBroadcaster, options.collectReport);
-        try {
-            const validation = validateConfig(config);
-            if (validation.isErr) {
-                return createPublishAllOutcome(Result.err(configError(validation.error)), reporting.getReport);
-            }
-
-            const result = await runBuildAndPublish(validation.value, options);
-            return createPublishAllOutcome(result, reporting.getReport);
-        } finally {
-            reporting.dispose();
-        }
+        return runReportedOperation({
+            config,
+            attachReporting() {
+                return maybeAttachAggregator(progressBroadcaster, options.collectReport);
+            },
+            validate: validateConfig,
+            async runValidated(validated) {
+                return runBuildAndPublish(validated, options);
+            },
+            createValidationErrorResult(issues) {
+                return Result.err(configError(issues));
+            },
+            createOutcome: createPublishAllOutcome
+        });
     }
 
     async function packPackagePublic(config: unknown, options: PackPublicOptions): Promise<PackOutcome> {
@@ -163,38 +188,39 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     }
 
     async function diffAgainstLatestPublishedPublic(config: unknown): Promise<ReleaseDiffAllOutcome> {
-        const reporting = attachAggregator(progressBroadcaster);
-        try {
-            const validation = validateConfig(config);
-            if (validation.isErr) {
-                return createReleaseDiffAllOutcome(Result.err(configError(validation.error)), reporting.getReport);
-            }
-
-            emitEffectiveConfigPerPackage(progressBroadcaster, validation.value.packtoryConfig);
-            const result = await diffAgainstLatestPublishedValidated(validation.value, resolveAndLinkAllValidated);
-            return createReleaseDiffAllOutcome(result, reporting.getReport);
-        } finally {
-            reporting.dispose();
-        }
+        return runReportedOperation({
+            config,
+            attachReporting() {
+                return attachAggregator(progressBroadcaster);
+            },
+            validate: validateConfig,
+            async runValidated(validated) {
+                emitEffectiveConfigPerPackage(progressBroadcaster, validated.packtoryConfig);
+                return diffAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
+            },
+            createValidationErrorResult(issues) {
+                return Result.err(configError(issues));
+            },
+            createOutcome: createReleaseDiffAllOutcome
+        });
     }
 
     async function analyzeReleaseAgainstLatestPublishedPublic(config: unknown): Promise<ReleaseAnalysisOutcome> {
-        const reporting = attachAggregator(progressBroadcaster);
-        try {
-            const validation = validateConfig(config);
-            if (validation.isErr) {
-                return createReleaseAnalysisOutcome(Result.err(configError(validation.error)), reporting.getReport);
-            }
-
-            emitEffectiveConfigPerPackage(progressBroadcaster, validation.value.packtoryConfig);
-            const result = await analyzeReleaseAgainstLatestPublishedValidated(
-                validation.value,
-                resolveAndLinkAllValidated
-            );
-            return createReleaseAnalysisOutcome(result, reporting.getReport);
-        } finally {
-            reporting.dispose();
-        }
+        return runReportedOperation({
+            config,
+            attachReporting() {
+                return attachAggregator(progressBroadcaster);
+            },
+            validate: validateConfig,
+            async runValidated(validated) {
+                emitEffectiveConfigPerPackage(progressBroadcaster, validated.packtoryConfig);
+                return analyzeReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
+            },
+            createValidationErrorResult(issues) {
+                return Result.err(configError(issues));
+            },
+            createOutcome: createReleaseAnalysisOutcome
+        });
     }
 
     return {

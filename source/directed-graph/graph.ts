@@ -1,11 +1,13 @@
 /* eslint-disable max-statements, no-continue -- graph traversal utilities are intentionally imperative */
+import { createWorklist, type Worklist } from '../common/worklist.ts';
+
 type GraphNodeId = number | string;
 
 type GraphNode<TId extends GraphNodeId, TData> = {
-    readonly id: TId;
-    readonly data: TData;
-    readonly adjacentNodeIds: Set<TId>;
-    readonly incomingEdges: number;
+    id: TId;
+    data: TData;
+    adjacentNodeIds: Set<TId>;
+    incomingEdges: number;
 };
 
 type GraphEdge<TId extends GraphNodeId> = {
@@ -36,64 +38,6 @@ export type DirectedGraph<TId extends GraphNodeId, TData> = {
     traverse: (visitor: Visitor<TId, TData>) => void;
 };
 
-function addAdjacentNodeId<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>,
-    idToAdd: TId
-): Readonly<GraphNode<TId, TData>> {
-    return {
-        id: node.id,
-        data: node.data,
-        incomingEdges: node.incomingEdges,
-        adjacentNodeIds: new Set([...node.adjacentNodeIds, idToAdd])
-    };
-}
-
-function removeAdjacentNodeId<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>,
-    idToRemove: TId
-): Readonly<GraphNode<TId, TData>> {
-    const adjacentNodeIds = new Set(node.adjacentNodeIds);
-
-    adjacentNodeIds.delete(idToRemove);
-
-    return {
-        id: node.id,
-        data: node.data,
-        incomingEdges: node.incomingEdges,
-        adjacentNodeIds
-    };
-}
-
-function withAdjustedIncomingEdges<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>,
-    delta: number
-): Readonly<GraphNode<TId, TData>> {
-    return {
-        id: node.id,
-        data: node.data,
-        adjacentNodeIds: node.adjacentNodeIds,
-        incomingEdges: node.incomingEdges + delta
-    };
-}
-
-function increaseIncomingEdges<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>
-): Readonly<GraphNode<TId, TData>> {
-    return withAdjustedIncomingEdges(node, 1);
-}
-
-function decreaseIncomingEdges<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>
-): Readonly<GraphNode<TId, TData>> {
-    return withAdjustedIncomingEdges(node, -1);
-}
-
-function getNonVisitedAdjacentIds<TId extends GraphNodeId, TData>(
-    node: Readonly<GraphNode<TId, TData>>
-): readonly TId[] {
-    return Array.from(node.adjacentNodeIds);
-}
-
 export function createDirectedGraph<TId extends GraphNodeId, TData>(
     dependencies: Partial<GraphDependencies<TId>> = {}
 ): DirectedGraph<TId, TData> {
@@ -111,7 +55,7 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
     };
     const nodes = new Map<TId, GraphNode<TId, TData>>();
 
-    function getNode(id: TId): Readonly<GraphNode<TId, TData>> {
+    function getNode(id: TId): GraphNode<TId, TData> {
         const node = nodes.get(id);
 
         if (node === undefined) {
@@ -147,16 +91,6 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
         }
 
         return newIncomingEdgesPerNode;
-    }
-
-    function getTraversalBudget(): number {
-        let edgeCount = 0;
-
-        for (const node of nodes.values()) {
-            edgeCount += node.adjacentNodeIds.size;
-        }
-
-        return nodes.size + edgeCount + 1;
     }
 
     function detectCyclesForNode(
@@ -220,29 +154,52 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
         return cycles.length > 0;
     }
 
+    function stepBreadthFirstSearch(
+        head: GraphNode<TId, TData>,
+        pendingNodes: Worklist<GraphNode<TId, TData>>,
+        visited: Set<TId>,
+        visitor: Visitor<TId, TData>
+    ): GraphNode<TId, TData> | undefined {
+        if (resolvedDependencies.visitedHas(visited, head.id)) {
+            return pendingNodes.takeNext();
+        }
+
+        visited.add(head.id);
+        visitor(head);
+        for (const id of head.adjacentNodeIds) {
+            const adjacentNode = getNode(id);
+            pendingNodes.schedule(adjacentNode);
+        }
+
+        return pendingNodes.takeNext();
+    }
+
     function visitBreadthFirstSearch(startId: TId, visitor: Visitor<TId, TData>): void {
         const startNode = getNode(startId);
-        const queue: GraphNode<TId, TData>[] = [startNode];
+        const pendingNodes = createWorklist<GraphNode<TId, TData>>([]);
         const visited = new Set<TId>();
-        const traversalBudget = getTraversalBudget();
+        const traversalBudget = Array.from({
+            length:
+                nodes.size +
+                Array.from(nodes.values()).reduce((edgeCount, node) => {
+                    return edgeCount + node.adjacentNodeIds.size;
+                }, 0) +
+                1
+        });
+        let head = startNode;
 
-        for (let nextNodeIndex = 0; nextNodeIndex < traversalBudget; nextNodeIndex += 1) {
-            const head = queue[nextNodeIndex];
-            if (head === undefined) {
-                return;
+        const completed = traversalBudget.some(() => {
+            const next = stepBreadthFirstSearch(head, pendingNodes, visited, visitor);
+            if (next === undefined) {
+                return true;
             }
 
-            if (resolvedDependencies.visitedHas(visited, head.id)) {
-                continue;
-            }
+            head = next;
+            return false;
+        });
 
-            visited.add(head.id);
-            visitor(head);
-            const nonVisitedAdjacentIds = getNonVisitedAdjacentIds(head);
-            for (const id of nonVisitedAdjacentIds) {
-                const adjacentNode = getNode(id);
-                queue.push(adjacentNode);
-            }
+        if (completed) {
+            return;
         }
 
         throw new Error('Breadth-first traversal exceeded the maximum iteration budget');
@@ -276,8 +233,8 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
             throw new Error(`Edge from "${edge.from}" to "${toNode.id}" already exists`);
         }
 
-        nodes.set(edge.from, addAdjacentNodeId(fromNode, toNode.id));
-        nodes.set(edge.to, increaseIncomingEdges(getNode(edge.to)));
+        fromNode.adjacentNodeIds.add(toNode.id);
+        toNode.incomingEdges += 1;
     }
 
     function disconnect(edge: GraphEdge<TId>): void {
@@ -288,8 +245,8 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
             throw new Error(`Edge from "${edge.from}" to "${toNode.id}" does not exist`);
         }
 
-        nodes.set(edge.from, removeAdjacentNodeId(fromNode, toNode.id));
-        nodes.set(edge.to, decreaseIncomingEdges(toNode));
+        fromNode.adjacentNodeIds.delete(toNode.id);
+        toNode.incomingEdges -= 1;
     }
 
     function traverse(visitor: Visitor<TId, TData>): void {
@@ -308,10 +265,10 @@ export function createDirectedGraph<TId extends GraphNodeId, TData>(
         const generations: TId[][] = [];
         let alreadyDiscovered = new Set<TId>();
         let incomingEdgesPerNode = getIncomingEdgesPerNode();
-        const generationAttempts = Array.from({ length: nodes.size + 1 }, (_unusedEntry, index) => {
+        let exhaustedAttempts = 0;
+        const generationAttempts = Array.from({ length: nodes.size + 1 }, (_unused, index) => {
             return index + 1;
         });
-        let exhaustedAttempts = 0;
 
         for (const attempt of generationAttempts) {
             exhaustedAttempts = attempt;

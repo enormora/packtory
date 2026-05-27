@@ -1,12 +1,4 @@
-import {
-    Node as TsMorphNode,
-    SyntaxKind,
-    type Expression,
-    type Identifier,
-    type ImportClause,
-    type ImportSpecifier,
-    type NamespaceImport
-} from 'ts-morph';
+import { Node as TsMorphNode, SyntaxKind, type Expression, type Identifier } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 
@@ -17,38 +9,31 @@ export type ImportedExpressionOrigin = {
 
 export type ExpressionPurityChecker = (expression: Expression) => boolean;
 
-function importedOriginForImportSpecifier(
-    importSpecifier: ImportSpecifier | undefined
-): ImportedExpressionOrigin | undefined {
-    if (importSpecifier === undefined) {
-        return undefined;
+function importedOriginForDeclaration(declaration: TsMorphNode): ImportedExpressionOrigin | undefined {
+    if (TsMorphNode.isImportSpecifier(declaration)) {
+        return {
+            from: declaration.getImportDeclaration().getModuleSpecifierValue(),
+            path: [declaration.getName()]
+        };
     }
-    return {
-        from: importSpecifier.getImportDeclaration().getModuleSpecifierValue(),
-        path: [importSpecifier.getName()]
-    };
-}
 
-function importedOriginForNamespaceImport(
-    namespaceImport: NamespaceImport | undefined
-): ImportedExpressionOrigin | undefined {
-    if (namespaceImport === undefined) {
-        return undefined;
+    if (TsMorphNode.isNamespaceImport(declaration)) {
+        const importDeclaration = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
+        return {
+            from: importDeclaration.getModuleSpecifierValue(),
+            path: []
+        };
     }
-    return {
-        from: namespaceImport.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration).getModuleSpecifierValue(),
-        path: []
-    };
-}
 
-function importedOriginForDefaultImport(importClause: ImportClause | undefined): ImportedExpressionOrigin | undefined {
-    if (importClause === undefined) {
-        return undefined;
+    if (TsMorphNode.isImportClause(declaration)) {
+        const importDeclaration = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
+        return {
+            from: importDeclaration.getModuleSpecifierValue(),
+            path: ['default']
+        };
     }
-    return {
-        from: importClause.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration).getModuleSpecifierValue(),
-        path: ['default']
-    };
+
+    return undefined;
 }
 
 function importedOriginForIdentifier(identifier: Identifier): ImportedExpressionOrigin | undefined {
@@ -57,12 +42,14 @@ function importedOriginForIdentifier(identifier: Identifier): ImportedExpression
         return undefined;
     }
 
-    const declarations = symbol.getDeclarations();
-    return (
-        importedOriginForImportSpecifier(declarations.find(TsMorphNode.isImportSpecifier)) ??
-        importedOriginForNamespaceImport(declarations.find(TsMorphNode.isNamespaceImport)) ??
-        importedOriginForDefaultImport(declarations.find(TsMorphNode.isImportClause))
-    );
+    for (const declaration of symbol.getDeclarations()) {
+        const origin = importedOriginForDeclaration(declaration);
+        if (origin !== undefined) {
+            return origin;
+        }
+    }
+
+    return undefined;
 }
 
 function originMatchesTrustedImport(
@@ -75,11 +62,8 @@ function originMatchesTrustedImport(
     if (trustedImport.imports === undefined) {
         return true;
     }
-    const trustedImports = trustedImport.imports;
-    const matchingPathHead = origin.path.slice(0, 1).filter((pathPart) => {
-        return trustedImports.includes(pathPart);
-    });
-    return matchingPathHead.length === 1;
+    const [pathHead = trustedImport.from] = origin.path;
+    return pathHead !== trustedImport.from && trustedImport.imports.includes(pathHead);
 }
 
 function expressionOriginIsTrusted(

@@ -2,6 +2,7 @@ import type _npmFetch from 'npm-registry-fetch';
 import { Maybe } from 'true-myth';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
 import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
+import { toRegistryPackagePath } from './registry-package-path.ts';
 import { resolveMetadataAuthOptions } from './registry-auth-config.ts';
 import {
     parseAbbreviatedPackageResponse,
@@ -25,10 +26,6 @@ export type PackageReleaseMetadata = {
     readonly version: string;
 };
 
-function encodePackageName(name: string): string {
-    return name.replace('/', '%2F');
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value instanceof Object;
 }
@@ -49,8 +46,18 @@ function parseTimestamp(timestamp: string): Date {
 }
 
 type PackageMetadataRequest<TPackageResponse extends Record<string, unknown>> = {
-    readonly headers?: Readonly<Record<string, string>>;
+    readonly headers: Readonly<Record<string, string>> | undefined;
     readonly parsePackageResponse: (response: unknown) => TPackageResponse | undefined;
+};
+
+const abbreviatedPackageMetadataRequest: PackageMetadataRequest<AbbreviatedPackageResponse> = {
+    parsePackageResponse: parseAbbreviatedPackageResponse,
+    headers: { accept: abbreviatedResponseAcceptHeader }
+};
+
+const fullPackageMetadataRequest: PackageMetadataRequest<FullPackageResponse> = {
+    parsePackageResponse: parseFullPackageResponse,
+    headers: undefined
 };
 
 async function fetchAndParsePackageMetadata<TPackageResponse extends Record<string, unknown>>(
@@ -62,7 +69,7 @@ async function fetchAndParsePackageMetadata<TPackageResponse extends Record<stri
     const auth = resolveMetadataAuthOptions(registrySettings);
     try {
         const response = await retryWithFallbackAuth(registrySettings, auth, async (options) => {
-            return npmFetch.json(`/${encodePackageName(packageName)}`, {
+            return npmFetch.json(`/${toRegistryPackagePath(packageName)}`, {
                 ...options,
                 headers: request.headers
             });
@@ -79,27 +86,6 @@ async function fetchAndParsePackageMetadata<TPackageResponse extends Record<stri
         }
         throw error;
     }
-}
-
-async function fetchPackageMetadata(
-    npmFetch: typeof _npmFetch,
-    packageName: string,
-    registrySettings: RegistrySettings
-): Promise<Maybe<AbbreviatedPackageResponse>> {
-    return fetchAndParsePackageMetadata(npmFetch, packageName, registrySettings, {
-        parsePackageResponse: parseAbbreviatedPackageResponse,
-        headers: { accept: abbreviatedResponseAcceptHeader }
-    });
-}
-
-async function fetchFullPackageMetadata(
-    npmFetch: typeof _npmFetch,
-    packageName: string,
-    registrySettings: RegistrySettings
-): Promise<Maybe<FullPackageResponse>> {
-    return fetchAndParsePackageMetadata(npmFetch, packageName, registrySettings, {
-        parsePackageResponse: parseFullPackageResponse
-    });
 }
 
 function extractLatestVersionDetails(
@@ -126,7 +112,12 @@ export async function fetchLatestPackageVersion(
     packageName: string,
     registrySettings: RegistrySettings
 ): Promise<Maybe<PackageVersionDetails>> {
-    const packageResponse = await fetchPackageMetadata(npmFetch, packageName, registrySettings);
+    const packageResponse = await fetchAndParsePackageMetadata(
+        npmFetch,
+        packageName,
+        registrySettings,
+        abbreviatedPackageMetadataRequest
+    );
     if (packageResponse.isNothing) {
         return Maybe.nothing();
     }
@@ -138,7 +129,12 @@ export async function fetchLatestPackageReleaseMetadata(
     packageName: string,
     registrySettings: RegistrySettings
 ): Promise<Maybe<PackageReleaseMetadata>> {
-    const packageResponse = await fetchFullPackageMetadata(npmFetch, packageName, registrySettings);
+    const packageResponse = await fetchAndParsePackageMetadata(
+        npmFetch,
+        packageName,
+        registrySettings,
+        fullPackageMetadataRequest
+    );
     if (packageResponse.isNothing) {
         return Maybe.nothing();
     }

@@ -1,4 +1,6 @@
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
+import { bundledDependencyGroup, bundledDependencyLookupOrder } from '../../common/bundled-dependency-groups.ts';
+import { packageNameMap } from '../../common/package-name-map.ts';
 import type { GroupedDependencies } from './dependency-groups.ts';
 
 export type VersionedDependency = {
@@ -6,13 +8,28 @@ export type VersionedDependency = {
     readonly version: string;
 };
 
-function findBundleByPackageName(
-    bundles: readonly VersionedDependency[],
-    name: string
-): VersionedDependency | undefined {
-    return bundles.find((bundle) => {
-        return bundle.name === name;
-    });
+type GroupedDependenciesByName = {
+    readonly bundleDependencies: ReadonlyMap<string, VersionedDependency>;
+    readonly bundlePeerDependencies: ReadonlyMap<string, VersionedDependency>;
+};
+
+type GroupedDependencyMatch = {
+    readonly manifestProperty: 'dependencies' | 'peerDependencies';
+    readonly version: string;
+};
+
+function matchingGroupedDependency(
+    groupedDependenciesByName: GroupedDependenciesByName,
+    dependencyName: string
+): GroupedDependencyMatch | undefined {
+    for (const group of bundledDependencyLookupOrder()) {
+        const matchingDependency = groupedDependenciesByName[group.propertyName].get(dependencyName);
+        if (matchingDependency !== undefined) {
+            return { manifestProperty: group.manifestProperty, version: matchingDependency.version };
+        }
+    }
+
+    return undefined;
 }
 
 export function groupBundleDependencies(
@@ -21,17 +38,18 @@ export function groupBundleDependencies(
     bundleDependencies: readonly VersionedDependency[]
 ): Readonly<GroupedDependencies> {
     const grouped: GroupedDependencies = { dependencies: {}, peerDependencies: {} };
+    const groupedDependenciesByName = {
+        [bundledDependencyGroup.bundle.propertyName]: packageNameMap(bundleDependencies),
+        [bundledDependencyGroup.peer.propertyName]: packageNameMap(bundlePeerDependencies)
+    };
+
     for (const dependencyName of bundle.linkedBundleDependencies.keys()) {
-        const peerBundle = findBundleByPackageName(bundlePeerDependencies, dependencyName);
-        if (peerBundle === undefined) {
-            const foundBundle = findBundleByPackageName(bundleDependencies, dependencyName);
-            if (foundBundle === undefined) {
-                throw new Error(`Couldn’t determine version number of bundle dependency ${dependencyName}`);
-            }
-            grouped.dependencies[dependencyName] = foundBundle.version;
-        } else {
-            grouped.peerDependencies[dependencyName] = peerBundle.version;
+        const matchingDependency = matchingGroupedDependency(groupedDependenciesByName, dependencyName);
+        if (matchingDependency === undefined) {
+            throw new Error(`Couldn’t determine version number of bundle dependency ${dependencyName}`);
         }
+
+        grouped[matchingDependency.manifestProperty][dependencyName] = matchingDependency.version;
     }
     return grouped;
 }

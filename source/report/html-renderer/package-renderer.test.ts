@@ -14,6 +14,8 @@ function minimalPackage(overrides: Partial<PreviewPackage> = {}): PreviewPackage
         hasChanges: false,
         openByDefault: false,
         tree: [],
+        changedArtifacts: [],
+        artifactCounts: { emitted: 0, changed: 0 },
         eliminatedSourceFiles: [],
         diagnostics: emptyDiagnostics,
         ...overrides

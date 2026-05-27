@@ -1,12 +1,11 @@
+import * as cdx from '@cyclonedx/cyclonedx-library';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import { createFileDescription, type FileDescription } from '../file-manager/file-description.ts';
 import type { SbomPackage, SbomSiblingPackage } from '../published-package/published-package.ts';
 import { extractLicenseFromManifest } from './extract-license.ts';
 import type { LicenseResolver } from './license-resolver.ts';
 import type { SbomSerializer } from './sbom-serializer.ts';
-import { buildSbom, type SbomDependency, type SbomDependencyKind } from './sbom-builder.ts';
-
-export const sbomFilePath = 'sbom.cdx.json';
+import { buildSbom, type SbomDependency } from './sbom-builder.ts';
 
 type ToolVersionProvider = () => Promise<string>;
 
@@ -28,8 +27,12 @@ export type SbomFileBuilder = {
 type DependencyEntry = {
     readonly name: string;
     readonly specifier: string;
-    readonly kind: SbomDependencyKind;
+    readonly scope: cdx.Enums.ComponentScope;
 };
+
+export function sbomFilePath(): string {
+    return 'sbom.cdx.json';
+}
 
 function isSbomEnabled(publishSettings: PublishSettings): boolean {
     return publishSettings.sbom?.enabled ?? true;
@@ -38,10 +41,10 @@ function isSbomEnabled(publishSettings: PublishSettings): boolean {
 function listDependencyEntries(bundle: SbomPackage): readonly DependencyEntry[] {
     return [
         ...Object.entries(bundle.dependencies).map<DependencyEntry>(([name, specifier]) => {
-            return { name, specifier, kind: 'runtime' };
+            return { name, specifier, scope: cdx.Enums.ComponentScope.Required };
         }),
         ...Object.entries(bundle.peerDependencies).map<DependencyEntry>(([name, specifier]) => {
-            return { name, specifier, kind: 'peer' };
+            return { name, specifier, scope: cdx.Enums.ComponentScope.Optional };
         })
     ];
 }
@@ -81,7 +84,7 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
             rootComponent: { name: bundle.packageJson.name, version: bundle.packageJson.version },
             dependencies: sbomDependencies
         });
-        return createFileDescription(sbomFilePath, sbomSerializer.serialize(bom));
+        return createFileDescription(sbomFilePath(), sbomSerializer.serialize(bom));
     }
 
     return {

@@ -11,21 +11,26 @@ function unscopedPackageName(packageName: string): string {
     return packageName.replace(/^@[^/]+\//u, '');
 }
 
-function getExecutableShebangRoots(bundle: Pick<ImplicitBinBundle, 'roots'>): readonly RootFileDescription[] {
-    return Object.values(bundle.roots).filter((root) => {
+function findExecutableShebangRoot(bundle: ImplicitBinBundle): RootFileDescription | undefined {
+    const executableShebangRoots = Object.values(bundle.roots).filter((root) => {
         return root.js.isExecutable && isShebangContent(root.js.content);
     });
+
+    if (executableShebangRoots.length > 1) {
+        const duplicateShebangRootsMessage =
+            `Package "${bundle.name}" has multiple executable shebang roots; ` +
+            'declare packageInterface.bins explicitly';
+        throw new Error(duplicateShebangRootsMessage);
+    }
+
+    return executableShebangRoots[0];
 }
 
 export function buildImplicitBinField(bundle: ImplicitBinBundle): PackageJson['bin'] | undefined {
-    const [root, extraRoot] = getExecutableShebangRoots(bundle);
+    const root = findExecutableShebangRoot(bundle);
     if (root === undefined) {
         return undefined;
     }
-    if (extraRoot !== undefined) {
-        throw new Error(
-            `Package "${bundle.name}" has multiple executable shebang roots; declare packageInterface.bins explicitly`
-        );
-    }
+
     return { [unscopedPackageName(bundle.name)]: toImportTarget(root.js.targetFilePath) };
 }

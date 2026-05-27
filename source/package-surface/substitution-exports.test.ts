@@ -104,6 +104,24 @@ suite('substitution-exports', function () {
         assert.deepStrictEqual(result['./data.json'], { import: './data.json' });
     });
 
+    test('ignores misleading declaration companion names for non-code substitution targets', function () {
+        const result = collectSubstitutionExports(
+            {
+                name: 'package-a',
+                roots: { main: rootWithSource('/src/index.js', 'index.js') },
+                contents: [
+                    content('/src/data.json', 'data.json'),
+                    content('/src/data..d.mts', 'data..d.mts'),
+                    content('/src/data..d.cts', 'data..d.cts'),
+                    content('/src/data.j.d.ts', 'data.j.d.ts')
+                ]
+            },
+            new Set(['/src/data.json'])
+        );
+
+        assert.deepStrictEqual(result['./data.json'], { import: './data.json' });
+    });
+
     test('omits a substitution whose target is a .d.ts declaration', function () {
         const result = collectSubstitutionExports(
             {
@@ -170,5 +188,19 @@ suite('substitution-exports', function () {
                 new Set(['/src/missing.js'])
             );
         }, /^Error: Package "package-a" is missing content for "\/src\/missing\.js"$/u);
+    });
+
+    test('keeps the first matching content when duplicate source paths exist', function () {
+        const result = collectSubstitutionExports(
+            {
+                name: 'package-a',
+                roots: { main: rootWithSource('/src/index.js', 'index.js') },
+                contents: [content('/src/shared.js', 'first.js'), content('/src/shared.js', 'second.js')]
+            },
+            new Set(['/src/shared.js'])
+        );
+
+        assert.deepStrictEqual(result['./first.js'], { import: './first.js' });
+        assert.strictEqual(result['./second.js'], undefined);
     });
 });

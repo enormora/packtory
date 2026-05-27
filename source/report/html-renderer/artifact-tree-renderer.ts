@@ -1,14 +1,15 @@
 /* eslint-disable @stylistic/max-len -- HTML template literals are intentionally long */
+import { pathTreeNodeType } from '../../common/path-tree.ts';
 import { artifactBadgeLabel, artifactStatusLabel } from '../preview/preview-document.ts';
 import type { PreviewArtifactNode } from '../preview/artifact-tree-builder.ts';
 import { formatBytes, renderBadge } from './html-primitives.ts';
 import { escapeHtml } from './html-escaping.ts';
 
-function renderDirectoryNode(node: Extract<PreviewArtifactNode, { type: 'directory' }>): string {
+function renderDirectoryNode(node: Extract<PreviewArtifactNode, { type: typeof pathTreeNodeType.directory }>): string {
     return `<li class="tree-row directory" style="--depth:${node.depth}"><span class="tree-name">${escapeHtml(node.name)}/</span></li>`;
 }
 
-function renderFileNode(node: Extract<PreviewArtifactNode, { type: 'file' }>): string {
+function renderFileNode(node: Extract<PreviewArtifactNode, { type: typeof pathTreeNodeType.file }>): string {
     const { artifact } = node;
     const badges = [
         renderBadge(artifactStatusLabel(artifact.status), `status-${artifact.status}`),
@@ -24,5 +25,5 @@ function renderFileNode(node: Extract<PreviewArtifactNode, { type: 'file' }>): s
 }
 
 export function renderArtifactNode(node: PreviewArtifactNode): string {
-    return node.type === 'directory' ? renderDirectoryNode(node) : renderFileNode(node);
+    return node.type === pathTreeNodeType.directory ? renderDirectoryNode(node) : renderFileNode(node);
 }

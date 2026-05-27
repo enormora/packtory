@@ -18,12 +18,21 @@ export type GitHubRepositoryContext = {
     readonly token: string;
 };
 
-const defaultCiWorkflowFile = 'ci.yml';
 const defaultDependencyOnlyMinAgeDays = 7;
-const defaultGitHubApiBaseUrl = 'https://api.github.com';
-const defaultMainBranch = 'main';
 const defaultMaxLatencyHours = 24;
 const defaultQuietPeriodMinutes = 45;
+
+function defaultCiWorkflowFile(): string {
+    return 'ci.yml';
+}
+
+function defaultGitHubApiBaseUrl(): string {
+    return 'https://api.github.com';
+}
+
+function defaultMainBranch(): string {
+    return 'main';
+}
 
 function parseInteger(value: string | undefined, fallbackValue: number): number {
     return value === undefined ? fallbackValue : Number.parseInt(value, 10);
@@ -46,13 +55,13 @@ export function readGitHubReleaseGateRunnerConfig(
     getEnvironmentVariable: (variableName: string) => string | undefined
 ): Readonly<GitHubReleaseGateRunnerConfig> {
     return {
-        ciWorkflowFile: getEnvironmentVariable('CI_WORKFLOW_FILE') ?? defaultCiWorkflowFile,
+        ciWorkflowFile: getEnvironmentVariable('CI_WORKFLOW_FILE') ?? defaultCiWorkflowFile(),
         dependencyOnlyMinAgeDays: parseInteger(
             getEnvironmentVariable('DEPENDENCY_ONLY_MIN_AGE_DAYS'),
             defaultDependencyOnlyMinAgeDays
         ),
-        defaultBranch: getEnvironmentVariable('DEFAULT_BRANCH') ?? defaultMainBranch,
-        githubApiBaseUrl: getEnvironmentVariable('GITHUB_API_BASE_URL') ?? defaultGitHubApiBaseUrl,
+        defaultBranch: getEnvironmentVariable('DEFAULT_BRANCH') ?? defaultMainBranch(),
+        githubApiBaseUrl: getEnvironmentVariable('GITHUB_API_BASE_URL') ?? defaultGitHubApiBaseUrl(),
         githubOutputPath: getRequiredEnvironmentVariable(getEnvironmentVariable, 'GITHUB_OUTPUT'),
         maxLatencyHours: parseInteger(getEnvironmentVariable('MAX_LATENCY_HOURS'), defaultMaxLatencyHours),
         quietPeriodMinutes: parseInteger(getEnvironmentVariable('QUIET_PERIOD_MINUTES'), defaultQuietPeriodMinutes),

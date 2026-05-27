@@ -23,22 +23,31 @@ export type PublishStageDependencies = {
 
 export type PublishStageResult = Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>;
 
+type PublishStageInputs = {
+    readonly analyzedBundles: readonly ResolvedPackage['analyzedBundle'][];
+    readonly analyzedBundlesByName: Readonly<Record<string, ResolvedPackage['analyzedBundle']>>;
+};
+
+function collectPublishStageInputs(resolvedPackages: readonly ResolvedPackage[]): PublishStageInputs {
+    const analyzedBundles: ResolvedPackage['analyzedBundle'][] = [];
+    const analyzedBundlesByName: Record<string, ResolvedPackage['analyzedBundle']> = {};
+
+    for (const resolvedPackage of resolvedPackages) {
+        analyzedBundles.push(resolvedPackage.analyzedBundle);
+        analyzedBundlesByName[resolvedPackage.name] = resolvedPackage.analyzedBundle;
+    }
+
+    return { analyzedBundles, analyzedBundlesByName };
+}
+
 export async function determineVersionAndPublishAll(
     dependencies: PublishStageDependencies,
     config: ValidConfigResult,
     resolvedPackages: readonly ResolvedPackage[],
     options: BuildAndPublishAllOptions
 ): Promise<PublishStageResult> {
-    const analyzedBundlesByName: Readonly<Record<string, ResolvedPackage['analyzedBundle']>> = Object.fromEntries(
-        resolvedPackages.map((resolvedPackage) => {
-            return [resolvedPackage.name, resolvedPackage.analyzedBundle];
-        })
-    );
-    const publicModuleUsageByName = collectPublicModuleUsage(
-        resolvedPackages.map((resolvedPackage) => {
-            return resolvedPackage.analyzedBundle;
-        })
-    );
+    const { analyzedBundles, analyzedBundlesByName } = collectPublishStageInputs(resolvedPackages);
+    const publicModuleUsageByName = collectPublicModuleUsage(analyzedBundles);
 
     return dependencies.scheduler.runForEachScheduledPackage<
         BuildAndPublishResult,

@@ -456,6 +456,11 @@ suite('preview-document', function () {
                 ['types/internal/index.d.ts', 2, 'file']
             ]
         );
+        assert.deepStrictEqual(requirePackageAt(document, 0).artifactCounts, { emitted: 3, changed: 1 });
+        assert.deepStrictEqual(
+            requirePackageAt(document, 0).changedArtifacts.map((artifact) => artifact.path),
+            ['dist/index.js']
+        );
         assert.deepStrictEqual(
             requirePackageAt(document, 1).tree.map((entry) => [entry.path, entry.depth, entry.type]),
             [
@@ -463,6 +468,8 @@ suite('preview-document', function () {
                 ['index.js', 0, 'file']
             ]
         );
+        assert.deepStrictEqual(requirePackageAt(document, 1).artifactCounts, { emitted: 2, changed: 0 });
+        assert.deepStrictEqual(requirePackageAt(document, 1).changedArtifacts, []);
     });
 
     test('buildPreviewDocument keeps eliminated files separate from the emitted tree', async function () {

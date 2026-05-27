@@ -1,4 +1,5 @@
-import type { PublishSettings } from './publish-settings.ts';
+import { isDefined, pickBy } from 'remeda';
+import type { PublicPublishSettings, PublishSettings } from './publish-settings.ts';
 
 type RedactedProvenance =
     | { readonly type: 'auto' }
@@ -11,9 +12,7 @@ export type RedactedPublishSettings = {
     readonly provenance?: RedactedProvenance;
 };
 
-function redactProvenance(
-    provenance: NonNullable<Extract<PublishSettings, { access: 'public' }>['provenance']>
-): RedactedProvenance {
+function redactProvenance(provenance: NonNullable<PublicPublishSettings['provenance']>): RedactedProvenance {
     if (provenance.type === 'file') {
         return { type: 'file', path: provenance.path, inlined: false };
     }
@@ -21,12 +20,16 @@ function redactProvenance(
 }
 
 export function redactPublishSettings(settings: PublishSettings): RedactedPublishSettings {
-    return {
-        access: settings.access,
-        ...(settings.allowScripts === undefined ? {} : { allowScripts: settings.allowScripts }),
-        ...(settings.sbom === undefined ? {} : { sbom: settings.sbom }),
-        ...(settings.access === 'public' && settings.provenance !== undefined
-            ? { provenance: redactProvenance(settings.provenance) }
-            : {})
-    };
+    return pickBy(
+        {
+            access: settings.access,
+            allowScripts: settings.allowScripts,
+            sbom: settings.sbom,
+            provenance:
+                settings.access === 'public' && settings.provenance !== undefined
+                    ? redactProvenance(settings.provenance)
+                    : undefined
+        },
+        isDefined
+    );
 }

@@ -69,6 +69,15 @@ function createJsonFetch(routes: MockRouteMap, requests: RecordedRequest[] = [])
     };
 }
 
+async function getOpenPullRequestActivitiesForTimeline(
+    timelineBody: readonly unknown[]
+): Promise<Awaited<ReturnType<ReturnType<typeof createGitHubReleaseGateApi>['getOpenPullRequestActivities']>>> {
+    const routes = createBaseRoutes() as Record<string, MockRoute>;
+    routes[timelinePath] = { body: timelineBody };
+
+    return await createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext).getOpenPullRequestActivities();
+}
+
 suite('github-release-gate-github-api', function () {
     test('getMainBranchHeadSha sends the required GitHub headers', async function () {
         const requests: RecordedRequest[] = [];
@@ -268,6 +277,31 @@ suite('github-release-gate-github-api', function () {
         }, /GitHub API request failed \(500\) for \/repos\/enormora\/packtory\/pulls\?state=open&base=main&per_page=100/u);
     });
 
+    test('GitHub API request formatting preserves the original failure as the cause', async function () {
+        const original = Object.assign(new Error('boom'), {
+            request: {
+                url: 'https://api.github.com/repos/enormora/packtory/pulls?state=open&base=main&per_page=100'
+            },
+            status: 500
+        });
+        const api = createGitHubReleaseGateApi(async () => {
+            throw original;
+        }, defaultContext);
+
+        try {
+            await api.getOpenPullRequestActivities();
+            assert.fail('Expected getOpenPullRequestActivities() to reject');
+        } catch (error: unknown) {
+            assert.ok(error instanceof Error);
+            assert.ok(error.cause instanceof Error);
+            assert.strictEqual((error.cause as { status?: unknown }).status, 500);
+            assert.strictEqual(
+                (error.cause as { request?: { url?: string } }).request?.url,
+                'https://api.github.com/repos/enormora/packtory/pulls?state=open&base=main&per_page=100'
+            );
+        }
+    });
+
     test('GitHub API methods reject invalid timestamps', async function () {
         const routes = createBaseRoutes() as Record<string, MockRoute>;
         routes[timelinePath] = {
@@ -329,25 +363,42 @@ suite('github-release-gate-github-api', function () {
     });
 
     test('getOpenPullRequestActivities skips timeline events without a timestamp', async function () {
-        const routes = createBaseRoutes() as Record<string, MockRoute>;
-        routes[timelinePath] = {
-            body: [
+        assert.deepStrictEqual(
+            await getOpenPullRequestActivitiesForTimeline([
                 { event: 'reviewed', submitted_at: '2026-05-19T10:40:00.000Z' },
                 {
                     committer: { date: '2026-05-19T10:45:00.000Z' },
                     created_at: null,
                     event: 'committed'
                 }
+            ]),
+            [
+                {
+                    activityAt: new Date('2026-05-19T10:45:00.000Z'),
+                    htmlUrl: 'https://github.com/enormora/packtory/pull/1',
+                    number: 1
+                }
             ]
-        };
-        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+        );
+    });
 
-        assert.deepStrictEqual(await api.getOpenPullRequestActivities(), [
-            {
-                activityAt: new Date('2026-05-19T10:45:00.000Z'),
-                htmlUrl: 'https://github.com/enormora/packtory/pull/1',
-                number: 1
-            }
-        ]);
+    test('getOpenPullRequestActivities skips timeline events without an event name', async function () {
+        assert.deepStrictEqual(
+            await getOpenPullRequestActivitiesForTimeline([
+                { created_at: '2026-05-19T11:40:00.000Z' },
+                {
+                    committer: { date: '2026-05-19T10:45:00.000Z' },
+                    created_at: null,
+                    event: 'committed'
+                }
+            ]),
+            [
+                {
+                    activityAt: new Date('2026-05-19T10:45:00.000Z'),
+                    htmlUrl: 'https://github.com/enormora/packtory/pull/1',
+                    number: 1
+                }
+            ]
+        );
     });
 });

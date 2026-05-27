@@ -30,13 +30,11 @@ export function buildChecksResult(
     resolvedPackages: readonly ResolvedPackage[]
 ): Result<readonly ResolvedPackage[], CheckError> {
     const { packtoryConfig: config } = validated;
-    const perPackageSettings = new Map(
-        config.packages.map((packageConfig) => {
-            return [packageConfig.name, packageConfig.checks];
-        })
-    );
+    const perPackageSettings = new Map<string, (typeof config.packages)[number]['checks']>();
     const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
     const effectivePackageConfigs = mapToObj(config.packages, (packageConfig) => {
+        perPackageSettings.set(packageConfig.name, packageConfig.checks);
+
         return [
             packageConfig.name,
             {
@@ -45,13 +43,14 @@ export function buildChecksResult(
             }
         ];
     });
+    const bundles = resolvedPackages.map((resolvedPackage) => {
+        return resolvedPackage.analyzedBundle;
+    });
     const checkIssues = runChecks({
         settings: config.checks ?? {},
         perPackageSettings,
         packageConfigs: effectivePackageConfigs,
-        bundles: resolvedPackages.map((resolvedPackage) => {
-            return resolvedPackage.analyzedBundle;
-        })
+        bundles
     });
 
     if (checkIssues.length > 0) {

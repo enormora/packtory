@@ -1,8 +1,9 @@
+import { isPackageManifestPath } from '../../common/package-layout.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 
 function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
-    if (filePath === 'package.json' || filePath.endsWith('/package.json')) {
+    if (isPackageManifestPath(filePath)) {
         return 'manifest';
     }
     if (filePath.endsWith('.sbom.json') || filePath.endsWith('.cdx.json')) {
@@ -29,13 +30,23 @@ export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): r
         } else if (rewritten) {
             status = 'changed';
         }
-        return {
+        const artifactEntry: {
+            path: string;
+            sizeBytes: number;
+            kind: ArtifactEntry['kind'];
+            status: ArtifactEntry['status'];
+            badges: ArtifactEntry['badges'];
+            sourcePath?: string;
+        } = {
             path: entry.filePath,
             sizeBytes: Buffer.byteLength(entry.content),
             kind: inferArtifactKind(entry.filePath),
-            ...(sourcePath === undefined ? {} : { sourcePath }),
             status,
             badges: rewritten ? ['import-path-rewrite'] : []
         };
+        if (sourcePath !== undefined) {
+            artifactEntry.sourcePath = sourcePath;
+        }
+        return artifactEntry;
     });
 }

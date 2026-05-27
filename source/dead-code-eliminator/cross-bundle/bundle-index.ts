@@ -37,12 +37,9 @@ function tryResolveAgainstBundle(indexedBundle: IndexedBundle, specifier: string
 }
 
 export function resolveCrossBundleTarget(
-    specifier: string | undefined,
+    specifier: string,
     indexed: ReadonlyMap<string, IndexedBundle>
 ): ResolvedTarget | undefined {
-    if (specifier === undefined) {
-        return undefined;
-    }
     for (const info of indexed.values()) {
         const resolved = tryResolveAgainstBundle(info, specifier);
         if (resolved !== undefined) {

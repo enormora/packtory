@@ -1,4 +1,5 @@
 import npa from 'npm-package-arg';
+import { match } from 'ts-pattern';
 
 const workspaceProtocolPrefix = 'workspace:';
 const portalProtocolPrefix = 'portal:';
@@ -18,24 +19,23 @@ export type Classification =
 
 type NpaResultType = npa.Result['type'];
 
-const registryNpaTypes = new Set<NpaResultType>(['alias', 'version', 'range', 'tag']);
-
 function classifyNpaResult(result: npa.Result): Classification {
-    if (registryNpaTypes.has(result.type)) {
-        return { kind: 'registry' };
-    }
-
-    if (result.type === 'git') {
-        return { kind: 'mutable', npaType: 'git' };
-    }
-    if (result.type === 'remote') {
-        return { kind: 'mutable', npaType: 'remote' };
-    }
-    if (result.type === 'file') {
-        return { kind: 'mutable', npaType: 'file' };
-    }
-
-    return { kind: 'mutable', npaType: 'directory' };
+    return match<NpaResultType, Classification>(result.type)
+        .with('alias', 'range', 'tag', 'version', () => {
+            return { kind: 'registry' };
+        })
+        .with('git', () => {
+            return { kind: 'mutable', npaType: 'git' };
+        })
+        .with('remote', () => {
+            return { kind: 'mutable', npaType: 'remote' };
+        })
+        .with('file', () => {
+            return { kind: 'mutable', npaType: 'file' };
+        })
+        .otherwise(() => {
+            return { kind: 'mutable', npaType: 'directory' };
+        });
 }
 
 export function classifySpecifier(name: string, specifier: string): Classification {

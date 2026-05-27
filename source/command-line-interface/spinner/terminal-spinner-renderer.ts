@@ -1,4 +1,9 @@
-type Status = 'failure' | 'success';
+export const spinnerResultStatus = {
+    failure: 'failure',
+    success: 'success'
+} as const;
+
+type Status = (typeof spinnerResultStatus)[keyof typeof spinnerResultStatus];
 
 export type TerminalSpinnerRenderer = {
     add: (id: string, label: string, message: string) => void;
@@ -77,7 +82,7 @@ export function createTerminalSpinnerRenderer(
             const spinner = getSpinnerById(id);
             spinner.message = message;
             spinner.status = status;
-            const finalState = status === 'success' ? 'succeeded' : 'failed';
+            const finalState = status === spinnerResultStatus.success ? 'succeeded' : 'failed';
             backend.finish(spinner.slotIndex, finalState, spinner.label, message);
         },
 

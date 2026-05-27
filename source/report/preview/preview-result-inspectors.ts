@@ -1,46 +1,58 @@
 import type { Result } from 'true-myth';
 import type { BuildAndPublishResult } from '../../packtory/package-processor.ts';
+import { isSuccessOrPartialSuccess, partialFailureMessages } from '../../packtory/partial-result.ts';
 import type { PublishAllResult } from '../../packtory/packtory.ts';
+import { partialFailureType, previewResultType } from '../../packtory/packtory-results.ts';
 import type { PartialError } from '../../packtory/scheduler.ts';
 
-export type PreviewResultType = 'checks' | 'config' | 'partial' | 'success';
+export type PreviewResultType = (typeof previewResultType)[keyof typeof previewResultType];
 
 type FailureLike<T> =
-    | { readonly type: 'checks'; readonly issues: readonly string[] }
-    | { readonly type: 'config'; readonly issues: readonly string[] }
-    | (PartialError<T> & { readonly type: 'partial' });
+    | { readonly type: typeof previewResultType.checks; readonly issues: readonly string[] }
+    | { readonly type: typeof previewResultType.config; readonly issues: readonly string[] }
+    | (PartialError<T> & { readonly type: typeof partialFailureType });
 
 type ResultLike<T> = Result<readonly T[], FailureLike<T>>;
+type PreviewResultDescription<T> = {
+    readonly issues: readonly string[];
+    readonly succeeded: readonly T[];
+    readonly type: PreviewResultType;
+};
 
-export function isPreviewableResult<T>(result: ResultLike<T>): boolean {
-    return result.isOk || (result.error.type === 'partial' && result.error.succeeded.length > 0);
+export const isPreviewableResult: <T>(result: ResultLike<T>) => boolean = isSuccessOrPartialSuccess;
+
+function describePreviewResult<T>(result: ResultLike<T>): PreviewResultDescription<T> {
+    if (result.isOk) {
+        return {
+            type: previewResultType.success,
+            succeeded: result.value,
+            issues: []
+        };
+    }
+
+    if (result.error.type === partialFailureType) {
+        return {
+            type: previewResultType.partial,
+            succeeded: result.error.succeeded,
+            issues: partialFailureMessages(result.error)
+        };
+    }
+
+    return {
+        type: result.error.type,
+        succeeded: [],
+        issues: result.error.issues
+    };
 }
 
 export function getSucceededResults(result: PublishAllResult): readonly BuildAndPublishResult[] {
-    if (result.isOk) {
-        return result.value;
-    }
-    if (result.error.type === 'partial') {
-        return result.error.succeeded;
-    }
-    return [];
+    return describePreviewResult(result).succeeded;
 }
 
 export function getIssues<T>(result: ResultLike<T>): readonly string[] {
-    if (result.isOk) {
-        return [];
-    }
-    if (result.error.type === 'partial') {
-        return result.error.failures.map((failure) => {
-            return failure.message;
-        });
-    }
-    return result.error.issues;
+    return describePreviewResult(result).issues;
 }
 
 export function getResultType<T>(result: ResultLike<T>): PreviewResultType {
-    if (result.isOk) {
-        return 'success';
-    }
-    return result.error.type;
+    return describePreviewResult(result).type;
 }

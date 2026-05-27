@@ -55,6 +55,35 @@ suite('metadata-auth-retry', function () {
         await expectRethrown({ auth: tokenAuth }, authResolution({ allowsAutomaticRetry: true }), 500);
     });
 
+    test('retryWithFallbackAuth rethrows errors without statusCode unchanged when retry is allowed', async function () {
+        const proxiedError = new Proxy(new Error('boom'), {
+            has(target, property) {
+                return property === 'statusCode' ? false : Reflect.has(target, property);
+            },
+            get(target, property, receiver) {
+                if (property === 'statusCode') {
+                    throw new Error('statusCode should not be read when it is absent');
+                }
+
+                const reflectedValue: unknown = Reflect.get(target, property, receiver);
+                return reflectedValue;
+            }
+        });
+
+        try {
+            await retryWithFallbackAuth(
+                { auth: tokenAuth },
+                authResolution({ allowsAutomaticRetry: true }),
+                async () => {
+                    throw proxiedError;
+                }
+            );
+            assert.fail('Expected retryWithFallbackAuth() to rethrow the original error');
+        } catch (error: unknown) {
+            assert.strictEqual(error, proxiedError);
+        }
+    });
+
     test('retryWithFallbackAuth retries with publish auth options on auth failure when retry is allowed', async function () {
         const settings: RegistrySettings = { auth: tokenAuth };
         let attempts = 0;

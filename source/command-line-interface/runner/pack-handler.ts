@@ -1,10 +1,21 @@
 import type { PackOutcome, Packtory } from '../../packtory/packtory.ts';
-import type { PackFailure } from '../../packtory/packtory-results.ts';
+import { partialFailureMessages } from '../../packtory/partial-result.ts';
+import {
+    checksErrorType,
+    configErrorType,
+    packPackageFailureType,
+    partialFailureType,
+    type PackFailure
+} from '../../packtory/packtory-results.ts';
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { getErrorSymbol, getSuccessSymbol } from './runner-symbols.ts';
 
 type Logger = (message: string) => void;
+const issuePrefixByType = {
+    [configErrorType]: 'The provided config is invalid',
+    [checksErrorType]: 'Checks failed'
+} as const;
 
 type PackFlags = {
     readonly packageName: string;
@@ -27,43 +38,48 @@ function formatIssueList(prefix: string, issues: readonly string[]): string {
     return `${getErrorSymbol()} ${prefix}, there are ${issueCount}\n\n- ${issues.join('\n- ')}`;
 }
 
+function formatBulletedLines(header: string, details: readonly string[]): string {
+    return [header, ...details].join('\n');
+}
+
 function formatPartialResolveFailure(error: PackFailure & { readonly type: 'partial' }): string {
-    const messages = error.error.failures.map((failure) => {
-        return `- ${failure.message}`;
-    });
-    return [`${getErrorSymbol()} ${messages.length} package(s) failed to resolve`, ...messages].join('\n');
+    return formatBulletedLines(
+        `${getErrorSymbol()} ${error.error.failures.length} package(s) failed to resolve`,
+        partialFailureMessages(error.error).map((message) => {
+            return `- ${message}`;
+        })
+    );
 }
 
-function formatPeerFailure(error: PackFailure & { readonly type: 'peer-dependencies-unsatisfied' }): string {
-    const lines = error.items.map((item) => {
-        return `- "${item.packageName}" needs peer "${item.peer}"`;
-    });
-    const count = error.items.length;
-    const header = `${getErrorSymbol()} Pack of "${error.packageName}" is missing ${count} peer dependency(ies)`;
-    return [header, ...lines].join('\n');
+function formatPeerFailure(
+    error: PackFailure & { readonly type: typeof packPackageFailureType.peerDependenciesUnsatisfied }
+): string {
+    return formatBulletedLines(
+        `${getErrorSymbol()} Pack of "${error.packageName}" is missing ${error.items.length} peer dependency(ies)`,
+        error.items.map((item) => {
+            return `- "${item.packageName}" needs peer "${item.peer}"`;
+        })
+    );
 }
 
-function formatBundleDepFailure(packageName: string): string {
-    const note = 'declares bundleDependencies which pack does not yet support without --vendor-dependencies';
-    return `${getErrorSymbol()} Package "${packageName}" ${note}`;
-}
-
-function formatPackageNotFound(packageName: string): string {
-    return `${getErrorSymbol()} Package "${packageName}" is not declared in the packtory configuration`;
-}
+const packageFailureSuffixByType = {
+    [packPackageFailureType.bundleDependenciesUnsupported]:
+        'declares bundleDependencies which pack does not yet support without --vendor-dependencies',
+    [packPackageFailureType.packageNotFound]: 'is not declared in the packtory configuration'
+} as const;
 
 function formatVendorSymlinkOutsidePackageFailure(
-    error: PackFailure & { readonly type: 'vendor-symlink-target-outside-package' }
+    error: PackFailure & { readonly type: typeof packPackageFailureType.vendorSymlinkTargetOutsidePackage }
 ): string {
     const reason = 'rejected a vendored dependency with a symlink that escapes its package directory';
     const header = `${getErrorSymbol()} Pack of "${error.packageName}" ${reason}`;
     const target = `which resolves to "${error.resolvedTargetPath}"`;
     const details = `- "${error.vendoredPackageName}" contains "${error.entryRelativePath}" ${target}`;
-    return [header, details].join('\n');
+    return `${header}\n${details}`;
 }
 
 function formatVendorInvalidDependencyNameFailure(
-    error: PackFailure & { readonly type: 'vendor-invalid-dependency-name' }
+    error: PackFailure & { readonly type: typeof packPackageFailureType.vendorInvalidDependencyName }
 ): string {
     const reason = 'rejected a vendored package.json with an invalid dependency name';
     const header = `${getErrorSymbol()} Pack of "${error.packageName}" ${reason}`;
@@ -71,64 +87,65 @@ function formatVendorInvalidDependencyNameFailure(
         error.sourcePackageName === undefined ? 'the configured external set' : `"${error.sourcePackageName}"`;
     const tail = 'which is not a valid npm package name';
     const details = `- ${sourceLabel} declares dependency "${error.invalidDependencyName}" ${tail}`;
-    return [header, details].join('\n');
+    return `${header}\n${details}`;
 }
 
-type ConfigOrCheckError = PackFailure & { readonly type: 'checks' | 'config' };
-type PackPackageError = PackFailure & {
+function formatPackageNameFailure(
+    error: PackFailure & {
+        readonly type:
+            | typeof packPackageFailureType.bundleDependenciesUnsupported
+            | typeof packPackageFailureType.packageNotFound;
+    }
+): string {
+    return `${getErrorSymbol()} Package "${error.packageName}" ${packageFailureSuffixByType[error.type]}`;
+}
+
+function isIssueFailure(error: PackFailure): error is PackFailure & {
+    readonly type: typeof checksErrorType | typeof configErrorType;
+    readonly issues: readonly string[];
+} {
+    return error.type === configErrorType || error.type === checksErrorType;
+}
+
+function isPackageNameFailure(error: PackFailure): error is PackFailure & {
     readonly type:
-        | 'bundle-dependencies-unsupported'
-        | 'package-not-found'
-        | 'peer-dependencies-unsatisfied'
-        | 'vendor-invalid-dependency-name'
-        | 'vendor-symlink-target-outside-package';
-};
-
-function formatIssueListFailure(error: ConfigOrCheckError): string {
-    if (error.type === 'config') {
-        return formatIssueList('The provided config is invalid', error.issues);
-    }
-    return formatIssueList('Checks failed', error.issues);
-}
-
-function formatPackPackageFailure(error: PackPackageError): string {
-    if (error.type === 'package-not-found') {
-        return formatPackageNotFound(error.packageName);
-    }
-    if (error.type === 'bundle-dependencies-unsupported') {
-        return formatBundleDepFailure(error.packageName);
-    }
-    if (error.type === 'vendor-symlink-target-outside-package') {
-        return formatVendorSymlinkOutsidePackageFailure(error);
-    }
-    if (error.type === 'vendor-invalid-dependency-name') {
-        return formatVendorInvalidDependencyNameFailure(error);
-    }
-    return formatPeerFailure(error);
-}
-
-function isConfigOrCheckError(error: PackFailure): error is ConfigOrCheckError {
-    return error.type === 'config' || error.type === 'checks';
-}
-
-function isPackPackageError(error: PackFailure): error is PackPackageError {
+        | typeof packPackageFailureType.bundleDependenciesUnsupported
+        | typeof packPackageFailureType.packageNotFound;
+} {
     return (
-        error.type === 'package-not-found' ||
-        error.type === 'bundle-dependencies-unsupported' ||
-        error.type === 'peer-dependencies-unsatisfied' ||
-        error.type === 'vendor-symlink-target-outside-package' ||
-        error.type === 'vendor-invalid-dependency-name'
+        error.type === packPackageFailureType.bundleDependenciesUnsupported ||
+        error.type === packPackageFailureType.packageNotFound
     );
 }
 
+function formatNonIssuePackFailure(
+    error: Exclude<PackFailure, { readonly type: typeof checksErrorType | typeof configErrorType }>
+): string {
+    if (error.type === partialFailureType) {
+        return formatPartialResolveFailure(error);
+    }
+
+    if (isPackageNameFailure(error)) {
+        return formatPackageNameFailure(error);
+    }
+
+    if (error.type === packPackageFailureType.peerDependenciesUnsatisfied) {
+        return formatPeerFailure(error);
+    }
+
+    if (error.type === packPackageFailureType.vendorInvalidDependencyName) {
+        return formatVendorInvalidDependencyNameFailure(error);
+    }
+
+    return formatVendorSymlinkOutsidePackageFailure(error);
+}
+
 function formatPackFailure(error: PackFailure): string {
-    if (isConfigOrCheckError(error)) {
-        return formatIssueListFailure(error);
+    if (isIssueFailure(error)) {
+        return formatIssueList(issuePrefixByType[error.type], error.issues);
     }
-    if (isPackPackageError(error)) {
-        return formatPackPackageFailure(error);
-    }
-    return formatPartialResolveFailure(error);
+
+    return formatNonIssuePackFailure(error);
 }
 
 function reportOutcome(log: Logger, outcome: PackOutcome, flags: PackFlags): number {

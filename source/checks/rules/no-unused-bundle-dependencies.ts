@@ -1,4 +1,5 @@
 import type { z } from 'zod/mini';
+import { bundledDependencyGroups } from '../../common/bundled-dependency-groups.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
     emptyPerPackageSchema,
@@ -13,24 +14,20 @@ const ruleName = 'noUnusedBundleDependencies';
 type GlobalConfig = z.infer<typeof enabledOnlyGlobalSchema>;
 type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
-
-type DependencyKind = 'bundle' | 'bundle peer';
-
-function findUnused(bundle: AnalyzedBundle, declared: readonly string[], kind: DependencyKind): readonly string[] {
-    return declared
-        .filter((dependencyName) => {
-            return !bundle.linkedBundleDependencies.has(dependencyName);
-        })
-        .map((dependencyName) => {
-            return `Unused ${kind} dependency "${dependencyName}" declared by package "${bundle.name}"`;
-        });
-}
-
 function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
-    return [
-        ...findUnused(bundle, packageConfig?.bundleDependencies ?? [], 'bundle'),
-        ...findUnused(bundle, packageConfig?.bundlePeerDependencies ?? [], 'bundle peer')
-    ];
+    const issues: string[] = [];
+
+    for (const group of bundledDependencyGroups()) {
+        for (const dependencyName of packageConfig?.[group.propertyName] ?? []) {
+            if (!bundle.linkedBundleDependencies.has(dependencyName)) {
+                issues.push(
+                    `Unused ${group.unusedLabel} dependency "${dependencyName}" declared by package "${bundle.name}"`
+                );
+            }
+        }
+    }
+
+    return issues;
 }
 
 function run(params: RunParams): readonly string[] {

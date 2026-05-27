@@ -3,18 +3,30 @@ import { safeParse } from '@schema-hub/zod-error-formatter';
 import npa from 'npm-package-arg';
 import { Result } from 'true-myth';
 import { z } from 'zod/mini';
+import {
+    ancestorInstalledDependencyPathCandidates,
+    bundledInstalledDependencyPath,
+    installedDependenciesFolderName,
+    packageManifestPathIn
+} from '../common/package-layout.ts';
+import { createWorklist, type Worklist } from '../common/worklist.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import type { VendorEntry } from './vendor-entry.ts';
 
-export type SymlinkTargetOutsidePackageFailure = {
-    readonly type: 'symlink-target-outside-package';
+export const vendorMaterializerFailureType = {
+    invalidDependencyName: 'invalid-dependency-name',
+    symlinkTargetOutsidePackage: 'symlink-target-outside-package'
+} as const;
+
+type SymlinkTargetOutsidePackageFailure = {
+    readonly type: typeof vendorMaterializerFailureType.symlinkTargetOutsidePackage;
     readonly packageName: string;
     readonly entryRelativePath: string;
     readonly resolvedTargetPath: string;
 };
 
-export type InvalidDependencyNameFailure = {
-    readonly type: 'invalid-dependency-name';
+type InvalidDependencyNameFailure = {
+    readonly type: typeof vendorMaterializerFailureType.invalidDependencyName;
     readonly sourcePackageName: string | undefined;
     readonly invalidDependencyName: string;
 };
@@ -41,14 +53,17 @@ export type VendorMaterializer = {
         options: MaterializeExternalsOptions
     ) => Promise<Result<MaterializedExternals, VendorMaterializerFailure>>;
 };
-
-const nodeModulesFolderName = 'node_modules';
-
 const dependencyMapSchema = z.optional(z.record(z.string(), z.string()));
-const packageManifestSchema = z.object({
-    dependencies: dependencyMapSchema,
-    peerDependencies: dependencyMapSchema
-});
+
+function packageManifestSchema(): z.ZodMiniType<{
+    readonly dependencies?: Readonly<Record<string, string>> | undefined;
+    readonly peerDependencies?: Readonly<Record<string, string>> | undefined;
+}> {
+    return z.object({
+        dependencies: dependencyMapSchema,
+        peerDependencies: dependencyMapSchema
+    });
+}
 
 type QueueItem = {
     readonly name: string;
@@ -58,55 +73,23 @@ type QueueItem = {
 type Closure = {
     readonly visited: Set<string>;
     readonly entries: VendorEntry[];
-    readonly queue: QueueItem[];
+    readonly pendingPackages: Worklist<QueueItem>;
     readonly peerRequirements: Map<string, readonly string[]>;
 };
-
-function ancestorFolders(startFolder: string): readonly string[] {
-    const parts = startFolder.split(path.sep);
-    return parts.map((_segment, index, allSegments) => {
-        const prefixLength = allSegments.length - index;
-        const joined = allSegments.slice(0, prefixLength).join(path.sep);
-        return joined.length === 0 ? path.sep : joined;
-    });
-}
-
-function buildVendorEntry(rootDirectory: string, packageName: string, relativePath: string): VendorEntry {
-    const normalizedRelative = relativePath.split(path.sep).join('/');
-    return {
-        sourceAbsolutePath: path.join(rootDirectory, relativePath),
-        targetRelativePath: `${nodeModulesFolderName}/${packageName}/${normalizedRelative}`,
-        isExecutable: false
-    };
-}
-
-function enqueueDependencies(closure: Closure, fromFolder: string, dependencyNames: readonly string[]): void {
-    for (const dependencyName of dependencyNames) {
-        closure.queue.push({ name: dependencyName, fromFolder });
-    }
-}
 
 type ParsedManifestSummary = {
     readonly transitiveDependencyNames: readonly string[];
     readonly peerDependencyNames: readonly string[];
 };
 
-function rejectDependencyNameIfInvalid(name: string): string | undefined {
-    try {
-        if (npa(name).name === name) {
-            return undefined;
-        }
-        return name;
-    } catch {
-        return name;
-    }
-}
-
 function findFirstInvalidDependencyName(names: readonly string[]): string | undefined {
     for (const name of names) {
-        const offending = rejectDependencyNameIfInvalid(name);
-        if (offending !== undefined) {
-            return offending;
+        try {
+            if (npa(name).name !== name) {
+                return name;
+            }
+        } catch {
+            return name;
         }
     }
     return undefined;
@@ -116,42 +99,36 @@ function parseManifestSummary(
     sourcePackageName: string,
     content: string
 ): Result<ParsedManifestSummary, InvalidDependencyNameFailure> {
-    const parsed = safeParse(packageManifestSchema, JSON.parse(content));
+    const parsed = safeParse(packageManifestSchema(), JSON.parse(content));
     if (!parsed.success) {
         return Result.ok({ transitiveDependencyNames: [], peerDependencyNames: [] });
     }
     const dependencyNames = Object.keys(parsed.data.dependencies ?? {});
     const peerDependencyNames = Object.keys(parsed.data.peerDependencies ?? {});
-    const invalidDependencyName = findFirstInvalidDependencyName([...dependencyNames, ...peerDependencyNames]);
+    const transitiveDependencyNames = dependencyNames.concat(peerDependencyNames);
+    const invalidDependencyName = findFirstInvalidDependencyName(transitiveDependencyNames);
     if (invalidDependencyName !== undefined) {
-        return Result.err({ type: 'invalid-dependency-name', sourcePackageName, invalidDependencyName });
+        return Result.err({
+            type: vendorMaterializerFailureType.invalidDependencyName,
+            sourcePackageName,
+            invalidDependencyName
+        });
     }
     return Result.ok({
-        transitiveDependencyNames: [...dependencyNames, ...peerDependencyNames],
+        transitiveDependencyNames,
         peerDependencyNames
     });
 }
 
-function isInside(rootDirectory: string, candidate: string): boolean {
-    const relative = path.relative(rootDirectory, candidate);
-    if (relative.startsWith(`..${path.sep}`) || relative === '..') {
-        return false;
-    }
-    return !path.isAbsolute(relative);
-}
-
 type FileWalkerDependencies = Pick<FileManager, 'getRealPath' | 'listDirectoryEntries'>;
-
-type CollectRequest = {
+type PackageDirectoryEntry = Awaited<ReturnType<FileWalkerDependencies['listDirectoryEntries']>>[number];
+type PackageDirectoryWalk = {
     readonly rootDirectory: string;
     readonly packageName: string;
-    readonly collected: VendorEntry[];
 };
-
-type PackageDirectoryEntry = {
-    readonly name: string;
-    readonly isDirectory: boolean;
-    readonly isSymbolicLink: boolean;
+type PackageDirectoryState = {
+    readonly packageDirectory: PackageDirectoryWalk;
+    readonly collected: VendorEntry[];
 };
 
 async function checkSymlinkInsidePackage(
@@ -164,9 +141,11 @@ async function checkSymlinkInsidePackage(
     const normalizedEntryRelativePath = relativeEntryPath.split(path.sep).join('/');
     try {
         const resolvedTargetPath = await walker.getRealPath(absoluteEntryPath);
-        if (!isInside(rootDirectory, resolvedTargetPath)) {
+        const normalizedRoot = path.resolve(rootDirectory);
+        const normalizedCandidate = path.resolve(resolvedTargetPath);
+        if (normalizedCandidate !== normalizedRoot && !normalizedCandidate.startsWith(`${normalizedRoot}${path.sep}`)) {
             return Result.err({
-                type: 'symlink-target-outside-package',
+                type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,
                 packageName,
                 entryRelativePath: normalizedEntryRelativePath,
                 resolvedTargetPath
@@ -175,7 +154,7 @@ async function checkSymlinkInsidePackage(
         return Result.ok(undefined);
     } catch {
         return Result.err({
-            type: 'symlink-target-outside-package',
+            type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,
             packageName,
             entryRelativePath: normalizedEntryRelativePath,
             resolvedTargetPath: absoluteEntryPath
@@ -183,114 +162,121 @@ async function checkSymlinkInsidePackage(
     }
 }
 
-type DirectoryWalker = (relativeDirectory: string) => Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>>;
-
-type PackageDirectoryProcessingContext = {
-    readonly walker: FileWalkerDependencies;
-    readonly request: CollectRequest;
-    readonly walkDirectory: DirectoryWalker;
-};
-
-async function processPackageDirectoryEntry(
-    context: PackageDirectoryProcessingContext,
-    relativeDirectory: string,
+async function validatePackageDirectoryEntry(
+    walker: FileWalkerDependencies,
+    packageDirectory: PackageDirectoryWalk,
+    relativeEntryPath: string,
     entry: PackageDirectoryEntry
 ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
-    const relativeEntryPath = path.join(relativeDirectory, entry.name);
-    if (entry.isSymbolicLink) {
-        const symlinkCheck = await checkSymlinkInsidePackage(
-            context.walker,
-            context.request.rootDirectory,
-            context.request.packageName,
-            relativeEntryPath
+    if (!entry.isSymbolicLink) {
+        return Result.ok(undefined);
+    }
+
+    return checkSymlinkInsidePackage(
+        walker,
+        packageDirectory.rootDirectory,
+        packageDirectory.packageName,
+        relativeEntryPath
+    );
+}
+
+const walkPackageDirectory = async (
+    walker: FileWalkerDependencies,
+    state: PackageDirectoryState,
+    relativeDirectory: string
+): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> => {
+    const absoluteDirectory = path.join(state.packageDirectory.rootDirectory, relativeDirectory);
+    const entries = await walker.listDirectoryEntries(absoluteDirectory);
+
+    const collectDirectoryEntry = async (
+        entry: PackageDirectoryEntry
+    ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> => {
+        if (entry.name === installedDependenciesFolderName) {
+            return Result.ok(undefined);
+        }
+
+        const relativeEntryPath = path.join(relativeDirectory, entry.name);
+        const symlinkCheck = await validatePackageDirectoryEntry(
+            walker,
+            state.packageDirectory,
+            relativeEntryPath,
+            entry
         );
         if (symlinkCheck.isErr) {
-            return Result.err(symlinkCheck.error);
+            return symlinkCheck;
         }
-    }
-    if (entry.isDirectory) {
-        return context.walkDirectory(relativeEntryPath);
-    }
-    context.request.collected.push(
-        buildVendorEntry(context.request.rootDirectory, context.request.packageName, relativeEntryPath)
-    );
-    return Result.ok(undefined);
-}
 
-async function walkPackageDirectory(
-    walker: FileWalkerDependencies,
-    request: CollectRequest,
-    relativeDirectory: string
-): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
-    const absoluteDirectory = path.join(request.rootDirectory, relativeDirectory);
-    const entries = await walker.listDirectoryEntries(absoluteDirectory);
-    const walkDirectory: DirectoryWalker = async (childDirectory) => {
-        return walkPackageDirectory(walker, request, childDirectory);
+        if (entry.isDirectory) {
+            return walkPackageDirectory(walker, state, relativeEntryPath);
+        }
+
+        state.collected.push({
+            sourceAbsolutePath: path.join(state.packageDirectory.rootDirectory, relativeEntryPath),
+            targetRelativePath: bundledInstalledDependencyPath(state.packageDirectory.packageName, relativeEntryPath),
+            isExecutable: false
+        });
+        return Result.ok(undefined);
     };
-    const context: PackageDirectoryProcessingContext = { walker, request, walkDirectory };
+
     for (const entry of entries) {
-        if (entry.name !== nodeModulesFolderName) {
-            const processed = await processPackageDirectoryEntry(context, relativeDirectory, entry);
-            if (processed.isErr) {
-                return processed;
-            }
+        const result = await collectDirectoryEntry(entry);
+        if (result.isErr) {
+            return result;
         }
     }
-    return Result.ok(undefined);
-}
 
-async function collectPackageFiles(
-    walker: FileWalkerDependencies,
-    rootDirectory: string,
-    packageName: string
-): Promise<Result<readonly VendorEntry[], SymlinkTargetOutsidePackageFailure>> {
-    const collected: VendorEntry[] = [];
-    const result = await walkPackageDirectory(walker, { rootDirectory, packageName, collected }, '');
-    if (result.isErr) {
-        return Result.err(result.error);
-    }
-    return Result.ok(collected);
-}
+    return Result.ok(undefined);
+};
 
 export function createVendorMaterializer(dependencies: VendorMaterializerDependencies): VendorMaterializer {
     const { fileManager } = dependencies;
 
-    async function probeCandidate(currentFolder: string, packageName: string): Promise<string | undefined> {
-        const candidate = path.join(currentFolder, nodeModulesFolderName, packageName);
-        const readability = await fileManager.checkReadability(candidate);
-        if (readability.isReadable) {
-            return await fileManager.getRealPath(candidate);
-        }
-        return undefined;
+    function scheduleTransitiveDependencies(
+        closure: Closure,
+        fromFolder: string,
+        dependencyNames: readonly string[]
+    ): void {
+        closure.pendingPackages.scheduleAll(
+            dependencyNames.map((dependencyName) => {
+                return { name: dependencyName, fromFolder };
+            })
+        );
     }
 
-    async function findPackageRealPath(packageName: string, startFolder: string): Promise<string | undefined> {
-        for (const folder of ancestorFolders(startFolder)) {
-            const found = await probeCandidate(folder, packageName);
-            if (found !== undefined) {
-                return found;
-            }
+    async function collectVendorEntries(
+        packageName: string,
+        realPath: string
+    ): Promise<Result<readonly VendorEntry[], SymlinkTargetOutsidePackageFailure>> {
+        const collected: VendorEntry[] = [];
+        const walkResult = await walkPackageDirectory(
+            fileManager,
+            { packageDirectory: { rootDirectory: realPath, packageName }, collected },
+            ''
+        );
+        if (walkResult.isErr) {
+            return Result.err(walkResult.error);
         }
-        return undefined;
+
+        return Result.ok(collected);
     }
 
     async function readManifestSummary(
-        sourcePackageName: string,
-        packageDirectory: string
+        packageName: string,
+        realPath: string
     ): Promise<Result<ParsedManifestSummary, InvalidDependencyNameFailure>> {
-        const manifestPath = path.join(packageDirectory, 'package.json');
+        const manifestPath = packageManifestPathIn(realPath);
         const content = await fileManager.readFile(manifestPath);
-        return parseManifestSummary(sourcePackageName, content);
+        return parseManifestSummary(packageName, content);
     }
 
-    function recordResolvedSummary(
-        closure: Closure,
-        name: string,
-        realPath: string,
-        summary: ParsedManifestSummary
-    ): void {
-        enqueueDependencies(closure, realPath, summary.transitiveDependencyNames);
-        closure.peerRequirements.set(name, summary.peerDependencyNames);
+    async function findPackageRealPath(packageName: string, startFolder: string): Promise<string | undefined> {
+        for (const candidatePath of ancestorInstalledDependencyPathCandidates(startFolder, packageName)) {
+            const readability = await fileManager.checkReadability(candidatePath);
+            if (readability.isReadable) {
+                return await fileManager.getRealPath(candidatePath);
+            }
+        }
+        return undefined;
     }
 
     async function ingestResolvedPackage(
@@ -298,44 +284,52 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         name: string,
         realPath: string
     ): Promise<Result<undefined, VendorMaterializerFailure>> {
-        closure.visited.add(name);
         const summaryResult = await readManifestSummary(name, realPath);
         if (summaryResult.isErr) {
             return Result.err(summaryResult.error);
         }
-        recordResolvedSummary(closure, name, realPath, summaryResult.value);
-        const packageEntries = await collectPackageFiles(fileManager, realPath, name);
-        if (packageEntries.isErr) {
-            return Result.err(packageEntries.error);
+
+        scheduleTransitiveDependencies(closure, realPath, summaryResult.value.transitiveDependencyNames);
+        closure.peerRequirements.set(name, summaryResult.value.peerDependencyNames);
+        const collectedResult = await collectVendorEntries(name, realPath);
+        if (collectedResult.isErr) {
+            return Result.err(collectedResult.error);
         }
-        closure.entries.push(...packageEntries.value);
+
+        closure.entries.push(...collectedResult.value);
         return Result.ok(undefined);
     }
 
-    async function processQueueItem(
+    async function processPendingPackageItem(
         closure: Closure,
         item: QueueItem
     ): Promise<Result<undefined, VendorMaterializerFailure>> {
         if (closure.visited.has(item.name)) {
             return Result.ok(undefined);
         }
+
         const realPath = await findPackageRealPath(item.name, item.fromFolder);
         if (realPath === undefined) {
             return Result.ok(undefined);
         }
-        return await ingestResolvedPackage(closure, item.name, realPath);
+
+        closure.visited.add(item.name);
+        return ingestResolvedPackage(closure, item.name, realPath);
     }
 
-    async function drainQueue(closure: Closure): Promise<Result<undefined, VendorMaterializerFailure>> {
-        const item = closure.queue.shift();
-        if (item === undefined) {
-            return Result.ok(undefined);
+    async function drainPendingPackages(closure: Closure): Promise<Result<undefined, VendorMaterializerFailure>> {
+        for (
+            let item = closure.pendingPackages.takeNext();
+            item !== undefined;
+            item = closure.pendingPackages.takeNext()
+        ) {
+            const processed = await processPendingPackageItem(closure, item);
+            if (processed.isErr) {
+                return processed;
+            }
         }
-        const processed = await processQueueItem(closure, item);
-        if (processed.isErr) {
-            return processed;
-        }
-        return await drainQueue(closure);
+
+        return Result.ok(undefined);
     }
 
     return {
@@ -343,7 +337,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             const invalidInitialName = findFirstInvalidDependencyName(options.initialDependencyNames);
             if (invalidInitialName !== undefined) {
                 return Result.err({
-                    type: 'invalid-dependency-name',
+                    type: vendorMaterializerFailureType.invalidDependencyName,
                     sourcePackageName: undefined,
                     invalidDependencyName: invalidInitialName
                 });
@@ -351,12 +345,14 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             const closure: Closure = {
                 visited: new Set<string>(),
                 entries: [],
-                queue: options.initialDependencyNames.map((name) => {
-                    return { name, fromFolder: options.projectFolder };
-                }),
+                pendingPackages: createWorklist(
+                    options.initialDependencyNames.map((name) => {
+                        return { name, fromFolder: options.projectFolder };
+                    })
+                ),
                 peerRequirements: new Map<string, readonly string[]>()
             };
-            const drained = await drainQueue(closure);
+            const drained = await drainPendingPackages(closure);
             if (drained.isErr) {
                 return Result.err(drained.error);
             }

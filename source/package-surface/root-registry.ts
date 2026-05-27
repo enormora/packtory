@@ -1,5 +1,4 @@
-import { isImplicitPackageSurface } from './surface.ts';
-import type { BundleLike, RootFileDescription } from './package-shape.ts';
+import type { BundleLike, ExplicitSurface, RootFileDescription } from './package-shape.ts';
 
 export function getRoot(bundle: Pick<BundleLike, 'name' | 'roots'>, rootId: string): RootFileDescription {
     const root = bundle.roots[rootId];
@@ -9,35 +8,23 @@ export function getRoot(bundle: Pick<BundleLike, 'name' | 'roots'>, rootId: stri
     return root;
 }
 
-export function isMatchingRootSourcePath(root: RootFileDescription, sourceFilePath: string): boolean {
-    if (root.js.sourceFilePath === sourceFilePath) {
-        return true;
+function collectExplicitPublicRootIds(surface: ExplicitSurface): ReadonlySet<string> {
+    const publicRootIds = new Set<string>();
+    for (const entry of surface.packageInterface.modules ?? []) {
+        publicRootIds.add(entry.root);
+    }
+    for (const entry of surface.packageInterface.bins ?? []) {
+        publicRootIds.add(entry.root);
     }
 
-    return root.declarationFile?.sourceFilePath === sourceFilePath;
-}
-
-function getPublicRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
-    if (isImplicitPackageSurface(bundle.surface)) {
-        return new Set(Object.keys(bundle.roots));
-    }
-
-    const rootIds = new Set<string>();
-    for (const entry of bundle.surface.packageInterface.modules ?? []) {
-        rootIds.add(entry.root);
-    }
-    for (const entry of bundle.surface.packageInterface.bins ?? []) {
-        rootIds.add(entry.root);
-    }
-
-    return rootIds;
+    return publicRootIds;
 }
 
 export function getEntryRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): ReadonlySet<string> {
-    const publicRootIds = getPublicRootIds(bundle);
-    if (isImplicitPackageSurface(bundle.surface)) {
-        return publicRootIds;
+    if (bundle.surface.mode === 'implicit') {
+        return new Set(Object.keys(bundle.roots));
     }
 
+    const publicRootIds = collectExplicitPublicRootIds(bundle.surface);
     return new Set([...publicRootIds, ...(bundle.surface.packageInterface.privateRoots ?? [])]);
 }

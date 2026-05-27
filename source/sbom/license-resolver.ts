@@ -1,4 +1,4 @@
-import path from 'node:path';
+import { installedDependenciesFolderName, installedDependencyManifestPathIn } from '../common/package-layout.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import { extractLicenseFromManifest } from './extract-license.ts';
 
@@ -20,12 +20,12 @@ export function createLicenseResolver(dependencies: LicenseResolverDependencies)
 
     function buildMissingDependencyMessage(dependencyName: string): string {
         const intro = `Dependency "${dependencyName}" is declared in the published manifest`;
-        return `${intro} but is not installed in node_modules`;
+        return `${intro} but is not installed in ${installedDependenciesFolderName}`;
     }
 
     return {
         async resolveLicense({ projectFolder, dependencyName }) {
-            const packageJsonPath = path.join(projectFolder, 'node_modules', dependencyName, 'package.json');
+            const packageJsonPath = installedDependencyManifestPathIn(projectFolder, dependencyName);
             const readability = await fileManager.checkReadability(packageJsonPath);
             if (!readability.isReadable) {
                 throw new Error(buildMissingDependencyMessage(dependencyName));

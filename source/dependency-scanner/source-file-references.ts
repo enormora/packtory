@@ -1,26 +1,32 @@
 import path from 'node:path';
 import { isBuiltin } from 'node:module';
-import { isDefined } from 'remeda';
 import { ts, type SourceFile, type StringLiteral } from 'ts-morph';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
 
+export const moduleReferenceKind = {
+    externalPackage: 'external-package',
+    generatedManifest: 'generated-manifest',
+    localAsset: 'local-asset',
+    localCode: 'local-code'
+} as const;
+
 type ExternalPackageReference = {
-    readonly kind: 'external-package';
+    readonly kind: typeof moduleReferenceKind.externalPackage;
     readonly packageName: string;
 };
 
 type GeneratedManifestReference = {
-    readonly kind: 'generated-manifest';
+    readonly kind: typeof moduleReferenceKind.generatedManifest;
     readonly filePath: string;
 };
 
 type LocalAssetReference = {
-    readonly kind: 'local-asset';
+    readonly kind: typeof moduleReferenceKind.localAsset;
     readonly filePath: string;
 };
 
 type LocalCodeReference = {
-    readonly kind: 'local-code';
+    readonly kind: typeof moduleReferenceKind.localCode;
     readonly filePath: string;
 };
 
@@ -30,23 +36,23 @@ export type ModuleReference =
     | LocalAssetReference
     | LocalCodeReference;
 
-function isNodeModulesPath(filePath: string): boolean {
-    return filePath.includes('/node_modules/');
+const localAssetExtensions = new Set(['.json', '.wasm']);
+const wasmExtension = '.wasm';
+
+function hashImportPrefix(): string {
+    return '#';
 }
 
-function extractModuleName(nodeModulePath: string): string {
-    const prefix = '/node_modules/';
-    const packagePath = nodeModulePath.slice(nodeModulePath.lastIndexOf(prefix) + prefix.length);
-    if (!packagePath.startsWith('@')) {
-        return packagePath.slice(0, `${packagePath}/`.indexOf('/'));
-    }
-
-    const [scope, name] = packagePath.split('/');
-    return `${scope}/${name}`;
+function typesDependenciesFolderPath(): string {
+    return `${path.sep}node_modules${path.sep}@types${path.sep}`;
 }
 
 function isRelativeOrAbsoluteSpecifier(specifier: string): boolean {
-    return specifier.startsWith('./') || specifier.startsWith('../') || specifier.startsWith('/');
+    return specifier.startsWith('.') || path.isAbsolute(specifier);
+}
+
+function isHashSpecifier(specifier: string): boolean {
+    return specifier.startsWith(hashImportPrefix());
 }
 
 function packageNameFromSpecifier(specifier: string): string {
@@ -62,58 +68,50 @@ function packageNameFromSpecifier(specifier: string): string {
     return separatorIndex === -1 ? specifier : specifier.slice(0, separatorIndex);
 }
 
-function resolvePackageOwnedWasmFilePath(
-    literal: StringLiteral,
-    containingSourceFile: Readonly<SourceFile>
-): { readonly filePath: string; readonly packageName: string } | undefined {
-    const importValue = literal.getLiteralValue();
-    const packageName = packageNameFromSpecifier(importValue);
-    const moduleResolutionHost = containingSourceFile.getProject().getModuleResolutionHost();
-    const filePath = findPackageOwnedAssetFilePath(
-        importValue,
-        path.dirname(containingSourceFile.getFilePath()),
-        (candidatePath) => {
-            return moduleResolutionHost.fileExists(candidatePath);
-        }
-    );
-    if (filePath !== undefined) {
-        return { filePath, packageName };
+function typesPackageNameFromResolvedPath(resolvedFilePath: string): string | undefined {
+    const normalizedPath = path.normalize(resolvedFilePath);
+    const folderPath = typesDependenciesFolderPath();
+    const folderIndex = normalizedPath.lastIndexOf(folderPath);
+    if (folderIndex === -1) {
+        return undefined;
     }
 
-    return undefined;
+    const relativePath = normalizedPath.slice(folderIndex + folderPath.length);
+    const [packageName] = relativePath.split(path.sep);
+    return `@types/${packageName}`;
 }
 
-function resolveLocalWasmFilePath(
-    literal: StringLiteral,
+function externalPackageNameForResolvedImport(
+    importValue: string,
+    resolvedFilePath: string,
     containingSourceFile: Readonly<SourceFile>
-): string | undefined {
-    const importValue = literal.getLiteralValue();
-    const candidatePath = path.resolve(path.dirname(containingSourceFile.getFilePath()), importValue);
-    const moduleResolutionHost = containingSourceFile.getProject().getModuleResolutionHost();
+): string {
+    if (containingSourceFile.getFilePath().endsWith('.d.ts')) {
+        return typesPackageNameFromResolvedPath(resolvedFilePath) ?? packageNameFromSpecifier(importValue);
+    }
 
-    return moduleResolutionHost.fileExists(candidatePath) ? candidatePath : undefined;
+    return packageNameFromSpecifier(importValue);
 }
 
 function classifyLocalReference(resolvedFilePath: string, packageJsonPath: string): ModuleReference {
     if (path.resolve(resolvedFilePath) === path.resolve(packageJsonPath)) {
-        return { kind: 'generated-manifest', filePath: resolvedFilePath };
+        return { kind: moduleReferenceKind.generatedManifest, filePath: resolvedFilePath };
     }
 
-    const extension = path.extname(resolvedFilePath);
-    if (extension === '.json' || extension === '.wasm') {
-        return { kind: 'local-asset', filePath: resolvedFilePath };
+    if (localAssetExtensions.has(path.extname(resolvedFilePath))) {
+        return { kind: moduleReferenceKind.localAsset, filePath: resolvedFilePath };
     }
 
-    return { kind: 'local-code', filePath: resolvedFilePath };
+    return { kind: moduleReferenceKind.localCode, filePath: resolvedFilePath };
 }
 
-function resolvedModuleForLiteral(
-    literal: StringLiteral,
+function resolvedModuleForImport(
+    importValue: string,
     containingSourceFile: Readonly<SourceFile>
 ): Readonly<ts.ResolvedModule | undefined> {
     const project = containingSourceFile.getProject();
     return ts.resolveModuleName(
-        literal.getLiteralValue(),
+        importValue,
         containingSourceFile.getFilePath(),
         project.getCompilerOptions(),
         project.getModuleResolutionHost()
@@ -125,7 +123,7 @@ export function resolveSourceFileForLiteral(
     containingSourceFile: Readonly<SourceFile>
 ): Readonly<SourceFile | undefined> {
     const project = containingSourceFile.getProject();
-    const resolvedModule = resolvedModuleForLiteral(literal, containingSourceFile);
+    const resolvedModule = resolvedModuleForImport(literal.getLiteralValue(), containingSourceFile);
 
     if (resolvedModule !== undefined) {
         const resolvedFilePath = resolvedModule.resolvedFileName;
@@ -135,88 +133,80 @@ export function resolveSourceFileForLiteral(
     return undefined;
 }
 
-function resolvedModuleBasedReference(
-    literal: StringLiteral,
+function resolveWasmReference(
+    importValue: string,
     containingSourceFile: Readonly<SourceFile>,
     packageJsonPath: string
 ): Readonly<ModuleReference | undefined> {
-    const resolvedModule = resolvedModuleForLiteral(literal, containingSourceFile);
-    if (resolvedModule === undefined) {
-        return undefined;
-    }
-
-    const resolvedFilePath = resolvedModule.resolvedFileName;
-    if (isNodeModulesPath(resolvedFilePath)) {
-        return {
-            kind: 'external-package',
-            packageName: extractModuleName(resolvedFilePath)
-        };
-    }
-
-    return classifyLocalReference(resolvedFilePath, packageJsonPath);
-}
-
-function fallbackModuleReference(
-    literal: StringLiteral,
-    containingSourceFile: Readonly<SourceFile>,
-    packageJsonPath: string
-): Readonly<ModuleReference | undefined> {
-    const importValue = literal.getLiteralValue();
-    if (!importValue.endsWith('.wasm')) {
-        return undefined;
-    }
-
     if (isRelativeOrAbsoluteSpecifier(importValue)) {
-        const wasmFilePath = resolveLocalWasmFilePath(literal, containingSourceFile);
-        return wasmFilePath === undefined ? undefined : classifyLocalReference(wasmFilePath, packageJsonPath);
+        const moduleResolutionHost = containingSourceFile.getProject().getModuleResolutionHost();
+        const candidatePath = path.resolve(path.dirname(containingSourceFile.getFilePath()), importValue);
+        return moduleResolutionHost.fileExists(candidatePath)
+            ? classifyLocalReference(candidatePath, packageJsonPath)
+            : undefined;
     }
 
-    const packageOwnedWasm = resolvePackageOwnedWasmFilePath(literal, containingSourceFile);
-    if (packageOwnedWasm === undefined) {
+    packageNameFromSpecifier(importValue);
+    const moduleResolutionHost = containingSourceFile.getProject().getModuleResolutionHost();
+    const resolvedFilePath = findPackageOwnedAssetFilePath(
+        importValue,
+        path.dirname(containingSourceFile.getFilePath()),
+        (candidatePath) => {
+            return moduleResolutionHost.fileExists(candidatePath);
+        }
+    );
+    if (resolvedFilePath === undefined) {
         return undefined;
     }
 
     return {
-        kind: 'external-package',
-        packageName: packageOwnedWasm.packageName
+        kind: moduleReferenceKind.externalPackage,
+        packageName: packageNameFromSpecifier(importValue)
     };
 }
 
-function resolveModuleReferenceForLiteral(
-    literal: StringLiteral,
+function resolveModuleReferenceForImport(
+    importValue: string,
     containingSourceFile: Readonly<SourceFile>,
     packageJsonPath: string
 ): Readonly<ModuleReference | undefined> {
-    const directReference = resolvedModuleBasedReference(literal, containingSourceFile, packageJsonPath);
-    if (directReference !== undefined) {
-        return directReference;
+    const resolvedModule = resolvedModuleForImport(importValue, containingSourceFile);
+    if (resolvedModule !== undefined) {
+        if (!isRelativeOrAbsoluteSpecifier(importValue) && !isHashSpecifier(importValue)) {
+            return {
+                kind: moduleReferenceKind.externalPackage,
+                packageName: externalPackageNameForResolvedImport(
+                    importValue,
+                    resolvedModule.resolvedFileName,
+                    containingSourceFile
+                )
+            };
+        }
+
+        return classifyLocalReference(resolvedModule.resolvedFileName, packageJsonPath);
     }
 
-    return fallbackModuleReference(literal, containingSourceFile, packageJsonPath);
+    return importValue.endsWith(wasmExtension)
+        ? resolveWasmReference(importValue, containingSourceFile, packageJsonPath)
+        : undefined;
 }
 
 export function getReferencedModules(
     sourceFile: Readonly<SourceFile>,
     packageJsonPath: string
 ): readonly Readonly<ModuleReference>[] {
-    const importStringLiterals = sourceFile.getImportStringLiterals();
-    return importStringLiterals
-        .map((literal) => {
-            const referencedModule = resolveModuleReferenceForLiteral(literal, sourceFile, packageJsonPath);
+    const referencedModules: ModuleReference[] = [];
 
-            if (referencedModule === undefined) {
-                const importValue = literal.getLiteralValue();
+    for (const literal of sourceFile.getImportStringLiterals()) {
+        const importValue = literal.getLiteralValue();
+        const referencedModule = resolveModuleReferenceForImport(importValue, sourceFile, packageJsonPath);
 
-                if (isBuiltin(importValue)) {
-                    return undefined;
-                }
+        if (referencedModule !== undefined) {
+            referencedModules.push(referencedModule);
+        } else if (!isBuiltin(importValue)) {
+            throw new Error(`Failed to resolve import "${importValue}" in file "${sourceFile.getFilePath()}"`);
+        }
+    }
 
-                const message = `Failed to resolve import "${importValue}" in file "${sourceFile.getFilePath()}"`;
-
-                throw new Error(message);
-            }
-
-            return referencedModule;
-        })
-        .filter(isDefined);
+    return referencedModules;
 }

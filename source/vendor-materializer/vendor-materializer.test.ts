@@ -75,6 +75,27 @@ async function runExpectingFailure(
     return expectErr(await materializer.materializeExternals(request));
 }
 
+async function expectInvalidVendoredDependencyFailure(
+    dependencies: Readonly<Record<string, string>>,
+    invalidDependencyName: string
+): Promise<void> {
+    const failure = await runExpectingFailure(
+        {
+            readabilities: [{ value: { isReadable: true } }],
+            realPaths: [{ value: '/repo/node_modules/pkg' }],
+            listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
+            fileReads: [{ value: JSON.stringify({ dependencies }) }]
+        },
+        { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+    );
+
+    assert.deepStrictEqual(failure, {
+        type: 'invalid-dependency-name',
+        sourcePackageName: 'pkg',
+        invalidDependencyName
+    });
+}
+
 suite('vendor-materializer', function () {
     test('treats a package.json with malformed dependency maps as having no transitive dependencies and no peer requirements', async function () {
         const result = await runWith(
@@ -373,6 +394,27 @@ suite('vendor-materializer', function () {
         assert.deepStrictEqual(targetPaths, ['node_modules/pkg/dist/index.js', 'node_modules/pkg/bin.js']);
     });
 
+    test('vendors a symlink whose resolved target is the package directory itself', async function () {
+        const result = await runWith(
+            {
+                readabilities: [{ value: { isReadable: true } }],
+                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg' }],
+                listings: [
+                    {
+                        value: [{ name: 'self-link', isDirectory: false, isSymbolicLink: true }]
+                    }
+                ],
+                fileReads: [{ value: '{}' }]
+            },
+            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(
+            result.entries.map((entry) => entry.targetRelativePath),
+            ['node_modules/pkg/self-link']
+        );
+    });
+
     test('rejects a symlink whose resolved target escapes the package directory', async function () {
         const failure = await runExpectingFailure(
             {
@@ -483,21 +525,7 @@ suite('vendor-materializer', function () {
     });
 
     test('rejects an absolute-path dependency name in a vendored manifest', async function () {
-        const failure = await runExpectingFailure(
-            {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }],
-                listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
-                fileReads: [{ value: JSON.stringify({ dependencies: { '/etc/passwd': '*' } }) }]
-            },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
-        );
-
-        assert.deepStrictEqual(failure, {
-            type: 'invalid-dependency-name',
-            sourcePackageName: 'pkg',
-            invalidDependencyName: '/etc/passwd'
-        });
+        await expectInvalidVendoredDependencyFailure({ '/etc/passwd': '*' }, '/etc/passwd');
     });
 
     test('rejects an initial dependency name that is not a valid npm package name without touching the filesystem', async function () {
@@ -520,21 +548,7 @@ suite('vendor-materializer', function () {
     });
 
     test('only flags the offending key when an earlier dependency key is valid and a later one is not parseable', async function () {
-        const failure = await runExpectingFailure(
-            {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }],
-                listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
-                fileReads: [{ value: JSON.stringify({ dependencies: { 'valid-one': '1.0.0', 'has space': '*' } }) }]
-            },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
-        );
-
-        assert.deepStrictEqual(failure, {
-            type: 'invalid-dependency-name',
-            sourcePackageName: 'pkg',
-            invalidDependencyName: 'has space'
-        });
+        await expectInvalidVendoredDependencyFailure({ 'valid-one': '1.0.0', 'has space': '*' }, 'has space');
     });
 
     test('accepts a scoped package name in dependency keys', async function () {

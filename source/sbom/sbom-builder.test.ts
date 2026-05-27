@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import * as cdx from '@cyclonedx/cyclonedx-library';
 import { suite, test } from 'mocha';
 import { buildSbom } from './sbom-builder.ts';
 import { createSbomSerializer } from './sbom-serializer.ts';
@@ -53,7 +54,14 @@ suite('sbom-builder', function () {
 
     test('adds a runtime dependency with required scope and SPDX expression license', function () {
         const serialized = buildAndSerialize({
-            dependencies: [{ name: 'lodash', specifier: '^4.17.0', kind: 'runtime', license: 'MIT' }]
+            dependencies: [
+                {
+                    name: 'lodash',
+                    specifier: '^4.17.0',
+                    scope: cdx.Enums.ComponentScope.Required,
+                    license: 'MIT'
+                }
+            ]
         });
 
         assert.deepStrictEqual(serialized.components, [
@@ -71,7 +79,14 @@ suite('sbom-builder', function () {
 
     test('adds a peer dependency with optional scope', function () {
         const serialized = buildAndSerialize({
-            dependencies: [{ name: 'react', specifier: '>=18', kind: 'peer', license: 'MIT' }]
+            dependencies: [
+                {
+                    name: 'react',
+                    specifier: '>=18',
+                    scope: cdx.Enums.ComponentScope.Optional,
+                    license: 'MIT'
+                }
+            ]
         });
         const components = serialized.components as readonly Record<string, unknown>[];
 
@@ -81,7 +96,12 @@ suite('sbom-builder', function () {
     test('falls back to a named license when the license string is not a valid SPDX expression', function () {
         const serialized = buildAndSerialize({
             dependencies: [
-                { name: 'weird', specifier: '1.0.0', kind: 'runtime', license: 'See LICENSE.txt for details' }
+                {
+                    name: 'weird',
+                    specifier: '1.0.0',
+                    scope: cdx.Enums.ComponentScope.Required,
+                    license: 'See LICENSE.txt for details'
+                }
             ]
         });
         const components = serialized.components as readonly Record<string, unknown>[];
@@ -91,7 +111,14 @@ suite('sbom-builder', function () {
 
     test('omits the licenses field entirely when no license is known for a dependency', function () {
         const serialized = buildAndSerialize({
-            dependencies: [{ name: 'no-license', specifier: '1.0.0', kind: 'runtime', license: undefined }]
+            dependencies: [
+                {
+                    name: 'no-license',
+                    specifier: '1.0.0',
+                    scope: cdx.Enums.ComponentScope.Required,
+                    license: undefined
+                }
+            ]
         });
         const components = serialized.components as readonly Record<string, unknown>[];
 
@@ -100,7 +127,14 @@ suite('sbom-builder', function () {
 
     test('encodes the version specifier inside the purl using URL-encoding', function () {
         const serialized = buildAndSerialize({
-            dependencies: [{ name: 'lodash', specifier: '^4.17.0', kind: 'runtime', license: 'MIT' }]
+            dependencies: [
+                {
+                    name: 'lodash',
+                    specifier: '^4.17.0',
+                    scope: cdx.Enums.ComponentScope.Required,
+                    license: 'MIT'
+                }
+            ]
         });
         const components = serialized.components as readonly Record<string, unknown>[];
 
@@ -110,8 +144,18 @@ suite('sbom-builder', function () {
     test('records every direct dependency under the root component dependency graph', function () {
         const serialized = buildAndSerialize({
             dependencies: [
-                { name: 'lodash', specifier: '^4.17.0', kind: 'runtime', license: 'MIT' },
-                { name: 'react', specifier: '>=18', kind: 'peer', license: 'MIT' }
+                {
+                    name: 'lodash',
+                    specifier: '^4.17.0',
+                    scope: cdx.Enums.ComponentScope.Required,
+                    license: 'MIT'
+                },
+                {
+                    name: 'react',
+                    specifier: '>=18',
+                    scope: cdx.Enums.ComponentScope.Optional,
+                    license: 'MIT'
+                }
             ]
         });
         const dependencies = serialized.dependencies as readonly Record<string, unknown>[];

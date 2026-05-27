@@ -6,7 +6,9 @@ import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bun
 import { checkBundle } from '../../test-libraries/check-bundle-fixture.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 
-function bundle(name: string, sourceFilePath: string): AnalyzedBundle {
+const sharedFilePath = 'shared.ts';
+
+function bundle(name: string, sourceFilePath: string = sharedFilePath): AnalyzedBundle {
     return checkBundle(name, [sourceFilePath]);
 }
 
@@ -28,6 +30,23 @@ function createSymbolAwareProject(): {
     };
 }
 
+function duplicateIssue(filePath: string, owners: readonly string[]): readonly string[] {
+    return [`File "${filePath}" is included in multiple packages: ${owners.join(', ')}`];
+}
+
+function sharedDeclarationIssue(
+    filePath: string,
+    owners: readonly string[],
+    declarations: readonly string[]
+): readonly string[] {
+    return [
+        [
+            `File "${filePath}" has shared declarations across multiple packages:`,
+            ...declarations.map((declaration) => `  - "${declaration}" → ${owners.join(', ')}`)
+        ].join('\n')
+    ];
+}
+
 function consentMap(
     consenters: readonly (readonly [string, readonly string[]])[]
 ): ReadonlyMap<string, PackageChecksSettings> {
@@ -38,15 +57,52 @@ function consentMap(
     );
 }
 
+function runRule(args: {
+    readonly bundles: readonly AnalyzedBundle[];
+    readonly settings:
+        | { readonly noDuplicatedFiles: { readonly enabled: boolean; readonly allowList?: readonly string[] } }
+        | undefined;
+    readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings>;
+}): readonly string[] {
+    return noDuplicatedFilesRule.run(args);
+}
+
 function runWithConsent(
     bundles: readonly AnalyzedBundle[],
     consenters: readonly (readonly [string, readonly string[]])[]
 ): readonly string[] {
-    return noDuplicatedFilesRule.run({
+    return runRule({
         bundles,
         settings: { noDuplicatedFiles: { enabled: true } },
         perPackageSettings: consentMap(consenters)
     });
+}
+
+function runWithMixedConsent(secondOwnerSettings: PackageChecksSettings): readonly string[] {
+    return runRule({
+        bundles: [bundle('a'), bundle('b')],
+        settings: { noDuplicatedFiles: { enabled: true } },
+        perPackageSettings: new Map([
+            ['a', { noDuplicatedFiles: { allowList: [sharedFilePath] } }],
+            ['b', secondOwnerSettings]
+        ])
+    });
+}
+
+function registerScenarioTests<TScenario>(
+    scenarios: readonly TScenario[],
+    defineScenario: (scenario: TScenario) => {
+        readonly name: string;
+        readonly execute: () => void;
+    }
+): void {
+    const [scenario, ...remainingScenarios] = scenarios;
+    if (scenario !== undefined) {
+        const { name, execute } = defineScenario(scenario);
+
+        test(name, execute);
+        registerScenarioTests(remainingScenarios, defineScenario);
+    }
 }
 
 suite('no-duplicated-files', function () {
@@ -57,189 +113,205 @@ suite('no-duplicated-files', function () {
         assert.notStrictEqual(noDuplicatedFilesRule.perPackageSchema, undefined);
     });
 
-    test('returns no issues when settings are missing entirely', function () {
-        const result = noDuplicatedFilesRule.run({
-            bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+    const topLevelSettingsScenarios = [
+        {
+            name: 'returns no issues when settings are missing entirely',
             settings: undefined,
-            perPackageSettings: new Map()
-        });
-
-        assert.deepStrictEqual(result, []);
-    });
-
-    test('returns no issues when the rule is disabled at the top level', function () {
-        const result = noDuplicatedFilesRule.run({
-            bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+            perPackageSettings: new Map(),
+            bundles: [bundle('a'), bundle('b')],
+            expected: []
+        },
+        {
+            name: 'returns no issues when the rule is disabled at the top level',
             settings: { noDuplicatedFiles: { enabled: false } },
-            perPackageSettings: new Map()
-        });
+            perPackageSettings: new Map(),
+            bundles: [bundle('a'), bundle('b')],
+            expected: []
+        }
+    ] as const;
 
-        assert.deepStrictEqual(result, []);
+    registerScenarioTests(topLevelSettingsScenarios, (scenario) => {
+        return {
+            name: scenario.name,
+            execute() {
+                const result = runRule(scenario);
+                assert.deepStrictEqual(result, scenario.expected);
+            }
+        };
     });
 
-    test('reports every duplicate when no per-package consent is configured', function () {
-        const result = runWithConsent([bundle('b', 'shared.ts'), bundle('a', 'shared.ts')], []);
-
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
-    });
-
-    test('ignores duplicates when every owning package consents via its allowList', function () {
-        const result = runWithConsent(
-            [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
-            [
-                ['a', ['shared.ts']],
-                ['b', ['shared.ts']]
-            ]
-        );
-
-        assert.deepStrictEqual(result, []);
-    });
-
-    test('reports a duplicate when only one owner consents', function () {
-        const result = runWithConsent([bundle('a', 'shared.ts'), bundle('b', 'shared.ts')], [['a', ['shared.ts']]]);
-
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
-    });
-
-    test('reports a duplicate when a third owner did not consent', function () {
-        const result = runWithConsent(
-            [bundle('a', 'shared.ts'), bundle('b', 'shared.ts'), bundle('c', 'shared.ts')],
-            [
-                ['a', ['shared.ts']],
-                ['b', ['shared.ts']]
-            ]
-        );
-
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b, c']);
-    });
-
-    test('does not match consent for a different file path', function () {
-        const result = runWithConsent(
-            [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
-            [
+    const duplicateConsentScenarios = [
+        {
+            name: 'reports every duplicate when no per-package consent is configured',
+            bundles: [bundle('b'), bundle('a')],
+            consenters: [],
+            expected: duplicateIssue(sharedFilePath, ['a', 'b'])
+        },
+        {
+            name: 'ignores duplicates when every owning package consents via its allowList',
+            bundles: [bundle('a'), bundle('b')],
+            consenters: [
+                ['a', [sharedFilePath]],
+                ['b', [sharedFilePath]]
+            ],
+            expected: []
+        },
+        {
+            name: 'reports a duplicate when only one owner consents',
+            bundles: [bundle('a'), bundle('b')],
+            consenters: [['a', [sharedFilePath]]],
+            expected: duplicateIssue(sharedFilePath, ['a', 'b'])
+        },
+        {
+            name: 'reports a duplicate when a third owner did not consent',
+            bundles: [bundle('a'), bundle('b'), bundle('c')],
+            consenters: [
+                ['a', [sharedFilePath]],
+                ['b', [sharedFilePath]]
+            ],
+            expected: duplicateIssue(sharedFilePath, ['a', 'b', 'c'])
+        },
+        {
+            name: 'does not match consent for a different file path',
+            bundles: [bundle('a'), bundle('b')],
+            consenters: [
                 ['a', ['other.ts']],
                 ['b', ['other.ts']]
-            ]
-        );
+            ],
+            expected: duplicateIssue(sharedFilePath, ['a', 'b'])
+        },
+        {
+            name: 'returns no issues when there are no duplicates',
+            bundles: [bundle('a', 'a.ts'), bundle('b', 'b.ts')],
+            consenters: [],
+            expected: []
+        }
+    ] as const;
 
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+    registerScenarioTests(duplicateConsentScenarios, (scenario) => {
+        return {
+            name: scenario.name,
+            execute() {
+                const result = runWithConsent(scenario.bundles, scenario.consenters);
+                assert.deepStrictEqual(result, scenario.expected);
+            }
+        };
     });
 
-    test('returns no issues when there are no duplicates', function () {
-        const result = runWithConsent([bundle('a', 'a.ts'), bundle('b', 'b.ts')], []);
+    const mixedConsentScenarios = [
+        {
+            name: 'reports a duplicate when an owner has per-package settings without a noDuplicatedFiles key',
+            secondOwnerSettings: {},
+            expected: duplicateIssue(sharedFilePath, ['a', 'b'])
+        },
+        {
+            name: 'reports a duplicate when an owner has noDuplicatedFiles without an allowList',
+            secondOwnerSettings: { noDuplicatedFiles: {} },
+            expected: duplicateIssue(sharedFilePath, ['a', 'b'])
+        }
+    ] as const;
 
-        assert.deepStrictEqual(result, []);
+    registerScenarioTests(mixedConsentScenarios, (scenario) => {
+        return {
+            name: scenario.name,
+            execute() {
+                const result = runWithMixedConsent(scenario.secondOwnerSettings);
+                assert.deepStrictEqual(result, scenario.expected);
+            }
+        };
     });
 
-    function runWithMixedConsent(secondOwnerSettings: PackageChecksSettings): readonly string[] {
-        return noDuplicatedFilesRule.run({
-            bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
-            settings: { noDuplicatedFiles: { enabled: true } },
-            perPackageSettings: new Map([
-                ['a', { noDuplicatedFiles: { allowList: ['shared.ts'] } }],
-                ['b', secondOwnerSettings]
-            ])
-        });
-    }
-
-    test('reports a duplicate when an owner has per-package settings without a noDuplicatedFiles key', function () {
-        const result = runWithMixedConsent({});
-
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
-    });
-
-    test('reports a duplicate when an owner has noDuplicatedFiles without an allowList', function () {
-        const result = runWithMixedConsent({ noDuplicatedFiles: {} });
-
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
-    });
-
-    test('ignores duplicates when the global allowList contains the file path even without per-package consent', function () {
-        const result = noDuplicatedFilesRule.run({
-            bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
-            settings: { noDuplicatedFiles: { enabled: true, allowList: ['shared.ts'] } },
-            perPackageSettings: new Map()
-        });
-
-        assert.deepStrictEqual(result, []);
-    });
-
-    test('reports a duplicate that is not present in the global allowList', function () {
-        const result = noDuplicatedFilesRule.run({
-            bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+    const globalAllowListScenarios = [
+        {
+            name: 'ignores duplicates when the global allowList contains the file path even without per-package consent',
+            settings: { noDuplicatedFiles: { enabled: true, allowList: [sharedFilePath] } },
+            expected: []
+        },
+        {
+            name: 'reports a duplicate that is not present in the global allowList',
             settings: { noDuplicatedFiles: { enabled: true, allowList: ['other.ts'] } },
-            perPackageSettings: new Map()
-        });
+            expected: duplicateIssue(sharedFilePath, ['a', 'b'])
+        }
+    ] as const;
 
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
+    registerScenarioTests(globalAllowListScenarios, (scenario) => {
+        return {
+            name: scenario.name,
+            execute() {
+                const result = runRule({
+                    bundles: [bundle('a'), bundle('b')],
+                    settings: scenario.settings,
+                    perPackageSettings: new Map()
+                });
+                assert.deepStrictEqual(result, scenario.expected);
+            }
+        };
     });
 
-    test('reports shared declarations when surviving bindings overlap', function () {
-        const project = createSymbolAwareProject();
-        const result = noDuplicatedFilesRule.run({
+    const project = createSymbolAwareProject();
+
+    const sharedDeclarationScenarios = [
+        {
+            name: 'reports shared declarations when surviving bindings overlap',
             bundles: [
                 project.bundle('pkg1', '/helpers.ts', new Set(['format', 'validate'])),
                 project.bundle('pkg2', '/helpers.ts', new Set(['format', 'parse']))
             ],
             settings: { noDuplicatedFiles: { enabled: true } },
-            perPackageSettings: new Map()
-        });
-
-        assert.deepStrictEqual(result, [
-            ['File "/helpers.ts" has shared declarations across multiple packages:', '  - "format" → pkg1, pkg2'].join(
-                '\n'
-            )
-        ]);
-    });
-
-    test('does not report when surviving binding sets are fully disjoint', function () {
-        const project = createSymbolAwareProject();
-        const result = noDuplicatedFilesRule.run({
+            expected: sharedDeclarationIssue('/helpers.ts', ['pkg1', 'pkg2'], ['format'])
+        },
+        {
+            name: 'does not report when surviving binding sets are fully disjoint',
             bundles: [
                 project.bundle('pkg1', '/helpers.ts', new Set(['validate'])),
                 project.bundle('pkg2', '/helpers.ts', new Set(['parse']))
             ],
             settings: { noDuplicatedFiles: { enabled: true } },
-            perPackageSettings: new Map()
-        });
-
-        assert.deepStrictEqual(result, []);
-    });
-
-    test('lists every shared declaration in alphabetical order', function () {
-        const project = createSymbolAwareProject();
-        const result = noDuplicatedFilesRule.run({
+            expected: []
+        },
+        {
+            name: 'lists every shared declaration in alphabetical order',
             bundles: [
                 project.bundle('pkg1', '/util.ts', new Set(['zeta', 'alpha', 'parse'])),
                 project.bundle('pkg2', '/util.ts', new Set(['zeta', 'alpha', 'validate']))
             ],
             settings: { noDuplicatedFiles: { enabled: true } },
-            perPackageSettings: new Map()
-        });
+            expected: sharedDeclarationIssue('/util.ts', ['pkg1', 'pkg2'], ['alpha', 'zeta'])
+        },
+        {
+            name: 'does not report when one owner has no surviving bindings and the other has bindings that do not match',
+            bundles: [project.bundle('pkg1', '/helpers.ts', new Set(['format'])), bundle('pkg2', '/helpers.ts')],
+            settings: { noDuplicatedFiles: { enabled: true } },
+            expected: []
+        },
+        {
+            name: 'global allowList suppresses the symbol-level message',
+            bundles: [
+                project.bundle('pkg1', '/helpers.ts', new Set(['format'])),
+                project.bundle('pkg2', '/helpers.ts', new Set(['format']))
+            ],
+            settings: { noDuplicatedFiles: { enabled: true, allowList: ['/helpers.ts'] } },
+            expected: []
+        }
+    ] as const;
 
-        assert.deepStrictEqual(result, [
-            [
-                'File "/util.ts" has shared declarations across multiple packages:',
-                '  - "alpha" → pkg1, pkg2',
-                '  - "zeta" → pkg1, pkg2'
-            ].join('\n')
-        ]);
+    registerScenarioTests(sharedDeclarationScenarios, (scenario) => {
+        return {
+            name: scenario.name,
+            execute() {
+                const result = runRule({
+                    bundles: scenario.bundles,
+                    settings: scenario.settings,
+                    perPackageSettings: new Map()
+                });
+                assert.deepStrictEqual(result, scenario.expected);
+            }
+        };
     });
 
     test('does not report when only a single bundle owns the file', function () {
-        const result = noDuplicatedFilesRule.run({
-            bundles: [bundle('a', 'shared.ts')],
-            settings: { noDuplicatedFiles: { enabled: true } },
-            perPackageSettings: new Map()
-        });
-
-        assert.deepStrictEqual(result, []);
-    });
-
-    test('does not report when one owner has no surviving bindings and the other has bindings that do not match', function () {
-        const project = createSymbolAwareProject();
-        const result = noDuplicatedFilesRule.run({
-            bundles: [project.bundle('pkg1', '/helpers.ts', new Set(['format'])), bundle('pkg2', '/helpers.ts')],
+        const result = runRule({
+            bundles: [bundle('a')],
             settings: { noDuplicatedFiles: { enabled: true } },
             perPackageSettings: new Map()
         });
@@ -248,26 +320,12 @@ suite('no-duplicated-files', function () {
     });
 
     test('falls back to path-level message when surviving bindings are unavailable for every owner', function () {
-        const result = noDuplicatedFilesRule.run({
-            bundles: [bundle('a', 'shared.ts'), bundle('b', 'shared.ts')],
+        const result = runRule({
+            bundles: [bundle('a'), bundle('b')],
             settings: { noDuplicatedFiles: { enabled: true } },
             perPackageSettings: new Map()
         });
 
-        assert.deepStrictEqual(result, ['File "shared.ts" is included in multiple packages: a, b']);
-    });
-
-    test('global allowList suppresses the symbol-level message', function () {
-        const project = createSymbolAwareProject();
-        const result = noDuplicatedFilesRule.run({
-            bundles: [
-                project.bundle('pkg1', '/helpers.ts', new Set(['format'])),
-                project.bundle('pkg2', '/helpers.ts', new Set(['format']))
-            ],
-            settings: { noDuplicatedFiles: { enabled: true, allowList: ['/helpers.ts'] } },
-            perPackageSettings: new Map()
-        });
-
-        assert.deepStrictEqual(result, []);
+        assert.deepStrictEqual(result, duplicateIssue(sharedFilePath, ['a', 'b']));
     });
 });

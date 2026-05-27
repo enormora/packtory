@@ -1,70 +1,131 @@
+import { isDefined, pickBy } from 'remeda';
 import { toImportTarget, type BundleLike, type ExportEntry } from './package-shape.ts';
 
 type SubstitutionBundle = Pick<BundleLike, 'contents' | 'name' | 'roots'>;
+type BundleContent = BundleLike['contents'][number];
+type SubstitutionBundleLookups = {
+    readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
+    readonly targetFilePaths: ReadonlySet<string>;
+    readonly rootSourceFilePaths: ReadonlySet<string>;
+};
+type DeclarationCompanionRule = {
+    readonly declarationExtension: string;
+    readonly jsExtension: string;
+};
 
-const jsExtensionToDeclarationExtension: ReadonlyMap<string, string> = new Map([
-    ['.mjs', '.d.mts'],
-    ['.cjs', '.d.cts'],
-    ['.js', '.d.ts']
-]);
+function collectRootSourceFilePaths(bundle: SubstitutionBundle): ReadonlySet<string> {
+    const rootSourceFilePaths = new Set<string>();
 
-function isRootSourcePath(bundle: Pick<BundleLike, 'roots'>, sourceFilePath: string): boolean {
-    return Object.values(bundle.roots).some((root) => {
-        return root.js.sourceFilePath === sourceFilePath;
-    });
-}
-
-function isDeclarationTargetFilePath(targetFilePath: string): boolean {
-    return targetFilePath.endsWith('.d.ts') || targetFilePath.endsWith('.d.mts') || targetFilePath.endsWith('.d.cts');
-}
-
-function findContent(bundle: SubstitutionBundle, sourceFilePath: string): BundleLike['contents'][number] {
-    const content = bundle.contents.find((entry) => {
-        return entry.fileDescription.sourceFilePath === sourceFilePath;
-    });
-    if (content === undefined) {
-        throw new Error(`Package "${bundle.name}" is missing content for "${sourceFilePath}"`);
+    for (const root of Object.values(bundle.roots)) {
+        rootSourceFilePaths.add(root.js.sourceFilePath);
     }
+
+    return rootSourceFilePaths;
+}
+
+function collectBundleContentLookups(bundle: SubstitutionBundle): {
+    readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
+    readonly targetFilePaths: ReadonlySet<string>;
+} {
+    const contentBySourceFilePath = new Map<string, BundleContent>();
+    const targetFilePaths = new Set<string>();
+
+    for (const entry of bundle.contents) {
+        const { sourceFilePath, targetFilePath } = entry.fileDescription;
+
+        if (!contentBySourceFilePath.has(sourceFilePath)) {
+            contentBySourceFilePath.set(sourceFilePath, entry);
+        }
+
+        targetFilePaths.add(targetFilePath);
+    }
+
+    return { contentBySourceFilePath, targetFilePaths };
+}
+
+function createSubstitutionBundleLookups(bundle: SubstitutionBundle): SubstitutionBundleLookups {
+    const { contentBySourceFilePath, targetFilePaths } = collectBundleContentLookups(bundle);
+
+    return {
+        contentBySourceFilePath,
+        targetFilePaths,
+        rootSourceFilePaths: collectRootSourceFilePaths(bundle)
+    };
+}
+
+function findBundleContent(
+    bundleName: string,
+    contentBySourceFilePath: ReadonlyMap<string, BundleContent>,
+    sourceFilePath: string
+): BundleContent {
+    const content = contentBySourceFilePath.get(sourceFilePath);
+    if (content === undefined) {
+        throw new Error(`Package "${bundleName}" is missing content for "${sourceFilePath}"`);
+    }
+
     return content;
 }
 
-function findContentTargetPath(bundle: SubstitutionBundle, targetFilePath: string): string | undefined {
-    const match = bundle.contents.find((entry) => {
-        return entry.fileDescription.targetFilePath === targetFilePath;
-    });
-    return match?.fileDescription.targetFilePath;
+function declarationCompanionTargetPathFor(
+    rule: DeclarationCompanionRule,
+    targetFilePaths: ReadonlySet<string>,
+    targetFilePath: string
+): string | null | undefined {
+    if (targetFilePath.endsWith(rule.declarationExtension)) {
+        return null;
+    }
+
+    if (!targetFilePath.endsWith(rule.jsExtension)) {
+        return undefined;
+    }
+
+    const targetPathWithoutExtension = targetFilePath.slice(0, -rule.jsExtension.length);
+    const declarationTargetFilePath = `${targetPathWithoutExtension}${rule.declarationExtension}`;
+    return targetFilePaths.has(declarationTargetFilePath) ? declarationTargetFilePath : undefined;
 }
 
-function findDeclarationCompanionTargetPath(bundle: SubstitutionBundle, jsTargetFilePath: string): string | undefined {
-    for (const [jsExtension, declarationExtension] of jsExtensionToDeclarationExtension) {
-        if (jsTargetFilePath.endsWith(jsExtension)) {
-            const candidatePath = `${jsTargetFilePath.slice(0, -jsExtension.length)}${declarationExtension}`;
-            return findContentTargetPath(bundle, candidatePath);
+function findDeclarationCompanionTargetPath(
+    targetFilePaths: ReadonlySet<string>,
+    targetFilePath: string
+): string | null | undefined {
+    for (const rule of [
+        { declarationExtension: '.d.mts', jsExtension: '.mjs' },
+        { declarationExtension: '.d.cts', jsExtension: '.cjs' },
+        { declarationExtension: '.d.ts', jsExtension: '.js' }
+    ] as const) {
+        const declarationTargetPath = declarationCompanionTargetPathFor(rule, targetFilePaths, targetFilePath);
+        if (declarationTargetPath !== undefined) {
+            return declarationTargetPath;
         }
     }
+
     return undefined;
 }
 
 function buildSubstitutionExportEntry(
-    bundle: SubstitutionBundle,
+    bundleName: string,
+    lookups: SubstitutionBundleLookups,
     sourceFilePath: string
 ): readonly [string, ExportEntry] | undefined {
-    if (isRootSourcePath(bundle, sourceFilePath)) {
+    if (lookups.rootSourceFilePaths.has(sourceFilePath)) {
         return undefined;
     }
 
-    const jsTargetFilePath = findContent(bundle, sourceFilePath).fileDescription.targetFilePath;
-    if (isDeclarationTargetFilePath(jsTargetFilePath)) {
+    const content = findBundleContent(bundleName, lookups.contentBySourceFilePath, sourceFilePath);
+    const jsTargetFilePath = content.fileDescription.targetFilePath;
+    const declarationTargetFilePath = findDeclarationCompanionTargetPath(lookups.targetFilePaths, jsTargetFilePath);
+    if (declarationTargetFilePath === null) {
         return undefined;
     }
-
-    const declarationTargetFilePath = findDeclarationCompanionTargetPath(bundle, jsTargetFilePath);
     return [
         `./${jsTargetFilePath}`,
-        {
-            import: toImportTarget(jsTargetFilePath),
-            ...(declarationTargetFilePath === undefined ? {} : { types: toImportTarget(declarationTargetFilePath) })
-        }
+        pickBy(
+            {
+                import: toImportTarget(jsTargetFilePath),
+                types: declarationTargetFilePath === undefined ? undefined : toImportTarget(declarationTargetFilePath)
+            },
+            isDefined
+        )
     ];
 }
 
@@ -72,10 +133,11 @@ export function collectSubstitutionExports(
     bundle: SubstitutionBundle,
     substitutionPublicModuleSourcePaths: ReadonlySet<string>
 ): Record<string, ExportEntry> {
+    const lookups = createSubstitutionBundleLookups(bundle);
     const substitutionExports: Record<string, ExportEntry> = {};
 
     for (const sourceFilePath of substitutionPublicModuleSourcePaths) {
-        const entry = buildSubstitutionExportEntry(bundle, sourceFilePath);
+        const entry = buildSubstitutionExportEntry(bundle.name, lookups, sourceFilePath);
         if (entry !== undefined) {
             const [exportKey, exportEntry] = entry;
             substitutionExports[exportKey] = exportEntry;

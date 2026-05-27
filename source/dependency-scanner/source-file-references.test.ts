@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { ModuleKind } from 'ts-morph';
+import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { getReferencedModules, resolveSourceFileForLiteral } from './source-file-references.ts';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
@@ -88,6 +88,29 @@ suite('source-file-references', function () {
         assert.deepStrictEqual(result, [{ kind: 'local-asset', filePath: '/module.wasm' }]);
     }
 
+    function createNode16Project(files: { readonly filePath: string; readonly content: string }[]): Project {
+        const project = new Project({
+            compilerOptions: {
+                allowJs: true,
+                module: ModuleKind.Node16,
+                esModuleInterop: true,
+                noLib: true,
+                target: ScriptTarget.ES2022,
+                moduleResolution: ModuleResolutionKind.Node16,
+                resolveJsonModule: true,
+                types: []
+            },
+            skipLoadingLibFiles: true,
+            useInMemoryFileSystem: true
+        });
+
+        for (const file of files) {
+            project.createSourceFile(file.filePath, file.content);
+        }
+
+        return project;
+    }
+
     test('returns array with the resolved source file using an import from statement', function () {
         expectMainResolvesToFoo([
             { filePath: 'main.ts', content: 'import {foo} from "./foo"' },
@@ -120,6 +143,13 @@ suite('source-file-references', function () {
             ],
             { module: ModuleKind.CommonJS }
         );
+    });
+
+    test('returns array with the resolved source file using a parent-relative import statement', function () {
+        expectMainResolvesToFoo([
+            { filePath: '/src/main.ts', content: 'import { foo } from "../foo";' },
+            { filePath: '/foo.ts', content: 'export const foo = "";' }
+        ]);
     });
 
     test('returns array with the resolved source file using dynamic imports', function () {
@@ -232,6 +262,54 @@ suite('source-file-references', function () {
         assert.deepStrictEqual(result, [{ kind: 'external-package', packageName: 'foo' }]);
     });
 
+    test('returns external package references for resolved unscoped node_modules imports', function () {
+        const project = createProject({
+            withFiles: [{ filePath: 'main.ts', content: 'import foo from "foo";' }]
+        });
+        project.createSourceFile('/node_modules/foo/index.d.ts', 'declare const foo: string; export default foo;');
+
+        const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+
+        assert.deepStrictEqual(result, [{ kind: 'external-package', packageName: 'foo' }]);
+    });
+
+    test('returns external package references for declaration imports resolved through @types packages', function () {
+        const project = createNode16Project([{ filePath: 'main.d.ts', content: 'export type { Foo } from "foo";' }]);
+        project.createDirectory('/node_modules');
+        project.createDirectory('/node_modules/@types');
+        project.createDirectory('/node_modules/@types/foo');
+        project.createSourceFile('/node_modules/@types/foo/index.d.ts', 'export type Foo = string;');
+
+        const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageJsonPath);
+
+        assert.deepStrictEqual(result, [{ kind: 'external-package', packageName: '@types/foo' }]);
+    });
+
+    test('returns the imported package name for source files resolved through @types packages', function () {
+        const project = createNode16Project([{ filePath: 'main.ts', content: 'import foo from "foo";\nvoid foo;' }]);
+        project.createDirectory('/node_modules');
+        project.createDirectory('/node_modules/@types');
+        project.createDirectory('/node_modules/@types/foo');
+        project.createSourceFile(
+            '/node_modules/@types/foo/index.d.ts',
+            'declare const foo: string; export default foo;'
+        );
+
+        const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+
+        assert.deepStrictEqual(result, [{ kind: 'external-package', packageName: 'foo' }]);
+    });
+
+    test('returns external package references for declaration imports resolved outside @types packages', function () {
+        const project = createNode16Project([{ filePath: 'main.d.ts', content: 'export type { Foo } from "foo";' }]);
+        project.createDirectory('/node_modules/foo');
+        project.createSourceFile('/node_modules/foo/index.d.ts', 'export type Foo = string;');
+
+        const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageJsonPath);
+
+        assert.deepStrictEqual(result, [{ kind: 'external-package', packageName: 'foo' }]);
+    });
+
     test('returns external package references for package-owned root wasm files', function () {
         const project = createProject({
             withFiles: [{ filePath: 'main.ts', content: 'import module from "foo.wasm";' }]
@@ -259,6 +337,20 @@ suite('source-file-references', function () {
             withFiles: [{ filePath: 'main.ts', content: 'import module from "@scope/foo/module.wasm";' }]
         });
         project.createSourceFile('/node_modules/@scope/foo/module.wasm', 'wasm');
+
+        const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+
+        assert.deepStrictEqual(result, [{ kind: 'external-package', packageName: '@scope/foo' }]);
+    });
+
+    test('returns external package references for resolved scoped node_modules imports', function () {
+        const project = createProject({
+            withFiles: [{ filePath: 'main.ts', content: 'import foo from "@scope/foo";' }]
+        });
+        project.createSourceFile(
+            '/node_modules/@scope/foo/index.d.ts',
+            'declare const foo: string; export default foo;'
+        );
 
         const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
@@ -315,6 +407,26 @@ suite('source-file-references', function () {
         assert.deepStrictEqual(result, [{ kind: 'generated-manifest', filePath: '/package.json' }]);
     });
 
+    test('returns local code references for package.json imports resolved inside the package', function () {
+        const project = createNode16Project([
+            { filePath: 'main.ts', content: 'import { shared } from "#shared";' },
+            { filePath: 'shared.ts', content: 'export const shared = 1;' },
+            {
+                filePath: 'package.json',
+                content: JSON.stringify({
+                    type: 'module',
+                    imports: {
+                        '#shared': './shared.ts'
+                    }
+                })
+            }
+        ]);
+
+        const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+
+        assert.deepStrictEqual(result, [{ kind: 'local-code', filePath: '/shared.ts' }]);
+    });
+
     test('findPackageOwnedAssetFilePath() searches the current folder and its ancestors up to root', function () {
         const checkedPaths: string[] = [];
 
@@ -357,6 +469,17 @@ suite('source-file-references', function () {
             'import module from "./missing.wasm";',
             'Failed to resolve import "./missing.wasm" in file "/main.ts"'
         );
+    });
+
+    test('throws when a local non-wasm import exists on disk but is not resolvable as a module', function () {
+        const project = createProject({
+            withFiles: [{ filePath: 'main.ts', content: 'import data from "./module.bin";' }]
+        });
+        project.createSourceFile('/module.bin', 'binary');
+
+        assert.throws(() => {
+            getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+        }, /^Error: Failed to resolve import "\.\/module\.bin" in file "\/main\.ts"$/u);
     });
 
     test('classifies resolved local files outside the project as local code', function () {

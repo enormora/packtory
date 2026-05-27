@@ -1,24 +1,22 @@
-import { z } from 'zod/mini';
-import type { PublishAuthStrategy } from './config/registry-settings.ts';
+import type { NpmOidcPublishAuth } from './config/registry-settings.ts';
 
-const githubActionsAudience = 'npm:registry.npmjs.org';
-const defaultOidcIdTokenEnvVariableName = 'NPM_ID_TOKEN';
-
-type NpmOidcAuth = Extract<PublishAuthStrategy, { type: 'npm-oidc' }>;
-
-export type NpmOidcIdTokenResolver = (auth: NpmOidcAuth) => Promise<string>;
+export type NpmOidcIdTokenResolver = (auth: NpmOidcPublishAuth) => Promise<string>;
 
 export type NpmOidcIdTokenResolverDependencies = {
     readonly fetch: typeof globalThis.fetch;
     readonly getEnvironmentVariable: (variableName: string) => string | undefined;
 };
 
-const gitHubActionsIdTokenResponseSchema = z.object({
-    value: z.string().check(z.minLength(1))
-});
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return value instanceof Object && !Array.isArray(value);
+}
 
-async function parseJsonResponse(response: Response): Promise<unknown> {
-    return response.json() as Promise<unknown>;
+function githubActionsAudience(): string {
+    return 'npm:registry.npmjs.org';
+}
+
+function defaultOidcIdTokenEnvVariableName(): string {
+    return 'NPM_ID_TOKEN';
 }
 
 function getGitHubActionsRequestConfig(getEnvironmentVariable: (variableName: string) => string | undefined): {
@@ -36,16 +34,20 @@ function getGitHubActionsRequestConfig(getEnvironmentVariable: (variableName: st
 }
 
 function parseGitHubActionsIdTokenResponse(body: unknown): string {
-    const result = gitHubActionsIdTokenResponseSchema.safeParse(body);
-    if (!result.success) {
+    if (!isRecord(body)) {
         throw new Error('GitHub Actions OIDC token response did not contain a usable id_token');
     }
 
-    return result.data.value;
+    const { value } = body;
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new Error('GitHub Actions OIDC token response did not contain a usable id_token');
+    }
+
+    return value;
 }
 
 function usesGitHubActionsProvider(
-    auth: NpmOidcAuth,
+    auth: NpmOidcPublishAuth,
     getEnvironmentVariable: (variableName: string) => string | undefined
 ): boolean {
     const provider = auth.provider ?? 'auto';
@@ -61,7 +63,7 @@ export function createNpmOidcIdTokenResolver(
     async function fetchGitHubActionsIdToken(): Promise<string> {
         const { requestUrl, requestToken } = getGitHubActionsRequestConfig(getEnvironmentVariable);
         const url = new URL(requestUrl);
-        url.searchParams.set('audience', githubActionsAudience);
+        url.searchParams.set('audience', githubActionsAudience());
         const response = await fetchImplementation(url, {
             headers: { Authorization: `Bearer ${requestToken}` }
         });
@@ -70,7 +72,7 @@ export function createNpmOidcIdTokenResolver(
             throw new Error(`GitHub Actions OIDC token request failed with status ${response.status}`);
         }
 
-        return parseGitHubActionsIdTokenResponse(await parseJsonResponse(response));
+        return parseGitHubActionsIdTokenResponse(await response.json());
     }
 
     return async (auth) => {
@@ -78,7 +80,7 @@ export function createNpmOidcIdTokenResolver(
             return fetchGitHubActionsIdToken();
         }
 
-        const variableName = auth.idTokenEnvVar ?? defaultOidcIdTokenEnvVariableName;
+        const variableName = auth.idTokenEnvVar ?? defaultOidcIdTokenEnvVariableName();
         const value = getEnvironmentVariable(variableName);
         if (value === undefined) {
             throw new Error(`OIDC id_token environment variable "${variableName}" is missing`);

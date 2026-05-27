@@ -2,7 +2,7 @@ import { maxDate } from '../common/max-date.ts';
 
 export type PullRequestTimelineEvent = {
     readonly createdAt: Date;
-    readonly event: string;
+    readonly event?: string | undefined;
 };
 
 export type PullRequestActivity = {
@@ -41,10 +41,8 @@ export type GitHubReleaseGateInput = {
     readonly successfulMainCiRun: SuccessfulMainCiRun | undefined;
 };
 
-const branchActivityEvents = new Set(['committed', 'head_ref_deleted', 'head_ref_force_pushed', 'head_ref_restored']);
-const millisecondsPerSecond = 1000;
-const minutesPerHour = 60;
-const secondsPerMinute = 60;
+const millisecondsPerMinute = 60_000;
+const millisecondsPerHour = 3_600_000;
 
 type DecisionLogContext = {
     readonly input: GitHubReleaseGateInput;
@@ -55,25 +53,42 @@ type DecisionLogContext = {
     readonly quietPeriodElapsed: boolean;
 };
 
+function createDecision(
+    shouldPublish: boolean,
+    reason: GitHubReleaseGateDecision['reason'],
+    logs: readonly string[],
+    decisionLog: string
+): GitHubReleaseGateDecision {
+    return {
+        shouldPublish,
+        reason,
+        logs: [...logs, decisionLog]
+    };
+}
+
 function createMainCiSuccessLog(context: DecisionLogContext): string {
     return `main CI success: ${context.mainHeadCiSuccessAt.toISOString()} (${context.mainHeadCiSuccessHtmlUrl})`;
 }
 
 function buildDecisionLogs(context: DecisionLogContext): readonly string[] {
-    return [
+    const logs = [
         `main HEAD: ${context.input.mainHeadSha}`,
         createMainCiSuccessLog(context),
-        `open PRs targeting ${context.input.mainBranch}: ${context.input.pullRequestActivities.length}`,
-        ...context.input.pullRequestActivities.map((pullRequestActivity) => {
-            return (
-                `PR #${pullRequestActivity.number} activity: ` +
-                `${pullRequestActivity.activityAt.toISOString()} ${pullRequestActivity.htmlUrl}`
-            );
-        }),
+        `open PRs targeting ${context.input.mainBranch}: ${context.input.pullRequestActivities.length}`
+    ];
+
+    for (const pullRequestActivity of context.input.pullRequestActivities) {
+        const activityAt = pullRequestActivity.activityAt.toISOString();
+        logs.push(`PR #${pullRequestActivity.number} activity: ${activityAt} ${pullRequestActivity.htmlUrl}`);
+    }
+
+    logs.push(
         `last relevant activity: ${context.lastRelevantActivityAt.toISOString()}`,
         `quiet period elapsed: ${context.quietPeriodElapsed}`,
         `max latency elapsed: ${context.maxLatencyElapsed}`
-    ];
+    );
+
+    return logs;
 }
 
 function createMissingCiDecision(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
@@ -81,11 +96,11 @@ function createMissingCiDecision(input: GitHubReleaseGateInput): GitHubReleaseGa
         `Skipping publish: no successful ${input.ciWorkflowFile} push run found for ${input.mainBranch} ` +
         `HEAD ${input.mainHeadSha}.`;
 
-    return {
-        shouldPublish: false,
-        reason: 'ci_not_green',
-        logs: [missingCiLog]
-    };
+    return createDecision(false, 'ci_not_green', [], missingCiLog);
+}
+
+function hasElapsed(now: Date, since: Date, elapsedMilliseconds: number): boolean {
+    return now.getTime() - since.getTime() >= elapsedMilliseconds;
 }
 
 function getElapsedFlags(
@@ -97,22 +112,45 @@ function getElapsedFlags(
     readonly quietPeriodElapsed: boolean;
 } {
     return {
-        quietPeriodElapsed:
-            input.now.getTime() - lastRelevantActivityAt.getTime() >=
-            input.quietPeriodMinutes * secondsPerMinute * millisecondsPerSecond,
-        maxLatencyElapsed:
-            input.now.getTime() - mainHeadCiSuccessAt.getTime() >=
-            input.maxLatencyHours * minutesPerHour * secondsPerMinute * millisecondsPerSecond
+        quietPeriodElapsed: hasElapsed(
+            input.now,
+            lastRelevantActivityAt,
+            input.quietPeriodMinutes * millisecondsPerMinute
+        ),
+        maxLatencyElapsed: hasElapsed(input.now, mainHeadCiSuccessAt, input.maxLatencyHours * millisecondsPerHour)
     };
+}
+
+function isBranchActivityEvent(eventName: string | undefined): boolean {
+    const activityEventName = String(eventName);
+    return (
+        activityEventName === 'committed' ||
+        activityEventName === 'head_ref_deleted' ||
+        activityEventName === 'head_ref_force_pushed' ||
+        activityEventName === 'head_ref_restored'
+    );
+}
+
+function lastRelevantActivityAtFor(input: GitHubReleaseGateInput, mainHeadCiSuccessAt: Date): Date {
+    const otherActivityDates: Date[] = [];
+
+    for (const pullRequestActivity of input.pullRequestActivities) {
+        otherActivityDates.push(pullRequestActivity.activityAt);
+    }
+
+    return maxDate(mainHeadCiSuccessAt, otherActivityDates);
 }
 
 export function selectPullRequestActivityAt(
     pullRequestCreatedAt: Date,
     timelineEvents: readonly PullRequestTimelineEvent[]
 ): Date {
-    const branchActivityDates = timelineEvents.flatMap((event) => {
-        return branchActivityEvents.has(event.event) ? [event.createdAt] : [];
-    });
+    const branchActivityDates: Date[] = [];
+    for (const event of timelineEvents) {
+        if (isBranchActivityEvent(event.event)) {
+            branchActivityDates.push(event.createdAt);
+        }
+    }
 
     return maxDate(pullRequestCreatedAt, branchActivityDates);
 }
@@ -123,10 +161,7 @@ export function evaluateGitHubReleaseGate(input: GitHubReleaseGateInput): GitHub
     }
 
     const mainHeadCiSuccessAt = input.successfulMainCiRun.updatedAt;
-    const otherActivityDates = input.pullRequestActivities.map((pullRequestActivity) => {
-        return pullRequestActivity.activityAt;
-    });
-    const lastRelevantActivityAt = maxDate(mainHeadCiSuccessAt, otherActivityDates);
+    const lastRelevantActivityAt = lastRelevantActivityAtFor(input, mainHeadCiSuccessAt);
     const { quietPeriodElapsed, maxLatencyElapsed } = getElapsedFlags(
         input,
         mainHeadCiSuccessAt,
@@ -142,16 +177,18 @@ export function evaluateGitHubReleaseGate(input: GitHubReleaseGateInput): GitHub
     });
 
     if (!quietPeriodElapsed && !maxLatencyElapsed) {
-        return {
-            shouldPublish: false,
-            reason: 'activity_not_stale',
-            logs: [...logs, 'Skipping publish: repository activity is not stale enough yet.']
-        };
+        return createDecision(
+            false,
+            'activity_not_stale',
+            logs,
+            'Skipping publish: repository activity is not stale enough yet.'
+        );
     }
 
-    return {
-        shouldPublish: true,
-        reason: quietPeriodElapsed ? 'quiet_period_elapsed' : 'max_latency_elapsed',
-        logs: [...logs, 'Publishing is allowed by the release gate.']
-    };
+    return createDecision(
+        true,
+        quietPeriodElapsed ? 'quiet_period_elapsed' : 'max_latency_elapsed',
+        logs,
+        'Publishing is allowed by the release gate.'
+    );
 }

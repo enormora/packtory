@@ -120,6 +120,17 @@ suite('registry-auth-config', function () {
         });
     });
 
+    test('resolveMetadataAuthOptions inherits publish auth when metadata mode is explicitly inherit-publish-auth', function () {
+        assert.deepStrictEqual(
+            resolveMetadataAuthOptions({ auth: { publish: tokenAuth, metadata: 'inherit-publish-auth' } }),
+            {
+                allowsAutomaticRetry: false,
+                registry: undefined,
+                options: { alwaysAuth: true, registry: undefined, forceAuth: { token: 'abc' } }
+            }
+        );
+    });
+
     test('resolveMetadataAuthOptions uses a custom metadata auth strategy when one is provided', function () {
         assert.deepStrictEqual(resolveMetadataAuthOptions({ auth: { publish: tokenAuth, metadata: basicAuth } }), {
             allowsAutomaticRetry: false,
@@ -131,5 +142,16 @@ suite('registry-auth-config', function () {
                 email: 'user@example.com'
             }
         });
+    });
+
+    test('resolveMetadataAuthOptions keeps npm-oidc metadata inheritance anonymous when explicitly requested', function () {
+        assert.deepStrictEqual(
+            resolveMetadataAuthOptions({ auth: { publish: { type: 'npm-oidc' }, metadata: 'inherit-publish-auth' } }),
+            {
+                allowsAutomaticRetry: false,
+                registry: undefined,
+                options: { alwaysAuth: true, registry: undefined }
+            }
+        );
     });
 });

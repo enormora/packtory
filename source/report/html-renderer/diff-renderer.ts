@@ -1,5 +1,4 @@
-import { collectChangedArtifacts, type ChangedPreviewArtifact } from '../preview/changed-artifacts.ts';
-import type { PreviewPackage } from '../preview/preview-document.ts';
+import type { ChangedPreviewArtifact, PreviewPackage } from '../preview/preview-document.ts';
 import type { PreviewDiffLine } from '../preview/preview-document-diff.ts';
 import { escapeHtml } from './html-escaping.ts';
 
@@ -24,12 +23,11 @@ function renderArtifactDiff(artifact: ChangedPreviewArtifact): string {
 }
 
 export function renderPackageDiffs(pkg: PreviewPackage): string {
-    const changedFiles = collectChangedArtifacts(pkg.tree);
-    if (changedFiles.length === 0) {
+    if (pkg.changedArtifacts.length === 0) {
         return '';
     }
     let sections = '';
-    for (const artifact of changedFiles) {
+    for (const artifact of pkg.changedArtifacts) {
         sections += renderArtifactDiff(artifact);
     }
     return `<section class="package-block"><h3>Changed files</h3>${sections}</section>`;

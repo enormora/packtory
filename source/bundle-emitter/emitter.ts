@@ -4,8 +4,8 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import type { RegistrySettings } from '../config/registry-settings.ts';
 import type { VersioningSettings } from '../config/versioning-settings.ts';
+import { compareFileDescriptions, fileDescriptionComparisonStatus } from '../file-manager/compare.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
-import { compareFileDescriptions } from '../file-manager/compare.ts';
 import type { ArtifactPublishPackage } from '../published-package/published-package.ts';
 import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
 import { fetchPublishedArtifacts, type PublishedReleaseArtifacts } from './fetch-published-artifacts.ts';
@@ -78,7 +78,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
                 canonicalizeSbomInFileSet(previous.value.files)
             );
             return {
-                alreadyPublishedAsLatest: comparison.status === 'equal',
+                alreadyPublishedAsLatest: comparison.status === fileDescriptionComparisonStatus.equal,
                 previousReleaseArtifacts: previous
             };
         },

@@ -1,4 +1,5 @@
 import type { ReleaseAnalysis } from '../packages/packtory/packtory.entry-point.ts';
+import { releaseAnalysisClassification } from '../packtory/packtory-results.ts';
 import type { GitHubReleaseGateDecision } from './release-gate.ts';
 
 type OpenGitHubReleaseGateDecision = GitHubReleaseGateDecision & { readonly shouldPublish: true };
@@ -10,28 +11,35 @@ type PacktoryReleasePolicyInput = {
     readonly releaseAnalysis: ReleaseAnalysis;
 };
 
-const hoursPerDay = 24;
-const minutesPerHour = 60;
-const secondsPerMinute = 60;
-const millisecondsPerSecond = 1000;
-const millisecondsPerDay = hoursPerDay * minutesPerHour * secondsPerMinute * millisecondsPerSecond;
+type PolicyDecisionReason = Extract<
+    GitHubReleaseGateDecision['reason'],
+    | 'dependency_only_min_age_elapsed'
+    | 'dependency_only_min_age_not_elapsed'
+    | 'dependency_only_published_at_unknown'
+    | 'release_unchanged'
+>;
+
+const millisecondsPerDay = 86_400_000;
 
 function formatPublishedAt(date: Date | undefined): string {
     return date === undefined ? '(unknown)' : date.toISOString();
 }
 
 function buildReleaseAnalysisLogs(releaseAnalysis: ReleaseAnalysis): readonly string[] {
-    return [
+    const logs = [
         `release classification: ${releaseAnalysis.classification}`,
-        `most recent published package timestamp: ${formatPublishedAt(releaseAnalysis.mostRecentPublishedAt)}`,
-        ...releaseAnalysis.packageAnalyses.map((analysis) => {
-            return (
-                `package ${analysis.name}: ${analysis.classification}` +
-                ` latest=${analysis.latestPublishedVersion ?? '(unpublished)'}` +
-                ` publishedAt=${formatPublishedAt(analysis.latestPublishedAt)}`
-            );
-        })
+        `most recent published package timestamp: ${formatPublishedAt(releaseAnalysis.mostRecentPublishedAt)}`
     ];
+
+    for (const analysis of releaseAnalysis.packageAnalyses) {
+        const packageLog =
+            `package ${analysis.name}: ${analysis.classification}` +
+            ` latest=${analysis.latestPublishedVersion ?? '(unpublished)'}` +
+            ` publishedAt=${formatPublishedAt(analysis.latestPublishedAt)}`;
+        logs.push(packageLog);
+    }
+
+    return logs;
 }
 
 function minAgeElapsed(now: Date, publishedAt: Date, dependencyOnlyMinAgeDays: number): boolean {
@@ -48,18 +56,32 @@ function formatMinimumAgeElapsedLog(dependencyOnlyMinAgeDays: number): string {
     return `${intro} ${dependencyOnlyMinAgeDays} day(s) has elapsed.`;
 }
 
+function createPolicyDecision(
+    shouldPublish: boolean,
+    reason: PolicyDecisionReason,
+    logs: readonly string[],
+    policyLog: string
+): GitHubReleaseGateDecision {
+    return {
+        shouldPublish,
+        reason,
+        logs: [...logs, policyLog]
+    };
+}
+
 export function applyPacktoryReleasePolicy(input: PacktoryReleasePolicyInput): GitHubReleaseGateDecision {
     const logs = [...input.baseDecision.logs, ...buildReleaseAnalysisLogs(input.releaseAnalysis)];
 
-    if (input.releaseAnalysis.classification === 'unchanged') {
-        return {
-            shouldPublish: false,
-            reason: 'release_unchanged',
-            logs: [...logs, 'Skipping publish: the next Packtory release would be unchanged versus npm latest.']
-        };
+    if (input.releaseAnalysis.classification === releaseAnalysisClassification.unchanged) {
+        return createPolicyDecision(
+            false,
+            'release_unchanged',
+            logs,
+            'Skipping publish: the next Packtory release would be unchanged versus npm latest.'
+        );
     }
 
-    if (input.releaseAnalysis.classification !== 'dependency-only') {
+    if (input.releaseAnalysis.classification !== releaseAnalysisClassification.dependencyOnly) {
         return {
             ...input.baseDecision,
             logs: [...logs, 'Publishing is allowed by the Packtory release policy.']
@@ -67,27 +89,27 @@ export function applyPacktoryReleasePolicy(input: PacktoryReleasePolicyInput): G
     }
 
     if (input.releaseAnalysis.mostRecentPublishedAt === undefined) {
-        return {
-            shouldPublish: true,
-            reason: 'dependency_only_published_at_unknown',
-            logs: [
-                ...logs,
-                'Publishing is allowed because this dependency-only release has no publishedAt baseline to delay from.'
-            ]
-        };
+        return createPolicyDecision(
+            true,
+            'dependency_only_published_at_unknown',
+            logs,
+            'Publishing is allowed because this dependency-only release has no publishedAt baseline to delay from.'
+        );
     }
 
     if (!minAgeElapsed(input.now, input.releaseAnalysis.mostRecentPublishedAt, input.dependencyOnlyMinAgeDays)) {
-        return {
-            shouldPublish: false,
-            reason: 'dependency_only_min_age_not_elapsed',
-            logs: [...logs, formatMinimumAgePendingLog(input.dependencyOnlyMinAgeDays)]
-        };
+        return createPolicyDecision(
+            false,
+            'dependency_only_min_age_not_elapsed',
+            logs,
+            formatMinimumAgePendingLog(input.dependencyOnlyMinAgeDays)
+        );
     }
 
-    return {
-        shouldPublish: true,
-        reason: 'dependency_only_min_age_elapsed',
-        logs: [...logs, formatMinimumAgeElapsedLog(input.dependencyOnlyMinAgeDays)]
-    };
+    return createPolicyDecision(
+        true,
+        'dependency_only_min_age_elapsed',
+        logs,
+        formatMinimumAgeElapsedLog(input.dependencyOnlyMinAgeDays)
+    );
 }

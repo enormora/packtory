@@ -2,6 +2,7 @@ import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../config/validation.ts';
 import {
+    partialFailureType,
     releaseAnalysisPartialFailure,
     type PackageReleaseAnalysis,
     type ReleaseAnalysisFailure,
@@ -9,6 +10,8 @@ import {
     type ResolveAndLinkFailure
 } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
+import { mapResolvePartialFailure, succeededResultsFrom } from './partial-result.ts';
+import { wasAlreadyPublished } from './published-release-state.ts';
 import { classifyPackageRelease, summarizeReleaseAnalysis } from './release-analysis.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
@@ -30,14 +33,6 @@ function toReleaseAnalysisError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
 }
 
-function succeededFromPublish(publishResult: PublishStageOutcome): readonly BuildAndPublishResult[] {
-    if (publishResult.isOk) {
-        return publishResult.value;
-    }
-
-    return publishResult.error.succeeded;
-}
-
 async function analyzeSucceededPublishes(
     artifactsBuilder: ReleaseAnalysisOrchestratorDependencies['artifactsBuilder'],
     succeededPublish: readonly BuildAndPublishResult[]
@@ -47,10 +42,9 @@ async function analyzeSucceededPublishes(
 
     for (const buildResult of succeededPublish) {
         try {
-            const newFiles =
-                buildResult.status === 'already-published'
-                    ? buildResult.extraFiles
-                    : artifactsBuilder.collectContents(buildResult.bundle, 'package', buildResult.extraFiles);
+            const newFiles = wasAlreadyPublished(buildResult)
+                ? buildResult.extraFiles
+                : artifactsBuilder.collectContents(buildResult.bundle, 'package', buildResult.extraFiles);
             analyses.push(classifyPackageRelease(buildResult, newFiles));
         } catch (error: unknown) {
             failures.push(toReleaseAnalysisError(error));
@@ -61,14 +55,9 @@ async function analyzeSucceededPublishes(
 }
 
 function mapResolveFailureToReleaseAnalysisFailure(error: ResolveAndLinkFailure): ReleaseAnalysisFailure {
-    if (error.type === 'partial') {
-        return {
-            type: 'partial',
-            succeeded: [],
-            failures: error.error.failures
-        };
+    if (error.type === partialFailureType) {
+        return mapResolvePartialFailure<PackageReleaseAnalysis>(error);
     }
-
     return error;
 }
 
@@ -77,7 +66,7 @@ function buildPartialFromPublish(
     analyses: readonly PackageReleaseAnalysis[]
 ): ReleaseAnalysisFailure {
     return {
-        type: 'partial',
+        type: partialFailureType,
         succeeded: analyses,
         failures: publishResult.error.failures
     };
@@ -120,7 +109,7 @@ export function createAnalyzeReleaseAgainstLatestPublishedValidated(
         });
         const analysisResult = await analyzeSucceededPublishes(
             dependencies.artifactsBuilder,
-            succeededFromPublish(publishResult)
+            succeededResultsFrom(publishResult)
         );
         return toFinalReleaseAnalysisResult(publishResult, analysisResult);
     };

@@ -273,6 +273,19 @@ suite('spinner-shared-state', function () {
         assert.deepStrictEqual(atomics.waitCalls[1], [4, 1, 9]);
     });
 
+    test('waitForRenderedMutation returns false after a timeout when the rendered mutation made no progress', function () {
+        const { atomics, result } = runWaitScenario({
+            now: [100, 100, 101],
+            renderedMutations: [0, 0],
+            waitResults: ['timed-out'],
+            targetOffset: 1
+        });
+
+        assert.strictEqual(result, false);
+        assert.strictEqual(atomics.waitCallCount, 1);
+        assert.deepStrictEqual(atomics.waitCalls[0], [4, 0, 10]);
+    });
+
     test('waitForRenderedMutation returns false when the remaining timeout grows without render progress', function () {
         let renderedMutationLoadCount = 0;
         const atomics = createControlledAtomics({
@@ -354,6 +367,28 @@ suite('spinner-shared-state', function () {
         renderedMutations.push(mutation, 0, 0);
 
         assert.strictEqual(accessors.waitForRenderedMutation(mutation, 10), true);
+        assert.strictEqual(atomics.waitCallCount, 1);
+    });
+
+    test('waitForRenderedMutation returns true when the final poll reaches the target exactly', function () {
+        let loadCount = 0;
+        let mutation = 0;
+        const atomics = createControlledAtomics({
+            load(typedArray, index, realLoad) {
+                if (index === 4) {
+                    loadCount += 1;
+                    return loadCount >= 3 ? mutation : 0;
+                }
+                return realLoad(typedArray, index);
+            },
+            wait() {
+                return 'ok';
+            }
+        });
+        const accessors = createAccessors(4, { now: createNow([100, 100, 100]), atomics });
+        mutation = accessors.markMutation();
+
+        assert.strictEqual(accessors.waitForRenderedMutation(mutation, 1), true);
         assert.strictEqual(atomics.waitCallCount, 1);
     });
 

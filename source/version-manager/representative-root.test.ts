@@ -101,4 +101,17 @@ suite('representative-root', function () {
             );
         }
     });
+
+    test('resolveRepresentativeRoot throws when the selected representative root is missing', function () {
+        assert.throws(() => {
+            resolveRepresentativeRoot({
+                name: 'pkg-a',
+                roots: {},
+                surface: {
+                    mode: 'explicit',
+                    packageInterface: { modules: [{ root: 'missing', export: '.' }] }
+                }
+            });
+        }, /^Error: Package "pkg-a" references unknown root "missing"$/u);
+    });
 });

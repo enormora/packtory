@@ -1,6 +1,6 @@
-import path from 'node:path';
 import { isString } from 'remeda';
 import type { FileSystemHost } from 'ts-morph';
+import { isInstalledDependencyManifestPath } from '../common/package-layout.ts';
 import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 
 const packageJsonIndentationSpaces = 2;
@@ -31,12 +31,6 @@ function rewriteManifestContent(content: string): string {
     }
 }
 
-function isNodeModulesManifestPath(filePath: string): boolean {
-    return (
-        path.basename(filePath) === 'package.json' && path.normalize(filePath).split(path.sep).includes('node_modules')
-    );
-}
-
 export function createNodeModulesManifestSynthesizingHost(fileSystemHost: FileSystemHost): FileSystemHost {
     const readFileSync = bindRequiredMethod(fileSystemHost, syncMethodNames.readFile, 'a string', isString);
 
@@ -44,7 +38,7 @@ export function createNodeModulesManifestSynthesizingHost(fileSystemHost: FileSy
         ...fileSystemHost,
         readFile: async (filePath: string, encoding?: string): Promise<string> => {
             const content = await fileSystemHost.readFile(filePath, encoding);
-            if (!isNodeModulesManifestPath(filePath)) {
+            if (!isInstalledDependencyManifestPath(filePath)) {
                 return content;
             }
             return rewriteManifestContent(content);
@@ -52,7 +46,7 @@ export function createNodeModulesManifestSynthesizingHost(fileSystemHost: FileSy
         [syncMethodNames.readFile]: (filePath: string): string => {
             // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
             const content = readFileSync(filePath);
-            if (!isNodeModulesManifestPath(filePath)) {
+            if (!isInstalledDependencyManifestPath(filePath)) {
                 return content;
             }
             return rewriteManifestContent(content);

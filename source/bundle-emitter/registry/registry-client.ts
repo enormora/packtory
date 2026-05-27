@@ -3,7 +3,7 @@ import type { publish as _publish } from 'libnpmpublish';
 import type { Maybe } from 'true-myth';
 import type { Clock } from '../../common/clock.ts';
 import type { PublishSettings } from '../../config/publish-settings.ts';
-import type { PublishAuthStrategy, RegistrySettings } from '../../config/registry-settings.ts';
+import type { NpmOidcPublishAuth, RegistrySettings } from '../../config/registry-settings.ts';
 import type { PublishedPackageJson } from '../../published-package/published-package.ts';
 import { createOidcTokenExchanger } from './oidc-token-exchange.ts';
 import {
@@ -22,7 +22,7 @@ export type RegistryClientDependencies = {
     readonly publish: PublishFunction;
     readonly fetch: typeof globalThis.fetch;
     readonly clock: Clock;
-    readonly resolveIdToken: (auth: Extract<PublishAuthStrategy, { type: 'npm-oidc' }>) => Promise<string>;
+    readonly resolveIdToken: (auth: NpmOidcPublishAuth) => Promise<string>;
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
 };
 
@@ -42,7 +42,6 @@ export type RegistryClient = {
 };
 
 type PublishManifest = Readonly<Parameters<PublishFunction>[0]>;
-
 function toPublishManifest(manifest: Readonly<PublishedPackageJson>): PublishManifest {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- libnpmpublish expects @npm/types PackageJson, which is structurally compatible with our validated manifest
     return manifest as unknown as PublishManifest;
@@ -67,13 +66,22 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
         async publishPackage(manifest, tarData, registrySettings, publishSettings) {
             const authOptions = await oidcExchanger.resolveWriteAuthOptions(manifest.name, registrySettings);
             const publishOptionsFromSettings = buildPublishOptionsForPublishSettings(publishSettings);
+            const publishOptions = {
+                defaultTag: 'latest',
+                ...authOptions,
+                ...publishOptionsFromSettings
+            };
+            const publishOptionsWithOneTimePassword = {
+                ...publishOptions,
+                otpPrompt: promptForOneTimePassword
+            };
+            const publishPromise =
+                promptForOneTimePassword === undefined
+                    ? publish(toPublishManifest(manifest), tarData, publishOptions)
+                    : publish(toPublishManifest(manifest), tarData, publishOptionsWithOneTimePassword);
+
             try {
-                await publish(toPublishManifest(manifest), tarData, {
-                    defaultTag: 'latest',
-                    ...authOptions,
-                    ...publishOptionsFromSettings,
-                    ...(promptForOneTimePassword === undefined ? {} : { otpPrompt: promptForOneTimePassword })
-                });
+                await publishPromise;
             } catch (error: unknown) {
                 throw remapPublishError(error, publishSettings);
             }

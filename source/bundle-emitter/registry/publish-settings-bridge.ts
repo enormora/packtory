@@ -6,7 +6,7 @@ import { matchFileModeError } from '../publish-error/file-mode-error-matching.ts
 type PublishProvenanceOptions = { readonly provenance: true } | { readonly provenanceFile: string };
 
 type PublishOptionsForLibnpmpublish = Partial<PublishProvenanceOptions> & {
-    readonly access: 'public' | 'restricted';
+    readonly access: PublishSettings['access'];
 };
 
 export function buildPublishOptionsForPublishSettings(
@@ -15,23 +15,22 @@ export function buildPublishOptionsForPublishSettings(
     if (publishSettings.access === 'restricted') {
         return { access: 'restricted' };
     }
-    if (publishSettings.provenance === undefined) {
-        return { access: 'public' };
-    }
-    if (publishSettings.provenance.type === 'auto') {
+
+    if (publishSettings.provenance?.type === 'auto') {
         return { access: 'public', provenance: true };
     }
-    return { access: 'public', provenanceFile: publishSettings.provenance.path };
+
+    if (publishSettings.provenance?.type === 'file') {
+        return { access: 'public', provenanceFile: publishSettings.provenance.path };
+    }
+
+    return { access: 'public' };
 }
 
 function getProvenanceFilePath(publishSettings: Readonly<PublishSettings>): string | undefined {
-    if (publishSettings.access !== 'public') {
-        return undefined;
-    }
-    if (publishSettings.provenance?.type !== 'file') {
-        return undefined;
-    }
-    return publishSettings.provenance.path;
+    return publishSettings.access === 'public' && publishSettings.provenance?.type === 'file'
+        ? publishSettings.provenance.path
+        : undefined;
 }
 
 export function remapPublishError(error: unknown, publishSettings: Readonly<PublishSettings>): Error {

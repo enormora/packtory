@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { plainRoot, rootWithDeclaration, rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
-import { getEntryRootIds, getRoot, isMatchingRootSourcePath } from './root-registry.ts';
+import { plainRoot, rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
+import { getEntryRootIds, getRoot } from './root-registry.ts';
 
 suite('root-registry', function () {
     test('getRoot returns the root for a known id', function () {
@@ -14,24 +14,6 @@ suite('root-registry', function () {
         assert.throws(() => {
             getRoot({ name: 'package-a', roots: { main: rootWithSource('/src/index.js', 'index.js') } }, 'missing');
         }, /^Error: Package "package-a" references unknown root "missing"$/u);
-    });
-
-    test('isMatchingRootSourcePath matches the js source path', function () {
-        const root = rootWithSource('/src/index.js', 'index.js');
-
-        assert.strictEqual(isMatchingRootSourcePath(root, '/src/index.js'), true);
-    });
-
-    test('isMatchingRootSourcePath matches the declaration file source path', function () {
-        const root = rootWithDeclaration('/src/index.js', 'index.js', '/src/index.d.ts', 'index.d.ts');
-
-        assert.strictEqual(isMatchingRootSourcePath(root, '/src/index.d.ts'), true);
-    });
-
-    test('isMatchingRootSourcePath returns false for an unrelated source path', function () {
-        const root = rootWithSource('/src/index.js', 'index.js');
-
-        assert.strictEqual(isMatchingRootSourcePath(root, '/src/other.js'), false);
     });
 
     test('getEntryRootIds returns every root id in implicit mode', function () {

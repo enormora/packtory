@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { Project } from 'ts-morph';
 import { isCodeFile } from '../common/code-files.ts';
+import { packageManifestFilePath } from '../common/package-layout.ts';
 import type { AdditionalFileDescription } from '../config/additional-files.ts';
 import type { LocalFile } from '../dependency-scanner/dependency-graph.ts';
 
@@ -14,15 +15,14 @@ function prependSourcesFolderIfNecessary(sourcesFolder: string, filePath: string
 
 function rejectCodeFile(targetFilePath: string): void {
     if (isCodeFile(targetFilePath)) {
-        throw new Error(
-            [
-                `additionalFiles must not include code files; received "${targetFilePath}".`,
-                'Code that should ship in the bundle must be reachable from a root so',
-                'dependency, side-effect and dead-code analyses can run on it.',
-                'If you intend to ship code as a static asset (e.g. a template),',
-                'use a non-code extension like .txt.'
-            ].join(' ')
-        );
+        const errorMessage = [
+            `additionalFiles must not include code files; received "${targetFilePath}".`,
+            'Code that should ship in the bundle must be reachable from a root so',
+            'dependency, side-effect and dead-code analyses can run on it.',
+            'If you intend to ship code as a static asset (e.g. a template),',
+            'use a non-code extension like .txt.'
+        ].join(' ');
+        throw new Error(errorMessage);
     }
 }
 
@@ -42,7 +42,7 @@ export function combineAllBundleFiles(
 ): readonly ResolvedBundleFile[] {
     const resolvedLocalFiles = localDependencies.map((localFile) => {
         const targetFilePath = localFile.isGeneratedManifest
-            ? 'package.json'
+            ? packageManifestFilePath
             : path.relative(sourcesFolder, localFile.filePath);
         const resolvedBundleFile: ResolvedBundleFile = {
             sourceFilePath: localFile.filePath,

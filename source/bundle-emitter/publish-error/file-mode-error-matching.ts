@@ -5,17 +5,22 @@ import {
     buildProvenanceDigestMismatchMessage
 } from './publish-error-messages.ts';
 
-function isProvenanceBundleError(message: string): boolean {
-    return (
-        message.includes('Bundle is invalid') ||
-        message.includes('Unsupported bundle format') ||
-        message.includes('Invalid bundle') ||
-        message.includes('subject does not match')
-    );
-}
+const provenanceBundleMarkers = [
+    'Bundle is invalid',
+    'Unsupported bundle format',
+    'Invalid bundle',
+    'subject does not match'
+] as const;
+const provenanceDigestMismatchMarkers = ['subject', 'digest'] as const;
 
-function isProvenanceDigestMismatch(message: string): boolean {
-    return message.includes('subject') || message.includes('digest');
+function includesOneOf(message: string, markers: readonly string[]): boolean {
+    for (const marker of markers) {
+        if (message.includes(marker)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 export function matchFileModeError(error: unknown, filePath: string): Error | undefined {
@@ -27,10 +32,10 @@ export function matchFileModeError(error: unknown, filePath: string): Error | un
     }
 
     const { message } = error;
-    if (!isProvenanceBundleError(message)) {
+    if (!includesOneOf(message, provenanceBundleMarkers)) {
         return undefined;
     }
-    if (isProvenanceDigestMismatch(message)) {
+    if (includesOneOf(message, provenanceDigestMismatchMarkers)) {
         return new Error(buildProvenanceDigestMismatchMessage(filePath), { cause: error });
     }
     return new Error(buildInvalidProvenanceFileMessage(filePath), { cause: error });

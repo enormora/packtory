@@ -58,6 +58,7 @@ export const registrySettingsSchema = z.readonly(
 );
 
 export type PublishAuthStrategy = z.infer<typeof publishAuthStrategySchema>;
+export type NpmOidcPublishAuth = Extract<PublishAuthStrategy, { type: 'npm-oidc' }>;
 export type MetadataAuthStrategy = z.infer<typeof metadataAuthStrategySchema>;
 export type MetadataAuthMode = z.infer<typeof metadataAuthModeSchema>;
 export type RegistrySettings = z.infer<typeof registrySettingsSchema>;

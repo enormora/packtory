@@ -1,36 +1,18 @@
+import { createWorklist, type Worklist } from '../../common/worklist.ts';
+
 export type BfsClosureDependencies = {
     readonly visitedHas: <T>(visited: ReadonlySet<T>, value: T) => boolean;
 };
-
-function assertTraversalIteration(remainingIterations: number): void {
-    if (remainingIterations === 0) {
-        throw new Error('Reachability traversal exceeded the maximum iteration budget');
-    }
-}
-
-function createTraversalBudget(maximumIterations: number): readonly number[] {
-    return Array.from({ length: maximumIterations + 1 }, (_value, index) => {
-        return maximumIterations - index;
-    });
-}
-
-function getMaximumTraversalIterations(
-    initialVisitedSize: number,
-    seedCount: number,
-    maximumNodeCount: number
-): number {
-    return initialVisitedSize + seedCount + maximumNodeCount * maximumNodeCount;
-}
 
 function createTraversalState<T>(
     initialVisited: ReadonlySet<T>,
     seedList: readonly T[]
 ): {
     readonly visited: Set<T>;
-    readonly queue: T[];
+    readonly pending: Worklist<T>;
 } {
     const visited = new Set<T>([...initialVisited, ...seedList]);
-    return { visited, queue: Array.from(visited) };
+    return { visited, pending: createWorklist(visited) };
 }
 
 function enqueueUnvisitedNeighbors<T>(
@@ -38,16 +20,40 @@ function enqueueUnvisitedNeighbors<T>(
     expand: (current: T) => Iterable<T>,
     traversalState: {
         readonly visited: Set<T>;
-        readonly queue: T[];
+        readonly pending: Worklist<T>;
     },
     visitedHas: BfsClosureDependencies['visitedHas']
 ): void {
     for (const neighbor of expand(current)) {
         if (!visitedHas(traversalState.visited, neighbor)) {
             traversalState.visited.add(neighbor);
-            traversalState.queue.push(neighbor);
+            traversalState.pending.schedule(neighbor);
         }
     }
+}
+
+function traverseWithinBudget<T>(args: {
+    readonly current: T;
+    readonly expand: (current: T) => Iterable<T>;
+    readonly traversalState: {
+        readonly visited: Set<T>;
+        readonly pending: Worklist<T>;
+    };
+    readonly visitedHas: BfsClosureDependencies['visitedHas'];
+    readonly traversalBudget: readonly unknown[];
+}): boolean {
+    let currentNode = args.current;
+
+    return args.traversalBudget.some(() => {
+        enqueueUnvisitedNeighbors(currentNode, args.expand, args.traversalState, args.visitedHas);
+        const next = args.traversalState.pending.takeNext();
+        if (next === undefined) {
+            return true;
+        }
+
+        currentNode = next;
+        return false;
+    });
 }
 
 export function bfsClosure<T>(
@@ -60,21 +66,27 @@ export function bfsClosure<T>(
     }
 ): Set<T> {
     const seedList = Array.from(seeds);
-    const maximumIterations = getMaximumTraversalIterations(
-        initialVisited.size,
-        seedList.length,
-        options.maximumNodeCount
-    );
+    const traversalBudget = Array.from({
+        length: initialVisited.size + seedList.length + options.maximumNodeCount * options.maximumNodeCount
+    });
     const traversalState = createTraversalState(initialVisited, seedList);
+    const current = traversalState.pending.takeNext();
 
-    for (const remainingIterations of createTraversalBudget(maximumIterations)) {
-        const current = traversalState.queue.shift();
-        if (current === undefined) {
-            break;
-        }
-        assertTraversalIteration(remainingIterations);
-        enqueueUnvisitedNeighbors(current, expand, traversalState, options.dependencies.visitedHas);
+    if (current === undefined) {
+        return traversalState.visited;
     }
 
-    return traversalState.visited;
+    if (
+        traverseWithinBudget({
+            current,
+            expand,
+            traversalState,
+            visitedHas: options.dependencies.visitedHas,
+            traversalBudget
+        })
+    ) {
+        return traversalState.visited;
+    }
+
+    throw new Error('Reachability traversal exceeded the maximum iteration budget');
 }

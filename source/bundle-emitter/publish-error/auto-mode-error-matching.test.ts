@@ -27,8 +27,20 @@ suite('auto-mode-error-matching', function () {
         assert.ok(result?.message.includes('Detected CI: unknown.'));
     });
 
+    test('matchAutoModeError falls back to "unknown" when the marker is only followed by whitespace', function () {
+        const result = matchAutoModeError({ message: 'not supported for provider:   ' });
+
+        assert.ok(result?.message.includes('Detected CI: unknown.'));
+    });
+
     test('matchAutoModeError preserves the CI name when it is the last token without trailing whitespace', function () {
         const result = matchAutoModeError({ message: 'not supported for provider: CircleCI' });
+
+        assert.ok(result?.message.includes('Detected CI: CircleCI.'));
+    });
+
+    test('matchAutoModeError only captures the first provider token after the marker', function () {
+        const result = matchAutoModeError({ message: 'not supported for provider: CircleCI runner pool' });
 
         assert.ok(result?.message.includes('Detected CI: CircleCI.'));
     });

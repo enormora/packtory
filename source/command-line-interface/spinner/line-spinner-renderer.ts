@@ -1,7 +1,7 @@
 import { bold, green, red } from 'yoctocolors';
-import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
+import { spinnerResultStatus, type TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 
-type Status = 'failure' | 'success';
+type Status = (typeof spinnerResultStatus)[keyof typeof spinnerResultStatus];
 
 export type LineSpinnerRendererDependencies = {
     readonly log: (message: string) => void;
@@ -20,7 +20,7 @@ function renderProgressLine(label: string, message: string): string {
 }
 
 function renderStopLine(status: Status, label: string, message: string): string {
-    const symbol = status === 'success' ? getSuccessSymbol() : getErrorSymbol();
+    const symbol = status === spinnerResultStatus.success ? getSuccessSymbol() : getErrorSymbol();
     return `${symbol} ${renderProgressLine(label, message)}`;
 }
 

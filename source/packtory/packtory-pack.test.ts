@@ -576,4 +576,44 @@ suite('packtory-pack', function () {
         assert.strictEqual(slimManifest.name, 'pkg-a');
         assert.deepStrictEqual(emitOptions.vendorEntries, vendorEntries);
     });
+
+    test('preserves top-level package.json exports and imports arrays while still sorting other arrays when vendoring is enabled', async function () {
+        const versionedBundle = {
+            name: 'pkg-a',
+            version: '0.0.0',
+            manifestFile: {
+                content: JSON.stringify({
+                    name: 'pkg-a',
+                    exports: ['./second.js', './first.js'],
+                    files: ['./z.js', './a.js'],
+                    imports: {
+                        '#alias': ['./third.js', './first.js']
+                    }
+                }),
+                isExecutable: false,
+                filePath: 'package.json'
+            }
+        };
+        const { dependencies, fakes } = createDependencies({ versionedBundle });
+        const runPack = createRunPackValidated(dependencies);
+
+        const result = await runPack(
+            validatedConfig,
+            { ...baseOptions, vendorDependencies: true },
+            fakes.resolveAndLinkAll
+        );
+
+        assert.deepStrictEqual(result.isOk ? result.value : 'errored', undefined);
+        const emitOptions = fakes.packEmitterPack.firstCall.args[0] as {
+            readonly bundle: { readonly manifestFile: { readonly content: string } };
+        };
+        const manifest = JSON.parse(emitOptions.bundle.manifestFile.content) as {
+            readonly exports: readonly string[];
+            readonly files: readonly string[];
+            readonly imports: Readonly<Record<string, readonly string[]>>;
+        };
+        assert.deepStrictEqual(manifest.exports, ['./second.js', './first.js']);
+        assert.deepStrictEqual(manifest.files, ['./a.js', './z.js']);
+        assert.deepStrictEqual(manifest.imports['#alias'], ['./third.js', './first.js']);
+    });
 });

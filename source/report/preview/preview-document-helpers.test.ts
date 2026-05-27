@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageReport } from '../aggregator/report-types.ts';
 import type { PreviewArtifact } from './artifact-tree-builder.ts';
-import { buildVersionTransition, hasMeaningfulChanges } from './preview-document-helpers.ts';
+import { buildVersionTransition, hasMeaningfulChanges } from './preview-document-state.ts';
 
 function reportWithVersion(version: NonNullable<PackageReport['decisions']['version']>): PackageReport {
     return { decisions: { version }, timings: {} };
