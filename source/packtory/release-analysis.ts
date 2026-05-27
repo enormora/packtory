@@ -13,8 +13,6 @@ import {
 } from './packtory-results.ts';
 import { publishedReleaseStatus } from './published-release-state.ts';
 
-const invalidJson = Number.NEGATIVE_INFINITY;
-
 function dependencyOnlyPackageJsonFields(): readonly string[] {
     return [
         'bundleDependencies',
@@ -35,13 +33,13 @@ function parseJsonFile(fileContent: string): unknown {
     try {
         return JSON.parse(fileContent) as unknown;
     } catch {
-        return invalidJson;
+        return Number.NEGATIVE_INFINITY;
     }
 }
 
 function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): unknown {
     const packageJsonFile = index.get(packageManifestFilePath);
-    return packageJsonFile === undefined ? invalidJson : parseJsonFile(packageJsonFile.content);
+    return packageJsonFile === undefined ? Number.NEGATIVE_INFINITY : parseJsonFile(packageJsonFile.content);
 }
 
 function includesClassification(
@@ -74,7 +72,7 @@ function hasLatestPublishedAt(
 }
 
 function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
-    return previousValue === invalidJson || newValue === invalidJson;
+    return previousValue === Number.NEGATIVE_INFINITY || newValue === Number.NEGATIVE_INFINITY;
 }
 
 function normalizePackageJsonForDependencyComparison(value: unknown): unknown {
