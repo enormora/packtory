@@ -6,7 +6,7 @@ import type { LicenseResolver } from './license-resolver.ts';
 import type { SbomSerializer } from './sbom-serializer.ts';
 import { buildSbom, type SbomDependency, type SbomDependencyKind } from './sbom-builder.ts';
 
-const sbomFilePath = 'sbom.cdx.json';
+export const sbomFilePath = 'sbom.cdx.json';
 
 type ToolVersionProvider = () => Promise<string>;
 

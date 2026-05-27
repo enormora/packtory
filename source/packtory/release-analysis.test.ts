@@ -136,6 +136,35 @@ suite('release-analysis', function () {
         );
     });
 
+    test('classifyPackageRelease treats SBOM-only diffs alongside dependency-only package.json changes as dependency-only', function () {
+        const buildResult = buildResultWithPublishedFiles([
+            file('package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+            file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.0.0"}]}')
+        ]);
+
+        const result = classifyPackageRelease(buildResult, [
+            file('package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+            file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.1.0"}]}')
+        ]);
+
+        assert.strictEqual(result.classification, 'dependency-only');
+    });
+
+    test('classifyPackageRelease keeps substantive classification when source files differ even if SBOM also differs', function () {
+        assertSubstantiveClassification(
+            [
+                file('package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+                file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.0.0"}]}'),
+                file('index.js', 'export const value = 1;\n')
+            ],
+            [
+                file('package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+                file('sbom.cdx.json', '{"components":[{"name":"a","version":"1.1.0"}]}'),
+                file('index.js', 'export const value = 2;\n')
+            ]
+        );
+    });
+
     test('classifyPackageRelease treats packages without package.json in the published artifacts as substantive', function () {
         assertSubstantiveClassification(
             [file('index.js', 'export const value = 1;\n')],

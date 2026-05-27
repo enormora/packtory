@@ -1,12 +1,15 @@
 import { isDeepStrictEqual } from 'node:util';
 import { maxDate } from '../common/max-date.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
+import { sbomFilePath } from '../sbom/sbom-file.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import type {
     PackageReleaseAnalysis,
     PackageReleaseAnalysisClassification,
     ReleaseAnalysis
 } from './packtory-results.ts';
+
+const dependencyDerivedFilePaths = new Set(['package.json', sbomFilePath]);
 
 const dependencyOnlyPackageJsonFields = new Set([
     'bundleDependencies',
@@ -83,13 +86,16 @@ function indexFiles(files: readonly FileDescription[]): ReadonlyMap<string, File
     );
 }
 
-function nonPackageJsonFilesMatch(
+function nonDependencyDerivedFilesMatch(
     previousIndex: ReadonlyMap<string, FileDescription>,
     newIndex: ReadonlyMap<string, FileDescription>
 ): boolean {
     return Array.from(previousIndex.entries()).every(([filePath, previousFile]) => {
+        if (dependencyDerivedFilePaths.has(filePath)) {
+            return true;
+        }
         const currentFile = newIndex.get(filePath);
-        return filePath === 'package.json' || isDeepStrictEqual(previousFile, currentFile);
+        return isDeepStrictEqual(previousFile, currentFile);
     });
 }
 
@@ -133,7 +139,7 @@ function isDependencyOnlyPublishedChange(
 
     const { previousIndex, newIndex } = createComparisonIndexes(previousFiles, newFiles);
 
-    if (!nonPackageJsonFilesMatch(previousIndex, newIndex)) {
+    if (!nonDependencyDerivedFilesMatch(previousIndex, newIndex)) {
         return false;
     }
 
