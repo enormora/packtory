@@ -1,4 +1,4 @@
-import { provenanceType, publishAccess, type PublishSettings } from '../../config/publish-settings.ts';
+import type { PublishSettings } from '../../config/publish-settings.ts';
 import { matchAutoModeError } from '../publish-error/auto-mode-error-matching.ts';
 import { ensureError } from '../publish-error/error-shape-helpers.ts';
 import { matchFileModeError } from '../publish-error/file-mode-error-matching.ts';
@@ -6,29 +6,29 @@ import { matchFileModeError } from '../publish-error/file-mode-error-matching.ts
 type PublishProvenanceOptions = { readonly provenance: true } | { readonly provenanceFile: string };
 
 type PublishOptionsForLibnpmpublish = Partial<PublishProvenanceOptions> & {
-    readonly access: (typeof publishAccess)[keyof typeof publishAccess];
+    readonly access: PublishSettings['access'];
 };
 
 export function buildPublishOptionsForPublishSettings(
     publishSettings: Readonly<PublishSettings>
 ): PublishOptionsForLibnpmpublish {
-    if (publishSettings.access === publishAccess.restricted) {
-        return { access: publishAccess.restricted };
+    if (publishSettings.access === 'restricted') {
+        return { access: 'restricted' };
     }
 
-    if (publishSettings.provenance?.type === provenanceType.auto) {
-        return { access: publishAccess.public, provenance: true };
+    if (publishSettings.provenance?.type === 'auto') {
+        return { access: 'public', provenance: true };
     }
 
-    if (publishSettings.provenance?.type === provenanceType.file) {
-        return { access: publishAccess.public, provenanceFile: publishSettings.provenance.path };
+    if (publishSettings.provenance?.type === 'file') {
+        return { access: 'public', provenanceFile: publishSettings.provenance.path };
     }
 
-    return { access: publishAccess.public };
+    return { access: 'public' };
 }
 
 function getProvenanceFilePath(publishSettings: Readonly<PublishSettings>): string | undefined {
-    return publishSettings.access === publishAccess.public && publishSettings.provenance?.type === provenanceType.file
+    return publishSettings.access === 'public' && publishSettings.provenance?.type === 'file'
         ? publishSettings.provenance.path
         : undefined;
 }

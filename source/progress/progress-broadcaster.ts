@@ -1,5 +1,3 @@
-import type { PublishedReleaseStatus } from '../packtory/published-release-state.ts';
-
 export type StageName = 'build' | 'eliminate' | 'publish' | 'resolveAndLink' | 'tryPublish';
 
 export type IncludedFile = {
@@ -19,32 +17,13 @@ export type ImportRewrite = {
     readonly targetBundle: string;
 };
 
-export const artifactStatus = {
-    changed: 'changed',
-    generated: 'generated',
-    unchanged: 'unchanged'
-} as const;
+export type ArtifactStatus = 'changed' | 'generated' | 'unchanged';
 
-export type ArtifactStatus = (typeof artifactStatus)[keyof typeof artifactStatus];
-
-export const artifactBadge = {
-    deadCodeElimination: 'dead-code-elimination',
-    importPathRewrite: 'import-path-rewrite'
-} as const;
-
-export type ArtifactBadge = (typeof artifactBadge)[keyof typeof artifactBadge];
-
-export const fileDecision = {
-    eliminated: 'eliminated',
-    kept: 'kept',
-    transformed: 'transformed'
-} as const;
-
-type FileDecisionKind = (typeof fileDecision)[keyof typeof fileDecision];
+export type ArtifactBadge = 'dead-code-elimination' | 'import-path-rewrite';
 
 export type FileDecision = {
     readonly path: string;
-    readonly decision: FileDecisionKind;
+    readonly decision: 'eliminated' | 'kept' | 'transformed';
     readonly reason: string;
     readonly sourceBytes: number;
     readonly outputBytes?: number;
@@ -71,33 +50,17 @@ type EliminationBundleResult = {
     readonly seeds: readonly CrossBundleSeed[];
 };
 
-export const versionTrigger = {
-    autoPatchBump: 'auto-patch-bump',
-    initial: 'initial',
-    minimum: 'minimum',
-    pinned: 'pinned'
-} as const;
-
-export type VersionTrigger = (typeof versionTrigger)[keyof typeof versionTrigger];
+export type VersionTrigger = 'auto-patch-bump' | 'initial' | 'minimum' | 'pinned';
 
 export type FieldProvenance = {
     readonly source: 'additionalAttributes' | 'derived' | 'mainPackageJson';
     readonly note?: string;
 };
 
-export const artifactKind = {
-    additional: 'additional',
-    manifest: 'manifest',
-    sbom: 'sbom',
-    source: 'source'
-} as const;
-
-type ArtifactKind = (typeof artifactKind)[keyof typeof artifactKind];
-
 export type ArtifactEntry = {
     readonly path: string;
     readonly sizeBytes: number;
-    readonly kind: ArtifactKind;
+    readonly kind: 'additional' | 'manifest' | 'sbom' | 'source';
     readonly sourcePath?: string | undefined;
     readonly status: ArtifactStatus;
     readonly badges: readonly ArtifactBadge[];
@@ -112,7 +75,7 @@ export type EliminatedSourceFile = {
 
 export type RedactedConfig = Readonly<Record<string, unknown>>;
 
-type VersionedProgressEventPayload = {
+type ProgressEventPayload = {
     readonly packageName: string;
     readonly version: string;
 };
@@ -137,7 +100,7 @@ type ErrorPayload = {
 type DonePayload = {
     readonly packageName: string;
     readonly version: string;
-    readonly status: PublishedReleaseStatus;
+    readonly status: 'already-published' | 'initial-version' | 'new-version';
 };
 
 type InputsResolvedPayload = {
@@ -196,13 +159,13 @@ type PackageFailedPayload = {
     readonly message: string;
 };
 
-type ProgressEvents = {
+type Events = {
     readonly scheduled: ScheduledEventPayload;
     readonly resolving: ResolvingEventPayload;
     readonly linking: LinkingEventPayload;
-    readonly building: VersionedProgressEventPayload;
-    readonly rebuilding: VersionedProgressEventPayload;
-    readonly publishing: VersionedProgressEventPayload;
+    readonly building: ProgressEventPayload;
+    readonly rebuilding: ProgressEventPayload;
+    readonly publishing: ProgressEventPayload;
     readonly done: DonePayload;
     readonly error: ErrorPayload;
     readonly inputsResolved: InputsResolvedPayload;
@@ -217,88 +180,42 @@ type ProgressEvents = {
     readonly packageFailed: PackageFailedPayload;
 };
 
-export type ProgressEventName = keyof ProgressEvents;
-export type ProgressEventPayload<TEventName extends ProgressEventName> = ProgressEvents[TEventName];
-
 type Listener<TPayload> = (payload: TPayload) => void;
 
-type ListenerRegistry = { [TEventName in ProgressEventName]: Set<Listener<ProgressEventPayload<TEventName>>> };
-
-export const progressEventName = {
-    scheduled: 'scheduled',
-    resolving: 'resolving',
-    linking: 'linking',
-    building: 'building',
-    rebuilding: 'rebuilding',
-    publishing: 'publishing',
-    done: 'done',
-    error: 'error',
-    inputsResolved: 'inputsResolved',
-    effectiveConfigResolved: 'effectiveConfigResolved',
-    scanCompleted: 'scanCompleted',
-    linkingCompleted: 'linkingCompleted',
-    eliminationCompleted: 'eliminationCompleted',
-    versionDetermined: 'versionDetermined',
-    packageJsonAssembled: 'packageJsonAssembled',
-    artifactsCollected: 'artifactsCollected',
-    stageTimed: 'stageTimed',
-    packageFailed: 'packageFailed'
-} as const satisfies Record<ProgressEventName, ProgressEventName>;
-
-const publicProgressEventNames = [
-    progressEventName.building,
-    progressEventName.done,
-    progressEventName.error,
-    progressEventName.linking,
-    progressEventName.publishing,
-    progressEventName.rebuilding,
-    progressEventName.resolving,
-    progressEventName.scheduled
-] as const satisfies readonly ProgressEventName[];
-
-type PublicProgressEventName = (typeof publicProgressEventNames)[number];
-
-const progressEventNames = [
-    ...publicProgressEventNames,
-    progressEventName.inputsResolved,
-    progressEventName.effectiveConfigResolved,
-    progressEventName.scanCompleted,
-    progressEventName.linkingCompleted,
-    progressEventName.eliminationCompleted,
-    progressEventName.versionDetermined,
-    progressEventName.packageJsonAssembled,
-    progressEventName.artifactsCollected,
-    progressEventName.stageTimed,
-    progressEventName.packageFailed
-] as const satisfies readonly ProgressEventName[];
+type ProgressEventName =
+    | 'building'
+    | 'done'
+    | 'error'
+    | 'linking'
+    | 'publishing'
+    | 'rebuilding'
+    | 'resolving'
+    | 'scheduled';
 
 export type ProgressBroadcastProvider = {
-    readonly emit: <TEventName extends ProgressEventName>(
-        eventName: TEventName,
-        payload: ProgressEventPayload<TEventName>
-    ) => void;
-    readonly hasSubscribers: (eventName: ProgressEventName) => boolean;
+    readonly emit: <TEventName extends keyof Events>(eventName: TEventName, payload: Events[TEventName]) => void;
+    readonly hasSubscribers: (eventName: keyof Events) => boolean;
 };
 
 export type ProgressBroadcastConsumer = {
-    readonly on: <TEventName extends ProgressEventName>(
+    readonly on: <TEventName extends keyof Events>(
         eventName: TEventName,
-        listener: Listener<ProgressEventPayload<TEventName>>
+        listener: Listener<Events[TEventName]>
     ) => void;
-    readonly off: <TEventName extends ProgressEventName>(
+    readonly off: <TEventName extends keyof Events>(
         eventName: TEventName,
-        listener: Listener<ProgressEventPayload<TEventName>>
+        listener: Listener<Events[TEventName]>
     ) => void;
 };
 
 export type PublicProgressBroadcastConsumer = {
-    readonly on: <TEventName extends PublicProgressEventName>(
+    readonly on: <TEventName extends ProgressEventName>(
         eventName: TEventName,
-        listener: Listener<ProgressEventPayload<TEventName>>
+        listener: Listener<Events[TEventName]>
     ) => void;
-    readonly off: <TEventName extends PublicProgressEventName>(
+    readonly off: <TEventName extends ProgressEventName>(
         eventName: TEventName,
-        listener: Listener<ProgressEventPayload<TEventName>>
+        listener: Listener<Events[TEventName]>
     ) => void;
 };
 
@@ -307,12 +224,27 @@ export type ProgressBroadcaster = {
     readonly consumer: ProgressBroadcastConsumer;
 };
 
-function createListenerRegistry(): ListenerRegistry {
-    const entries = progressEventNames.map((eventName) => {
-        return [eventName, new Set()] as const;
-    });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- the event name list fully covers Events
-    return Object.fromEntries(entries) as ListenerRegistry;
+function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<Events[TEventName]>> } {
+    return {
+        scheduled: new Set(),
+        resolving: new Set(),
+        linking: new Set(),
+        building: new Set(),
+        rebuilding: new Set(),
+        publishing: new Set(),
+        done: new Set(),
+        error: new Set(),
+        inputsResolved: new Set(),
+        effectiveConfigResolved: new Set(),
+        scanCompleted: new Set(),
+        linkingCompleted: new Set(),
+        eliminationCompleted: new Set(),
+        versionDetermined: new Set(),
+        packageJsonAssembled: new Set(),
+        artifactsCollected: new Set(),
+        stageTimed: new Set(),
+        packageFailed: new Set()
+    };
 }
 
 export function createProgressBroadcaster(): ProgressBroadcaster {

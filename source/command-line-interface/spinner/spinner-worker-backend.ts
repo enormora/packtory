@@ -1,4 +1,4 @@
-import { slotState, type SlotState, type SpinnerSharedAccessors } from './spinner-shared-state.ts';
+import type { SlotState, SpinnerSharedAccessors } from './spinner-shared-state.ts';
 import type { SpinnerRuntime } from './spinner-runtime.ts';
 import type { SpinnerBackend } from './terminal-spinner-renderer.ts';
 
@@ -40,11 +40,11 @@ export function createWorkerSpinnerBackend(dependencies: WorkerSpinnerBackendDep
     return {
         add(slotIndex, label, message) {
             ensureSlotIndexFits(slotIndex);
-            writeSlot(runtime.accessors, { slotIndex, state: slotState.running, label, message });
+            writeSlot(runtime.accessors, { slotIndex, state: 'running', label, message });
         },
         update(slotIndex, label, message) {
             ensureSlotIndexFits(slotIndex);
-            writeSlot(runtime.accessors, { slotIndex, state: slotState.running, label, message });
+            writeSlot(runtime.accessors, { slotIndex, state: 'running', label, message });
         },
         finish(slotIndex, status, label, message) {
             ensureSlotIndexFits(slotIndex);

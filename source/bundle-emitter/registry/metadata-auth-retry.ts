@@ -1,4 +1,4 @@
-import { publishAuthType, type RegistrySettings } from '../../config/registry-settings.ts';
+import type { RegistrySettings } from '../../config/registry-settings.ts';
 import {
     buildAuthOptions,
     resolvePublishAuth,
@@ -30,7 +30,7 @@ export async function retryWithFallbackAuth<T>(
         }
 
         const publishAuth = resolvePublishAuth(registrySettings);
-        if (publishAuth.type === publishAuthType.npmOidc) {
+        if (publishAuth.type === 'npm-oidc') {
             throw error;
         }
 

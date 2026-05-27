@@ -1,5 +1,5 @@
 import { bold, green, red } from 'yoctocolors';
-import { slotState, type SlotState } from './spinner-shared-state.ts';
+import type { SlotState } from './spinner-shared-state.ts';
 
 const spinnerFrames = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
 const successSymbol = bold(green('✔'));
@@ -14,10 +14,10 @@ export function cursorUp(lines: number): string {
 }
 
 function selectGlyph(state: SlotState, frameIndex: number): string {
-    if (state === slotState.succeeded) {
+    if (state === 'succeeded') {
         return successSymbol;
     }
-    if (state === slotState.failed || state === slotState.canceled) {
+    if (state === 'failed' || state === 'canceled') {
         return failureSymbol;
     }
     return spinnerFrames.charAt(frameIndex % spinnerFrames.length);

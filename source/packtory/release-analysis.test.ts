@@ -125,6 +125,14 @@ suite('release-analysis', function () {
         );
     });
 
+    test('classifyPackageRelease treats invalid published package.json contents as substantive when the new package.json is null', function () {
+        assertSubstantiveClassification([file('package.json', 'not-json')], [file('package.json', 'null')]);
+    });
+
+    test('classifyPackageRelease treats invalid new package.json contents as substantive when the published package.json is null', function () {
+        assertSubstantiveClassification([file('package.json', 'null')], [file('package.json', 'not-json')]);
+    });
+
     test('classifyPackageRelease treats pairs of invalid package.json contents as substantive', function () {
         assertSubstantiveClassification([file('package.json', 'not-json')], [file('package.json', 'still-not-json')]);
     });

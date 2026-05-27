@@ -1,11 +1,6 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { PublishAllResult } from '../../packtory/packtory.ts';
-import {
-    artifactStatus,
-    type ArtifactBadge,
-    type ArtifactStatus,
-    type EliminatedSourceFile
-} from '../../progress/progress-broadcaster.ts';
+import type { ArtifactBadge, ArtifactStatus, EliminatedSourceFile } from '../../progress/progress-broadcaster.ts';
 import type { BuildReport, PackageReport } from '../aggregator/report-types.ts';
 import { buildDiffForArtifact } from './artifact-diff-builder.ts';
 import { buildArtifactTree, type PreviewArtifact, type PreviewArtifactNode } from './artifact-tree-builder.ts';
@@ -69,7 +64,7 @@ function collectPackageArtifactData(artifacts: readonly PreviewArtifact[]): {
     let changedArtifactCount = 0;
 
     for (const artifact of artifacts) {
-        if (artifact.status === artifactStatus.changed) {
+        if (artifact.status === 'changed') {
             changedArtifactCount += 1;
         }
         if (artifact.diff !== undefined) {
@@ -154,7 +149,7 @@ export async function buildPreviewDocument(params: PreviewDocumentParams): Promi
 }
 
 export function artifactStatusLabel(status: ArtifactStatus): string {
-    return artifactStatus[status];
+    return status;
 }
 
 export function artifactBadgeLabel(badge: ArtifactBadge): string {

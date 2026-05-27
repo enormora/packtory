@@ -13,7 +13,7 @@ import {
 } from './packtory-results.ts';
 import { publishedReleaseStatus } from './published-release-state.ts';
 
-const invalidJson = Symbol('invalid-json');
+const invalidJson = Number.NEGATIVE_INFINITY;
 
 function dependencyOnlyPackageJsonFields(): readonly string[] {
     return [

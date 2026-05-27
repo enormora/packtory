@@ -1,7 +1,7 @@
 /* eslint-disable import/max-dependencies -- the publish/check flow legitimately depends on registry, artifacts, file-manager, and provenance helpers */
 import { Maybe } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
-import { provenanceType, publishAccess, type PublishSettings } from '../config/publish-settings.ts';
+import type { PublishSettings } from '../config/publish-settings.ts';
 import type { RegistrySettings } from '../config/registry-settings.ts';
 import type { VersioningSettings } from '../config/versioning-settings.ts';
 import { compareFileDescriptions, fileDescriptionComparisonStatus } from '../file-manager/compare.ts';
@@ -84,10 +84,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
         },
 
         async publish(options) {
-            if (
-                options.publishSettings.access === publishAccess.public &&
-                options.publishSettings.provenance?.type === provenanceType.auto
-            ) {
+            if (options.publishSettings.access === 'public' && options.publishSettings.provenance?.type === 'auto') {
                 assertRepositoryCoherence(options.bundle.packageJson, ciRepositoryUrl);
             }
 

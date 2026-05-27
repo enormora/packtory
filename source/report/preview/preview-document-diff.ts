@@ -1,6 +1,6 @@
 import { isCodeFile } from '../../common/code-files.ts';
 import type { createStructuredPatch } from '../../common/typed-diff.ts';
-import { artifactKind, artifactStatus, type ArtifactEntry } from '../../progress/progress-broadcaster.ts';
+import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 
 export const previewDiffLineType = {
     add: 'add',
@@ -25,8 +25,8 @@ type StructuredHunk = ReturnType<typeof createStructuredPatch>['hunks'][number];
 export function isDiffableArtifact(entry: ArtifactEntry): entry is ArtifactEntry & { readonly sourcePath: string } {
     return (
         entry.sourcePath !== undefined &&
-        entry.status === artifactStatus.changed &&
-        entry.kind === artifactKind.source &&
+        entry.status === 'changed' &&
+        entry.kind === 'source' &&
         isCodeFile(entry.path)
     );
 }

@@ -21,24 +21,31 @@ const controlIdleValue = 0;
 const maximumReadSlotAttempts = 1024;
 const maximumRenderedMutationWaitAttempts = 256;
 
+const slotStateEmpty = 0;
+const slotStateRunning = 1;
+const slotStateSucceeded = 2;
+const slotStateFailed = 3;
+const slotStateCanceled = 4;
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-const slotStates = ['empty', 'running', 'succeeded', 'failed', 'canceled'] as const;
-const emptySlotStateIndex = 0;
-const runningSlotStateIndex = 1;
-const succeededSlotStateIndex = 2;
-const failedSlotStateIndex = 3;
-const canceledSlotStateIndex = 4;
-export const slotState = {
-    empty: slotStates[emptySlotStateIndex],
-    running: slotStates[runningSlotStateIndex],
-    succeeded: slotStates[succeededSlotStateIndex],
-    failed: slotStates[failedSlotStateIndex],
-    canceled: slotStates[canceledSlotStateIndex]
-} as const;
+export type SlotState = 'canceled' | 'empty' | 'failed' | 'running' | 'succeeded';
 
-export type SlotState = (typeof slotStates)[number];
+const stateToByteMap: Readonly<Record<SlotState, number>> = {
+    empty: slotStateEmpty,
+    running: slotStateRunning,
+    succeeded: slotStateSucceeded,
+    failed: slotStateFailed,
+    canceled: slotStateCanceled
+};
+
+const byteToStateMap: Readonly<Record<number, SlotState>> = {
+    [slotStateEmpty]: 'empty',
+    [slotStateRunning]: 'running',
+    [slotStateSucceeded]: 'succeeded',
+    [slotStateFailed]: 'failed',
+    [slotStateCanceled]: 'canceled'
+};
 
 export type SpinnerSharedLayout = {
     readonly bufferByteLength: number;
@@ -95,6 +102,15 @@ type SpinnerSharedDependencies = {
     readonly atomics: AtomicsLike;
     readonly now: () => number;
 };
+
+function stateToByte(state: SlotState): number {
+    return stateToByteMap[state];
+}
+
+function byteToState(byte: number): SlotState {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- writers always go through stateToByteMap so the byte is one of the known state values
+    return byteToStateMap[byte] as SlotState;
+}
 
 type SlotStringSlice = {
     readonly contentOffset: number;
@@ -324,8 +340,7 @@ export function createSpinnerSharedAccessors(
 
     function readSlotSnapshot(slotIndex: number): ReturnType<SpinnerSharedAccessors['readSlot']> {
         return {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- writers always use known slot state values
-            state: slotStates[views.slotData(slotIndex).getUint8(slotStateOffset)] as SlotState,
+            state: byteToState(views.slotData(slotIndex).getUint8(slotStateOffset)),
             label: readStringFromSlot(views, slotIndex, labelSlice),
             message: readStringFromSlot(views, slotIndex, messageSlice)
         };
@@ -400,7 +415,7 @@ export function createSpinnerSharedAccessors(
             atomics.add(views.slotInt32(slotIndex), slotGenerationIndex, 1);
         },
         writeSlot(slotIndex, state, label, message) {
-            views.slotData(slotIndex).setUint8(slotStateOffset, slotStates.indexOf(state));
+            views.slotData(slotIndex).setUint8(slotStateOffset, stateToByte(state));
             writeStringIntoSlot(views, slotIndex, labelSlice, label);
             writeStringIntoSlot(views, slotIndex, messageSlice, message);
         },

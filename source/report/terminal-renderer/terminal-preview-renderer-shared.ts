@@ -28,10 +28,9 @@ function withAnsi(openCode: number, closeCode: number): (value: string) => strin
     };
 }
 
+const disabledColors: Colors = { bold: identity, dim: identity, green: identity, red: identity, yellow: identity };
+
 export function createColors(enabled: boolean | undefined): Colors {
-    if (enabled === false) {
-        return { bold: identity, dim: identity, green: identity, red: identity, yellow: identity };
-    }
     if (enabled === true) {
         return {
             bold: withAnsi(ansi.bold.open, ansi.bold.close),
@@ -41,7 +40,10 @@ export function createColors(enabled: boolean | undefined): Colors {
             yellow: withAnsi(ansi.yellow.open, ansi.yellow.close)
         };
     }
-    return { bold, dim, green, red, yellow };
+    if (enabled === undefined) {
+        return { bold, dim, green, red, yellow };
+    }
+    return disabledColors;
 }
 
 export function renderDiffLine(line: PreviewDiffLine, colors: Colors): string {

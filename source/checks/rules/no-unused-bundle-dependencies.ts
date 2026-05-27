@@ -17,7 +17,7 @@ type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
     const issues: string[] = [];
 
-    for (const group of bundledDependencyGroups) {
+    for (const group of bundledDependencyGroups()) {
         for (const dependencyName of packageConfig?.[group.propertyName] ?? []) {
             if (!bundle.linkedBundleDependencies.has(dependencyName)) {
                 issues.push(

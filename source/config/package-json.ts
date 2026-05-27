@@ -1,15 +1,6 @@
 import type { JsonValue } from 'type-fest';
 
-const runtimePackageJsonDependencyFieldName = {
-    dependencies: 'dependencies',
-    peerDependencies: 'peerDependencies'
-} as const;
-
-export const packageJsonDependencyFieldNames = [
-    runtimePackageJsonDependencyFieldName.dependencies,
-    'devDependencies',
-    runtimePackageJsonDependencyFieldName.peerDependencies
-] as const;
+export const packageJsonDependencyFieldNames = ['dependencies', 'devDependencies', 'peerDependencies'] as const;
 
 const forbiddenAdditionalPackageJsonAttributeNames = [
     ...packageJsonDependencyFieldNames,

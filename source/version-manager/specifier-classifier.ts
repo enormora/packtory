@@ -1,84 +1,55 @@
 import npa from 'npm-package-arg';
+import { match } from 'ts-pattern';
 
-const mutableNpaType = {
-    directory: 'directory',
-    file: 'file',
-    git: 'git',
-    remote: 'remote'
-} as const;
+const workspaceProtocolPrefix = 'workspace:';
+const portalProtocolPrefix = 'portal:';
 
-const specifierClassificationKind = {
-    malformed: 'malformed',
-    mutable: 'mutable',
-    registry: 'registry'
-} as const;
+const workspaceMalformedReason =
+    'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace,' +
+    ' not valid in a published manifest';
+const portalMalformedReason =
+    'portal protocol is yarn-specific; resolved as a local symlink, not valid in a published manifest';
 
-export type MutableNpaType = (typeof mutableNpaType)[keyof typeof mutableNpaType];
+export type MutableNpaType = 'directory' | 'file' | 'git' | 'remote';
 
 export type Classification =
-    | { readonly kind: typeof specifierClassificationKind.malformed; readonly reason: string }
-    | { readonly kind: typeof specifierClassificationKind.mutable; readonly npaType: MutableNpaType }
-    | { readonly kind: typeof specifierClassificationKind.registry };
+    | { readonly kind: 'malformed'; readonly reason: string }
+    | { readonly kind: 'mutable'; readonly npaType: MutableNpaType }
+    | { readonly kind: 'registry' };
 
-const mutableNpaTypeByResultType = {
-    file: mutableNpaType.file,
-    git: mutableNpaType.git,
-    remote: mutableNpaType.remote
-} as const satisfies Readonly<
-    Record<
-        Exclude<MutableNpaType, typeof mutableNpaType.directory>,
-        Exclude<MutableNpaType, typeof mutableNpaType.directory>
-    >
->;
-const registryNpaTypeLookup = {
-    alias: true,
-    range: true,
-    tag: true,
-    version: true
-} as const;
-
-function workspaceMalformedReason(): string {
-    return (
-        'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace,' +
-        ' not valid in a published manifest'
-    );
-}
-
-function portalMalformedReason(): string {
-    return 'portal protocol is yarn-specific; resolved as a local symlink, not valid in a published manifest';
-}
-
-function isKnownMutableNpaType(type: string): type is keyof typeof mutableNpaTypeByResultType {
-    return type in mutableNpaTypeByResultType;
-}
+type NpaResultType = npa.Result['type'];
 
 function classifyNpaResult(result: npa.Result): Classification {
-    if (result.type in registryNpaTypeLookup) {
-        return { kind: specifierClassificationKind.registry };
-    }
-
-    const npaType = isKnownMutableNpaType(result.type)
-        ? mutableNpaTypeByResultType[result.type]
-        : mutableNpaType.directory;
-
-    return {
-        kind: specifierClassificationKind.mutable,
-        npaType
-    };
+    return match<NpaResultType, Classification>(result.type)
+        .with('alias', 'range', 'tag', 'version', () => {
+            return { kind: 'registry' };
+        })
+        .with('git', () => {
+            return { kind: 'mutable', npaType: 'git' };
+        })
+        .with('remote', () => {
+            return { kind: 'mutable', npaType: 'remote' };
+        })
+        .with('file', () => {
+            return { kind: 'mutable', npaType: 'file' };
+        })
+        .otherwise(() => {
+            return { kind: 'mutable', npaType: 'directory' };
+        });
 }
 
 export function classifySpecifier(name: string, specifier: string): Classification {
-    if (specifier.startsWith('workspace:')) {
-        return { kind: specifierClassificationKind.malformed, reason: workspaceMalformedReason() };
+    if (specifier.startsWith(workspaceProtocolPrefix)) {
+        return { kind: 'malformed', reason: workspaceMalformedReason };
     }
-    if (specifier.startsWith('portal:')) {
-        return { kind: specifierClassificationKind.malformed, reason: portalMalformedReason() };
+    if (specifier.startsWith(portalProtocolPrefix)) {
+        return { kind: 'malformed', reason: portalMalformedReason };
     }
 
     try {
         const result = npa.resolve(name, specifier);
         return classifyNpaResult(result);
     } catch (error: unknown) {
-        return { kind: specifierClassificationKind.malformed, reason: String(error) };
+        return { kind: 'malformed', reason: String(error) };
     }
 }

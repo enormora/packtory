@@ -22,7 +22,7 @@ function matchingGroupedDependency(
     groupedDependenciesByName: GroupedDependenciesByName,
     dependencyName: string
 ): GroupedDependencyMatch | undefined {
-    for (const group of bundledDependencyLookupOrder) {
+    for (const group of bundledDependencyLookupOrder()) {
         const matchingDependency = groupedDependenciesByName[group.propertyName].get(dependencyName);
         if (matchingDependency !== undefined) {
             return { manifestProperty: group.manifestProperty, version: matchingDependency.version };

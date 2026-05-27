@@ -1,11 +1,5 @@
 import type _npmFetch from 'npm-registry-fetch';
-import {
-    metadataAuthMode,
-    publishAuthType,
-    type MetadataAuthStrategy,
-    type PublishAuthStrategy,
-    type RegistrySettings
-} from '../../config/registry-settings.ts';
+import type { MetadataAuthStrategy, PublishAuthStrategy, RegistrySettings } from '../../config/registry-settings.ts';
 
 export const npmRegistryUrl = 'https://registry.npmjs.org/';
 
@@ -43,7 +37,7 @@ export function buildAuthOptions(
     const registry = resolveRegistryUrl(registrySettings);
     const options = createBaseOptions(registrySettings);
 
-    if (auth.type === publishAuthType.bearerToken) {
+    if (auth.type === 'bearer-token') {
         return {
             allowsAutomaticRetry: false,
             registry,
@@ -88,7 +82,7 @@ function resolveInheritedMetadataAuth(
     publishAuth: PublishAuthStrategy,
     registrySettings: Readonly<RegistrySettings>
 ): AuthResolution {
-    return publishAuth.type === publishAuthType.npmOidc
+    return publishAuth.type === 'npm-oidc'
         ? createAnonymousAuthResolution(registrySettings)
         : buildAuthOptions(publishAuth, registrySettings);
 }
@@ -99,11 +93,11 @@ export function resolveMetadataAuthOptions(registrySettings: Readonly<RegistrySe
     }
 
     const metadataMode = registrySettings.auth.metadata;
-    if (metadataMode === metadataAuthMode.auto) {
+    if (metadataMode === 'auto') {
         return createAutomaticRetryAuthResolution(registrySettings);
     }
 
-    if (metadataMode === metadataAuthMode.anonymous) {
+    if (metadataMode === 'anonymous') {
         return createAnonymousAuthResolution(registrySettings);
     }
 

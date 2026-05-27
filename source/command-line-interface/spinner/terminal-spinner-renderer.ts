@@ -1,5 +1,3 @@
-import { slotState } from './spinner-shared-state.ts';
-
 export const spinnerResultStatus = {
     failure: 'failure',
     success: 'success'
@@ -19,7 +17,7 @@ export type SpinnerBackend = {
     readonly update: (slotIndex: number, label: string, message: string) => void;
     readonly finish: (
         slotIndex: number,
-        status: typeof slotState.canceled | typeof slotState.failed | typeof slotState.succeeded,
+        status: 'canceled' | 'failed' | 'succeeded',
         label: string,
         message: string
     ) => void;
@@ -34,7 +32,7 @@ type SpinnerSlot = {
     readonly slotIndex: number;
     readonly label: string;
     message: string;
-    status: Status | typeof slotState.running;
+    status: Status | 'running';
 };
 
 const cancelMessage = 'Canceled …';
@@ -70,7 +68,7 @@ export function createTerminalSpinnerRenderer(
 
             const slotIndex = nextFreeSlotIndex();
             usedSlots.add(slotIndex);
-            spinners.set(id, { slotIndex, label, message, status: slotState.running });
+            spinners.set(id, { slotIndex, label, message, status: 'running' });
             backend.add(slotIndex, label, message);
         },
 
@@ -84,15 +82,15 @@ export function createTerminalSpinnerRenderer(
             const spinner = getSpinnerById(id);
             spinner.message = message;
             spinner.status = status;
-            const finalState = status === spinnerResultStatus.success ? slotState.succeeded : slotState.failed;
+            const finalState = status === spinnerResultStatus.success ? 'succeeded' : 'failed';
             backend.finish(spinner.slotIndex, finalState, spinner.label, message);
         },
 
         stopAll() {
             for (const spinner of spinners.values()) {
-                if (spinner.status === slotState.running) {
+                if (spinner.status === 'running') {
                     spinner.message = cancelMessage;
-                    backend.finish(spinner.slotIndex, slotState.canceled, spinner.label, cancelMessage);
+                    backend.finish(spinner.slotIndex, 'canceled', spinner.label, cancelMessage);
                 }
             }
             spinners.clear();

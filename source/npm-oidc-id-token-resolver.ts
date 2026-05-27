@@ -1,4 +1,4 @@
-import { oidcProvider, type NpmOidcPublishAuth } from './config/registry-settings.ts';
+import type { NpmOidcPublishAuth } from './config/registry-settings.ts';
 
 export type NpmOidcIdTokenResolver = (auth: NpmOidcPublishAuth) => Promise<string>;
 
@@ -50,9 +50,9 @@ function usesGitHubActionsProvider(
     auth: NpmOidcPublishAuth,
     getEnvironmentVariable: (variableName: string) => string | undefined
 ): boolean {
-    const provider = auth.provider ?? oidcProvider.auto;
+    const provider = auth.provider ?? 'auto';
     const runsInGitHubActions = getEnvironmentVariable('GITHUB_ACTIONS') === 'true';
-    return provider === oidcProvider.githubActions || (provider === oidcProvider.auto && runsInGitHubActions);
+    return provider === 'github-actions' || (provider === 'auto' && runsInGitHubActions);
 }
 
 export function createNpmOidcIdTokenResolver(

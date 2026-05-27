@@ -6,7 +6,7 @@ export function validateDependenciesExist(packageConfigs: PackageConfigsByName):
     const knownPackageNames = new Set(Object.keys(packageConfigs));
 
     for (const packageConfig of Object.values(packageConfigs)) {
-        for (const group of bundledDependencyGroups) {
+        for (const group of bundledDependencyGroups()) {
             for (const dependencyName of packageConfig[group.propertyName] ?? []) {
                 if (!knownPackageNames.has(dependencyName)) {
                     const message =

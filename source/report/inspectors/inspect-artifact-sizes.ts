@@ -1,23 +1,18 @@
 import { isPackageManifestPath } from '../../common/package-layout.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import {
-    artifactBadge,
-    artifactKind,
-    artifactStatus,
-    type ArtifactEntry
-} from '../../progress/progress-broadcaster.ts';
+import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 
 function inferArtifactKind(filePath: string): ArtifactEntry['kind'] {
     if (isPackageManifestPath(filePath)) {
-        return artifactKind.manifest;
+        return 'manifest';
     }
     if (filePath.endsWith('.sbom.json') || filePath.endsWith('.cdx.json')) {
-        return artifactKind.sbom;
+        return 'sbom';
     }
     if (/\.(?:cjs|d\.[cm]ts|jsx?|map|mjs|tsx?)$/.test(filePath)) {
-        return artifactKind.source;
+        return 'source';
     }
-    return artifactKind.additional;
+    return 'additional';
 }
 
 type ArtifactDescriptor = FileDescription & {
@@ -29,11 +24,11 @@ export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): r
     return contents.map((entry) => {
         const sourcePath = 'sourceFilePath' in entry ? entry.sourceFilePath : undefined;
         const rewritten = entry.isSubstituted === true;
-        let status: ArtifactEntry['status'] = artifactStatus.unchanged;
+        let status: ArtifactEntry['status'] = 'unchanged';
         if (sourcePath === undefined) {
-            status = artifactStatus.generated;
+            status = 'generated';
         } else if (rewritten) {
-            status = artifactStatus.changed;
+            status = 'changed';
         }
         const artifactEntry: {
             path: string;
@@ -47,7 +42,7 @@ export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): r
             sizeBytes: Buffer.byteLength(entry.content),
             kind: inferArtifactKind(entry.filePath),
             status,
-            badges: rewritten ? [artifactBadge.importPathRewrite] : []
+            badges: rewritten ? ['import-path-rewrite'] : []
         };
         if (sourcePath !== undefined) {
             artifactEntry.sourcePath = sourcePath;

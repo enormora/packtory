@@ -1,4 +1,4 @@
-import { artifactStatus, type EliminatedSourceFile } from '../../progress/progress-broadcaster.ts';
+import type { EliminatedSourceFile } from '../../progress/progress-broadcaster.ts';
 import type { PackageReport } from '../aggregator/report-types.ts';
 import type { PreviewArtifact } from './artifact-tree-builder.ts';
 
@@ -20,7 +20,7 @@ export function hasMeaningfulChanges(
     return (
         eliminatedSourceFiles.length > 0 ||
         artifacts.some((artifact) => {
-            return artifact.status === artifactStatus.changed;
+            return artifact.status === 'changed';
         })
     );
 }

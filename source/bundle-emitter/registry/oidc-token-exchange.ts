@@ -1,5 +1,5 @@
 import type { Clock } from '../../common/clock.ts';
-import { publishAuthType, type NpmOidcPublishAuth, type RegistrySettings } from '../../config/registry-settings.ts';
+import type { NpmOidcPublishAuth, RegistrySettings } from '../../config/registry-settings.ts';
 import {
     buildAuthOptions,
     createBaseOptions,
@@ -109,7 +109,7 @@ export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies
 
         async resolveWriteAuthOptions(packageName, registrySettings) {
             const auth = resolvePublishAuth(registrySettings);
-            if (auth.type !== publishAuthType.npmOidc) {
+            if (auth.type !== 'npm-oidc') {
                 return buildAuthOptions(auth, registrySettings).options;
             }
 

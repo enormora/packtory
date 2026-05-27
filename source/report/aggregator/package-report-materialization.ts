@@ -1,5 +1,5 @@
 import { isDefined, pickBy } from 'remeda';
-import { fileDecision, type ArtifactEntry } from '../../progress/progress-broadcaster.ts';
+import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 import { mergeArtifactEntry } from './artifact-entry-merger.ts';
 import type { MutablePackageReport, PackageReport } from './report-types.ts';
 
@@ -66,7 +66,7 @@ function collectTransformedSourcePaths(entry: MutablePackageReport): ReadonlySet
     }
 
     for (const file of files) {
-        if (file.decision === fileDecision.transformed) {
+        if (file.decision === 'transformed') {
             transformedSourcePaths.add(file.path);
         }
     }

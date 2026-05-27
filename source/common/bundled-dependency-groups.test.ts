@@ -19,8 +19,8 @@ suite('bundled-dependency-groups', function () {
     });
 
     test('group descriptors preserve config order and lookup priority', function () {
-        assert.deepStrictEqual(bundledDependencyGroups, [bundledDependencyGroup.bundle, bundledDependencyGroup.peer]);
-        assert.deepStrictEqual(bundledDependencyLookupOrder, [
+        assert.deepStrictEqual(bundledDependencyGroups(), [bundledDependencyGroup.bundle, bundledDependencyGroup.peer]);
+        assert.deepStrictEqual(bundledDependencyLookupOrder(), [
             bundledDependencyGroup.peer,
             bundledDependencyGroup.bundle
         ]);
