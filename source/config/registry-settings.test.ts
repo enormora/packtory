@@ -11,8 +11,12 @@ suite('registry-settings', function () {
         assert.strictEqual(safeParse(registrySettingsSchema, { auth: bearerTokenAuth }).success, true);
     });
 
-    test('schema rejects registry settings without auth', function () {
-        assert.strictEqual(safeParse(registrySettingsSchema, { registryUrl: 'bar' }).success, false);
+    test('schema accepts registry settings without auth', function () {
+        assert.strictEqual(safeParse(registrySettingsSchema, { registryUrl: 'bar' }).success, true);
+    });
+
+    test('schema accepts an empty registry settings object', function () {
+        assert.strictEqual(safeParse(registrySettingsSchema, {}).success, true);
     });
 
     test(
@@ -135,11 +139,11 @@ suite('registry-settings', function () {
     );
 
     test(
-        'validation fails when an empty object is given',
-        checkValidationFailure({
+        'validation succeeds when an empty object is given',
+        checkValidationSuccess({
             schema: registrySettingsSchema,
             data: {},
-            expectedMessages: ['at auth: missing property']
+            expectedData: {}
         })
     );
 

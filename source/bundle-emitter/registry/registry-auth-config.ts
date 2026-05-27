@@ -1,5 +1,10 @@
 import type _npmFetch from 'npm-registry-fetch';
-import type { MetadataAuthStrategy, PublishAuthStrategy, RegistrySettings } from '../../config/registry-settings.ts';
+import type {
+    MetadataAuthMode,
+    MetadataAuthStrategy,
+    PublishAuthStrategy,
+    RegistrySettings
+} from '../../config/registry-settings.ts';
 
 export const npmRegistryUrl = 'https://registry.npmjs.org/';
 
@@ -19,7 +24,13 @@ export function isNpmRegistry(registry: string | undefined): boolean {
     return new URL(registry ?? npmRegistryUrl).href === npmRegistryUrl;
 }
 
+const publishAuthRequiredErrorMessage =
+    'registrySettings.auth must be configured to publish; this code path should be unreachable when auth is missing.';
+
 export function resolvePublishAuth(registrySettings: Readonly<RegistrySettings>): PublishAuthStrategy {
+    if (registrySettings.auth === undefined) {
+        throw new Error(publishAuthRequiredErrorMessage);
+    }
     return 'type' in registrySettings.auth ? registrySettings.auth : registrySettings.auth.publish;
 }
 
@@ -87,23 +98,29 @@ function resolveInheritedMetadataAuth(
         : buildAuthOptions(publishAuth, registrySettings);
 }
 
-export function resolveMetadataAuthOptions(registrySettings: Readonly<RegistrySettings>): AuthResolution {
-    if ('type' in registrySettings.auth) {
-        return resolveInheritedMetadataAuth(registrySettings.auth, registrySettings);
-    }
-
-    const metadataMode = registrySettings.auth.metadata;
+function resolveMetadataAuthFromMode(
+    metadataMode: MetadataAuthMode | undefined,
+    publishAuth: PublishAuthStrategy,
+    registrySettings: Readonly<RegistrySettings>
+): AuthResolution {
     if (metadataMode === 'auto') {
         return createAutomaticRetryAuthResolution(registrySettings);
     }
-
     if (metadataMode === 'anonymous') {
         return createAnonymousAuthResolution(registrySettings);
     }
-
     if (typeof metadataMode === 'object') {
         return buildAuthOptions(metadataMode, registrySettings);
     }
+    return resolveInheritedMetadataAuth(publishAuth, registrySettings);
+}
 
-    return resolveInheritedMetadataAuth(registrySettings.auth.publish, registrySettings);
+export function resolveMetadataAuthOptions(registrySettings: Readonly<RegistrySettings>): AuthResolution {
+    if (registrySettings.auth === undefined) {
+        return createAnonymousAuthResolution(registrySettings);
+    }
+    if ('type' in registrySettings.auth) {
+        return resolveInheritedMetadataAuth(registrySettings.auth, registrySettings);
+    }
+    return resolveMetadataAuthFromMode(registrySettings.auth.metadata, registrySettings.auth.publish, registrySettings);
 }

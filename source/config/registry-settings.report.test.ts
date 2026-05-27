@@ -60,6 +60,23 @@ suite('registry-settings.report', function () {
         });
     });
 
+    test('omits auth when undefined', function () {
+        const settings = {
+            registryUrl: 'https://registry.example.com'
+        } as unknown as RegistrySettings;
+
+        const redacted = redactRegistrySettings(settings);
+
+        assert.deepStrictEqual(redacted, { registryUrl: 'https://registry.example.com' });
+        assert.strictEqual('auth' in redacted, false);
+    });
+
+    test('returns an empty object when both registryUrl and auth are undefined', function () {
+        const redacted = redactRegistrySettings({} as unknown as RegistrySettings);
+
+        assert.deepStrictEqual(redacted, {});
+    });
+
     test('omits registryUrl when undefined', function () {
         const settings = {
             auth: { type: 'bearer-token', token: 'real-secret' }

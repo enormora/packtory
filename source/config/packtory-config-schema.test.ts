@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import { suite, test } from 'mocha';
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
+import { checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
 
 const validConfig = {
@@ -22,7 +22,7 @@ suite('packtory-config-schema', function () {
         assert.strictEqual(safeParse(packtoryConfigSchema, validConfig).success, true);
     });
 
-    test('packtory config schema rejects configs without registrySettings', function () {
+    test('packtory config schema accepts configs without registrySettings', function () {
         assert.strictEqual(
             safeParse(packtoryConfigSchema, {
                 packages: [
@@ -35,7 +35,7 @@ suite('packtory-config-schema', function () {
                     }
                 ]
             }).success,
-            false
+            true
         );
     });
 
@@ -49,8 +49,8 @@ suite('packtory-config-schema', function () {
     );
 
     test(
-        'packtory config schema: validation fails when registrySettings is missing',
-        checkValidationFailure({
+        'packtory config schema: validation succeeds when registrySettings is omitted',
+        checkValidationSuccess({
             schema: packtoryConfigSchema,
             data: {
                 packages: [
@@ -62,8 +62,26 @@ suite('packtory-config-schema', function () {
                         publishSettings: { access: 'public' }
                     }
                 ]
-            },
-            expectedMessages: ['at registrySettings: missing property']
+            }
+        })
+    );
+
+    test(
+        'packtory config schema: validation succeeds when registrySettings is provided without auth',
+        checkValidationSuccess({
+            schema: packtoryConfigSchema,
+            data: {
+                registrySettings: { registryUrl: 'https://registry.example' },
+                packages: [
+                    {
+                        sourcesFolder: 'source',
+                        mainPackageJson: { type: 'module' },
+                        name: 'foo',
+                        roots: { main: { js: 'foo' } },
+                        publishSettings: { access: 'public' }
+                    }
+                ]
+            }
         })
     );
 

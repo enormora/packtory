@@ -290,9 +290,9 @@ suite('schema-contracts', function () {
             missingRootJsSuccess: false,
             extraRootPropertySuccess: false,
             validRegistrySuccess: true,
-            missingRegistryTokenSuccess: false,
+            missingRegistryTokenSuccess: true,
             validConfigSuccess: true,
-            missingConfigRegistrySuccess: false,
+            missingConfigRegistrySuccess: true,
             emptyConfigPackagesSuccess: false
         });
     }).timeout(probeTestTimeoutMs);

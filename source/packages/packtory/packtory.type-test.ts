@@ -130,10 +130,10 @@ describe('PacktoryConfig — accepted shapes', () => {
 });
 
 describe('PacktoryConfig — rejected shapes', () => {
-    test('rejects a configuration without registrySettings', () => {
-        expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
-            readonly packages: readonly [];
-        }>();
+    test('accepts a configuration without registrySettings (read-only ops do not require auth)', () => {
+        expect<{
+            readonly packages: readonly [{ readonly name: 'pkg'; readonly roots: Record<string, never> }];
+        }>().type.toBeAssignableTo<PacktoryConfig>();
     });
 
     test('rejects a configuration without packages', () => {
@@ -144,11 +144,11 @@ describe('PacktoryConfig — rejected shapes', () => {
         }>();
     });
 
-    test('rejects a registrySettings without auth', () => {
-        expect<PacktoryConfig>().type.not.toBeAssignableFrom<{
+    test('accepts a registrySettings without auth (publish fails fast at runtime instead)', () => {
+        expect<{
             readonly registrySettings: { readonly registryUrl: 'https://registry.example' };
-            readonly packages: readonly [];
-        }>();
+            readonly packages: readonly [{ readonly name: 'pkg'; readonly roots: Record<string, never> }];
+        }>().type.toBeAssignableTo<PacktoryConfig>();
     });
 
     test('rejects a package without name or roots', () => {
@@ -179,10 +179,17 @@ describe('PacktoryConfig — exposed structure', () => {
     });
 
     test('registrySettings exposes the documented auth fields', () => {
-        expect<PacktoryConfig['registrySettings']['registryUrl']>().type.toBe<string | undefined>();
-        type ExpandedAuth = Extract<PacktoryConfig['registrySettings']['auth'], { publish: unknown }>;
+        type RequiredRegistrySettings = NonNullable<PacktoryConfig['registrySettings']>;
+        expect<RequiredRegistrySettings['registryUrl']>().type.toBe<string | undefined>();
+        type ExpandedAuth = Extract<RequiredRegistrySettings['auth'], { publish: unknown }>;
         expect<ExpandedAuth['publish']>().type.toBe<PublishAuthStrategy>();
         expect<ExpandedAuth['metadata']>().type.toBe<MetadataAuthMode | undefined>();
+    });
+
+    test('registrySettings is optional on PacktoryConfig', () => {
+        expect<PacktoryConfig['registrySettings']>().type.toBe<
+            NonNullable<PacktoryConfig['registrySettings']> | undefined
+        >();
     });
 
     test('PackageConfig requires name and roots', () => {

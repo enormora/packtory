@@ -46,11 +46,12 @@ Your root `package.json` must declare `"type": "module"`. `packtory` only suppor
 import path from 'node:path';
 import fs from 'node:fs';
 
+const npmToken = process.env.NPM_TOKEN;
+
 export const config = {
-    // Customize your registry settings, if needed
-    registrySettings: {
-        auth: { type: 'bearer-token', token: process.env.NPM_TOKEN }
-    },
+    // `registrySettings` is only required to publish (non-dry-run). Pack, dry-run publish,
+    // release-diff and release analysis read registry metadata anonymously when omitted.
+    ...(npmToken === undefined ? {} : { registrySettings: { auth: { type: 'bearer-token', token: npmToken } } }),
 
     // Common settings shared among packages
     commonPackageSettings: {
@@ -140,9 +141,10 @@ For a deeper look at the pipeline, the package graph, parallel scheduling, the t
 
 The configuration for `packtory` is an object with the following properties:
 
-1. **`registrySettings`** (Required):
-    - An object with a required `auth` configuration.
-    - Optionally, you can provide a custom `registryUrl`.
+1. **`registrySettings`** (Optional):
+    - Only required to publish in non-dry-run mode. Pack, dry-run publish, release-diff and release analysis read registry metadata anonymously when `registrySettings` (or its `auth`) is omitted. Non-dry-run publish fails fast with one config error before any package is built when `auth` is missing.
+    - `auth` (Optional): the credentials used to read metadata and/or publish.
+    - `registryUrl` (Optional): a custom registry URL.
     - Supported publish auth strategies:
         - `type: 'bearer-token'` with a `token`
         - `type: 'basic'` with `username` and `password`
@@ -156,6 +158,14 @@ The configuration for `packtory` is an object with the following properties:
         - `'auto'`
         - explicit bearer/basic auth
     - `packtory` does not read `.npmrc`; provide auth explicitly in `packtory.config.js`.
+    - To keep environment-variable reads lazy, gate `registrySettings` on the env var inside `buildConfig`:
+        ```js
+        const npmToken = process.env.NPM_TOKEN;
+        return {
+            ...(npmToken === undefined ? {} : { registrySettings: { auth: { type: 'bearer-token', token: npmToken } } })
+            // …
+        };
+        ```
 
 2. **`commonPackageSettings`** (Optional):
     - Defines settings that can be shared for all packages.

@@ -4,7 +4,7 @@ import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-r
 
 export const packtoryConfigSchema = z.intersection(
     z.object({
-        registrySettings: registrySettingsSchema
+        registrySettings: z.optional(registrySettingsSchema)
     }),
     packtoryConfigWithoutRegistrySchema
 );

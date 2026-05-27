@@ -5,7 +5,7 @@ import { redactRegistrySettings, type RedactedRegistrySettings } from '../config
 
 export type RedactedPackageConfig = {
     readonly name: string;
-    readonly registrySettings: RedactedRegistrySettings;
+    readonly registrySettings?: RedactedRegistrySettings;
     readonly publishSettings?: RedactedPublishSettings;
     readonly sourcesFolder?: string;
 };
@@ -33,7 +33,8 @@ export function redactConfigForPackage(config: PacktoryConfig, packageName: stri
     return pickBy(
         {
             name: packageName,
-            registrySettings: redactRegistrySettings(config.registrySettings),
+            registrySettings:
+                config.registrySettings === undefined ? undefined : redactRegistrySettings(config.registrySettings),
             publishSettings,
             sourcesFolder
         },

@@ -25,7 +25,7 @@ packtory <command> [options]
 
 **Options:**
 
-- **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing.
+- **--no-dry-run:** Disables dry-run mode (enabled by default), allowing actual publishing. The CLI fails fast with a single config error when `registrySettings.auth` is missing in this mode; dry-run, `preview`, `release-diff` and `pack` work without `auth` against any registry that allows anonymous metadata reads.
 - **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.

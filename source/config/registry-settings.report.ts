@@ -47,10 +47,10 @@ function redactMetadata(metadata: MetadataAuthMode): RedactedMetadata {
 
 export type RedactedRegistrySettings = {
     readonly registryUrl?: string;
-    readonly auth: RedactedAuth | { readonly publish: RedactedAuth; readonly metadata?: RedactedMetadata };
+    readonly auth?: RedactedAuth | { readonly publish: RedactedAuth; readonly metadata?: RedactedMetadata };
 };
 
-function redactAuth(auth: RegistrySettings['auth']): RedactedRegistrySettings['auth'] {
+function redactAuth(auth: NonNullable<RegistrySettings['auth']>): NonNullable<RedactedRegistrySettings['auth']> {
     if ('publish' in auth) {
         return {
             publish: redactPublishAuth(auth.publish),
@@ -63,6 +63,6 @@ function redactAuth(auth: RegistrySettings['auth']): RedactedRegistrySettings['a
 export function redactRegistrySettings(settings: RegistrySettings): RedactedRegistrySettings {
     return {
         ...(settings.registryUrl === undefined ? {} : { registryUrl: settings.registryUrl }),
-        auth: redactAuth(settings.auth)
+        ...(settings.auth === undefined ? {} : { auth: redactAuth(settings.auth) })
     };
 }

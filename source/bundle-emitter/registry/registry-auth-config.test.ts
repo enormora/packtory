@@ -144,6 +144,26 @@ suite('registry-auth-config', function () {
         });
     });
 
+    test('resolveMetadataAuthOptions returns anonymous options when auth is undefined', function () {
+        assert.deepStrictEqual(resolveMetadataAuthOptions({}), {
+            allowsAutomaticRetry: false,
+            registry: undefined,
+            options: { alwaysAuth: true, registry: undefined }
+        });
+    });
+
+    test('resolvePublishAuth throws when auth is undefined', function () {
+        try {
+            resolvePublishAuth({});
+            assert.fail('Expected resolvePublishAuth() to throw but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual(
+                (error as Error).message,
+                'registrySettings.auth must be configured to publish; this code path should be unreachable when auth is missing.'
+            );
+        }
+    });
+
     test('resolveMetadataAuthOptions keeps npm-oidc metadata inheritance anonymous when explicitly requested', function () {
         assert.deepStrictEqual(
             resolveMetadataAuthOptions({ auth: { publish: { type: 'npm-oidc' }, metadata: 'inherit-publish-auth' } }),

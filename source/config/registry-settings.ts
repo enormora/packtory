@@ -53,7 +53,7 @@ const authConfigSchema = z.union([
 export const registrySettingsSchema = z.readonly(
     z.strictObject({
         registryUrl: z.optional(nonEmptyStringSchema),
-        auth: authConfigSchema
+        auth: z.optional(authConfigSchema)
     })
 );
 
