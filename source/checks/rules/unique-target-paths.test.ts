@@ -21,8 +21,8 @@ suite('unique-target-paths', function () {
         assert.strictEqual(typeof uniqueTargetPathsRule.run, 'function');
     });
 
-    test('returns no issues when settings are missing', function () {
-        const result = uniqueTargetPathsRule.run({
+    test('returns no issues when settings are missing', async function () {
+        const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
                     ['/src/a.js', 'collide.js'],
@@ -36,8 +36,8 @@ suite('unique-target-paths', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the rule is disabled', function () {
-        const result = uniqueTargetPathsRule.run({
+    test('returns no issues when the rule is disabled', async function () {
+        const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
                     ['/src/a.js', 'collide.js'],
@@ -51,8 +51,8 @@ suite('unique-target-paths', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when every targetFilePath is unique', function () {
-        const result = uniqueTargetPathsRule.run({
+    test('returns no issues when every targetFilePath is unique', async function () {
+        const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
                     ['/src/a.js', 'a.js'],
@@ -66,8 +66,8 @@ suite('unique-target-paths', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports a collision and lists the colliding source paths sorted', function () {
-        const result = uniqueTargetPathsRule.run({
+    test('reports a collision and lists the colliding source paths sorted', async function () {
+        const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
                     ['/src/b.js', 'collide.js'],
@@ -81,8 +81,8 @@ suite('unique-target-paths', function () {
         assert.deepStrictEqual(result, ['Package "a" maps multiple sources to "collide.js": /src/a.js, /src/b.js']);
     });
 
-    test('reports collisions independently per bundle', function () {
-        const result = uniqueTargetPathsRule.run({
+    test('reports collisions independently per bundle', async function () {
+        const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
                     ['/a-src/x.js', 'shared.js'],
@@ -100,8 +100,8 @@ suite('unique-target-paths', function () {
         assert.deepStrictEqual(result, ['Package "a" maps multiple sources to "shared.js": /a-src/x.js, /a-src/y.js']);
     });
 
-    test('reports each colliding target path of a bundle', function () {
-        const result = uniqueTargetPathsRule.run({
+    test('reports each colliding target path of a bundle', async function () {
+        const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
                     ['/src/x1.js', 'one.js'],

@@ -209,10 +209,22 @@ describe('PacktoryConfig — exposed structure', () => {
         expect<NoDuplicates['enabled']>().type.toBe<boolean>();
     });
 
+    test('checks.areTheTypesWrong is toggled at the top level via `enabled`', () => {
+        type Checks = NonNullable<PacktoryConfig['checks']>;
+        type AreTheTypesWrong = NonNullable<Checks['areTheTypesWrong']>;
+        expect<AreTheTypesWrong['enabled']>().type.toBe<boolean>();
+    });
+
     test('PackageConfig.checks.noDuplicatedFiles carries the per-package allowList', () => {
         type PackageChecks = NonNullable<PackageConfig['checks']>;
         type NoDuplicates = NonNullable<PackageChecks['noDuplicatedFiles']>;
         expect<NoDuplicates['allowList']>().type.toBe<readonly string[] | undefined>();
+    });
+
+    test('PackageConfig.checks.areTheTypesWrong carries the per-package profile override', () => {
+        type PackageChecks = NonNullable<PackageConfig['checks']>;
+        type AreTheTypesWrong = NonNullable<PackageChecks['areTheTypesWrong']>;
+        expect<AreTheTypesWrong['profile']>().type.toBe<'esm-only' | 'node16' | 'strict' | undefined>();
     });
 });
 

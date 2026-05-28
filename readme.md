@@ -263,6 +263,7 @@ If `checks` is omitted, every rule is off.
 
 ```javascript
 checks: {
+    areTheTypesWrong: { enabled: true },
     noDuplicatedFiles: { enabled: true },
     requiredFiles: { enabled: true, files: ['LICENSE'] },
     maxBundleSize: { enabled: true, bytes: 500_000 },
@@ -272,6 +273,14 @@ checks: {
     noSideEffects: { enabled: true }
 }
 ```
+
+### `areTheTypesWrong`
+
+Runs [Are the Types Wrong?](https://arethetypeswrong.github.io/) against the emitted package contents and the generated `package.json`, before publish. This checks the exact public package surface packtory would ship, not the source tree.
+
+- **Top-level:** `enabled: boolean`, `profile?: 'strict' | 'node16' | 'esm-only'`.
+- **Per-package:** `profile?: 'strict' | 'node16' | 'esm-only'` — overrides the top-level profile for that package.
+- If no profile is set, packtory defaults to `esm-only`. Packtory only emits `type: "module"` packages, so this default ignores ATTW's expected CommonJS-only resolution failures and focuses on the ESM surface that packtory actually supports.
 
 ### `noDuplicatedFiles`
 

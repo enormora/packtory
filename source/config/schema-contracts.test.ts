@@ -202,6 +202,7 @@ suite('schema-contracts', function () {
                 'packageInterface'
             ],
             checksShapeKeys: [
+                'areTheTypesWrong',
                 'noDuplicatedFiles',
                 'requiredFiles',
                 'maxBundleSize',

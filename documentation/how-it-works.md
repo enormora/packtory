@@ -333,7 +333,7 @@ Malformed source maps are passed through unchanged rather than dropped. Files wi
 
 ## 7. Stage: Checks
 
-After dead-code elimination, the full set of `AnalyzedBundle`s is fed through the configured check rules. Each rule is a pure function `(bundles, settings) → issues[]`. Every check is opt-in. They are documented end-to-end in the [readme](../readme.md#checks); the interesting architectural points are:
+After dead-code elimination, the full set of `AnalyzedBundle`s is fed through the configured check rules. Most rules inspect the analyzed bundles directly; `areTheTypesWrong` additionally materializes the generated `package.json` in memory and audits the emitted package surface. Every check is opt-in. They are documented end-to-end in the [readme](../readme.md#checks); the interesting architectural points are:
 
 - Checks see the bundles **after dead-code elimination**, so e.g. `noUnusedBundleDependencies` correctly reports a `bundleDependencies` entry whose imports have been tree-shaken away.
 - Rules are independent and run in arbitrary order; failures are aggregated into a single error.

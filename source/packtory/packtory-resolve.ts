@@ -1,5 +1,6 @@
 import { Result } from 'true-myth';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import type { VersionManager } from '../version-manager/manager.ts';
 import { analyzeResolvedPackages, type PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
 import { resolvePackages, type PackageResolutionDependencies } from './stages/package-resolution-stage.ts';
 import { resolvePartialFailure, type PartialErrorResult } from './packtory-results.ts';
@@ -8,9 +9,10 @@ import { buildChecksResult, type CheckError, type ResolvedPackage } from './reso
 export type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
 
 type ResolveDependencies = PackageAnalysisDependencies & PackageResolutionDependencies;
+type CheckDependencies = ResolveDependencies & { readonly versionManager: Pick<VersionManager, 'addVersion'> };
 
 export function createResolveAndLinkAllValidated(
-    dependencies: ResolveDependencies
+    dependencies: CheckDependencies
 ): (
     config: ValidConfigWithoutRegistryResult
 ) => Promise<Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>> {
@@ -24,6 +26,6 @@ export function createResolveAndLinkAllValidated(
         }
 
         const resolvedPackages = await analyzeResolvedPackages(dependencies, config, runResult.value);
-        return buildChecksResult(config, resolvedPackages);
+        return await buildChecksResult(dependencies, config, resolvedPackages);
     };
 }

@@ -1,6 +1,7 @@
 import { z, type ZodMiniType } from 'zod/mini';
 import { nonEmptyStringSchema } from '../config/base-validations.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 
 export const enabledOnlyGlobalSchema = z.strictObject({ enabled: z.boolean() });
 export const emptyPerPackageSchema = z.strictObject({});
@@ -34,6 +35,7 @@ export type RulePackageConfig = {
 
 export type RuleRunParams<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
     readonly bundles: readonly AnalyzedBundle[];
+    readonly publishedPackages?: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
     readonly settings: Readonly<Partial<Record<TName, TGlobal | undefined>>> | undefined;
     readonly perPackageSettings: ReadonlyMap<
         string,
@@ -46,5 +48,5 @@ export type CheckRuleDefinition<TName extends string, TGlobal extends RuleGlobal
     readonly name: TName;
     readonly globalSchema: ZodMiniType<TGlobal>;
     readonly perPackageSchema: ZodMiniType<TPerPackage>;
-    readonly run: (params: RuleRunParams<TName, TGlobal, TPerPackage>) => readonly string[];
+    readonly run: (params: RuleRunParams<TName, TGlobal, TPerPackage>) => Promise<readonly string[]>;
 };

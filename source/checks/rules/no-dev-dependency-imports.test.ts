@@ -24,8 +24,8 @@ suite('no-dev-dependency-imports', function () {
         assert.strictEqual(typeof noDevDependencyImportsRule.run, 'function');
     });
 
-    test('returns no issues when settings are missing', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('returns no issues when settings are missing', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['leaked'])],
             settings: undefined,
             perPackageSettings: new Map(),
@@ -35,8 +35,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the rule is disabled', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('returns no issues when the rule is disabled', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['leaked'])],
             settings: { noDevDependencyImports: { enabled: false } },
             perPackageSettings: new Map(),
@@ -46,8 +46,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when packageConfigs is omitted entirely', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('returns no issues when packageConfigs is omitted entirely', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['leaked'])],
             settings: enabled,
             perPackageSettings: new Map()
@@ -56,8 +56,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when packageConfigs has no entry for the bundle', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('returns no issues when packageConfigs has no entry for the bundle', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['leaked'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -67,8 +67,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the package has no main package.json', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('returns no issues when the package has no main package.json', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['leaked'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -78,8 +78,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports an external dependency that is only declared in devDependencies', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('reports an external dependency that is only declared in devDependencies', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['leaked'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -91,8 +91,8 @@ suite('no-dev-dependency-imports', function () {
         ]);
     });
 
-    test('does not report when the dependency is also declared in dependencies', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('does not report when the dependency is also declared in dependencies', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['shared'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -109,8 +109,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('does not report when the dependency is declared in peerDependencies', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('does not report when the dependency is declared in peerDependencies', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['peer'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -127,8 +127,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('does not report when the dependency is not in any list', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('does not report when the dependency is not in any list', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['unknown'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -138,8 +138,8 @@ suite('no-dev-dependency-imports', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports independently per bundle', function () {
-        const result = noDevDependencyImportsRule.run({
+    test('reports independently per bundle', async function () {
+        const result = await noDevDependencyImportsRule.run({
             bundles: [bundleWithExternals('a', ['leak-a']), bundleWithExternals('b', ['fine'])],
             settings: enabled,
             perPackageSettings: new Map(),

@@ -130,10 +130,15 @@ const stagedVersionLookupRequiresTokenAuthMessage =
     'when publish auth uses npm-oidc';
 
 export function resolveStageListingAuthOptions(registrySettings: Readonly<RegistrySettings>): AuthResolution {
-    const publishAuth = resolvePublishAuth(registrySettings);
+    const { auth } = registrySettings;
+    if (auth === undefined) {
+        throw new Error(publishAuthRequiredErrorMessage);
+    }
 
-    if (!('type' in registrySettings.auth) && typeof registrySettings.auth.metadata === 'object') {
-        return buildAuthOptions(registrySettings.auth.metadata, registrySettings);
+    const publishAuth = 'type' in auth ? auth : auth.publish;
+
+    if (!('type' in auth) && typeof auth.metadata === 'object') {
+        return buildAuthOptions(auth.metadata, registrySettings);
     }
 
     if (publishAuth.type === 'npm-oidc') {

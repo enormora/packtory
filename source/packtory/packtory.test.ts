@@ -357,7 +357,10 @@ suite('packtory', function () {
             tryBuildAndPublish
         });
 
-        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), { dryRun: false });
+        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
+            dryRun: false,
+            stage: false
+        });
 
         assert.deepStrictEqual(
             result,
@@ -377,7 +380,10 @@ suite('packtory', function () {
     test('buildAndPublishAll() allows dry-run when auth is omitted (anonymous read)', async function () {
         const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
 
-        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), { dryRun: true });
+        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
+            dryRun: true,
+            stage: false
+        });
 
         assert.strictEqual(result.isOk, true);
         assert.strictEqual(tryBuildAndPublish.callCount, 1);

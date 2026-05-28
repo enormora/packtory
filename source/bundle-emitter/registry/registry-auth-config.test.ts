@@ -192,6 +192,12 @@ suite('registry-auth-config', function () {
         }, /requires token-based metadata auth/u);
     });
 
+    test('resolveStageListingAuthOptions throws when publish auth is missing entirely', function () {
+        assert.throws(() => {
+            resolveStageListingAuthOptions({});
+        }, /registrySettings\.auth must be configured to publish/u);
+    });
+
     test('resolveStageListingAuthOptions uses shorthand publish auth when it is token-based', function () {
         assert.deepStrictEqual(resolveStageListingAuthOptions({ auth: tokenAuth }), {
             allowsAutomaticRetry: false,

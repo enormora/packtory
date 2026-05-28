@@ -4,10 +4,80 @@ import { suite, test } from 'mocha';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import { checkBundle } from '../test-libraries/check-bundle-fixture.ts';
+import { analyzedBundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { buildChecksResult, createResolvedPackage, type ResolvedPackage } from './resolved-package.ts';
 
 function validated(config: Partial<PacktoryConfigWithoutRegistry>): ConfigWithGraph<PacktoryConfigWithoutRegistry> {
     return { packtoryConfig: { packages: [], ...config } } as unknown as ConfigWithGraph<PacktoryConfigWithoutRegistry>;
+}
+
+const unusedCheckDependencies = {
+    versionManager: {
+        addVersion() {
+            throw new Error('versionManager.addVersion should not run for non-ATTW tests');
+        }
+    }
+};
+
+function packageConfig(
+    name: string,
+    overrides: Readonly<Record<string, unknown>> = {}
+): PacktoryConfigWithoutRegistry['packages'][number] {
+    return { name, roots: {}, ...overrides } as never;
+}
+
+function resolvedPackage(name: string, analyzedBundle: ResolvedPackage['analyzedBundle']): ResolvedPackage {
+    return { name, analyzedBundle, resolveOptions: {} as never };
+}
+
+function duplicateResolvedPackages(): readonly ResolvedPackage[] {
+    return [
+        resolvedPackage('pkg-a', checkBundle('pkg-a', ['shared.ts'])),
+        resolvedPackage('pkg-b', checkBundle('pkg-b', ['shared.ts']))
+    ];
+}
+
+function bundleWithExternal(packageName: string, dependencyName: string): ResolvedPackage['analyzedBundle'] {
+    return {
+        ...checkBundle(packageName, ['shared.ts']),
+        externalDependencies: new Map([[dependencyName, { name: dependencyName, referencedFrom: ['/x'] }]])
+    } as never;
+}
+
+async function runSinglePackageChecks(
+    config: Partial<PacktoryConfigWithoutRegistry>,
+    analyzedBundle: ResolvedPackage['analyzedBundle']
+) {
+    return await buildChecksResult(unusedCheckDependencies, validated(config), [
+        resolvedPackage('pkg-a', analyzedBundle)
+    ]);
+}
+
+function createPublishedPackageWithManifest(packageName: string) {
+    return versionedBundleWithManifest({
+        name: packageName,
+        version: '0.0.0',
+        contents: [
+            analyzedBundleResource('index.js', {
+                targetFilePath: 'index.js',
+                content: 'export const value = 1;\n'
+            })
+        ],
+        mainFile: {
+            sourceFilePath: 'index.js',
+            targetFilePath: 'index.js',
+            content: 'export const value = 1;\n'
+        },
+        manifestFile: {
+            filePath: 'package.json',
+            content: JSON.stringify({ name: packageName, version: '0.0.0', type: 'module' }),
+            isExecutable: false
+        },
+        packageJson: {
+            name: packageName,
+            version: '0.0.0'
+        }
+    });
 }
 
 suite('resolved-package', function () {
@@ -22,10 +92,10 @@ suite('resolved-package', function () {
         });
     });
 
-    test('buildChecksResult returns an Ok holding the resolved packages when no checks are configured', function () {
+    test('buildChecksResult returns an Ok holding the resolved packages when no checks are configured', async function () {
         const resolvedPackages: readonly ResolvedPackage[] = [];
 
-        const result = buildChecksResult(validated({}), resolvedPackages);
+        const result = await buildChecksResult(unusedCheckDependencies, validated({}), resolvedPackages);
 
         assert.strictEqual(result.isOk, true);
         if (result.isOk) {
@@ -33,18 +103,14 @@ suite('resolved-package', function () {
         }
     });
 
-    test('buildChecksResult returns a checks failure carrying every issue produced by a configured rule', function () {
-        const resolvedPackages = [
-            { name: 'pkg-a', analyzedBundle: checkBundle('pkg-a', ['shared.ts']), resolveOptions: {} as never },
-            { name: 'pkg-b', analyzedBundle: checkBundle('pkg-b', ['shared.ts']), resolveOptions: {} as never }
-        ];
-
-        const result = buildChecksResult(
+    test('buildChecksResult returns a checks failure carrying every issue produced by a configured rule', async function () {
+        const result = await buildChecksResult(
+            unusedCheckDependencies,
             validated({
                 checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [{ name: 'pkg-a', roots: {} } as never, { name: 'pkg-b', roots: {} } as never]
+                packages: [packageConfig('pkg-a'), packageConfig('pkg-b')]
             }),
-            resolvedPackages
+            duplicateResolvedPackages()
         );
 
         assert.strictEqual(result.isErr, true);
@@ -56,62 +122,46 @@ suite('resolved-package', function () {
         }
     });
 
-    test('buildChecksResult threads per-package check settings to the runner so cross-package consent suppresses issues', function () {
-        const resolvedPackages = [
-            { name: 'pkg-a', analyzedBundle: checkBundle('pkg-a', ['shared.ts']), resolveOptions: {} as never },
-            { name: 'pkg-b', analyzedBundle: checkBundle('pkg-b', ['shared.ts']), resolveOptions: {} as never }
-        ];
+    test('buildChecksResult threads per-package check settings to the runner so cross-package consent suppresses issues', async function () {
         const consent = { noDuplicatedFiles: { allowList: ['shared.ts'] } };
 
-        const result = buildChecksResult(
+        const result = await buildChecksResult(
+            unusedCheckDependencies,
             validated({
                 checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [
-                    { name: 'pkg-a', roots: {}, checks: consent } as never,
-                    { name: 'pkg-b', roots: {}, checks: consent } as never
-                ]
+                packages: [packageConfig('pkg-a', { checks: consent }), packageConfig('pkg-b', { checks: consent })]
             }),
-            resolvedPackages
+            duplicateResolvedPackages()
         );
 
         assert.strictEqual(result.isOk, true);
     });
 
-    test('buildChecksResult falls back to commonPackageSettings.mainPackageJson when the package does not override it', function () {
-        const bundle = {
-            ...checkBundle('pkg-a', ['shared.ts']),
-            externalDependencies: new Map([['runtime-dep', { name: 'runtime-dep', referencedFrom: ['/x'] }]])
-        };
-
-        const result = buildChecksResult(
-            validated({
+    test('buildChecksResult falls back to commonPackageSettings.mainPackageJson when the package does not override it', async function () {
+        const result = await runSinglePackageChecks(
+            {
                 commonPackageSettings: {
                     mainPackageJson: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } }
                 },
                 checks: { noDevDependencyImports: { enabled: true } },
-                packages: [{ name: 'pkg-a', roots: {} } as never]
-            }),
-            [{ name: 'pkg-a', analyzedBundle: bundle as never, resolveOptions: {} as never }]
+                packages: [packageConfig('pkg-a')]
+            },
+            bundleWithExternal('pkg-a', 'runtime-dep')
         );
 
         assert.strictEqual(result.isOk, true);
     });
 
-    test('buildChecksResult flags a dev-only import detected through the common mainPackageJson fallback', function () {
-        const bundle = {
-            ...checkBundle('pkg-a', ['shared.ts']),
-            externalDependencies: new Map([['dev-dep', { name: 'dev-dep', referencedFrom: ['/x'] }]])
-        };
-
-        const result = buildChecksResult(
-            validated({
+    test('buildChecksResult flags a dev-only import detected through the common mainPackageJson fallback', async function () {
+        const result = await runSinglePackageChecks(
+            {
                 commonPackageSettings: {
                     mainPackageJson: { type: 'module', devDependencies: { 'dev-dep': '1.0.0' } }
                 },
                 checks: { noDevDependencyImports: { enabled: true } },
-                packages: [{ name: 'pkg-a', roots: {} } as never]
-            }),
-            [{ name: 'pkg-a', analyzedBundle: bundle as never, resolveOptions: {} as never }]
+                packages: [packageConfig('pkg-a')]
+            },
+            bundleWithExternal('pkg-a', 'dev-dep')
         );
 
         assert.strictEqual(result.isErr, true);
@@ -125,29 +175,67 @@ suite('resolved-package', function () {
         }
     });
 
-    test('buildChecksResult prefers the package-level mainPackageJson over commonPackageSettings.mainPackageJson', function () {
-        const bundle = {
-            ...checkBundle('pkg-a', ['shared.ts']),
-            externalDependencies: new Map([['runtime-dep', { name: 'runtime-dep', referencedFrom: ['/x'] }]])
-        };
-
-        const result = buildChecksResult(
-            validated({
+    test('buildChecksResult prefers the package-level mainPackageJson over commonPackageSettings.mainPackageJson', async function () {
+        const result = await runSinglePackageChecks(
+            {
                 commonPackageSettings: {
                     mainPackageJson: { type: 'module', devDependencies: { 'runtime-dep': '1.0.0' } }
                 },
                 checks: { noDevDependencyImports: { enabled: true } },
                 packages: [
-                    {
-                        name: 'pkg-a',
-                        roots: {},
+                    packageConfig('pkg-a', {
                         mainPackageJson: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } }
-                    } as never
+                    })
                 ]
-            }),
-            [{ name: 'pkg-a', analyzedBundle: bundle as never, resolveOptions: {} as never }]
+            },
+            bundleWithExternal('pkg-a', 'runtime-dep')
         );
 
         assert.strictEqual(result.isOk, true);
+    });
+
+    test('buildChecksResult materializes generated packages when areTheTypesWrong is enabled', async function () {
+        const analyzedBundle = checkBundle('pkg-a', ['index.js']);
+        const addVersionCalls: unknown[] = [];
+        const dependencies = {
+            versionManager: {
+                addVersion(options: unknown) {
+                    addVersionCalls.push(options);
+                    return createPublishedPackageWithManifest('pkg-a');
+                }
+            }
+        };
+        const result = await buildChecksResult(
+            dependencies,
+            validated({
+                checks: { areTheTypesWrong: { enabled: true } },
+                packages: [packageConfig('pkg-a')]
+            }),
+            [
+                {
+                    name: 'pkg-a',
+                    analyzedBundle,
+                    resolveOptions: {
+                        mainPackageJson: { type: 'module' },
+                        bundleDependencies: [{ name: 'bundle-dependency' }],
+                        bundlePeerDependencies: [{ name: 'bundle-peer-dependency' }],
+                        additionalPackageJsonAttributes: {},
+                        allowMutableSpecifiers: []
+                    } as never
+                }
+            ]
+        );
+
+        assert.strictEqual(result.isOk, true);
+        assert.strictEqual(addVersionCalls.length, 1);
+        assert.deepStrictEqual(addVersionCalls[0], {
+            bundle: analyzedBundle,
+            version: '0.0.0',
+            mainPackageJson: { type: 'module' },
+            bundleDependencies: [{ name: 'bundle-dependency', version: '0.0.0' }],
+            bundlePeerDependencies: [{ name: 'bundle-peer-dependency', version: '0.0.0' }],
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: []
+        });
     });
 });
