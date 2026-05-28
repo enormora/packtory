@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { dim } from 'yoctocolors';
 import { noPublication, stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import type { PublishFailure } from '../../packtory/packtory-results.ts';
 import { printDryRunNote, printPublishFailure, printSuccessSummary } from './failure-printing.ts';
@@ -116,7 +117,7 @@ suite('failure-printing', function () {
 
         assert.strictEqual(
             sink.messages[0],
-            `${getSuccessSymbol()} Success: staged 1 package(s); 1 already up-to-date`
+            `${getSuccessSymbol()} Success: staged 1 package(s); ${dim('1')} already up-to-date`
         );
         assert.strictEqual(sink.messages[1], 'Staged packages:\n- a@1.0.0: stage-a');
     });
