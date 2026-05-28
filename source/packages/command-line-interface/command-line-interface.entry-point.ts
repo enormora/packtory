@@ -19,7 +19,7 @@ import { createPacktory } from '../../packtory/packtory.ts';
 import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
-import { createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
+import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
@@ -115,12 +115,15 @@ function setExitCode(exitCode: number): void {
 async function main(): Promise<void> {
     const exitCode = await commandLinerInterfaceRunner.run(process.argv);
     setExitCode(exitCode);
+    spinnerRenderer.stopAll();
+    await awaitSpinnerWorkerTermination();
 }
 
-function crash(error: unknown): void {
+async function crash(error: unknown): Promise<void> {
     spinnerRenderer.stopAll();
     console.error(error);
     process.exitCode = 1;
+    await awaitSpinnerWorkerTermination();
 }
 
 main().catch(crash);

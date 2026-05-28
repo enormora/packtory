@@ -28,6 +28,7 @@ export function createWorkerSpinnerBackend(dependencies: WorkerSpinnerBackendDep
         runtime.accessors.getIntervalMs() * shutdownFlushIntervals,
         minimumShutdownFlushTimeoutMs
     );
+    let shutdownSignaled = false;
 
     function ensureSlotIndexFits(slotIndex: number): void {
         if (slotIndex >= runtime.slotCount) {
@@ -51,6 +52,10 @@ export function createWorkerSpinnerBackend(dependencies: WorkerSpinnerBackendDep
             writeSlot(runtime.accessors, { slotIndex, state: status, label, message });
         },
         shutdown() {
+            if (shutdownSignaled) {
+                return;
+            }
+            shutdownSignaled = true;
             runtime.accessors.requestShutdown();
             const shutdownMutation = runtime.accessors.markMutation();
             if (runtime.accessors.getIntervalMs() > 0) {
