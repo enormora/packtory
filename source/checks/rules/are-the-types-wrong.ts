@@ -34,8 +34,12 @@ type AreTheTypesWrongProfile = z.infer<typeof profileSchema>;
 type GlobalConfig = z.infer<typeof globalSchema>;
 type PerPackageConfig = z.infer<typeof perPackageSchema>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
-type AreTheTypesWrongDependencies = {
-    readonly checkPackage: typeof checkPackage;
+type ProblemSummaryInput = {
+    readonly packageName: string;
+    readonly kind: ProblemKind;
+    readonly problems: readonly Problem[];
+    readonly analysis: Analysis;
+    readonly requiredResolutionKinds: readonly ResolutionKind[];
 };
 
 const requiredResolutionKindsByProfile: Readonly<Record<AreTheTypesWrongProfile, readonly ResolutionKind[]>> = {
@@ -124,34 +128,42 @@ function listAffectedResolutionKinds(
     });
 }
 
+function formatQuotedList(prefix: string, values: readonly string[]): string {
+    return values
+        .map((value, index) => {
+            const separator = index === 0 ? ` ${prefix} ` : ', ';
+            return `${separator}"${value}"`;
+        })
+        .join('');
+}
+
+function formatProblemSummary(input: ProblemSummaryInput): string {
+    const { packageName, kind, problems, analysis, requiredResolutionKinds } = input;
+    const problemInfo = problemKindInfo[kind];
+    const entrypoints = listAffectedEntrypoints(problems, analysis, requiredResolutionKinds);
+    const resolutionKinds = listAffectedResolutionKinds(problems, analysis, requiredResolutionKinds);
+    const findings = problems.length === 1 ? '' : ` (${problems.length} findings)`;
+    const entrypointList = formatQuotedList('affecting entrypoints', entrypoints);
+    const resolutionList = formatQuotedList('in resolutions', resolutionKinds);
+    return (
+        `Package "${packageName}" failed the Are the Types Wrong check: ` +
+        `${problemInfo.shortDescription}${findings}${entrypointList}${resolutionList}`
+    );
+}
+
 function summarizeProblems(
     packageName: string,
     analysis: Analysis,
     activeProblems: readonly Problem[],
     requiredResolutionKinds: readonly ResolutionKind[]
 ): readonly string[] {
-    function formatQuotedList(prefix: string, values: readonly string[]): string {
-        return values
-            .map((value, index) => {
-                const separator = index === 0 ? ` ${prefix} ` : ', ';
-                return `${separator}"${value}"`;
-            })
-            .join('');
+    const summaries: string[] = [];
+
+    for (const [kind, problems] of groupProblemsByKind(activeProblems).entries()) {
+        summaries.push(formatProblemSummary({ packageName, kind, problems, analysis, requiredResolutionKinds }));
     }
 
-    return Array.from(groupProblemsByKind(activeProblems).entries(), ([kind, problems]) => {
-        const problemInfo = problemKindInfo[kind];
-        const entrypoints = listAffectedEntrypoints(problems, analysis, requiredResolutionKinds);
-        const resolutionKinds = listAffectedResolutionKinds(problems, analysis, requiredResolutionKinds);
-        const findings = problems.length === 1 ? '' : ` (${problems.length} findings)`;
-        const entrypointList = formatQuotedList('affecting entrypoints', entrypoints);
-        const resolutionList = formatQuotedList('in resolutions', resolutionKinds);
-        const message =
-            `Package "${packageName}" failed the Are the Types Wrong check: ` +
-            `${problemInfo.shortDescription}${findings}${entrypointList}${resolutionList}`;
-
-        return message;
-    });
+    return summaries;
 }
 
 function requiredResolutionKindsForProfile(profile: AreTheTypesWrongProfile): readonly ResolutionKind[] {
@@ -170,13 +182,12 @@ function filterActiveProblems(
 }
 
 async function runForPackage(
-    dependencies: AreTheTypesWrongDependencies,
     packageName: string,
     publishedPackage: PublishedPackageWithManifest,
     profile: AreTheTypesWrongProfile
 ): Promise<readonly string[]> {
     try {
-        const analysis = await dependencies.checkPackage(createInMemoryPackage(publishedPackage));
+        const analysis = await checkPackage(createInMemoryPackage(publishedPackage));
         if (analysis.types === false) {
             return [];
         }
@@ -190,38 +201,29 @@ async function runForPackage(
     }
 }
 
-function createAreTheTypesWrongRule(
-    dependencies: AreTheTypesWrongDependencies = { checkPackage }
-): CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> {
-    async function run(params: RunParams): Promise<readonly string[]> {
-        const globalConfig = params.settings?.areTheTypesWrong;
-        if (globalConfig?.enabled !== true) {
-            return [];
-        }
-
-        const issuesByBundle = await Promise.all(
-            params.bundles.map(async (bundle) => {
-                const publishedPackage = params.publishedPackages?.get(bundle.name);
-                if (publishedPackage === undefined) {
-                    throw new Error(`Published package missing for "${bundle.name}"`);
-                }
-
-                const profile = resolveProfile(
-                    globalConfig,
-                    params.perPackageSettings.get(bundle.name)?.areTheTypesWrong
-                );
-                return runForPackage(dependencies, bundle.name, publishedPackage, profile);
-            })
-        );
-        return issuesByBundle.flat();
+async function run(params: RunParams): Promise<readonly string[]> {
+    const globalConfig = params.settings?.areTheTypesWrong;
+    if (globalConfig?.enabled !== true) {
+        return [];
     }
 
-    return {
-        name: ruleName,
-        globalSchema,
-        perPackageSchema,
-        run
-    };
+    const issuesByBundle = await Promise.all(
+        params.bundles.map(async (bundle) => {
+            const publishedPackage = params.publishedPackages?.get(bundle.name);
+            if (publishedPackage === undefined) {
+                throw new Error(`Published package missing for "${bundle.name}"`);
+            }
+
+            const profile = resolveProfile(globalConfig, params.perPackageSettings.get(bundle.name)?.areTheTypesWrong);
+            return runForPackage(bundle.name, publishedPackage, profile);
+        })
+    );
+    return issuesByBundle.flat();
 }
 
-export const areTheTypesWrongRule = createAreTheTypesWrongRule();
+export const areTheTypesWrongRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+    name: ruleName,
+    globalSchema,
+    perPackageSchema,
+    run
+};
