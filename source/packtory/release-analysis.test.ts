@@ -158,6 +158,35 @@ suite('release-analysis', function () {
         assert.strictEqual(result.classification, 'dependency-only');
     });
 
+    test('classifyPackageRelease classifies dependency-only diffs as such when paths carry the npm tarball package prefix', function () {
+        const buildResult = buildResultWithPublishedFiles([
+            file('package/package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+            file('package/sbom.cdx.json', '{"components":[{"name":"a","version":"1.0.0"}]}'),
+            file('package/index.js', 'export const value = 1;\n')
+        ]);
+
+        const result = classifyPackageRelease(buildResult, [
+            file('package/package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+            file('package/sbom.cdx.json', '{"components":[{"name":"a","version":"1.1.0"}]}'),
+            file('package/index.js', 'export const value = 1;\n')
+        ]);
+
+        assert.strictEqual(result.classification, 'dependency-only');
+    });
+
+    test('classifyPackageRelease keeps substantive classification with the npm tarball package prefix when bundled sources differ', function () {
+        assertSubstantiveClassification(
+            [
+                file('package/package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
+                file('package/index.js', 'export const value = 1;\n')
+            ],
+            [
+                file('package/package.json', '{"name":"pkg-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}'),
+                file('package/index.js', 'export const value = 2;\n')
+            ]
+        );
+    });
+
     test('classifyPackageRelease keeps substantive classification when source files differ even if SBOM also differs', function () {
         assertSubstantiveClassification(
             [

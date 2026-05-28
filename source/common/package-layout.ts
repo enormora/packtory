@@ -3,6 +3,12 @@ import path from 'node:path';
 export const packageManifestFilePath = 'package.json';
 export const installedDependenciesFolderName = 'node_modules';
 
+const tarballPackageRootPrefix = 'package/';
+
+export function bundleRelativePath(filePath: string): string {
+    return filePath.startsWith(tarballPackageRootPrefix) ? filePath.slice(tarballPackageRootPrefix.length) : filePath;
+}
+
 function currentAndAncestorFolders(startFolder: string): readonly string[] {
     const folders: string[] = [];
     let currentFolder = path.resolve(startFolder);

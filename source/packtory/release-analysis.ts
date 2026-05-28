@@ -1,7 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { maxDate } from '../common/max-date.ts';
-import { packageManifestFilePath } from '../common/package-layout.ts';
-import { fileDescriptionByPath } from '../file-manager/file-description-by-path.ts';
+import { bundleRelativePath, packageManifestFilePath } from '../common/package-layout.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { sbomFilePath } from '../sbom/sbom-file.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
@@ -118,6 +117,14 @@ function packageJsonChangeIsDependencyOnly(
     );
 }
 
+function fileDescriptionByBundleRelativePath(files: readonly FileDescription[]): ReadonlyMap<string, FileDescription> {
+    const index = new Map<string, FileDescription>();
+    for (const file of files) {
+        index.set(bundleRelativePath(file.filePath), file);
+    }
+    return index;
+}
+
 function createComparisonIndexes(
     previousFiles: readonly FileDescription[],
     newFiles: readonly FileDescription[]
@@ -126,8 +133,8 @@ function createComparisonIndexes(
     readonly newIndex: ReadonlyMap<string, FileDescription>;
 } {
     return {
-        previousIndex: fileDescriptionByPath(previousFiles),
-        newIndex: fileDescriptionByPath(newFiles)
+        previousIndex: fileDescriptionByBundleRelativePath(previousFiles),
+        newIndex: fileDescriptionByBundleRelativePath(newFiles)
     };
 }
 
