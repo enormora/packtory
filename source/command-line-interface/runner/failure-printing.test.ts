@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { noPublication, stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import type { PublishFailure } from '../../packtory/packtory-results.ts';
 import { printDryRunNote, printPublishFailure, printSuccessSummary } from './failure-printing.ts';
+import { getSuccessSymbol } from './runner-symbols.ts';
 
 function captureLogger(): { readonly log: (message: string) => void; readonly messages: string[] } {
     const messages: string[] = [];
@@ -90,7 +91,7 @@ suite('failure-printing', function () {
 
         printSuccessSummary(sink.log, [{ name: 'a' }, { name: 'b' }] as never, { stage: false });
 
-        assert.match(sink.messages[0] ?? '', /all 2 package\(s\) have been published/u);
+        assert.strictEqual(sink.messages[0], `${getSuccessSymbol()} Success: all 2 package(s) have been published`);
     });
 
     test('printSuccessSummary logs stage ids for staged packages', function () {
@@ -113,7 +114,10 @@ suite('failure-printing', function () {
             { stage: true }
         );
 
-        assert.strictEqual(sink.messages[0], '✔ Success: staged 1 package(s); 1 already up-to-date');
+        assert.strictEqual(
+            sink.messages[0],
+            `${getSuccessSymbol()} Success: staged 1 package(s); 1 already up-to-date`
+        );
         assert.strictEqual(sink.messages[1], 'Staged packages:\n- a@1.0.0: stage-a');
     });
 
@@ -132,7 +136,7 @@ suite('failure-printing', function () {
             { stage: true }
         );
 
-        assert.strictEqual(sink.messages[0], '✔ Success: staged 1 package(s)');
+        assert.strictEqual(sink.messages[0], `${getSuccessSymbol()} Success: staged 1 package(s)`);
         assert.strictEqual(sink.messages[1], 'Staged packages:\n- a@1.0.0: stage-a');
     });
 
@@ -149,7 +153,7 @@ suite('failure-printing', function () {
 
         assert.strictEqual(
             sink.messages[0],
-            '✔ Success: no packages were staged; all 1 package(s) were already up-to-date'
+            `${getSuccessSymbol()} Success: no packages were staged; all 1 package(s) were already up-to-date`
         );
         assert.strictEqual(sink.messages.length, 1);
     });
