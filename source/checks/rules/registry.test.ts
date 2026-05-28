@@ -4,9 +4,10 @@ import { suite, test } from 'mocha';
 import { allRules } from './registry.ts';
 
 suite('registry', function () {
-    test('allRules exposes the seven well-known check rules by name', function () {
+    test('allRules exposes the eight well-known check rules by name', function () {
         const names = allRules.map((rule) => rule.name).toSorted();
         assert.deepStrictEqual(names, [
+            'areTheTypesWrong',
             'maxBundleSize',
             'noDevDependencyImports',
             'noDuplicatedFiles',

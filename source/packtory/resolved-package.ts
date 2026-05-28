@@ -4,6 +4,8 @@ import { runChecks } from '../checks/check-runner.ts';
 import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
+import type { VersionManager } from '../version-manager/manager.ts';
 import type { ResolveAndLinkOptions } from './map-config.ts';
 
 export type ResolvedPackage = {
@@ -17,6 +19,12 @@ export type CheckError = {
     readonly issues: readonly string[];
 };
 
+type CheckEvaluationDependencies = {
+    readonly versionManager: Pick<VersionManager, 'addVersion'>;
+};
+
+const checkManifestVersion = '0.0.0';
+
 export function createResolvedPackage(
     name: string,
     analyzedBundle: AnalyzedBundle,
@@ -25,10 +33,48 @@ export function createResolvedPackage(
     return { name, analyzedBundle, resolveOptions };
 }
 
-export function buildChecksResult(
+function buildPublishedPackagesForChecks(
+    dependencies: CheckEvaluationDependencies,
+    resolvedPackages: readonly ResolvedPackage[]
+): ReadonlyMap<string, PublishedPackageWithManifest> {
+    return new Map(
+        resolvedPackages.map((resolvedPackage) => {
+            const { analyzedBundle, resolveOptions } = resolvedPackage;
+            return [
+                resolvedPackage.name,
+                dependencies.versionManager.addVersion({
+                    bundle: analyzedBundle,
+                    version: checkManifestVersion,
+                    mainPackageJson: resolveOptions.mainPackageJson,
+                    bundleDependencies: resolveOptions.bundleDependencies.map((bundleDependency) => {
+                        return { name: bundleDependency.name, version: checkManifestVersion };
+                    }),
+                    bundlePeerDependencies: resolveOptions.bundlePeerDependencies.map((bundleDependency) => {
+                        return { name: bundleDependency.name, version: checkManifestVersion };
+                    }),
+                    additionalPackageJsonAttributes: resolveOptions.additionalPackageJsonAttributes,
+                    allowMutableSpecifiers: resolveOptions.allowMutableSpecifiers
+                })
+            ] as const;
+        })
+    );
+}
+
+function maybeBuildPublishedPackagesForChecks(
+    dependencies: CheckEvaluationDependencies,
+    config: PacktoryConfigWithoutRegistry,
+    resolvedPackages: readonly ResolvedPackage[]
+): ReadonlyMap<string, PublishedPackageWithManifest> | undefined {
+    return config.checks?.areTheTypesWrong?.enabled === true
+        ? buildPublishedPackagesForChecks(dependencies, resolvedPackages)
+        : undefined;
+}
+
+export async function buildChecksResult(
+    dependencies: CheckEvaluationDependencies,
     validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,
     resolvedPackages: readonly ResolvedPackage[]
-): Result<readonly ResolvedPackage[], CheckError> {
+): Promise<Result<readonly ResolvedPackage[], CheckError>> {
     const { packtoryConfig: config } = validated;
     const perPackageSettings = new Map<string, (typeof config.packages)[number]['checks']>();
     const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
@@ -46,11 +92,13 @@ export function buildChecksResult(
     const bundles = resolvedPackages.map((resolvedPackage) => {
         return resolvedPackage.analyzedBundle;
     });
-    const checkIssues = runChecks({
+    const publishedPackages = maybeBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages);
+    const checkIssues = await runChecks({
         settings: config.checks ?? {},
         perPackageSettings,
         packageConfigs: effectivePackageConfigs,
-        bundles
+        bundles,
+        publishedPackages
     });
 
     if (checkIssues.length > 0) {

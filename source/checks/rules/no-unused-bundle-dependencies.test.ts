@@ -24,8 +24,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.strictEqual(typeof noUnusedBundleDependenciesRule.run, 'function');
     });
 
-    test('returns no issues when settings are missing', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('returns no issues when settings are missing', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', [])],
             settings: undefined,
             perPackageSettings: new Map(),
@@ -35,8 +35,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the rule is disabled', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('returns no issues when the rule is disabled', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', [])],
             settings: { noUnusedBundleDependencies: { enabled: false } },
             perPackageSettings: new Map(),
@@ -46,8 +46,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when packageConfigs is omitted entirely', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('returns no issues when packageConfigs is omitted entirely', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', [])],
             settings: enabled,
             perPackageSettings: new Map()
@@ -56,8 +56,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when no entry exists in packageConfigs for the bundle', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('returns no issues when no entry exists in packageConfigs for the bundle', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', [])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -67,8 +67,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the package declares no bundle dependencies', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('returns no issues when the package declares no bundle dependencies', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', [])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -78,8 +78,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports a declared bundleDependency that is never substituted', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('reports a declared bundleDependency that is never substituted', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', [])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -89,8 +89,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, ['Unused bundle dependency "unused" declared by package "a"']);
     });
 
-    test('reports a declared bundlePeerDependency that is never substituted', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('reports a declared bundlePeerDependency that is never substituted', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', [])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -100,8 +100,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, ['Unused bundle peer dependency "unused-peer" declared by package "a"']);
     });
 
-    test('does not report a declared bundleDependency that was substituted', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('does not report a declared bundleDependency that was substituted', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', ['used'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -111,8 +111,8 @@ suite('no-unused-bundle-dependencies', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports a mix of unused regular and peer dependencies for the same package', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('reports a mix of unused regular and peer dependencies for the same package', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', ['used'])],
             settings: enabled,
             perPackageSettings: new Map(),
@@ -127,8 +127,8 @@ suite('no-unused-bundle-dependencies', function () {
         ]);
     });
 
-    test('iterates every bundle independently', function () {
-        const result = noUnusedBundleDependenciesRule.run({
+    test('iterates every bundle independently', async function () {
+        const result = await noUnusedBundleDependenciesRule.run({
             bundles: [bundleWithLinkedDeps('a', []), bundleWithLinkedDeps('b', ['used'])],
             settings: enabled,
             perPackageSettings: new Map(),

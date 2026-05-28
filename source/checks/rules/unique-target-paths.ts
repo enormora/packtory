@@ -34,7 +34,7 @@ function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
     });
 }
 
-function run(params: RunParams): readonly string[] {
+async function run(params: RunParams): Promise<readonly string[]> {
     const globalConfig = params.settings?.uniqueTargetPaths;
     if (globalConfig?.enabled !== true) {
         return [];

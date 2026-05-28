@@ -57,29 +57,29 @@ function consentMap(
     );
 }
 
-function runRule(args: {
+async function runRule(args: {
     readonly bundles: readonly AnalyzedBundle[];
     readonly settings:
         | { readonly noDuplicatedFiles: { readonly enabled: boolean; readonly allowList?: readonly string[] } }
         | undefined;
     readonly perPackageSettings: ReadonlyMap<string, PackageChecksSettings>;
-}): readonly string[] {
-    return noDuplicatedFilesRule.run(args);
+}): Promise<readonly string[]> {
+    return await noDuplicatedFilesRule.run(args);
 }
 
-function runWithConsent(
+async function runWithConsent(
     bundles: readonly AnalyzedBundle[],
     consenters: readonly (readonly [string, readonly string[]])[]
-): readonly string[] {
-    return runRule({
+): Promise<readonly string[]> {
+    return await runRule({
         bundles,
         settings: { noDuplicatedFiles: { enabled: true } },
         perPackageSettings: consentMap(consenters)
     });
 }
 
-function runWithMixedConsent(secondOwnerSettings: PackageChecksSettings): readonly string[] {
-    return runRule({
+async function runWithMixedConsent(secondOwnerSettings: PackageChecksSettings): Promise<readonly string[]> {
+    return await runRule({
         bundles: [bundle('a'), bundle('b')],
         settings: { noDuplicatedFiles: { enabled: true } },
         perPackageSettings: new Map([
@@ -93,7 +93,7 @@ function registerScenarioTests<TScenario>(
     scenarios: readonly TScenario[],
     defineScenario: (scenario: TScenario) => {
         readonly name: string;
-        readonly execute: () => void;
+        readonly execute: () => Promise<void>;
     }
 ): void {
     const [scenario, ...remainingScenarios] = scenarios;
@@ -133,8 +133,8 @@ suite('no-duplicated-files', function () {
     registerScenarioTests(topLevelSettingsScenarios, (scenario) => {
         return {
             name: scenario.name,
-            execute() {
-                const result = runRule(scenario);
+            async execute() {
+                const result = await runRule(scenario);
                 assert.deepStrictEqual(result, scenario.expected);
             }
         };
@@ -191,8 +191,8 @@ suite('no-duplicated-files', function () {
     registerScenarioTests(duplicateConsentScenarios, (scenario) => {
         return {
             name: scenario.name,
-            execute() {
-                const result = runWithConsent(scenario.bundles, scenario.consenters);
+            async execute() {
+                const result = await runWithConsent(scenario.bundles, scenario.consenters);
                 assert.deepStrictEqual(result, scenario.expected);
             }
         };
@@ -214,8 +214,8 @@ suite('no-duplicated-files', function () {
     registerScenarioTests(mixedConsentScenarios, (scenario) => {
         return {
             name: scenario.name,
-            execute() {
-                const result = runWithMixedConsent(scenario.secondOwnerSettings);
+            async execute() {
+                const result = await runWithMixedConsent(scenario.secondOwnerSettings);
                 assert.deepStrictEqual(result, scenario.expected);
             }
         };
@@ -237,8 +237,8 @@ suite('no-duplicated-files', function () {
     registerScenarioTests(globalAllowListScenarios, (scenario) => {
         return {
             name: scenario.name,
-            execute() {
-                const result = runRule({
+            async execute() {
+                const result = await runRule({
                     bundles: [bundle('a'), bundle('b')],
                     settings: scenario.settings,
                     perPackageSettings: new Map()
@@ -298,8 +298,8 @@ suite('no-duplicated-files', function () {
     registerScenarioTests(sharedDeclarationScenarios, (scenario) => {
         return {
             name: scenario.name,
-            execute() {
-                const result = runRule({
+            async execute() {
+                const result = await runRule({
                     bundles: scenario.bundles,
                     settings: scenario.settings,
                     perPackageSettings: new Map()
@@ -309,8 +309,8 @@ suite('no-duplicated-files', function () {
         };
     });
 
-    test('does not report when only a single bundle owns the file', function () {
-        const result = runRule({
+    test('does not report when only a single bundle owns the file', async function () {
+        const result = await runRule({
             bundles: [bundle('a')],
             settings: { noDuplicatedFiles: { enabled: true } },
             perPackageSettings: new Map()
@@ -319,8 +319,8 @@ suite('no-duplicated-files', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('falls back to path-level message when surviving bindings are unavailable for every owner', function () {
-        const result = runRule({
+    test('falls back to path-level message when surviving bindings are unavailable for every owner', async function () {
+        const result = await runRule({
             bundles: [bundle('a'), bundle('b')],
             settings: { noDuplicatedFiles: { enabled: true } },
             perPackageSettings: new Map()

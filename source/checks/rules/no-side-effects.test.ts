@@ -31,11 +31,11 @@ function consentMap(
     );
 }
 
-function runWithInitSideEffect(
+async function runWithInitSideEffect(
     settings: Parameters<typeof noSideEffectsRule.run>[0]['settings'],
     perPackageSettings: ReadonlyMap<string, PackageChecksSettings>
-): readonly string[] {
-    return noSideEffectsRule.run({
+): Promise<readonly string[]> {
+    return await noSideEffectsRule.run({
         bundles: [
             bundleWithImpureResources('a', [impureResource('/init.ts', [{ line: 1, kind: 'expression statement' }])])
         ],
@@ -52,8 +52,8 @@ suite('no-side-effects', function () {
         assert.notStrictEqual(noSideEffectsRule.perPackageSchema, undefined);
     });
 
-    test('returns no issues when settings are missing entirely', function () {
-        const result = noSideEffectsRule.run({
+    test('returns no issues when settings are missing entirely', async function () {
+        const result = await noSideEffectsRule.run({
             bundles: [
                 bundleWithImpureResources('a', [impureResource('/a.ts', [{ line: 1, kind: 'expression statement' }])])
             ],
@@ -64,8 +64,8 @@ suite('no-side-effects', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the rule is disabled at the top level', function () {
-        const result = noSideEffectsRule.run({
+    test('returns no issues when the rule is disabled at the top level', async function () {
+        const result = await noSideEffectsRule.run({
             bundles: [
                 bundleWithImpureResources('a', [impureResource('/a.ts', [{ line: 1, kind: 'expression statement' }])])
             ],
@@ -76,8 +76,8 @@ suite('no-side-effects', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when no resource has side effects', function () {
-        const result = noSideEffectsRule.run({
+    test('returns no issues when no resource has side effects', async function () {
+        const result = await noSideEffectsRule.run({
             bundles: [bundleWithImpureResources('a', [analyzedBundleResource('/a.ts')])],
             settings: { noSideEffects: { enabled: true } },
             perPackageSettings: new Map()
@@ -86,8 +86,8 @@ suite('no-side-effects', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports a resource with side effects, including line numbers and statement kinds', function () {
-        const result = noSideEffectsRule.run({
+    test('reports a resource with side effects, including line numbers and statement kinds', async function () {
+        const result = await noSideEffectsRule.run({
             bundles: [
                 bundleWithImpureResources('a', [
                     impureResource('/init.ts', [
@@ -110,20 +110,26 @@ suite('no-side-effects', function () {
         ]);
     });
 
-    test('skips a resource that is on the global allowList', function () {
-        const result = runWithInitSideEffect({ noSideEffects: { enabled: true, allowList: ['/init.ts'] } }, new Map());
+    test('skips a resource that is on the global allowList', async function () {
+        const result = await runWithInitSideEffect(
+            { noSideEffects: { enabled: true, allowList: ['/init.ts'] } },
+            new Map()
+        );
 
         assert.deepStrictEqual(result, []);
     });
 
-    test('skips a resource that is on the per-package allowList', function () {
-        const result = runWithInitSideEffect({ noSideEffects: { enabled: true } }, consentMap([['a', ['/init.ts']]]));
+    test('skips a resource that is on the per-package allowList', async function () {
+        const result = await runWithInitSideEffect(
+            { noSideEffects: { enabled: true } },
+            consentMap([['a', ['/init.ts']]])
+        );
 
         assert.deepStrictEqual(result, []);
     });
 
-    test('iterates resources independently and reports only the impure ones', function () {
-        const result = noSideEffectsRule.run({
+    test('iterates resources independently and reports only the impure ones', async function () {
+        const result = await noSideEffectsRule.run({
             bundles: [
                 bundleWithImpureResources('a', [
                     analyzedBundleResource('/pure.ts'),
@@ -139,8 +145,8 @@ suite('no-side-effects', function () {
         assert.ok(issue?.includes('/impure.ts'));
     });
 
-    test('iterates bundles independently', function () {
-        const result = noSideEffectsRule.run({
+    test('iterates bundles independently', async function () {
+        const result = await noSideEffectsRule.run({
             bundles: [
                 bundleWithImpureResources('a', [impureResource('/a.ts', [{ line: 1, kind: 'expression statement' }])]),
                 bundleWithImpureResources('b', [impureResource('/b.ts', [{ line: 1, kind: 'if statement' }])])
@@ -154,8 +160,8 @@ suite('no-side-effects', function () {
         assert.ok(result.some((issue) => issue.includes('package "b"')));
     });
 
-    test('per-package allowList only suppresses for the listed package', function () {
-        const result = noSideEffectsRule.run({
+    test('per-package allowList only suppresses for the listed package', async function () {
+        const result = await noSideEffectsRule.run({
             bundles: [
                 bundleWithImpureResources('a', [
                     impureResource('/shared.ts', [{ line: 1, kind: 'expression statement' }])
@@ -173,8 +179,8 @@ suite('no-side-effects', function () {
         assert.ok(issue?.includes('package "b"'));
     });
 
-    test('reports a side effect when the per-package settings entry exists for the bundle but does not include noSideEffects', function () {
-        const result = runWithInitSideEffect(
+    test('reports a side effect when the per-package settings entry exists for the bundle but does not include noSideEffects', async function () {
+        const result = await runWithInitSideEffect(
             { noSideEffects: { enabled: true } },
             new Map<string, PackageChecksSettings>([['a', {}]])
         );

@@ -17,8 +17,8 @@ suite('max-bundle-size', function () {
         assert.strictEqual(typeof maxBundleSizeRule.run, 'function');
     });
 
-    test('returns no issues when settings are missing', function () {
-        const result = maxBundleSizeRule.run({
+    test('returns no issues when settings are missing', async function () {
+        const result = await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100)],
             settings: undefined,
             perPackageSettings: new Map()
@@ -27,8 +27,8 @@ suite('max-bundle-size', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the rule is disabled', function () {
-        const result = maxBundleSizeRule.run({
+    test('returns no issues when the rule is disabled', async function () {
+        const result = await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100)],
             settings: { maxBundleSize: { enabled: false, bytes: 10 } },
             perPackageSettings: new Map()
@@ -37,8 +37,8 @@ suite('max-bundle-size', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when neither global nor per-package threshold is set', function () {
-        const result = maxBundleSizeRule.run({
+    test('returns no issues when neither global nor per-package threshold is set', async function () {
+        const result = await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100)],
             settings: { maxBundleSize: { enabled: true } },
             perPackageSettings: new Map()
@@ -47,8 +47,8 @@ suite('max-bundle-size', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports a bundle exceeding the global threshold', function () {
-        const result = maxBundleSizeRule.run({
+    test('reports a bundle exceeding the global threshold', async function () {
+        const result = await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100)],
             settings: { maxBundleSize: { enabled: true, bytes: 50 } },
             perPackageSettings: new Map()
@@ -57,8 +57,8 @@ suite('max-bundle-size', function () {
         assert.deepStrictEqual(result, ['Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)']);
     });
 
-    test('passes a bundle exactly at the threshold', function () {
-        const result = maxBundleSizeRule.run({
+    test('passes a bundle exactly at the threshold', async function () {
+        const result = await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100)],
             settings: { maxBundleSize: { enabled: true, bytes: 100 } },
             perPackageSettings: new Map()
@@ -67,26 +67,26 @@ suite('max-bundle-size', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    function runWithGlobalAndOverride(globalBytes: number, override: number): readonly string[] {
-        return maxBundleSizeRule.run({
+    async function runWithGlobalAndOverride(globalBytes: number, override: number): Promise<readonly string[]> {
+        return await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100)],
             settings: { maxBundleSize: { enabled: true, bytes: globalBytes } },
             perPackageSettings: new Map([['a', { maxBundleSize: { bytes: override } }]])
         });
     }
 
-    test('per-package bytes overrides the global default upward', function () {
-        assert.deepStrictEqual(runWithGlobalAndOverride(50, 1000), []);
+    test('per-package bytes overrides the global default upward', async function () {
+        assert.deepStrictEqual(await runWithGlobalAndOverride(50, 1000), []);
     });
 
-    test('per-package bytes overrides the global default downward', function () {
-        assert.deepStrictEqual(runWithGlobalAndOverride(1000, 50), [
+    test('per-package bytes overrides the global default downward', async function () {
+        assert.deepStrictEqual(await runWithGlobalAndOverride(1000, 50), [
             'Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)'
         ]);
     });
 
-    test('per-package bytes acts as the threshold when no global default is set', function () {
-        const result = maxBundleSizeRule.run({
+    test('per-package bytes acts as the threshold when no global default is set', async function () {
+        const result = await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100), bundleWithBytes('b', 100)],
             settings: { maxBundleSize: { enabled: true } },
             perPackageSettings: new Map([['a', { maxBundleSize: { bytes: 50 } }]])
@@ -95,8 +95,8 @@ suite('max-bundle-size', function () {
         assert.deepStrictEqual(result, ['Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)']);
     });
 
-    test('falls back to the global default when the per-package entry has no maxBundleSize key', function () {
-        const result = maxBundleSizeRule.run({
+    test('falls back to the global default when the per-package entry has no maxBundleSize key', async function () {
+        const result = await maxBundleSizeRule.run({
             bundles: [bundleWithBytes('a', 100)],
             settings: { maxBundleSize: { enabled: true, bytes: 50 } },
             perPackageSettings: new Map([['a', {}]])
@@ -105,7 +105,7 @@ suite('max-bundle-size', function () {
         assert.deepStrictEqual(result, ['Package "a" exceeds the maximum bundle size: 100 bytes (limit: 50 bytes)']);
     });
 
-    test('measures bundle size as the UTF-8 byte length of every resource’s content', function () {
+    test('measures bundle size as the UTF-8 byte length of every resource’s content', async function () {
         const bundle = analyzedBundle({
             name: 'multi',
             contents: [
@@ -114,7 +114,7 @@ suite('max-bundle-size', function () {
             ]
         });
 
-        const result = maxBundleSizeRule.run({
+        const result = await maxBundleSizeRule.run({
             bundles: [bundle],
             settings: { maxBundleSize: { enabled: true, bytes: 3 } },
             perPackageSettings: new Map()

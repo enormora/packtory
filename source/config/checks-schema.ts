@@ -1,4 +1,5 @@
 import { z } from 'zod/mini';
+import { areTheTypesWrongRule } from '../checks/rules/are-the-types-wrong.ts';
 import { maxBundleSizeRule } from '../checks/rules/max-bundle-size.ts';
 import { noDevDependencyImportsRule } from '../checks/rules/no-dev-dependency-imports.ts';
 import { noDuplicatedFilesRule } from '../checks/rules/no-duplicated-files.ts';
@@ -8,6 +9,7 @@ import { requiredFilesRule } from '../checks/rules/required-files.ts';
 import { uniqueTargetPathsRule } from '../checks/rules/unique-target-paths.ts';
 
 export const checksSchema = z.strictObject({
+    areTheTypesWrong: z.optional(areTheTypesWrongRule.globalSchema),
     noDuplicatedFiles: z.optional(noDuplicatedFilesRule.globalSchema),
     requiredFiles: z.optional(requiredFilesRule.globalSchema),
     maxBundleSize: z.optional(maxBundleSizeRule.globalSchema),
@@ -18,6 +20,7 @@ export const checksSchema = z.strictObject({
 });
 
 export const checksPerPackageSchema = z.strictObject({
+    areTheTypesWrong: z.optional(areTheTypesWrongRule.perPackageSchema),
     noDuplicatedFiles: z.optional(noDuplicatedFilesRule.perPackageSchema),
     requiredFiles: z.optional(requiredFilesRule.perPackageSchema),
     maxBundleSize: z.optional(maxBundleSizeRule.perPackageSchema),

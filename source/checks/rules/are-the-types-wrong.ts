@@ -1,0 +1,227 @@
+import {
+    Package,
+    checkPackage,
+    type Analysis,
+    type Problem,
+    type ProblemKind,
+    type ResolutionKind
+} from '@arethetypeswrong/core';
+import {
+    problemAffectsEntrypointResolution,
+    problemAffectsResolutionKind,
+    problemKindInfo
+} from '@arethetypeswrong/core/problems';
+import { z } from 'zod/mini';
+import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
+import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+
+const ruleName = 'areTheTypesWrong';
+const defaultProfile = 'esm-only';
+const profileValues = ['strict', 'node16', 'esm-only'] as const;
+
+const profileSchema = z.enum(profileValues);
+
+const globalSchema = z.strictObject({
+    enabled: z.boolean(),
+    profile: z.optional(profileSchema)
+});
+
+const perPackageSchema = z.strictObject({
+    profile: z.optional(profileSchema)
+});
+
+type AreTheTypesWrongProfile = z.infer<typeof profileSchema>;
+type GlobalConfig = z.infer<typeof globalSchema>;
+type PerPackageConfig = z.infer<typeof perPackageSchema>;
+type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type AreTheTypesWrongDependencies = {
+    readonly checkPackage: typeof checkPackage;
+};
+
+const requiredResolutionKindsByProfile: Readonly<Record<AreTheTypesWrongProfile, readonly ResolutionKind[]>> = {
+    strict: ['node10', 'node16-cjs', 'node16-esm', 'bundler'],
+    node16: ['node16-cjs', 'node16-esm', 'bundler'],
+    'esm-only': ['node16-esm', 'bundler']
+};
+
+function resolveProfile(
+    globalConfig: GlobalConfig,
+    perPackageConfig: PerPackageConfig | undefined
+): AreTheTypesWrongProfile {
+    return perPackageConfig?.profile ?? globalConfig.profile ?? defaultProfile;
+}
+
+function toPackageFilePath(packageName: string, filePath: string): string {
+    return `/node_modules/${packageName}/${filePath}`;
+}
+
+function createInMemoryPackage(publishedPackage: PublishedPackageWithManifest): Package {
+    const files: Record<string, Uint8Array | string> = {
+        [toPackageFilePath(publishedPackage.name, publishedPackage.manifestFile.filePath)]:
+            publishedPackage.manifestFile.content
+    };
+
+    for (const entry of publishedPackage.contents) {
+        const filePath = toPackageFilePath(publishedPackage.name, entry.fileDescription.targetFilePath);
+        files[filePath] = entry.fileDescription.content;
+    }
+
+    return new Package(files, publishedPackage.name, publishedPackage.version);
+}
+
+function groupProblemsByKind(problems: readonly Problem[]): ReadonlyMap<ProblemKind, readonly Problem[]> {
+    const grouped = new Map<ProblemKind, Problem[]>();
+
+    for (const problem of problems) {
+        const existing = grouped.get(problem.kind);
+        if (existing === undefined) {
+            grouped.set(problem.kind, [problem]);
+        } else {
+            existing.push(problem);
+        }
+    }
+
+    return grouped;
+}
+
+function listAffectedEntrypoints(
+    problems: readonly Problem[],
+    analysis: Analysis,
+    requiredResolutionKinds: readonly ResolutionKind[]
+): readonly string[] {
+    const affectedEntrypoints = new Set<string>();
+
+    for (const entrypoint of Object.keys(analysis.entrypoints)) {
+        for (const problem of problems) {
+            for (const resolutionKind of requiredResolutionKinds) {
+                if (problemAffectsEntrypointResolution(problem, entrypoint, resolutionKind, analysis)) {
+                    affectedEntrypoints.add(entrypoint);
+                }
+            }
+        }
+    }
+
+    return Array.from(affectedEntrypoints);
+}
+
+function listAffectedResolutionKinds(
+    problems: readonly Problem[],
+    analysis: Analysis,
+    requiredResolutionKinds: readonly ResolutionKind[]
+): readonly ResolutionKind[] {
+    const affectedResolutionKinds = new Set<ResolutionKind>();
+
+    for (const resolutionKind of requiredResolutionKinds) {
+        for (const problem of problems) {
+            if (problemAffectsResolutionKind(problem, resolutionKind, analysis)) {
+                affectedResolutionKinds.add(resolutionKind);
+            }
+        }
+    }
+
+    return requiredResolutionKinds.filter((resolutionKind) => {
+        return affectedResolutionKinds.has(resolutionKind);
+    });
+}
+
+function summarizeProblems(
+    packageName: string,
+    analysis: Analysis,
+    activeProblems: readonly Problem[],
+    requiredResolutionKinds: readonly ResolutionKind[]
+): readonly string[] {
+    function formatQuotedList(prefix: string, values: readonly string[]): string {
+        return values
+            .map((value, index) => {
+                const separator = index === 0 ? ` ${prefix} ` : ', ';
+                return `${separator}"${value}"`;
+            })
+            .join('');
+    }
+
+    return Array.from(groupProblemsByKind(activeProblems).entries(), ([kind, problems]) => {
+        const problemInfo = problemKindInfo[kind];
+        const entrypoints = listAffectedEntrypoints(problems, analysis, requiredResolutionKinds);
+        const resolutionKinds = listAffectedResolutionKinds(problems, analysis, requiredResolutionKinds);
+        const findings = problems.length === 1 ? '' : ` (${problems.length} findings)`;
+        const entrypointList = formatQuotedList('affecting entrypoints', entrypoints);
+        const resolutionList = formatQuotedList('in resolutions', resolutionKinds);
+        const message =
+            `Package "${packageName}" failed the Are the Types Wrong check: ` +
+            `${problemInfo.shortDescription}${findings}${entrypointList}${resolutionList}`;
+
+        return message;
+    });
+}
+
+function requiredResolutionKindsForProfile(profile: AreTheTypesWrongProfile): readonly ResolutionKind[] {
+    return requiredResolutionKindsByProfile[profile];
+}
+
+function filterActiveProblems(
+    analysis: Analysis,
+    requiredResolutionKinds: readonly ResolutionKind[]
+): readonly Problem[] {
+    return analysis.problems.filter((problem) => {
+        return requiredResolutionKinds.some((resolutionKind) => {
+            return problemAffectsResolutionKind(problem, resolutionKind, analysis);
+        });
+    });
+}
+
+async function runForPackage(
+    dependencies: AreTheTypesWrongDependencies,
+    packageName: string,
+    publishedPackage: PublishedPackageWithManifest,
+    profile: AreTheTypesWrongProfile
+): Promise<readonly string[]> {
+    try {
+        const analysis = await dependencies.checkPackage(createInMemoryPackage(publishedPackage));
+        if (analysis.types === false) {
+            return [];
+        }
+
+        const requiredResolutionKinds = requiredResolutionKindsForProfile(profile);
+        const activeProblems = filterActiveProblems(analysis, requiredResolutionKinds);
+        return summarizeProblems(packageName, analysis, activeProblems, requiredResolutionKinds);
+    } catch (error) {
+        const message = String(error);
+        return [`Package "${packageName}" failed the Are the Types Wrong check: ${message}`];
+    }
+}
+
+function createAreTheTypesWrongRule(
+    dependencies: AreTheTypesWrongDependencies = { checkPackage }
+): CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> {
+    async function run(params: RunParams): Promise<readonly string[]> {
+        const globalConfig = params.settings?.areTheTypesWrong;
+        if (globalConfig?.enabled !== true) {
+            return [];
+        }
+
+        const issuesByBundle = await Promise.all(
+            params.bundles.map(async (bundle) => {
+                const publishedPackage = params.publishedPackages?.get(bundle.name);
+                if (publishedPackage === undefined) {
+                    throw new Error(`Published package missing for "${bundle.name}"`);
+                }
+
+                const profile = resolveProfile(
+                    globalConfig,
+                    params.perPackageSettings.get(bundle.name)?.areTheTypesWrong
+                );
+                return runForPackage(dependencies, bundle.name, publishedPackage, profile);
+            })
+        );
+        return issuesByBundle.flat();
+    }
+
+    return {
+        name: ruleName,
+        globalSchema,
+        perPackageSchema,
+        run
+    };
+}
+
+export const areTheTypesWrongRule = createAreTheTypesWrongRule();

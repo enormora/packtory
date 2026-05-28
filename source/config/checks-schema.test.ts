@@ -10,6 +10,35 @@ import {
 import { checksPerPackageSchema, checksSchema } from './checks-schema.ts';
 
 suite('checks-schema', function () {
+    test('top-level schema accepts areTheTypesWrong with enabled', function () {
+        assert.strictEqual(safeParse(checksSchema, { areTheTypesWrong: { enabled: true } }).success, true);
+    });
+
+    test('top-level schema accepts an areTheTypesWrong profile override', function () {
+        assert.strictEqual(
+            safeParse(checksSchema, { areTheTypesWrong: { enabled: true, profile: 'strict' } }).success,
+            true
+        );
+    });
+
+    test('top-level schema rejects an unknown areTheTypesWrong profile', function () {
+        assert.strictEqual(
+            safeParse(checksSchema, { areTheTypesWrong: { enabled: true, profile: 'legacy' } }).success,
+            false
+        );
+    });
+
+    test('per-package schema accepts an areTheTypesWrong profile override', function () {
+        assert.strictEqual(
+            safeParse(checksPerPackageSchema, { areTheTypesWrong: { profile: 'node16' } }).success,
+            true
+        );
+    });
+
+    test('per-package schema rejects an enabled flag on areTheTypesWrong', function () {
+        assert.strictEqual(safeParse(checksPerPackageSchema, { areTheTypesWrong: { enabled: true } }).success, false);
+    });
+
     test('schema accepts valid noDuplicatedFiles settings at the top level', function () {
         assert.strictEqual(safeParse(checksSchema, { noDuplicatedFiles: { enabled: true } }).success, true);
     });

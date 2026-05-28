@@ -38,7 +38,7 @@ function findLeakedDevDependencies(
         });
 }
 
-function run(params: RunParams): readonly string[] {
+async function run(params: RunParams): Promise<readonly string[]> {
     const globalConfig = params.settings?.noDevDependencyImports;
     if (globalConfig?.enabled !== true) {
         return [];

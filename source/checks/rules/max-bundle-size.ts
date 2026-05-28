@@ -38,7 +38,7 @@ function checkBundle(bundle: AnalyzedBundle, threshold: number | undefined): rea
     return [`Package "${bundle.name}" exceeds the maximum bundle size: ${size} bytes (limit: ${threshold} bytes)`];
 }
 
-function run(params: RunParams): readonly string[] {
+async function run(params: RunParams): Promise<readonly string[]> {
     const globalConfig = params.settings?.maxBundleSize;
     if (globalConfig?.enabled !== true) {
         return [];

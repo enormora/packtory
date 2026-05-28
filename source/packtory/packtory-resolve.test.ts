@@ -14,7 +14,12 @@ function happyDependencies() {
         deadCodeEliminator: emptyDeadCodeEliminator,
         packageProcessor: stubPackageProcessor,
         scheduler: emptyScheduler,
-        progressBroadcaster: stubProgressBroadcaster
+        progressBroadcaster: stubProgressBroadcaster,
+        versionManager: {
+            addVersion() {
+                throw new Error('versionManager.addVersion should not run when no ATTW check is configured');
+            }
+        }
     };
 }
 

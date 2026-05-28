@@ -30,7 +30,7 @@ function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | 
     return issues;
 }
 
-function run(params: RunParams): readonly string[] {
+async function run(params: RunParams): Promise<readonly string[]> {
     const globalConfig = params.settings?.noUnusedBundleDependencies;
     if (globalConfig?.enabled !== true) {
         return [];

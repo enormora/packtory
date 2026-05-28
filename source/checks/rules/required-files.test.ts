@@ -14,8 +14,8 @@ suite('required-files', function () {
         assert.strictEqual(typeof requiredFilesRule.run, 'function');
     });
 
-    test('returns no issues when settings are missing', function () {
-        const result = requiredFilesRule.run({
+    test('returns no issues when settings are missing', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', [])],
             settings: undefined,
             perPackageSettings: new Map()
@@ -24,8 +24,8 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('returns no issues when the rule is disabled', function () {
-        const result = requiredFilesRule.run({
+    test('returns no issues when the rule is disabled', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', [])],
             settings: { requiredFiles: { enabled: false, files: ['LICENSE'] } },
             perPackageSettings: new Map()
@@ -34,8 +34,8 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('reports a missing global required file for every bundle that lacks it', function () {
-        const result = requiredFilesRule.run({
+    test('reports a missing global required file for every bundle that lacks it', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', ['LICENSE']), bundle('b', [])],
             settings: { requiredFiles: { enabled: true, files: ['LICENSE'] } },
             perPackageSettings: new Map()
@@ -44,8 +44,8 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, ['Package "b" is missing required file "LICENSE"']);
     });
 
-    test('returns no issues when all bundles contain every globally required file', function () {
-        const result = requiredFilesRule.run({
+    test('returns no issues when all bundles contain every globally required file', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', ['LICENSE', 'readme.md']), bundle('b', ['LICENSE', 'readme.md'])],
             settings: { requiredFiles: { enabled: true, files: ['LICENSE', 'readme.md'] } },
             perPackageSettings: new Map()
@@ -54,8 +54,8 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, []);
     });
 
-    test('extends global required files with per-package required files', function () {
-        const result = requiredFilesRule.run({
+    test('extends global required files with per-package required files', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', ['LICENSE'])],
             settings: { requiredFiles: { enabled: true, files: ['LICENSE'] } },
             perPackageSettings: new Map([['a', packageRequiring(['CHANGELOG.md'])]])
@@ -64,8 +64,8 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, ['Package "a" is missing required file "CHANGELOG.md"']);
     });
 
-    test('deduplicates required files when per-package config repeats a global entry', function () {
-        const result = requiredFilesRule.run({
+    test('deduplicates required files when per-package config repeats a global entry', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', [])],
             settings: { requiredFiles: { enabled: true, files: ['LICENSE'] } },
             perPackageSettings: new Map([['a', packageRequiring(['LICENSE'])]])
@@ -74,8 +74,8 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, ['Package "a" is missing required file "LICENSE"']);
     });
 
-    test('uses per-package required files even when the global list is empty', function () {
-        const result = requiredFilesRule.run({
+    test('uses per-package required files even when the global list is empty', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', [])],
             settings: { requiredFiles: { enabled: true } },
             perPackageSettings: new Map([['a', packageRequiring(['LICENSE'])]])
@@ -84,8 +84,8 @@ suite('required-files', function () {
         assert.deepStrictEqual(result, ['Package "a" is missing required file "LICENSE"']);
     });
 
-    test('reports multiple missing files for a single bundle', function () {
-        const result = requiredFilesRule.run({
+    test('reports multiple missing files for a single bundle', async function () {
+        const result = await requiredFilesRule.run({
             bundles: [bundle('a', [])],
             settings: { requiredFiles: { enabled: true, files: ['LICENSE', 'readme.md'] } },
             perPackageSettings: new Map()

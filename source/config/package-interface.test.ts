@@ -17,6 +17,15 @@ suite('package-interface', function () {
         );
     });
 
+    test('packageInterfaceSchema accepts interfaces that expose only bins', function () {
+        assert.strictEqual(
+            safeParse(packageInterfaceSchema, {
+                bins: [{ root: 'cli', name: 'packtory' }]
+            }).success,
+            true
+        );
+    });
+
     test('packageInterfaceSchema rejects module export keys without a package-relative prefix', function () {
         assert.strictEqual(
             safeParse(packageInterfaceSchema, {
@@ -43,6 +52,12 @@ suite('package-interface', function () {
             safeParse(packageInterfaceSchema, {
                 modules: [{ root: 'main', export: '.' }],
                 privateRoots: []
+            }).success,
+            false
+        );
+        assert.strictEqual(
+            safeParse(packageInterfaceSchema, {
+                privateRoots: ['worker']
             }).success,
             false
         );

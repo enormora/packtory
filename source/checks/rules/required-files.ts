@@ -39,7 +39,7 @@ function findMissingFiles(bundle: AnalyzedBundle, requiredFiles: readonly string
     });
 }
 
-function run(params: RunParams): readonly string[] {
+async function run(params: RunParams): Promise<readonly string[]> {
     const globalConfig = params.settings?.requiredFiles;
     if (globalConfig?.enabled !== true) {
         return [];
