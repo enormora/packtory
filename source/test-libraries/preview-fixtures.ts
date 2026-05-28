@@ -1,4 +1,5 @@
 import { Maybe } from 'true-myth';
+import { noPublication } from '../bundle-emitter/publication-outcome.ts';
 import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
 import type { ArtifactEntry } from '../progress/progress-broadcaster.ts';
 import type { PreviewDocument, PreviewPackage } from '../report/preview/preview-document.ts';
@@ -38,6 +39,7 @@ export function createBuildResultFixture(
     const version = overrides.version ?? '1.0.1';
     return {
         status: 'new-version',
+        publication: noPublication,
         bundle: versionedBundleWithManifest({
             name: packageName,
             version,

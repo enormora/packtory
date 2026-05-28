@@ -19,6 +19,8 @@ import {
     type CommandLineInterfaceRunnerDependencies
 } from './runner.ts';
 
+const noPublicationOutcome = { type: 'none' } as const;
+
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly diffAgainstLatestPublished?: SinonSpy;
@@ -149,7 +151,7 @@ async function expectCollectReportFlag(flag: '--report-html' | '--report-json'):
 
     await runner.run(['foo', 'bar', 'publish', flag]);
 
-    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+    assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, stage: false, collectReport: true });
 }
 
 async function runPreview(
@@ -177,7 +179,11 @@ suite('runner', function () {
         await runner.run(['foo', 'bar', 'publish']);
 
         assert.strictEqual(buildAndPublishAll.callCount, 1);
-        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: false });
+        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], {
+            dryRun: true,
+            stage: false,
+            collectReport: false
+        });
     });
 
     test('publish command runs not in dry-run mode when no-dry-run flag is set', async function () {
@@ -187,7 +193,25 @@ suite('runner', function () {
         await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
 
         assert.strictEqual(buildAndPublishAll.callCount, 1);
-        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: false, collectReport: false });
+        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], {
+            dryRun: false,
+            stage: false,
+            collectReport: false
+        });
+    });
+
+    test('publish command enables staged publishing when --stage is set', async function () {
+        const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+        const runner = runnerFactory({ buildAndPublishAll });
+
+        await runner.run(['foo', 'bar', 'publish', '--stage']);
+
+        assert.strictEqual(buildAndPublishAll.callCount, 1);
+        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], {
+            dryRun: true,
+            stage: true,
+            collectReport: false
+        });
     });
 
     test('preview command loads the config file and passes it to buildAndPublishAll()', async function () {
@@ -200,7 +224,11 @@ suite('runner', function () {
 
         await runner.run(['foo', 'bar', 'preview']);
 
-        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], { dryRun: true, collectReport: true });
+        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], {
+            dryRun: true,
+            stage: false,
+            collectReport: true
+        });
     });
 
     test('returns exit code 0 when publish command had no errors', async function () {
@@ -423,7 +451,12 @@ suite('runner', function () {
 
     test('stops a running spinner with success status when progressBroadcaster receives an "done" event and already-published status', async function () {
         const stop = fake();
-        await runWithProgressEvent({ stop }, 'done', { packageName: 'foo', version: '1', status: 'already-published' });
+        await runWithProgressEvent({ stop }, 'done', {
+            packageName: 'foo',
+            version: '1',
+            status: 'already-published',
+            publication: noPublicationOutcome
+        });
 
         assert.strictEqual(stop.callCount, 1);
         assert.deepStrictEqual(stop.firstCall.args, [
@@ -435,7 +468,12 @@ suite('runner', function () {
 
     test('stops a running spinner with success status when progressBroadcaster receives an "done" event and initial-version status', async function () {
         const stop = fake();
-        await runWithProgressEvent({ stop }, 'done', { packageName: 'foo', version: '1', status: 'initial-version' });
+        await runWithProgressEvent({ stop }, 'done', {
+            packageName: 'foo',
+            version: '1',
+            status: 'initial-version',
+            publication: noPublicationOutcome
+        });
 
         assert.strictEqual(stop.callCount, 1);
         assert.deepStrictEqual(stop.firstCall.args, ['foo', 'success', 'First version 1 has been published']);
@@ -443,7 +481,12 @@ suite('runner', function () {
 
     test('stops a running spinner with success status when progressBroadcaster receives an "done" event and new-version status', async function () {
         const stop = fake();
-        await runWithProgressEvent({ stop }, 'done', { packageName: 'foo', version: '1', status: 'new-version' });
+        await runWithProgressEvent({ stop }, 'done', {
+            packageName: 'foo',
+            version: '1',
+            status: 'new-version',
+            publication: noPublicationOutcome
+        });
 
         assert.strictEqual(stop.callCount, 1);
         assert.deepStrictEqual(stop.firstCall.args, ['foo', 'success', 'New version 1 published']);

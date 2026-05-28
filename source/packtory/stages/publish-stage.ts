@@ -74,6 +74,7 @@ export async function determineVersionAndPublishAll(
             const processorOptions: DetermineVersionAndPublishOptions = {
                 analyzedBundle,
                 buildOptions,
+                stage: options.stage,
                 substitutionPublicModuleSourcePaths: publicModuleUsageByName.get(buildOptions.name)
             };
 
@@ -89,7 +90,8 @@ export async function determineVersionAndPublishAll(
         createProgressEvent: (params) => {
             return {
                 version: params.result.bundle.packageJson.version,
-                status: params.result.status
+                status: params.result.status,
+                publication: params.result.publication
             };
         }
     });

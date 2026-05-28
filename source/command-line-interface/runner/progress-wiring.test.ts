@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { noPublication, stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { registerProgressListeners } from './progress-wiring.ts';
@@ -58,7 +59,12 @@ suite('progress-wiring', function () {
         const sink = captureSpinner();
         registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-        broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'already-published', version: '1.0.0' });
+        broadcaster.provider.emit('done', {
+            packageName: 'pkg-a',
+            status: 'already-published',
+            version: '1.0.0',
+            publication: noPublication
+        });
 
         assert.deepStrictEqual(sink.calls, [
             {
@@ -75,7 +81,12 @@ suite('progress-wiring', function () {
         const sink = captureSpinner();
         registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-        broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'initial-version', version: '1.0.0' });
+        broadcaster.provider.emit('done', {
+            packageName: 'pkg-a',
+            status: 'initial-version',
+            version: '1.0.0',
+            publication: noPublication
+        });
 
         assert.deepStrictEqual(sink.calls, [
             { kind: 'stop', id: 'pkg-a', status: 'success', message: 'First version 1.0.0 has been published' }
@@ -87,10 +98,49 @@ suite('progress-wiring', function () {
         const sink = captureSpinner();
         registerProgressListeners(broadcaster.consumer, sink.renderer);
 
-        broadcaster.provider.emit('done', { packageName: 'pkg-a', status: 'new-version', version: '2.0.0' });
+        broadcaster.provider.emit('done', {
+            packageName: 'pkg-a',
+            status: 'new-version',
+            version: '2.0.0',
+            publication: noPublication
+        });
 
         assert.deepStrictEqual(sink.calls, [
             { kind: 'stop', id: 'pkg-a', status: 'success', message: 'New version 2.0.0 published' }
+        ]);
+    });
+
+    test('registerProgressListeners reports staged publications on a done event', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
+
+        broadcaster.provider.emit('done', {
+            packageName: 'pkg-a',
+            status: 'new-version',
+            version: '2.0.0',
+            publication: stagedForApproval('stage-123')
+        });
+
+        assert.deepStrictEqual(sink.calls, [
+            { kind: 'stop', id: 'pkg-a', status: 'success', message: 'New version 2.0.0 staged (stage-123)' }
+        ]);
+    });
+
+    test('registerProgressListeners reports staged first publications on a done event', function () {
+        const broadcaster = createProgressBroadcaster();
+        const sink = captureSpinner();
+        registerProgressListeners(broadcaster.consumer, sink.renderer);
+
+        broadcaster.provider.emit('done', {
+            packageName: 'pkg-a',
+            status: 'initial-version',
+            version: '1.0.0',
+            publication: stagedForApproval('stage-123')
+        });
+
+        assert.deepStrictEqual(sink.calls, [
+            { kind: 'stop', id: 'pkg-a', status: 'success', message: 'First version 1.0.0 staged (stage-123)' }
         ]);
     });
 

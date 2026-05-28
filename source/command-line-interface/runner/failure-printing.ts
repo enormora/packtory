@@ -1,5 +1,6 @@
 import { match } from 'ts-pattern';
 import { bold, dim, green, red } from 'yoctocolors';
+import type { PublicationOutcome } from '../../bundle-emitter/publication-outcome.ts';
 import {
     checksErrorType,
     configErrorType,
@@ -12,6 +13,9 @@ import type { PartialError } from '../../packtory/scheduler.ts';
 import { getErrorSymbol, getSuccessSymbol, getWarningSymbol } from './runner-symbols.ts';
 
 type PublishPartialError = PartialError<BuildAndPublishResult>;
+type StagedResult = BuildAndPublishResult & {
+    readonly publication: Extract<PublicationOutcome, { type: 'staged' }>;
+};
 type Logger = (message: string) => void;
 const issueTitleByType = {
     [configErrorType]: 'The provided config is invalid',
@@ -31,12 +35,46 @@ export function printDryRunNote(log: Logger, flags: { readonly noDryRun: boolean
     );
 }
 
+function formatStageReceipt(result: StagedResult): string {
+    return `- ${result.bundle.name}@${result.bundle.version}: ${result.publication.stageId}`;
+}
+
+function isStagedResult(result: BuildAndPublishResult): result is StagedResult {
+    return result.publication.type === 'staged';
+}
+
+function stagedResultsFrom(results: readonly BuildAndPublishResult[]): readonly StagedResult[] {
+    return results.filter(isStagedResult);
+}
+
+function printStagedPackageList(log: Logger, results: readonly BuildAndPublishResult[]): void {
+    const stagedResults = stagedResultsFrom(results);
+    if (stagedResults.length === 0) {
+        return;
+    }
+    log(['Staged packages:', ...stagedResults.map(formatStageReceipt)].join('\n'));
+}
+
 function printIssueSummary(log: Logger, title: string, issues: readonly string[]): void {
     const header = `${getErrorSymbol()} ${title}, there are ${issues.length} issue(s)`;
     log(`${header}\n\n- ${issues.join('\n- ')}`);
 }
 
-function printPartialErrorSummary(log: Logger, error: PublishPartialError): void {
+function stageSuccessSummary(results: readonly BuildAndPublishResult[]): string {
+    const stagedResults = stagedResultsFrom(results);
+    if (stagedResults.length === 0) {
+        return (
+            `${getSuccessSymbol()} Success: no packages were staged; ` +
+            `all ${results.length} package(s) were already up-to-date`
+        );
+    }
+
+    const unchangedCount = results.length - stagedResults.length;
+    const unchangedSuffix = unchangedCount === 0 ? '' : `; ${dim(String(unchangedCount))} already up-to-date`;
+    return `${getSuccessSymbol()} Success: staged ${stagedResults.length} package(s)${unchangedSuffix}`;
+}
+
+function printPartialErrorSummary(log: Logger, error: PublishPartialError, flags: { readonly stage: boolean }): void {
     const total = error.succeeded.length + error.failures.length;
     const failureCount = red(String(error.failures.length));
     const successCount = green(String(error.succeeded.length));
@@ -47,18 +85,31 @@ function printPartialErrorSummary(log: Logger, error: PublishPartialError): void
         return `- ${message}`;
     });
     log([summary, ...details].join('\n'));
+    if (flags.stage) {
+        printStagedPackageList(log, error.succeeded);
+    }
 }
 
-export function printPublishFailure(log: Logger, error: PublishFailure): void {
+export function printPublishFailure(log: Logger, error: PublishFailure, flags: { readonly stage: boolean }): void {
     match(error)
         .with({ type: partialFailureType }, (partialError) => {
-            printPartialErrorSummary(log, partialError);
+            printPartialErrorSummary(log, partialError, flags);
         })
         .otherwise((issueError) => {
             printIssueSummary(log, issueTitleByType[issueError.type], issueError.issues);
         });
 }
 
-export function printSuccessSummary(log: Logger, results: readonly BuildAndPublishResult[]): void {
-    log(`${getSuccessSymbol()} Success: all ${results.length} package(s) have been published`);
+export function printSuccessSummary(
+    log: Logger,
+    results: readonly BuildAndPublishResult[],
+    flags: { readonly stage: boolean }
+): void {
+    if (!flags.stage) {
+        log(`${getSuccessSymbol()} Success: all ${results.length} package(s) have been published`);
+        return;
+    }
+
+    log(stageSuccessSummary(results));
+    printStagedPackageList(log, results);
 }

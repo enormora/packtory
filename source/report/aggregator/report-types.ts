@@ -1,3 +1,4 @@
+import type { PublicationOutcome } from '../../bundle-emitter/publication-outcome.ts';
 import type {
     ArtifactEntry,
     CrossBundleSeed,
@@ -48,6 +49,7 @@ export type PackageReport = {
     readonly outputs?: {
         readonly tarball: { readonly entries: readonly ArtifactEntry[]; readonly totalBytes: number };
     };
+    readonly publication?: PublicationOutcome;
     readonly eliminatedSourceFiles?: readonly EliminatedSourceFile[];
     readonly timings: Readonly<Record<string, number>>;
     readonly failure?: { readonly stage: StageName; readonly message: string };
@@ -78,6 +80,7 @@ export type MutablePackageReport = {
         packageJson?: Required<PackageReport['decisions']['packageJson']>;
     };
     outputs?: Required<PackageReport['outputs']>;
+    publication?: Required<PackageReport['publication']>;
     eliminatedSourceFiles?: PackageReport['eliminatedSourceFiles'];
     timings: Record<string, number>;
     failure?: Required<PackageReport['failure']>;

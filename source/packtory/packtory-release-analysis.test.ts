@@ -17,6 +17,7 @@ type BuildAndPublishResult = Awaited<
 >;
 type PackageProcessor = ReleaseAnalysisOrchestratorDependencies['packageProcessor'];
 type FileCollection = ReleaseAnalysisOrchestratorDependencies['artifactsBuilder']['collectContents'];
+const noPublicationOutcome = { type: 'none' } as const;
 
 function validatedConfigFor(packageNames: readonly string[]): ValidConfigResult {
     const result = validateConfig({
@@ -86,6 +87,7 @@ function buildResultFor(
 
     return {
         status: 'new-version',
+        publication: noPublicationOutcome,
         bundle: versionedBundleWithManifest({
             name: packageName,
             version: '1.0.1',
@@ -226,6 +228,34 @@ function dependencyOnlyFiles(version: string): readonly {
 }
 
 suite('packtory-release-analysis', function () {
+    test('runs dry-run publish analysis with staged publishing disabled', async function () {
+        const validated = validatedConfigFor(['pkg-a']);
+        const analyze = createAnalyzer({
+            packageNames: ['pkg-a'],
+            packageProcessor: {
+                async build() {
+                    throw new Error('build() should not be called in release-analysis tests');
+                },
+                async buildAndPublish() {
+                    throw new Error('buildAndPublish() should not be called in release-analysis dry runs');
+                },
+                async resolveAndLink() {
+                    throw new Error('resolveAndLink() should not be called in release-analysis tests');
+                },
+                async tryBuildAndPublish(options) {
+                    assert.strictEqual(options.stage, false);
+                    return buildResultFor();
+                }
+            }
+        });
+
+        const result = await analyze(validated, async () => {
+            return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
+        });
+
+        assert.strictEqual(result.isOk, true);
+    });
+
     test('passes non-partial resolve failures through unchanged', async function () {
         const analyze = createAnalyzer({ packageNames: [] });
         const validated = validatedConfigFor(['pkg-a']);

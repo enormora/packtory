@@ -7,11 +7,13 @@ import {
 import { renderPackage } from './terminal-package-renderer.ts';
 import { createColors } from './terminal-preview-renderer-shared.ts';
 
-const colors = createColors(false);
+function colors() {
+    return createColors(false);
+}
 
 suite('terminal-package-renderer', function () {
     test('renderPackage renders the name, version transition, tree, eliminated files, and diffs', function () {
-        const output = renderPackage(createPreviewPackageFixture(), colors);
+        const output = renderPackage(createPreviewPackageFixture(), colors());
 
         assert.strictEqual(
             output,
@@ -32,7 +34,7 @@ suite('terminal-package-renderer', function () {
     });
 
     test('renderPackage omits the version transition when it is undefined', function () {
-        const output = renderPackage(createPreviewPackageFixture({ versionTransition: undefined }), colors);
+        const output = renderPackage(createPreviewPackageFixture({ versionTransition: undefined }), colors());
 
         assert.ok(output.startsWith('pkg-a\n'));
         assert.ok(!output.includes('undefined'));
@@ -41,14 +43,14 @@ suite('terminal-package-renderer', function () {
     test('renderPackage prepends a failure line when the package has a failure', function () {
         const output = renderPackage(
             createPreviewPackageFixture({ failure: { stage: 'publish', message: 'boom' } }),
-            colors
+            colors()
         );
 
         assert.ok(output.includes('failure publish: boom'));
     });
 
     test('renderPackage omits the diffs and eliminated-files sections when both are absent', function () {
-        const output = renderPackage(createManifestOnlyPreviewPackageFixture(), colors);
+        const output = renderPackage(createManifestOnlyPreviewPackageFixture(), colors());
 
         assert.ok(!output.includes('Diffs'));
         assert.ok(!output.includes('Eliminated source files'));

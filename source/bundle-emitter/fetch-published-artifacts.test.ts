@@ -15,6 +15,7 @@ function registryClientWith(overrides: {
     return {
         fetchLatestReleaseMetadata: overrides.fetchLatestReleaseMetadata ?? fake(),
         fetchLatestVersion: fake(),
+        fetchStagedVersions: fake(),
         fetchTarball: overrides.fetchTarball ?? fake(),
         publishPackage: fake()
     };

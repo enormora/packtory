@@ -107,3 +107,21 @@ export function resolveMetadataAuthOptions(registrySettings: Readonly<RegistrySe
 
     return resolveInheritedMetadataAuth(registrySettings.auth.publish, registrySettings);
 }
+
+const stagedVersionLookupRequiresTokenAuthMessage =
+    'npm staged publishing with automatic versioning requires token-based metadata auth ' +
+    'when publish auth uses npm-oidc';
+
+export function resolveStageListingAuthOptions(registrySettings: Readonly<RegistrySettings>): AuthResolution {
+    const publishAuth = resolvePublishAuth(registrySettings);
+
+    if (!('type' in registrySettings.auth) && typeof registrySettings.auth.metadata === 'object') {
+        return buildAuthOptions(registrySettings.auth.metadata, registrySettings);
+    }
+
+    if (publishAuth.type === 'npm-oidc') {
+        throw new Error(stagedVersionLookupRequiresTokenAuthMessage);
+    }
+
+    return buildAuthOptions(publishAuth, registrySettings);
+}

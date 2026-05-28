@@ -6,6 +6,7 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../config/validation.ts';
 import { createIteratingScheduler } from '../test-libraries/iterating-scheduler.ts';
 import { stubPackageProcessor, stubProgressBroadcaster } from '../test-libraries/orchestrator-stub-fixtures.ts';
+import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import {
     createDiffAgainstLatestPublishedValidated,
@@ -19,6 +20,21 @@ const artifactsBuilder = { collectContents: () => [] } as unknown as Pick<Artifa
 
 function configFor(packageNames: readonly string[]): ValidConfigResult {
     return {
+        packageConfigs: Object.fromEntries(
+            packageNames.map((name) => {
+                return [
+                    name,
+                    {
+                        name,
+                        roots: { main: { js: `${name}.js` } },
+                        sourcesFolder: 'source',
+                        mainPackageJson: { type: 'module' },
+                        publishSettings: { access: 'public' },
+                        registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
+                    }
+                ];
+            })
+        ),
         packtoryConfig: {
             packages: packageNames.map((name) => {
                 return { name };
@@ -31,10 +47,13 @@ const okResolve = async () => {
     return Result.ok([] as readonly ResolvedPackage[]);
 };
 
-function createDiff(scheduler: PackageScheduler): ReturnType<typeof createDiffAgainstLatestPublishedValidated> {
+function createDiff(
+    scheduler: PackageScheduler,
+    packageProcessor: ReleaseDiffOrchestratorDependencies['packageProcessor'] = stubPackageProcessor
+): ReturnType<typeof createDiffAgainstLatestPublishedValidated> {
     const dependencies: ReleaseDiffOrchestratorDependencies = {
         artifactsBuilder,
-        packageProcessor: stubPackageProcessor,
+        packageProcessor,
         progressBroadcaster: stubProgressBroadcaster,
         scheduler
     };
@@ -121,6 +140,45 @@ function expectPartialErr(result: ReleaseDiffAllResult): PartialError<unknown> &
 }
 
 suite('packtory-release-diff', function () {
+    test('runs dry-run publish preparation with staged publishing disabled', async function () {
+        let sawDryRunStageFlag = false;
+        const diff = createDiff(createIteratingScheduler(['pkg-a']), {
+            ...stubPackageProcessor,
+            async tryBuildAndPublish(options) {
+                sawDryRunStageFlag = true;
+                assert.strictEqual(options.stage, false);
+                return {
+                    status: 'already-published',
+                    bundle: versionedBundleWithManifest({
+                        name: 'pkg-a',
+                        version: '1.0.0',
+                        packageJson: { name: 'pkg-a', version: '1.0.0' }
+                    }),
+                    extraFiles: [],
+                    previousReleaseArtifacts: Maybe.nothing()
+                } as unknown as BuildAndPublishResult;
+            }
+        });
+
+        const result = await diff(configFor(['pkg-a']), async () => {
+            return Result.ok([
+                {
+                    name: 'pkg-a',
+                    analyzedBundle: {
+                        name: 'pkg-a',
+                        contents: [],
+                        roots: {},
+                        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+                    },
+                    resolveOptions: {}
+                }
+            ] as unknown as readonly ResolvedPackage[]);
+        });
+
+        assert.strictEqual(result.isOk, true);
+        assert.strictEqual(sawDryRunStageFlag, true);
+    });
+
     test('returns a config Err when resolve-and-link returns a non-partial failure (unchanged passthrough)', async function () {
         const diff = createDiff(createIteratingScheduler([]));
 

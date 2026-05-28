@@ -1,3 +1,5 @@
+import type { PublicationOutcome } from '../bundle-emitter/publication-outcome.ts';
+
 export type StageName = 'build' | 'eliminate' | 'publish' | 'resolveAndLink' | 'tryPublish';
 
 export type IncludedFile = {
@@ -101,6 +103,7 @@ type DonePayload = {
     readonly packageName: string;
     readonly version: string;
     readonly status: 'already-published' | 'initial-version' | 'new-version';
+    readonly publication: PublicationOutcome;
 };
 
 type InputsResolvedPayload = {

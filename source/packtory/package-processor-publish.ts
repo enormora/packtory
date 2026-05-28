@@ -1,13 +1,8 @@
-/* eslint-disable import/max-dependencies -- the publish operation legitimately bridges bundle-emitter, version-manager, sbom, progress, and option-mapping helpers */
 import { isDefined, pickBy } from 'remeda';
-import type { Maybe } from 'true-myth';
+import { noPublication } from '../bundle-emitter/publication-outcome.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
-import { bundledDependenciesFrom } from '../common/bundled-dependency-groups.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
-import type { PublishedReleaseArtifacts } from '../bundle-emitter/fetch-published-artifacts.ts';
-import type { FileDescription } from '../file-manager/file-description.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import type { SbomSiblingPackage } from '../published-package/published-package.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { BuildAndPublishOptions } from './map-config.ts';
@@ -15,6 +10,14 @@ import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } fro
 import { publishedReleaseStatus, type PublishedReleaseStatus, wasAlreadyPublished } from './published-release-state.ts';
 
 type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion']>>;
+type CurrentVersion = Awaited<ReturnType<BundleEmitter['determineCurrentVersion']>>;
+type PublicationOutcome = Awaited<ReturnType<BundleEmitter['publish']>>;
+type PreviousReleaseArtifacts = Awaited<
+    ReturnType<BundleEmitter['checkBundleAlreadyPublished']>
+>['previousReleaseArtifacts'];
+type ExtraFiles = Exclude<Awaited<ReturnType<SbomFileBuilder['generate']>>, undefined>;
+type SiblingPackage = Parameters<SbomFileBuilder['generate']>[1][number];
+
 type PublishDependencies = {
     readonly bundleEmitter: BundleEmitter;
     readonly progressBroadcaster: ProgressBroadcastProvider;
@@ -25,13 +28,15 @@ type PublishDependencies = {
 export type BuildAndPublishResult = {
     readonly status: PublishedReleaseStatus;
     readonly bundle: VersionedBundleWithManifest;
-    readonly extraFiles: readonly FileDescription[];
-    readonly previousReleaseArtifacts: Maybe<PublishedReleaseArtifacts>;
+    readonly publication: PublicationOutcome;
+    readonly extraFiles: ExtraFiles;
+    readonly previousReleaseArtifacts: PreviousReleaseArtifacts;
 };
 
 export type DetermineVersionAndPublishOptions = {
     readonly analyzedBundle: AnalyzedBundle;
     readonly buildOptions: BuildAndPublishOptions;
+    readonly stage: boolean;
     readonly substitutionPublicModuleSourcePaths?: ReadonlySet<string> | undefined;
 };
 
@@ -41,7 +46,9 @@ function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | un
     }
 }
 
-const siblingsFromOptions = bundledDependenciesFrom<SbomSiblingPackage>;
+function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly SiblingPackage[] {
+    return [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
+}
 
 export type PublishOperations = {
     readonly buildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
@@ -52,16 +59,18 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     async function buildVersionedBundle(
         analyzedBundle: AnalyzedBundle,
         options: BuildAndPublishOptions,
+        stage: boolean,
         substitutionPublicModuleSourcePaths: ReadonlySet<string> | undefined
     ): Promise<{
         versionedBundle: VersionedBundleWithManifest;
-        currentVersion: Maybe<string>;
+        currentVersion: CurrentVersion;
         version: string;
     }> {
         assertEsmMainPackageJson(options.mainPackageJson);
         const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
             name: analyzedBundle.name,
             registrySettings: options.registrySettings,
+            stage,
             versioning: options.versioning
         });
         const version = determineBuildVersion(currentVersion, options);
@@ -77,7 +86,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
 
     function emitVersionDetermined(args: {
         readonly options: BuildAndPublishOptions;
-        readonly currentVersion: Maybe<string>;
+        readonly currentVersion: CurrentVersion;
         readonly chosenVersion: string;
         readonly didBump: boolean;
     }): void {
@@ -93,12 +102,12 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     }
 
     function finalizeWithoutBump(
-        buildContext: { versionedBundle: VersionedBundleWithManifest; currentVersion: Maybe<string> },
+        buildContext: { versionedBundle: VersionedBundleWithManifest; currentVersion: CurrentVersion },
         options: BuildAndPublishOptions,
         status: BuildAndPublishResult['status'],
         extras: {
-            extraFiles: readonly FileDescription[];
-            previousReleaseArtifacts: Maybe<PublishedReleaseArtifacts>;
+            extraFiles: ExtraFiles;
+            previousReleaseArtifacts: PreviousReleaseArtifacts;
         }
     ): BuildAndPublishResult {
         emitVersionDetermined({
@@ -110,13 +119,18 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         return {
             bundle: buildContext.versionedBundle,
             status,
+            publication: noPublication,
             extraFiles: extras.extraFiles,
             previousReleaseArtifacts: extras.previousReleaseArtifacts
         };
     }
 
     async function bumpVersion(
-        buildContext: { versionedBundle: VersionedBundleWithManifest; version: string; currentVersion: Maybe<string> },
+        buildContext: {
+            readonly versionedBundle: VersionedBundleWithManifest;
+            readonly version: string;
+            readonly currentVersion: CurrentVersion;
+        },
         options: BuildAndPublishOptions
     ): Promise<VersionedBundleWithManifest> {
         dependencies.progressBroadcaster.emit('rebuilding', {
@@ -136,7 +150,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     async function generateExtraFiles(
         versionedBundle: VersionedBundleWithManifest,
         buildOptions: BuildAndPublishOptions
-    ): Promise<readonly FileDescription[]> {
+    ): Promise<ExtraFiles> {
         const result = await dependencies.sbomFileBuilder.generate(
             versionedBundle,
             siblingsFromOptions(buildOptions),
@@ -149,6 +163,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         const buildContext = await buildVersionedBundle(
             options.analyzedBundle,
             options.buildOptions,
+            options.stage,
             options.substitutionPublicModuleSourcePaths
         );
         const preBumpExtraFiles = await generateExtraFiles(buildContext.versionedBundle, options.buildOptions);
@@ -189,6 +204,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             status: buildContext.currentVersion.isJust
                 ? publishedReleaseStatus.newVersion
                 : publishedReleaseStatus.initialVersion,
+            publication: noPublication,
             extraFiles,
             previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
         };
@@ -204,19 +220,20 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             packageName: options.buildOptions.name,
             version: result.bundle.version
         });
-        await dependencies.bundleEmitter.publish(
+        const publication = await dependencies.bundleEmitter.publish(
             pickBy(
                 {
                     bundle: result.bundle,
                     registrySettings: options.buildOptions.registrySettings,
                     publishSettings: options.buildOptions.publishSettings,
+                    stage: options.stage,
                     extraFiles: result.extraFiles.length === 0 ? undefined : result.extraFiles
                 },
                 isDefined
             )
         );
 
-        return result;
+        return { ...result, publication };
     }
 
     return { buildAndPublish, tryBuildAndPublish };

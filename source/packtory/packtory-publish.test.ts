@@ -23,7 +23,7 @@ suite('packtory-publish', function () {
 
         const result = await run(
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
-            { dryRun: false },
+            { dryRun: false, stage: false },
             async () => Result.ok([])
         );
 
@@ -35,7 +35,7 @@ suite('packtory-publish', function () {
 
         const result = await run(
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
-            { dryRun: false },
+            { dryRun: false, stage: false },
             async () => Result.err({ type: 'config', issues: ['bad'] })
         );
 
@@ -55,7 +55,7 @@ suite('packtory-publish', function () {
 
         const result = await run(
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
-            { dryRun: false },
+            { dryRun: false, stage: false },
             async () => Result.ok([])
         );
 

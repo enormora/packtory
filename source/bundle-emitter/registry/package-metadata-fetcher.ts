@@ -3,7 +3,7 @@ import { Maybe } from 'true-myth';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
 import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
 import { toRegistryPackagePath } from './registry-package-path.ts';
-import { resolveMetadataAuthOptions } from './registry-auth-config.ts';
+import { resolveMetadataAuthOptions, resolveStageListingAuthOptions } from './registry-auth-config.ts';
 import {
     parseAbbreviatedPackageResponse,
     parseFullPackageResponse,
@@ -45,6 +45,35 @@ function parseTimestamp(timestamp: string): Date {
     return parsed;
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+    if (!Number.isSafeInteger(value)) {
+        return false;
+    }
+
+    return Number(value) >= 0;
+}
+
+function parseStagedPackageListResponse(response: unknown): StagedPackageListResponse {
+    if (!isRecord(response)) {
+        throw new Error('Got an invalid response from registry stage API');
+    }
+
+    const { items, total } = response;
+    if (!Array.isArray(items) || !isNonNegativeInteger(total)) {
+        throw new Error('Got an invalid response from registry stage API');
+    }
+
+    return {
+        items: items.map((item) => {
+            if (!isRecord(item) || typeof item.version !== 'string') {
+                throw new Error('Got an invalid response from registry stage API');
+            }
+            return { version: item.version };
+        }),
+        total
+    };
+}
+
 type PackageMetadataRequest<TPackageResponse extends Record<string, unknown>> = {
     readonly headers: Readonly<Record<string, string>> | undefined;
     readonly parsePackageResponse: (response: unknown) => TPackageResponse | undefined;
@@ -59,6 +88,17 @@ const fullPackageMetadataRequest: PackageMetadataRequest<FullPackageResponse> = 
     parsePackageResponse: parseFullPackageResponse,
     headers: undefined
 };
+
+type StagedPackageListItem = {
+    readonly version: string;
+};
+
+type StagedPackageListResponse = {
+    readonly items: readonly StagedPackageListItem[];
+    readonly total: number;
+};
+
+const stageListPageSize = 100;
 
 async function fetchAndParsePackageMetadata<TPackageResponse extends Record<string, unknown>>(
     npmFetch: typeof _npmFetch,
@@ -151,6 +191,38 @@ export async function fetchLatestPackageReleaseMetadata(
         tarballUrl: latestVersion.value.tarballUrl,
         publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp)
     });
+}
+
+export async function fetchStagedPackageVersions(
+    npmFetch: typeof _npmFetch,
+    packageName: string,
+    registrySettings: RegistrySettings
+): Promise<readonly string[]> {
+    const auth = resolveStageListingAuthOptions(registrySettings);
+
+    async function fetchPage(page: number, versions: readonly string[]): Promise<readonly string[]> {
+        const searchParams = new URLSearchParams({
+            package: packageName,
+            page: String(page),
+            perPage: String(stageListPageSize)
+        });
+        const response = parseStagedPackageListResponse(
+            await npmFetch.json(`/-/stage?${searchParams.toString()}`, auth.options)
+        );
+        const nextVersions = versions.concat(
+            response.items.map((item) => {
+                return item.version;
+            })
+        );
+
+        if (nextVersions.length >= response.total || response.items.length === 0) {
+            return nextVersions;
+        }
+
+        return fetchPage(page + 1, nextVersions);
+    }
+
+    return fetchPage(0, []);
 }
 
 export async function fetchPackageTarball(

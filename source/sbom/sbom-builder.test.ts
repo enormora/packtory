@@ -6,10 +6,8 @@ import { createSbomSerializer } from './sbom-serializer.ts';
 
 type SbomBuilderOptions = Parameters<typeof buildSbom>[0];
 
-const serializer = createSbomSerializer();
-
 function serialize(bom: ReturnType<typeof buildSbom>): Record<string, unknown> {
-    return JSON.parse(serializer.serialize(bom)) as Record<string, unknown>;
+    return JSON.parse(createSbomSerializer().serialize(bom)) as Record<string, unknown>;
 }
 
 function buildAndSerialize(options: Partial<SbomBuilderOptions>): Record<string, unknown> {

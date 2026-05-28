@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
 import { createIteratingScheduler as iteratingScheduler } from '../../test-libraries/iterating-scheduler.ts';
 import {
     emptyScheduler,
@@ -20,7 +21,7 @@ suite('publish-stage', function () {
             },
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
             [],
-            { dryRun: false }
+            { dryRun: false, stage: false }
         );
 
         assert.strictEqual(result.isOk, true);
@@ -31,7 +32,7 @@ suite('publish-stage', function () {
             failingDependencies('boom'),
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
             [],
-            { dryRun: false }
+            { dryRun: false, stage: false }
         );
 
         assert.strictEqual(result.isErr, true);
@@ -63,7 +64,7 @@ suite('publish-stage', function () {
             },
             config as never,
             [],
-            { dryRun: false }
+            { dryRun: false, stage: false }
         );
 
         if (!result.isErr) {
@@ -82,7 +83,7 @@ suite('publish-stage', function () {
             version: '2.0.0',
             packageJson: { name: 'pkg-a', version: '2.0.0' }
         };
-        const buildResult = { bundle, status: 'new-version' as const };
+        const buildResult = { bundle, status: 'new-version' as const, publication: noPublication };
         const processor = {
             ...stubPackageProcessor,
             async buildAndPublish() {
@@ -114,10 +115,12 @@ suite('publish-stage', function () {
                     resolveOptions: {}
                 } as never
             ],
-            { dryRun: false }
+            { dryRun: false, stage: false }
         );
 
         assert.deepStrictEqual(capture.selected, [bundle]);
-        assert.deepStrictEqual(capture.events, [{ version: '2.0.0', status: 'new-version' }]);
+        assert.deepStrictEqual(capture.events, [
+            { version: '2.0.0', status: 'new-version', publication: noPublication }
+        ]);
     });
 });
