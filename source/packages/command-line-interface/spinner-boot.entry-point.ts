@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { setTimeout as scheduleTimeout } from 'node:timers';
 import { fileURLToPath } from 'node:url';
 import { Worker as WorkerThread } from 'node:worker_threads';
 import { bootSpinnerRuntime } from '../../command-line-interface/spinner/spinner-boot.ts';
@@ -8,8 +9,11 @@ const bootModulePath = fileURLToPath(import.meta.url);
 const bootModuleExtension = path.extname(bootModulePath);
 const workerModulePath = path.join(path.dirname(bootModulePath), `spinner-worker.entry-point${bootModuleExtension}`);
 const defaultStdoutColumns = 80;
+const workerTerminationGraceMs = 1000;
 const workerExecArgv =
     bootModuleExtension === '.ts' ? ['--experimental-strip-types', '--enable-source-maps'] : ['--enable-source-maps'];
+
+let pendingWorkerTermination: Promise<void> = Promise.resolve();
 
 function spawnWorker(request: WorkerSpawnRequest): void {
     const worker = new WorkerThread(workerModulePath, {
@@ -23,6 +27,11 @@ function spawnWorker(request: WorkerSpawnRequest): void {
     worker.on('error', (error: Error) => {
         process.stderr.write(`spinner worker error: ${error.message}\n`);
     });
+    pendingWorkerTermination = new Promise<void>((resolve) => {
+        worker.once('exit', () => {
+            resolve();
+        });
+    });
 }
 
 export function createBootedSpinnerRuntime(): SpinnerRuntime {
@@ -34,4 +43,11 @@ export function createBootedSpinnerRuntime(): SpinnerRuntime {
         initialLabel: 'packtory',
         initialMessage: 'Starting …'
     });
+}
+
+export async function awaitSpinnerWorkerTermination(): Promise<void> {
+    const graceTimeout = new Promise<void>((resolve) => {
+        scheduleTimeout(resolve, workerTerminationGraceMs).unref();
+    });
+    await Promise.race([pendingWorkerTermination, graceTimeout]);
 }

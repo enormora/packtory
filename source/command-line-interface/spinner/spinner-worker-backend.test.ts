@@ -181,4 +181,25 @@ suite('spinner-worker-backend', function () {
     test('createWorkerSpinnerBackend.shutdown skips waiting when the worker interval is zero', function () {
         assert.deepStrictEqual(collectShutdownWaitCalls(), []);
     });
+
+    test('createWorkerSpinnerBackend.shutdown is idempotent when invoked multiple times', function () {
+        const waitForRenderedMutationCalls: (readonly [number, number])[] = [];
+        const { runtime, accessors } = buildRuntimeWithFakeAccessors({
+            getIntervalMs: () => {
+                return 80;
+            },
+            waitForRenderedMutation: (mutation, timeoutMs) => {
+                waitForRenderedMutationCalls.push([mutation, timeoutMs]);
+                return true;
+            }
+        });
+        const backend = createWorkerSpinnerBackend({ runtime });
+
+        backend.shutdown();
+        backend.shutdown();
+
+        assert.strictEqual(accessors.isShutdownRequested(), true);
+        assert.strictEqual(accessors.getLatestMutation(), 1);
+        assert.deepStrictEqual(waitForRenderedMutationCalls, [[1, 320]]);
+    });
 });
