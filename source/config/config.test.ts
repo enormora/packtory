@@ -38,7 +38,7 @@ suite('config', function () {
         );
     });
 
-    test('config schema rejects configs without registrySettings', function () {
+    test('config schema accepts configs without registrySettings', function () {
         assert.strictEqual(
             safeParse(packtoryConfigSchema, {
                 packages: [
@@ -50,7 +50,7 @@ suite('config', function () {
                     }
                 ]
             }).success,
-            false
+            true
         );
     });
 
@@ -90,8 +90,8 @@ suite('config', function () {
     );
 
     test(
-        'validation fails when registrySettings is missing',
-        checkValidationFailure({
+        'validation succeeds when registrySettings is omitted',
+        checkValidationSuccess({
             schema: packtoryConfigSchema,
             data: {
                 packages: [
@@ -102,8 +102,25 @@ suite('config', function () {
                         roots: { main: { js: 'foo' } }
                     }
                 ]
-            },
-            expectedMessages: ['at registrySettings: missing property']
+            }
+        })
+    );
+
+    test(
+        'validation succeeds when registrySettings is provided without auth',
+        checkValidationSuccess({
+            schema: packtoryConfigSchema,
+            data: {
+                registrySettings: { registryUrl: 'https://registry.example' },
+                packages: [
+                    {
+                        sourcesFolder: 'source',
+                        mainPackageJson: { type: 'module' },
+                        name: 'foo',
+                        roots: { main: { js: 'foo' } }
+                    }
+                ]
+            }
         })
     );
 
@@ -602,7 +619,7 @@ suite('config', function () {
         checkValidationFailure({
             schema: packtoryConfigSchema,
             data: {},
-            expectedMessages: ['at registrySettings: missing property', 'invalid value doesn’t match expected union']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 

@@ -44,7 +44,7 @@ const config = {
 
 **Parameters:**
 
-- **config:** The packtory configuration object.
+- **config:** The packtory configuration object. `registrySettings` is optional; it is only required to publish in non-dry-run mode. Pack, dry-run publish, release-diff and release analysis read registry metadata anonymously when `registrySettings` (or its `auth`) is omitted. Calling `buildAndPublishAll(config, { dryRun: false })` without `auth` fails fast with one `ConfigError` before any package is processed.
 - **options:** Per-function options object:
     - `buildAndPublishAll`: `{ dryRun: boolean; collectReport?: boolean }`.
     - `resolveAndLinkAll`: optional `{ collectReport?: boolean }`.

@@ -503,6 +503,34 @@ suite('map-config', function () {
         assert.deepStrictEqual(result.allowMutableSpecifiers, ['only-this']);
     });
 
+    test('preserves the configured registrySettings on the produced options', function () {
+        const result = runMapConfig(fooPackageConfigFactory.build(), {
+            extraConfig: {
+                registrySettings: {
+                    registryUrl: 'https://registry.example',
+                    auth: { type: 'bearer-token', token: 'tok' }
+                }
+            }
+        });
+
+        assert.deepStrictEqual(result.registrySettings, {
+            registryUrl: 'https://registry.example',
+            auth: { type: 'bearer-token', token: 'tok' }
+        });
+    });
+
+    test('defaults registrySettings to an empty object when the config omits them', function () {
+        const packageConfig = {
+            ...fooPackageConfigFactory.build(),
+            publishSettings: { access: 'public' }
+        } as unknown as PackageConfigInput;
+        const config = { packages: [packageConfig] } as unknown as PacktoryConfigInput;
+
+        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, []);
+
+        assert.deepStrictEqual(result.registrySettings, {});
+    });
+
     test('throws a "missing publish settings" error when neither commonPackageSettings nor the package supplies one', function () {
         const packageWithoutPublishSettings = fooPackageConfigFactory.build();
         const config = {

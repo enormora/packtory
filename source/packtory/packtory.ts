@@ -100,6 +100,19 @@ type Reporting<TReport> = {
     readonly getReport: () => TReport;
 };
 
+const missingPublishAuthIssue =
+    'registrySettings.auth must be configured to publish; run with dryRun=true to skip the registry write.';
+
+function ensureAuthConfiguredForRealPublish(
+    validated: ValidConfigResult,
+    options: BuildAndPublishAllOptions
+): Result<ValidConfigResult, PublishAllResult> {
+    if (options.dryRun || validated.packtoryConfig.registrySettings?.auth !== undefined) {
+        return Result.ok(validated);
+    }
+    return Result.err(Result.err(configError([missingPublishAuthIssue])));
+}
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const { progressBroadcaster } = dependencies;
     const {
@@ -168,7 +181,11 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
             },
             validate: validateConfig,
             async runValidated(validated) {
-                return runBuildAndPublish(validated, options);
+                const guarded = ensureAuthConfiguredForRealPublish(validated, options);
+                if (guarded.isErr) {
+                    return guarded.error;
+                }
+                return runBuildAndPublish(guarded.value, options);
             },
             createValidationErrorResult(issues) {
                 return Result.err(configError(issues));

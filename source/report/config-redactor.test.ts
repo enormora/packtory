@@ -148,6 +148,15 @@ suite('config-redactor', function () {
         assert.strictEqual(redacted.name, 'pkg-missing');
     });
 
+    test('redactConfigForPackage() omits registrySettings when the config does not define them', function () {
+        const redacted = redactConfigForPackage(
+            { packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }] } as unknown as PacktoryConfig,
+            'pkg-a'
+        );
+
+        assert.strictEqual('registrySettings' in redacted, false);
+    });
+
     test('redactConfigForPackage() falls back to common settings when the package name does not match but common settings exist', function () {
         const redacted = redactConfigForPackage(
             baseConfig({

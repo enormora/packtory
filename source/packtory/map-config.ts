@@ -13,7 +13,7 @@ export type BuildOptions = SharedPackageOptions<PublishedPackageWithManifest> & 
 };
 
 export type BuildAndPublishOptions = SharedPackageOptions<PublishedPackageWithManifest> & {
-    readonly registrySettings: PacktoryConfig['registrySettings'];
+    readonly registrySettings: NonNullable<PacktoryConfig['registrySettings']>;
     readonly publishSettings: PublishSettings;
     readonly versioning: VersioningSettings;
 };
@@ -37,7 +37,7 @@ export function configToBuildAndPublishOptions(
     return {
         ...sharedOptions,
         versioning,
-        registrySettings: packtoryConfig.registrySettings,
+        registrySettings: packtoryConfig.registrySettings ?? {},
         publishSettings
     };
 }

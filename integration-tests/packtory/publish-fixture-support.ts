@@ -66,7 +66,7 @@ type PublishFixturePackagesParams = {
 function createRegistrySettings(
     registryDetails: RegistryDetails,
     authMode: PublishFixturePackagesParams['authMode'] = 'bearer'
-): PublishConfig['registrySettings'] {
+): NonNullable<PublishConfig['registrySettings']> {
     if (authMode === 'basic') {
         return {
             registryUrl: registryDetails.registryUrl,

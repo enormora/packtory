@@ -36,10 +36,7 @@ function fooPackage(name = 'foo'): ConfigInput {
 suite('validation', function () {
     test('returns the issues when the given config doesn’t match the schema', function () {
         const result = validateConfig({ not: 'valid' });
-        assert.deepStrictEqual(
-            result,
-            Result.err(['at registrySettings: missing property', 'invalid value doesn’t match expected union'])
-        );
+        assert.deepStrictEqual(result, Result.err(['invalid value doesn’t match expected union']));
     });
 
     test('returns an issue when a package with the same name exists twice', function () {

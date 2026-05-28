@@ -334,9 +334,46 @@ suite('packtory', function () {
             result,
             Result.err({
                 type: 'config',
-                issues: ['at registrySettings: missing property', 'invalid value doesn’t match expected union']
+                issues: ['invalid value doesn’t match expected union']
             })
         );
+    });
+
+    test('buildAndPublishAll() fails fast with a single config issue when non-dry-run lacks auth', async function () {
+        const buildAndPublish = fake();
+        const tryBuildAndPublish = fake();
+        const resolveAndLink = fake();
+        const { packtory, scheduler } = createPacktoryUnderTest({
+            resolveAndLink,
+            buildAndPublish,
+            tryBuildAndPublish
+        });
+
+        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), { dryRun: false });
+
+        assert.deepStrictEqual(
+            result,
+            Result.err({
+                type: 'config',
+                issues: [
+                    'registrySettings.auth must be configured to publish; run with dryRun=true to skip the registry write.'
+                ]
+            })
+        );
+        assert.strictEqual(resolveAndLink.callCount, 0);
+        assert.strictEqual(tryBuildAndPublish.callCount, 0);
+        assert.strictEqual(buildAndPublish.callCount, 0);
+        assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 0);
+    });
+
+    test('buildAndPublishAll() allows dry-run when auth is omitted (anonymous read)', async function () {
+        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
+
+        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), { dryRun: true });
+
+        assert.strictEqual(result.isOk, true);
+        assert.strictEqual(tryBuildAndPublish.callCount, 1);
+        assert.strictEqual(buildAndPublish.callCount, 0);
     });
 
     test('buildAndPublishAll() returns check failures without entering publish mode', async function () {
