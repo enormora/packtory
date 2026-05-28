@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import type { PreviewPackage } from '../preview/preview-document.ts';
 import { renderDiagnostics, renderFailureBanner } from './diagnostics-renderer.ts';
 
@@ -49,6 +50,17 @@ suite('diagnostics-renderer', function () {
         );
 
         assert.ok(html.includes('<summary>Outputs</summary>'));
+    });
+
+    test('renderDiagnostics renders the Publication section when publication is present', function () {
+        const html = renderDiagnostics(
+            packageWithDiagnostics({
+                ...emptyDiagnostics,
+                publication: stagedForApproval('stage-123')
+            }) as PreviewPackage
+        );
+
+        assert.ok(html.includes('<summary>Publication</summary>'));
     });
 
     test('renderDiagnostics renders the Timings section when timings are populated', function () {

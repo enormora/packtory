@@ -14,7 +14,7 @@ export type PublishHandlerDeps = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
-    readonly flags: ReportFlags & { readonly noDryRun: boolean };
+    readonly flags: ReportFlags & { readonly noDryRun: boolean; readonly stage: boolean };
 };
 
 async function reportOutcome(
@@ -26,9 +26,9 @@ async function reportOutcome(
     let exitCode = 0;
     if (outcome.result.isErr) {
         exitCode = 1;
-        printPublishFailure(log, outcome.result.error);
+        printPublishFailure(log, outcome.result.error, { stage: flags.stage });
     } else {
-        printSuccessSummary(log, outcome.result.value);
+        printSuccessSummary(log, outcome.result.value, { stage: flags.stage });
     }
     await writeReports(fileManager, outcome.getReport(), outcome.result, flags, !flags.noDryRun);
     return exitCode;
@@ -40,6 +40,7 @@ export async function runPublishHandler(deps: PublishHandlerDeps): Promise<numbe
     try {
         const outcome = await packtory.buildAndPublishAll(await configLoader.load(), {
             dryRun: !flags.noDryRun,
+            stage: flags.stage,
             collectReport: flags.reportJson || flags.reportHtml
         });
         shouldStopSpinners = false;

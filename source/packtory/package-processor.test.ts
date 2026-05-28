@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { noPublication, publishedToRegistry, stagedForApproval } from '../bundle-emitter/publication-outcome.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
@@ -191,13 +192,18 @@ function createBuildAndPublishOptions(): BuildAndPublishOptions {
     };
 }
 
+function createDetermineVersionAndPublishOptions(): DetermineVersionAndPublishOptions {
+    return {
+        analyzedBundle: createAnalyzedBundle(),
+        buildOptions: createBuildAndPublishOptions(),
+        stage: false
+    };
+}
+
 async function tryBuildAndPublishDefault(
     processor: ReturnType<typeof createPackageProcessor>
 ): ReturnType<ReturnType<typeof createPackageProcessor>['tryBuildAndPublish']> {
-    return processor.tryBuildAndPublish({
-        analyzedBundle: createAnalyzedBundle(),
-        buildOptions: createBuildAndPublishOptions()
-    });
+    return processor.tryBuildAndPublish(createDetermineVersionAndPublishOptions());
 }
 
 function getCallArgs(spy: SinonSpy): unknown[][] {
@@ -343,12 +349,14 @@ suite('package-processor', function () {
 
         const result = await processor.tryBuildAndPublish({
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions: createBuildAndPublishOptions()
+            buildOptions: createBuildAndPublishOptions(),
+            stage: false
         });
 
         assert.deepStrictEqual(result, {
             bundle: versionedBundle,
             status: 'already-published',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -377,6 +385,7 @@ suite('package-processor', function () {
         assert.deepStrictEqual(result, {
             bundle: rebuiltBundle,
             status: 'initial-version',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -384,6 +393,7 @@ suite('package-processor', function () {
             {
                 name: 'package-a',
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+                stage: false,
                 versioning: { automatic: true }
             }
         ]);
@@ -407,6 +417,7 @@ suite('package-processor', function () {
         assert.deepStrictEqual(result, {
             bundle: rebuiltBundle,
             status: 'new-version',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -425,12 +436,14 @@ suite('package-processor', function () {
         };
         const result = await processor.tryBuildAndPublish({
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions
+            buildOptions,
+            stage: false
         });
 
         assert.deepStrictEqual(result, {
             bundle: manualBundle,
             status: 'initial-version',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -451,12 +464,14 @@ suite('package-processor', function () {
         };
         const result = await processor.tryBuildAndPublish({
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions
+            buildOptions,
+            stage: false
         });
 
         assert.deepStrictEqual(result, {
             bundle: currentBundle,
             status: 'new-version',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -477,12 +492,14 @@ suite('package-processor', function () {
         };
         const result = await processor.tryBuildAndPublish({
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions
+            buildOptions,
+            stage: false
         });
 
         assert.deepStrictEqual(result, {
             bundle: minimumVersionBundle,
             status: 'initial-version',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -504,7 +521,7 @@ suite('package-processor', function () {
 
         const analyzedBundle = createAnalyzedBundle();
         const buildOptions = createBuildAndPublishOptions();
-        await processor.tryBuildAndPublish({ analyzedBundle, buildOptions });
+        await processor.tryBuildAndPublish({ analyzedBundle, buildOptions, stage: false });
 
         assert.deepStrictEqual(addVersion.firstCall.args, [
             {
@@ -528,12 +545,14 @@ suite('package-processor', function () {
             buildOptions: {
                 ...createBuildAndPublishOptions(),
                 versioning: { automatic: false, version: '3.2.1' }
-            }
+            },
+            stage: false
         });
 
         assert.deepStrictEqual(result, {
             bundle: manualBundle,
             status: 'new-version',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -546,6 +565,7 @@ suite('package-processor', function () {
         const alreadyPublishedResult: BuildAndPublishResult = {
             bundle: createVersionedBundle(),
             status: 'already-published',
+            publication: noPublication,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         };
@@ -561,7 +581,8 @@ suite('package-processor', function () {
 
         const result = await processor.buildAndPublish({
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions: createBuildAndPublishOptions()
+            buildOptions: createBuildAndPublishOptions(),
+            stage: false
         });
 
         assert.deepStrictEqual(result, alreadyPublishedResult);
@@ -571,7 +592,7 @@ suite('package-processor', function () {
 
     test('buildAndPublish() publishes the rebuilt bundle and emits publishing progress', async function () {
         const rebuiltBundle = createVersionedBundle('package-a', '1.2.4');
-        const publish = fake.resolves(undefined);
+        const publish = fake.resolves(publishedToRegistry);
         const { processor, emit } = createProcessor({
             determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
             addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
@@ -581,13 +602,15 @@ suite('package-processor', function () {
 
         const options: DetermineVersionAndPublishOptions = {
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions: createBuildAndPublishOptions()
+            buildOptions: createBuildAndPublishOptions(),
+            stage: false
         };
         const result = await processor.buildAndPublish(options);
 
         assert.deepStrictEqual(result, {
             bundle: rebuiltBundle,
             status: 'new-version',
+            publication: publishedToRegistry,
             extraFiles: [],
             previousReleaseArtifacts: Maybe.nothing()
         });
@@ -595,7 +618,8 @@ suite('package-processor', function () {
             {
                 bundle: rebuiltBundle,
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-                publishSettings: { access: 'public', sbom: { enabled: false } }
+                publishSettings: { access: 'public', sbom: { enabled: false } },
+                stage: false
             }
         ]);
         assert.deepStrictEqual(getCallArgs(emit), [
@@ -603,6 +627,26 @@ suite('package-processor', function () {
             ['rebuilding', { packageName: 'package-a', version: '1.2.3' }],
             ['publishing', { packageName: 'package-a', version: '1.2.4' }]
         ]);
+    });
+
+    test('buildAndPublish() returns a staged publication outcome when stage mode is enabled', async function () {
+        const rebuiltBundle = createVersionedBundle('package-a', '1.2.4');
+        const publish = fake.resolves(stagedForApproval('stage-123'));
+        const { processor } = createProcessor({
+            determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+            addVersion: fake.returns(createVersionedBundle('package-a', '1.2.3')),
+            increaseVersion: fake.returns(rebuiltBundle),
+            publish
+        });
+
+        const result = await processor.buildAndPublish({
+            analyzedBundle: createAnalyzedBundle(),
+            buildOptions: createBuildAndPublishOptions(),
+            stage: true
+        });
+
+        assert.deepStrictEqual(result.publication, stagedForApproval('stage-123'));
+        assert.strictEqual((publish.firstCall.args[0] as { stage: boolean }).stage, true);
     });
 
     function setupSbomScenario(
@@ -640,7 +684,7 @@ suite('package-processor', function () {
             ...createBuildAndPublishOptions(),
             publishSettings: { access: 'public', sbom: { enabled: true } }
         };
-        await processor.tryBuildAndPublish({ analyzedBundle, buildOptions });
+        await processor.tryBuildAndPublish({ analyzedBundle, buildOptions, stage: false });
 
         assert.strictEqual(generateSbom.callCount, 2);
         const expectedSiblings = [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
@@ -658,7 +702,11 @@ suite('package-processor', function () {
     test('tryBuildAndPublish() omits extraFiles when sbomFileBuilder returns undefined', async function () {
         const { analyzedBundle, checkBundleAlreadyPublished, processor } = setupSbomScenario(undefined);
 
-        await processor.tryBuildAndPublish({ analyzedBundle, buildOptions: createBuildAndPublishOptions() });
+        await processor.tryBuildAndPublish({
+            analyzedBundle,
+            buildOptions: createBuildAndPublishOptions(),
+            stage: false
+        });
 
         const checkArgs = checkBundleAlreadyPublished.firstCall.args[0] as Record<string, unknown>;
         assert.strictEqual('extraFiles' in checkArgs, false);
@@ -785,7 +833,8 @@ suite('package-processor', function () {
 
         await processor.tryBuildAndPublish({
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions: { ...createBuildAndPublishOptions(), versioning: { automatic: false, version: '4.5.6' } }
+            buildOptions: { ...createBuildAndPublishOptions(), versioning: { automatic: false, version: '4.5.6' } },
+            stage: false
         });
 
         expectSingleVersionDetermined(emit, {
@@ -829,7 +878,8 @@ suite('package-processor', function () {
             buildOptions: {
                 ...createBuildAndPublishOptions(),
                 versioning: { automatic: true, minimumVersion: '1.2.3' }
-            }
+            },
+            stage: false
         });
 
         expectSingleVersionDetermined(emit, {
@@ -935,7 +985,8 @@ suite('package-processor', function () {
 
         const options: DetermineVersionAndPublishOptions = {
             analyzedBundle: createAnalyzedBundle(),
-            buildOptions: { ...createBuildAndPublishOptions(), publishSettings: { access: 'public' } }
+            buildOptions: { ...createBuildAndPublishOptions(), publishSettings: { access: 'public' } },
+            stage: false
         };
         await processor.buildAndPublish(options);
 

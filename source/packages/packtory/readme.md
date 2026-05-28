@@ -25,7 +25,7 @@ const config = {
 };
 
 (async () => {
-    const publishOutcome = await buildAndPublishAll(config, { dryRun: true });
+    const publishOutcome = await buildAndPublishAll(config, { dryRun: true, stage: false });
     console.log(publishOutcome.result);
 
     const resolvedOutcome = await resolveAndLinkAll(config);
@@ -46,13 +46,15 @@ const config = {
 
 - **config:** The packtory configuration object. `registrySettings` is optional; it is only required to publish in non-dry-run mode. Pack, dry-run publish, release-diff and release analysis read registry metadata anonymously when `registrySettings` (or its `auth`) is omitted. Calling `buildAndPublishAll(config, { dryRun: false })` without `auth` fails fast with one `ConfigError` before any package is processed.
 - **options:** Per-function options object:
-    - `buildAndPublishAll`: `{ dryRun: boolean; collectReport?: boolean }`.
+    - `buildAndPublishAll`: `{ dryRun: boolean; stage: boolean; collectReport?: boolean }`.
     - `resolveAndLinkAll`: optional `{ collectReport?: boolean }`.
     - `packPackage`: `{ packageName, format, outputPath, version, vendorDependencies }`. `format` is `'zip' | 'tar' | 'folder'`. `version` stamps the generated manifest (no automatic versioning is performed). `vendorDependencies` toggles materializing the resolved `node_modules` tree (including any `bundleDependencies`) into the artifact for self-contained deployments.
 
 **Return Values:**
 
 - `buildAndPublishAll` returns a `PublishAllOutcome` whose `result` is either a list of successful publish results or a partial error if some packages failed.
+  Each successful item includes `publication`, which is `{ type: 'none' }` for dry-runs / already-up-to-date packages, `{ type: 'published' }` for direct publishes, or `{ type: 'staged', stageId }` for npm staged publishing.
+- Stage mode is npm-only. The package must already exist on npm, and automatic versioning in stage mode must be able to list pending staged versions before choosing the next version. If publish auth uses npm OIDC/trusted publishing, provide token-based metadata auth for that lookup.
 - `resolveAndLinkAll` returns a `ResolveAndLinkAllOutcome` whose `result` carries the resolved package information or details about the failure (validation errors, check failures, or partial execution issues).
 - `diffAgainstLatestPublished` returns a `ReleaseDiffAllOutcome` whose `result` carries the per-package release diff list or a failure variant.
 - `packPackage` returns a `PackOutcome` whose `result` is `Ok(undefined)` on success or a `PackFailure`. `PackFailure` is a discriminated union covering configuration errors, check failures, partial resolve failures, and the pack-specific variants `package-not-found`, `bundle-dependencies-unsupported` (rejected when `vendorDependencies` is `false` and the target declares `bundleDependencies`), and `peer-dependencies-unsatisfied` (raised when a vendored dependency declares a peer that no other vendored package satisfies).

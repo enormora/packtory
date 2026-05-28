@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import type { MutablePackageReport } from './report-types.ts';
 import { toPackageReport } from './package-report-materialization.ts';
 
@@ -78,6 +79,12 @@ suite('package-report-materialization', function () {
         const result = toPackageReport(mutable({ failure: { stage: 'publish', message: 'boom' } }));
 
         assert.deepStrictEqual(result.failure, { stage: 'publish', message: 'boom' });
+    });
+
+    test('toPackageReport surfaces publication when present on the mutable report', function () {
+        const result = toPackageReport(mutable({ publication: stagedForApproval('stage-123') }));
+
+        assert.deepStrictEqual(result.publication, stagedForApproval('stage-123'));
     });
 
     test('toPackageReport applies the import-path-rewrite badge to tarball entries whose source path appears in decisions.linker.rewrites', function () {

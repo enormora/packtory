@@ -1,25 +1,42 @@
 import type _npmFetch from 'npm-registry-fetch';
-import type { publish as _publish } from 'libnpmpublish';
 import type { Maybe } from 'true-myth';
 import type { Clock } from '../../common/clock.ts';
 import type { PublishSettings } from '../../config/publish-settings.ts';
 import type { NpmOidcPublishAuth, RegistrySettings } from '../../config/registry-settings.ts';
-import type { PublishedPackageJson } from '../../published-package/published-package.ts';
+import { publishedToRegistry, stagedForApproval, type PublicationOutcome } from '../publication-outcome.ts';
 import { createOidcTokenExchanger } from './oidc-token-exchange.ts';
 import {
     fetchLatestPackageReleaseMetadata,
-    fetchLatestPackageVersion,
     fetchPackageTarball,
+    fetchLatestPackageVersion,
+    fetchStagedPackageVersions,
     type PackageReleaseMetadata,
     type PackageVersionDetails
 } from './package-metadata-fetcher.ts';
 import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
 
-type PublishFunction = typeof _publish;
+type PublishManifest = {
+    readonly name: string;
+    readonly version: string;
+};
+type PublishLibraryOptions = Readonly<Record<string, unknown>>;
+type PublishOptionsForLibrary = PublishLibraryOptions & {
+    readonly stage?: boolean;
+};
+type PublishOptionsWithOneTimePassword = PublishOptionsForLibrary & {
+    readonly otpPrompt: (() => Promise<string | undefined>) | undefined;
+};
+type PublishPackageArguments = readonly [
+    manifest: PublishManifest,
+    tarData: Buffer,
+    config: RegistrySettings,
+    publishSettings: PublishSettings,
+    stage: boolean
+];
 
 export type RegistryClientDependencies = {
     readonly npmFetch: typeof _npmFetch;
-    readonly publish: PublishFunction;
+    readonly publish: (manifest: PublishManifest, tarData: Buffer, options?: PublishLibraryOptions) => Promise<unknown>;
     readonly fetch: typeof globalThis.fetch;
     readonly clock: Clock;
     readonly resolveIdToken: (auth: NpmOidcPublishAuth) => Promise<string>;
@@ -32,19 +49,27 @@ export type RegistryClient = {
         config: RegistrySettings
     ) => Promise<Maybe<PackageReleaseMetadata>>;
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
-    publishPackage: (
-        manifest: Readonly<PublishedPackageJson>,
-        tarData: Buffer,
-        config: RegistrySettings,
-        publishSettings: PublishSettings
-    ) => Promise<void>;
+    fetchStagedVersions: (packageName: string, config: RegistrySettings) => Promise<readonly string[]>;
+    publishPackage: (...args: PublishPackageArguments) => Promise<PublicationOutcome>;
     fetchTarball: (tarballUrl: string, config: RegistrySettings) => Promise<Buffer>;
 };
 
-type PublishManifest = Readonly<Parameters<PublishFunction>[0]>;
-function toPublishManifest(manifest: Readonly<PublishedPackageJson>): PublishManifest {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- libnpmpublish expects @npm/types PackageJson, which is structurally compatible with our validated manifest
-    return manifest as unknown as PublishManifest;
+function hasStageId(response: unknown): response is { readonly stageId: string } {
+    return (
+        typeof response === 'object' &&
+        response !== null &&
+        'stageId' in response &&
+        typeof response.stageId === 'string' &&
+        response.stageId.length > 0
+    );
+}
+
+function readStageId(response: unknown): string {
+    if (!hasStageId(response)) {
+        throw new Error('npm staged publish succeeded without returning a stage ID');
+    }
+
+    return response.stageId;
 }
 
 export function createRegistryClient(dependencies: Readonly<RegistryClientDependencies>): RegistryClient {
@@ -63,25 +88,27 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
             return fetchPackageTarball(npmFetch, tarballUrl, registrySettings);
         },
 
-        async publishPackage(manifest, tarData, registrySettings, publishSettings) {
+        async publishPackage(...[manifest, tarData, registrySettings, publishSettings, stage]) {
             const authOptions = await oidcExchanger.resolveWriteAuthOptions(manifest.name, registrySettings);
             const publishOptionsFromSettings = buildPublishOptionsForPublishSettings(publishSettings);
-            const publishOptions = {
+            const publishOptions: PublishOptionsForLibrary = {
                 defaultTag: 'latest',
                 ...authOptions,
-                ...publishOptionsFromSettings
+                ...publishOptionsFromSettings,
+                ...(stage ? { stage: true } : {})
             };
-            const publishOptionsWithOneTimePassword = {
+            const publishOptionsWithOneTimePassword: PublishOptionsWithOneTimePassword = {
                 ...publishOptions,
                 otpPrompt: promptForOneTimePassword
             };
             const publishPromise =
                 promptForOneTimePassword === undefined
-                    ? publish(toPublishManifest(manifest), tarData, publishOptions)
-                    : publish(toPublishManifest(manifest), tarData, publishOptionsWithOneTimePassword);
+                    ? publish(manifest, tarData, publishOptions)
+                    : publish(manifest, tarData, publishOptionsWithOneTimePassword);
 
             try {
-                await publishPromise;
+                const response = await publishPromise;
+                return stage ? stagedForApproval(readStageId(response)) : publishedToRegistry;
             } catch (error: unknown) {
                 throw remapPublishError(error, publishSettings);
             }
@@ -89,6 +116,10 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
 
         async fetchLatestVersion(packageName, registrySettings) {
             return fetchLatestPackageVersion(npmFetch, packageName, registrySettings);
+        },
+
+        async fetchStagedVersions(packageName, registrySettings) {
+            return fetchStagedPackageVersions(npmFetch, packageName, registrySettings);
         },
 
         async fetchLatestReleaseMetadata(packageName, registrySettings) {

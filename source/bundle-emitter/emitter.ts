@@ -1,16 +1,37 @@
-/* eslint-disable import/max-dependencies -- the publish/check flow legitimately depends on registry, artifacts, file-manager, and provenance helpers */
+import semver from 'semver';
 import { Maybe } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
-import type { PublishSettings } from '../config/publish-settings.ts';
-import type { RegistrySettings } from '../config/registry-settings.ts';
-import type { VersioningSettings } from '../config/versioning-settings.ts';
 import { compareFileDescriptions, fileDescriptionComparisonStatus } from '../file-manager/compare.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { ArtifactPublishPackage } from '../published-package/published-package.ts';
 import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
-import { fetchPublishedArtifacts, type PublishedReleaseArtifacts } from './fetch-published-artifacts.ts';
+import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { assertRepositoryCoherence } from './repository-coherence.ts';
+
+type Second<TValues extends readonly unknown[]> = TValues extends readonly [
+    unknown,
+    infer TValue,
+    ...(readonly unknown[])
+]
+    ? TValue
+    : never;
+type Fourth<TValues extends readonly unknown[]> = TValues extends readonly [
+    unknown,
+    unknown,
+    unknown,
+    infer TValue,
+    ...(readonly unknown[])
+]
+    ? TValue
+    : never;
+type RegistryClientPublishArguments = Parameters<RegistryClient['publishPackage']>;
+type ExtraFiles = readonly FileDescription[];
+type PublicationOutcome = Awaited<ReturnType<RegistryClient['publishPackage']>>;
+type PublishSettings = Fourth<RegistryClientPublishArguments>;
+type RegistrySettings = Second<Parameters<RegistryClient['fetchLatestVersion']>>;
+type VersioningSettings = { readonly automatic: false; readonly version: string } | { readonly automatic: true };
+type PreviousReleaseArtifacts = Awaited<ReturnType<typeof fetchPublishedArtifacts>>;
 
 export type BundleEmitterDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
@@ -22,38 +43,96 @@ type PublishOptions = {
     readonly bundle: ArtifactPublishPackage;
     readonly registrySettings: RegistrySettings;
     readonly publishSettings: PublishSettings;
-    readonly extraFiles?: readonly FileDescription[];
+    readonly stage: boolean;
+    readonly extraFiles?: ExtraFiles;
 };
 
 type AlreadyPublishedCheckOptions = {
     readonly bundle: ArtifactPublishPackage;
     readonly registrySettings: RegistrySettings;
-    readonly extraFiles?: readonly FileDescription[];
+    readonly extraFiles?: ExtraFiles;
 };
 
 type CurrentVersionLookupOptions = {
     readonly name: string;
     readonly registrySettings: RegistrySettings;
+    readonly stage: boolean;
     readonly versioning: VersioningSettings;
 };
 
 type BundlePublishedCheckResult = {
     readonly alreadyPublishedAsLatest: boolean;
-    readonly previousReleaseArtifacts: Maybe<PublishedReleaseArtifacts>;
+    readonly previousReleaseArtifacts: PreviousReleaseArtifacts;
 };
 
 export type BundleEmitter = {
-    publish: (options: PublishOptions) => Promise<void>;
+    publish: (options: PublishOptions) => Promise<PublicationOutcome>;
     determineCurrentVersion: (options: CurrentVersionLookupOptions) => Promise<Maybe<string>>;
     checkBundleAlreadyPublished: (options: AlreadyPublishedCheckOptions) => Promise<BundlePublishedCheckResult>;
 };
 
+const stageRegistryUnsupportedMessage = 'npm staged publishing is only supported with the npmjs.org registry';
+const stageFirstPublishUnsupportedMessage =
+    'npm staged publishing requires the package to already exist on the npm registry';
+const npmRegistryUrl = 'https://registry.npmjs.org/';
+
+function isNpmRegistry(registryUrl: string | undefined): boolean {
+    return new URL(registryUrl ?? npmRegistryUrl).href === npmRegistryUrl;
+}
+
+function validateVersion(version: string): string {
+    const normalized = semver.valid(version);
+    if (normalized === null) {
+        throw new Error(`Registry returned an invalid version "${version}" for staged publishing`);
+    }
+    return normalized;
+}
+
+function highestVersion(firstVersion: string, laterVersions: readonly string[]): string {
+    let highest = validateVersion(firstVersion);
+
+    for (const version of laterVersions) {
+        const candidate = validateVersion(version);
+        if (semver.gt(candidate, highest)) {
+            highest = candidate;
+        }
+    }
+
+    return highest;
+}
+
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
     const { artifactsBuilder, registryClient, ciRepositoryUrl } = dependencies;
 
+    async function determineCurrentVersionForStageMode(
+        name: string,
+        registrySettings: RegistrySettings,
+        versioning: VersioningSettings
+    ): Promise<Maybe<string>> {
+        if (!isNpmRegistry(registrySettings.registryUrl)) {
+            throw new Error(stageRegistryUnsupportedMessage);
+        }
+
+        const latestVersion = await registryClient.fetchLatestVersion(name, registrySettings);
+        if (latestVersion.isNothing) {
+            throw new Error(stageFirstPublishUnsupportedMessage);
+        }
+
+        if (!versioning.automatic) {
+            return Maybe.just(versioning.version);
+        }
+
+        const stagedVersions = await registryClient.fetchStagedVersions(name, registrySettings);
+        return Maybe.just(highestVersion(latestVersion.value.version, stagedVersions));
+    }
+
     return {
         async determineCurrentVersion(options) {
-            const { versioning, registrySettings, name } = options;
+            const { versioning, registrySettings, name, stage } = options;
+
+            if (stage) {
+                return determineCurrentVersionForStageMode(name, registrySettings, versioning);
+            }
 
             if (versioning.automatic) {
                 const latestVersion = await registryClient.fetchLatestVersion(name, registrySettings);
@@ -90,11 +169,12 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
 
             const tarball = await artifactsBuilder.buildTarball(options.bundle, options.extraFiles);
 
-            await registryClient.publishPackage(
+            return registryClient.publishPackage(
                 options.bundle.packageJson,
                 tarball.tarData,
                 options.registrySettings,
-                options.publishSettings
+                options.publishSettings,
+                options.stage
             );
         }
     };

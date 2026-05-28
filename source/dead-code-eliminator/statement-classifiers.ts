@@ -10,7 +10,7 @@ import type { DeadCodeEliminationSettings } from '../config/dead-code-eliminatio
 import { hasClassImpurity } from './class-purity.ts';
 import { isPureExpression } from './pure-expression.ts';
 
-export type StatementClassifier = (
+type StatementClassifier = (
     statement: Statement,
     settings: DeadCodeEliminationSettings | undefined
 ) => string | undefined;
@@ -60,38 +60,58 @@ function classifyVariableStatement(
     return undefined;
 }
 
-export const statementClassifiers: ReadonlyMap<SyntaxKind, StatementClassifier> = new Map<
-    SyntaxKind,
-    StatementClassifier
->([
-    [
-        SyntaxKind.ImportDeclaration,
-        (statement) => {
-            return classifyImportDeclaration(statement.asKindOrThrow(SyntaxKind.ImportDeclaration));
-        }
-    ],
-    [
-        SyntaxKind.ExportAssignment,
-        (statement, settings) => {
-            return classifyExportAssignment(statement.asKindOrThrow(SyntaxKind.ExportAssignment), settings);
-        }
-    ],
-    [
-        SyntaxKind.ClassDeclaration,
-        (statement, settings) => {
-            return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration), settings);
-        }
-    ],
-    [
-        SyntaxKind.VariableStatement,
-        (statement, settings) => {
-            return classifyVariableStatement(statement.asKindOrThrow(SyntaxKind.VariableStatement), settings);
-        }
-    ],
-    [
-        SyntaxKind.ExpressionStatement,
-        () => {
-            return 'expression statement';
-        }
-    ]
-]);
+function importDeclarationClassifier(statement: Statement): string | undefined {
+    return classifyImportDeclaration(statement.asKindOrThrow(SyntaxKind.ImportDeclaration));
+}
+
+function exportAssignmentClassifier(
+    statement: Statement,
+    settings: DeadCodeEliminationSettings | undefined
+): string | undefined {
+    return classifyExportAssignment(statement.asKindOrThrow(SyntaxKind.ExportAssignment), settings);
+}
+
+function classDeclarationClassifier(
+    statement: Statement,
+    settings: DeadCodeEliminationSettings | undefined
+): string | undefined {
+    return classifyClassDeclaration(statement.asKindOrThrow(SyntaxKind.ClassDeclaration), settings);
+}
+
+function variableStatementClassifier(
+    statement: Statement,
+    settings: DeadCodeEliminationSettings | undefined
+): string | undefined {
+    return classifyVariableStatement(statement.asKindOrThrow(SyntaxKind.VariableStatement), settings);
+}
+
+function expressionStatementClassifier(): string {
+    return 'expression statement';
+}
+
+function declarationStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
+    if (kind === SyntaxKind.ImportDeclaration) {
+        return importDeclarationClassifier;
+    }
+    if (kind === SyntaxKind.ExportAssignment) {
+        return exportAssignmentClassifier;
+    }
+    return undefined;
+}
+
+function executableStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
+    if (kind === SyntaxKind.ClassDeclaration) {
+        return classDeclarationClassifier;
+    }
+    if (kind === SyntaxKind.VariableStatement) {
+        return variableStatementClassifier;
+    }
+    if (kind === SyntaxKind.ExpressionStatement) {
+        return expressionStatementClassifier;
+    }
+    return undefined;
+}
+
+export function statementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
+    return declarationStatementClassifierFor(kind) ?? executableStatementClassifierFor(kind);
+}

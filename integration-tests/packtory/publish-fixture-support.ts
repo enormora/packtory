@@ -157,7 +157,7 @@ export async function publishFixturePackages(params: PublishFixturePackagesParam
     const config = await createPublishConfig(configParams);
     const registrySettings = createRegistrySettings(params.registryDetails, params.authMode);
 
-    const outcome = await buildAndPublishAll({ ...config, registrySettings }, { dryRun: false });
+    const outcome = await buildAndPublishAll({ ...config, registrySettings }, { dryRun: false, stage: false });
     return outcome.result;
 }
 

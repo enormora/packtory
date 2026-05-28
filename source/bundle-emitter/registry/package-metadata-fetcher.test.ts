@@ -6,7 +6,8 @@ import type { RegistrySettings } from '../../config/registry-settings.ts';
 import {
     fetchLatestPackageReleaseMetadata,
     fetchLatestPackageVersion,
-    fetchPackageTarball
+    fetchPackageTarball,
+    fetchStagedPackageVersions
 } from './package-metadata-fetcher.ts';
 
 type FakeNpmFetch = SinonSpy & { json: SinonSpy };
@@ -28,6 +29,22 @@ function latestPackageResponse(time?: string): Record<string, unknown> {
         ...(time === undefined ? {} : { time: { [latestVersion]: time } }),
         versions: { [latestVersion]: { dist: { tarball: tarballUrl } } }
     };
+}
+
+function fakeJsonSequence(...responses: readonly (Error | Record<string, unknown>)[]): SinonSpy {
+    let callIndex = 0;
+
+    return fake(async () => {
+        const response = responses[callIndex];
+        callIndex += 1;
+        if (response === undefined) {
+            throw new Error('Unexpected extra stage lookup');
+        }
+        if (response instanceof Error) {
+            throw response;
+        }
+        return response;
+    });
 }
 
 async function expectError(npmFetch: typeof _npmFetch, expectedMessage: string): Promise<void> {
@@ -164,6 +181,41 @@ suite('package-metadata-fetcher', function () {
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'Version publish time "not-a-date" is not a valid timestamp');
         }
+    });
+
+    test('fetchStagedPackageVersions returns staged versions across pages and stops when it reaches the total', async function () {
+        const json = fakeJsonSequence(
+            { items: [{ version: '1.2.4' }], total: 2 },
+            { items: [{ version: '1.2.5' }], total: 2 },
+            new Error('Unexpected extra stage lookup')
+        );
+
+        const result = await fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings);
+
+        assert.deepStrictEqual(result, ['1.2.4', '1.2.5']);
+        assert.strictEqual(json.callCount, 2);
+    });
+
+    test('fetchStagedPackageVersions stops when a later page is empty even if the total is larger', async function () {
+        const json = fakeJsonSequence(
+            { items: [{ version: '1.2.4' }], total: 3 },
+            { items: [], total: 3 },
+            new Error('Unexpected extra stage lookup')
+        );
+
+        const result = await fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings);
+
+        assert.deepStrictEqual(result, ['1.2.4']);
+        assert.strictEqual(json.callCount, 2);
+    });
+
+    test('fetchStagedPackageVersions returns an empty list when the first page is empty', async function () {
+        const json = fakeJsonSequence({ items: [], total: 0 }, new Error('Unexpected extra stage lookup'));
+
+        const result = await fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings);
+
+        assert.deepStrictEqual(result, []);
+        assert.strictEqual(json.callCount, 1);
     });
 
     test('fetchPackageTarball returns the buffered tarball contents', async function () {

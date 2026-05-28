@@ -36,9 +36,6 @@ export type ModuleReference =
     | LocalAssetReference
     | LocalCodeReference;
 
-const localAssetExtensions = new Set(['.json', '.wasm']);
-const wasmExtension = '.wasm';
-
 function hashImportPrefix(): string {
     return '#';
 }
@@ -93,12 +90,17 @@ function externalPackageNameForResolvedImport(
     return packageNameFromSpecifier(importValue);
 }
 
+function isLocalAssetReference(filePath: string): boolean {
+    const extension = path.extname(filePath);
+    return extension === '.json' || extension === '.wasm';
+}
+
 function classifyLocalReference(resolvedFilePath: string, packageJsonPath: string): ModuleReference {
     if (path.resolve(resolvedFilePath) === path.resolve(packageJsonPath)) {
         return { kind: moduleReferenceKind.generatedManifest, filePath: resolvedFilePath };
     }
 
-    if (localAssetExtensions.has(path.extname(resolvedFilePath))) {
+    if (isLocalAssetReference(resolvedFilePath)) {
         return { kind: moduleReferenceKind.localAsset, filePath: resolvedFilePath };
     }
 
@@ -186,7 +188,7 @@ function resolveModuleReferenceForImport(
         return classifyLocalReference(resolvedModule.resolvedFileName, packageJsonPath);
     }
 
-    return importValue.endsWith(wasmExtension)
+    return importValue.endsWith('.wasm')
         ? resolveWasmReference(importValue, containingSourceFile, packageJsonPath)
         : undefined;
 }

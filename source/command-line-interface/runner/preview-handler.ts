@@ -55,7 +55,7 @@ export async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<numbe
     const { packtory, spinnerRenderer, configLoader, fileManager } = deps;
     try {
         const config = await configLoader.load();
-        const outcome = await packtory.buildAndPublishAll(config, { dryRun: true, collectReport: true });
+        const outcome = await packtory.buildAndPublishAll(config, { dryRun: true, stage: false, collectReport: true });
         spinnerRenderer.stopAll();
         const report = outcome.getReport() ?? createEmptyReport();
         const document = await buildPreviewDocument({

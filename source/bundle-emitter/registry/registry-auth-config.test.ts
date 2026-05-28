@@ -7,7 +7,8 @@ import {
     isNpmRegistry,
     resolveMetadataAuthOptions,
     resolvePublishAuth,
-    resolveRegistryUrl
+    resolveRegistryUrl,
+    resolveStageListingAuthOptions
 } from './registry-auth-config.ts';
 
 const tokenAuth = { type: 'bearer-token', token: 'abc' } as const;
@@ -23,6 +24,22 @@ function settings(overrides: Partial<RegistrySettings> = {}): RegistrySettings {
 }
 
 const basicEncoded = Buffer.from('user:pass').toString('base64');
+const stagedVersionLookupRequiresTokenAuthMessage =
+    'npm staged publishing with automatic versioning requires token-based metadata auth ' +
+    'when publish auth uses npm-oidc';
+
+function expectedBasicAuthOptionsResult() {
+    return {
+        allowsAutomaticRetry: false,
+        registry: undefined,
+        options: {
+            alwaysAuth: true,
+            registry: undefined,
+            forceAuth: { _auth: basicEncoded },
+            email: 'user@example.com'
+        }
+    };
+}
 
 suite('registry-auth-config', function () {
     test('resolveRegistryUrl returns the configured registry URL', function () {
@@ -132,16 +149,10 @@ suite('registry-auth-config', function () {
     });
 
     test('resolveMetadataAuthOptions uses a custom metadata auth strategy when one is provided', function () {
-        assert.deepStrictEqual(resolveMetadataAuthOptions({ auth: { publish: tokenAuth, metadata: basicAuth } }), {
-            allowsAutomaticRetry: false,
-            registry: undefined,
-            options: {
-                alwaysAuth: true,
-                registry: undefined,
-                forceAuth: { _auth: basicEncoded },
-                email: 'user@example.com'
-            }
-        });
+        assert.deepStrictEqual(
+            resolveMetadataAuthOptions({ auth: { publish: tokenAuth, metadata: basicAuth } }),
+            expectedBasicAuthOptionsResult()
+        );
     });
 
     test('resolveMetadataAuthOptions returns anonymous options when auth is undefined', function () {
@@ -172,6 +183,54 @@ suite('registry-auth-config', function () {
                 registry: undefined,
                 options: { alwaysAuth: true, registry: undefined }
             }
+        );
+    });
+
+    test('resolveStageListingAuthOptions throws for shorthand npm-oidc auth', function () {
+        assert.throws(() => {
+            resolveStageListingAuthOptions({ auth: { type: 'npm-oidc' } });
+        }, /requires token-based metadata auth/u);
+    });
+
+    test('resolveStageListingAuthOptions uses shorthand publish auth when it is token-based', function () {
+        assert.deepStrictEqual(resolveStageListingAuthOptions({ auth: tokenAuth }), {
+            allowsAutomaticRetry: false,
+            registry: undefined,
+            options: { alwaysAuth: true, registry: undefined, forceAuth: { token: 'abc' } }
+        });
+    });
+
+    test('resolveStageListingAuthOptions throws the documented message for expanded npm-oidc publish auth', function () {
+        assert.throws(
+            () => {
+                resolveStageListingAuthOptions({
+                    auth: {
+                        publish: { type: 'npm-oidc', provider: 'env' },
+                        metadata: 'anonymous'
+                    }
+                });
+            },
+            new RegExp(`^Error: ${stagedVersionLookupRequiresTokenAuthMessage}$`, 'u')
+        );
+    });
+
+    test('resolveStageListingAuthOptions uses explicit metadata auth when it is configured', function () {
+        assert.deepStrictEqual(
+            resolveStageListingAuthOptions({ auth: { publish: tokenAuth, metadata: basicAuth } }),
+            expectedBasicAuthOptionsResult()
+        );
+    });
+
+    test('resolveStageListingAuthOptions still prefers explicit metadata auth when auth includes unrelated keys', function () {
+        assert.deepStrictEqual(
+            resolveStageListingAuthOptions({
+                auth: {
+                    '': { type: 'npm-oidc', provider: 'env' },
+                    metadata: basicAuth,
+                    publish: tokenAuth
+                }
+            } as unknown as RegistrySettings),
+            expectedBasicAuthOptionsResult()
         );
     });
 });

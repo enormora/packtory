@@ -77,7 +77,8 @@ export function createDiffAgainstLatestPublishedValidated(
             return Result.err(mapResolveFailureToReleaseDiffFailure(resolved.error));
         }
         const publishResult = await determineVersionAndPublishAll(dependencies, validated, resolved.value, {
-            dryRun: true
+            dryRun: true,
+            stage: false
         });
         const succeededPublish = succeededFromPublish(publishResult);
         const stageResult = await runReleaseDiffStage(dependencies, validated, succeededPublish);

@@ -132,19 +132,38 @@ function newExpressionIsPure(
     return isPureNewExpression(expression.asKindOrThrow(SyntaxKind.NewExpression), recurse, settings);
 }
 
-function createExpressionPurityRules(): ReadonlyMap<SyntaxKind, PurityRule> {
-    return new Map<SyntaxKind, PurityRule>([
-        [SyntaxKind.TemplateExpression, templateExpressionIsPure],
-        [SyntaxKind.ArrayLiteralExpression, arrayLiteralExpressionIsPure],
-        [SyntaxKind.ObjectLiteralExpression, objectLiteralExpressionIsPure],
-        [SyntaxKind.PrefixUnaryExpression, prefixUnaryExpressionIsPure],
-        [SyntaxKind.BinaryExpression, binaryExpressionIsPure],
-        [SyntaxKind.CallExpression, callExpressionIsPure],
-        [SyntaxKind.NewExpression, newExpressionIsPure]
-    ]);
+function literalStructurePurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
+    if (kind === SyntaxKind.TemplateExpression) {
+        return templateExpressionIsPure;
+    }
+    if (kind === SyntaxKind.ArrayLiteralExpression) {
+        return arrayLiteralExpressionIsPure;
+    }
+    if (kind === SyntaxKind.ObjectLiteralExpression) {
+        return objectLiteralExpressionIsPure;
+    }
+    return undefined;
 }
 
-const expressionPurityRules = createExpressionPurityRules();
+function operationPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
+    if (kind === SyntaxKind.PrefixUnaryExpression) {
+        return prefixUnaryExpressionIsPure;
+    }
+    if (kind === SyntaxKind.BinaryExpression) {
+        return binaryExpressionIsPure;
+    }
+    if (kind === SyntaxKind.CallExpression) {
+        return callExpressionIsPure;
+    }
+    if (kind === SyntaxKind.NewExpression) {
+        return newExpressionIsPure;
+    }
+    return undefined;
+}
+
+function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
+    return literalStructurePurityRuleFor(kind) ?? operationPurityRuleFor(kind);
+}
 
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
     const unwrapped = unwrapExpression(expression);
@@ -155,5 +174,5 @@ export function isPureExpression(expression: Expression, settings: DeadCodeElimi
     if (pureLeafKinds.has(kind)) {
         return true;
     }
-    return expressionPurityRules.get(kind)?.(unwrapped, recurse, settings) ?? false;
+    return expressionPurityRuleFor(kind)?.(unwrapped, recurse, settings) ?? false;
 }

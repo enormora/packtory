@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'tstyche';
 import type { Result } from 'true-myth';
+import type { PublicationOutcome } from '../../bundle-emitter/publication-outcome.ts';
 import type { MetadataAuthMode, PublishAuthStrategy } from '../../config/registry-settings.ts';
 import type {
     buildAndPublishAll,
@@ -38,7 +39,7 @@ describe('public functions', () => {
         expect<typeof buildAndPublishAll>().type.toBe<
             (
                 config: unknown,
-                options: { readonly dryRun: boolean; readonly collectReport?: boolean }
+                options: { readonly dryRun: boolean; readonly stage: boolean; readonly collectReport?: boolean }
             ) => Promise<PublishAllOutcome>
         >();
     });
@@ -227,10 +228,15 @@ describe('PublishAllResult', () => {
     test('each result element exposes status and bundle', () => {
         expect<BuildAndPublishResult>().type.toHaveProperty('status');
         expect<BuildAndPublishResult>().type.toHaveProperty('bundle');
+        expect<BuildAndPublishResult>().type.toHaveProperty('publication');
     });
 
     test('the status field is a fixed string union', () => {
         expect<BuildAndPublishResult['status']>().type.toBe<'already-published' | 'initial-version' | 'new-version'>();
+    });
+
+    test('the publication field captures whether the package was published, staged, or skipped', () => {
+        expect<BuildAndPublishResult['publication']>().type.toBe<PublicationOutcome>();
     });
 
     test('the failure variant is a discriminated union keyed by `type`', () => {

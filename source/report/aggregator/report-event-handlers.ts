@@ -80,6 +80,9 @@ function registerDecisionHandlers(state: AggregatorState, subscribe: Subscribe):
 }
 
 function registerOutcomeHandlers(state: AggregatorState, subscribe: Subscribe): void {
+    subscribe('done', (payload) => {
+        getOrCreate(state, payload.packageName).publication = payload.publication;
+    });
     subscribe('stageTimed', (payload) => {
         getOrCreate(state, payload.packageName).timings[payload.stage] = payload.durationMs;
     });

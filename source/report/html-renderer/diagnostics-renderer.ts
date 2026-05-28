@@ -10,6 +10,9 @@ export function renderDiagnostics(pkg: PreviewPackage): string {
             ? ''
             : renderCollapsibleSection('Decisions', pkg.diagnostics.decisions),
         pkg.diagnostics.outputs === undefined ? '' : renderCollapsibleSection('Outputs', pkg.diagnostics.outputs),
+        pkg.diagnostics.publication === undefined
+            ? ''
+            : renderCollapsibleSection('Publication', pkg.diagnostics.publication),
         Object.keys(pkg.diagnostics.timings).length === 0
             ? ''
             : renderCollapsibleSection('Timings (ms)', pkg.diagnostics.timings),

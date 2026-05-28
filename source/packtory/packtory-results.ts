@@ -50,6 +50,7 @@ export type PackPackageFailure =
 
 export type BuildAndPublishAllOptions = {
     readonly dryRun: boolean;
+    readonly stage: boolean;
     readonly collectReport?: boolean;
 };
 

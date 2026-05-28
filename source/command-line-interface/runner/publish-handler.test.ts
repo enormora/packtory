@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import {
@@ -15,7 +16,12 @@ import { runPublishHandler } from './publish-handler.ts';
 type BuildOutcome = Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
 
 async function captureMessages(
-    flags: { readonly noDryRun: boolean; readonly reportJson: boolean; readonly reportHtml: boolean },
+    flags: {
+        readonly noDryRun: boolean;
+        readonly stage: boolean;
+        readonly reportJson: boolean;
+        readonly reportHtml: boolean;
+    },
     outcome: BuildOutcome
 ): Promise<{ readonly code: number; readonly messages: readonly string[] }> {
     const messages: string[] = [];
@@ -35,7 +41,7 @@ async function captureMessages(
 suite('publish-handler', function () {
     test('runPublishHandler returns 0 and logs a success summary when the build succeeds', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, reportJson: false, reportHtml: false },
+            { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
             buildOutcome({
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only isErr/value matter to the handler
                 result: { isOk: true, isErr: false, value: [{ name: 'pkg-a' }] } as never
@@ -46,9 +52,33 @@ suite('publish-handler', function () {
         assert.ok(messages.some((message) => message.includes('all 1 package(s) have been published')));
     });
 
+    test('runPublishHandler passes stage mode through to the success summary', async function () {
+        const { code, messages } = await captureMessages(
+            { noDryRun: true, stage: true, reportJson: false, reportHtml: false },
+            buildOutcome({
+                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only handler-visible fields matter here
+                result: {
+                    isOk: true,
+                    isErr: false,
+                    value: [
+                        {
+                            bundle: { name: 'pkg-a', version: '1.0.0' },
+                            publication: stagedForApproval('stage-123'),
+                            status: 'new-version'
+                        }
+                    ]
+                } as never
+            })
+        );
+
+        assert.strictEqual(code, 0);
+        assert.ok(messages.some((message) => message.includes('staged 1 package(s)')));
+        assert.ok(messages.some((message) => message.includes('stage-123')));
+    });
+
     test('runPublishHandler returns 1 and logs the publish failure when the build fails', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, reportJson: false, reportHtml: false },
+            { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
             buildOutcome({
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only isErr/error.type matter to the handler
                 result: { isOk: false, isErr: true, error: { type: 'config', issues: ['missing field'] } } as never
@@ -59,9 +89,36 @@ suite('publish-handler', function () {
         assert.ok(messages.some((message) => message.includes('The provided config is invalid')));
     });
 
+    test('runPublishHandler passes stage mode through to the publish failure summary', async function () {
+        const { code, messages } = await captureMessages(
+            { noDryRun: true, stage: true, reportJson: false, reportHtml: false },
+            buildOutcome({
+                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only handler-visible fields matter here
+                result: {
+                    isOk: false,
+                    isErr: true,
+                    error: {
+                        type: 'partial',
+                        succeeded: [
+                            {
+                                bundle: { name: 'pkg-a', version: '1.0.0' },
+                                publication: stagedForApproval('stage-123')
+                            }
+                        ],
+                        failures: [new Error('boom')]
+                    }
+                } as never
+            })
+        );
+
+        assert.strictEqual(code, 1);
+        assert.ok(messages.some((message) => message.includes('Staged packages')));
+        assert.ok(messages.some((message) => message.includes('stage-123')));
+    });
+
     test('runPublishHandler appends the dry-run reminder when noDryRun is false', async function () {
         const { messages } = await captureMessages(
-            { noDryRun: false, reportJson: false, reportHtml: false },
+            { noDryRun: false, stage: false, reportJson: false, reportHtml: false },
             buildOutcome()
         );
 
@@ -80,7 +137,7 @@ suite('publish-handler', function () {
                 spinnerRenderer: spinner,
                 configLoader: configLoaderStub(),
                 fileManager: createFakeFileManager(),
-                flags: { noDryRun: true, reportJson: false, reportHtml: false }
+                flags: { noDryRun: true, stage: false, reportJson: false, reportHtml: false }
             });
             assert.fail('Expected runPublishHandler to throw');
         } catch (error: unknown) {

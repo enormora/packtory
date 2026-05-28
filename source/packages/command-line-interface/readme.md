@@ -29,6 +29,7 @@ packtory <command> [options]
 - **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
+- **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
 - **pack &lt;package&gt; --format &lt;zip|tar|folder&gt; --out &lt;path&gt;:** Selects which package from the configuration to build and where to write it. `--format` and `--out` are required.
 - **pack --version &lt;version&gt;:** Stamps the produced manifest with the given version. Defaults to `0.0.0` when omitted, since `pack` is decoupled from the registry-driven automatic versioning used by `publish`.
 - **pack --vendor-dependencies:** Resolves every external (and bundle) dependency from the local `node_modules` and materializes them next to the package files inside the artifact. Use this for self-contained deployments where the runtime cannot run `npm install` (e.g. AWS Lambda zips). Without the flag, dependencies are recorded in the generated `package.json` only.
@@ -87,6 +88,8 @@ Your root `package.json` must declare `"type": "module"`.
 - If the registry challenges a publish with a one-time password, the CLI prompts for it when running in an interactive TTY.
 - The prompt times out after 90 seconds.
 - Non-interactive runs cannot answer a one-time-password challenge. For CI, prefer an auth method that does not require live one-time-password entry, such as npm trusted publishing / OIDC or a suitable registry token setup.
+- npm staged publishing (`publish --stage`) can use the same write auth as a normal publish, including npm OIDC/trusted publishing. Approving or rejecting a staged package still happens outside packtory.
+- Automatic versioning in npm stage mode also inspects pending staged versions. If publish auth uses npm OIDC/trusted publishing, configure token-based metadata auth too so packtory can perform that lookup.
 
 **Publish settings:**
 

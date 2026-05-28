@@ -1,4 +1,5 @@
 import { Result } from 'true-myth';
+import type { PublicationOutcome } from '../bundle-emitter/publication-outcome.ts';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { PackageConfig } from '../config/config.ts';
@@ -94,6 +95,7 @@ type PackageSuccess<TResult, TOptions> = {
 type ProgressEventReturnValue = {
     version: string;
     status: PublishedReleaseStatus;
+    publication: PublicationOutcome;
 };
 
 type SchedulerState<TResult, TNext> = {

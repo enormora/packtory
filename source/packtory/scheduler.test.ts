@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
+import { noPublication } from '../bundle-emitter/publication-outcome.ts';
 import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import { getErrResult } from '../test-libraries/result-helpers.ts';
 import { createScheduler, type Scheduler as SchedulerType } from './scheduler.ts';
@@ -120,14 +121,18 @@ suite('scheduler', function () {
             createProgressEvent: (params) => {
                 return {
                     version: '1.0.0',
-                    status: params.result.packageName === 'package-a' ? 'initial-version' : 'new-version'
+                    status: params.result.packageName === 'package-a' ? 'initial-version' : 'new-version',
+                    publication: noPublication
                 };
             }
         });
 
         assert.deepStrictEqual(result, Result.ok([{ packageName: 'package-a' }]));
         assert.deepStrictEqual(getEmitCallArguments(emit), [
-            ['done', { packageName: 'package-a', version: '1.0.0', status: 'initial-version' }]
+            [
+                'done',
+                { packageName: 'package-a', version: '1.0.0', status: 'initial-version', publication: noPublication }
+            ]
         ]);
     });
 
@@ -157,7 +162,8 @@ suite('scheduler', function () {
             createProgressEvent: (params) => {
                 return {
                     version: params.result,
-                    status: 'new-version'
+                    status: 'new-version',
+                    publication: noPublication
                 };
             }
         });
@@ -170,8 +176,19 @@ suite('scheduler', function () {
             ['scheduled', { packageName: 'root' }],
             ['scheduled', { packageName: 'package-a' }],
             ['scheduled', { packageName: 'package-b' }],
-            ['done', { packageName: 'root', version: 'root-result', status: 'new-version' }],
-            ['done', { packageName: 'package-a', version: 'package-a-result', status: 'new-version' }],
+            [
+                'done',
+                { packageName: 'root', version: 'root-result', status: 'new-version', publication: noPublication }
+            ],
+            [
+                'done',
+                {
+                    packageName: 'package-a',
+                    version: 'package-a-result',
+                    status: 'new-version',
+                    publication: noPublication
+                }
+            ],
             ['error', { packageName: 'package-b', error: new Error('package-b failed') }]
         ]);
     });

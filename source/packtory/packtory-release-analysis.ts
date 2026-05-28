@@ -105,7 +105,8 @@ export function createAnalyzeReleaseAgainstLatestPublishedValidated(
         }
 
         const publishResult = await determineVersionAndPublishAll(dependencies, validated, resolved.value, {
-            dryRun: true
+            dryRun: true,
+            stage: false
         });
         const analysisResult = await analyzeSucceededPublishes(
             dependencies.artifactsBuilder,

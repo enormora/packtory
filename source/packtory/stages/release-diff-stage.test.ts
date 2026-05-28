@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
+import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
 import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
@@ -26,6 +27,7 @@ function configFor(packageNames: readonly string[]): ValidConfigResult {
 function buildResultFor(name: string, overrides: Partial<BuildAndPublishResult> = {}): BuildAndPublishResult {
     return {
         status: 'new-version',
+        publication: noPublication,
         bundle: {
             name,
             version: '1.0.0',
@@ -185,6 +187,7 @@ suite('release-diff-stage', function () {
             [
                 {
                     status: 'new-version',
+                    publication: noPublication,
                     bundle,
                     extraFiles: [extraFile],
                     previousReleaseArtifacts: Maybe.nothing()

@@ -56,17 +56,18 @@ export function createCommandLineInterfaceRunner(
                 description: 'Builds and publishes all packages (dry-run enabled by default).',
                 args: {
                     noDryRun: flag({ long: 'no-dry-run' }),
+                    stage: flag({ long: 'stage' }),
                     reportJson: flag({ long: 'report-json' }),
                     reportHtml: flag({ long: 'report-html' })
                 },
-                async handler({ noDryRun, reportJson, reportHtml }) {
+                async handler({ noDryRun, stage, reportJson, reportHtml }) {
                     exitCode = await runPublishHandler({
                         log,
                         packtory,
                         spinnerRenderer,
                         configLoader,
                         fileManager,
-                        flags: { noDryRun, reportJson, reportHtml }
+                        flags: { noDryRun, stage, reportJson, reportHtml }
                     });
                 }
             }),

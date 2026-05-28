@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import { registerSubscribers, type AggregatorState } from './report-event-handlers.ts';
 
@@ -114,6 +115,21 @@ suite('report-event-handlers', function () {
         broadcaster.provider.emit('stageTimed', { packageName: 'pkg-a', stage: 'build', durationMs: 42 });
 
         assert.strictEqual(state.packages.get('pkg-a')?.timings.build, 42);
+    });
+
+    test('registerSubscribers records publication outcomes from done events', function () {
+        const state = freshState();
+        const broadcaster = createProgressBroadcaster();
+        registerSubscribers(state, broadcaster.consumer);
+
+        broadcaster.provider.emit('done', {
+            packageName: 'pkg-a',
+            version: '1.2.3',
+            status: 'new-version',
+            publication: stagedForApproval('stage-123')
+        });
+
+        assert.deepStrictEqual(state.packages.get('pkg-a')?.publication, stagedForApproval('stage-123'));
     });
 
     test('registerSubscribers records package failures', function () {

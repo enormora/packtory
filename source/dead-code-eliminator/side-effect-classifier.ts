@@ -1,7 +1,7 @@
 import type { SourceFile, Statement } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import type { SideEffectStatement } from './analyzed-bundle.ts';
-import { statementClassifiers } from './statement-classifiers.ts';
+import { statementClassifierFor } from './statement-classifiers.ts';
 import { describeControlFlowStatementKind, pureDeclarationKinds } from './syntax-kind-sets.ts';
 
 function classifyTopLevelStatement(
@@ -16,7 +16,7 @@ function classifyTopLevelStatement(
     if (controlFlowKind !== undefined) {
         return controlFlowKind;
     }
-    const classifier = statementClassifiers.get(kind);
+    const classifier = statementClassifierFor(kind);
     if (classifier !== undefined) {
         return classifier(statement, settings);
     }

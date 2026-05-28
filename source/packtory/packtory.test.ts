@@ -9,6 +9,11 @@ import { createTestProgressBroadcaster, getErrResult, getOkResult } from '../tes
 import type { PackageProcessor } from './package-processor.ts';
 import { createPacktory } from './packtory.ts';
 
+type PublicationOutcome = { readonly type: 'none' } | { readonly type: 'published' };
+
+const noPublicationOutcome: Extract<PublicationOutcome, { type: 'none' }> = { type: 'none' };
+const publishedOutcome: Extract<PublicationOutcome, { type: 'published' }> = { type: 'published' };
+
 function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): ReturnType<typeof linkedBundle> {
     return linkedBundle({
         name,
@@ -53,6 +58,7 @@ type CreateProgressEvent = (params: {
 }) => {
     version: string;
     status: 'already-published' | 'initial-version' | 'new-version';
+    publication: PublicationOutcome;
 };
 
 type StageParams = {
@@ -161,6 +167,7 @@ function createPacktoryUnderTest(
             return {
                 bundle: createVersionedBundle(options.buildOptions.name),
                 status: 'initial-version' as const,
+                publication: noPublicationOutcome,
                 extraFiles: [],
                 previousReleaseArtifacts: Maybe.nothing()
             };
@@ -171,6 +178,7 @@ function createPacktoryUnderTest(
             return {
                 bundle: createVersionedBundle(options.buildOptions.name),
                 status: 'new-version' as const,
+                publication: publishedOutcome,
                 extraFiles: [],
                 previousReleaseArtifacts: Maybe.nothing()
             };
@@ -328,7 +336,7 @@ suite('packtory', function () {
     test('buildAndPublishAll() returns config issues when the config with registry is invalid', async function () {
         const { packtory } = createPacktoryUnderTest();
 
-        const { result } = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true });
+        const { result } = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true, stage: false });
 
         assert.deepStrictEqual(
             result,
@@ -392,7 +400,7 @@ suite('packtory', function () {
                 checks: { noDuplicatedFiles: { enabled: true } },
                 packages: twoPackageEntries
             }),
-            { dryRun: false }
+            { dryRun: false, stage: false }
         );
 
         assert.deepStrictEqual(
@@ -409,7 +417,7 @@ suite('packtory', function () {
     test('buildAndPublishAll() uses tryBuildAndPublish() in dry-run mode and returns successful publish results', async function () {
         const { packtory, tryBuildAndPublish, buildAndPublish, scheduler } = createPacktoryUnderTest();
 
-        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false });
 
         assert.deepStrictEqual(
             result,
@@ -417,6 +425,7 @@ suite('packtory', function () {
                 {
                     bundle: createVersionedBundle('package-a'),
                     status: 'initial-version',
+                    publication: noPublicationOutcome,
                     extraFiles: [],
                     previousReleaseArtifacts: Maybe.nothing()
                 }
@@ -430,7 +439,7 @@ suite('packtory', function () {
     test('buildAndPublishAll() uses buildAndPublish() outside dry-run mode', async function () {
         const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
 
-        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: false });
+        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: false, stage: false });
 
         assert.deepStrictEqual(
             result,
@@ -438,6 +447,7 @@ suite('packtory', function () {
                 {
                     bundle: createVersionedBundle('package-a'),
                     status: 'new-version',
+                    publication: publishedOutcome,
                     extraFiles: [],
                     previousReleaseArtifacts: Maybe.nothing()
                 }
@@ -488,7 +498,7 @@ suite('packtory', function () {
         });
         const received = subscribeToPackageFailed(progressBroadcaster);
 
-        await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false });
 
         const publishFailures = received.filter((entry) => {
             return entry.stage === 'publish';
@@ -523,7 +533,7 @@ suite('packtory', function () {
     test('buildAndPublishAll() disposes the report aggregator after the call completes', async function () {
         const { packtory, progressBroadcaster } = createPacktoryUnderTest();
 
-        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false, collectReport: true });
 
         assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
     });
@@ -541,7 +551,7 @@ suite('packtory', function () {
             publishStage: runPublishStageUntilFailure
         });
 
-        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false, collectReport: true });
 
         assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
     });
@@ -565,7 +575,11 @@ suite('packtory', function () {
     test('buildAndPublishAll() with collectReport=true returns a non-undefined getReport', async function () {
         const { packtory } = createPacktoryUnderTest();
 
-        const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true, collectReport: true });
+        const outcome = await packtory.buildAndPublishAll(createConfig(), {
+            dryRun: true,
+            stage: false,
+            collectReport: true
+        });
 
         assert.notStrictEqual(outcome.getReport(), undefined);
     });
@@ -573,7 +587,7 @@ suite('packtory', function () {
     test('buildAndPublishAll() without collectReport returns a getReport that yields undefined', async function () {
         const { packtory } = createPacktoryUnderTest();
 
-        const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true });
+        const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false });
 
         assert.strictEqual(outcome.getReport(), undefined);
     });
@@ -678,6 +692,7 @@ suite('packtory', function () {
                 return {
                     bundle: createVersionedBundle(options.buildOptions.name, '1.0.1'),
                     status: 'new-version' as const,
+                    publication: noPublicationOutcome,
                     extraFiles: [],
                     previousReleaseArtifacts: Maybe.just({
                         version: '1.0.0',

@@ -97,6 +97,7 @@ export function toPackageReport(entry: MutablePackageReport): PackageReport {
             timings: entry.timings,
             inputs,
             outputs,
+            publication: entry.publication,
             eliminatedSourceFiles: entry.eliminatedSourceFiles,
             failure: entry.failure
         },

@@ -1,9 +1,16 @@
+import type { PublicationOutcome } from '../../bundle-emitter/publication-outcome.ts';
 import type { ProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 
-function describeDoneStatus(status: string, version: string): string {
+function describeDoneStatus(status: string, version: string, publication: PublicationOutcome): string {
     if (status === 'already-published') {
         return `Nothing has changed, published version ${version} is already up-to-date`;
+    }
+    if (publication.type === 'staged') {
+        if (status === 'initial-version') {
+            return `First version ${version} staged (${publication.stageId})`;
+        }
+        return `New version ${version} staged (${publication.stageId})`;
     }
     if (status === 'initial-version') {
         return `First version ${version} has been published`;
@@ -24,7 +31,11 @@ export function registerProgressListeners(
     });
 
     progressBroadcaster.on('done', (payload) => {
-        spinnerRenderer.stop(payload.packageName, 'success', describeDoneStatus(payload.status, payload.version));
+        spinnerRenderer.stop(
+            payload.packageName,
+            'success',
+            describeDoneStatus(payload.status, payload.version, payload.publication)
+        );
     });
 
     progressBroadcaster.on('building', (payload) => {

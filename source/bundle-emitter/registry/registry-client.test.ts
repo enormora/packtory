@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { stagedForApproval } from '../publication-outcome.ts';
 import type { PublishAuthStrategy } from '../../config/registry-settings.ts';
 import { createFakeClock, type FakeClock } from '../../test-libraries/fake-clock.ts';
 import { createRegistryClient, type RegistryClientDependencies, type RegistryClient } from './registry-client.ts';
@@ -80,6 +81,17 @@ function buildLatestVersionFetchJson(): SinonSpy {
     });
 }
 
+function buildStagedVersionsFetchJson(
+    pages: readonly { readonly items: readonly { readonly version: string }[]; readonly total: number }[]
+): SinonSpy {
+    let callIndex = 0;
+    return fake(async () => {
+        const page = pages[callIndex] ?? pages.at(-1) ?? { items: [], total: 0 };
+        callIndex += 1;
+        return page;
+    });
+}
+
 suite('registry-client', function () {
     test('publishPackage() uses shorthand bearer auth and one-time-password prompt when provided', async function () {
         const publish = fake.resolves(undefined);
@@ -93,7 +105,8 @@ suite('registry-client', function () {
             {
                 auth: { type: 'bearer-token', token: 'the-token' }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.deepStrictEqual(publish.firstCall.args, [
@@ -125,7 +138,8 @@ suite('registry-client', function () {
                     password: 'secret'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.deepStrictEqual(publish.firstCall.args.at(-1), {
@@ -319,6 +333,148 @@ suite('registry-client', function () {
                 headers: { accept: 'application/vnd.npm.install-v1+json' }
             }
         ]);
+    });
+
+    test('fetchStagedVersions() uses authenticated publish auth even when metadata is anonymous', async function () {
+        const npmFetchJson = buildStagedVersionsFetchJson([{ items: [{ version: '1.2.4' }], total: 1 }]);
+        const registryClient = registryClientFactory({ npmFetchJson });
+
+        const result = await registryClient.fetchStagedVersions('the-name', {
+            auth: {
+                publish: { type: 'bearer-token', token: 'writer-token' },
+                metadata: 'anonymous'
+            }
+        });
+
+        assert.deepStrictEqual(result, ['1.2.4']);
+        assert.deepStrictEqual(npmFetchJson.firstCall.args, [
+            '/-/stage?package=the-name&page=0&perPage=100',
+            {
+                alwaysAuth: true,
+                registry: undefined,
+                forceAuth: { token: 'writer-token' }
+            }
+        ]);
+    });
+
+    test('fetchStagedVersions() collects staged versions across pages', async function () {
+        const npmFetchJson = buildStagedVersionsFetchJson([
+            { items: [{ version: '1.2.4' }], total: 2 },
+            { items: [{ version: '1.2.5' }], total: 2 }
+        ]);
+        const registryClient = registryClientFactory({ npmFetchJson });
+
+        const result = await registryClient.fetchStagedVersions('the-name', {
+            auth: { type: 'bearer-token', token: 'writer-token' }
+        });
+
+        assert.deepStrictEqual(result, ['1.2.4', '1.2.5']);
+        assert.strictEqual(npmFetchJson.callCount, 2);
+        assert.strictEqual(npmFetchJson.firstCall.firstArg, '/-/stage?package=the-name&page=0&perPage=100');
+        assert.strictEqual(npmFetchJson.secondCall.firstArg, '/-/stage?package=the-name&page=1&perPage=100');
+    });
+
+    test('fetchStagedVersions() accepts an empty stage list with total zero', async function () {
+        const npmFetchJson = buildStagedVersionsFetchJson([{ items: [], total: 0 }]);
+        const registryClient = registryClientFactory({ npmFetchJson });
+
+        const result = await registryClient.fetchStagedVersions('the-name', {
+            auth: { type: 'bearer-token', token: 'writer-token' }
+        });
+
+        assert.deepStrictEqual(result, []);
+        assert.strictEqual(npmFetchJson.callCount, 1);
+    });
+
+    test('fetchStagedVersions() stops fetching when a later page is empty even if the total is larger', async function () {
+        const npmFetchJson = buildStagedVersionsFetchJson([
+            { items: [{ version: '1.2.4' }], total: 3 },
+            { items: [], total: 3 }
+        ]);
+        const registryClient = registryClientFactory({ npmFetchJson });
+
+        const result = await registryClient.fetchStagedVersions('the-name', {
+            auth: { type: 'bearer-token', token: 'writer-token' }
+        });
+
+        assert.deepStrictEqual(result, ['1.2.4']);
+        assert.strictEqual(npmFetchJson.callCount, 2);
+    });
+
+    test('fetchStagedVersions() requires token-based metadata auth when publish auth uses npm oidc', async function () {
+        const npmFetchJson = fake();
+        const registryClient = registryClientFactory({ npmFetchJson });
+
+        await expectFailure(async () => {
+            await registryClient.fetchStagedVersions('the-name', {
+                auth: {
+                    publish: { type: 'npm-oidc', provider: 'env' },
+                    metadata: 'auto'
+                }
+            });
+        }, /requires token-based metadata auth/u);
+
+        assert.strictEqual(npmFetchJson.callCount, 0);
+    });
+
+    test('fetchStagedVersions() rejects a non-object stage-list response', async function () {
+        const registryClient = registryClientFactory({
+            npmFetchJson: fake.resolves('invalid-response')
+        });
+
+        await expectFailure(async () => {
+            await registryClient.fetchStagedVersions('the-name', {
+                auth: { type: 'bearer-token', token: 'writer-token' }
+            });
+        }, /invalid response from registry stage API/u);
+    });
+
+    test('fetchStagedVersions() rejects a null stage-list response', async function () {
+        const registryClient = registryClientFactory({
+            npmFetchJson: fake.resolves(null)
+        });
+
+        await expectFailure(async () => {
+            await registryClient.fetchStagedVersions('the-name', {
+                auth: { type: 'bearer-token', token: 'writer-token' }
+            });
+        }, /invalid response from registry stage API/u);
+    });
+
+    test('fetchStagedVersions() rejects a stage-list response with invalid pagination fields', async function () {
+        const registryClient = registryClientFactory({
+            npmFetchJson: fake.resolves({ items: [], total: '1' })
+        });
+
+        await expectFailure(async () => {
+            await registryClient.fetchStagedVersions('the-name', {
+                auth: { type: 'bearer-token', token: 'writer-token' }
+            });
+        }, /invalid response from registry stage API/u);
+    });
+
+    test('fetchStagedVersions() rejects a stage-list response with a negative total', async function () {
+        const registryClient = registryClientFactory({
+            npmFetchJson: fake.resolves({ items: [], total: -1 })
+        });
+
+        await expectFailure(async () => {
+            await registryClient.fetchStagedVersions('the-name', {
+                auth: { type: 'bearer-token', token: 'writer-token' }
+            });
+        }, /invalid response from registry stage API/u);
+    });
+
+    test('fetchStagedVersions() rejects a stage-list response with an invalid item version', async function () {
+        const registryClient = registryClientFactory({
+            npmFetchJson: fake.resolves({ items: [{}], total: 1 })
+        });
+
+        await expectFailure(async () => {
+            await registryClient.fetchStagedVersions('the-name', {
+                auth: { type: 'bearer-token', token: 'writer-token' }
+            });
+        }, /invalid response from registry stage API/u);
     });
 
     test('fetchLatestVersion() inherits publish auth for metadata when explicit metadata mode requests it', async function () {
@@ -678,7 +834,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.deepStrictEqual(resolveIdToken.firstCall.args, [{ type: 'npm-oidc', provider: 'github-actions' }]);
@@ -721,7 +878,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
         await registryClient.publishPackage(
             { name: '@scope/the-name', version: '1.0.1' },
@@ -732,7 +890,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 1);
@@ -772,7 +931,8 @@ suite('registry-client', function () {
             {
                 auth: { type: 'npm-oidc' }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.deepStrictEqual(resolveIdToken.firstCall.args, [{ type: 'npm-oidc' }]);
@@ -808,7 +968,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         clock.tick(61_000);
@@ -822,7 +983,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 2);
@@ -857,7 +1019,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         await registryClient.publishPackage(
@@ -869,7 +1032,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 2);
@@ -902,7 +1066,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
         await registryClient.publishPackage(
             { name: '@scope/second-package', version: '1.0.0' },
@@ -913,7 +1078,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 2);
@@ -960,7 +1126,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
         await registryClient.publishPackage(
             { name: '@scope/the-name', version: '1.0.1' },
@@ -972,7 +1139,8 @@ suite('registry-client', function () {
                     metadata: 'anonymous'
                 }
             },
-            { access: 'public' }
+            { access: 'public' },
+            false
         );
 
         assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 1);
@@ -994,7 +1162,8 @@ suite('registry-client', function () {
                         metadata: 'anonymous'
                     }
                 },
-                { access: 'public' }
+                { access: 'public' },
+                false
             );
         }, /^Error: npm-oidc auth is only supported with the npmjs.org registry$/u);
     });
@@ -1020,7 +1189,8 @@ suite('registry-client', function () {
                         metadata: 'anonymous'
                     }
                 },
-                { access: 'public' }
+                { access: 'public' },
+                false
             );
         }, /^TypeError: OIDC token exchange returned an invalid response: /u);
     });
@@ -1046,7 +1216,8 @@ suite('registry-client', function () {
                         metadata: 'anonymous'
                     }
                 },
-                { access: 'public' }
+                { access: 'public' },
+                false
             );
         }, /^TypeError: OIDC token exchange returned an invalid response: /u);
     });
@@ -1072,7 +1243,8 @@ suite('registry-client', function () {
                         metadata: 'anonymous'
                     }
                 },
-                { access: 'public' }
+                { access: 'public' },
+                false
             );
         }, /^TypeError: OIDC token exchange returned an invalid response: /u);
     });
@@ -1098,7 +1270,8 @@ suite('registry-client', function () {
                         metadata: 'anonymous'
                     }
                 },
-                { access: 'public' }
+                { access: 'public' },
+                false
             );
         }, /^Error: OIDC token exchange failed with status 502$/u);
     });
@@ -1130,7 +1303,8 @@ suite('registry-client', function () {
                                 metadata: 'anonymous'
                             }
                         },
-                        { access: 'public' }
+                        { access: 'public' },
+                        false
                     );
                 }, /^TypeError: OIDC token exchange returned an invalid response: /u);
             });
@@ -1292,7 +1466,8 @@ suite('registry-client', function () {
             { name: 'the-name', version: '1.0.0' },
             Buffer.from([]),
             { auth: { type: 'bearer-token', token: 'the-token' } },
-            { access: 'public', provenance: { type: 'auto' } }
+            { access: 'public', provenance: { type: 'auto' } },
+            false
         );
 
         const publishOptions = publish.firstCall.args.at(-1) as Record<string, unknown>;
@@ -1315,13 +1490,72 @@ suite('registry-client', function () {
                 { name: 'the-name', version: '1.0.0' },
                 Buffer.from([]),
                 { auth: { type: 'bearer-token', token: 'the-token' } },
-                { access: 'public', provenance: { type: 'auto' } }
+                { access: 'public', provenance: { type: 'auto' } },
+                false
             );
             assert.fail('Expected publishPackage() to throw');
         } catch (error: unknown) {
             assert.ok(error instanceof Error, 'Expected the thrown value to be an Error');
             assert.match(error.message, /^Provenance auto mode requires GitHub Actions or GitLab CI/u);
             assert.strictEqual(error.cause, original);
+        }
+    });
+
+    test('publishPackage() stages the package and returns the stage id when stage mode is enabled', async function () {
+        const publish = fake.resolves({ stageId: 'stage-123' });
+        const registryClient = registryClientFactory({ publish });
+
+        const result = await registryClient.publishPackage(
+            { name: 'the-name', version: 'the-version' },
+            Buffer.from([]),
+            {
+                auth: { type: 'bearer-token', token: 'the-token' }
+            },
+            { access: 'public' },
+            true
+        );
+
+        assert.deepStrictEqual(result, stagedForApproval('stage-123'));
+        assert.strictEqual((publish.firstCall.lastArg as { stage?: boolean }).stage, true);
+    });
+
+    test('publishPackage() rejects a staged publish response without a stage id', async function () {
+        const publish = fake.resolves({});
+        const registryClient = registryClientFactory({ publish });
+
+        await expectFailure(async () => {
+            await registryClient.publishPackage(
+                { name: 'the-name', version: '1.0.0' },
+                Buffer.from([]),
+                { auth: { type: 'bearer-token', token: 'the-token' } },
+                { access: 'public' },
+                true
+            );
+        }, /without returning a stage ID/u);
+    });
+
+    suite('publishPackage() rejects invalid staged publish responses', function () {
+        for (const [testName, response] of [
+            ['when the response is null', null],
+            ['when the response is a string', 'not-a-stage-response'],
+            ['when the stage id is numeric', { stageId: 123 }],
+            ['when the stage id is object-shaped but not a string', { stageId: { length: 1 } }],
+            ['when the stage id is empty', { stageId: '' }]
+        ] as const) {
+            test(testName, async function () {
+                const publish = fake.resolves(response);
+                const registryClient = registryClientFactory({ publish });
+
+                await expectFailure(async () => {
+                    await registryClient.publishPackage(
+                        { name: 'the-name', version: '1.0.0' },
+                        Buffer.from([]),
+                        { auth: { type: 'bearer-token', token: 'the-token' } },
+                        { access: 'public' },
+                        true
+                    );
+                }, /without returning a stage ID/u);
+            });
         }
     });
 });

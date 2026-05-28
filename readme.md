@@ -83,6 +83,14 @@ Execute the following command from the root of your project, no worries it runs 
 npx packtory publish
 ```
 
+To send the next release to npm's staging area instead of publishing it live:
+
+```bash
+npx packtory publish --no-dry-run --stage
+```
+
+Staged publishing is npm-only. The package must already exist on npm, and automatic versioning in stage mode must be able to list pending staged versions before it picks the next version.
+
 For more details about the CLI application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
 
 ## Concept

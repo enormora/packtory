@@ -30,7 +30,8 @@ suite('package-processor-publish', function () {
         try {
             await operations.tryBuildAndPublish({
                 analyzedBundle: { name: 'pkg-a' } as never,
-                buildOptions: { mainPackageJson: { type: 'commonjs' } } as never
+                buildOptions: { mainPackageJson: { type: 'commonjs' } } as never,
+                stage: false
             });
             assert.fail('expected tryBuildAndPublish to reject the non-ESM main package json');
         } catch (error) {
