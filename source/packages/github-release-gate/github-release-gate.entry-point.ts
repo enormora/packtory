@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
+import path from 'node:path';
+import { hasProp, isPlainObject } from 'remeda';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import type * as packtoryEntryPoint from '../packtory/packtory.entry-point.ts';
 import {
@@ -14,15 +15,39 @@ function getEnvironmentVariable(variableName: string): string | undefined {
     return value === undefined || value.length === 0 ? undefined : value;
 }
 
-function createDependencies(): GitHubReleaseGateRunnerDependencies {
-    const configLoader = createConfigLoader({
-        currentWorkingDirectory: process.cwd(),
-        async importModule(modulePath) {
-            const importedModule: unknown = await import(modulePath);
-            return importedModule;
-        }
-    });
+function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
+    return typeof value === 'function';
+}
 
+function unwrapConfigModule(module: Readonly<Record<PropertyKey, unknown>>): unknown {
+    if (hasProp(module, 'config')) {
+        return module.config;
+    }
+
+    if (hasProp(module, 'buildConfig')) {
+        const { buildConfig } = module;
+        if (isFunction(buildConfig)) {
+            return buildConfig();
+        }
+
+        throw new Error('Named export of "buildConfig" config file is not a function');
+    }
+
+    throw new Error('Config file doesn’t have a named export "config" nor "buildConfig"');
+}
+
+async function loadPacktoryConfigFromCwd(): Promise<unknown> {
+    const configFilePath = path.join(process.cwd(), 'packtory.config.js');
+    const module: unknown = await import(configFilePath);
+
+    if (!isPlainObject(module)) {
+        throw new Error('Invalid config file');
+    }
+
+    return unwrapConfigModule(module);
+}
+
+function createDependencies(): GitHubReleaseGateRunnerDependencies {
     return {
         analyzeReleaseAgainstLatestPublished: async (config) => {
             const packtory: typeof packtoryEntryPoint = await import('../packtory/packtory.entry-point.ts');
@@ -31,9 +56,7 @@ function createDependencies(): GitHubReleaseGateRunnerDependencies {
         fetch: globalThis.fetch,
         fileManager: createFileManager({ hostFileSystem: fs.promises }),
         getEnvironmentVariable,
-        loadPacktoryConfig: async () => {
-            return await configLoader.load();
-        },
+        loadPacktoryConfig: loadPacktoryConfigFromCwd,
         now: () => {
             return new Date();
         },
