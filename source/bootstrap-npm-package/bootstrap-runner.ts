@@ -1,4 +1,4 @@
-import type { PackagePublication, PublicationManifest } from './package-publication.ts';
+import type { PackagePublication, PublicationManifest, WebOtpUrls } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
 import type { WebLogin } from './web-login.ts';
 
@@ -14,7 +14,7 @@ export type BootstrapRunnerDependencies = {
     readonly placeholderTarballBuilder: PlaceholderTarballBuilder;
     readonly webLogin: WebLogin;
     readonly packagePublication: PackagePublication;
-    readonly promptForOneTimePassword: () => Promise<string>;
+    readonly promptForOneTimePassword: (webOtpUrls: WebOtpUrls | undefined) => Promise<string>;
     readonly log: (message: string) => void;
 };
 

@@ -5,7 +5,7 @@ import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
 import { binary, command, option, positional, run, string } from 'cmd-ts';
 import { publish as libnpmpublishPublish } from 'libnpmpublish';
-import { loginWeb } from 'npm-profile';
+import { loginWeb, webAuthOpener } from 'npm-profile';
 import open from 'open';
 import {
     createBootstrapRunner,
@@ -13,9 +13,18 @@ import {
     type BootstrapRunner,
     type BootstrapRunnerDependencies
 } from '../../bootstrap-npm-package/bootstrap-runner.ts';
-import { createPackagePublication } from '../../bootstrap-npm-package/package-publication.ts';
+import { createPackagePublication, type WebOtpUrls } from '../../bootstrap-npm-package/package-publication.ts';
 import { createPlaceholderTarballBuilder } from '../../bootstrap-npm-package/placeholder-tarball.ts';
 import { createWebLogin } from '../../bootstrap-npm-package/web-login.ts';
+
+declare module 'npm-profile' {
+    export function webAuthOpener(
+        opener: (url: string) => Promise<void>,
+        authUrl: string,
+        doneUrl: string,
+        opts: { readonly registry: string }
+    ): Promise<{ readonly token: string }>;
+}
 
 const defaultRegistryUrl = 'https://registry.npmjs.org/';
 const defaultWorkaroundUrl = 'https://github.com/npm/cli/issues/8544';
@@ -25,7 +34,7 @@ async function openInBrowser(loginUrl: string): Promise<void> {
     await open(loginUrl, { wait: false });
 }
 
-async function promptForOneTimePassword(): Promise<string> {
+async function promptForOneTimePasswordViaTerminal(): Promise<string> {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
         throw new Error('The npm registry requested a one-time password, but stdin is not an interactive terminal');
     }
@@ -40,6 +49,19 @@ async function promptForOneTimePassword(): Promise<string> {
     } finally {
         prompt.close();
     }
+}
+
+async function promptForOneTimePasswordViaBrowser(urls: WebOtpUrls): Promise<string> {
+    process.stdout.write('Opening browser to authorize the publish; complete the prompt in your browser…\n');
+    const result = await webAuthOpener(openInBrowser, urls.authUrl, urls.doneUrl, { registry: defaultRegistryUrl });
+    return result.token;
+}
+
+async function promptForOneTimePassword(urls: WebOtpUrls | undefined): Promise<string> {
+    if (urls === undefined) {
+        return promptForOneTimePasswordViaTerminal();
+    }
+    return promptForOneTimePasswordViaBrowser(urls);
 }
 
 function createDependencies(): BootstrapRunnerDependencies {

@@ -48,7 +48,7 @@ function createScenario(loginResult: WebLoginResult = { token: 'tk', username: '
     const log = (message: string): void => {
         recordings.logs.push(message);
     };
-    const promptForOneTimePassword = async (): Promise<string> => {
+    const promptForOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] = async () => {
         return 'scenario-otp';
     };
 
@@ -155,7 +155,7 @@ suite('bootstrap-runner', function () {
 
     test('threads the one-time-password prompt through to the publication step', async function () {
         const scenario = createScenario();
-        const promptForOneTimePassword = async (): Promise<string> => {
+        const promptForOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] = async () => {
             return 'wired-otp';
         };
         const runner = createBootstrapRunner({
