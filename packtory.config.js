@@ -11,6 +11,7 @@ const sharedLicensePath = path.join(projectFolder, 'LICENSE');
 const packtoryReadmePath = path.join(projectFolder, 'source/packages/packtory/readme.md');
 const cliReadmePath = path.join(projectFolder, 'source/packages/command-line-interface/readme.md');
 const githubReleaseGateReadmePath = path.join(projectFolder, 'source/packages/github-release-gate/readme.md');
+const bootstrapNpmPackageReadmePath = path.join(projectFolder, 'source/packages/bootstrap-npm-package/readme.md');
 
 const noSideEffectsAllowList = [
     'packages/packtory/packtory.entry-point.js',
@@ -33,7 +34,8 @@ const noSideEffectsAllowList = [
     'packages/command-line-interface/spinner-boot.entry-point.js',
     'command-line-interface/preview-io/preview-io.js',
     'packages/command-line-interface/spinner-worker.entry-point.js',
-    'packages/github-release-gate/github-release-gate.entry-point.js'
+    'packages/github-release-gate/github-release-gate.entry-point.js',
+    'packages/bootstrap-npm-package/bootstrap-npm-package.entry-point.js'
 ].map((filePath) => {
     return path.join(sourcesFolder, filePath);
 });
@@ -161,6 +163,29 @@ export async function buildConfig() {
                     }
                 ],
                 bundleDependencies: ['packtory']
+            },
+            {
+                name: '@packtory/bootstrap-npm-package',
+                exportPackageJson: true,
+                roots: {
+                    main: {
+                        js: 'packages/bootstrap-npm-package/bootstrap-npm-package.entry-point.js'
+                    }
+                },
+                packageInterface: {
+                    bins: [{ root: 'main', name: 'bootstrap-npm-package' }]
+                },
+                additionalPackageJsonAttributes: {
+                    description:
+                        'Claim a brand-new npm name so a Trusted Publisher can be configured for it ' +
+                        '(workaround for npm/cli#8544).'
+                },
+                additionalFiles: [
+                    {
+                        sourceFilePath: bootstrapNpmPackageReadmePath,
+                        targetFilePath: 'readme.md'
+                    }
+                ]
             }
         ]
     };
