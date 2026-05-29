@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
+import { promises as fs } from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
 import { binary, command, option, positional, run, string } from 'cmd-ts';
@@ -13,6 +15,7 @@ import {
     type BootstrapRunner,
     type BootstrapRunnerDependencies
 } from '../../bootstrap-npm-package/bootstrap-runner.ts';
+import { createNpmrcTokenLookup } from '../../bootstrap-npm-package/npmrc-token-lookup.ts';
 import { createPackagePublication, type WebOtpUrls } from '../../bootstrap-npm-package/package-publication.ts';
 import { createPlaceholderTarballBuilder } from '../../bootstrap-npm-package/placeholder-tarball.ts';
 import { createWebLogin } from '../../bootstrap-npm-package/web-login.ts';
@@ -32,6 +35,14 @@ const defaultDistTag = 'bootstrap';
 
 async function openInBrowser(loginUrl: string): Promise<void> {
     await open(loginUrl, { wait: false });
+}
+
+async function readUserNpmrc(): Promise<string | undefined> {
+    try {
+        return await fs.readFile(path.join(os.homedir(), '.npmrc'), 'utf8');
+    } catch {
+        return undefined;
+    }
 }
 
 async function promptForOneTimePasswordViaTerminal(): Promise<string> {
@@ -67,6 +78,7 @@ async function promptForOneTimePassword(urls: WebOtpUrls | undefined): Promise<s
 function createDependencies(): BootstrapRunnerDependencies {
     return {
         placeholderTarballBuilder: createPlaceholderTarballBuilder({ createGzip: zlib.createGzip }),
+        npmrcTokenLookup: createNpmrcTokenLookup({ readNpmrc: readUserNpmrc }),
         webLogin: createWebLogin({ loginWeb, openInBrowser }),
         packagePublication: createPackagePublication({ publish: libnpmpublishPublish }),
         promptForOneTimePassword,

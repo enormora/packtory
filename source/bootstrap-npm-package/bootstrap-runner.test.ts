@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { type BootstrapInput, type BootstrapRunnerDependencies, createBootstrapRunner } from './bootstrap-runner.ts';
+import type { NpmrcTokenLookup } from './npmrc-token-lookup.ts';
 import type { PackagePublication } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
 import type { WebLogin } from './web-login.ts';
@@ -17,10 +18,17 @@ type Recordings = {
     readonly logs: string[];
 };
 
-function createScenario(loginResult: WebLoginResult = { token: 'tk', username: 'alice' }): {
+type ScenarioOverrides = {
+    readonly loginResult?: WebLoginResult;
+    readonly cachedNpmrcToken?: string;
+};
+
+function createScenario(overrides: ScenarioOverrides = {}): {
     readonly recordings: Recordings;
     readonly dependencies: BootstrapRunnerDependencies;
 } {
+    const loginResult = overrides.loginResult ?? { token: 'fresh-token', username: 'alice' };
+    const { cachedNpmrcToken } = overrides;
     const recordings: Recordings = {
         placeholderInputs: [],
         loginInputs: [],
@@ -32,6 +40,11 @@ function createScenario(loginResult: WebLoginResult = { token: 'tk', username: '
         async build(input) {
             recordings.placeholderInputs.push(input);
             return Buffer.from(`tarball-for-${input.manifest.name}`);
+        }
+    };
+    const npmrcTokenLookup: NpmrcTokenLookup = {
+        async findToken() {
+            return cachedNpmrcToken;
         }
     };
     const webLogin: WebLogin = {
@@ -56,6 +69,7 @@ function createScenario(loginResult: WebLoginResult = { token: 'tk', username: '
         recordings,
         dependencies: {
             placeholderTarballBuilder,
+            npmrcTokenLookup,
             webLogin,
             packagePublication,
             promptForOneTimePassword,
@@ -125,7 +139,7 @@ suite('bootstrap-runner', function () {
     });
 
     test('publishes the built tarball with the supplied dist-tag and the token from the web session', async function () {
-        const scenario = createScenario({ token: 'session-token', username: 'alice' });
+        const scenario = createScenario({ loginResult: { token: 'session-token', username: 'alice' } });
         const runner = createBootstrapRunner(scenario.dependencies);
 
         await runner.run(buildBootstrapInput({ distTag: 'next-bootstrap' }));
@@ -153,6 +167,30 @@ suite('bootstrap-runner', function () {
         );
     });
 
+    test('reuses an existing token from `~/.npmrc` and does not open the browser login flow', async function () {
+        const scenario = createScenario({ cachedNpmrcToken: 'cached-token' });
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput());
+
+        assert.strictEqual(scenario.recordings.loginInputs.length, 0);
+        const [publication] = scenario.recordings.publicationInputs;
+        assert.ok(publication !== undefined);
+        assert.strictEqual(publication.token, 'cached-token');
+    });
+
+    test('falls back to web login when no token is cached in `~/.npmrc`', async function () {
+        const scenario = createScenario({ loginResult: { token: 'fresh-token', username: 'alice' } });
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput());
+
+        assert.strictEqual(scenario.recordings.loginInputs.length, 1);
+        const [publication] = scenario.recordings.publicationInputs;
+        assert.ok(publication !== undefined);
+        assert.strictEqual(publication.token, 'fresh-token');
+    });
+
     test('threads the one-time-password prompt through to the publication step', async function () {
         const scenario = createScenario();
         const promptForOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] = async () => {
@@ -171,7 +209,7 @@ suite('bootstrap-runner', function () {
     });
 
     test('falls back to "Authenticated to npm" when the web login does not report a username', async function () {
-        const scenario = createScenario({ token: 'tk', username: undefined });
+        const scenario = createScenario({ loginResult: { token: 'tk', username: undefined } });
         const runner = createBootstrapRunner(scenario.dependencies);
 
         await runner.run(buildBootstrapInput());
