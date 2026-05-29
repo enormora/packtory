@@ -40,8 +40,6 @@ type RawTimelineEvent = {
     readonly event?: string | undefined;
 };
 
-const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
-
 export type GitHubReleaseGateApi = {
     readonly getLatestSuccessfulMainCiRun: (
         ciWorkflowFile: string,
@@ -84,6 +82,7 @@ export function createGitHubReleaseGateApi(
     fetchImplementation: typeof globalThis.fetch,
     context: GitHubRepositoryContext
 ): GitHubReleaseGateApi {
+    const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
     const requestContext: RepositoryRequestContext = {
         headers: {
             accept: 'application/vnd.github+json',
