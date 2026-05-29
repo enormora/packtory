@@ -12,6 +12,7 @@ type LoginWebOpener = (loginUrl: string) => Promise<void>;
 type LoginWebOptions = {
     readonly registry: string;
     readonly hostname: string;
+    readonly authType: 'web';
 };
 
 type LoginWebFunction = (opener: LoginWebOpener, opts: LoginWebOptions) => Promise<WebLoginResult>;
@@ -33,7 +34,8 @@ export function createWebLogin(dependencies: Readonly<WebLoginDependencies>): We
         async login(input) {
             return loginWeb(openInBrowser, {
                 registry: input.registryUrl,
-                hostname: input.hostname
+                hostname: input.hostname,
+                authType: 'web'
             });
         }
     };

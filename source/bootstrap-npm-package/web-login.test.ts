@@ -14,10 +14,14 @@ function createSuccessfulLoginWeb(token: WebLoginResult): LoginWebFunction {
 }
 
 suite('web-login', function () {
-    test('forwards the registry URL and hostname to the underlying loginWeb call', async function () {
-        const recordedOptions: { registry: string; hostname: string }[] = [];
+    test('forwards the registry URL, hostname and the web auth-type marker to loginWeb', async function () {
+        const recordedOptions: { registry: string; hostname: string; authType: 'web' }[] = [];
         const loginWeb: LoginWebFunction = async (_opener, options) => {
-            recordedOptions.push({ registry: options.registry, hostname: options.hostname });
+            recordedOptions.push({
+                registry: options.registry,
+                hostname: options.hostname,
+                authType: options.authType
+            });
             return { token: 'tk', username: 'alice' };
         };
         const openInBrowser: OpenInBrowser = fake.resolves(undefined);
@@ -25,7 +29,9 @@ suite('web-login', function () {
 
         await webLogin.login({ registryUrl: 'https://registry.npmjs.org/', hostname: 'workstation' });
 
-        assert.deepStrictEqual(recordedOptions, [{ registry: 'https://registry.npmjs.org/', hostname: 'workstation' }]);
+        assert.deepStrictEqual(recordedOptions, [
+            { registry: 'https://registry.npmjs.org/', hostname: 'workstation', authType: 'web' }
+        ]);
     });
 
     test('passes the supplied openInBrowser callback to loginWeb as the opener', async function () {
