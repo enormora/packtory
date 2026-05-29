@@ -10,6 +10,8 @@ import {
 type LibnpmpublishFunction = PackagePublicationDependencies['publish'];
 type PublicationInput = Parameters<PackagePublication['publish']>[0];
 
+type OneTimePasswordPrompt = PublicationInput['promptForOneTimePassword'];
+
 type PublishCallRecord = {
     readonly manifest: PublicationManifest;
     readonly tarball: Buffer;
@@ -17,6 +19,7 @@ type PublishCallRecord = {
     readonly access: 'public';
     readonly registry: string;
     readonly forceAuthToken: string;
+    readonly otpPrompt: OneTimePasswordPrompt;
 };
 
 function createRecordingPublish(): {
@@ -31,7 +34,8 @@ function createRecordingPublish(): {
             defaultTag: options.defaultTag,
             access: options.access,
             registry: options.registry,
-            forceAuthToken: options.forceAuth.token
+            forceAuthToken: options.forceAuth.token,
+            otpPrompt: options.otpPrompt
         });
         return undefined;
     };
@@ -50,6 +54,9 @@ function buildInput(overrides: Partial<PublicationInput> = {}): PublicationInput
         token: 'bearer',
         registryUrl: 'https://registry.npmjs.org/',
         distTag: 'bootstrap',
+        promptForOneTimePassword: async () => {
+            return 'unused';
+        },
         ...overrides
     };
 }
@@ -68,6 +75,20 @@ suite('package-publication', function () {
         assert.strictEqual(call.access, 'public');
         assert.strictEqual(call.registry, 'https://registry.npmjs.org/');
         assert.strictEqual(call.forceAuthToken, 'bearer');
+    });
+
+    test('forwards the one-time-password prompt to libnpmpublish as the otpPrompt callback', async function () {
+        const { publish, calls } = createRecordingPublish();
+        const publication = createPackagePublication({ publish });
+        const promptForOneTimePassword: OneTimePasswordPrompt = async () => {
+            return '123456';
+        };
+
+        await publication.publish(buildInput({ promptForOneTimePassword }));
+
+        const [call] = calls;
+        assert.ok(call !== undefined);
+        assert.strictEqual(call.otpPrompt, promptForOneTimePassword);
     });
 
     test('passes the manifest and tarball through unchanged', async function () {

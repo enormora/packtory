@@ -5,12 +5,15 @@ export type PublicationManifest = {
     readonly license: string;
 };
 
+type OneTimePasswordPrompt = () => Promise<string>;
+
 type PublicationInput = {
     readonly manifest: PublicationManifest;
     readonly tarball: Buffer;
     readonly token: string;
     readonly registryUrl: string;
     readonly distTag: string;
+    readonly promptForOneTimePassword: OneTimePasswordPrompt;
 };
 
 type LibnpmpublishOptions = {
@@ -18,6 +21,7 @@ type LibnpmpublishOptions = {
     readonly access: 'public';
     readonly registry: string;
     readonly forceAuth: { readonly token: string };
+    readonly otpPrompt: OneTimePasswordPrompt;
 };
 
 type LibnpmpublishFunction = (
@@ -43,7 +47,8 @@ export function createPackagePublication(dependencies: Readonly<PackagePublicati
                 defaultTag: input.distTag,
                 access: 'public',
                 registry: input.registryUrl,
-                forceAuth: { token: input.token }
+                forceAuth: { token: input.token },
+                otpPrompt: input.promptForOneTimePassword
             });
         }
     };

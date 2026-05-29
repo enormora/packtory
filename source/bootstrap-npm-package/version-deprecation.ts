@@ -1,14 +1,18 @@
+type OneTimePasswordPrompt = () => Promise<string>;
+
 type VersionDeprecationInput = {
     readonly packageName: string;
     readonly version: string;
     readonly message: string;
     readonly token: string;
     readonly registryUrl: string;
+    readonly promptForOneTimePassword: OneTimePasswordPrompt;
 };
 
 type NpmRegistryFetchOptions = {
     readonly registry: string;
     readonly forceAuth: { readonly token: string };
+    readonly otpPrompt?: OneTimePasswordPrompt;
     readonly method?: 'PUT';
     readonly body?: Readonly<Record<string, unknown>>;
 };
@@ -74,7 +78,8 @@ export function createVersionDeprecation(dependencies: Readonly<VersionDeprecati
             const path = `/${encodePackageNameForPath(input.packageName)}`;
             const baseOptions = {
                 registry: input.registryUrl,
-                forceAuth: { token: input.token }
+                forceAuth: { token: input.token },
+                otpPrompt: input.promptForOneTimePassword
             };
             const packument = await fetchJson(path, baseOptions);
             const updated = withDeprecatedVersion(packument, input.version, input.message);

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import os from 'node:os';
+import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
 import { binary, command, option, positional, run, string } from 'cmd-ts';
 import { publish as libnpmpublishPublish } from 'libnpmpublish';
@@ -26,12 +27,30 @@ async function openInBrowser(loginUrl: string): Promise<void> {
     await open(loginUrl, { wait: false });
 }
 
+async function promptForOneTimePassword(): Promise<string> {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        throw new Error('The npm registry requested a one-time password, but stdin is not an interactive terminal');
+    }
+    const prompt = readline.createInterface({ input: process.stdin, output: process.stdout });
+    try {
+        const answer = await prompt.question('Registry one-time password: ');
+        const trimmed = answer.trim();
+        if (trimmed.length === 0) {
+            throw new Error('One-time password input was empty');
+        }
+        return trimmed;
+    } finally {
+        prompt.close();
+    }
+}
+
 function createDependencies(): BootstrapRunnerDependencies {
     return {
         placeholderTarballBuilder: createPlaceholderTarballBuilder({ createGzip: zlib.createGzip }),
         webLogin: createWebLogin({ loginWeb, openInBrowser }),
         packagePublication: createPackagePublication({ publish: libnpmpublishPublish }),
         versionDeprecation: createVersionDeprecation({ fetchJson: npmFetch.json, registryFetch: npmFetch }),
+        promptForOneTimePassword,
         log: (message) => {
             process.stdout.write(`${message}\n`);
         }

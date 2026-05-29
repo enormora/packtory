@@ -16,6 +16,7 @@ export type BootstrapRunnerDependencies = {
     readonly webLogin: WebLogin;
     readonly packagePublication: PackagePublication;
     readonly versionDeprecation: VersionDeprecation;
+    readonly promptForOneTimePassword: () => Promise<string>;
     readonly log: (message: string) => void;
 };
 
@@ -70,11 +71,16 @@ type PublishAndDeprecateInput = {
     readonly token: string;
 };
 
+type PublishAndDeprecateDependencies = Pick<
+    BootstrapRunnerDependencies,
+    'log' | 'packagePublication' | 'promptForOneTimePassword' | 'versionDeprecation'
+>;
+
 async function runPublishAndDeprecate(
-    dependencies: Pick<BootstrapRunnerDependencies, 'log' | 'packagePublication' | 'versionDeprecation'>,
+    dependencies: PublishAndDeprecateDependencies,
     payload: PublishAndDeprecateInput
 ): Promise<void> {
-    const { packagePublication, versionDeprecation, log } = dependencies;
+    const { packagePublication, versionDeprecation, promptForOneTimePassword, log } = dependencies;
     const { input, manifest, tarball, token } = payload;
 
     log(`Publishing ${input.packageName}@${manifest.version} with dist-tag "${input.distTag}"`);
@@ -83,7 +89,8 @@ async function runPublishAndDeprecate(
         tarball,
         token,
         registryUrl: input.registryUrl,
-        distTag: input.distTag
+        distTag: input.distTag,
+        promptForOneTimePassword
     });
 
     log(`Deprecating ${input.packageName}@${manifest.version}`);
@@ -92,12 +99,26 @@ async function runPublishAndDeprecate(
         version: manifest.version,
         message: buildDeprecationMessage(input.workaroundUrl),
         token,
-        registryUrl: input.registryUrl
+        registryUrl: input.registryUrl,
+        promptForOneTimePassword
     });
 }
 
+function buildAuthenticatedMessage(username: string | undefined): string {
+    return username === undefined || username.length === 0
+        ? 'Authenticated to npm'
+        : `Authenticated to npm as ${username}`;
+}
+
 export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDependencies>): BootstrapRunner {
-    const { placeholderTarballBuilder, webLogin, packagePublication, versionDeprecation, log } = dependencies;
+    const {
+        placeholderTarballBuilder,
+        webLogin,
+        packagePublication,
+        versionDeprecation,
+        promptForOneTimePassword,
+        log
+    } = dependencies;
 
     return {
         async run(input) {
@@ -112,10 +133,10 @@ export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDepe
                 registryUrl: input.registryUrl,
                 hostname: input.hostname
             });
-            log(`Authenticated to npm as ${session.username}`);
+            log(buildAuthenticatedMessage(session.username));
 
             await runPublishAndDeprecate(
-                { packagePublication, versionDeprecation, log },
+                { packagePublication, versionDeprecation, promptForOneTimePassword, log },
                 { input, manifest, tarball, token: session.token }
             );
 

@@ -5,7 +5,7 @@ type WebLoginInput = {
 
 type WebLoginResult = {
     readonly token: string;
-    readonly username: string;
+    readonly username: string | undefined;
 };
 
 type LoginWebOpener = (loginUrl: string) => Promise<void>;

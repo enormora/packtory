@@ -57,10 +57,20 @@ function createScenario(loginResult: WebLoginResult = { token: 'tk', username: '
     const log = (message: string): void => {
         recordings.logs.push(message);
     };
+    const promptForOneTimePassword = async (): Promise<string> => {
+        return 'scenario-otp';
+    };
 
     return {
         recordings,
-        dependencies: { placeholderTarballBuilder, webLogin, packagePublication, versionDeprecation, log }
+        dependencies: {
+            placeholderTarballBuilder,
+            webLogin,
+            packagePublication,
+            versionDeprecation,
+            promptForOneTimePassword,
+            log
+        }
     };
 }
 
@@ -154,6 +164,35 @@ suite('bootstrap-runner', function () {
             lastLog,
             'Done. Configure the Trusted Publisher at https://www.npmjs.com/package/@scope/example/access'
         );
+    });
+
+    test('threads the one-time-password prompt through to publication and deprecation steps', async function () {
+        const scenario = createScenario();
+        const promptForOneTimePassword = async (): Promise<string> => {
+            return 'wired-otp';
+        };
+        const runner = createBootstrapRunner({
+            ...scenario.dependencies,
+            promptForOneTimePassword
+        });
+
+        await runner.run(buildBootstrapInput());
+
+        const [publication] = scenario.recordings.publicationInputs;
+        const [deprecation] = scenario.recordings.deprecationInputs;
+        assert.ok(publication !== undefined);
+        assert.ok(deprecation !== undefined);
+        assert.strictEqual(publication.promptForOneTimePassword, promptForOneTimePassword);
+        assert.strictEqual(deprecation.promptForOneTimePassword, promptForOneTimePassword);
+    });
+
+    test('falls back to "Authenticated to npm" when the web login does not report a username', async function () {
+        const scenario = createScenario({ token: 'tk', username: undefined });
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput());
+
+        assert.ok(scenario.recordings.logs.includes('Authenticated to npm'));
     });
 
     test('propagates errors from the publication step without attempting to deprecate', async function () {

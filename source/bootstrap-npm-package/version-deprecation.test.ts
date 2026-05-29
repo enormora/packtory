@@ -12,11 +12,14 @@ type RegistryFetchJsonFunction = VersionDeprecationDependencies['fetchJson'];
 type RegistryFetchFunction = VersionDeprecationDependencies['registryFetch'];
 type VersionDeprecationInput = Parameters<VersionDeprecation['deprecate']>[0];
 
+type OneTimePasswordPrompt = VersionDeprecationInput['promptForOneTimePassword'];
+
 type FetchCall = {
     readonly path: string;
     readonly method?: 'PUT';
     readonly registry: string;
     readonly token: string;
+    readonly otpPrompt: OneTimePasswordPrompt | undefined;
     readonly body?: Readonly<Record<string, unknown>>;
 };
 
@@ -27,7 +30,12 @@ function createFetcher(packumentByPath: Readonly<Record<string, Readonly<Record<
 } {
     const calls: FetchCall[] = [];
     const fetchJson: RegistryFetchJsonFunction = async (path, options) => {
-        calls.push({ path, registry: options.registry, token: options.forceAuth.token });
+        calls.push({
+            path,
+            registry: options.registry,
+            token: options.forceAuth.token,
+            otpPrompt: options.otpPrompt
+        });
         const packument = packumentByPath[path];
         if (packument === undefined) {
             throw new Error(`No packument fixture for path ${path}`);
@@ -35,7 +43,12 @@ function createFetcher(packumentByPath: Readonly<Record<string, Readonly<Record<
         return packument;
     };
     const registryFetch: RegistryFetchFunction = async (path, options) => {
-        const baseCall = { path, registry: options.registry, token: options.forceAuth.token };
+        const baseCall = {
+            path,
+            registry: options.registry,
+            token: options.forceAuth.token,
+            otpPrompt: options.otpPrompt
+        };
         const withMethod = options.method === undefined ? baseCall : { ...baseCall, method: options.method };
         const withBody = options.body === undefined ? withMethod : { ...withMethod, body: options.body };
         calls.push(withBody);
@@ -63,6 +76,9 @@ function buildInput(overrides: Partial<VersionDeprecationInput> = {}): VersionDe
         message: 'placeholder',
         token: 'bearer',
         registryUrl: 'https://registry.npmjs.org/',
+        promptForOneTimePassword: async () => {
+            return 'unused';
+        },
         ...overrides
     };
 }
@@ -71,6 +87,9 @@ const scopeExamplePath = '/@scope%2Fexample';
 
 suite('version-deprecation', function () {
     test('GETs the packument at the URL-encoded package path with token auth', async function () {
+        const promptForOneTimePassword: OneTimePasswordPrompt = async () => {
+            return 'otp';
+        };
         const { fetcher, deprecation } = createScenario({
             [scopeExamplePath]: {
                 name: '@scope/example',
@@ -78,13 +97,32 @@ suite('version-deprecation', function () {
             }
         });
 
-        await deprecation.deprecate(buildInput());
+        await deprecation.deprecate(buildInput({ promptForOneTimePassword }));
 
         assert.deepStrictEqual(fetcher.calls[0], {
             path: scopeExamplePath,
             registry: 'https://registry.npmjs.org/',
-            token: 'bearer'
+            token: 'bearer',
+            otpPrompt: promptForOneTimePassword
         });
+    });
+
+    test('forwards the one-time-password prompt to npm-registry-fetch for both reads and writes', async function () {
+        const promptForOneTimePassword: OneTimePasswordPrompt = async () => {
+            return 'otp';
+        };
+        const { fetcher, deprecation } = createScenario({
+            [scopeExamplePath]: {
+                name: '@scope/example',
+                versions: { '0.0.1': { name: '@scope/example', version: '0.0.1' } }
+            }
+        });
+
+        await deprecation.deprecate(buildInput({ promptForOneTimePassword }));
+
+        for (const call of fetcher.calls) {
+            assert.strictEqual(call.otpPrompt, promptForOneTimePassword);
+        }
     });
 
     test('PUTs the packument back with the deprecated message attached to the target version', async function () {
