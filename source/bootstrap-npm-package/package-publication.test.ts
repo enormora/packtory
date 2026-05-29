@@ -48,7 +48,8 @@ function buildInput(overrides: Partial<PublicationInput> = {}): PublicationInput
             name: '@scope/example',
             version: '0.0.1',
             description: 'placeholder',
-            license: 'MIT'
+            license: 'MIT',
+            deprecated: 'placeholder'
         },
         tarball: Buffer.from('tarball-bytes'),
         token: 'bearer',
@@ -99,7 +100,8 @@ suite('package-publication', function () {
             name: '@scope/another',
             version: '0.0.1',
             description: 'placeholder description',
-            license: 'Apache-2.0'
+            license: 'Apache-2.0',
+            deprecated: 'placeholder'
         };
         const tarball = Buffer.from('payload');
         await publication.publish(buildInput({ manifest, tarball }));

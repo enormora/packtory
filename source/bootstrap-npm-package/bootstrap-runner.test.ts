@@ -3,12 +3,10 @@ import { suite, test } from 'mocha';
 import { type BootstrapInput, type BootstrapRunnerDependencies, createBootstrapRunner } from './bootstrap-runner.ts';
 import type { PackagePublication } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
-import type { VersionDeprecation } from './version-deprecation.ts';
 import type { WebLogin } from './web-login.ts';
 
 type PlaceholderTarballInput = Parameters<PlaceholderTarballBuilder['build']>[0];
 type PublicationInput = Parameters<PackagePublication['publish']>[0];
-type VersionDeprecationInput = Parameters<VersionDeprecation['deprecate']>[0];
 type WebLoginInput = Parameters<WebLogin['login']>[0];
 type WebLoginResult = Awaited<ReturnType<WebLogin['login']>>;
 
@@ -16,7 +14,6 @@ type Recordings = {
     readonly placeholderInputs: PlaceholderTarballInput[];
     readonly loginInputs: WebLoginInput[];
     readonly publicationInputs: PublicationInput[];
-    readonly deprecationInputs: VersionDeprecationInput[];
     readonly logs: string[];
 };
 
@@ -28,7 +25,6 @@ function createScenario(loginResult: WebLoginResult = { token: 'tk', username: '
         placeholderInputs: [],
         loginInputs: [],
         publicationInputs: [],
-        deprecationInputs: [],
         logs: []
     };
 
@@ -49,11 +45,6 @@ function createScenario(loginResult: WebLoginResult = { token: 'tk', username: '
             recordings.publicationInputs.push(input);
         }
     };
-    const versionDeprecation: VersionDeprecation = {
-        async deprecate(input) {
-            recordings.deprecationInputs.push(input);
-        }
-    };
     const log = (message: string): void => {
         recordings.logs.push(message);
     };
@@ -67,7 +58,6 @@ function createScenario(loginResult: WebLoginResult = { token: 'tk', username: '
             placeholderTarballBuilder,
             webLogin,
             packagePublication,
-            versionDeprecation,
             promptForOneTimePassword,
             log
         }
@@ -98,6 +88,17 @@ suite('bootstrap-runner', function () {
         assert.strictEqual(placeholderInput.manifest.name, '@scope/example');
         assert.strictEqual(placeholderInput.manifest.version, '0.0.1');
         assert.strictEqual(placeholderInput.manifest.license, 'MIT');
+    });
+
+    test('includes a deprecated message in the placeholder manifest referencing the workaround URL', async function () {
+        const scenario = createScenario();
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput({ workaroundUrl: 'https://example.test/workaround' }));
+
+        const [placeholderInput] = scenario.recordings.placeholderInputs;
+        assert.ok(placeholderInput !== undefined);
+        assert.ok(placeholderInput.manifest.deprecated.includes('https://example.test/workaround'));
     });
 
     test('mentions the workaround URL in the placeholder description and readme', async function () {
@@ -138,20 +139,6 @@ suite('bootstrap-runner', function () {
         assert.deepStrictEqual(publication.tarball, Buffer.from('tarball-for-@scope/example'));
     });
 
-    test('deprecates the just-published version with a message referencing the workaround URL', async function () {
-        const scenario = createScenario();
-        const runner = createBootstrapRunner(scenario.dependencies);
-
-        await runner.run(buildBootstrapInput({ workaroundUrl: 'https://example.test/workaround' }));
-
-        assert.strictEqual(scenario.recordings.deprecationInputs.length, 1);
-        const [deprecation] = scenario.recordings.deprecationInputs;
-        assert.ok(deprecation !== undefined);
-        assert.strictEqual(deprecation.packageName, '@scope/example');
-        assert.strictEqual(deprecation.version, '0.0.1');
-        assert.ok(deprecation.message.includes('https://example.test/workaround'));
-    });
-
     test('logs the Trusted Publisher URL for the new package at the end of a successful run', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner(scenario.dependencies);
@@ -166,7 +153,7 @@ suite('bootstrap-runner', function () {
         );
     });
 
-    test('threads the one-time-password prompt through to publication and deprecation steps', async function () {
+    test('threads the one-time-password prompt through to the publication step', async function () {
         const scenario = createScenario();
         const promptForOneTimePassword = async (): Promise<string> => {
             return 'wired-otp';
@@ -179,11 +166,8 @@ suite('bootstrap-runner', function () {
         await runner.run(buildBootstrapInput());
 
         const [publication] = scenario.recordings.publicationInputs;
-        const [deprecation] = scenario.recordings.deprecationInputs;
         assert.ok(publication !== undefined);
-        assert.ok(deprecation !== undefined);
         assert.strictEqual(publication.promptForOneTimePassword, promptForOneTimePassword);
-        assert.strictEqual(deprecation.promptForOneTimePassword, promptForOneTimePassword);
     });
 
     test('falls back to "Authenticated to npm" when the web login does not report a username', async function () {
@@ -195,7 +179,7 @@ suite('bootstrap-runner', function () {
         assert.ok(scenario.recordings.logs.includes('Authenticated to npm'));
     });
 
-    test('propagates errors from the publication step without attempting to deprecate', async function () {
+    test('propagates errors from the publication step', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner({
             ...scenario.dependencies,
@@ -212,7 +196,6 @@ suite('bootstrap-runner', function () {
         } catch (error: unknown) {
             assert.ok(error instanceof Error);
             assert.strictEqual(error.message, 'npm registry returned 403');
-            assert.strictEqual(scenario.recordings.deprecationInputs.length, 0);
         }
     });
 });

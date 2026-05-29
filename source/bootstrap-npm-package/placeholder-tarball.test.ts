@@ -49,7 +49,8 @@ function buildInput(overrides: Partial<PlaceholderTarballInput> = {}): Placehold
             name: '@scope/example',
             version: '0.0.1',
             description: 'Placeholder claiming the package name',
-            license: 'MIT'
+            license: 'MIT',
+            deprecated: 'placeholder'
         },
         readmeContent: '# Placeholder\n',
         ...overrides
@@ -78,7 +79,8 @@ suite('placeholder-tarball', function () {
                     name: '@scope/example',
                     version: '0.0.1',
                     description: 'placeholder',
-                    license: 'MIT'
+                    license: 'MIT',
+                    deprecated: 'placeholder claim'
                 }
             })
         );
@@ -93,7 +95,8 @@ suite('placeholder-tarball', function () {
             name: '@scope/example',
             version: '0.0.1',
             description: 'placeholder',
-            license: 'MIT'
+            license: 'MIT',
+            deprecated: 'placeholder claim'
         });
     });
 

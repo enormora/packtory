@@ -6,6 +6,7 @@ type PlaceholderManifest = {
     readonly version: string;
     readonly description: string;
     readonly license: string;
+    readonly deprecated: string;
 };
 
 type PlaceholderTarballInput = {

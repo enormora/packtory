@@ -1,6 +1,5 @@
 import type { PackagePublication, PublicationManifest } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
-import type { VersionDeprecation } from './version-deprecation.ts';
 import type { WebLogin } from './web-login.ts';
 
 export type BootstrapInput = {
@@ -15,7 +14,6 @@ export type BootstrapRunnerDependencies = {
     readonly placeholderTarballBuilder: PlaceholderTarballBuilder;
     readonly webLogin: WebLogin;
     readonly packagePublication: PackagePublication;
-    readonly versionDeprecation: VersionDeprecation;
     readonly promptForOneTimePassword: () => Promise<string>;
     readonly log: (message: string) => void;
 };
@@ -34,12 +32,17 @@ function buildManifestDescription(packageName: string, workaroundUrl: string): s
     );
 }
 
+function buildDeprecationMessage(workaroundUrl: string): string {
+    return `Placeholder published as a workaround so a Trusted Publisher could be configured. See ${workaroundUrl}.`;
+}
+
 function buildManifest(packageName: string, workaroundUrl: string): PublicationManifest {
     return {
         name: packageName,
         version: placeholderVersion,
         description: buildManifestDescription(packageName, workaroundUrl),
-        license: placeholderLicense
+        license: placeholderLicense,
+        deprecated: buildDeprecationMessage(workaroundUrl)
     };
 }
 
@@ -48,60 +51,16 @@ function buildReadme(packageName: string, workaroundUrl: string): string {
         `# ${packageName}`,
         '',
         `This version is a placeholder published only to claim the npm name \`${packageName}\` so a Trusted Publisher`,
-        'can subsequently be configured for it. It contains no real package content and is deprecated immediately',
-        'after publication.',
+        'can subsequently be configured for it. It contains no real package content and is published already',
+        'deprecated.',
         '',
         `Workaround context: ${workaroundUrl}`,
         ''
     ].join('\n');
 }
 
-function buildDeprecationMessage(workaroundUrl: string): string {
-    return `Placeholder published as a workaround so a Trusted Publisher could be configured. See ${workaroundUrl}.`;
-}
-
 function buildTrustedPublisherUrl(packageName: string): string {
     return `https://www.npmjs.com/package/${packageName}/access`;
-}
-
-type PublishAndDeprecateInput = {
-    readonly input: BootstrapInput;
-    readonly manifest: PublicationManifest;
-    readonly tarball: Buffer;
-    readonly token: string;
-};
-
-type PublishAndDeprecateDependencies = Pick<
-    BootstrapRunnerDependencies,
-    'log' | 'packagePublication' | 'promptForOneTimePassword' | 'versionDeprecation'
->;
-
-async function runPublishAndDeprecate(
-    dependencies: PublishAndDeprecateDependencies,
-    payload: PublishAndDeprecateInput
-): Promise<void> {
-    const { packagePublication, versionDeprecation, promptForOneTimePassword, log } = dependencies;
-    const { input, manifest, tarball, token } = payload;
-
-    log(`Publishing ${input.packageName}@${manifest.version} with dist-tag "${input.distTag}"`);
-    await packagePublication.publish({
-        manifest,
-        tarball,
-        token,
-        registryUrl: input.registryUrl,
-        distTag: input.distTag,
-        promptForOneTimePassword
-    });
-
-    log(`Deprecating ${input.packageName}@${manifest.version}`);
-    await versionDeprecation.deprecate({
-        packageName: input.packageName,
-        version: manifest.version,
-        message: buildDeprecationMessage(input.workaroundUrl),
-        token,
-        registryUrl: input.registryUrl,
-        promptForOneTimePassword
-    });
 }
 
 function buildAuthenticatedMessage(username: string | undefined): string {
@@ -110,15 +69,12 @@ function buildAuthenticatedMessage(username: string | undefined): string {
         : `Authenticated to npm as ${username}`;
 }
 
+function buildPublishLogMessage(input: BootstrapInput, version: string): string {
+    return `Publishing ${input.packageName}@${version} (already deprecated) under dist-tag ${input.distTag}`;
+}
+
 export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDependencies>): BootstrapRunner {
-    const {
-        placeholderTarballBuilder,
-        webLogin,
-        packagePublication,
-        versionDeprecation,
-        promptForOneTimePassword,
-        log
-    } = dependencies;
+    const { placeholderTarballBuilder, webLogin, packagePublication, promptForOneTimePassword, log } = dependencies;
 
     return {
         async run(input) {
@@ -135,10 +91,15 @@ export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDepe
             });
             log(buildAuthenticatedMessage(session.username));
 
-            await runPublishAndDeprecate(
-                { packagePublication, versionDeprecation, promptForOneTimePassword, log },
-                { input, manifest, tarball, token: session.token }
-            );
+            log(buildPublishLogMessage(input, manifest.version));
+            await packagePublication.publish({
+                manifest,
+                tarball,
+                token: session.token,
+                registryUrl: input.registryUrl,
+                distTag: input.distTag,
+                promptForOneTimePassword
+            });
 
             log(`Done. Configure the Trusted Publisher at ${buildTrustedPublisherUrl(input.packageName)}`);
         }

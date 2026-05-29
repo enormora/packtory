@@ -5,7 +5,6 @@ import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
 import { binary, command, option, positional, run, string } from 'cmd-ts';
 import { publish as libnpmpublishPublish } from 'libnpmpublish';
-import npmFetch from 'npm-registry-fetch';
 import { loginWeb } from 'npm-profile';
 import open from 'open';
 import {
@@ -16,7 +15,6 @@ import {
 } from '../../bootstrap-npm-package/bootstrap-runner.ts';
 import { createPackagePublication } from '../../bootstrap-npm-package/package-publication.ts';
 import { createPlaceholderTarballBuilder } from '../../bootstrap-npm-package/placeholder-tarball.ts';
-import { createVersionDeprecation } from '../../bootstrap-npm-package/version-deprecation.ts';
 import { createWebLogin } from '../../bootstrap-npm-package/web-login.ts';
 
 const defaultRegistryUrl = 'https://registry.npmjs.org/';
@@ -49,7 +47,6 @@ function createDependencies(): BootstrapRunnerDependencies {
         placeholderTarballBuilder: createPlaceholderTarballBuilder({ createGzip: zlib.createGzip }),
         webLogin: createWebLogin({ loginWeb, openInBrowser }),
         packagePublication: createPackagePublication({ publish: libnpmpublishPublish }),
-        versionDeprecation: createVersionDeprecation({ fetchJson: npmFetch.json, registryFetch: npmFetch }),
         promptForOneTimePassword,
         log: (message) => {
             process.stdout.write(`${message}\n`);

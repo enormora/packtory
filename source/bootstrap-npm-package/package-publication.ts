@@ -3,6 +3,7 @@ export type PublicationManifest = {
     readonly version: string;
     readonly description: string;
     readonly license: string;
+    readonly deprecated: string;
 };
 
 type OneTimePasswordPrompt = () => Promise<string>;
