@@ -16,7 +16,6 @@ type OneTimePasswordPrompt = (webOtpUrls: WebOtpUrls | undefined) => Promise<str
 type PublicationInput = {
     readonly manifest: PublicationManifest;
     readonly tarball: Buffer;
-    readonly token: string;
     readonly registryUrl: string;
     readonly distTag: string;
     readonly promptForOneTimePassword: OneTimePasswordPrompt;
@@ -26,9 +25,8 @@ type LibnpmpublishOptions = {
     readonly defaultTag: string;
     readonly access: 'public';
     readonly registry: string;
-    readonly forceAuth: { readonly token: string };
     readonly authType: 'web';
-    readonly otp?: string;
+    readonly forceAuth?: { readonly token: string };
 };
 
 type LibnpmpublishFunction = (
@@ -74,7 +72,6 @@ export function createPackagePublication(dependencies: Readonly<PackagePublicati
                 defaultTag: input.distTag,
                 access: 'public',
                 registry: input.registryUrl,
-                forceAuth: { token: input.token },
                 authType: 'web'
             };
 
@@ -84,8 +81,8 @@ export function createPackagePublication(dependencies: Readonly<PackagePublicati
                 if (!isOneTimePasswordRequiredError(error)) {
                     throw error;
                 }
-                const otp = await input.promptForOneTimePassword(extractWebOtpUrls(error));
-                await publish(input.manifest, input.tarball, { ...baseOptions, otp });
+                const token = await input.promptForOneTimePassword(extractWebOtpUrls(error));
+                await publish(input.manifest, input.tarball, { ...baseOptions, forceAuth: { token } });
             }
         }
     };
