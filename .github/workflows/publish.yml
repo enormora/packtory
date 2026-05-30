@@ -61,6 +61,18 @@ jobs:
                   node-version: 26.x
             - name: Install dependencies from the lockfile
               run: npm clean-install --ignore-scripts
+            - name: Verify registry signatures for installed dependencies
+              run: npm audit signatures
+            - name: Verify `@packtory/cli` ships with a provenance attestation
+              run: |
+                  version=$(jq -r '.devDependencies["@packtory/cli"]' package.json)
+                  spec="@packtory/cli@${version}"
+                  attestation=$(npm view "${spec}" --json | jq -r '.dist.attestations // empty')
+                  if [ -z "${attestation}" ]; then
+                    echo "::error::${spec} is missing a provenance attestation; refusing to publish"
+                    exit 1
+                  fi
+                  echo "Verified ${spec} has a registered provenance attestation."
             - name: Compile TypeScript
               run: npx just compile
             - name: Publish packages
