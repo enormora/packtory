@@ -1,5 +1,3 @@
-import { Writable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import type zlib from 'node:zlib';
 import type tar from 'tar-stream';
 
@@ -53,16 +51,17 @@ function appendFile(pack: tar.Pack, name: string, content: string): void {
     );
 }
 
+function toBuffer(chunk: Buffer | string): Buffer {
+    return Buffer.from(chunk);
+}
+
 async function collectGzippedTarball(pack: tar.Pack, createGzip: typeof zlib.createGzip): Promise<Buffer> {
-    const gzip = createGzip();
+    const tarballStream = pack.pipe(createGzip());
     const chunks: Buffer[] = [];
-    const collector = new Writable({
-        write(chunk: Buffer, _encoding, callback) {
-            chunks.push(Buffer.from(chunk));
-            callback();
-        }
-    });
-    await pipeline(pack, gzip, collector);
+    for await (const chunk of tarballStream as AsyncIterable<unknown>) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- gzip stream yields buffers in this usage
+        chunks.push(toBuffer(chunk as Buffer | string));
+    }
     return normalizeGzipHeader(Buffer.concat(chunks));
 }
 
