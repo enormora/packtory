@@ -8,6 +8,9 @@ on:
         types: [opened, reopened, synchronize]
     merge_group:
 
+permissions:
+    contents: read
+
 jobs:
     build:
         runs-on: ubuntu-latest
