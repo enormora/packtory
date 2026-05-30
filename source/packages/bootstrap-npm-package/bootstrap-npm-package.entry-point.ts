@@ -3,7 +3,7 @@
 import os from 'node:os';
 import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
-import { binary, command, option, positional, run, string } from 'cmd-ts';
+import { binary, command, positional, run, string } from 'cmd-ts';
 import { publish as libnpmpublishPublish } from 'libnpmpublish';
 import { loginWeb, webAuthOpener } from 'npm-profile';
 import open from 'open';
@@ -27,9 +27,7 @@ declare module 'npm-profile' {
     ): Promise<{ readonly token: string }>;
 }
 
-const defaultRegistryUrl = 'https://registry.npmjs.org/';
-const defaultWorkaroundUrl = 'https://github.com/npm/cli/issues/8544';
-const defaultDistTag = 'bootstrap';
+const npmRegistryUrl = 'https://registry.npmjs.org/';
 
 async function openInBrowser(loginUrl: string): Promise<void> {
     await open(loginUrl, { wait: false });
@@ -54,7 +52,7 @@ async function promptForOneTimePasswordViaTerminal(): Promise<string> {
 
 async function promptForOneTimePasswordViaBrowser(urls: WebOtpUrls): Promise<string> {
     process.stdout.write('Opening browser to authorize the publish; complete the prompt in your browser…\n');
-    const result = await webAuthOpener(openInBrowser, urls.authUrl, urls.doneUrl, { registry: defaultRegistryUrl });
+    const result = await webAuthOpener(openInBrowser, urls.authUrl, urls.doneUrl, { registry: npmRegistryUrl });
     return result.token;
 }
 
@@ -90,38 +88,11 @@ const bootstrapCommand = command({
         'Publishes a deprecated placeholder version 0.0.1 of a brand-new npm package so ' +
         'a Trusted Publisher can subsequently be configured for the name.',
     args: {
-        packageName: positional({ type: string, displayName: 'package-name' }),
-        registryUrl: option({
-            long: 'registry-url',
-            type: string,
-            defaultValue: () => {
-                return defaultRegistryUrl;
-            }
-        }),
-        workaroundUrl: option({
-            long: 'workaround-url',
-            type: string,
-            defaultValue: () => {
-                return defaultWorkaroundUrl;
-            }
-        }),
-        distTag: option({
-            long: 'dist-tag',
-            type: string,
-            defaultValue: () => {
-                return defaultDistTag;
-            }
-        })
+        packageName: positional({ type: string, displayName: 'package-name' })
     },
     async handler(args) {
         const runner = createComposedRunner();
-        const input: BootstrapInput = {
-            packageName: args.packageName,
-            registryUrl: args.registryUrl,
-            workaroundUrl: args.workaroundUrl,
-            distTag: args.distTag,
-            hostname: os.hostname()
-        };
+        const input: BootstrapInput = { packageName: args.packageName, hostname: os.hostname() };
         await runner.run(input);
     }
 });

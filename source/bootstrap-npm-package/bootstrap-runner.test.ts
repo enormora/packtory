@@ -61,9 +61,6 @@ function createScenario(loginResult: WebLoginResult = { token: 'fresh-token', us
 function buildBootstrapInput(overrides: Partial<BootstrapInput> = {}): BootstrapInput {
     return {
         packageName: '@scope/example',
-        registryUrl: 'https://registry.npmjs.org/',
-        workaroundUrl: 'https://github.com/npm/cli/issues/8544',
-        distTag: 'bootstrap',
         hostname: 'workstation',
         ...overrides
     };
@@ -84,27 +81,28 @@ suite('bootstrap-runner', function () {
         assert.strictEqual(placeholderInput.manifest.license, 'MIT');
     });
 
-    test('opens the web login flow with the registry URL and the supplied hostname', async function () {
+    test('opens the web login flow with the hardcoded npmjs.org registry and the supplied hostname', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner(scenario.dependencies);
 
-        await runner.run(buildBootstrapInput({ registryUrl: 'https://registry.example/', hostname: 'desktop-1' }));
+        await runner.run(buildBootstrapInput({ hostname: 'desktop-1' }));
 
         assert.deepStrictEqual(scenario.recordings.loginInputs, [
-            { registryUrl: 'https://registry.example/', hostname: 'desktop-1' }
+            { registryUrl: 'https://registry.npmjs.org/', hostname: 'desktop-1' }
         ]);
     });
 
-    test('publishes the built tarball with the supplied dist-tag and the token from the web session', async function () {
+    test('publishes the built tarball with the hardcoded dist-tag, registry and the token from the web session', async function () {
         const scenario = createScenario({ token: 'session-token', username: 'alice' });
         const runner = createBootstrapRunner(scenario.dependencies);
 
-        await runner.run(buildBootstrapInput({ distTag: 'next-bootstrap' }));
+        await runner.run(buildBootstrapInput());
 
         assert.strictEqual(scenario.recordings.publicationInputs.length, 1);
         const [publication] = scenario.recordings.publicationInputs;
         assert.ok(publication !== undefined);
-        assert.strictEqual(publication.distTag, 'next-bootstrap');
+        assert.strictEqual(publication.distTag, 'bootstrap');
+        assert.strictEqual(publication.registryUrl, 'https://registry.npmjs.org/');
         assert.strictEqual(publication.token, 'session-token');
         assert.strictEqual(publication.manifest.name, '@scope/example');
         assert.deepStrictEqual(publication.tarball, Buffer.from('tarball-for-@scope/example'));
@@ -141,58 +139,39 @@ suite('bootstrap-runner', function () {
         assert.strictEqual(publication.promptForOneTimePassword, promptForOneTimePassword);
     });
 
-    test('falls back to "Authenticated to npm" when the web login does not report a username', async function () {
-        const scenario = createScenario({ token: 'tk', username: undefined });
-        const runner = createBootstrapRunner(scenario.dependencies);
-
-        await runner.run(buildBootstrapInput());
-
-        assert.ok(scenario.recordings.logs.includes('Authenticated to npm'));
-    });
-
-    test('produces the expected manifest description verbatim from the package name and workaround URL', async function () {
+    test('produces the expected manifest description verbatim from the package name and the hardcoded workaround URL', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner(scenario.dependencies);
 
-        await runner.run(
-            buildBootstrapInput({
-                packageName: '@scope/foo',
-                workaroundUrl: 'https://example.test/workaround'
-            })
-        );
+        await runner.run(buildBootstrapInput({ packageName: '@scope/foo' }));
 
         const [placeholderInput] = scenario.recordings.placeholderInputs;
         assert.ok(placeholderInput !== undefined);
         const expectedDescription =
             'Placeholder claiming the npm package name "@scope/foo" so a trusted publisher ' +
-            'can be configured. See https://example.test/workaround.';
+            'can be configured. See https://github.com/npm/cli/issues/8544.';
         assert.strictEqual(placeholderInput.manifest.description, expectedDescription);
     });
 
-    test('produces the expected deprecated message verbatim from the workaround URL', async function () {
+    test('produces the expected deprecated message verbatim using the hardcoded workaround URL', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner(scenario.dependencies);
 
-        await runner.run(buildBootstrapInput({ workaroundUrl: 'https://example.test/workaround' }));
+        await runner.run(buildBootstrapInput());
 
         const [placeholderInput] = scenario.recordings.placeholderInputs;
         assert.ok(placeholderInput !== undefined);
         const expectedDeprecation =
             'Placeholder published as a workaround so a Trusted Publisher could be configured. ' +
-            'See https://example.test/workaround.';
+            'See https://github.com/npm/cli/issues/8544.';
         assert.strictEqual(placeholderInput.manifest.deprecated, expectedDeprecation);
     });
 
-    test('produces the expected readme content verbatim from the package name and workaround URL', async function () {
+    test('produces the expected readme content verbatim from the package name and the hardcoded workaround URL', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner(scenario.dependencies);
 
-        await runner.run(
-            buildBootstrapInput({
-                packageName: '@scope/foo',
-                workaroundUrl: 'https://example.test/workaround'
-            })
-        );
+        await runner.run(buildBootstrapInput({ packageName: '@scope/foo' }));
 
         const expectedReadme = [
             '# @scope/foo',
@@ -201,7 +180,7 @@ suite('bootstrap-runner', function () {
             'can subsequently be configured for it. It contains no real package content and is published already',
             'deprecated.',
             '',
-            'Workaround context: https://example.test/workaround',
+            'Workaround context: https://github.com/npm/cli/issues/8544',
             ''
         ].join('\n');
         const [placeholderInput] = scenario.recordings.placeholderInputs;
@@ -218,15 +197,15 @@ suite('bootstrap-runner', function () {
         assert.ok(scenario.recordings.logs.includes('Building placeholder tarball for @scope/foo@0.0.1'));
     });
 
-    test('logs the publish step verbatim including package, version and dist-tag', async function () {
+    test('logs the publish step verbatim including the package name, version and the hardcoded dist-tag', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner(scenario.dependencies);
 
-        await runner.run(buildBootstrapInput({ packageName: '@scope/foo', distTag: 'next-bootstrap' }));
+        await runner.run(buildBootstrapInput({ packageName: '@scope/foo' }));
 
         assert.ok(
             scenario.recordings.logs.includes(
-                'Publishing @scope/foo@0.0.1 (already deprecated) under dist-tag next-bootstrap'
+                'Publishing @scope/foo@0.0.1 (already deprecated) under dist-tag bootstrap'
             )
         );
     });
@@ -247,6 +226,15 @@ suite('bootstrap-runner', function () {
         await runner.run(buildBootstrapInput());
 
         assert.ok(scenario.recordings.logs.includes('Authenticated to npm as alice'));
+    });
+
+    test('falls back to "Authenticated to npm" when the web login does not report a username', async function () {
+        const scenario = createScenario({ token: 'tk', username: undefined });
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput());
+
+        assert.ok(scenario.recordings.logs.includes('Authenticated to npm'));
     });
 
     test('falls back to "Authenticated to npm" when the web login reports an empty-string username', async function () {

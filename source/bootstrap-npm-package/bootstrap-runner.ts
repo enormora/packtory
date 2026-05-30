@@ -4,9 +4,6 @@ import type { WebLogin } from './web-login.ts';
 
 export type BootstrapInput = {
     readonly packageName: string;
-    readonly registryUrl: string;
-    readonly workaroundUrl: string;
-    readonly distTag: string;
     readonly hostname: string;
 };
 
@@ -22,31 +19,34 @@ export type BootstrapRunner = {
     readonly run: (input: BootstrapInput) => Promise<void>;
 };
 
+const registryUrl = 'https://registry.npmjs.org/';
+const workaroundUrl = 'https://github.com/npm/cli/issues/8544';
+const distTag = 'bootstrap';
 const placeholderVersion = '0.0.1';
 const placeholderLicense = 'MIT';
 
-function buildManifestDescription(packageName: string, workaroundUrl: string): string {
+function buildManifestDescription(packageName: string): string {
     return (
         `Placeholder claiming the npm package name "${packageName}" so a trusted publisher ` +
         `can be configured. See ${workaroundUrl}.`
     );
 }
 
-function buildDeprecationMessage(workaroundUrl: string): string {
+function buildDeprecationMessage(): string {
     return `Placeholder published as a workaround so a Trusted Publisher could be configured. See ${workaroundUrl}.`;
 }
 
-function buildManifest(packageName: string, workaroundUrl: string): PublicationManifest {
+function buildManifest(packageName: string): PublicationManifest {
     return {
         name: packageName,
         version: placeholderVersion,
-        description: buildManifestDescription(packageName, workaroundUrl),
+        description: buildManifestDescription(packageName),
         license: placeholderLicense,
-        deprecated: buildDeprecationMessage(workaroundUrl)
+        deprecated: buildDeprecationMessage()
     };
 }
 
-function buildReadme(packageName: string, workaroundUrl: string): string {
+function buildReadme(packageName: string): string {
     return [
         `# ${packageName}`,
         '',
@@ -69,8 +69,8 @@ function buildAuthenticatedMessage(username: string | undefined): string {
         : `Authenticated to npm as ${username}`;
 }
 
-function buildPublishLogMessage(input: BootstrapInput, version: string): string {
-    return `Publishing ${input.packageName}@${version} (already deprecated) under dist-tag ${input.distTag}`;
+function buildPublishLogMessage(packageName: string, version: string): string {
+    return `Publishing ${packageName}@${version} (already deprecated) under dist-tag ${distTag}`;
 }
 
 export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDependencies>): BootstrapRunner {
@@ -78,26 +78,23 @@ export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDepe
 
     return {
         async run(input) {
-            const manifest = buildManifest(input.packageName, input.workaroundUrl);
-            const readmeContent = buildReadme(input.packageName, input.workaroundUrl);
+            const manifest = buildManifest(input.packageName);
+            const readmeContent = buildReadme(input.packageName);
 
             log(`Building placeholder tarball for ${input.packageName}@${manifest.version}`);
             const tarball = await placeholderTarballBuilder.build({ manifest, readmeContent });
 
             log('Opening browser for npm web login');
-            const session = await webLogin.login({
-                registryUrl: input.registryUrl,
-                hostname: input.hostname
-            });
+            const session = await webLogin.login({ registryUrl, hostname: input.hostname });
             log(buildAuthenticatedMessage(session.username));
 
-            log(buildPublishLogMessage(input, manifest.version));
+            log(buildPublishLogMessage(input.packageName, manifest.version));
             await packagePublication.publish({
                 manifest,
                 tarball,
                 token: session.token,
-                registryUrl: input.registryUrl,
-                distTag: input.distTag,
+                registryUrl,
+                distTag,
                 promptForOneTimePassword
             });
 
