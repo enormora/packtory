@@ -1,5 +1,5 @@
 {
-    "extends": ["config:base"],
+    "extends": ["config:base", "helpers:pinGitHubActionDigests"],
     "ignorePaths": ["**/node_modules/**", "**/integration-tests/**"],
     "commitMessagePrefix": "⬆️ ",
     "labels": ["renovate", "upgrade"],

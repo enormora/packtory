@@ -4,26 +4,30 @@ name: Publish
 on:
     workflow_dispatch:
 
+permissions: {}
+
 concurrency:
     group: publish-main
 
 jobs:
     evaluate-gate:
         runs-on: ubuntu-latest
+        name: Evaluate GitHub release gate
         permissions:
-            contents: read
-            issues: read
-            pull-requests: read
+            contents: read # required for actions/checkout to read the workflow source
+            issues: read # required by the release gate to inspect open issues for activity
+            pull-requests: read # required by the release gate to inspect open PRs for activity
         outputs:
             should_publish: ${{ steps.release-gate.outputs.should_publish }}
             reason: ${{ steps.release-gate.outputs.reason }}
             main_head_sha: ${{ steps.release-gate.outputs.main_head_sha }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
                   ref: main
+                  persist-credentials: false
             - name: Use Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: 26.x
             - name: Install dependencies from the lockfile
@@ -42,21 +46,25 @@ jobs:
                   QUIET_PERIOD_MINUTES: '45'
             - name: Log gate decision when publish is skipped
               if: steps.release-gate.outputs.should_publish != 'true'
-              run: echo "Skipping publish because ${{ steps.release-gate.outputs.reason }}."
+              env:
+                  GATE_REASON: ${{ steps.release-gate.outputs.reason }}
+              run: echo "Skipping publish because ${GATE_REASON}."
 
     publish:
         needs: evaluate-gate
         if: needs.evaluate-gate.outputs.should_publish == 'true'
         runs-on: ubuntu-latest
+        name: Publish packages
         permissions:
-            contents: read
-            id-token: write
+            contents: read # required for actions/checkout to read the workflow source
+            id-token: write # required by npm trusted publishing to mint the OIDC token
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
                   ref: ${{ needs.evaluate-gate.outputs.main_head_sha }}
+                  persist-credentials: false
             - name: Use Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: 26.x
             - name: Install dependencies from the lockfile

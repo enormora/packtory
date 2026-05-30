@@ -10,15 +10,18 @@ on:
         - cron: '47 * * * *'
     workflow_dispatch:
 
+permissions: {}
+
 concurrency:
     group: publish-scheduler
 
 jobs:
     dispatch:
         runs-on: ubuntu-latest
+        name: Dispatch publish workflow
         permissions:
-            actions: write
-            contents: read
+            actions: write # required to dispatch the publish workflow via gh CLI
+            contents: read # required by gh CLI to look up workflow metadata
         steps:
             - name: Dispatch publish workflow
               env:
