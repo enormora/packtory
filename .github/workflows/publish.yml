@@ -2,26 +2,22 @@
 name: Publish
 
 on:
-    schedule:
-        # GitHub Actions throttles scheduled workflows hard at the top of the hour.
-        # Spreading entries across off-peak minutes gives the cron a better shot at
-        # firing as a fallback for the self-rechain below.
-        - cron: '17 * * * *'
-        - cron: '47 * * * *'
     workflow_dispatch:
 
 concurrency:
     group: publish-main
 
 jobs:
-    publish:
+    evaluate-gate:
         runs-on: ubuntu-latest
         permissions:
-            actions: write
             contents: read
-            id-token: write
             issues: read
             pull-requests: read
+        outputs:
+            should_publish: ${{ steps.release-gate.outputs.should_publish }}
+            reason: ${{ steps.release-gate.outputs.reason }}
+            main_head_sha: ${{ steps.release-gate.outputs.main_head_sha }}
         steps:
             - uses: actions/checkout@v6
               with:
@@ -30,13 +26,13 @@ jobs:
               uses: actions/setup-node@v6
               with:
                   node-version: 26.x
-            - name: Install dependencies for release gate
-              run: npm clean-install
-            - name: Compile TypeScript for release gate
+            - name: Install dependencies from the lockfile
+              run: npm clean-install --ignore-scripts
+            - name: Compile TypeScript
               run: npx just compile
             - name: Evaluate GitHub release gate
               id: release-gate
-              run: node --experimental-strip-types --enable-source-maps ./source/packages/github-release-gate/github-release-gate.entry-point.ts
+              run: npx github-release-gate
               env:
                   CI_WORKFLOW_FILE: ci.yml
                   DEFAULT_BRANCH: main
@@ -44,26 +40,28 @@ jobs:
                   GITHUB_TOKEN: ${{ github.token }}
                   MAX_LATENCY_HOURS: '24'
                   QUIET_PERIOD_MINUTES: '45'
-            - name: Stop when release gate is closed
+            - name: Log gate decision when publish is skipped
               if: steps.release-gate.outputs.should_publish != 'true'
               run: echo "Skipping publish because ${{ steps.release-gate.outputs.reason }}."
+
+    publish:
+        needs: evaluate-gate
+        if: needs.evaluate-gate.outputs.should_publish == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
+        steps:
             - uses: actions/checkout@v6
-              if: steps.release-gate.outputs.should_publish == 'true'
               with:
-                  ref: ${{ steps.release-gate.outputs.main_head_sha }}
-            - name: Install dependencies
-              if: steps.release-gate.outputs.should_publish == 'true'
-              run: npm clean-install
+                  ref: ${{ needs.evaluate-gate.outputs.main_head_sha }}
+            - name: Use Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 26.x
+            - name: Install dependencies from the lockfile
+              run: npm clean-install --ignore-scripts
             - name: Compile TypeScript
-              if: steps.release-gate.outputs.should_publish == 'true'
               run: npx just compile
             - name: Publish packages
-              if: steps.release-gate.outputs.should_publish == 'true'
               run: npx packtory publish --no-dry-run
-            - name: Schedule next tick
-              if: always()
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: |
-                  sleep 1800
-                  gh workflow run publish.yml --ref main
