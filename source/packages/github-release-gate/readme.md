@@ -82,12 +82,22 @@ This means:
 
 When run inside GitHub Actions, the tool writes these values to `$GITHUB_OUTPUT`.
 
+## Installation
+
+```bash
+npm install -D @packtory/github-release-gate
+```
+
+The package ships a `github-release-gate` executable that writes its decision to `$GITHUB_OUTPUT` when invoked from a GitHub Actions step.
+
 ## Usage in a Workflow
 
 ```yaml
+- name: Install release gate
+  run: npm install -D --ignore-scripts @packtory/github-release-gate
 - name: Evaluate GitHub release gate
   id: release-gate
-  run: node --experimental-strip-types --enable-source-maps ./source/packages/github-release-gate/github-release-gate.entry-point.ts
+  run: npx github-release-gate
   env:
       CI_WORKFLOW_FILE: ci.yml
       DEFAULT_BRANCH: main

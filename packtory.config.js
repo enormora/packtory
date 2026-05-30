@@ -10,6 +10,7 @@ const sourcesFolder = path.join(projectFolder, 'target/build/source');
 const sharedLicensePath = path.join(projectFolder, 'LICENSE');
 const packtoryReadmePath = path.join(projectFolder, 'source/packages/packtory/readme.md');
 const cliReadmePath = path.join(projectFolder, 'source/packages/command-line-interface/readme.md');
+const githubReleaseGateReadmePath = path.join(projectFolder, 'source/packages/github-release-gate/readme.md');
 
 const noSideEffectsAllowList = [
     'packages/packtory/packtory.entry-point.js',
@@ -31,7 +32,8 @@ const noSideEffectsAllowList = [
     'packages/command-line-interface/command-line-interface.entry-point.js',
     'packages/command-line-interface/spinner-boot.entry-point.js',
     'command-line-interface/preview-io/preview-io.js',
-    'packages/command-line-interface/spinner-worker.entry-point.js'
+    'packages/command-line-interface/spinner-worker.entry-point.js',
+    'packages/github-release-gate/github-release-gate.entry-point.js'
 ].map((filePath) => {
     return path.join(sourcesFolder, filePath);
 });
@@ -107,6 +109,30 @@ export async function buildConfig() {
                         targetFilePath: 'readme.md'
                     }
                 ]
+            },
+            {
+                name: '@packtory/github-release-gate',
+                exportPackageJson: true,
+                roots: {
+                    main: {
+                        js: 'packages/github-release-gate/github-release-gate.entry-point.js'
+                    }
+                },
+                packageInterface: {
+                    bins: [{ root: 'main', name: 'github-release-gate' }]
+                },
+                additionalPackageJsonAttributes: {
+                    description:
+                        'GitHub Actions release gate that batches packtory publishes by waiting ' +
+                        'for repository activity to settle.'
+                },
+                additionalFiles: [
+                    {
+                        sourceFilePath: githubReleaseGateReadmePath,
+                        targetFilePath: 'readme.md'
+                    }
+                ],
+                bundleDependencies: ['packtory']
             },
             {
                 name: '@packtory/cli',
