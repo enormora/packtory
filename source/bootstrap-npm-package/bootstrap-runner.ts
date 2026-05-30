@@ -1,4 +1,3 @@
-import type { NpmrcTokenLookup } from './npmrc-token-lookup.ts';
 import type { PackagePublication, PublicationManifest, WebOtpUrls } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
 import type { WebLogin } from './web-login.ts';
@@ -13,7 +12,6 @@ export type BootstrapInput = {
 
 export type BootstrapRunnerDependencies = {
     readonly placeholderTarballBuilder: PlaceholderTarballBuilder;
-    readonly npmrcTokenLookup: NpmrcTokenLookup;
     readonly webLogin: WebLogin;
     readonly packagePublication: PackagePublication;
     readonly promptForOneTimePassword: (webOtpUrls: WebOtpUrls | undefined) => Promise<string>;
@@ -75,30 +73,8 @@ function buildPublishLogMessage(input: BootstrapInput, version: string): string 
     return `Publishing ${input.packageName}@${version} (already deprecated) under dist-tag ${input.distTag}`;
 }
 
-type AcquireTokenDependencies = Pick<BootstrapRunnerDependencies, 'log' | 'npmrcTokenLookup' | 'webLogin'>;
-
-async function acquireRegistryToken(
-    dependencies: AcquireTokenDependencies,
-    input: Pick<BootstrapInput, 'hostname' | 'registryUrl'>
-): Promise<string> {
-    const cached = await dependencies.npmrcTokenLookup.findToken(input.registryUrl);
-    if (cached !== undefined) {
-        dependencies.log(`Reusing existing npm session from \`~/.npmrc\` for ${input.registryUrl}`);
-        return cached;
-    }
-
-    dependencies.log('No npm session cached in `~/.npmrc`; opening browser for npm web login');
-    const session = await dependencies.webLogin.login({
-        registryUrl: input.registryUrl,
-        hostname: input.hostname
-    });
-    dependencies.log(buildAuthenticatedMessage(session.username));
-    return session.token;
-}
-
 export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDependencies>): BootstrapRunner {
-    const { placeholderTarballBuilder, npmrcTokenLookup, webLogin, packagePublication, promptForOneTimePassword, log } =
-        dependencies;
+    const { placeholderTarballBuilder, webLogin, packagePublication, promptForOneTimePassword, log } = dependencies;
 
     return {
         async run(input) {
@@ -108,13 +84,18 @@ export function createBootstrapRunner(dependencies: Readonly<BootstrapRunnerDepe
             log(`Building placeholder tarball for ${input.packageName}@${manifest.version}`);
             const tarball = await placeholderTarballBuilder.build({ manifest, readmeContent });
 
-            const token = await acquireRegistryToken({ log, npmrcTokenLookup, webLogin }, input);
+            log('Opening browser for npm web login');
+            const session = await webLogin.login({
+                registryUrl: input.registryUrl,
+                hostname: input.hostname
+            });
+            log(buildAuthenticatedMessage(session.username));
 
             log(buildPublishLogMessage(input, manifest.version));
             await packagePublication.publish({
                 manifest,
                 tarball,
-                token,
+                token: session.token,
                 registryUrl: input.registryUrl,
                 distTag: input.distTag,
                 promptForOneTimePassword

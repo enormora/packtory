@@ -1,5 +1,7 @@
+import { Writable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type zlib from 'node:zlib';
-import tar from 'tar-stream';
+import type tar from 'tar-stream';
 
 type PlaceholderManifest = {
     readonly name: string;
@@ -16,6 +18,7 @@ type PlaceholderTarballInput = {
 
 export type PlaceholderTarballBuilderDependencies = {
     readonly createGzip: typeof zlib.createGzip;
+    readonly createPack: typeof tar.pack;
 };
 
 export type PlaceholderTarballBuilder = {
@@ -51,29 +54,26 @@ function appendFile(pack: tar.Pack, name: string, content: string): void {
 }
 
 async function collectGzippedTarball(pack: tar.Pack, createGzip: typeof zlib.createGzip): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-        const gzip = createGzip();
-        const chunks: Buffer[] = [];
-        gzip.on('data', (chunk: Buffer) => {
+    const gzip = createGzip();
+    const chunks: Buffer[] = [];
+    const collector = new Writable({
+        write(chunk: Buffer, _encoding, callback) {
             chunks.push(Buffer.from(chunk));
-        });
-        gzip.on('end', () => {
-            resolve(normalizeGzipHeader(Buffer.concat(chunks)));
-        });
-        gzip.on('error', reject);
-        pack.on('error', reject);
-        pack.pipe(gzip);
+            callback();
+        }
     });
+    await pipeline(pack, gzip, collector);
+    return normalizeGzipHeader(Buffer.concat(chunks));
 }
 
 export function createPlaceholderTarballBuilder(
     dependencies: Readonly<PlaceholderTarballBuilderDependencies>
 ): PlaceholderTarballBuilder {
-    const { createGzip } = dependencies;
+    const { createGzip, createPack } = dependencies;
 
     return {
         async build(input) {
-            const pack = tar.pack();
+            const pack = createPack();
             const result = collectGzippedTarball(pack, createGzip);
             appendFile(pack, 'package/package.json', serializeManifest(input.manifest));
             appendFile(pack, 'package/readme.md', input.readmeContent);

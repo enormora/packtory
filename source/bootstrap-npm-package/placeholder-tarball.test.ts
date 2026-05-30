@@ -1,6 +1,6 @@
 import assert from 'node:assert';
-import zlib from 'node:zlib';
 import { Readable } from 'node:stream';
+import zlib from 'node:zlib';
 import { suite, test } from 'mocha';
 import tar from 'tar-stream';
 import { createPlaceholderTarballBuilder, type PlaceholderTarballBuilder } from './placeholder-tarball.ts';
@@ -59,7 +59,7 @@ function buildInput(overrides: Partial<PlaceholderTarballInput> = {}): Placehold
 
 suite('placeholder-tarball', function () {
     test('emits a gzipped tarball with the package.json and readme.md under the package/ prefix', async function () {
-        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip });
+        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip, createPack: tar.pack });
 
         const tarball = await builder.build(buildInput());
         const entries = await extractTarball(tarball);
@@ -71,7 +71,7 @@ suite('placeholder-tarball', function () {
     });
 
     test('serializes the manifest as JSON with a trailing newline', async function () {
-        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip });
+        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip, createPack: tar.pack });
 
         const tarball = await builder.build(
             buildInput({
@@ -101,7 +101,7 @@ suite('placeholder-tarball', function () {
     });
 
     test('stores the readme content verbatim', async function () {
-        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip });
+        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip, createPack: tar.pack });
         const readmeContent = '# Title\n\nBody text.\n';
 
         const tarball = await builder.build(buildInput({ readmeContent }));
@@ -115,7 +115,7 @@ suite('placeholder-tarball', function () {
     });
 
     test('normalizes the gzip header operating-system byte to "unknown" for reproducible output', async function () {
-        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip });
+        const builder = createPlaceholderTarballBuilder({ createGzip: zlib.createGzip, createPack: tar.pack });
 
         const tarball = await builder.build(buildInput());
         const gzipOperatingSystemByteIndex = 9;

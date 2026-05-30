@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { type BootstrapInput, type BootstrapRunnerDependencies, createBootstrapRunner } from './bootstrap-runner.ts';
-import type { NpmrcTokenLookup } from './npmrc-token-lookup.ts';
 import type { PackagePublication } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
 import type { WebLogin } from './web-login.ts';
@@ -18,17 +17,10 @@ type Recordings = {
     readonly logs: string[];
 };
 
-type ScenarioOverrides = {
-    readonly loginResult?: WebLoginResult;
-    readonly cachedNpmrcToken?: string;
-};
-
-function createScenario(overrides: ScenarioOverrides = {}): {
+function createScenario(loginResult: WebLoginResult = { token: 'fresh-token', username: 'alice' }): {
     readonly recordings: Recordings;
     readonly dependencies: BootstrapRunnerDependencies;
 } {
-    const loginResult = overrides.loginResult ?? { token: 'fresh-token', username: 'alice' };
-    const { cachedNpmrcToken } = overrides;
     const recordings: Recordings = {
         placeholderInputs: [],
         loginInputs: [],
@@ -40,11 +32,6 @@ function createScenario(overrides: ScenarioOverrides = {}): {
         async build(input) {
             recordings.placeholderInputs.push(input);
             return Buffer.from(`tarball-for-${input.manifest.name}`);
-        }
-    };
-    const npmrcTokenLookup: NpmrcTokenLookup = {
-        async findToken() {
-            return cachedNpmrcToken;
         }
     };
     const webLogin: WebLogin = {
@@ -67,14 +54,7 @@ function createScenario(overrides: ScenarioOverrides = {}): {
 
     return {
         recordings,
-        dependencies: {
-            placeholderTarballBuilder,
-            npmrcTokenLookup,
-            webLogin,
-            packagePublication,
-            promptForOneTimePassword,
-            log
-        }
+        dependencies: { placeholderTarballBuilder, webLogin, packagePublication, promptForOneTimePassword, log }
     };
 }
 
@@ -104,29 +84,6 @@ suite('bootstrap-runner', function () {
         assert.strictEqual(placeholderInput.manifest.license, 'MIT');
     });
 
-    test('includes a deprecated message in the placeholder manifest referencing the workaround URL', async function () {
-        const scenario = createScenario();
-        const runner = createBootstrapRunner(scenario.dependencies);
-
-        await runner.run(buildBootstrapInput({ workaroundUrl: 'https://example.test/workaround' }));
-
-        const [placeholderInput] = scenario.recordings.placeholderInputs;
-        assert.ok(placeholderInput !== undefined);
-        assert.ok(placeholderInput.manifest.deprecated.includes('https://example.test/workaround'));
-    });
-
-    test('mentions the workaround URL in the placeholder description and readme', async function () {
-        const scenario = createScenario();
-        const runner = createBootstrapRunner(scenario.dependencies);
-
-        await runner.run(buildBootstrapInput({ workaroundUrl: 'https://example.test/workaround' }));
-
-        const [placeholderInput] = scenario.recordings.placeholderInputs;
-        assert.ok(placeholderInput !== undefined);
-        assert.ok(placeholderInput.manifest.description.includes('https://example.test/workaround'));
-        assert.ok(placeholderInput.readmeContent.includes('https://example.test/workaround'));
-    });
-
     test('opens the web login flow with the registry URL and the supplied hostname', async function () {
         const scenario = createScenario();
         const runner = createBootstrapRunner(scenario.dependencies);
@@ -139,7 +96,7 @@ suite('bootstrap-runner', function () {
     });
 
     test('publishes the built tarball with the supplied dist-tag and the token from the web session', async function () {
-        const scenario = createScenario({ loginResult: { token: 'session-token', username: 'alice' } });
+        const scenario = createScenario({ token: 'session-token', username: 'alice' });
         const runner = createBootstrapRunner(scenario.dependencies);
 
         await runner.run(buildBootstrapInput({ distTag: 'next-bootstrap' }));
@@ -167,30 +124,6 @@ suite('bootstrap-runner', function () {
         );
     });
 
-    test('reuses an existing token from `~/.npmrc` and does not open the browser login flow', async function () {
-        const scenario = createScenario({ cachedNpmrcToken: 'cached-token' });
-        const runner = createBootstrapRunner(scenario.dependencies);
-
-        await runner.run(buildBootstrapInput());
-
-        assert.strictEqual(scenario.recordings.loginInputs.length, 0);
-        const [publication] = scenario.recordings.publicationInputs;
-        assert.ok(publication !== undefined);
-        assert.strictEqual(publication.token, 'cached-token');
-    });
-
-    test('falls back to web login when no token is cached in `~/.npmrc`', async function () {
-        const scenario = createScenario({ loginResult: { token: 'fresh-token', username: 'alice' } });
-        const runner = createBootstrapRunner(scenario.dependencies);
-
-        await runner.run(buildBootstrapInput());
-
-        assert.strictEqual(scenario.recordings.loginInputs.length, 1);
-        const [publication] = scenario.recordings.publicationInputs;
-        assert.ok(publication !== undefined);
-        assert.strictEqual(publication.token, 'fresh-token');
-    });
-
     test('threads the one-time-password prompt through to the publication step', async function () {
         const scenario = createScenario();
         const promptForOneTimePassword: BootstrapRunnerDependencies['promptForOneTimePassword'] = async () => {
@@ -209,12 +142,126 @@ suite('bootstrap-runner', function () {
     });
 
     test('falls back to "Authenticated to npm" when the web login does not report a username', async function () {
-        const scenario = createScenario({ loginResult: { token: 'tk', username: undefined } });
+        const scenario = createScenario({ token: 'tk', username: undefined });
         const runner = createBootstrapRunner(scenario.dependencies);
 
         await runner.run(buildBootstrapInput());
 
         assert.ok(scenario.recordings.logs.includes('Authenticated to npm'));
+    });
+
+    test('produces the expected manifest description verbatim from the package name and workaround URL', async function () {
+        const scenario = createScenario();
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(
+            buildBootstrapInput({
+                packageName: '@scope/foo',
+                workaroundUrl: 'https://example.test/workaround'
+            })
+        );
+
+        const [placeholderInput] = scenario.recordings.placeholderInputs;
+        assert.ok(placeholderInput !== undefined);
+        const expectedDescription =
+            'Placeholder claiming the npm package name "@scope/foo" so a trusted publisher ' +
+            'can be configured. See https://example.test/workaround.';
+        assert.strictEqual(placeholderInput.manifest.description, expectedDescription);
+    });
+
+    test('produces the expected deprecated message verbatim from the workaround URL', async function () {
+        const scenario = createScenario();
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput({ workaroundUrl: 'https://example.test/workaround' }));
+
+        const [placeholderInput] = scenario.recordings.placeholderInputs;
+        assert.ok(placeholderInput !== undefined);
+        const expectedDeprecation =
+            'Placeholder published as a workaround so a Trusted Publisher could be configured. ' +
+            'See https://example.test/workaround.';
+        assert.strictEqual(placeholderInput.manifest.deprecated, expectedDeprecation);
+    });
+
+    test('produces the expected readme content verbatim from the package name and workaround URL', async function () {
+        const scenario = createScenario();
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(
+            buildBootstrapInput({
+                packageName: '@scope/foo',
+                workaroundUrl: 'https://example.test/workaround'
+            })
+        );
+
+        const expectedReadme = [
+            '# @scope/foo',
+            '',
+            'This version is a placeholder published only to claim the npm name `@scope/foo` so a Trusted Publisher',
+            'can subsequently be configured for it. It contains no real package content and is published already',
+            'deprecated.',
+            '',
+            'Workaround context: https://example.test/workaround',
+            ''
+        ].join('\n');
+        const [placeholderInput] = scenario.recordings.placeholderInputs;
+        assert.ok(placeholderInput !== undefined);
+        assert.strictEqual(placeholderInput.readmeContent, expectedReadme);
+    });
+
+    test('logs the placeholder-tarball build step verbatim', async function () {
+        const scenario = createScenario();
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput({ packageName: '@scope/foo' }));
+
+        assert.ok(scenario.recordings.logs.includes('Building placeholder tarball for @scope/foo@0.0.1'));
+    });
+
+    test('logs the publish step verbatim including package, version and dist-tag', async function () {
+        const scenario = createScenario();
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput({ packageName: '@scope/foo', distTag: 'next-bootstrap' }));
+
+        assert.ok(
+            scenario.recordings.logs.includes(
+                'Publishing @scope/foo@0.0.1 (already deprecated) under dist-tag next-bootstrap'
+            )
+        );
+    });
+
+    test('logs the "Opening browser for npm web login" line verbatim before invoking the web login', async function () {
+        const scenario = createScenario();
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput());
+
+        assert.ok(scenario.recordings.logs.includes('Opening browser for npm web login'));
+    });
+
+    test('builds the authenticated-as message with the username when one is returned by web login', async function () {
+        const scenario = createScenario({ token: 'tk', username: 'alice' });
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput());
+
+        assert.ok(scenario.recordings.logs.includes('Authenticated to npm as alice'));
+    });
+
+    test('falls back to "Authenticated to npm" when the web login reports an empty-string username', async function () {
+        const scenario = createScenario({ token: 'tk', username: '' });
+        const runner = createBootstrapRunner(scenario.dependencies);
+
+        await runner.run(buildBootstrapInput());
+
+        assert.ok(scenario.recordings.logs.includes('Authenticated to npm'));
+        assert.strictEqual(
+            scenario.recordings.logs.some((line) => {
+                return line.startsWith('Authenticated to npm as');
+            }),
+            false
+        );
     });
 
     test('propagates errors from the publication step', async function () {

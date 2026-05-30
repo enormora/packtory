@@ -51,21 +51,37 @@ function createRecordingPublish(): {
     return { publish, calls };
 }
 
+type LibnpmpublishOptions = Parameters<LibnpmpublishFunction>[2];
+
 function createPublishWithSingleOtpChallenge(
     challenge: Readonly<Record<string, unknown>>,
-    onAccept: () => void
+    onAccept: (retryOptions: LibnpmpublishOptions) => void
 ): LibnpmpublishFunction {
     let firstCall = true;
     return async (_manifest, _tarball, options) => {
         if (firstCall) {
             firstCall = false;
             if (options.otp !== undefined) {
-                onAccept();
+                onAccept(options);
                 return undefined;
             }
             throw createOtpRequiredError(challenge);
         }
-        onAccept();
+        onAccept(options);
+        return undefined;
+    };
+}
+
+function createPublishWithBodylessOtpChallenge(): LibnpmpublishFunction {
+    let firstCall = true;
+    return async (_manifest, _tarball, options) => {
+        if (firstCall) {
+            firstCall = false;
+            if (options.otp !== undefined) {
+                return undefined;
+            }
+            throw Object.assign(new Error('OTP required'), { code: 'EOTP' as const });
+        }
         return undefined;
     };
 }
@@ -129,11 +145,11 @@ suite('package-publication', function () {
     });
 
     test('forwards the web-OTP urls from an EOTP body to the prompt and retries with the returned OTP', async function () {
-        let success = false;
+        const retries: LibnpmpublishOptions[] = [];
         const publish = createPublishWithSingleOtpChallenge(
             { authUrl: 'https://npmjs.com/auth/x', doneUrl: 'https://npmjs.com/done/x' },
-            () => {
-                success = true;
+            (options) => {
+                retries.push(options);
             }
         );
         const recordedUrls: (WebOtpUrls | undefined)[] = [];
@@ -145,48 +161,60 @@ suite('package-publication', function () {
 
         await publication.publish(buildInput({ promptForOneTimePassword }));
 
-        assert.strictEqual(success, true);
+        assert.strictEqual(retries.length, 1);
         assert.deepStrictEqual(recordedUrls, [
             { authUrl: 'https://npmjs.com/auth/x', doneUrl: 'https://npmjs.com/done/x' }
         ]);
+        const [retryOptions] = retries;
+        assert.ok(retryOptions !== undefined);
+        assert.strictEqual(retryOptions.otp, 'web-otp-token');
+        assert.strictEqual(retryOptions.defaultTag, 'bootstrap');
+        assert.strictEqual(retryOptions.access, 'public');
+        assert.strictEqual(retryOptions.registry, 'https://registry.npmjs.org/');
+        assert.strictEqual(retryOptions.forceAuth.token, 'bearer');
+        assert.strictEqual(retryOptions.authType, 'web');
     });
 
-    test('falls back to the prompt without urls when an EOTP body does not include web-OTP urls', async function () {
-        const publish = createPublishWithSingleOtpChallenge({ error: 'OTP required' }, () => {
+    async function runChallengeAndRecordPromptUrls(
+        challenge: Readonly<Record<string, unknown>> | undefined
+    ): Promise<readonly (WebOtpUrls | undefined)[]> {
+        const noop = (): void => {
             /* ignored */
-        });
+        };
+        const publish: LibnpmpublishFunction =
+            challenge === undefined
+                ? createPublishWithBodylessOtpChallenge()
+                : createPublishWithSingleOtpChallenge(challenge, noop);
         const recordedUrls: (WebOtpUrls | undefined)[] = [];
         const promptForOneTimePassword: OneTimePasswordPrompt = async (urls) => {
             recordedUrls.push(urls);
-            return '123456';
+            return 'classic-otp';
         };
         const publication = createPackagePublication({ publish });
-
         await publication.publish(buildInput({ promptForOneTimePassword }));
+        return recordedUrls;
+    }
+
+    test('falls back to the prompt without urls when an EOTP body does not include web-OTP urls', async function () {
+        const recordedUrls = await runChallengeAndRecordPromptUrls({ error: 'OTP required' });
+
+        assert.deepStrictEqual(recordedUrls, [undefined]);
+    });
+
+    test('falls back to the prompt without urls when only `authUrl` is present in the EOTP body', async function () {
+        const recordedUrls = await runChallengeAndRecordPromptUrls({ authUrl: 'https://npmjs.com/auth/x' });
+
+        assert.deepStrictEqual(recordedUrls, [undefined]);
+    });
+
+    test('falls back to the prompt without urls when only `doneUrl` is present in the EOTP body', async function () {
+        const recordedUrls = await runChallengeAndRecordPromptUrls({ doneUrl: 'https://npmjs.com/done/x' });
 
         assert.deepStrictEqual(recordedUrls, [undefined]);
     });
 
     test('falls back to the prompt without urls when the EOTP error has no body', async function () {
-        let firstCall = true;
-        const publish: LibnpmpublishFunction = async (_manifest, _tarball, options) => {
-            if (firstCall) {
-                firstCall = false;
-                if (options.otp !== undefined) {
-                    return undefined;
-                }
-                throw Object.assign(new Error('OTP required'), { code: 'EOTP' as const });
-            }
-            return undefined;
-        };
-        const recordedUrls: (WebOtpUrls | undefined)[] = [];
-        const promptForOneTimePassword: OneTimePasswordPrompt = async (urls) => {
-            recordedUrls.push(urls);
-            return '123456';
-        };
-        const publication = createPackagePublication({ publish });
-
-        await publication.publish(buildInput({ promptForOneTimePassword }));
+        const recordedUrls = await runChallengeAndRecordPromptUrls(undefined);
 
         assert.deepStrictEqual(recordedUrls, [undefined]);
     });
