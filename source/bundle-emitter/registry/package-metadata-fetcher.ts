@@ -10,6 +10,7 @@ import {
     type AbbreviatedPackageResponse,
     type FullPackageResponse
 } from './registry-response-schemas.ts';
+import { assertTarballHostMatchesRegistry } from './validate-tarball-host.ts';
 
 const notFoundStatusCode = 404;
 const forbiddenStatusCode = 403;
@@ -230,6 +231,7 @@ export async function fetchPackageTarball(
     tarballUrl: string,
     registrySettings: RegistrySettings
 ): Promise<Buffer> {
+    assertTarballHostMatchesRegistry(tarballUrl, registrySettings);
     const auth = resolveMetadataAuthOptions(registrySettings);
     const response = await retryWithFallbackAuth(registrySettings, auth, async (options) => {
         return npmFetch(tarballUrl, options);

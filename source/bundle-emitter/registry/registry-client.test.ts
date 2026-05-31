@@ -775,6 +775,7 @@ suite('registry-client', function () {
         const registryClient = registryClientFactory({ npmFetch });
 
         const result = await registryClient.fetchTarball('https://registry.example.test/pkg.tgz', {
+            registryUrl: 'https://registry.example.test/',
             auth: {
                 publish: { type: 'basic', username: 'reader', password: 'reader-secret' },
                 metadata: 'auto'
@@ -787,7 +788,7 @@ suite('registry-client', function () {
             'https://registry.example.test/pkg.tgz',
             {
                 alwaysAuth: true,
-                registry: undefined,
+                registry: 'https://registry.example.test/',
                 forceAuth: {
                     _auth: Buffer.from('reader:reader-secret', 'utf8').toString('base64')
                 }
