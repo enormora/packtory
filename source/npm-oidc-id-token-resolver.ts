@@ -19,8 +19,36 @@ function defaultOidcIdTokenEnvVariableName(): string {
     return 'NPM_ID_TOKEN';
 }
 
+const trustedOidcRequestSuffix = '.actions.githubusercontent.com';
+
+function parseOidcRequestUrl(value: string): URL {
+    try {
+        return new URL(value);
+    } catch {
+        throw new Error(`ACTIONS_ID_TOKEN_REQUEST_URL is not a valid URL: "${value}"`);
+    }
+}
+
+function buildOidcHostnameMismatchMessage(actualHostname: string): string {
+    return (
+        `ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with "${trustedOidcRequestSuffix}", ` +
+        `got "${actualHostname}". A non-GitHub host would receive the GitHub-issued OIDC bearer.`
+    );
+}
+
+function assertTrustedOidcRequestUrl(value: string): URL {
+    const parsed = parseOidcRequestUrl(value);
+    if (parsed.protocol !== 'https:') {
+        throw new Error(`ACTIONS_ID_TOKEN_REQUEST_URL must use https, got: "${value}"`);
+    }
+    if (!parsed.hostname.endsWith(trustedOidcRequestSuffix)) {
+        throw new Error(buildOidcHostnameMismatchMessage(parsed.hostname));
+    }
+    return parsed;
+}
+
 function getGitHubActionsRequestConfig(getEnvironmentVariable: (variableName: string) => string | undefined): {
-    readonly requestUrl: string;
+    readonly requestUrl: URL;
     readonly requestToken: string;
 } {
     const requestUrl = getEnvironmentVariable('ACTIONS_ID_TOKEN_REQUEST_URL');
@@ -30,7 +58,7 @@ function getGitHubActionsRequestConfig(getEnvironmentVariable: (variableName: st
         throw new Error('GitHub Actions OIDC requires ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN');
     }
 
-    return { requestUrl, requestToken };
+    return { requestUrl: assertTrustedOidcRequestUrl(requestUrl), requestToken };
 }
 
 function parseGitHubActionsIdTokenResponse(body: unknown): string {
@@ -62,9 +90,8 @@ export function createNpmOidcIdTokenResolver(
 
     async function fetchGitHubActionsIdToken(): Promise<string> {
         const { requestUrl, requestToken } = getGitHubActionsRequestConfig(getEnvironmentVariable);
-        const url = new URL(requestUrl);
-        url.searchParams.set('audience', githubActionsAudience());
-        const response = await fetchImplementation(url, {
+        requestUrl.searchParams.set('audience', githubActionsAudience());
+        const response = await fetchImplementation(requestUrl, {
             headers: { Authorization: `Bearer ${requestToken}` }
         });
 

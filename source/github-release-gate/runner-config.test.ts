@@ -50,7 +50,6 @@ suite('github-release-gate-runner-config', function () {
                 CI_WORKFLOW_FILE: 'custom ci.yml',
                 DEFAULT_BRANCH: 'release',
                 DEPENDENCY_ONLY_MIN_AGE_DAYS: '9',
-                GITHUB_API_BASE_URL: 'https://example.invalid/api',
                 MAX_LATENCY_HOURS: '1',
                 QUIET_PERIOD_MINUTES: '3'
             }),
@@ -58,7 +57,7 @@ suite('github-release-gate-runner-config', function () {
                 ciWorkflowFile: 'custom ci.yml',
                 dependencyOnlyMinAgeDays: 9,
                 defaultBranch: 'release',
-                githubApiBaseUrl: 'https://example.invalid/api',
+                githubApiBaseUrl: 'https://api.github.com',
                 githubOutputPath: '/workspace/github-output.txt',
                 maxLatencyHours: 1,
                 quietPeriodMinutes: 3,
@@ -66,6 +65,31 @@ suite('github-release-gate-runner-config', function () {
                 token: 'token'
             }
         );
+    });
+
+    test('readGitHubReleaseGateRunnerConfig accepts a loopback GITHUB_API_BASE_URL for testing', function () {
+        assert.strictEqual(
+            readConfig({ GITHUB_API_BASE_URL: 'http://127.0.0.1:1234' }).githubApiBaseUrl,
+            'http://127.0.0.1:1234'
+        );
+    });
+
+    test('readGitHubReleaseGateRunnerConfig rejects a non-GitHub GITHUB_API_BASE_URL', function () {
+        assert.throws(() => {
+            readConfig({ GITHUB_API_BASE_URL: 'https://example.invalid/api' });
+        }, /GITHUB_API_BASE_URL hostname must be "api\.github\.com", got "example\.invalid"/u);
+    });
+
+    test('readGitHubReleaseGateRunnerConfig rejects a non-https public GITHUB_API_BASE_URL', function () {
+        assert.throws(() => {
+            readConfig({ GITHUB_API_BASE_URL: 'http://api.github.com' });
+        }, /GITHUB_API_BASE_URL must use https/u);
+    });
+
+    test('readGitHubReleaseGateRunnerConfig rejects a malformed GITHUB_API_BASE_URL', function () {
+        assert.throws(() => {
+            readConfig({ GITHUB_API_BASE_URL: 'not-a-url' });
+        }, /GITHUB_API_BASE_URL is not a valid URL/u);
     });
 
     test('readGitHubReleaseGateRunnerConfig requires GITHUB_OUTPUT', function () {
