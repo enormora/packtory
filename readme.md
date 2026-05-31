@@ -220,6 +220,7 @@ The configuration for `packtory` is an object with the following properties:
         - Example: `{ sourceFilePath: 'LICENSE', targetFilePath: 'LICENSE' }`.
         - If defined in both per-package and common settings, they are merged.
         - Code files (`.js`, `.cjs`, `.mjs`, `.jsx`, `.ts`, `.cts`, `.mts`, `.tsx`, `.d.ts`) are rejected: code that ships in the bundle must be reachable from a root so dependency, side-effect and dead-code analyses can run on it. If you need to ship code as a static asset (e.g. a template), give it a non-code extension like `.txt`.
+        - `targetFilePath` must be a bundle-relative path. Absolute paths (POSIX `/foo` or Windows `C:\\foo`) and parent-traversing paths (`..`, `foo/../bar`) are rejected at config-validation time so a malicious or mistaken config cannot write outside the artifact target during `pack --format folder`.
 
     - **`additionalPackageJsonAttributes`** (Optional, Object):
         - An object to be merged directly into the generated `package.json`.
