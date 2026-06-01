@@ -1,6 +1,14 @@
 import path from 'node:path';
 import { isBuiltin } from 'node:module';
-import { ts, type SourceFile, type StringLiteral } from 'ts-morph';
+import { oneLine } from 'common-tags';
+import {
+    SyntaxKind,
+    ts,
+    type CallExpression,
+    type PropertyAccessExpression,
+    type SourceFile,
+    type StringLiteral
+} from 'ts-morph';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
 
 export const moduleReferenceKind = {
@@ -193,13 +201,56 @@ function resolveModuleReferenceForImport(
         : undefined;
 }
 
+function invalidImportMetaResolveUsage(sourceFile: Readonly<SourceFile>): Error {
+    return new Error(
+        oneLine`Invalid import.meta.resolve() usage in file "${sourceFile.getFilePath()}":
+            only a single static string literal argument is supported`
+    );
+}
+
+function isImportMetaResolveCallee(callee: Readonly<PropertyAccessExpression>): boolean {
+    const metaProperty = callee.getExpression().asKind(SyntaxKind.MetaProperty);
+    return metaProperty?.getKeywordToken() === SyntaxKind.ImportKeyword && callee.getNameNode().getText() === 'resolve';
+}
+
+function collectImportMetaResolveLiteral(
+    callExpression: Readonly<CallExpression>,
+    sourceFile: Readonly<SourceFile>
+): StringLiteral | undefined {
+    const callee = callExpression.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
+    if (callee === undefined || !isImportMetaResolveCallee(callee)) {
+        return undefined;
+    }
+    const [first, second] = callExpression.getArguments();
+    if (first === undefined || second !== undefined) {
+        throw invalidImportMetaResolveUsage(sourceFile);
+    }
+    const literal = first.asKind(SyntaxKind.StringLiteral);
+    if (literal === undefined) {
+        throw invalidImportMetaResolveUsage(sourceFile);
+    }
+    return literal;
+}
+
+function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
+    const literals: StringLiteral[] = [];
+    for (const callExpression of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+        const literal = collectImportMetaResolveLiteral(callExpression, sourceFile);
+        if (literal !== undefined) {
+            literals.push(literal);
+        }
+    }
+    return literals;
+}
+
 export function getReferencedModules(
     sourceFile: Readonly<SourceFile>,
     packageJsonPath: string
 ): readonly Readonly<ModuleReference>[] {
     const referencedModules: ModuleReference[] = [];
+    const allLiterals = [...sourceFile.getImportStringLiterals(), ...getImportMetaResolveLiterals(sourceFile)];
 
-    for (const literal of sourceFile.getImportStringLiterals()) {
+    for (const literal of allLiterals) {
         const importValue = literal.getLiteralValue();
         const referencedModule = resolveModuleReferenceForImport(importValue, sourceFile, packageJsonPath);
 
