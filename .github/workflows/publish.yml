@@ -84,4 +84,18 @@ jobs:
             - name: Compile TypeScript
               run: npx just compile
             - name: Publish packages
+              id: publish-packages
+              continue-on-error: true
               run: npx packtory publish --no-dry-run
+            # The `sigstore` wrapper used by `libnpmpublish` hardcodes
+            # `fetchOnConflict: false`, so a retried Rekor POST after a
+            # transient blip surfaces as
+            # `error creating tlog entry - (409) an equivalent entry already exists`
+            # even though the original submission landed. Re-running publish
+            # mints a fresh OIDC cert, so the next signature differs and
+            # Rekor accepts it.
+            - name: Re-publish after a transient sigstore failure
+              if: steps.publish-packages.outcome == 'failure'
+              run: |
+                  sleep 10
+                  npx packtory publish --no-dry-run
