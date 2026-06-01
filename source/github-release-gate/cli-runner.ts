@@ -87,7 +87,7 @@ async function loadGitHubTimeGateDecision(
 ): Promise<{ readonly decision: GitHubReleaseGateDecision; readonly mainHeadSha: string; readonly now: Date }> {
     const githubApi = createGitHubReleaseGateApi(dependencies.fetch, createGitHubRepositoryContext(config));
     const mainHeadSha = await githubApi.getMainBranchHeadSha();
-    const successfulMainCiRun = await githubApi.getLatestSuccessfulMainCiRun(config.ciWorkflowFile, mainHeadSha);
+    const mainCiRunStatus = await githubApi.getMainCiRunStatus(config.ciWorkflowFile, mainHeadSha);
     const pullRequestActivities = await githubApi.getOpenPullRequestActivities();
     const now = dependencies.now();
 
@@ -97,12 +97,12 @@ async function loadGitHubTimeGateDecision(
         decision: evaluateGitHubReleaseGate({
             ciWorkflowFile: config.ciWorkflowFile,
             mainBranch: config.defaultBranch,
+            mainCiRunStatus,
             mainHeadSha,
             maxLatencyHours: config.maxLatencyHours,
             now,
             pullRequestActivities,
-            quietPeriodMinutes: config.quietPeriodMinutes,
-            successfulMainCiRun
+            quietPeriodMinutes: config.quietPeriodMinutes
         })
     };
 }

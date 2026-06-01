@@ -11,15 +11,21 @@ export type PullRequestActivity = {
     readonly number: number;
 };
 
-export type SuccessfulMainCiRun = {
+type SuccessfulMainCiRun = {
     readonly htmlUrl: string;
     readonly updatedAt: Date;
 };
+
+export type MainCiRunStatus =
+    | { readonly kind: 'in_progress' }
+    | { readonly kind: 'missing' }
+    | { readonly kind: 'success'; readonly run: SuccessfulMainCiRun };
 
 export type GitHubReleaseGateDecision = {
     readonly logs: readonly string[];
     readonly reason:
         | 'activity_not_stale'
+        | 'ci_in_progress'
         | 'ci_not_green'
         | 'dependency_only_min_age_elapsed'
         | 'dependency_only_min_age_not_elapsed'
@@ -33,12 +39,12 @@ export type GitHubReleaseGateDecision = {
 export type GitHubReleaseGateInput = {
     readonly ciWorkflowFile: string;
     readonly mainBranch: string;
+    readonly mainCiRunStatus: MainCiRunStatus;
     readonly mainHeadSha: string;
     readonly maxLatencyHours: number;
     readonly now: Date;
     readonly pullRequestActivities: readonly PullRequestActivity[];
     readonly quietPeriodMinutes: number;
-    readonly successfulMainCiRun: SuccessfulMainCiRun | undefined;
 };
 
 const millisecondsPerMinute = 60_000;
@@ -99,6 +105,14 @@ function createMissingCiDecision(input: GitHubReleaseGateInput): GitHubReleaseGa
     return createDecision(false, 'ci_not_green', [], missingCiLog);
 }
 
+function createInProgressCiDecision(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
+    const inProgressLog =
+        `Skipping publish: a ${input.ciWorkflowFile} push run is still in progress for ${input.mainBranch} ` +
+        `HEAD ${input.mainHeadSha}.`;
+
+    return createDecision(false, 'ci_in_progress', [], inProgressLog);
+}
+
 function hasElapsed(now: Date, since: Date, elapsedMilliseconds: number): boolean {
     return now.getTime() - since.getTime() >= elapsedMilliseconds;
 }
@@ -155,12 +169,11 @@ export function selectPullRequestActivityAt(
     return maxDate(pullRequestCreatedAt, branchActivityDates);
 }
 
-export function evaluateGitHubReleaseGate(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
-    if (input.successfulMainCiRun === undefined) {
-        return createMissingCiDecision(input);
-    }
-
-    const mainHeadCiSuccessAt = input.successfulMainCiRun.updatedAt;
+function evaluateGreenCiGate(
+    input: GitHubReleaseGateInput,
+    successfulMainCiRun: SuccessfulMainCiRun
+): GitHubReleaseGateDecision {
+    const mainHeadCiSuccessAt = successfulMainCiRun.updatedAt;
     const lastRelevantActivityAt = lastRelevantActivityAtFor(input, mainHeadCiSuccessAt);
     const { quietPeriodElapsed, maxLatencyElapsed } = getElapsedFlags(
         input,
@@ -170,7 +183,7 @@ export function evaluateGitHubReleaseGate(input: GitHubReleaseGateInput): GitHub
     const logs = buildDecisionLogs({
         input,
         mainHeadCiSuccessAt,
-        mainHeadCiSuccessHtmlUrl: input.successfulMainCiRun.htmlUrl,
+        mainHeadCiSuccessHtmlUrl: successfulMainCiRun.htmlUrl,
         lastRelevantActivityAt,
         quietPeriodElapsed,
         maxLatencyElapsed
@@ -191,4 +204,16 @@ export function evaluateGitHubReleaseGate(input: GitHubReleaseGateInput): GitHub
         logs,
         'Publishing is allowed by the release gate.'
     );
+}
+
+export function evaluateGitHubReleaseGate(input: GitHubReleaseGateInput): GitHubReleaseGateDecision {
+    if (input.mainCiRunStatus.kind === 'in_progress') {
+        return createInProgressCiDecision(input);
+    }
+
+    if (input.mainCiRunStatus.kind === 'missing') {
+        return createMissingCiDecision(input);
+    }
+
+    return evaluateGreenCiGate(input, input.mainCiRunStatus.run);
 }

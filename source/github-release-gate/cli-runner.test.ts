@@ -183,6 +183,7 @@ suite('github-release-gate-cli-runner', function () {
                         event: 'push',
                         head_sha: 'abc123',
                         html_url: 'https://github.com/enormora/packtory/actions/runs/1',
+                        status: 'completed',
                         updated_at: new Date(now - 10 * 60 * 1000).toISOString()
                     }
                 ]
