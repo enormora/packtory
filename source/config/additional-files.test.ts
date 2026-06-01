@@ -153,4 +153,40 @@ suite('additional-files', function () {
             expectedMessages: ['unexpected additional property: "something"']
         })
     );
+
+    suite('safe relative targetFilePath', function () {
+        for (const accepted of ['good/path.txt', 'nested/folder/file.txt', 'just-a-file.txt']) {
+            test(
+                `validation succeeds for "${accepted}"`,
+                checkValidationSuccess({
+                    schema: additionalFileDescriptionSchema,
+                    data: { sourceFilePath: 'src', targetFilePath: accepted },
+                    expectedData: { sourceFilePath: 'src', targetFilePath: accepted }
+                })
+            );
+        }
+    });
+
+    suite('unsafe targetFilePath rejection', function () {
+        for (const rejected of [
+            '..',
+            '../escape.txt',
+            'foo/../bar.txt',
+            'foo/..',
+            '/etc/passwd',
+            'C:/Windows/System32',
+            'C:\\Windows\\System32',
+            '..\\escape.txt',
+            'foo\\..\\bar.txt'
+        ]) {
+            test(
+                `validation fails for "${rejected}"`,
+                checkValidationFailure({
+                    schema: additionalFileDescriptionSchema,
+                    data: { sourceFilePath: 'src', targetFilePath: rejected },
+                    expectedMessages: ['at targetFilePath: invalid input']
+                })
+            );
+        }
+    });
 });
