@@ -146,6 +146,15 @@ A few details worth highlighting:
 - The external-dependency extractor uses a small regex to pull the package name out of a `node_modules/…` path, with care for scoped packages (`@scope/name`).
 - The graph is flattened with a breadth-first walk into the `DependencyFiles` shape that downstream stages consume.
 
+### Literal sources
+
+"Import literal" above covers two syntactic shapes, both reduced to the same resolution pipeline:
+
+1. The static specifiers ts-morph already exposes through `getImportStringLiterals`: `import` / `export … from`, dynamic `import(...)`, `import = require(...)`, and type-position `import(...)`.
+2. `import.meta.resolve('<static-string>')` call sites, recognized by matching the `CallExpression → PropertyAccessExpression → MetaProperty(import)` shape and accepting the call only when its single argument is a `StringLiteral`. Any other argument shape (variable, template literal, missing or extra arguments) throws — packtory deliberately does not implement its own resolver, so non-static specifiers cannot be resolved deterministically.
+
+For `import.meta.resolve` the classifier reuses the same `external-package` / `local-asset` / `local-code` outcomes as a regular import: a resolved target inside `node_modules` adds the owning package as a dependency without tracking the individual file, `.json` / `.wasm` targets become leaf asset references, and a code target is recursed into like any other reachable source file.
+
 ### Source maps and declarations
 
 If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If a root declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.

@@ -104,8 +104,8 @@ Packtory guarantees minimal packages with:
 
 **How Bundling Works:**
 
-1. All source files referenced from the configured roots are resolved into a graph.
-2. Imports of `node_modules` and node built-ins are detected and tracked to create a minimal `package.json` later.
+1. All source files referenced from the configured roots are resolved into a graph. Both static `import` / `export … from` / `require` / `import(...)` literals and `import.meta.resolve('<static-string>')` call sites are recognized; the argument to `import.meta.resolve` must be a single static string literal — dynamic expressions are rejected.
+2. Imports of `node_modules` and node built-ins are detected and tracked to create a minimal `package.json` later. When `import.meta.resolve(...)` points at a file inside a `node_modules` package, the owning package is added as a dependency; individual files inside the package are not tracked.
 3. If bundle dependencies are given, some import statements will be rewritten. For example, if a file in package `first` imports a file in package `second`, the import statement will be rewritten accordingly (e.g., from `import bar from './bar.js'` to `import bar from 'second/bar.js'`).
 4. A `package.json` will be generated, and the version numbers of `node_modules` will be taken from the `mainPackageJson` provided in the configuration.
 
