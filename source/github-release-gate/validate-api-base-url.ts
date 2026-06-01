@@ -1,5 +1,5 @@
 const expectedApiHostname = 'api.github.com';
-const loopbackHostnames = new Set(['127.0.0.1', '::1', '[::1]', 'localhost']);
+const loopbackHostnames = new Set(['127.0.0.1', '[::1]', 'localhost']);
 
 function parseOrThrow(value: string): URL {
     try {

@@ -19,10 +19,17 @@ suite('validate-api-base-url', function () {
         assert.strictEqual(assertGitHubApiBaseUrl('http://localhost:1234'), 'http://localhost:1234');
     });
 
-    test('rejects an arbitrary public host', function () {
-        assert.throws(() => {
-            assertGitHubApiBaseUrl('https://attacker.example/api');
-        }, /hostname must be "api\.github\.com", got "attacker\.example"/u);
+    test('rejects an arbitrary public host with the full mismatch message', function () {
+        assert.throws(
+            () => {
+                assertGitHubApiBaseUrl('https://attacker.example/api');
+            },
+            {
+                message:
+                    'GITHUB_API_BASE_URL hostname must be "api.github.com", got "attacker.example". ' +
+                    'A non-GitHub host would receive the GITHUB_TOKEN.'
+            }
+        );
     });
 
     test('rejects a lookalike host', function () {

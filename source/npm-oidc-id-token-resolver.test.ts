@@ -238,16 +238,22 @@ suite('npm-oidc-id-token-resolver', function () {
     });
 
     suite('ACTIONS_ID_TOKEN_REQUEST_URL host validation', function () {
-        test('resolver rejects a non-actions.githubusercontent.com host', async function () {
+        test('resolver rejects a non-actions.githubusercontent.com host with the full mismatch message', async function () {
             const resolveIdToken = createGitHubActionsResolver({
                 environmentVariables: {
                     ACTIONS_ID_TOKEN_REQUEST_URL: 'https://attacker.example/id-token'
                 }
             });
 
-            await expectFailure(async () => {
-                await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
-            }, /^Error: ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with "\.actions\.githubusercontent\.com", got "attacker\.example"/u);
+            const expectedSuffix =
+                'ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with ".actions.githubusercontent.com", ' +
+                'got "attacker.example". A non-GitHub host would receive the GitHub-issued OIDC bearer.';
+            await expectFailure(
+                async () => {
+                    await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
+                },
+                new RegExp(`^Error: ${expectedSuffix.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')}$`, 'u')
+            );
         });
 
         test('resolver rejects a lookalike host', async function () {
