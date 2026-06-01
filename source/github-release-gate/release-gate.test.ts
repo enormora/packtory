@@ -33,15 +33,18 @@ function evaluateGitHubReleaseGateWithBaseInput(overrides: Partial<GitHubRelease
     return evaluateGitHubReleaseGate({
         ciWorkflowFile: 'ci.yml',
         mainBranch: 'main',
+        mainCiRunStatus: {
+            kind: 'success',
+            run: {
+                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
+                updatedAt: createDate('2026-05-19T11:00:00.000Z')
+            }
+        },
         mainHeadSha: 'abc123',
         maxLatencyHours: 24,
         now: createDate('2026-05-19T12:00:00.000Z'),
         pullRequestActivities: [],
         quietPeriodMinutes: 45,
-        successfulMainCiRun: {
-            htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
-            updatedAt: createDate('2026-05-19T11:00:00.000Z')
-        },
         ...overrides
     });
 }
@@ -113,18 +116,37 @@ suite('github-release-gate', function () {
         const decision = evaluateGitHubReleaseGate({
             ciWorkflowFile: 'ci.yml',
             mainBranch: 'main',
+            mainCiRunStatus: { kind: 'missing' },
             mainHeadSha: 'abc123',
             maxLatencyHours: 24,
             now: createDate('2026-05-19T12:00:00.000Z'),
             pullRequestActivities: [],
-            quietPeriodMinutes: 45,
-            successfulMainCiRun: undefined
+            quietPeriodMinutes: 45
         });
 
         assert.deepStrictEqual(decision, {
             shouldPublish: false,
             reason: 'ci_not_green',
             logs: ['Skipping publish: no successful ci.yml push run found for main HEAD abc123.']
+        });
+    });
+
+    test('evaluateGitHubReleaseGate blocks publishing while main HEAD CI is still in progress', function () {
+        const decision = evaluateGitHubReleaseGate({
+            ciWorkflowFile: 'ci.yml',
+            mainBranch: 'main',
+            mainCiRunStatus: { kind: 'in_progress' },
+            mainHeadSha: 'abc123',
+            maxLatencyHours: 24,
+            now: createDate('2026-05-19T12:00:00.000Z'),
+            pullRequestActivities: [],
+            quietPeriodMinutes: 45
+        });
+
+        assert.deepStrictEqual(decision, {
+            shouldPublish: false,
+            reason: 'ci_in_progress',
+            logs: ['Skipping publish: a ci.yml push run is still in progress for main HEAD abc123.']
         });
     });
 
@@ -153,18 +175,8 @@ suite('github-release-gate', function () {
     });
 
     test('evaluateGitHubReleaseGate allows publishing once the quiet period has elapsed', function () {
-        const decision = evaluateGitHubReleaseGate({
-            ciWorkflowFile: 'ci.yml',
-            mainBranch: 'main',
-            mainHeadSha: 'abc123',
-            maxLatencyHours: 24,
-            now: createDate('2026-05-19T12:00:00.000Z'),
-            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-19T10:00:00.000Z') })],
-            quietPeriodMinutes: 45,
-            successfulMainCiRun: {
-                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
-                updatedAt: createDate('2026-05-19T11:00:00.000Z')
-            }
+        const decision = evaluateGitHubReleaseGateWithBaseInput({
+            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-19T10:00:00.000Z') })]
         });
 
         assert.strictEqual(decision.shouldPublish, true);
@@ -173,18 +185,8 @@ suite('github-release-gate', function () {
     });
 
     test('evaluateGitHubReleaseGate allows publishing when the quiet-period boundary is reached exactly', function () {
-        const decision = evaluateGitHubReleaseGate({
-            ciWorkflowFile: 'ci.yml',
-            mainBranch: 'main',
-            mainHeadSha: 'abc123',
-            maxLatencyHours: 24,
-            now: createDate('2026-05-19T12:00:00.000Z'),
-            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-19T11:15:00.000Z') })],
-            quietPeriodMinutes: 45,
-            successfulMainCiRun: {
-                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
-                updatedAt: createDate('2026-05-19T11:00:00.000Z')
-            }
+        const decision = evaluateGitHubReleaseGateWithBaseInput({
+            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-19T11:15:00.000Z') })]
         });
 
         assert.strictEqual(decision.shouldPublish, true);
@@ -192,18 +194,9 @@ suite('github-release-gate', function () {
     });
 
     test('evaluateGitHubReleaseGate allows publishing once max latency elapses even with fresh PR activity', function () {
-        const decision = evaluateGitHubReleaseGate({
-            ciWorkflowFile: 'ci.yml',
-            mainBranch: 'main',
-            mainHeadSha: 'abc123',
-            maxLatencyHours: 24,
+        const decision = evaluateGitHubReleaseGateWithBaseInput({
             now: createDate('2026-05-20T12:00:00.000Z'),
-            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-20T11:50:00.000Z') })],
-            quietPeriodMinutes: 45,
-            successfulMainCiRun: {
-                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
-                updatedAt: createDate('2026-05-19T11:00:00.000Z')
-            }
+            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-20T11:50:00.000Z') })]
         });
 
         assert.strictEqual(decision.shouldPublish, true);
@@ -213,18 +206,16 @@ suite('github-release-gate', function () {
     });
 
     test('evaluateGitHubReleaseGate allows publishing when the max-latency boundary is reached exactly', function () {
-        const decision = evaluateGitHubReleaseGate({
-            ciWorkflowFile: 'ci.yml',
-            mainBranch: 'main',
-            mainHeadSha: 'abc123',
-            maxLatencyHours: 24,
+        const decision = evaluateGitHubReleaseGateWithBaseInput({
+            mainCiRunStatus: {
+                kind: 'success',
+                run: {
+                    htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
+                    updatedAt: createDate('2026-05-19T12:00:00.000Z')
+                }
+            },
             now: createDate('2026-05-20T12:00:00.000Z'),
-            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-20T11:59:00.000Z') })],
-            quietPeriodMinutes: 45,
-            successfulMainCiRun: {
-                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
-                updatedAt: createDate('2026-05-19T12:00:00.000Z')
-            }
+            pullRequestActivities: [pullRequestActivity({ activityAt: createDate('2026-05-20T11:59:00.000Z') })]
         });
 
         assert.strictEqual(decision.shouldPublish, true);

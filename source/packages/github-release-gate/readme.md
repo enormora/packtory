@@ -77,8 +77,10 @@ This means:
 ## Decision Outputs
 
 - `should_publish=true|false`
-- `reason=ci_not_green|activity_not_stale|quiet_period_elapsed|max_latency_elapsed|release_unchanged|dependency_only_min_age_not_elapsed|dependency_only_min_age_elapsed|dependency_only_published_at_unknown`
+- `reason=ci_not_green|ci_in_progress|activity_not_stale|quiet_period_elapsed|max_latency_elapsed|release_unchanged|dependency_only_min_age_not_elapsed|dependency_only_min_age_elapsed|dependency_only_published_at_unknown`
 - `main_head_sha=<sha>`
+
+`ci_not_green` is reserved for the case where the latest push run for `main` HEAD failed or never started; transient gaps during which the run is still executing are reported as `ci_in_progress` so the next gate evaluation can pick the publish back up once CI completes.
 
 When run inside GitHub Actions, the tool writes these values to `$GITHUB_OUTPUT`.
 

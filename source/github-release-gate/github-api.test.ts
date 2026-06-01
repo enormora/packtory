@@ -78,6 +78,21 @@ async function getOpenPullRequestActivitiesForTimeline(
     return await createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext).getOpenPullRequestActivities();
 }
 
+function withCiWorkflowRuns(workflowRuns: readonly unknown[]): Record<string, MockRoute> {
+    const routes = createBaseRoutes() as Record<string, MockRoute>;
+    routes[ciRunsPath] = { body: { workflow_runs: workflowRuns } };
+    return routes;
+}
+
+async function runGetMainCiRunStatus(
+    routes: Readonly<Record<string, MockRoute>>
+): Promise<Awaited<ReturnType<ReturnType<typeof createGitHubReleaseGateApi>['getMainCiRunStatus']>>> {
+    return await createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext).getMainCiRunStatus(
+        'ci.yml',
+        'abc123'
+    );
+}
+
 suite('github-release-gate-github-api', function () {
     test('getMainBranchHeadSha sends the required GitHub headers', async function () {
         const requests: RecordedRequest[] = [];
@@ -95,51 +110,96 @@ suite('github-release-gate-github-api', function () {
         });
     });
 
-    test('getLatestSuccessfulMainCiRun ignores mismatched workflow runs', async function () {
-        const routes = createBaseRoutes() as Record<string, MockRoute>;
-        routes[ciRunsPath] = {
-            body: {
-                workflow_runs: [
-                    {
-                        conclusion: 'success',
-                        event: 'push',
-                        head_sha: 'different-sha',
-                        html_url: 'https://github.com/enormora/packtory/actions/runs/1',
-                        updated_at: '2026-05-19T10:00:00.000Z'
-                    },
-                    {
-                        conclusion: 'success',
-                        event: 'merge_group',
-                        head_sha: 'abc123',
-                        html_url: 'https://github.com/enormora/packtory/actions/runs/2',
-                        updated_at: '2026-05-19T10:05:00.000Z'
-                    }
-                ]
+    test('getMainCiRunStatus returns success for a completed successful push run', async function () {
+        assert.deepStrictEqual(await runGetMainCiRunStatus(createBaseRoutes()), {
+            kind: 'success',
+            run: {
+                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
+                updatedAt: new Date('2026-05-19T10:00:00.000Z')
             }
-        };
-        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
-
-        assert.strictEqual(await api.getLatestSuccessfulMainCiRun('ci.yml', 'abc123'), undefined);
+        });
     });
 
-    test('getLatestSuccessfulMainCiRun ignores failed runs even when the head SHA and event match', async function () {
-        const routes = createBaseRoutes() as Record<string, MockRoute>;
-        routes[ciRunsPath] = {
-            body: {
-                workflow_runs: [
-                    {
-                        conclusion: 'failure',
-                        event: 'push',
-                        head_sha: 'abc123',
-                        html_url: 'https://github.com/enormora/packtory/actions/runs/1',
-                        updated_at: '2026-05-19T10:00:00.000Z'
-                    }
-                ]
+    test('getMainCiRunStatus reports missing when only mismatched workflow runs exist', async function () {
+        const routes = withCiWorkflowRuns([
+            {
+                conclusion: 'success',
+                event: 'push',
+                head_sha: 'different-sha',
+                html_url: 'https://github.com/enormora/packtory/actions/runs/1',
+                status: 'completed',
+                updated_at: '2026-05-19T10:00:00.000Z'
+            },
+            {
+                conclusion: 'success',
+                event: 'merge_group',
+                head_sha: 'abc123',
+                html_url: 'https://github.com/enormora/packtory/actions/runs/2',
+                status: 'completed',
+                updated_at: '2026-05-19T10:05:00.000Z'
             }
-        };
-        const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
+        ]);
 
-        assert.strictEqual(await api.getLatestSuccessfulMainCiRun('ci.yml', 'abc123'), undefined);
+        assert.deepStrictEqual(await runGetMainCiRunStatus(routes), { kind: 'missing' });
+    });
+
+    test('getMainCiRunStatus reports missing when the only matching run failed', async function () {
+        const routes = withCiWorkflowRuns([
+            {
+                conclusion: 'failure',
+                event: 'push',
+                head_sha: 'abc123',
+                html_url: 'https://github.com/enormora/packtory/actions/runs/1',
+                status: 'completed',
+                updated_at: '2026-05-19T10:00:00.000Z'
+            }
+        ]);
+
+        assert.deepStrictEqual(await runGetMainCiRunStatus(routes), { kind: 'missing' });
+    });
+
+    test('getMainCiRunStatus reports in_progress when a matching run is still running', async function () {
+        const routes = withCiWorkflowRuns([
+            {
+                conclusion: null,
+                event: 'push',
+                head_sha: 'abc123',
+                html_url: 'https://github.com/enormora/packtory/actions/runs/1',
+                status: 'in_progress',
+                updated_at: '2026-05-19T10:00:00.000Z'
+            }
+        ]);
+
+        assert.deepStrictEqual(await runGetMainCiRunStatus(routes), { kind: 'in_progress' });
+    });
+
+    test('getMainCiRunStatus prefers a successful run over a parallel in-progress one', async function () {
+        const routes = withCiWorkflowRuns([
+            {
+                conclusion: null,
+                event: 'push',
+                head_sha: 'abc123',
+                html_url: 'https://github.com/enormora/packtory/actions/runs/2',
+                status: 'in_progress',
+                updated_at: '2026-05-19T10:10:00.000Z'
+            },
+            {
+                conclusion: 'success',
+                event: 'push',
+                head_sha: 'abc123',
+                html_url: 'https://github.com/enormora/packtory/actions/runs/1',
+                status: 'completed',
+                updated_at: '2026-05-19T10:00:00.000Z'
+            }
+        ]);
+
+        assert.deepStrictEqual(await runGetMainCiRunStatus(routes), {
+            kind: 'success',
+            run: {
+                htmlUrl: 'https://github.com/enormora/packtory/actions/runs/1',
+                updatedAt: new Date('2026-05-19T10:00:00.000Z')
+            }
+        });
     });
 
     test('getOpenPullRequestActivities follows paginated responses', async function () {

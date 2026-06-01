@@ -6,8 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 export const ciRunsPath =
-    '/repos/enormora/packtory/actions/workflows/ci.yml/runs' +
-    '?branch=main&event=push&head_sha=abc123&status=completed&per_page=100';
+    '/repos/enormora/packtory/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha=abc123&per_page=100';
 export const pullsPath = '/repos/enormora/packtory/pulls?state=open&base=main&per_page=100';
 export const timelinePath = '/repos/enormora/packtory/issues/1/timeline?per_page=100';
 export const workspaceOutputPath = '/workspace/github-output.txt';
@@ -87,6 +86,7 @@ export function createBaseRoutes(): RouteMap {
                         event: 'push',
                         head_sha: 'abc123',
                         html_url: 'https://github.com/enormora/packtory/actions/runs/1',
+                        status: 'completed',
                         updated_at: '2026-05-19T10:00:00.000Z'
                     }
                 ]

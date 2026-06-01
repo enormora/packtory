@@ -4,9 +4,9 @@ import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
 import {
     selectPullRequestActivityAt,
+    type MainCiRunStatus,
     type PullRequestActivity,
-    type PullRequestTimelineEvent,
-    type SuccessfulMainCiRun
+    type PullRequestTimelineEvent
 } from './release-gate.ts';
 import type { GitHubRepositoryContext } from './runner-config.ts';
 
@@ -19,6 +19,7 @@ type WorkflowRun = {
     readonly event: string;
     readonly head_sha: string;
     readonly html_url: string;
+    readonly status: string | null;
     readonly updated_at: string;
 };
 
@@ -41,11 +42,8 @@ type RawTimelineEvent = {
 };
 
 export type GitHubReleaseGateApi = {
-    readonly getLatestSuccessfulMainCiRun: (
-        ciWorkflowFile: string,
-        headSha: string
-    ) => Promise<SuccessfulMainCiRun | undefined>;
     readonly getMainBranchHeadSha: () => Promise<string>;
+    readonly getMainCiRunStatus: (ciWorkflowFile: string, headSha: string) => Promise<MainCiRunStatus>;
     readonly getOpenPullRequestActivities: () => Promise<readonly PullRequestActivity[]>;
 };
 
@@ -113,7 +111,7 @@ export function createGitHubReleaseGateApi(
             return branch.data.commit.sha;
         },
 
-        async getLatestSuccessfulMainCiRun(ciWorkflowFile, headSha) {
+        async getMainCiRunStatus(ciWorkflowFile, headSha) {
             const response = await requestGitHub<{ readonly data: WorkflowRunsResponse }>(
                 octokit.rest.actions.listWorkflowRuns({
                     ...requestContext,
@@ -121,22 +119,35 @@ export function createGitHubReleaseGateApi(
                     branch: context.defaultBranch,
                     event: 'push',
                     head_sha: headSha,
-                    status: 'completed',
                     per_page: 100
                 })
             );
-            const matchingRun = response.data.workflow_runs.find((run) => {
-                return run.head_sha === headSha && run.conclusion === 'success' && run.event === 'push';
+            const matchingRuns = response.data.workflow_runs.filter((run) => {
+                return run.head_sha === headSha && run.event === 'push';
+            });
+            const successfulRun = matchingRuns.find((run) => {
+                return run.conclusion === 'success';
             });
 
-            if (matchingRun === undefined) {
-                return undefined;
+            if (successfulRun !== undefined) {
+                return {
+                    kind: 'success',
+                    run: {
+                        htmlUrl: successfulRun.html_url,
+                        updatedAt: parseTimestamp(successfulRun.updated_at)
+                    }
+                };
             }
 
-            return {
-                htmlUrl: matchingRun.html_url,
-                updatedAt: parseTimestamp(matchingRun.updated_at)
-            };
+            const inProgressRun = matchingRuns.find((run) => {
+                return run.status !== 'completed';
+            });
+
+            if (inProgressRun !== undefined) {
+                return { kind: 'in_progress' };
+            }
+
+            return { kind: 'missing' };
         },
 
         async getOpenPullRequestActivities() {
