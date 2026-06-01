@@ -33,9 +33,10 @@ guarantees on top.
 
 ### Comparison
 
-| Feature                                | Defends against                            | Default | Configure                                      |
-| -------------------------------------- | ------------------------------------------ | ------- | ---------------------------------------------- |
-| [Provenance](#provenance-attestations) | Account compromise, package misattribution | off     | `publishSettings.provenance: { type: 'auto' }` |
+| Feature                                       | Defends against                                          | Default | Configure                                      |
+| --------------------------------------------- | -------------------------------------------------------- | ------- | ---------------------------------------------- |
+| [Provenance](#provenance-attestations)        | Account compromise, package misattribution               | off     | `publishSettings.provenance: { type: 'auto' }` |
+| [Tarball host pinning](#tarball-host-pinning) | Credential exfiltration via a tampered registry response | on      | always on; not configurable                    |
 
 ## Quickstart
 
@@ -166,7 +167,35 @@ npm view <pkg> --json
 The `dist.attestations` field exposes the provenance bundle URL and
 predicate type for any version published with provenance.
 
+## Tarball host pinning
+
+**Threat:** an attacker who controls the registry response (registry
+compromise, MITM through a hostile corporate proxy, a poisoned mirror)
+returns a crafted `dist.tarball` URL on a host they own. Packtory's
+auto-versioning flow downloads the latest published tarball to compare
+it against the new build, and the request carries the configured npm
+credentials. Without a host check the bearer or basic auth would be
+sent to the attacker.
+**Default:** on. Not configurable.
+
+Before downloading a tarball, packtory parses the URL returned by the
+registry and rejects the publish if its host does not match the host
+of the configured registry (or `registry.npmjs.org` when none is set).
+The port is part of the comparison, so a downgrade from `:443` to a
+different port is also rejected. The error names both hosts so the
+mismatch is immediately diagnosable.
+
 ## CLI error reference
+
+### Tarball host
+
+- `Refusing to download tarball from "<host>" because it differs from the configured registry host "<host>". A tampered registry response could redirect the request and exfiltrate publish credentials.`
+  — the registry returned a tarball URL on a different host than the
+  one configured. Investigate the registry mirror or proxy in between;
+  a legitimate registry serves tarballs from its own host.
+- `Registry returned an invalid tarball URL: "<value>"` — the registry
+  response carried a non-URL `dist.tarball`. Almost always a registry
+  bug or a tampered response.
 
 ### Provenance, auto mode
 

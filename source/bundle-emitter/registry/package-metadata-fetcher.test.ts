@@ -14,7 +14,7 @@ type FakeNpmFetch = SinonSpy & { json: SinonSpy };
 
 const settings: RegistrySettings = { auth: { type: 'bearer-token', token: 'tok' } };
 const latestVersion = '1.2.3';
-const tarballUrl = 'https://example.com/pkg-a-1.2.3.tgz';
+const tarballUrl = 'https://registry.npmjs.org/pkg-a/-/pkg-a-1.2.3.tgz';
 
 function fakeNpmFetch(json: SinonSpy, buffer: SinonSpy = fake.resolves(Buffer.from([]))): typeof _npmFetch {
     const npmFetch: FakeNpmFetch = fake.resolves({ buffer }) as FakeNpmFetch;
@@ -221,12 +221,56 @@ suite('package-metadata-fetcher', function () {
     test('fetchPackageTarball returns the buffered tarball contents', async function () {
         const buffer = fake.resolves(Buffer.from('tarball-bytes'));
 
+        const result = await fetchPackageTarball(fakeNpmFetch(fake(), buffer), tarballUrl, settings);
+
+        assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
+    });
+
+    test('fetchPackageTarball rejects a tarball URL whose host differs from the configured registry', async function () {
+        const buffer = fake.resolves(Buffer.from('tarball-bytes'));
+        const expectedMessage =
+            'Refusing to download tarball from "attacker.example" because it differs from the configured ' +
+            'registry host "registry.npmjs.org". A tampered registry response could redirect the request and ' +
+            'exfiltrate publish credentials.';
+
+        try {
+            await fetchPackageTarball(
+                fakeNpmFetch(fake(), buffer),
+                'https://attacker.example/pkg-a-1.2.3.tgz',
+                settings
+            );
+            assert.fail('Expected fetchPackageTarball() to throw but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual((error as Error).message, expectedMessage);
+        }
+        assert.strictEqual(buffer.callCount, 0);
+    });
+
+    test('fetchPackageTarball accepts a tarball URL whose host matches a custom configured registry', async function () {
+        const customSettings: RegistrySettings = {
+            registryUrl: 'https://registry.example.test/',
+            auth: { type: 'bearer-token', token: 'tok' }
+        };
+        const buffer = fake.resolves(Buffer.from('tarball-bytes'));
+
         const result = await fetchPackageTarball(
             fakeNpmFetch(fake(), buffer),
-            'https://example.com/pkg-a-1.2.3.tgz',
-            settings
+            'https://registry.example.test/pkg-a/-/pkg-a-1.2.3.tgz',
+            customSettings
         );
 
         assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
+    });
+
+    test('fetchPackageTarball rejects a malformed tarball URL', async function () {
+        const buffer = fake.resolves(Buffer.from('tarball-bytes'));
+
+        try {
+            await fetchPackageTarball(fakeNpmFetch(fake(), buffer), 'not-a-url', settings);
+            assert.fail('Expected fetchPackageTarball() to throw but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual((error as Error).message, 'Registry returned an invalid tarball URL: "not-a-url"');
+        }
+        assert.strictEqual(buffer.callCount, 0);
     });
 });
