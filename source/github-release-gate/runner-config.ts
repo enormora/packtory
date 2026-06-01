@@ -1,3 +1,5 @@
+import { assertGitHubApiBaseUrl } from './validate-api-base-url.ts';
+
 export type GitHubReleaseGateRunnerConfig = {
     readonly ciWorkflowFile: string;
     readonly dependencyOnlyMinAgeDays: number;
@@ -61,7 +63,9 @@ export function readGitHubReleaseGateRunnerConfig(
             defaultDependencyOnlyMinAgeDays
         ),
         defaultBranch: getEnvironmentVariable('DEFAULT_BRANCH') ?? defaultMainBranch(),
-        githubApiBaseUrl: getEnvironmentVariable('GITHUB_API_BASE_URL') ?? defaultGitHubApiBaseUrl(),
+        githubApiBaseUrl: assertGitHubApiBaseUrl(
+            getEnvironmentVariable('GITHUB_API_BASE_URL') ?? defaultGitHubApiBaseUrl()
+        ),
         githubOutputPath: getRequiredEnvironmentVariable(getEnvironmentVariable, 'GITHUB_OUTPUT'),
         maxLatencyHours: parseInteger(getEnvironmentVariable('MAX_LATENCY_HOURS'), defaultMaxLatencyHours),
         quietPeriodMinutes: parseInteger(getEnvironmentVariable('QUIET_PERIOD_MINUTES'), defaultQuietPeriodMinutes),

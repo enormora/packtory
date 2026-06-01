@@ -9,7 +9,7 @@ type Overrides = {
 };
 
 const gitHubActionsEnvironmentVariables = {
-    ACTIONS_ID_TOKEN_REQUEST_URL: 'https://actions.example.test/id-token',
+    ACTIONS_ID_TOKEN_REQUEST_URL: 'https://pipelinesghub.actions.githubusercontent.com/id-token',
     ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'actions-request-token'
 } as const;
 
@@ -93,7 +93,9 @@ suite('npm-oidc-id-token-resolver', function () {
         assert.strictEqual(idToken, 'github-id-token');
         assert.deepStrictEqual(fetchCalls, [
             [
-                new URL('https://actions.example.test/id-token?audience=npm%3Aregistry.npmjs.org'),
+                new URL(
+                    'https://pipelinesghub.actions.githubusercontent.com/id-token?audience=npm%3Aregistry.npmjs.org'
+                ),
                 {
                     headers: { Authorization: 'Bearer actions-request-token' }
                 }
@@ -159,7 +161,11 @@ suite('npm-oidc-id-token-resolver', function () {
     suite('GitHub Actions missing environment variables', function () {
         for (const [missingVariable, requestUrl, requestToken] of [
             ['ACTIONS_ID_TOKEN_REQUEST_URL', undefined, 'actions-request-token'],
-            ['ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'https://actions.example.test/id-token', undefined]
+            [
+                'ACTIONS_ID_TOKEN_REQUEST_TOKEN',
+                'https://pipelinesghub.actions.githubusercontent.com/id-token',
+                undefined
+            ]
         ] as const) {
             test(`resolver rejects GitHub Actions OIDC when ${missingVariable} is missing`, async function () {
                 const resolveIdToken = createGitHubActionsResolver({
@@ -229,5 +235,61 @@ suite('npm-oidc-id-token-resolver', function () {
         await expectFailure(async () => {
             await resolveIdToken({ type: 'npm-oidc', provider: 'env', idTokenEnvVar: 'CUSTOM_ID_TOKEN' });
         }, /^Error: OIDC id_token environment variable "CUSTOM_ID_TOKEN" is missing$/u);
+    });
+
+    suite('ACTIONS_ID_TOKEN_REQUEST_URL host validation', function () {
+        test('resolver rejects a non-actions.githubusercontent.com host with the full mismatch message', async function () {
+            const resolveIdToken = createGitHubActionsResolver({
+                environmentVariables: {
+                    ACTIONS_ID_TOKEN_REQUEST_URL: 'https://attacker.example/id-token'
+                }
+            });
+
+            const expectedSuffix =
+                'ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with ".actions.githubusercontent.com", ' +
+                'got "attacker.example". A non-GitHub host would receive the GitHub-issued OIDC bearer.';
+            await expectFailure(
+                async () => {
+                    await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
+                },
+                new RegExp(`^Error: ${expectedSuffix.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')}$`, 'u')
+            );
+        });
+
+        test('resolver rejects a lookalike host', async function () {
+            const resolveIdToken = createGitHubActionsResolver({
+                environmentVariables: {
+                    ACTIONS_ID_TOKEN_REQUEST_URL: 'https://actions.githubusercontent.com.attacker.example/id-token'
+                }
+            });
+
+            await expectFailure(async () => {
+                await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
+            }, /hostname must end with "\.actions\.githubusercontent\.com"/u);
+        });
+
+        test('resolver rejects an http ACTIONS_ID_TOKEN_REQUEST_URL', async function () {
+            const resolveIdToken = createGitHubActionsResolver({
+                environmentVariables: {
+                    ACTIONS_ID_TOKEN_REQUEST_URL: 'http://pipelinesghub.actions.githubusercontent.com/id-token'
+                }
+            });
+
+            await expectFailure(async () => {
+                await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
+            }, /^Error: ACTIONS_ID_TOKEN_REQUEST_URL must use https/u);
+        });
+
+        test('resolver rejects a malformed ACTIONS_ID_TOKEN_REQUEST_URL', async function () {
+            const resolveIdToken = createGitHubActionsResolver({
+                environmentVariables: {
+                    ACTIONS_ID_TOKEN_REQUEST_URL: 'not-a-url'
+                }
+            });
+
+            await expectFailure(async () => {
+                await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
+            }, /^Error: ACTIONS_ID_TOKEN_REQUEST_URL is not a valid URL/u);
+        });
     });
 });
