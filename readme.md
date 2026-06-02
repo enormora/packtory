@@ -26,6 +26,8 @@ Say goodbye to:
 - **Seamless CI Pipeline Integration**: Easily integrate packtory into your CI pipelines for automatic publishing with every commit. No more intricate checks to decide what to publish.
 - **On-Disk Artifacts for Non-Registry Targets**: Produce a single configured package as a zip, tarball, or expanded folder — ideal for AWS Lambda deployments, container builds, and any workflow where the destination isn't an npm registry.
 
+![packtory publish: five packages, one command, no manual versioning](documentation/publish-example.gif)
+
 ## Quick Start
 
 The quickest way to leverage packtory is through its command-line interface (CLI).

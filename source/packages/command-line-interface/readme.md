@@ -36,6 +36,8 @@ packtory <command> [options]
 
 **Preview behavior:**
 
+![packtory preview showing per-package file trees and change chips for a 5-package monorepo](../../../documentation/preview-example.gif)
+
 - `packtory preview` always performs a fresh dry-run build. It does not reuse prior report files.
 - Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output.
 - Failure-only runs skip the pager and print diagnostics directly to standard output.
@@ -44,6 +46,8 @@ packtory <command> [options]
 - `packtory preview --open` still exits successfully if report generation worked but opening the file failed; in that case it prints the temporary file path.
 
 **Release-diff behavior:**
+
+![packtory release-diff showing per-file hunks between the published latest and the next bundle](../../../documentation/release-diff-example.gif)
 
 - `packtory release-diff` runs the same fresh dry-run build as `preview`, then for each package fetches the tarball of the version currently tagged `latest` on the configured registry and computes the set of file changes between that tarball and the bundle the next run would publish.
 - For each package, files are grouped as **Added**, **Removed**, or **Modified**, rendered as a directory tree. Modified files include line-level hunks for textual content (code files, `package.json`, JSON, Markdown, YAML, source maps, and common no-extension license files); other modifications render as `(binary, no text diff)` or as a mode-only change (executable bit flip).
