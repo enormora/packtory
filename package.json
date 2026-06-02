@@ -47,7 +47,7 @@
         "libnpmpublish": "11.2.0",
         "npm-package-arg": "14.0.0",
         "npm-profile": "13.0.0",
-        "npm-registry-fetch": "20.0.0",
+        "npm-registry-fetch": "20.0.1",
         "open": "11.0.0",
         "remeda": "2.37.0",
         "semver": "7.8.1",
