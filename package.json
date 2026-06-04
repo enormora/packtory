@@ -74,7 +74,7 @@
         "@stryker-mutator/core": "9.6.1",
         "@stryker-mutator/mocha-runner": "9.6.1",
         "@types/mocha": "10.0.10",
-        "@types/node": "24.12.4",
+        "@types/node": "24.13.0",
         "@types/npm-package-arg": "6.1.4",
         "@types/npm-profile": "5.0.5",
         "@types/semver": "7.7.1",
