@@ -27,7 +27,7 @@
     },
     "dependencies": {
         "@arethetypeswrong/core": "0.18.3",
-        "@cyclonedx/cyclonedx-library": "10.0.0",
+        "@cyclonedx/cyclonedx-library": "10.1.0",
         "@jridgewell/gen-mapping": "0.3.13",
         "@jridgewell/trace-mapping": "0.3.31",
         "@octokit/core": "7.0.6",
