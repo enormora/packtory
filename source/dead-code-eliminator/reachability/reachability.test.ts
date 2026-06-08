@@ -27,18 +27,18 @@ function multiFileBindingsFor(
     });
 }
 
-function reachabilityForCspellConfigExport(entryPointExportDeclaration: string): ReachabilityIndex {
+function reachabilityForReExportTarget(entryPointExportDeclaration: string): ReachabilityIndex {
     const files = multiFileBindingsFor([
         {
             filePath: 'entry.ts',
             content: entryPointExportDeclaration
         },
         {
-            filePath: 'cspell-config.ts',
+            filePath: 'target.ts',
             content: [
-                'function buildWords() { return 1; }',
-                'export function withCspellWords() { return buildWords(); }',
-                'export function unusedWords() { return 2; }'
+                'function helper() { return 1; }',
+                'export function used() { return helper(); }',
+                'export function unused() { return 2; }'
             ].join('\n')
         }
     ]);
@@ -60,10 +60,10 @@ function reachabilityForLocalValueExport(entryPointExportDeclaration: string): R
     return buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
 }
 
-function assertCspellConfigExportIsReachable(index: ReachabilityIndex): void {
-    assert.ok(index.localReachable.has(bindingId('cspell-config.ts', 'withCspellWords')));
-    assert.ok(index.localReachable.has(bindingId('cspell-config.ts', 'buildWords')));
-    assert.strictEqual(index.localReachable.has(bindingId('cspell-config.ts', 'unusedWords')), false);
+function assertReExportTargetIsReachable(index: ReachabilityIndex): void {
+    assert.ok(index.localReachable.has(bindingId('target.ts', 'used')));
+    assert.ok(index.localReachable.has(bindingId('target.ts', 'helper')));
+    assert.strictEqual(index.localReachable.has(bindingId('target.ts', 'unused')), false);
 }
 
 function assertLocalValueExportIsReachable(index: ReachabilityIndex): void {
@@ -165,18 +165,16 @@ suite('reachability', function () {
     });
 
     test('keeps a named re-export target from an entry point reachable', function () {
-        const index = reachabilityForCspellConfigExport('export { withCspellWords } from "./cspell-config.ts";');
+        const index = reachabilityForReExportTarget('export { used } from "./target.ts";');
 
-        assertCspellConfigExportIsReachable(index);
+        assertReExportTargetIsReachable(index);
     });
 
     test('keeps an aliased named re-export target from an entry point reachable', function () {
-        const index = reachabilityForCspellConfigExport(
-            'export { withCspellWords as withWords } from "./cspell-config.ts";'
-        );
+        const index = reachabilityForReExportTarget('export { used as renamed } from "./target.ts";');
 
-        assertCspellConfigExportIsReachable(index);
-        assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'withWords')), false);
+        assertReExportTargetIsReachable(index);
+        assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'renamed')), false);
     });
 
     test('does not keep a named re-export target from a non-entry file reachable', function () {
