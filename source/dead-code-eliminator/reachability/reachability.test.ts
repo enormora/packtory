@@ -5,7 +5,7 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { extractTopLevelBindings } from './binding-extractor.ts';
 import { bindingId } from './binding-id.ts';
 import type { FileBindings } from './local-seed-gathering.ts';
-import { buildReachabilityIndex } from './reachability.ts';
+import { buildReachabilityIndex, type ReachabilityIndex } from './reachability.ts';
 
 const probeTestTimeoutMs = 10_000;
 
@@ -25,6 +25,51 @@ function multiFileBindingsFor(
         const sourceFile = project.getSourceFileOrThrow(file.filePath);
         return { sourceFilePath: file.filePath, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
     });
+}
+
+function reachabilityForReExportTarget(entryPointExportDeclaration: string): ReachabilityIndex {
+    const files = multiFileBindingsFor([
+        {
+            filePath: 'entry.ts',
+            content: entryPointExportDeclaration
+        },
+        {
+            filePath: 'target.ts',
+            content: [
+                'function helper() { return 1; }',
+                'export function used() { return helper(); }',
+                'export function unused() { return 2; }'
+            ].join('\n')
+        }
+    ]);
+    return buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+}
+
+function reachabilityForLocalValueExport(entryPointExportDeclaration: string): ReachabilityIndex {
+    const files = [
+        fileBindingsFor(
+            'entry.ts',
+            [
+                'function buildValue() { return 1; }',
+                'const localValue = buildValue();',
+                'const unusedValue = 2;',
+                entryPointExportDeclaration
+            ].join('\n')
+        )
+    ];
+    return buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+}
+
+function assertReExportTargetIsReachable(index: ReachabilityIndex): void {
+    assert.ok(index.localReachable.has(bindingId('target.ts', 'used')));
+    assert.ok(index.localReachable.has(bindingId('target.ts', 'helper')));
+    assert.strictEqual(index.localReachable.has(bindingId('target.ts', 'unused')), false);
+}
+
+function assertLocalValueExportIsReachable(index: ReachabilityIndex): void {
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'localValue')));
+    assert.ok(index.localReachable.has(bindingId('entry.ts', 'buildValue')));
+    assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'unusedValue')), false);
 }
 
 suite('reachability', function () {
@@ -117,6 +162,52 @@ suite('reachability', function () {
 
         assert.ok(index.localReachable.has(bindingId('helpers.ts', 'used')));
         assert.strictEqual(index.localReachable.has(bindingId('helpers.ts', 'unused')), false);
+    });
+
+    test('keeps a named re-export target from an entry point reachable', function () {
+        const index = reachabilityForReExportTarget('export { used } from "./target.ts";');
+
+        assertReExportTargetIsReachable(index);
+    });
+
+    test('keeps an aliased named re-export target from an entry point reachable', function () {
+        const index = reachabilityForReExportTarget('export { used as renamed } from "./target.ts";');
+
+        assertReExportTargetIsReachable(index);
+        assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'renamed')), false);
+    });
+
+    test('does not keep a named re-export target from a non-entry file reachable', function () {
+        const files = multiFileBindingsFor([
+            {
+                filePath: 'entry.ts',
+                content: ''
+            },
+            {
+                filePath: 'internal.ts',
+                content: 'export { usedValue } from "./values.ts";'
+            },
+            {
+                filePath: 'values.ts',
+                content: 'export const usedValue = 1;'
+            }
+        ]);
+        const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['entry.ts']) });
+
+        assert.strictEqual(index.localReachable.has(bindingId('values.ts', 'usedValue')), false);
+    });
+
+    test('keeps a local binding exported through an entry-point export list reachable', function () {
+        const index = reachabilityForLocalValueExport('export { localValue };');
+
+        assertLocalValueExportIsReachable(index);
+    });
+
+    test('keeps a local binding exported through an aliased entry-point export list reachable', function () {
+        const index = reachabilityForLocalValueExport('export { localValue as publicValue };');
+
+        assertLocalValueExportIsReachable(index);
+        assert.strictEqual(index.localReachable.has(bindingId('entry.ts', 'publicValue')), false);
     });
 
     test('keeps every binding reachable that an impure top-level statement references', function () {
