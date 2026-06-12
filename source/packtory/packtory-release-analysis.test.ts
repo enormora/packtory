@@ -1,10 +1,17 @@
 import assert from 'node:assert';
 import vm from 'node:vm';
 import { suite, test } from 'mocha';
-import { Maybe, Result } from 'true-myth';
-import { validateConfig, type ValidConfigResult } from '../config/validation.ts';
-import { createIteratingScheduler } from '../test-libraries/iterating-scheduler.ts';
-import { analyzedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { Result } from 'true-myth';
+import {
+    buildResultFor,
+    createReleaseTestDependencies,
+    packageProcessorCheckingStage,
+    packageProcessorWithFailure,
+    previousReleaseArtifactsFor,
+    resolvedPackagesFor,
+    validatedReleaseConfigFor,
+    type ReleaseFileCollection
+} from '../test-libraries/release-orchestrator-fixtures.ts';
 import {
     createAnalyzeReleaseAgainstLatestPublishedValidated,
     type ReleaseAnalysisOrchestratorDependencies
@@ -16,107 +23,7 @@ type BuildAndPublishResult = Awaited<
     ReturnType<ReleaseAnalysisOrchestratorDependencies['packageProcessor']['tryBuildAndPublish']>
 >;
 type PackageProcessor = ReleaseAnalysisOrchestratorDependencies['packageProcessor'];
-type FileCollection = ReleaseAnalysisOrchestratorDependencies['artifactsBuilder']['collectContents'];
-const noPublicationOutcome = { type: 'none' } as const;
-
-function validatedConfigFor(packageNames: readonly string[]): ValidConfigResult {
-    const result = validateConfig({
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        packages: packageNames.map((name) => {
-            return {
-                mainPackageJson: { type: 'module' },
-                name,
-                publishSettings: { access: 'public' },
-                roots: { main: { js: `source/${name}.js` } },
-                sourcesFolder: 'source'
-            };
-        })
-    });
-
-    if (result.isErr) {
-        assert.fail(`Expected config to validate: ${result.error.join(', ')}`);
-    }
-
-    return result.value;
-}
-
-function packageProcessorFor(
-    buildResults: readonly BuildAndPublishResult[],
-    onMissingResult: () => never
-): PackageProcessor {
-    let invocation = 0;
-
-    return {
-        async build() {
-            throw new Error('build() should not be called in release-analysis tests');
-        },
-        async buildAndPublish() {
-            throw new Error('buildAndPublish() should not be called in release-analysis dry runs');
-        },
-        async resolveAndLink() {
-            throw new Error('resolveAndLink() should not be called in release-analysis tests');
-        },
-        async tryBuildAndPublish() {
-            const result = buildResults[invocation];
-            invocation += 1;
-            if (result === undefined) {
-                return onMissingResult();
-            }
-
-            return result;
-        }
-    };
-}
-
-function packageProcessorWith(buildResults: readonly BuildAndPublishResult[]): PackageProcessor {
-    return packageProcessorFor(buildResults, () => {
-        throw new Error('Missing build result fixture');
-    });
-}
-
-function packageProcessorWithFailure(buildResults: readonly BuildAndPublishResult[], failure: Error): PackageProcessor {
-    return packageProcessorFor(buildResults, () => {
-        throw failure;
-    });
-}
-
-function buildResultFor(
-    overrides: Partial<BuildAndPublishResult> & { readonly packageName?: string } = {}
-): BuildAndPublishResult {
-    const packageName = overrides.packageName ?? 'pkg-a';
-
-    return {
-        status: 'new-version',
-        publication: noPublicationOutcome,
-        bundle: versionedBundleWithManifest({
-            name: packageName,
-            version: '1.0.1',
-            packageJson: { name: packageName, version: '1.0.1' }
-        }),
-        extraFiles: [],
-        previousReleaseArtifacts: Maybe.nothing(),
-        ...overrides
-    };
-}
-
-const progressBroadcaster: ReleaseAnalysisOrchestratorDependencies['progressBroadcaster'] = {
-    consumer: {
-        off() {
-            return undefined;
-        },
-        on() {
-            return undefined;
-        }
-    },
-    provider: {
-        emit() {
-            return undefined;
-        },
-        hasSubscribers() {
-            return false;
-        }
-    }
-};
+type FileCollection = ReleaseFileCollection;
 
 function createAnalyzer(spec: {
     readonly packageNames: readonly string[];
@@ -124,20 +31,7 @@ function createAnalyzer(spec: {
     readonly collectContents?: ReleaseAnalysisOrchestratorDependencies['artifactsBuilder']['collectContents'];
     readonly packageProcessor?: PackageProcessor;
 }) {
-    const dependencies: ReleaseAnalysisOrchestratorDependencies = {
-        artifactsBuilder: {
-            collectContents:
-                spec.collectContents ??
-                (() => {
-                    return [];
-                })
-        },
-        packageProcessor: spec.packageProcessor ?? packageProcessorWith(spec.buildResults ?? []),
-        progressBroadcaster,
-        scheduler: createIteratingScheduler(spec.packageNames)
-    };
-
-    return createAnalyzeReleaseAgainstLatestPublishedValidated(dependencies);
+    return createAnalyzeReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(spec));
 }
 
 function expectPartialFailure(result: ReleaseAnalysisResult) {
@@ -148,37 +42,11 @@ function expectPartialFailure(result: ReleaseAnalysisResult) {
     return result.error;
 }
 
-function resolvedPackagesFor(validated: ValidConfigResult): readonly ResolvedPackage[] {
-    return validated.packtoryConfig.packages.map((packageConfig) => {
-        const resolvedPackage: ResolvedPackage = {
-            name: packageConfig.name,
-            analyzedBundle: analyzedBundle({ name: packageConfig.name }),
-            resolveOptions: {
-                name: packageConfig.name,
-                exportPackageJson: packageConfig.exportPackageJson,
-                roots: packageConfig.roots,
-                surface: undefined,
-                sourcesFolder: packageConfig.sourcesFolder ?? 'source',
-                includeSourceMapFiles: packageConfig.includeSourceMapFiles ?? false,
-                additionalFiles: packageConfig.additionalFiles ?? [],
-                mainPackageJson: packageConfig.mainPackageJson ?? { type: 'module' },
-                additionalPackageJsonAttributes: packageConfig.additionalPackageJsonAttributes ?? {},
-                allowMutableSpecifiers: [],
-                deadCodeElimination: packageConfig.deadCodeElimination,
-                bundleDependencies: [],
-                bundlePeerDependencies: []
-            }
-        };
-
-        return resolvedPackage;
-    });
-}
-
 function publishedBuildResultFor(status: BuildAndPublishResult['status'] = 'new-version'): BuildAndPublishResult {
     return buildResultFor({
         status,
         packageName: 'pkg-a',
-        previousReleaseArtifacts: Maybe.just({
+        previousReleaseArtifacts: previousReleaseArtifactsFor({
             version: '1.0.0',
             publishedAt: new Date('2026-05-01T00:00:00.000Z'),
             files: [{ filePath: 'package.json', content: '{"name":"pkg-a","version":"1.0.0"}', isExecutable: false }]
@@ -195,7 +63,7 @@ async function analyzePublishedBuildResult(spec: {
         buildResults: [publishedBuildResultFor(spec.status)],
         collectContents: spec.collectContents
     });
-    const validated = validatedConfigFor(['pkg-a']);
+    const validated = validatedReleaseConfigFor(['pkg-a']);
 
     return analyze(validated, async () => {
         return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
@@ -205,7 +73,7 @@ async function analyzePublishedBuildResult(spec: {
 async function analyzePartialPublishFailure(
     collectContents: FileCollection
 ): Promise<ReturnType<typeof expectPartialFailure>> {
-    const validated = validatedConfigFor(['pkg-a', 'pkg-b']);
+    const validated = validatedReleaseConfigFor(['pkg-a', 'pkg-b']);
     const analyze = createAnalyzer({
         packageNames: ['pkg-a', 'pkg-b'],
         packageProcessor: packageProcessorWithFailure([publishedBuildResultFor()], new Error('publish failed')),
@@ -229,24 +97,10 @@ function dependencyOnlyFiles(version: string): readonly {
 
 suite('packtory-release-analysis', function () {
     test('runs dry-run publish analysis with staged publishing disabled', async function () {
-        const validated = validatedConfigFor(['pkg-a']);
+        const validated = validatedReleaseConfigFor(['pkg-a']);
         const analyze = createAnalyzer({
             packageNames: ['pkg-a'],
-            packageProcessor: {
-                async build() {
-                    throw new Error('build() should not be called in release-analysis tests');
-                },
-                async buildAndPublish() {
-                    throw new Error('buildAndPublish() should not be called in release-analysis dry runs');
-                },
-                async resolveAndLink() {
-                    throw new Error('resolveAndLink() should not be called in release-analysis tests');
-                },
-                async tryBuildAndPublish(options) {
-                    assert.strictEqual(options.stage, false);
-                    return buildResultFor();
-                }
-            }
+            packageProcessor: packageProcessorCheckingStage(false)
         });
 
         const result = await analyze(validated, async () => {
@@ -258,7 +112,7 @@ suite('packtory-release-analysis', function () {
 
     test('passes non-partial resolve failures through unchanged', async function () {
         const analyze = createAnalyzer({ packageNames: [] });
-        const validated = validatedConfigFor(['pkg-a']);
+        const validated = validatedReleaseConfigFor(['pkg-a']);
 
         const result = await analyze(validated, async () => {
             return Result.err<readonly ResolvedPackage[], ResolveAndLinkFailure>({
@@ -277,7 +131,7 @@ suite('packtory-release-analysis', function () {
     test('maps partial resolve failures to release-analysis partial failures with empty succeeded entries', async function () {
         const analyze = createAnalyzer({ packageNames: [] });
         const failure = new Error('resolve failed');
-        const validated = validatedConfigFor(['pkg-a']);
+        const validated = validatedReleaseConfigFor(['pkg-a']);
 
         const result = await analyze(validated, async () => {
             const resolvedPackages: readonly ResolvedPackage[] = [];
@@ -331,15 +185,14 @@ suite('packtory-release-analysis', function () {
             buildResults: [
                 buildResultFor({
                     status: 'already-published',
-                    packageName: 'pkg-a',
-                    previousReleaseArtifacts: Maybe.nothing()
+                    packageName: 'pkg-a'
                 })
             ],
             collectContents() {
                 throw new Error('collectContents() should not be called');
             }
         });
-        const validated = validatedConfigFor(['pkg-a']);
+        const validated = validatedReleaseConfigFor(['pkg-a']);
 
         const result = await analyze(validated, async () => {
             return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));

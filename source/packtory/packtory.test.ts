@@ -734,6 +734,55 @@ suite('packtory', function () {
         assert.ok(outcome.getReport().packages['package-a']);
     });
 
+    test('planReleaseAgainstLatestPublished() returns config issues when the config with registry is invalid', async function () {
+        const { packtory } = createPacktoryUnderTest();
+
+        const { result } = await packtory.planReleaseAgainstLatestPublished({ invalid: true });
+
+        if (result.isOk) {
+            assert.fail('expected an Err result');
+        }
+        assert.strictEqual(result.error.type, 'config');
+    });
+
+    test('planReleaseAgainstLatestPublished() builds a release plan through the dry-run publish path', async function () {
+        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest({
+            collectContents() {
+                return [{ filePath: 'package/index.js', content: 'new', isExecutable: false }];
+            }
+        });
+
+        const { result } = await packtory.planReleaseAgainstLatestPublished(createConfig());
+
+        if (result.isErr) {
+            assert.fail(`expected an Ok result, got ${JSON.stringify(result.error)}`);
+        }
+        assert.deepStrictEqual(result.value.packages, [
+            {
+                name: 'package-a',
+                previousVersion: undefined,
+                nextVersion: '1.0.0',
+                artifactState: 'first-publish',
+                changed: true,
+                latestRegistryMetadata: undefined,
+                artifactFiles: ['index.js'],
+                changedArtifactFiles: ['index.js'],
+                sourceFiles: ['/package-a/index.js']
+            }
+        ]);
+        assert.strictEqual(tryBuildAndPublish.callCount, 1);
+        assert.strictEqual(buildAndPublish.callCount, 0);
+    });
+
+    test('planReleaseAgainstLatestPublished() exposes a getReport and disposes the report aggregator', async function () {
+        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+        const outcome = await packtory.planReleaseAgainstLatestPublished(createConfig());
+
+        assert.ok(outcome.getReport().packages['package-a']);
+        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
+    });
+
     const packPublicOptions = {
         packageName: 'package-a',
         format: 'zip' as const,

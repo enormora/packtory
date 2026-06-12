@@ -7,15 +7,19 @@ import {
     configError,
     createPublishAllOutcome,
     createReleaseAnalysisOutcome,
+    createReleasePlanOutcome,
     createResolveAndLinkAllOutcome,
     publishPartialFailure,
     type PublishFailure,
     releaseAnalysisPartialFailure,
+    releasePlanPartialFailure,
     type ReleaseAnalysisFailure,
     resolvePartialFailure,
     type BuildReport,
     type PublishAllResult,
     type ReleaseAnalysisResult,
+    type ReleasePlanPackage,
+    type ReleasePlanResult,
     type ResolveAndLinkAllResult
 } from './packtory-results.ts';
 
@@ -60,6 +64,16 @@ suite('packtory-results', function () {
         );
     });
 
+    test('releasePlanPartialFailure tags a PartialError as a release-plan partial failure', function () {
+        const failure = releasePlanPartialFailure({
+            succeeded: [] as readonly ReleasePlanPackage[],
+            failures: createFailureStub()
+        });
+
+        assert.strictEqual(failure.type, 'partial');
+        assert.deepStrictEqual(failure.failures, [{ message: 'boom' }]);
+    });
+
     test('createPublishAllOutcome captures the result and the report getter', function () {
         const result = Result.err({ type: 'config', issues: [] }) as PublishAllResult;
         const report: BuildReport = {
@@ -85,6 +99,14 @@ suite('packtory-results', function () {
     test('createReleaseAnalysisOutcome captures the result and the report getter', function () {
         const result = Result.err({ type: 'config', issues: [] }) as ReleaseAnalysisResult;
         const outcome = createReleaseAnalysisOutcome(result, () => undefined as never);
+
+        assert.strictEqual(outcome.result, result);
+        assert.strictEqual(outcome.getReport(), undefined);
+    });
+
+    test('createReleasePlanOutcome captures the result and the report getter', function () {
+        const result = Result.err({ type: 'config', issues: [] }) as ReleasePlanResult;
+        const outcome = createReleasePlanOutcome(result, () => undefined as never);
 
         assert.strictEqual(outcome.result, result);
         assert.strictEqual(outcome.getReport(), undefined);

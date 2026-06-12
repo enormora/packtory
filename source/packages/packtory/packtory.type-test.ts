@@ -4,12 +4,18 @@ import type { PublicationOutcome } from '../../bundle-emitter/publication-outcom
 import type { MetadataAuthMode, PublishAuthStrategy } from '../../config/registry-settings.ts';
 import type {
     buildAndPublishAll,
+    planReleaseAgainstLatestPublished,
     progressBroadcastConsumer,
     resolveAndLinkAll,
     BuildReport,
     PacktoryConfig,
     PublishAllOutcome,
     PublishAllResult,
+    ReleasePlan,
+    ReleasePlanOutcome,
+    ReleasePlanPackage,
+    ReleasePlanRegistryMetadata,
+    ReleasePlanResult,
     ResolveAndLinkAllOutcome,
     ResolveAndLinkAllResult,
     ResolveAndLinkFailure,
@@ -33,6 +39,10 @@ type ErrVariant<TResult> = Extract<TResult, { isErr: true }>;
 type PublishOk = OkVariant<PublishAllResult>['value'];
 type PublishErr = ErrVariant<PublishAllResult>['error'];
 type BuildAndPublishResult = PublishOk[number];
+type ReleasePlanOk = OkVariant<ReleasePlanResult>['value'];
+type ReleasePlanErr = ErrVariant<ReleasePlanResult>['error'];
+type ResultFailureType = 'checks' | 'config' | 'partial';
+type ReleasePlanArtifactState = 'changed' | 'first-publish' | 'unchanged';
 
 describe('public functions', () => {
     test('buildAndPublishAll takes an unknown config and build options and returns a PublishAllOutcome', () => {
@@ -47,6 +57,12 @@ describe('public functions', () => {
     test('resolveAndLinkAll takes an unknown config and returns a ResolveAndLinkAllOutcome', () => {
         expect<typeof resolveAndLinkAll>().type.toBe<
             (config: unknown, options?: { readonly collectReport?: boolean }) => Promise<ResolveAndLinkAllOutcome>
+        >();
+    });
+
+    test('planReleaseAgainstLatestPublished takes an unknown config and returns a ReleasePlanOutcome', () => {
+        expect<typeof planReleaseAgainstLatestPublished>().type.toBe<
+            (config: unknown) => Promise<ReleasePlanOutcome>
         >();
     });
 });
@@ -68,6 +84,16 @@ describe('ResolveAndLinkAllOutcome', () => {
 
     test('exposes a getReport method that returns BuildReport or undefined', () => {
         expect<ResolveAndLinkAllOutcome['getReport']>().type.toBe<() => BuildReport | undefined>();
+    });
+});
+
+describe('ReleasePlanOutcome', () => {
+    test('exposes the wrapped result', () => {
+        expect<ReleasePlanOutcome['result']>().type.toBe<ReleasePlanResult>();
+    });
+
+    test('exposes a getReport method that returns BuildReport', () => {
+        expect<ReleasePlanOutcome['getReport']>().type.toBe<() => BuildReport>();
     });
 });
 
@@ -252,7 +278,7 @@ describe('PublishAllResult', () => {
     });
 
     test('the failure variant is a discriminated union keyed by `type`', () => {
-        expect<PublishErr['type']>().type.toBe<'checks' | 'config' | 'partial'>();
+        expect<PublishErr['type']>().type.toBe<ResultFailureType>();
     });
 
     test('a checks failure exposes a readonly issues array of strings', () => {
@@ -278,7 +304,41 @@ describe('ResolveAndLinkAllResult', () => {
     });
 
     test('the failure variant is a discriminated union keyed by `type`', () => {
-        expect<ResolveAndLinkFailure['type']>().type.toBe<'checks' | 'config' | 'partial'>();
+        expect<ResolveAndLinkFailure['type']>().type.toBe<ResultFailureType>();
+    });
+});
+
+describe('ReleasePlanResult', () => {
+    test('is a Result of a release plan with a discriminated failure union', () => {
+        expect<ReleasePlanResult>().type.toBe<Result<ReleasePlan, ReleasePlanErr>>();
+        expect<ReleasePlanErr['type']>().type.toBe<ResultFailureType>();
+    });
+
+    test('the ok value exposes release-plan packages', () => {
+        expect<ReleasePlanOk['packages']>().type.toBe<readonly ReleasePlanPackage[]>();
+    });
+
+    test('each package exposes planned versions, artifacts, registry metadata, and sources', () => {
+        expect<ReleasePlanPackage['name']>().type.toBe<string>();
+        expect<ReleasePlanPackage['previousVersion']>().type.toBe<string | undefined>();
+        expect<ReleasePlanPackage['nextVersion']>().type.toBe<string>();
+        expect<ReleasePlanPackage['artifactState']>().type.toBe<ReleasePlanArtifactState>();
+        expect<ReleasePlanPackage['changed']>().type.toBe<boolean>();
+        expect<ReleasePlanPackage['latestRegistryMetadata']>().type.toBe<ReleasePlanRegistryMetadata | undefined>();
+        expect<ReleasePlanPackage['artifactFiles']>().type.toBe<readonly string[]>();
+        expect<ReleasePlanPackage['changedArtifactFiles']>().type.toBe<readonly string[]>();
+        expect<ReleasePlanPackage['sourceFiles']>().type.toBe<readonly string[]>();
+    });
+
+    test('registry metadata exposes the latest version and optional publish date', () => {
+        expect<ReleasePlanRegistryMetadata['version']>().type.toBe<string>();
+        expect<ReleasePlanRegistryMetadata['publishedAt']>().type.toBe<Date | undefined>();
+    });
+
+    test('a partial failure carries succeeded package plans and a list of errors', () => {
+        type PartialFailure = Extract<ReleasePlanErr, { type: 'partial' }>;
+        expect<PartialFailure['succeeded']>().type.toBe<readonly ReleasePlanPackage[]>();
+        expect<PartialFailure['failures']>().type.toBe<readonly Error[]>();
     });
 });
 

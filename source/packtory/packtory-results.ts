@@ -184,11 +184,51 @@ export function createReleaseAnalysisOutcome(
     return { result, getReport };
 }
 
+export type ReleasePlanRegistryMetadata = {
+    readonly version: string;
+    readonly publishedAt: Date | undefined;
+};
+
+export type ReleasePlanPackage = {
+    readonly name: string;
+    readonly previousVersion: string | undefined;
+    readonly nextVersion: string;
+    readonly artifactState: 'changed' | 'first-publish' | 'unchanged';
+    readonly changed: boolean;
+    readonly latestRegistryMetadata: ReleasePlanRegistryMetadata | undefined;
+    readonly artifactFiles: readonly string[];
+    readonly changedArtifactFiles: readonly string[];
+    readonly sourceFiles: readonly string[];
+};
+
+export type ReleasePlan = {
+    readonly packages: readonly ReleasePlanPackage[];
+};
+
+export type ReleasePlanFailure =
+    | CheckError
+    | ConfigError
+    | (PartialError<ReleasePlanPackage> & { type: typeof partialFailureType });
+export type ReleasePlanResult = Result<ReleasePlan, ReleasePlanFailure>;
+
+export type ReleasePlanOutcome = {
+    readonly result: ReleasePlanResult;
+    readonly getReport: () => BuildReport;
+};
+
+export function createReleasePlanOutcome(result: ReleasePlanResult, getReport: () => BuildReport): ReleasePlanOutcome {
+    return { result, getReport };
+}
+
 export function releaseDiffPartialFailure(error: PartialError<PackageReleaseDiff>): ReleaseDiffFailure {
     return { type: partialFailureType, ...error };
 }
 
 export function releaseAnalysisPartialFailure(error: PartialError<PackageReleaseAnalysis>): ReleaseAnalysisFailure {
+    return { type: partialFailureType, ...error };
+}
+
+export function releasePlanPartialFailure(error: PartialError<ReleasePlanPackage>): ReleasePlanFailure {
     return { type: partialFailureType, ...error };
 }
 
@@ -216,6 +256,7 @@ export type Packtory = {
     analyzeReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleaseAnalysisOutcome>;
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
     diffAgainstLatestPublished: (config: unknown) => Promise<ReleaseDiffAllOutcome>;
+    planReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleasePlanOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
     packPackage: (config: unknown, options: PackPublicOptions) => Promise<PackOutcome>;
 };

@@ -8,6 +8,7 @@ import type { VendorMaterializer } from '../vendor-materializer/vendor-materiali
 import type { VersionManager } from '../version-manager/manager.ts';
 import { createAnalyzeReleaseAgainstLatestPublishedValidated } from './packtory-release-analysis.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
+import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
 import { createRunPackValidated } from './packtory-pack.ts';
 import { attachAggregator, emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 import { createResolveAndLinkAllValidated } from './packtory-resolve.ts';
@@ -16,6 +17,7 @@ import {
     createReleaseAnalysisOutcome,
     configError,
     createPackOutcome,
+    createReleasePlanOutcome,
     createPublishAllOutcome,
     createReleaseDiffAllOutcome,
     createResolveAndLinkAllOutcome,
@@ -35,6 +37,11 @@ import {
     type ReleaseAnalysisResult as ReleaseAnalysisResultBase,
     type ReleaseDiffAllOutcome as ReleaseDiffAllOutcomeBase,
     type ReleaseDiffAllResult as ReleaseDiffAllResultBase,
+    type ReleasePlan as ReleasePlanBase,
+    type ReleasePlanOutcome as ReleasePlanOutcomeBase,
+    type ReleasePlanPackage as ReleasePlanPackageBase,
+    type ReleasePlanRegistryMetadata as ReleasePlanRegistryMetadataBase,
+    type ReleasePlanResult as ReleasePlanResultBase,
     type ResolveAndLinkFailure as ResolveAndLinkFailureBase,
     type ResolveAndLinkAllOptions as ResolveAndLinkAllOptionsBase,
     type ResolveAndLinkAllOutcome as ResolveAndLinkAllOutcomeBase,
@@ -50,6 +57,7 @@ export type PublishAllOutcome = PublishAllOutcomeBase;
 export type ResolveAndLinkAllOutcome = ResolveAndLinkAllOutcomeBase;
 export type ReleaseDiffAllOutcome = ReleaseDiffAllOutcomeBase;
 export type ReleaseAnalysisOutcome = ReleaseAnalysisOutcomeBase;
+export type ReleasePlanOutcome = ReleasePlanOutcomeBase;
 export type PackOutcome = PackOutcomeBase;
 export type PackResult = PackResultBase;
 export type PackPublicOptions = PackPublicOptionsBase;
@@ -57,7 +65,11 @@ export type PublishAllResult = PublishAllResultBase;
 export type ResolveAndLinkAllResult = ResolveAndLinkAllResultBase;
 export type ReleaseDiffAllResult = ReleaseDiffAllResultBase;
 export type ReleaseAnalysisResult = ReleaseAnalysisResultBase;
+export type ReleasePlanResult = ReleasePlanResultBase;
 export type ReleaseAnalysis = ReleaseAnalysisBase;
+export type ReleasePlan = ReleasePlanBase;
+export type ReleasePlanPackage = ReleasePlanPackageBase;
+export type ReleasePlanRegistryMetadata = ReleasePlanRegistryMetadataBase;
 export type PackageReleaseAnalysis = PackageReleaseAnalysisBase;
 export type PackageReleaseAnalysisClassification = PackageReleaseAnalysisClassificationBase;
 export type ResolveAndLinkFailure = ResolveAndLinkFailureBase;
@@ -81,6 +93,9 @@ type ValidatedRunners = {
     readonly analyzeReleaseAgainstLatestPublishedValidated: ReturnType<
         typeof createAnalyzeReleaseAgainstLatestPublishedValidated
     >;
+    readonly planReleaseAgainstLatestPublishedValidated: ReturnType<
+        typeof createPlanReleaseAgainstLatestPublishedValidated
+    >;
     readonly runPackValidated: ReturnType<typeof createRunPackValidated>;
 };
 
@@ -91,6 +106,7 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
         diffAgainstLatestPublishedValidated: createDiffAgainstLatestPublishedValidated(dependencies),
         analyzeReleaseAgainstLatestPublishedValidated:
             createAnalyzeReleaseAgainstLatestPublishedValidated(dependencies),
+        planReleaseAgainstLatestPublishedValidated: createPlanReleaseAgainstLatestPublishedValidated(dependencies),
         runPackValidated: createRunPackValidated(dependencies)
     };
 }
@@ -114,12 +130,12 @@ function ensureAuthConfiguredForRealPublish(
 }
 
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
-    const { progressBroadcaster } = dependencies;
     const {
         resolveAndLinkAllValidated,
         runBuildAndPublishValidated,
         diffAgainstLatestPublishedValidated,
         analyzeReleaseAgainstLatestPublishedValidated,
+        planReleaseAgainstLatestPublishedValidated,
         runPackValidated
     } = createValidatedRunners(dependencies);
 
@@ -151,7 +167,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         return runReportedOperation({
             config,
             attachReporting() {
-                return maybeAttachAggregator(progressBroadcaster, options?.collectReport);
+                return maybeAttachAggregator(dependencies.progressBroadcaster, options?.collectReport);
             },
             validate: validateConfigWithoutRegistry,
             runValidated: resolveAndLinkAllValidated,
@@ -166,7 +182,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         validated: ValidConfigResult,
         options: BuildAndPublishAllOptions
     ): Promise<PublishAllResult> {
-        emitEffectiveConfigPerPackage(progressBroadcaster, validated.packtoryConfig);
+        emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
         return runBuildAndPublishValidated(validated, options, resolveAndLinkAllValidated);
     }
 
@@ -177,7 +193,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         return runReportedOperation({
             config,
             attachReporting() {
-                return maybeAttachAggregator(progressBroadcaster, options.collectReport);
+                return maybeAttachAggregator(dependencies.progressBroadcaster, options.collectReport);
             },
             validate: validateConfig,
             async runValidated(validated) {
@@ -208,11 +224,11 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         return runReportedOperation({
             config,
             attachReporting() {
-                return attachAggregator(progressBroadcaster);
+                return attachAggregator(dependencies.progressBroadcaster);
             },
             validate: validateConfig,
             async runValidated(validated) {
-                emitEffectiveConfigPerPackage(progressBroadcaster, validated.packtoryConfig);
+                emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
                 return diffAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
             },
             createValidationErrorResult(issues) {
@@ -226,11 +242,11 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         return runReportedOperation({
             config,
             attachReporting() {
-                return attachAggregator(progressBroadcaster);
+                return attachAggregator(dependencies.progressBroadcaster);
             },
             validate: validateConfig,
             async runValidated(validated) {
-                emitEffectiveConfigPerPackage(progressBroadcaster, validated.packtoryConfig);
+                emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
                 return analyzeReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
             },
             createValidationErrorResult(issues) {
@@ -240,10 +256,29 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         });
     }
 
+    async function planReleaseAgainstLatestPublishedPublic(config: unknown): Promise<ReleasePlanOutcome> {
+        return runReportedOperation({
+            config,
+            attachReporting() {
+                return attachAggregator(dependencies.progressBroadcaster);
+            },
+            validate: validateConfig,
+            async runValidated(validated) {
+                emitEffectiveConfigPerPackage(dependencies.progressBroadcaster, validated.packtoryConfig);
+                return planReleaseAgainstLatestPublishedValidated(validated, resolveAndLinkAllValidated);
+            },
+            createValidationErrorResult(issues) {
+                return Result.err(configError(issues));
+            },
+            createOutcome: createReleasePlanOutcome
+        });
+    }
+
     return {
         analyzeReleaseAgainstLatestPublished: analyzeReleaseAgainstLatestPublishedPublic,
         buildAndPublishAll: buildAndPublishAllPublic,
         diffAgainstLatestPublished: diffAgainstLatestPublishedPublic,
+        planReleaseAgainstLatestPublished: planReleaseAgainstLatestPublishedPublic,
         resolveAndLinkAll: resolveAndLinkAllPublic,
         packPackage: packPackagePublic
     };

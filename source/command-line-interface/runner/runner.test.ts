@@ -90,6 +90,12 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             diffAgainstLatestPublished: createSpy(overrides.diffAgainstLatestPublished, () => {
                 return fake.resolves(toReleaseDiffOutcome(Result.ok([])));
             }),
+            planReleaseAgainstLatestPublished: fake.resolves({
+                result: Result.ok({ packages: [] }),
+                getReport() {
+                    return createBuildReportFixture();
+                }
+            }),
             resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([]))),
             packPackage: createSpy(overrides.packPackage, () => {
                 return fake.resolves(toOutcome(Result.ok(undefined)));
