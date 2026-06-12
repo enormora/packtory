@@ -259,6 +259,9 @@ function createPacktoryUnderTest(
                         peerRequirements: new Map<string, readonly string[]>()
                     });
                 }
+            },
+            async readCurrentGitHead() {
+                return undefined;
             }
         }),
         resolveAndLink,
@@ -703,6 +706,7 @@ suite('packtory', function () {
                     previousReleaseArtifacts: Maybe.just({
                         version: '1.0.0',
                         publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        gitHead: undefined,
                         files: [
                             {
                                 filePath: 'package.json',
@@ -764,6 +768,8 @@ suite('packtory', function () {
                 nextVersion: '1.0.0',
                 artifactState: 'first-publish',
                 changed: true,
+                previousGitHead: undefined,
+                currentGitHead: undefined,
                 latestRegistryMetadata: undefined,
                 artifactFiles: ['index.js'],
                 changedArtifactFiles: ['index.js'],

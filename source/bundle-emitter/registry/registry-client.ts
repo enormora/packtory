@@ -15,7 +15,7 @@ import {
 } from './package-metadata-fetcher.ts';
 import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
 
-type PublishManifest = {
+type PublishManifest = Readonly<Record<string, unknown>> & {
     readonly name: string;
     readonly version: string;
 };

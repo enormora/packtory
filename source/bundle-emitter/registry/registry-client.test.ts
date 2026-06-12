@@ -552,7 +552,8 @@ suite('registry-client', function () {
             result,
             Maybe.just({
                 version: '1',
-                tarballUrl: 'https://registry.example.test/pkg.tgz'
+                tarballUrl: 'https://registry.example.test/pkg.tgz',
+                gitHead: undefined
             })
         );
         assert.strictEqual(npmFetchJson.callCount, 2);
@@ -605,7 +606,8 @@ suite('registry-client', function () {
             result,
             Maybe.just({
                 version: '1',
-                tarballUrl: 'https://registry.example.test/pkg.tgz'
+                tarballUrl: 'https://registry.example.test/pkg.tgz',
+                gitHead: undefined
             })
         );
         assert.strictEqual(npmFetchJson.callCount, 2);

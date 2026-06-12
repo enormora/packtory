@@ -318,21 +318,27 @@ describe('ReleasePlanResult', () => {
         expect<ReleasePlanOk['packages']>().type.toBe<readonly ReleasePlanPackage[]>();
     });
 
-    test('each package exposes planned versions, artifacts, registry metadata, and sources', () => {
+    test('each package exposes planned versions, artifacts, and registry metadata', () => {
         expect<ReleasePlanPackage['name']>().type.toBe<string>();
         expect<ReleasePlanPackage['previousVersion']>().type.toBe<string | undefined>();
         expect<ReleasePlanPackage['nextVersion']>().type.toBe<string>();
         expect<ReleasePlanPackage['artifactState']>().type.toBe<ReleasePlanArtifactState>();
         expect<ReleasePlanPackage['changed']>().type.toBe<boolean>();
+        expect<ReleasePlanPackage['previousGitHead']>().type.toBe<string | undefined>();
+        expect<ReleasePlanPackage['currentGitHead']>().type.toBe<string | undefined>();
         expect<ReleasePlanPackage['latestRegistryMetadata']>().type.toBe<ReleasePlanRegistryMetadata | undefined>();
+    });
+
+    test('each package exposes artifact and source file lists', () => {
         expect<ReleasePlanPackage['artifactFiles']>().type.toBe<readonly string[]>();
         expect<ReleasePlanPackage['changedArtifactFiles']>().type.toBe<readonly string[]>();
         expect<ReleasePlanPackage['sourceFiles']>().type.toBe<readonly string[]>();
     });
 
-    test('registry metadata exposes the latest version and optional publish date', () => {
+    test('registry metadata exposes the latest version, publish date, and git head', () => {
         expect<ReleasePlanRegistryMetadata['version']>().type.toBe<string>();
         expect<ReleasePlanRegistryMetadata['publishedAt']>().type.toBe<Date | undefined>();
+        expect<ReleasePlanRegistryMetadata['gitHead']>().type.toBe<string | undefined>();
     });
 
     test('a partial failure carries succeeded package plans and a list of errors', () => {

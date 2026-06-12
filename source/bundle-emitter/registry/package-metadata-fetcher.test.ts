@@ -70,9 +70,10 @@ suite('package-metadata-fetcher', function () {
             settings
         );
 
-        assert.deepStrictEqual(result.unwrapOr({ version: '', tarballUrl: '' }), {
+        assert.deepStrictEqual(result.unwrapOr({ version: '', tarballUrl: '', gitHead: undefined }), {
             version: latestVersion,
-            tarballUrl
+            tarballUrl,
+            gitHead: undefined
         });
     });
 
@@ -119,14 +120,33 @@ suite('package-metadata-fetcher', function () {
             result.unwrapOr({
                 version: '',
                 tarballUrl: '',
-                publishedAt: undefined
+                publishedAt: undefined,
+                gitHead: undefined
             }),
             {
                 version: latestVersion,
                 tarballUrl,
-                publishedAt: new Date('2026-05-19T10:00:00.000Z')
+                publishedAt: new Date('2026-05-19T10:00:00.000Z'),
+                gitHead: undefined
             }
         );
+    });
+
+    test('fetchLatestPackageReleaseMetadata returns gitHead from the latest version entry', async function () {
+        const result = await fetchLatestPackageReleaseMetadata(
+            fakeNpmFetch(
+                fake.resolves({
+                    name: 'pkg-a',
+                    'dist-tags': { latest: latestVersion },
+                    versions: { [latestVersion]: { dist: { tarball: tarballUrl }, gitHead: 'abcdef123456' } }
+                })
+            ),
+            'pkg-a',
+            settings
+        );
+
+        const fallback = { version: '', tarballUrl: '', publishedAt: undefined, gitHead: undefined };
+        assert.strictEqual(result.unwrapOr(fallback).gitHead, 'abcdef123456');
     });
 
     test('fetchLatestPackageReleaseMetadata returns undefined publishedAt when the registry omits the time entry', async function () {
@@ -140,12 +160,14 @@ suite('package-metadata-fetcher', function () {
             result.unwrapOr({
                 version: '',
                 tarballUrl: '',
-                publishedAt: undefined
+                publishedAt: undefined,
+                gitHead: undefined
             }),
             {
                 version: latestVersion,
                 tarballUrl,
-                publishedAt: undefined
+                publishedAt: undefined,
+                gitHead: undefined
             }
         );
     });

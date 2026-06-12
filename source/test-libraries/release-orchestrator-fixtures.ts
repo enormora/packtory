@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { Maybe } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { validateConfig, type ValidConfigResult } from '../config/validation.ts';
+import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import type { ProgressBroadcaster } from '../packtory/packtory-results.ts';
 import type { BuildAndPublishResult, PackageProcessor } from '../packtory/package-processor.ts';
 import type { ResolvedPackage } from '../packtory/resolved-package.ts';
@@ -20,6 +21,7 @@ export type ReleaseTestDependencies = {
     readonly artifactsBuilder: { readonly collectContents: ReleaseFileCollection };
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
+    readonly readCurrentGitHead: CurrentGitHeadReader;
     readonly scheduler: ReturnType<typeof createIteratingScheduler>;
 };
 
@@ -27,6 +29,7 @@ type ReleaseTestDependencySpec = {
     readonly packageNames: readonly string[];
     readonly buildResults?: readonly BuildAndPublishResult[];
     readonly collectContents?: ReleaseFileCollection;
+    readonly currentGitHead?: string | undefined;
     readonly packageProcessor?: PackageProcessor;
 };
 
@@ -159,11 +162,13 @@ export function packageProcessorCheckingStage(expectedStage: boolean): PackagePr
 export function previousReleaseArtifactsFor(spec: {
     readonly version: string;
     readonly publishedAt: Date;
+    readonly gitHead?: string | undefined;
     readonly files: readonly ReleaseArtifactFile[];
 }): BuildAndPublishResult['previousReleaseArtifacts'] {
     return Maybe.just({
         version: spec.version,
         publishedAt: spec.publishedAt,
+        gitHead: spec.gitHead,
         files: spec.files
     });
 }
@@ -179,6 +184,9 @@ export function createReleaseTestDependencies(spec: ReleaseTestDependencySpec): 
         },
         packageProcessor: spec.packageProcessor ?? packageProcessorWith(spec.buildResults ?? []),
         progressBroadcaster: releaseProgressBroadcaster,
+        async readCurrentGitHead() {
+            return spec.currentGitHead;
+        },
         scheduler: createIteratingScheduler(spec.packageNames)
     };
 }

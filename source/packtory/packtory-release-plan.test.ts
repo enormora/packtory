@@ -14,23 +14,20 @@ import {
     validatedReleaseConfigFor,
     type ReleaseFileCollection
 } from '../test-libraries/release-orchestrator-fixtures.ts';
-import {
-    createPlanReleaseAgainstLatestPublishedValidated,
-    type ReleasePlanOrchestratorDependencies
-} from './packtory-release-plan.ts';
+import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
 import type { ReleasePlanResult, ResolveAndLinkFailure } from './packtory-results.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 
-type BuildAndPublishResult = Awaited<
-    ReturnType<ReleasePlanOrchestratorDependencies['packageProcessor']['tryBuildAndPublish']>
->;
-type PackageProcessor = ReleasePlanOrchestratorDependencies['packageProcessor'];
+type ReleaseTestDependencies = ReturnType<typeof createReleaseTestDependencies>;
+type BuildAndPublishResult = Awaited<ReturnType<ReleaseTestDependencies['packageProcessor']['tryBuildAndPublish']>>;
+type PackageProcessor = ReleaseTestDependencies['packageProcessor'];
 type FileCollection = ReleaseFileCollection;
 
 function createPlanner(spec: {
     readonly packageNames: readonly string[];
     readonly buildResults?: readonly BuildAndPublishResult[];
     readonly collectContents?: FileCollection;
+    readonly currentGitHead?: string | undefined;
     readonly packageProcessor?: PackageProcessor;
 }) {
     return createPlanReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(spec));
@@ -53,12 +50,14 @@ async function planFor(spec: {
     readonly buildResults: readonly BuildAndPublishResult[];
     readonly collectContents: FileCollection;
     readonly bundleContents?: Readonly<Record<string, readonly ReturnType<typeof analyzedBundleResource>[]>>;
+    readonly currentGitHead?: string | undefined;
 }): Promise<ReleasePlanResult> {
     const validated = validatedReleaseConfigFor(spec.packageNames);
     const plan = createPlanner({
         packageNames: spec.packageNames,
         buildResults: spec.buildResults,
-        collectContents: spec.collectContents
+        collectContents: spec.collectContents,
+        currentGitHead: spec.currentGitHead
     });
 
     return plan(validated, async () => {
@@ -133,6 +132,8 @@ suite('packtory-release-plan', function () {
                 nextVersion: '0.1.0',
                 artifactState: 'first-publish',
                 changed: true,
+                previousGitHead: undefined,
+                currentGitHead: undefined,
                 latestRegistryMetadata: undefined,
                 artifactFiles: ['index.js', 'package.json', 'readme.md'],
                 changedArtifactFiles: ['index.js', 'package.json', 'readme.md'],
@@ -161,8 +162,11 @@ suite('packtory-release-plan', function () {
             changed: true,
             latestRegistryMetadata: {
                 version: '1.0.0',
-                publishedAt: new Date('2026-05-01T00:00:00.000Z')
+                publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                gitHead: undefined
             },
+            previousGitHead: undefined,
+            currentGitHead: undefined,
             artifactFiles: ['extra.js', 'index.js'],
             changedArtifactFiles: ['extra.js', 'index.js', 'removed.js'],
             sourceFiles: ['/source/pkg-a.js']
@@ -186,8 +190,11 @@ suite('packtory-release-plan', function () {
             changed: false,
             latestRegistryMetadata: {
                 version: '1.0.0',
-                publishedAt: new Date('2026-05-01T00:00:00.000Z')
+                publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                gitHead: undefined
             },
+            previousGitHead: undefined,
+            currentGitHead: undefined,
             artifactFiles: ['index.js'],
             changedArtifactFiles: [],
             sourceFiles: ['/source/pkg-a.js']
@@ -214,6 +221,32 @@ suite('packtory-release-plan', function () {
         assert.strictEqual(partial.succeeded.length, 1);
         assert.strictEqual(partial.succeeded[0]?.name, 'pkg-a');
         assert.deepStrictEqual(partial.failures, [failure]);
+    });
+
+    test('plans previous and current git heads for published packages', async function () {
+        const result = await planFor({
+            packageNames: ['pkg-a'],
+            buildResults: [
+                buildResultFor({
+                    previousReleaseArtifacts: previousReleaseArtifactsFor({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        gitHead: 'old-head',
+                        files: [{ filePath: 'package/index.js', content: 'old', isExecutable: false }]
+                    })
+                })
+            ],
+            currentGitHead: 'current-head',
+            collectContents() {
+                return [{ filePath: 'package/index.js', content: 'new', isExecutable: false }];
+            }
+        });
+
+        const [pkg] = expectPlan(result).packages;
+        assert.ok(pkg);
+        assert.strictEqual(pkg.previousGitHead, 'old-head');
+        assert.strictEqual(pkg.currentGitHead, 'current-head');
+        assert.strictEqual(pkg.latestRegistryMetadata?.gitHead, 'old-head');
     });
 
     test('returns a partial failure when building a package plan throws after publish succeeds', async function () {

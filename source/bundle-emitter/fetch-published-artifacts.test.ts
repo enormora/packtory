@@ -40,7 +40,8 @@ suite('fetch-published-artifacts', function () {
             Maybe.just({
                 version: '1.2.3',
                 tarballUrl: 'https://registry.example.test/package.tgz',
-                publishedAt: new Date('2026-05-20T00:00:00.000Z')
+                publishedAt: new Date('2026-05-20T00:00:00.000Z'),
+                gitHead: 'abcdef123456'
             })
         );
         const fetchTarball = fake.resolves(emptyTarball);
@@ -53,6 +54,7 @@ suite('fetch-published-artifacts', function () {
         }
         assert.strictEqual(result.value.version, '1.2.3');
         assert.deepStrictEqual(result.value.publishedAt, new Date('2026-05-20T00:00:00.000Z'));
+        assert.strictEqual(result.value.gitHead, 'abcdef123456');
         assert.deepStrictEqual(result.value.files, []);
         assert.deepStrictEqual(fetchTarball.firstCall.args, [
             'https://registry.example.test/package.tgz',

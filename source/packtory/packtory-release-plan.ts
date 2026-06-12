@@ -1,6 +1,7 @@
 import { Result } from 'true-myth';
 import type { ValidConfigResult } from '../config/validation.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import {
     partialFailureType,
     releasePlanPartialFailure,
@@ -19,7 +20,10 @@ type ResolveAndLinkAllValidated = (
     config: ValidConfigResult
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
-export type ReleasePlanOrchestratorDependencies = PublishStageDependencies & ReleasePlanMapperDependencies;
+type ReleasePlanOrchestratorDependencies = PublishStageDependencies & ReleasePlanMapperDependencies;
+type ReleasePlanDependencies = ReleasePlanOrchestratorDependencies & {
+    readonly readCurrentGitHead: CurrentGitHeadReader;
+};
 
 type PublishStageOutcome = Awaited<ReturnType<typeof determineVersionAndPublishAll>>;
 type PlanStageError = {
@@ -43,19 +47,21 @@ function appendPackagePlan(args: {
     readonly artifactsBuilder: ReleasePlanOrchestratorDependencies['artifactsBuilder'];
     readonly analyzedBundlesByName: ReadonlyMap<string, AnalyzedBundle>;
     readonly buildResult: BuildAndPublishResult;
+    readonly currentGitHead: string | undefined;
     readonly packages: ReleasePlanPackage[];
 }): void {
     const analyzedBundle = args.analyzedBundlesByName.get(args.buildResult.bundle.name);
     if (analyzedBundle === undefined) {
         throw new Error(`Analyzed bundle for package "${args.buildResult.bundle.name}" is missing`);
     }
-    args.packages.push(createReleasePlanPackage(args, analyzedBundle, args.buildResult));
+    args.packages.push(createReleasePlanPackage(args, analyzedBundle, args.buildResult, args.currentGitHead));
 }
 
 async function planSucceededPublishes(
     artifactsBuilder: ReleasePlanOrchestratorDependencies['artifactsBuilder'],
     resolvedPackages: readonly ResolvedPackage[],
-    succeededPublish: readonly BuildAndPublishResult[]
+    succeededPublish: readonly BuildAndPublishResult[],
+    currentGitHead: string | undefined
 ): Promise<Result<readonly ReleasePlanPackage[], PlanStageError>> {
     const analyzedBundlesByName = analyzedBundlesByNameFrom(resolvedPackages);
     const packages: ReleasePlanPackage[] = [];
@@ -63,7 +69,7 @@ async function planSucceededPublishes(
 
     for (const buildResult of succeededPublish) {
         try {
-            appendPackagePlan({ artifactsBuilder, analyzedBundlesByName, buildResult, packages });
+            appendPackagePlan({ artifactsBuilder, analyzedBundlesByName, buildResult, currentGitHead, packages });
         } catch (error: unknown) {
             failures.push(toReleasePlanError(error));
         }
@@ -108,7 +114,7 @@ function toFinalReleasePlanResult(
 }
 
 export function createPlanReleaseAgainstLatestPublishedValidated(
-    dependencies: ReleasePlanOrchestratorDependencies
+    dependencies: ReleasePlanDependencies
 ): (
     validated: ValidConfigResult,
     resolveAndLinkAllValidated: ResolveAndLinkAllValidated
@@ -123,10 +129,12 @@ export function createPlanReleaseAgainstLatestPublishedValidated(
             dryRun: true,
             stage: false
         });
+        const currentGitHead = await dependencies.readCurrentGitHead();
         const planResult = await planSucceededPublishes(
             dependencies.artifactsBuilder,
             resolved.value,
-            succeededResultsFrom(publishResult)
+            succeededResultsFrom(publishResult),
+            currentGitHead
         );
         return toFinalReleasePlanResult(publishResult, planResult);
     };

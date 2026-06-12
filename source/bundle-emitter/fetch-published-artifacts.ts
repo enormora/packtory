@@ -7,6 +7,7 @@ import type { RegistryClient } from './registry/registry-client.ts';
 export type PublishedReleaseArtifacts = {
     readonly publishedAt?: Date | undefined;
     readonly version: string;
+    readonly gitHead: string | undefined;
     readonly files: readonly FileDescription[];
 };
 
@@ -24,6 +25,7 @@ export async function fetchPublishedArtifacts(
     return Maybe.just({
         version: latestVersion.value.version,
         files,
-        publishedAt: latestVersion.value.publishedAt
+        publishedAt: latestVersion.value.publishedAt,
+        gitHead: latestVersion.value.gitHead
     });
 }

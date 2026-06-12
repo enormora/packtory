@@ -4,8 +4,8 @@ import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { compareFileDescriptions, fileDescriptionComparisonStatus } from '../file-manager/compare.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { ArtifactPublishPackage } from '../published-package/published-package.ts';
-import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
 import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
+import { canonicalizeReleaseArtifactFiles } from './release-artifact-canonicalizer.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { assertRepositoryCoherence } from './repository-coherence.ts';
 
@@ -37,6 +37,7 @@ export type BundleEmitterDependencies = {
     readonly artifactsBuilder: ArtifactsBuilder;
     readonly registryClient: RegistryClient;
     readonly ciRepositoryUrl: string | undefined;
+    readonly readCurrentGitHead: () => Promise<string | undefined>;
 };
 
 type PublishOptions = {
@@ -102,7 +103,7 @@ function highestVersion(firstVersion: string, laterVersions: readonly string[]):
 }
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
-    const { artifactsBuilder, registryClient, ciRepositoryUrl } = dependencies;
+    const { artifactsBuilder, registryClient, ciRepositoryUrl, readCurrentGitHead } = dependencies;
 
     async function determineCurrentVersionForStageMode(
         name: string,
@@ -153,8 +154,8 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
 
             const artifactContents = artifactsBuilder.collectContents(bundle, 'package', extraFiles);
             const comparison = compareFileDescriptions(
-                canonicalizeSbomInFileSet(artifactContents),
-                canonicalizeSbomInFileSet(previous.value.files)
+                canonicalizeReleaseArtifactFiles(artifactContents),
+                canonicalizeReleaseArtifactFiles(previous.value.files)
             );
             return {
                 alreadyPublishedAsLatest: comparison.status === fileDescriptionComparisonStatus.equal,
@@ -168,9 +169,14 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
             }
 
             const tarball = await artifactsBuilder.buildTarball(options.bundle, options.extraFiles);
+            const currentGitHead = await readCurrentGitHead();
+            const publishManifest =
+                currentGitHead === undefined
+                    ? options.bundle.packageJson
+                    : { ...options.bundle.packageJson, gitHead: currentGitHead };
 
             return registryClient.publishPackage(
-                options.bundle.packageJson,
+                publishManifest,
                 tarball.tarData,
                 options.registrySettings,
                 options.publishSettings,

@@ -187,6 +187,7 @@ export function createReleaseAnalysisOutcome(
 export type ReleasePlanRegistryMetadata = {
     readonly version: string;
     readonly publishedAt: Date | undefined;
+    readonly gitHead: string | undefined;
 };
 
 export type ReleasePlanPackage = {
@@ -195,6 +196,8 @@ export type ReleasePlanPackage = {
     readonly nextVersion: string;
     readonly artifactState: 'changed' | 'first-publish' | 'unchanged';
     readonly changed: boolean;
+    readonly previousGitHead: string | undefined;
+    readonly currentGitHead: string | undefined;
     readonly latestRegistryMetadata: ReleasePlanRegistryMetadata | undefined;
     readonly artifactFiles: readonly string[];
     readonly changedArtifactFiles: readonly string[];

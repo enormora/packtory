@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { execFile } from 'node:child_process';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
@@ -26,6 +27,11 @@ import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createZipBuilder } from '../zip/zip-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
+import {
+    createCachedCurrentGitHeadReader,
+    createCurrentGitHeadReader,
+    type CurrentGitHeadReader
+} from '../git/current-git-head.ts';
 import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
 import { createLicenseResolver } from '../sbom/license-resolver.ts';
 import { createSbomFileBuilder, type SbomFileBuilder } from '../sbom/sbom-file.ts';
@@ -36,6 +42,24 @@ async function importPackageJson(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
 }
 
+async function runGitCommand(
+    command: string,
+    args: readonly string[]
+): Promise<{
+    readonly stdout: string;
+    readonly stderr: string;
+}> {
+    return new Promise((resolve, reject) => {
+        execFile(command, Array.from(args), (error, stdout, stderr) => {
+            if (error !== null) {
+                reject(error instanceof Error ? error : new Error('Git command failed'));
+                return;
+            }
+            resolve({ stdout, stderr });
+        });
+    });
+}
+
 export type PackageProcessorComposition = {
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
@@ -44,6 +68,7 @@ export type PackageProcessorComposition = {
     readonly versionManager: ReturnType<typeof createVersionManager>;
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;
+    readonly readCurrentGitHead: CurrentGitHeadReader;
 };
 
 export type PackageProcessorCompositionOptions = {
@@ -92,13 +117,15 @@ function buildSbomFileBuilder(fileManager: FileManager): SbomFileBuilder {
 
 function buildBundleEmitter(
     options: PackageProcessorCompositionOptions,
-    artifactsBuilder: ArtifactsBuilder
+    artifactsBuilder: ArtifactsBuilder,
+    readCurrentGitHead: CurrentGitHeadReader
 ): BundleEmitter {
     const registryClient = buildRegistryClient(options, createClock());
     return createBundleEmitter({
         registryClient,
         artifactsBuilder,
-        ciRepositoryUrl: getCiRepositoryUrl(options.ciEnvironment)
+        ciRepositoryUrl: getCiRepositoryUrl(options.ciEnvironment),
+        readCurrentGitHead
     });
 }
 
@@ -130,10 +157,17 @@ type CompositionParts = {
     readonly resourceResolver: ResourceResolver;
     readonly sbomFileBuilder: SbomFileBuilder;
     readonly deadCodeEliminator: DeadCodeEliminator;
+    readonly readCurrentGitHead: CurrentGitHeadReader;
 };
 
 function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
+    const readCurrentGitHead = createCachedCurrentGitHeadReader(
+        createCurrentGitHeadReader({
+            repositoryFolder: process.cwd(),
+            runGitCommand
+        })
+    );
     const dependencyScanner = createDependencyScannerWith(fileManager);
     const progressBroadcaster = createProgressBroadcaster();
     const artifactsBuilder = createArtifactsBuilder({
@@ -146,10 +180,11 @@ function buildCompositionParts(options: PackageProcessorCompositionOptions): Com
         fileManager,
         progressBroadcaster,
         artifactsBuilder,
-        bundleEmitter: buildBundleEmitter(options, artifactsBuilder),
+        bundleEmitter: buildBundleEmitter(options, artifactsBuilder, readCurrentGitHead),
         resourceResolver: createResourceResolver({ fileManager, dependencyScanner }),
         sbomFileBuilder: buildSbomFileBuilder(fileManager),
-        deadCodeEliminator: buildDeadCodeEliminator(progressBroadcaster)
+        deadCodeEliminator: buildDeadCodeEliminator(progressBroadcaster),
+        readCurrentGitHead
     };
 }
 
@@ -181,6 +216,7 @@ export function buildPackageProcessorComposition(
         artifactsBuilder: parts.artifactsBuilder,
         versionManager,
         packEmitter,
-        vendorMaterializer
+        vendorMaterializer,
+        readCurrentGitHead: parts.readCurrentGitHead
     };
 }

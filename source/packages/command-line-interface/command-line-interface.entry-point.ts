@@ -15,10 +15,8 @@ import {
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner/spinner-worker-backend.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
 import { createDefaultPreviewIo } from '../../command-line-interface/preview-io/preview-io.ts';
-import { createPacktory } from '../../packtory/packtory.ts';
-import { createScheduler } from '../../packtory/scheduler.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
-import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
+import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
@@ -64,31 +62,9 @@ const promptForOneTimePassword = createOneTimePasswordPrompt({
     }
 });
 
-const {
-    packageProcessor,
-    progressBroadcaster,
-    deadCodeEliminator,
-    artifactsBuilder,
-    versionManager,
-    packEmitter,
-    vendorMaterializer
-} = buildPackageProcessorComposition({
+const { packtory, progressBroadcaster } = buildPacktoryComposition({
     promptForOneTimePassword,
     ciEnvironment: readCiEnvironment(process.env)
-});
-const scheduler = createScheduler({
-    progressBroadcastProvider: progressBroadcaster.provider
-});
-
-const packtory = createPacktory({
-    scheduler,
-    packageProcessor,
-    deadCodeEliminator,
-    progressBroadcaster,
-    artifactsBuilder,
-    versionManager,
-    packEmitter,
-    vendorMaterializer
 });
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({

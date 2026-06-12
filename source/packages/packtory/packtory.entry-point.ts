@@ -1,61 +1,36 @@
 import type { PacktoryConfig as PublicPacktoryConfig } from '../../config/config.ts';
-import {
-    createPacktory,
-    type BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
-    type BuildReport as PublicBuildReport,
-    type PackageReleaseAnalysis as PublicPackageReleaseAnalysis,
-    type PackageReleaseAnalysisClassification as PublicPackageReleaseAnalysisClassification,
-    type PackOutcome as PublicPackOutcome,
-    type PackPublicOptions as PublicPackPublicOptions,
-    type PackResult as PublicPackResult,
-    type PublishAllOutcome as PublicPublishAllOutcome,
-    type PublishAllResult as PublicPublishAllResult,
-    type ReleaseAnalysis as PublicReleaseAnalysis,
-    type ReleaseAnalysisOutcome as PublicReleaseAnalysisOutcome,
-    type ReleaseAnalysisResult as PublicReleaseAnalysisResult,
-    type ReleaseDiffAllOutcome as PublicReleaseDiffAllOutcome,
-    type ReleaseDiffAllResult as PublicReleaseDiffAllResult,
-    type ReleasePlan as PublicReleasePlan,
-    type ReleasePlanOutcome as PublicReleasePlanOutcome,
-    type ReleasePlanPackage as PublicReleasePlanPackage,
-    type ReleasePlanRegistryMetadata as PublicReleasePlanRegistryMetadata,
-    type ReleasePlanResult as PublicReleasePlanResult,
-    type ResolveAndLinkAllOptions as PublicResolveAndLinkAllOptions,
-    type ResolveAndLinkAllOutcome as PublicResolveAndLinkAllOutcome,
-    type ResolveAndLinkAllResult as PublicResolveAndLinkAllResult,
-    type ResolveAndLinkFailure as PublicResolveAndLinkFailure
+import type {
+    BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
+    BuildReport as PublicBuildReport,
+    PackageReleaseAnalysis as PublicPackageReleaseAnalysis,
+    PackageReleaseAnalysisClassification as PublicPackageReleaseAnalysisClassification,
+    PackOutcome as PublicPackOutcome,
+    PackPublicOptions as PublicPackPublicOptions,
+    PackResult as PublicPackResult,
+    PublishAllOutcome as PublicPublishAllOutcome,
+    PublishAllResult as PublicPublishAllResult,
+    ReleaseAnalysis as PublicReleaseAnalysis,
+    ReleaseAnalysisOutcome as PublicReleaseAnalysisOutcome,
+    ReleaseAnalysisResult as PublicReleaseAnalysisResult,
+    ReleaseDiffAllOutcome as PublicReleaseDiffAllOutcome,
+    ReleaseDiffAllResult as PublicReleaseDiffAllResult,
+    ReleasePlan as PublicReleasePlan,
+    ReleasePlanOutcome as PublicReleasePlanOutcome,
+    ReleasePlanPackage as PublicReleasePlanPackage,
+    ReleasePlanRegistryMetadata as PublicReleasePlanRegistryMetadata,
+    ReleasePlanResult as PublicReleasePlanResult,
+    ResolveAndLinkAllOptions as PublicResolveAndLinkAllOptions,
+    ResolveAndLinkAllOutcome as PublicResolveAndLinkAllOutcome,
+    ResolveAndLinkAllResult as PublicResolveAndLinkAllResult,
+    ResolveAndLinkFailure as PublicResolveAndLinkFailure
 } from '../../packtory/packtory.ts';
-import { createScheduler } from '../../packtory/scheduler.ts';
 import type { ResolvedPackage as PublicResolvedPackage } from '../../packtory/resolved-package.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import type { PublicProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
-import { buildPackageProcessorComposition } from '../package-processor.composition.ts';
+import { buildPacktoryComposition } from '../packtory.composition.ts';
 
-const {
-    packageProcessor,
-    progressBroadcaster,
-    deadCodeEliminator,
-    artifactsBuilder,
-    versionManager,
-    packEmitter,
-    vendorMaterializer
-} = buildPackageProcessorComposition({
+const { packtory, progressBroadcaster } = buildPacktoryComposition({
     ciEnvironment: readCiEnvironment(process.env)
-});
-
-const scheduler = createScheduler({
-    progressBroadcastProvider: progressBroadcaster.provider
-});
-
-const packtory = createPacktory({
-    scheduler,
-    packageProcessor,
-    deadCodeEliminator,
-    progressBroadcaster,
-    artifactsBuilder,
-    versionManager,
-    packEmitter,
-    vendorMaterializer
 });
 
 export const {

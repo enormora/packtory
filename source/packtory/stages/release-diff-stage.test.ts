@@ -72,7 +72,7 @@ async function runSbomDiff(previousSbom: string, currentSbom: string): Promise<F
         configFor(['pkg-a']),
         [
             buildResultFor('pkg-a', {
-                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: previousFiles })
+                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: previousFiles })
             })
         ]
     );
@@ -96,7 +96,7 @@ async function runAlreadyPublishedPkgAStage(artifactsBuilder: {
         [
             buildResultFor('pkg-a', {
                 status: 'already-published',
-                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: [] })
+                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: [] })
             })
         ]
     );
@@ -282,7 +282,7 @@ suite('release-diff-stage', function () {
                         version: '1.0.1',
                         manifestFile: { filePath: 'package.json', content: '{"name":"pkg-a","version":"1.0.1"}\n' }
                     } as never,
-                    previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: previousFiles })
+                    previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: previousFiles })
                 })
             ]
         );

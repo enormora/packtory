@@ -19,12 +19,14 @@ const abbreviatedResponseAcceptHeader = 'application/vnd.npm.install-v1+json';
 export type PackageVersionDetails = {
     readonly version: string;
     readonly tarballUrl: string;
+    readonly gitHead: string | undefined;
 };
 
 export type PackageReleaseMetadata = {
     readonly publishedAt?: Date | undefined;
     readonly tarballUrl: string;
     readonly version: string;
+    readonly gitHead: string | undefined;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -145,7 +147,7 @@ function extractLatestVersionDetails(
         );
     }
 
-    return Maybe.just({ version: latestVersion, tarballUrl: versionData.dist.tarball });
+    return Maybe.just({ version: latestVersion, tarballUrl: versionData.dist.tarball, gitHead: versionData.gitHead });
 }
 
 export async function fetchLatestPackageVersion(
@@ -190,7 +192,8 @@ export async function fetchLatestPackageReleaseMetadata(
     return Maybe.just({
         version: latestVersion.value.version,
         tarballUrl: latestVersion.value.tarballUrl,
-        publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp)
+        publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp),
+        gitHead: latestVersion.value.gitHead
     });
 }
 

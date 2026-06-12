@@ -297,7 +297,7 @@ suite('packtory-release-diff', function () {
                 status: 'new-version',
                 bundle: { name: 'pkg-a', version: '1.0.1' },
                 extraFiles: [],
-                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', files: [] })
+                previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: [] })
             } as unknown as BuildAndPublishResult,
             expectedState: 'changed',
             expectedVersionTransition: '1.0.0 -> 1.0.1',
