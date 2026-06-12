@@ -15,7 +15,8 @@ const publishedAt = new Date('2026-05-20T00:00:00.000Z');
 const latestReleaseMetadata = {
     version: '1.2.3',
     tarballUrl: 'https://registry.example.test/package.tgz',
-    publishedAt
+    publishedAt,
+    gitHead: undefined
 } as const;
 type CurrentVersionRequest = Parameters<BundleEmitter['determineCurrentVersion']>[0];
 type PublishRequest = Parameters<BundleEmitter['publish']>[0];
@@ -38,6 +39,7 @@ type Overrides = {
     readonly collectContents?: SinonSpy;
     readonly fetchTarball?: SinonSpy;
     readonly ciRepositoryUrl?: string | undefined;
+    readonly readCurrentGitHead?: () => Promise<string | undefined>;
 };
 
 function createSpy<TSpy extends SinonSpy>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
@@ -65,7 +67,8 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
                 return fake.resolves(emptyTarball);
             })
         },
-        ciRepositoryUrl: overrides.ciRepositoryUrl
+        ciRepositoryUrl: overrides.ciRepositoryUrl,
+        readCurrentGitHead: overrides.readCurrentGitHead ?? (async () => undefined)
     };
 
     return createBundleEmitter(dependencies);
@@ -184,7 +187,8 @@ async function runSbomComparison(previousSbom: string, currentSbom: string): Pro
         Maybe.just({
             version: latestReleaseMetadata.version,
             tarballUrl: latestReleaseMetadata.tarballUrl,
-            publishedAt
+            publishedAt,
+            gitHead: undefined
         })
     );
     const fetchTarball = fake.resolves(previousTarball);
@@ -461,6 +465,63 @@ suite('emitter', function () {
             publishSettings,
             false
         ]);
+    });
+
+    test('publish() adds the current git head to the registry manifest without changing the bundle manifest', async function () {
+        const buildTarball = fake.resolves({ tarData: emptyTarball });
+        const publishPackage = fake.resolves(publishedOutcome);
+        const bundle = versionedBundleWithManifest({
+            packageJson: { name: 'the-name', version: '1.0.0' },
+            manifestFile: { content: '{"name":"the-name","version":"1.0.0"}' }
+        });
+        const emitter = emitterFactory({
+            buildTarball,
+            publishPackage,
+            readCurrentGitHead: async () => 'abcdef123456'
+        });
+        const publishSettings = { access: 'public' } as const;
+
+        await publishBundle(emitter, { bundle, publishSettings });
+
+        assert.deepStrictEqual(publishPackage.firstCall.args[0], {
+            name: 'the-name',
+            version: '1.0.0',
+            gitHead: 'abcdef123456'
+        });
+        assert.deepStrictEqual(buildTarball.firstCall.args[0], bundle);
+        assert.strictEqual(bundle.manifestFile.content, '{"name":"the-name","version":"1.0.0"}');
+        assert.deepStrictEqual(bundle.packageJson, { name: 'the-name', version: '1.0.0' });
+    });
+
+    test('checkBundleAlreadyPublished() ignores gitHead-only manifest differences', async function () {
+        const previousTarball = await createTarballBuilder().build([
+            {
+                filePath: 'package/package.json',
+                content: '{"name":"the-name","version":"1.0.0","gitHead":"old"}',
+                isExecutable: false
+            }
+        ]);
+        const fetchLatestReleaseMetadata = fake.resolves(
+            Maybe.just({
+                version: latestReleaseMetadata.version,
+                tarballUrl: latestReleaseMetadata.tarballUrl,
+                publishedAt,
+                gitHead: 'old'
+            })
+        );
+        const fetchTarball = fake.resolves(previousTarball);
+        const collectContents = fake.returns([
+            {
+                filePath: 'package/package.json',
+                content: '{"name":"the-name","version":"1.0.0","gitHead":"new"}',
+                isExecutable: false
+            }
+        ]);
+        const emitter = emitterFactory({ fetchLatestReleaseMetadata, fetchTarball, collectContents });
+
+        const result = await emitter.checkBundleAlreadyPublished({ registrySettings, bundle: namedBundle() });
+
+        assert.strictEqual(result.alreadyPublishedAsLatest, true);
     });
 
     test('publish() forwards extra files to buildTarball', async function () {

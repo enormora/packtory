@@ -4,7 +4,8 @@ import { z } from 'zod/mini';
 const packageVersionDetailsSchema = z.object({
     dist: z.object({
         tarball: z.string()
-    })
+    }),
+    gitHead: z.optional(z.string())
 });
 
 const abbreviatedPackageResponseSchema = z.object({
@@ -33,7 +34,9 @@ export type AbbreviatedPackageResponse = {
     readonly 'dist-tags': {
         readonly latest?: string | undefined;
     };
-    readonly versions: Readonly<Record<string, { readonly dist: { readonly tarball: string } }>>;
+    readonly versions: Readonly<
+        Record<string, { readonly dist: { readonly tarball: string }; readonly gitHead?: string | undefined }>
+    >;
 };
 
 export type FullPackageResponse = {
@@ -42,7 +45,9 @@ export type FullPackageResponse = {
         readonly latest?: string | undefined;
     };
     readonly time?: Readonly<Record<string, string>> | undefined;
-    readonly versions: Readonly<Record<string, { readonly dist: { readonly tarball: string } }>>;
+    readonly versions: Readonly<
+        Record<string, { readonly dist: { readonly tarball: string }; readonly gitHead?: string | undefined }>
+    >;
 };
 
 type OidcExchangeResponse = {

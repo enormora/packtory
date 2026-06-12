@@ -6,6 +6,7 @@ import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle
 import type { PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import type { VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
+import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import { createAnalyzeReleaseAgainstLatestPublishedValidated } from './packtory-release-analysis.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
 import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
@@ -84,6 +85,7 @@ type PacktoryDependencies = {
     readonly versionManager: VersionManager;
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;
+    readonly readCurrentGitHead: CurrentGitHeadReader;
 };
 
 type ValidatedRunners = {

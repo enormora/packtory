@@ -3,7 +3,7 @@ import { compareValues } from '../common/sort-values.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { buildFileSetDiff } from '../report/release-diff/file-set-diff.ts';
-import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
+import { canonicalizeReleaseArtifactFiles } from '../bundle-emitter/release-artifact-canonicalizer.ts';
 import type { ReleasePlanPackage, ReleasePlanRegistryMetadata } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import { publishedReleaseArtifactsOf, wasAlreadyPublished } from './published-release-state.ts';
@@ -46,7 +46,8 @@ function registryMetadataFrom(buildResult: BuildAndPublishResult): ReleasePlanRe
     }
     return {
         version: publishedReleaseArtifacts.version,
-        publishedAt: publishedReleaseArtifacts.publishedAt
+        publishedAt: publishedReleaseArtifacts.publishedAt,
+        gitHead: publishedReleaseArtifacts.gitHead
     };
 }
 
@@ -70,8 +71,8 @@ function changedArtifactFilesFrom(
         return packageRelativeFiles(newFiles);
     }
     const diff = buildFileSetDiff(
-        canonicalizeSbomInFileSet(publishedReleaseArtifacts.files),
-        canonicalizeSbomInFileSet(newFiles)
+        canonicalizeReleaseArtifactFiles(publishedReleaseArtifacts.files),
+        canonicalizeReleaseArtifactFiles(newFiles)
     );
     return sortedUnique([
         ...diff.added.map((file) => {
@@ -89,7 +90,8 @@ function changedArtifactFilesFrom(
 export function createReleasePlanPackage(
     dependencies: ReleasePlanMapperDependencies,
     analyzedBundle: AnalyzedBundle,
-    buildResult: BuildAndPublishResult
+    buildResult: BuildAndPublishResult,
+    currentGitHead: string | undefined
 ): ReleasePlanPackage {
     const newFiles = dependencies.artifactsBuilder.collectContents(
         buildResult.bundle,
@@ -104,6 +106,8 @@ export function createReleasePlanPackage(
         nextVersion: buildResult.bundle.version,
         artifactState,
         changed: artifactState !== 'unchanged',
+        previousGitHead: latestRegistryMetadata?.gitHead,
+        currentGitHead,
         latestRegistryMetadata,
         artifactFiles: packageRelativeFiles(newFiles),
         changedArtifactFiles: changedArtifactFilesFrom(artifactState, buildResult, newFiles),

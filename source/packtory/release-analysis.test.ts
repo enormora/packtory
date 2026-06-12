@@ -29,6 +29,7 @@ function buildResultWithPublishedFiles(
         previousReleaseArtifacts: Maybe.just({
             version: '1.0.0',
             publishedAt,
+            gitHead: undefined,
             files: previousFiles
         })
     });

@@ -2,6 +2,7 @@ import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
+import { canonicalizeReleaseArtifactFiles } from '../../bundle-emitter/release-artifact-canonicalizer.ts';
 import {
     buildFileSetDiff,
     packageReleaseDiffState,
@@ -13,7 +14,6 @@ import {
     buildReleaseVersionTransition,
     type ReleaseVersionFields
 } from '../../report/release-diff/release-version-transition.ts';
-import { canonicalizeSbomInFileSet } from '../../sbom/sbom-canonicalizer.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import { publishedReleaseArtifactsOf, wasAlreadyPublished } from '../published-release-state.ts';
 import type { PartialError, Scheduler as PacktoryScheduler } from '../scheduler.ts';
@@ -86,8 +86,8 @@ function classifyDiff(
         return diffEntry(packageName, packageReleaseDiffState.firstPublish, asAddedFiles(newSideFiles), versionFields);
     }
     const files = buildFileSetDiff(
-        canonicalizeSbomInFileSet(publishedReleaseArtifacts.files),
-        canonicalizeSbomInFileSet(newSideFiles)
+        canonicalizeReleaseArtifactFiles(publishedReleaseArtifacts.files),
+        canonicalizeReleaseArtifactFiles(newSideFiles)
     );
     return diffEntry(packageName, packageReleaseDiffState.changed, files, versionFields);
 }
