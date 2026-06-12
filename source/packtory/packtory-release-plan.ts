@@ -43,22 +43,24 @@ function analyzedBundlesByNameFrom(resolvedPackages: readonly ResolvedPackage[])
     );
 }
 
-function appendPackagePlan(args: {
+async function appendPackagePlan(args: {
     readonly artifactsBuilder: ReleasePlanOrchestratorDependencies['artifactsBuilder'];
     readonly analyzedBundlesByName: ReadonlyMap<string, AnalyzedBundle>;
     readonly buildResult: BuildAndPublishResult;
     readonly currentGitHead: string | undefined;
+    readonly fileManager: ReleasePlanOrchestratorDependencies['fileManager'];
     readonly packages: ReleasePlanPackage[];
-}): void {
+    readonly repositoryFolder: string;
+}): Promise<void> {
     const analyzedBundle = args.analyzedBundlesByName.get(args.buildResult.bundle.name);
     if (analyzedBundle === undefined) {
         throw new Error(`Analyzed bundle for package "${args.buildResult.bundle.name}" is missing`);
     }
-    args.packages.push(createReleasePlanPackage(args, analyzedBundle, args.buildResult, args.currentGitHead));
+    args.packages.push(await createReleasePlanPackage(args, analyzedBundle, args.buildResult, args.currentGitHead));
 }
 
 async function planSucceededPublishes(
-    artifactsBuilder: ReleasePlanOrchestratorDependencies['artifactsBuilder'],
+    dependencies: ReleasePlanOrchestratorDependencies,
     resolvedPackages: readonly ResolvedPackage[],
     succeededPublish: readonly BuildAndPublishResult[],
     currentGitHead: string | undefined
@@ -69,7 +71,15 @@ async function planSucceededPublishes(
 
     for (const buildResult of succeededPublish) {
         try {
-            appendPackagePlan({ artifactsBuilder, analyzedBundlesByName, buildResult, currentGitHead, packages });
+            await appendPackagePlan({
+                artifactsBuilder: dependencies.artifactsBuilder,
+                analyzedBundlesByName,
+                buildResult,
+                currentGitHead,
+                fileManager: dependencies.fileManager,
+                packages,
+                repositoryFolder: dependencies.repositoryFolder
+            });
         } catch (error: unknown) {
             failures.push(toReleasePlanError(error));
         }
@@ -131,7 +141,7 @@ export function createPlanReleaseAgainstLatestPublishedValidated(
         });
         const currentGitHead = await dependencies.readCurrentGitHead();
         const planResult = await planSucceededPublishes(
-            dependencies.artifactsBuilder,
+            dependencies,
             resolved.value,
             succeededResultsFrom(publishResult),
             currentGitHead

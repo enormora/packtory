@@ -61,6 +61,7 @@ async function runGitCommand(
 }
 
 export type PackageProcessorComposition = {
+    readonly fileManager: FileManager;
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly deadCodeEliminator: DeadCodeEliminator;
@@ -69,11 +70,13 @@ export type PackageProcessorComposition = {
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;
     readonly readCurrentGitHead: CurrentGitHeadReader;
+    readonly repositoryFolder: string;
 };
 
 export type PackageProcessorCompositionOptions = {
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
     readonly ciEnvironment: CiEnvironment;
+    readonly repositoryFolder?: string | undefined;
 };
 
 function getEnvironmentVariable(variableName: string): string | undefined {
@@ -158,13 +161,15 @@ type CompositionParts = {
     readonly sbomFileBuilder: SbomFileBuilder;
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly readCurrentGitHead: CurrentGitHeadReader;
+    readonly repositoryFolder: string;
 };
 
 function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {
+    const repositoryFolder = options.repositoryFolder ?? process.cwd();
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
     const readCurrentGitHead = createCachedCurrentGitHeadReader(
         createCurrentGitHeadReader({
-            repositoryFolder: process.cwd(),
+            repositoryFolder,
             runGitCommand
         })
     );
@@ -184,7 +189,8 @@ function buildCompositionParts(options: PackageProcessorCompositionOptions): Com
         resourceResolver: createResourceResolver({ fileManager, dependencyScanner }),
         sbomFileBuilder: buildSbomFileBuilder(fileManager),
         deadCodeEliminator: buildDeadCodeEliminator(progressBroadcaster),
-        readCurrentGitHead
+        readCurrentGitHead,
+        repositoryFolder
     };
 }
 
@@ -210,6 +216,7 @@ export function buildPackageProcessorComposition(
     const vendorMaterializer = createVendorMaterializer({ fileManager: parts.fileManager });
 
     return {
+        fileManager: parts.fileManager,
         packageProcessor,
         progressBroadcaster: parts.progressBroadcaster,
         deadCodeEliminator: parts.deadCodeEliminator,
@@ -217,6 +224,7 @@ export function buildPackageProcessorComposition(
         versionManager,
         packEmitter,
         vendorMaterializer,
-        readCurrentGitHead: parts.readCurrentGitHead
+        readCurrentGitHead: parts.readCurrentGitHead,
+        repositoryFolder: parts.repositoryFolder
     };
 }
