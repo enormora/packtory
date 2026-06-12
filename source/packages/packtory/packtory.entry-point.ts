@@ -15,6 +15,11 @@ import {
     type ReleaseAnalysisResult as PublicReleaseAnalysisResult,
     type ReleaseDiffAllOutcome as PublicReleaseDiffAllOutcome,
     type ReleaseDiffAllResult as PublicReleaseDiffAllResult,
+    type ReleasePlan as PublicReleasePlan,
+    type ReleasePlanOutcome as PublicReleasePlanOutcome,
+    type ReleasePlanPackage as PublicReleasePlanPackage,
+    type ReleasePlanRegistryMetadata as PublicReleasePlanRegistryMetadata,
+    type ReleasePlanResult as PublicReleasePlanResult,
     type ResolveAndLinkAllOptions as PublicResolveAndLinkAllOptions,
     type ResolveAndLinkAllOutcome as PublicResolveAndLinkAllOutcome,
     type ResolveAndLinkAllResult as PublicResolveAndLinkAllResult,
@@ -57,6 +62,7 @@ export const {
     analyzeReleaseAgainstLatestPublished,
     buildAndPublishAll,
     diffAgainstLatestPublished,
+    planReleaseAgainstLatestPublished,
     resolveAndLinkAll,
     packPackage
 } = packtory;
@@ -77,6 +83,11 @@ export type ReleaseAnalysisOutcome = PublicReleaseAnalysisOutcome;
 export type ReleaseAnalysisResult = PublicReleaseAnalysisResult;
 export type ReleaseDiffAllOutcome = PublicReleaseDiffAllOutcome;
 export type ReleaseDiffAllResult = PublicReleaseDiffAllResult;
+export type ReleasePlan = PublicReleasePlan;
+export type ReleasePlanOutcome = PublicReleasePlanOutcome;
+export type ReleasePlanPackage = PublicReleasePlanPackage;
+export type ReleasePlanRegistryMetadata = PublicReleasePlanRegistryMetadata;
+export type ReleasePlanResult = PublicReleasePlanResult;
 export type ResolveAndLinkAllOptions = PublicResolveAndLinkAllOptions;
 export type ResolveAndLinkAllOutcome = PublicResolveAndLinkAllOutcome;
 export type ResolveAndLinkAllResult = PublicResolveAndLinkAllResult;

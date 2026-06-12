@@ -7,6 +7,7 @@ This package provides an API for the `packtory` tool, enabling programmatic usag
 - `buildAndPublishAll(config, options)` – validates the configuration, builds every package, runs the enabled checks, and (optionally) publishes the results.
 - `resolveAndLinkAll(config)` – performs the validation, resolve, link, and checks phases without publishing. This is useful for custom workflows and integration tests that only need the prepared bundles.
 - `diffAgainstLatestPublished(config)` – validates and builds every package without publishing, then per package computes the file-level diff between the bundle the next publish would produce and the version currently tagged `latest` on the configured registry.
+- `planReleaseAgainstLatestPublished(config)` – validates and builds every package without publishing, then returns per-package release state, planned versions, artifact file paths, changed artifact file paths, latest registry metadata, and source file paths.
 - `packPackage(config, options)` – validates the configuration, runs the same resolve / link / checks pipeline as `buildAndPublishAll`, and writes a single configured package to disk as a zip, tarball, or expanded folder. Useful when you need an artifact you control (Lambda zip, container build context, local inspection) instead of a registry publish.
 
 **Installation:**
@@ -18,7 +19,7 @@ npm install packtory
 **Usage:**
 
 ```javascript
-import { buildAndPublishAll, resolveAndLinkAll, packPackage } from 'packtory';
+import { buildAndPublishAll, resolveAndLinkAll, planReleaseAgainstLatestPublished, packPackage } from 'packtory';
 
 const config = {
     /* your packtory configuration */
@@ -30,6 +31,9 @@ const config = {
 
     const resolvedOutcome = await resolveAndLinkAll(config);
     console.log(resolvedOutcome.result);
+
+    const releasePlanOutcome = await planReleaseAgainstLatestPublished(config);
+    console.log(releasePlanOutcome.result);
 
     const packOutcome = await packPackage(config, {
         packageName: 'image-resizer-cli',
@@ -57,6 +61,7 @@ const config = {
 - Stage mode is npm-only. The package must already exist on npm, and automatic versioning in stage mode must be able to list pending staged versions before choosing the next version. If publish auth uses npm OIDC/trusted publishing, provide token-based metadata auth for that lookup.
 - `resolveAndLinkAll` returns a `ResolveAndLinkAllOutcome` whose `result` carries the resolved package information or details about the failure (validation errors, check failures, or partial execution issues).
 - `diffAgainstLatestPublished` returns a `ReleaseDiffAllOutcome` whose `result` carries the per-package release diff list or a failure variant.
+- `planReleaseAgainstLatestPublished` returns a `ReleasePlanOutcome` whose `result` carries `{ packages }` or a failure variant. Each package plan includes `previousVersion`, `nextVersion`, `artifactState`, `changed`, `latestRegistryMetadata`, `artifactFiles`, `changedArtifactFiles`, and `sourceFiles`.
 - `packPackage` returns a `PackOutcome` whose `result` is `Ok(undefined)` on success or a `PackFailure`. `PackFailure` is a discriminated union covering configuration errors, check failures, partial resolve failures, and the pack-specific variants `package-not-found`, `bundle-dependencies-unsupported` (rejected when `vendorDependencies` is `false` and the target declares `bundleDependencies`), and `peer-dependencies-unsatisfied` (raised when a vendored dependency declares a peer that no other vendored package satisfies).
 
 **Note:** Refer to the [full documentation](../../../readme.md) for additional details.
