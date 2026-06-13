@@ -1,10 +1,12 @@
-/* eslint-disable import/max-dependencies -- the CLI runner wires four subcommands plus shared dependencies */
+/* eslint-disable import/max-dependencies -- the CLI runner wires five subcommands plus shared dependencies */
 import { binary, command, flag, oneOf, option, positional, runSafely, string, subcommands } from 'cmd-ts';
+import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import type { ProgressBroadcastConsumer } from '../../progress/progress-broadcaster.ts';
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
+import { runChangelogHandler } from './changelog-handler.ts';
 import { getParseExitCode } from './command-parsing.ts';
 import { runPackHandler } from './pack-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
@@ -13,6 +15,8 @@ import { registerProgressListeners } from './progress-wiring.ts';
 import { runPublishHandler } from './publish-handler.ts';
 
 export type CommandLineInterfaceRunnerDependencies = {
+    readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
+    readonly currentDate: () => Date;
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcastConsumer;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
@@ -21,6 +25,9 @@ export type CommandLineInterfaceRunnerDependencies = {
     readonly pageOutput: (content: string) => Promise<void>;
     readonly openFile: (filePath: string) => Promise<boolean>;
     readonly createTemporaryFilePath: () => string;
+    readonly readEnvironmentVariable: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
+    readonly readPackageInfo: () => Promise<Record<string, unknown>>;
+    readonly workingDirectory: string;
     log: (message: string) => void;
 };
 
@@ -40,12 +47,18 @@ export function createCommandLineInterfaceRunner(
         fileManager,
         pageOutput,
         openFile,
-        createTemporaryFilePath
+        createTemporaryFilePath,
+        createPrLogEngine,
+        currentDate,
+        readEnvironmentVariable,
+        readPackageInfo,
+        workingDirectory
     } = dependencies;
     let exitCode = 0;
     const publishCommandName = 'publish';
     const previewCommandName = 'preview';
     const releaseDiffCommandName = 'release-diff';
+    const changelogCommandName = 'changelog';
     const packCommandName = 'pack';
     const defaultPackVersion = '0.0.0';
     const baseCommand = subcommands({
@@ -100,6 +113,25 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader
+                    });
+                }
+            }),
+            [changelogCommandName]: command({
+                name: changelogCommandName,
+                description: 'Generates grouped Markdown changelog output for the next release.',
+                args: {},
+                async handler() {
+                    exitCode = await runChangelogHandler({
+                        log,
+                        pageOutput,
+                        packtory,
+                        spinnerRenderer,
+                        configLoader,
+                        createPrLogEngine,
+                        currentDate,
+                        readEnvironmentVariable,
+                        readPackageInfo,
+                        workingDirectory
                     });
                 }
             }),
