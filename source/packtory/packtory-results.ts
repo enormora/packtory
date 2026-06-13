@@ -202,6 +202,7 @@ export type ReleasePlanPackage = {
     readonly artifactFiles: readonly string[];
     readonly changedArtifactFiles: readonly string[];
     readonly sourceFiles: readonly string[];
+    readonly changelogSourceFiles: readonly string[];
 };
 
 export type ReleasePlan = {

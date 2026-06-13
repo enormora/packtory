@@ -3,6 +3,7 @@ import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { validateConfig, validateConfigWithoutRegistry, type ValidConfigResult } from '../config/validation.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { FileManager } from '../file-manager/file-manager.ts';
 import type { PackEmitter } from '../pack-emitter/pack-emitter.ts';
 import type { VendorMaterializer } from '../vendor-materializer/vendor-materializer.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
@@ -82,6 +83,8 @@ type PacktoryDependencies = {
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly artifactsBuilder: Pick<ArtifactsBuilder, 'collectContents'>;
+    readonly fileManager: Pick<FileManager, 'checkReadability' | 'readFile'>;
+    readonly repositoryFolder: string;
     readonly versionManager: VersionManager;
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;

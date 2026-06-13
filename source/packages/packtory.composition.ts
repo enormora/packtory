@@ -24,6 +24,8 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
             deadCodeEliminator: parts.deadCodeEliminator,
             progressBroadcaster: parts.progressBroadcaster,
             artifactsBuilder: parts.artifactsBuilder,
+            fileManager: parts.fileManager,
+            repositoryFolder: parts.repositoryFolder,
             versionManager: parts.versionManager,
             packEmitter: parts.packEmitter,
             vendorMaterializer: parts.vendorMaterializer,

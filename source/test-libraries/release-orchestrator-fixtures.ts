@@ -17,11 +17,18 @@ type ReleaseArtifactFile = {
     readonly isExecutable: boolean;
 };
 
+type ReleasePlanFileReader = {
+    readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean }>;
+    readonly readFile: (filePath: string) => Promise<string>;
+};
+
 export type ReleaseTestDependencies = {
     readonly artifactsBuilder: { readonly collectContents: ReleaseFileCollection };
+    readonly fileManager: ReleasePlanFileReader;
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly readCurrentGitHead: CurrentGitHeadReader;
+    readonly repositoryFolder: string;
     readonly scheduler: ReturnType<typeof createIteratingScheduler>;
 };
 
@@ -30,7 +37,9 @@ type ReleaseTestDependencySpec = {
     readonly buildResults?: readonly BuildAndPublishResult[];
     readonly collectContents?: ReleaseFileCollection;
     readonly currentGitHead?: string | undefined;
+    readonly fileManager?: ReleasePlanFileReader | undefined;
     readonly packageProcessor?: PackageProcessor;
+    readonly repositoryFolder?: string | undefined;
 };
 
 type BuildResultOverrides = Partial<BuildAndPublishResult> & {
@@ -56,6 +65,15 @@ const releaseProgressBroadcaster: ProgressBroadcaster = {
         hasSubscribers() {
             return false;
         }
+    }
+};
+
+const defaultReleasePlanFileReader: ReleasePlanFileReader = {
+    async checkReadability() {
+        return { isReadable: true };
+    },
+    async readFile() {
+        return '';
     }
 };
 
@@ -182,11 +200,13 @@ export function createReleaseTestDependencies(spec: ReleaseTestDependencySpec): 
                     return [];
                 })
         },
+        fileManager: spec.fileManager ?? defaultReleasePlanFileReader,
         packageProcessor: spec.packageProcessor ?? packageProcessorWith(spec.buildResults ?? []),
         progressBroadcaster: releaseProgressBroadcaster,
         async readCurrentGitHead() {
             return spec.currentGitHead;
         },
+        repositoryFolder: spec.repositoryFolder ?? '/',
         scheduler: createIteratingScheduler(spec.packageNames)
     };
 }

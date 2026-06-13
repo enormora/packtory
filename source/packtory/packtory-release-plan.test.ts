@@ -22,13 +22,16 @@ type ReleaseTestDependencies = ReturnType<typeof createReleaseTestDependencies>;
 type BuildAndPublishResult = Awaited<ReturnType<ReleaseTestDependencies['packageProcessor']['tryBuildAndPublish']>>;
 type PackageProcessor = ReleaseTestDependencies['packageProcessor'];
 type FileCollection = ReleaseFileCollection;
+type ReleasePlanFileManager = ReleaseTestDependencies['fileManager'];
 
 function createPlanner(spec: {
     readonly packageNames: readonly string[];
     readonly buildResults?: readonly BuildAndPublishResult[];
     readonly collectContents?: FileCollection;
     readonly currentGitHead?: string | undefined;
+    readonly fileManager?: ReleasePlanFileManager | undefined;
     readonly packageProcessor?: PackageProcessor;
+    readonly repositoryFolder?: string | undefined;
 }) {
     return createPlanReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(spec));
 }
@@ -51,13 +54,17 @@ async function planFor(spec: {
     readonly collectContents: FileCollection;
     readonly bundleContents?: Readonly<Record<string, readonly ReturnType<typeof analyzedBundleResource>[]>>;
     readonly currentGitHead?: string | undefined;
+    readonly fileManager?: ReleasePlanFileManager | undefined;
+    readonly repositoryFolder?: string | undefined;
 }): Promise<ReleasePlanResult> {
     const validated = validatedReleaseConfigFor(spec.packageNames);
     const plan = createPlanner({
         packageNames: spec.packageNames,
         buildResults: spec.buildResults,
         collectContents: spec.collectContents,
-        currentGitHead: spec.currentGitHead
+        currentGitHead: spec.currentGitHead,
+        fileManager: spec.fileManager,
+        repositoryFolder: spec.repositoryFolder
     });
 
     return plan(validated, async () => {
@@ -137,7 +144,8 @@ suite('packtory-release-plan', function () {
                 latestRegistryMetadata: undefined,
                 artifactFiles: ['index.js', 'package.json', 'readme.md'],
                 changedArtifactFiles: ['index.js', 'package.json', 'readme.md'],
-                sourceFiles: ['/source/pkg-a.js']
+                sourceFiles: ['/source/pkg-a.js'],
+                changelogSourceFiles: ['source/pkg-a.js']
             }
         ]);
     });
@@ -169,7 +177,8 @@ suite('packtory-release-plan', function () {
             currentGitHead: undefined,
             artifactFiles: ['extra.js', 'index.js'],
             changedArtifactFiles: ['extra.js', 'index.js', 'removed.js'],
-            sourceFiles: ['/source/pkg-a.js']
+            sourceFiles: ['/source/pkg-a.js'],
+            changelogSourceFiles: ['source/pkg-a.js']
         });
     });
 
@@ -197,7 +206,8 @@ suite('packtory-release-plan', function () {
             currentGitHead: undefined,
             artifactFiles: ['index.js'],
             changedArtifactFiles: [],
-            sourceFiles: ['/source/pkg-a.js']
+            sourceFiles: ['/source/pkg-a.js'],
+            changelogSourceFiles: ['source/pkg-a.js']
         });
     });
 
@@ -261,6 +271,28 @@ suite('packtory-release-plan', function () {
         const partial = expectPartialFailure(result);
         assert.deepStrictEqual(partial.succeeded, []);
         assert.match(partial.failures[0]?.message ?? '', /collect failed/u);
+    });
+
+    test('returns a partial failure when changelog source attribution fails', async function () {
+        const result = await planFor({
+            packageNames: ['pkg-a'],
+            buildResults: [buildResultFor()],
+            collectContents() {
+                return [{ filePath: 'package/index.js', content: 'new', isExecutable: false }];
+            },
+            fileManager: {
+                async checkReadability() {
+                    return { isReadable: false };
+                },
+                async readFile() {
+                    return 'export {};\n//# sourceMappingURL=index.js.map';
+                }
+            }
+        });
+
+        const partial = expectPartialFailure(result);
+        assert.deepStrictEqual(partial.succeeded, []);
+        assert.match(partial.failures[0]?.message ?? '', /Source map "\/source\/index\.js\.map".*not readable/u);
     });
 
     test('returns a partial failure when a publish result has no matching analyzed bundle', async function () {
@@ -363,6 +395,11 @@ suite('packtory-release-plan', function () {
             '/assets/readme.md',
             '/source/index.js',
             '/source/substituted.js'
+        ]);
+        assert.deepStrictEqual(expectPlan(result).packages[0]?.changelogSourceFiles, [
+            'assets/readme.md',
+            'source/index.js',
+            'source/substituted.js'
         ]);
     });
 

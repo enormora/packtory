@@ -14,6 +14,15 @@ type PublicationOutcome = { readonly type: 'none' } | { readonly type: 'publishe
 const noPublicationOutcome: Extract<PublicationOutcome, { type: 'none' }> = { type: 'none' };
 const publishedOutcome: Extract<PublicationOutcome, { type: 'published' }> = { type: 'published' };
 
+const releasePlanFileReader = {
+    async checkReadability() {
+        return { isReadable: true };
+    },
+    async readFile() {
+        return '';
+    }
+};
+
 function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): ReturnType<typeof linkedBundle> {
     return linkedBundle({
         name,
@@ -236,6 +245,8 @@ function createPacktoryUnderTest(
             deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator(),
             progressBroadcaster,
             artifactsBuilder: { collectContents: overrides.collectContents ?? (() => []) },
+            fileManager: releasePlanFileReader,
+            repositoryFolder: '/',
             versionManager: {
                 addVersion: (overrides.versionManagerAddVersion ??
                     (() => {
@@ -773,7 +784,8 @@ suite('packtory', function () {
                 latestRegistryMetadata: undefined,
                 artifactFiles: ['index.js'],
                 changedArtifactFiles: ['index.js'],
-                sourceFiles: ['/package-a/index.js']
+                sourceFiles: ['/package-a/index.js'],
+                changelogSourceFiles: ['package-a/index.js']
             }
         ]);
         assert.strictEqual(tryBuildAndPublish.callCount, 1);

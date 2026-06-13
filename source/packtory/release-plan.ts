@@ -7,6 +7,10 @@ import { canonicalizeReleaseArtifactFiles } from '../bundle-emitter/release-arti
 import type { ReleasePlanPackage, ReleasePlanRegistryMetadata } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import { publishedReleaseArtifactsOf, wasAlreadyPublished } from './published-release-state.ts';
+import {
+    attributeChangelogSourceFiles,
+    type ChangelogSourceAttributionDependencies
+} from './changelog-source-attribution.ts';
 
 type ReleasePlanArtifactState = ReleasePlanPackage['artifactState'];
 type CollectArtifactContents = (
@@ -15,7 +19,7 @@ type CollectArtifactContents = (
     extraFiles: BuildAndPublishResult['extraFiles']
 ) => readonly FileDescription[];
 
-export type ReleasePlanMapperDependencies = {
+export type ReleasePlanMapperDependencies = ChangelogSourceAttributionDependencies & {
     readonly artifactsBuilder: { readonly collectContents: CollectArtifactContents };
 };
 
@@ -87,12 +91,12 @@ function changedArtifactFilesFrom(
     ]);
 }
 
-export function createReleasePlanPackage(
+export async function createReleasePlanPackage(
     dependencies: ReleasePlanMapperDependencies,
     analyzedBundle: AnalyzedBundle,
     buildResult: BuildAndPublishResult,
     currentGitHead: string | undefined
-): ReleasePlanPackage {
+): Promise<ReleasePlanPackage> {
     const newFiles = dependencies.artifactsBuilder.collectContents(
         buildResult.bundle,
         'package',
@@ -111,6 +115,7 @@ export function createReleasePlanPackage(
         latestRegistryMetadata,
         artifactFiles: packageRelativeFiles(newFiles),
         changedArtifactFiles: changedArtifactFilesFrom(artifactState, buildResult, newFiles),
-        sourceFiles: sourceFilesFrom(analyzedBundle)
+        sourceFiles: sourceFilesFrom(analyzedBundle),
+        changelogSourceFiles: await attributeChangelogSourceFiles(dependencies, analyzedBundle)
     };
 }
