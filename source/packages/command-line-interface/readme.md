@@ -20,6 +20,7 @@ packtory <command> [options]
 
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
+- **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
 - **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection — `pack` never talks to a registry.
 
@@ -57,6 +58,16 @@ packtory <command> [options]
 - Previewable runs are shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output. Failure-only runs go directly to standard output.
 - `packtory release-diff` exits with code `0` on a clean run and `1` on config errors, check failures, or partial failures.
 - `release-diff` is read-only: it never publishes and never writes to the registry. It is currently terminal-only; an HTML/`--open` variant and an `--against <version>` selector are not part of this release.
+
+**Changelog behavior:**
+
+- `packtory changelog` computes the same release plan used by Packtory's release planning API, skips unchanged packages, and prints one grouped Markdown changelog for packages that would publish a changed artifact.
+- Pull requests are attributed by comparing GitHub changed files against each package's attributed source files. Changelog files named `CHANGELOG.md` are ignored as attribution inputs.
+- The GitHub repository is read from the root `package.json` `repository` field.
+- GitHub API requests use `GH_TOKEN` when set, otherwise `GITHUB_TOKEN`.
+- Output is shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output.
+- `packtory changelog` exits with code `0` on a clean run and `1` on config, release-plan, Git, GitHub, or changelog generation failures. Partial release-plan failures still render succeeded changed packages when changelog generation succeeds.
+- `changelog` is read-only: it never writes changelog files, commits, tags, releases, deployments, registry data, or packages.
 
 **Pack behavior:**
 

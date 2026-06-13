@@ -24,6 +24,7 @@ const noPublicationOutcome = { type: 'none' } as const;
 type Overrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly diffAgainstLatestPublished?: SinonSpy;
+    readonly planReleaseAgainstLatestPublished?: SinonSpy;
     readonly packPackage?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
@@ -31,6 +32,9 @@ type Overrides = {
     readonly pageOutput?: SinonSpy;
     readonly openFile?: SinonSpy;
     readonly createTemporaryFilePath?: () => string;
+    readonly createPrLogEngine?: SinonSpy;
+    readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
+    readonly readPackageInfo?: () => Promise<Record<string, unknown>>;
     progressBroadcaster?: ProgressBroadcaster;
     spinnerRenderer?: {
         add?: SinonSpy;
@@ -74,6 +78,20 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
     const pageOutput = overrides.pageOutput ?? fake.resolves(undefined);
     const fileManager = overrides.fileManager ?? createFakeFileManager();
     const dependencies: CommandLineInterfaceRunnerDependencies = {
+        createPrLogEngine: createSpy(overrides.createPrLogEngine, () => {
+            return fake.returns({
+                resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
+                resolveChangelogBaseRef: fake.resolves({ ref: 'previous-ref' }),
+                collectMergedPullRequests: fake.resolves([]),
+                readPullRequestChangedFiles: fake.resolves(new Map()),
+                filterPullRequestsByTargetFiles: fake.returns([]),
+                resolvePullRequestLabels: fake.resolves([]),
+                renderGroupedTargetChangelog: fake.returns('')
+            });
+        }),
+        currentDate() {
+            return new Date('2026-06-13T00:00:00.000Z');
+        },
         packtory: {
             analyzeReleaseAgainstLatestPublished: fake.resolves(
                 toReleaseAnalysisOutcome(
@@ -90,11 +108,13 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             diffAgainstLatestPublished: createSpy(overrides.diffAgainstLatestPublished, () => {
                 return fake.resolves(toReleaseDiffOutcome(Result.ok([])));
             }),
-            planReleaseAgainstLatestPublished: fake.resolves({
-                result: Result.ok({ packages: [] }),
-                getReport() {
-                    return createBuildReportFixture();
-                }
+            planReleaseAgainstLatestPublished: createSpy(overrides.planReleaseAgainstLatestPublished, () => {
+                return fake.resolves({
+                    result: Result.ok({ packages: [] }),
+                    getReport() {
+                        return createBuildReportFixture();
+                    }
+                });
             }),
             resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([]))),
             packPackage: createSpy(overrides.packPackage, () => {
@@ -118,7 +138,18 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
         openFile: createSpy(overrides.openFile, () => {
             return fake.resolves(true);
         }),
-        createTemporaryFilePath: overrides.createTemporaryFilePath ?? (() => '/tmp/packtory-preview.html')
+        createTemporaryFilePath: overrides.createTemporaryFilePath ?? (() => '/tmp/packtory-preview.html'),
+        readEnvironmentVariable:
+            overrides.readEnvironmentVariable ??
+            ((name) => {
+                return name === 'GH_TOKEN' ? 'gh-token' : undefined;
+            }),
+        readPackageInfo:
+            overrides.readPackageInfo ??
+            (async () => {
+                return { repository: { url: 'https://github.com/enormora/packtory' } };
+            }),
+        workingDirectory: '/workspace'
     };
 
     return createCommandLineInterfaceRunner(dependencies);
@@ -287,6 +318,7 @@ suite('runner', function () {
             'Expected help output to include the publish command description'
         );
         assert.ok(help.includes('preview'), 'Expected help output to include the preview command');
+        assert.ok(help.includes('changelog'), 'Expected help output to include the changelog command');
     });
 
     test('prints subcommand help that includes the full publish command path', async function () {
@@ -818,6 +850,34 @@ suite('runner', function () {
 
         const helpText = String(log.firstCall.args[0]);
         assert.match(helpText, /Compares the next dry-run build against the latest published version, per package\./u);
+    });
+
+    test('changelog command loads the config and invokes planReleaseAgainstLatestPublished', async function () {
+        const loadConfig = fake.resolves('the-config');
+        const planReleaseAgainstLatestPublished = fake.resolves({
+            result: Result.ok({ packages: [] }),
+            getReport() {
+                return createBuildReportFixture();
+            }
+        });
+        const runner = runnerFactory({ loadConfig, planReleaseAgainstLatestPublished });
+
+        const exitCode = await runner.run(['foo', 'bar', 'changelog']);
+
+        assert.strictEqual(exitCode, 0);
+        assert.strictEqual(loadConfig.callCount, 1);
+        assert.strictEqual(planReleaseAgainstLatestPublished.callCount, 1);
+        assert.strictEqual(planReleaseAgainstLatestPublished.firstCall.args[0], 'the-config');
+    });
+
+    test('changelog --help advertises grouped Markdown output for the next release', async function () {
+        const log = fake();
+        const runner = runnerFactory({ log });
+
+        await runner.run(['foo', 'bar', 'changelog', '--help']);
+
+        const helpText = String(log.firstCall.args[0]);
+        assert.match(helpText, /Generates grouped Markdown changelog output for the next release\./u);
     });
 
     test('pack command loads the config and forwards the flags into packPackage', async function () {

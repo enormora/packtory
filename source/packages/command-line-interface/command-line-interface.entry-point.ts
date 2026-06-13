@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
+import path from 'node:path';
 import readline from 'node:readline/promises';
+import { createPrLogEngine } from '@pr-log/core';
 import { createClock } from '../../common/clock.ts';
 import { createLineSpinnerRenderer } from '../../command-line-interface/spinner/line-spinner-renderer.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
@@ -21,6 +23,18 @@ import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spi
 
 async function importModule(modulePath: string): Promise<unknown> {
     return import(modulePath);
+}
+
+function isPackageInfo(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parsePackageInfo(content: string): Record<string, unknown> {
+    const parsed: unknown = JSON.parse(content);
+    if (isPackageInfo(parsed)) {
+        return parsed;
+    }
+    throw new Error('package.json must contain an object');
 }
 
 function createSpinnerRenderer(): TerminalSpinnerRenderer {
@@ -68,6 +82,10 @@ const { packtory, progressBroadcaster } = buildPacktoryComposition({
 });
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
+    createPrLogEngine,
+    currentDate() {
+        return new Date(clock.getCurrentTimeInMilliseconds());
+    },
     packtory,
     progressBroadcaster: progressBroadcaster.consumer,
     spinnerRenderer,
@@ -81,6 +99,13 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     },
     openFile: previewIo.openPreviewFile,
     createTemporaryFilePath: previewIo.createTemporaryPreviewHtmlPath,
+    readEnvironmentVariable(name) {
+        return process.env[name];
+    },
+    async readPackageInfo() {
+        return parsePackageInfo(await fileManager.readFile(path.join(process.cwd(), 'package.json')));
+    },
+    workingDirectory: process.cwd(),
     log: console.log
 });
 
