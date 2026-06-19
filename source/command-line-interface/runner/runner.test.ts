@@ -86,7 +86,9 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
                 readPullRequestChangedFiles: fake.resolves(new Map()),
                 filterPullRequestsByTargetFiles: fake.returns([]),
                 resolvePullRequestLabels: fake.resolves([]),
-                renderGroupedTargetChangelog: fake.returns('')
+                renderGroupedTargetChangelog: fake.returns(''),
+                renderTargetChangelog: fake.returns(''),
+                updateChangelog: fake.returns('')
             });
         }),
         currentDate() {

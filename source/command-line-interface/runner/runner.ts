@@ -127,6 +127,7 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader,
+                        fileManager,
                         createPrLogEngine,
                         currentDate,
                         readEnvironmentVariable,

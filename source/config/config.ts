@@ -8,6 +8,7 @@ import {
     type PackageConfig as PackageConfigBase,
     type PackageConfigsByName as PackageConfigsByNameBase
 } from './package-config.ts';
+import type { ChangelogSettings } from './changelog-settings.ts';
 import type { RegistrySettings } from './registry-settings.ts';
 
 export type ChecksSettings = ChecksSettingsBase;
@@ -15,6 +16,7 @@ export type PackageChecksSettings = PackageChecksSettingsBase;
 export type PackageConfig = PackageConfigBase;
 export type PackageConfigsByName = PackageConfigsByNameBase;
 export type PacktoryConfigWithoutRegistry = {
+    readonly changelog?: ChangelogSettings | undefined;
     readonly checks?: ChecksSettings | undefined;
     readonly commonPackageSettings?: CommonPackageSettingsBase | undefined;
     readonly packages: readonly PackageConfig[];

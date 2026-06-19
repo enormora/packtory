@@ -8,7 +8,7 @@ import type {
     PullRequestWithLabel,
     RenderGroupedTargetChangelogMarkdownInput
 } from '@pr-log/core';
-import { generateChangelog } from './packtory-changelog.ts';
+import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
 const validLabels = new Map([['bug', 'Bug Fixes']]);
@@ -36,6 +36,7 @@ type EngineCalls = {
     readonly filterPullRequestsByTargetFiles: SinonSpy<[FilterPullRequestsByTargetFilesInput], readonly PullRequest[]>;
     readonly readPullRequestChangedFiles: SinonSpy;
     readonly renderGroupedTargetChangelog: SinonSpy<[RenderGroupedTargetChangelogMarkdownInput], string>;
+    readonly renderTargetChangelog: SinonSpy;
     readonly resolveChangelogBaseRef: SinonSpy;
     readonly resolveLatestSemverChangelogBaseRef: SinonSpy;
     readonly resolvePullRequestLabels: SinonSpy;
@@ -65,6 +66,9 @@ function createEngine(): { readonly engine: PrLogEngine; readonly calls: EngineC
                 })
                 .join('\n');
         }),
+        renderTargetChangelog: fake((input: { readonly targetName: string }) => {
+            return `# ${input.targetName}\n`;
+        }),
         resolveChangelogBaseRef: fake(async (input: { readonly packageName: string }) => {
             return { ref: `${input.packageName}-base` };
         }),
@@ -76,14 +80,16 @@ function createEngine(): { readonly engine: PrLogEngine; readonly calls: EngineC
 }
 
 async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngine): Promise<string> {
-    return generateChangelog({
+    const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine: engine,
         githubRepo: 'owner/repo',
         packageInfo: {},
         currentDate: new Date('2026-06-13T00:00:00.000Z'),
+        ignoredAttributionPaths: [],
         validLabels
     });
+    return changelog.groupedMarkdown;
 }
 
 suite('packtory-changelog', function () {
@@ -135,6 +141,7 @@ suite('packtory-changelog', function () {
         assert.deepStrictEqual(calls.resolvePullRequestLabels.firstCall.args[0], {
             githubRepo: 'owner/repo',
             validLabels,
+            ignoredLabels: [],
             pullRequests: [{ id: 1, title: 'Fix package' }],
             targetName: 'pkg-a',
             targetScopedLabelPattern: undefined
@@ -215,6 +222,24 @@ suite('packtory-changelog', function () {
 
         assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].ignoredAttributionPaths, [
             'docs/CHANGELOG.md'
+        ]);
+    });
+
+    test('adds generated changelog paths to ignored attribution paths', async function () {
+        const { engine, calls } = createEngine();
+
+        await generateChangelogOutputs({
+            packages: [releasePackage({ changelogSourceFiles: ['source/pkg-a.ts'] })],
+            prLogEngine: engine,
+            githubRepo: 'owner/repo',
+            packageInfo: {},
+            currentDate: new Date('2026-06-13T00:00:00.000Z'),
+            ignoredAttributionPaths: ['docs/generated.md'],
+            validLabels
+        });
+
+        assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].ignoredAttributionPaths, [
+            'docs/generated.md'
         ]);
     });
 });

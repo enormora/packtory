@@ -184,7 +184,19 @@ The configuration for `packtory` is an object with the following properties:
 3. **`checks`** (Optional, Object):
     - Toggles and configures the cross-package checks that run after every bundle has been linked. Lives at the top level (not inside `commonPackageSettings`) because every check operates over the full set of bundles. See [Checks](#checks).
 
-4. **`packages`** (Required, Array):
+4. **`changelog`** (Optional, Object):
+    - Configures outputs for `packtory changelog`.
+    - If omitted, `packtory changelog` prints grouped Markdown to the pager and writes no files.
+    - `outputs` is a non-empty array of:
+        - `{ kind: 'repository-file', path: 'CHANGELOG.md' }`: writes one grouped changelog at a repository-relative path.
+        - `{ kind: 'package-file', path: 'CHANGELOG.md' }`: writes one package-specific changelog below each changed package's effective `sourcesFolder`.
+        - `{ kind: 'github-release' }`: prints grouped release-body Markdown to the pager. Remote GitHub release creation is not implemented by `packtory changelog`.
+    - Output paths must be safe relative paths. Absolute paths and parent-traversing paths are rejected.
+    - Duplicate `github-release` outputs, duplicate repository-file paths, and package-file destinations that resolve to the same file are rejected.
+    - Generated changelog files are ignored during pull request source attribution.
+    - Changelog outputs are not automatically added to package artifacts. Use `additionalFiles` when a package artifact should include a generated changelog.
+
+5. **`packages`** (Required, Array):
     - An array of per-package configurations.
     - Each per-package configuration has the following settings:
 

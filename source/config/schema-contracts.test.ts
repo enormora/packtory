@@ -175,10 +175,10 @@ suite('schema-contracts', function () {
         assert.deepStrictEqual(result, {
             optionCount: 4,
             topLevelKeys: [
-                ['checks', 'commonPackageSettings', 'packages'],
-                ['checks', 'commonPackageSettings', 'packages'],
-                ['checks', 'commonPackageSettings', 'packages'],
-                ['checks', 'commonPackageSettings', 'packages']
+                ['changelog', 'checks', 'commonPackageSettings', 'packages'],
+                ['changelog', 'checks', 'commonPackageSettings', 'packages'],
+                ['changelog', 'checks', 'commonPackageSettings', 'packages'],
+                ['changelog', 'checks', 'commonPackageSettings', 'packages']
             ],
             packageTupleItemCounts: [1, 1, 1, 1],
             packageTupleHasRest: [true, true, true, true],
