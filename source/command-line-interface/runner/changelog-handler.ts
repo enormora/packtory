@@ -1,11 +1,18 @@
 import { defaultValidLabels, type PrLogEngine, type PrLogEngineOptions } from '@pr-log/core';
 import { normalizeRepositoryUrl } from '../../bundle-emitter/repository-url-normalizer.ts';
+import type { FileManager } from '../../file-manager/file-manager.ts';
 import { partialFailureMessages } from '../../packtory/partial-result.ts';
 import type { Packtory, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import { checksErrorType, configErrorType, type ReleasePlanFailure } from '../../packtory/packtory-results.ts';
-import { generateChangelog } from '../../packtory/packtory-changelog.ts';
+import { generateChangelogOutputs } from '../../packtory/packtory-changelog.ts';
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
+import {
+    generatedAttributionPaths,
+    parseValidConfig,
+    shouldPageGroupedChangelog,
+    writeConfiguredChangelogs
+} from './changelog-destinations.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
@@ -13,10 +20,12 @@ type GitHubRepositoryParts = {
     readonly owner: string;
     readonly repo: string;
 };
+type ValidChangelogConfig = NonNullable<ReturnType<typeof parseValidConfig>>;
 
 export type ChangelogHandlerDeps = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
     readonly currentDate: () => Date;
+    readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
     readonly log: Logger;
     readonly pageOutput: (content: string) => Promise<void>;
     readonly packtory: Packtory;
@@ -99,22 +108,29 @@ function releasePlanPackagesFrom(result: ReleasePlanResult): readonly ReleasePla
     return [];
 }
 
-async function renderChangelog(deps: ChangelogHandlerDeps, packages: readonly ReleasePlanPackage[]): Promise<void> {
+async function renderChangelog(
+    deps: ChangelogHandlerDeps,
+    config: ValidChangelogConfig,
+    packages: readonly ReleasePlanPackage[]
+): Promise<void> {
     if (packages.length === 0) {
         return;
     }
     const packageInfo = await deps.readPackageInfo();
-    const markdown = await generateChangelog({
+    const prLogEngine = createEngine(deps);
+    const changelog = await generateChangelogOutputs({
         packages,
-        prLogEngine: createEngine(deps),
+        prLogEngine,
         githubRepo: githubRepoFrom(packageInfo),
+        ignoredAttributionPaths: generatedAttributionPaths(deps, config),
         packageInfo,
         currentDate: deps.currentDate(),
         validLabels: defaultValidLabels
     });
-    if (markdown.length > 0) {
-        await deps.pageOutput(markdown);
+    if (shouldPageGroupedChangelog(config.changelog?.outputs) && changelog.groupedMarkdown.length > 0) {
+        await deps.pageOutput(changelog.groupedMarkdown);
     }
+    await writeConfiguredChangelogs(deps, config, prLogEngine, changelog);
 }
 
 function exitCodeFromReleasePlanResult(log: Logger, result: ReleasePlanResult): number {
@@ -129,7 +145,10 @@ async function runChangelog(deps: ChangelogHandlerDeps): Promise<number> {
     const config = await deps.configLoader.load();
     const outcome = await deps.packtory.planReleaseAgainstLatestPublished(config);
     deps.spinnerRenderer.stopAll();
-    await renderChangelog(deps, releasePlanPackagesFrom(outcome.result));
+    const validConfig = parseValidConfig(config);
+    if (validConfig !== undefined) {
+        await renderChangelog(deps, validConfig, releasePlanPackagesFrom(outcome.result));
+    }
     return exitCodeFromReleasePlanResult(deps.log, outcome.result);
 }
 

@@ -1,4 +1,5 @@
 import { z } from 'zod/mini';
+import { changelogSettingsSchema } from './changelog-settings.ts';
 import { checksSchema } from './checks-schema.ts';
 import {
     commonPackageSettingsMainPackageJsonRequiredSchema,
@@ -14,9 +15,14 @@ import {
     packageSchemaWithPartialCommonSettings
 } from './package-schemas.ts';
 
+const topLevelSettingsSchemaShape = {
+    changelog: z.optional(changelogSettingsSchema),
+    checks: z.optional(checksSchema)
+};
+
 const packageConfigWithOptionalCommonPackageSettingsSchema = z.readonly(
     z.object({
-        checks: z.optional(checksSchema),
+        ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.optional(
             z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
         ),
@@ -26,7 +32,7 @@ const packageConfigWithOptionalCommonPackageSettingsSchema = z.readonly(
 
 const packageConfigWithRequiredCommonPackageSettingsSchema = z.readonly(
     z.object({
-        checks: z.optional(checksSchema),
+        ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
         packages: z.readonly(z.tuple([packageSchemaWithPartialCommonSettings], packageSchemaWithPartialCommonSettings))
     })
@@ -34,7 +40,7 @@ const packageConfigWithRequiredCommonPackageSettingsSchema = z.readonly(
 
 const packageConfigWithRequiredMainPackageJsonSchema = z.readonly(
     z.object({
-        checks: z.optional(checksSchema),
+        ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.extend(
             commonPackageSettingsMainPackageJsonRequiredSchema,
             optionalPackageSettingsSchema.shape
@@ -47,7 +53,7 @@ const packageConfigWithRequiredMainPackageJsonSchema = z.readonly(
 
 const packageConfigWithRequiredSourcesFolderSchema = z.readonly(
     z.object({
-        checks: z.optional(checksSchema),
+        ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.extend(
             commonPackageSettingsSourcesFolderRequiredSchema,
             optionalPackageSettingsSchema.shape

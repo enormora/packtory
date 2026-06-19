@@ -197,7 +197,7 @@ describe('PacktoryConfig — rejected shapes', () => {
 describe('PacktoryConfig — exposed structure', () => {
     test('exposes the documented top-level keys', () => {
         expect<keyof PacktoryConfig>().type.toBe<
-            'checks' | 'commonPackageSettings' | 'packages' | 'registrySettings'
+            'changelog' | 'checks' | 'commonPackageSettings' | 'packages' | 'registrySettings'
         >();
     });
 

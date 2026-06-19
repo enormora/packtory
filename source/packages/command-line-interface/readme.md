@@ -61,13 +61,16 @@ packtory <command> [options]
 
 **Changelog behavior:**
 
-- `packtory changelog` computes the same release plan used by Packtory's release planning API, skips unchanged packages, and prints one grouped Markdown changelog for packages that would publish a changed artifact.
-- Pull requests are attributed by comparing GitHub changed files against each package's attributed source files. Changelog files named `CHANGELOG.md` are ignored as attribution inputs.
+- `packtory changelog` computes the same release plan used by Packtory's release planning API and skips unchanged packages.
+- Without `changelog.outputs`, it prints one grouped Markdown changelog for packages that would publish a changed artifact.
+- `changelog.outputs` can write a grouped repository file with `{ kind: 'repository-file', path }`, write package-specific files below each changed package's effective `sourcesFolder` with `{ kind: 'package-file', path }`, and print grouped release-body Markdown with `{ kind: 'github-release' }`.
+- Pull requests are attributed by comparing GitHub changed files against each package's attributed source files. Changelog files named `CHANGELOG.md` and configured generated changelog output paths are ignored as attribution inputs.
 - The GitHub repository is read from the root `package.json` `repository` field.
 - GitHub API requests use `GH_TOKEN` when set, otherwise `GITHUB_TOKEN`.
-- Output is shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output.
+- Pager output is shown through `$PAGER` when possible, otherwise `less -R`, otherwise standard output.
+- Generated changelog files are not automatically added to package artifacts. Use `additionalFiles` when a package artifact should include a changelog.
 - `packtory changelog` exits with code `0` on a clean run and `1` on config, release-plan, Git, GitHub, or changelog generation failures. Partial release-plan failures still render succeeded changed packages when changelog generation succeeds.
-- `changelog` is read-only: it never writes changelog files, commits, tags, releases, deployments, registry data, or packages.
+- `changelog` never commits, tags, creates releases, creates deployments, writes registry data, or publishes packages.
 
 **Pack behavior:**
 

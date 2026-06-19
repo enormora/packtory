@@ -1,4 +1,5 @@
 import type { PrLogEngine, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
+import { compareValues } from '../common/sort-values.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
 type ChangelogTarget = {
@@ -9,6 +10,7 @@ type ChangelogTarget = {
 export type GenerateChangelogInput = {
     readonly currentDate: Date;
     readonly githubRepo: string;
+    readonly ignoredAttributionPaths: readonly string[];
     readonly packageInfo: Record<string, unknown>;
     readonly packages: readonly ReleasePlanPackage[];
     readonly prLogEngine: Pick<
@@ -17,11 +19,17 @@ export type GenerateChangelogInput = {
         | 'filterPullRequestsByTargetFiles'
         | 'readPullRequestChangedFiles'
         | 'renderGroupedTargetChangelog'
+        | 'renderTargetChangelog'
         | 'resolveChangelogBaseRef'
         | 'resolveLatestSemverChangelogBaseRef'
         | 'resolvePullRequestLabels'
     >;
     readonly validLabels: ReadonlyMap<string, string>;
+};
+
+export type GeneratedChangelog = {
+    readonly groupedMarkdown: string;
+    readonly packageMarkdownByName: ReadonlyMap<string, string>;
 };
 
 const changelogFileName = 'CHANGELOG.md';
@@ -33,8 +41,12 @@ function changedPackagesFrom(packages: readonly ReleasePlanPackage[]): readonly 
     });
 }
 
+function sortedUnique(values: ReadonlySet<string>): readonly string[] {
+    return Array.from(values).toSorted(compareValues);
+}
+
 function changelogPathsFrom(packages: readonly ReleasePlanPackage[]): readonly string[] {
-    return Array.from(
+    return sortedUnique(
         new Set(
             packages.flatMap((packagePlan) => {
                 return packagePlan.changelogSourceFiles.filter((filePath) => {
@@ -43,6 +55,13 @@ function changelogPathsFrom(packages: readonly ReleasePlanPackage[]): readonly s
             })
         )
     );
+}
+
+function mergedIgnoredAttributionPaths(
+    packages: readonly ReleasePlanPackage[],
+    configuredPaths: readonly string[]
+): readonly string[] {
+    return sortedUnique(new Set([...changelogPathsFrom(packages), ...configuredPaths]));
 }
 
 async function baseRefFor(
@@ -89,6 +108,7 @@ async function targetPullRequestsFor(
     return input.prLogEngine.resolvePullRequestLabels({
         githubRepo: input.githubRepo,
         validLabels: input.validLabels,
+        ignoredLabels: [],
         pullRequests: packagePullRequests,
         targetName: packagePlan.name,
         targetScopedLabelPattern: undefined
@@ -115,20 +135,44 @@ function targetSectionFrom(target: ChangelogTarget): TargetChangelogSection {
     };
 }
 
-export async function generateChangelog(input: GenerateChangelogInput): Promise<string> {
+function packageMarkdownByNameFrom(
+    input: GenerateChangelogInput,
+    targets: readonly ChangelogTarget[]
+): ReadonlyMap<string, string> {
+    return new Map(
+        targets.map((target) => {
+            const targetSection = targetSectionFrom(target);
+            return [
+                target.packagePlan.name,
+                input.prLogEngine.renderTargetChangelog({
+                    packageInfo: input.packageInfo,
+                    currentDate: input.currentDate,
+                    validLabels: input.validLabels,
+                    githubRepo: input.githubRepo,
+                    ...targetSection
+                })
+            ] as const;
+        })
+    );
+}
+
+export async function generateChangelogOutputs(input: GenerateChangelogInput): Promise<GeneratedChangelog> {
     const packages = changedPackagesFrom(input.packages);
-    const ignoredAttributionPaths = changelogPathsFrom(packages);
+    const ignoredAttributionPaths = mergedIgnoredAttributionPaths(packages, input.ignoredAttributionPaths);
     const targets = await Promise.all(
         packages.map(async (packagePlan) => {
             return changelogTargetFor(input, packagePlan, ignoredAttributionPaths);
         })
     );
 
-    return input.prLogEngine.renderGroupedTargetChangelog({
-        packageInfo: input.packageInfo,
-        currentDate: input.currentDate,
-        validLabels: input.validLabels,
-        githubRepo: input.githubRepo,
-        targets: targets.map(targetSectionFrom)
-    });
+    return {
+        groupedMarkdown: input.prLogEngine.renderGroupedTargetChangelog({
+            packageInfo: input.packageInfo,
+            currentDate: input.currentDate,
+            validLabels: input.validLabels,
+            githubRepo: input.githubRepo,
+            targets: targets.map(targetSectionFrom)
+        }),
+        packageMarkdownByName: packageMarkdownByNameFrom(input, targets)
+    };
 }

@@ -126,4 +126,30 @@ suite('packtory-config-schema', function () {
             }
         })
     );
+
+    test(
+        'packtory config schema: accepts changelog outputs',
+        checkValidationSuccess({
+            schema: packtoryConfigSchema,
+            data: {
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+                changelog: {
+                    outputs: [
+                        { kind: 'repository-file', path: 'CHANGELOG.md' },
+                        { kind: 'package-file', path: 'CHANGELOG.md' },
+                        { kind: 'github-release' }
+                    ]
+                },
+                packages: [
+                    {
+                        sourcesFolder: 'source',
+                        mainPackageJson: { type: 'module' },
+                        name: 'foo',
+                        roots: { main: { js: 'foo' } },
+                        publishSettings: { access: 'public' }
+                    }
+                ]
+            }
+        })
+    );
 });
