@@ -24,14 +24,3 @@ export function createCurrentGitHeadReader(dependencies: {
         return currentGitHead.length === 0 ? undefined : currentGitHead;
     };
 }
-
-export function createCachedCurrentGitHeadReader(readCurrentGitHead: CurrentGitHeadReader): CurrentGitHeadReader {
-    let currentGitHead: { readonly value: Promise<string | undefined> } | null = null;
-
-    return async () => {
-        if (currentGitHead === null) {
-            currentGitHead = { value: readCurrentGitHead() };
-        }
-        return currentGitHead.value;
-    };
-}

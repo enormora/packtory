@@ -93,6 +93,20 @@ npx packtory publish --no-dry-run --stage
 
 Staged publishing is npm-only. The package must already exist on npm, and automatic versioning in stage mode must be able to list pending staged versions before it picks the next version.
 
+For one explicit release workflow, use `release`. With no action flags it prints the computed release plan and exits:
+
+```bash
+npx packtory release
+```
+
+Actual release writes require explicit action flags and `--no-dry-run`:
+
+```bash
+npx packtory release --write-changelog --commit --publish --tag --push --github-release --no-dry-run
+```
+
+`release` writes changelogs, commits them, recomputes the final plan, publishes directly to npm, creates annotated `{packageName}@{version}` tags, pushes with `git push --follow-tags`, and creates GitHub Releases. It requires a clean Git index and worktree before writing. Commit identity and push credentials come from normal Git config and environment, such as `GIT_AUTHOR_*`, `GIT_COMMITTER_*`, and your configured Git credential helper or CI checkout credentials.
+
 For more details about the CLI application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
 
 ## Concept

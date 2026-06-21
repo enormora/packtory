@@ -1,0 +1,80 @@
+import assert from 'node:assert';
+
+type ReleaseGitCommandRunner = (
+    command: string,
+    args: readonly string[]
+) => Promise<{ readonly stdout: string; readonly stderr: string }>;
+
+export type ReleaseGitClient = {
+    readonly commit: (filePaths: readonly string[], message: string) => Promise<void>;
+    readonly currentHead: () => Promise<string>;
+    readonly ensureClean: () => Promise<void>;
+    readonly ensureTag: (tagName: string, message: string, targetHead: string) => Promise<void>;
+    readonly pushFollowTags: () => Promise<void>;
+};
+
+type ReleaseGitClientDependencies = {
+    readonly repositoryFolder: string;
+    readonly runGitCommand: ReleaseGitCommandRunner;
+};
+type GitOutputResult = { readonly kind: 'found'; readonly value: string } | { readonly kind: 'missing' };
+
+async function runGit(deps: ReleaseGitClientDependencies, args: readonly string[]): Promise<string> {
+    const result = await deps.runGitCommand('git', ['-C', deps.repositoryFolder, ...args]);
+    return result.stdout.trim();
+}
+
+async function readGitOutputResult(
+    deps: ReleaseGitClientDependencies,
+    args: readonly string[]
+): Promise<GitOutputResult> {
+    try {
+        return { kind: 'found', value: await runGit(deps, args) };
+    } catch {
+        return { kind: 'missing' };
+    }
+}
+
+export function createReleaseGitClient(deps: ReleaseGitClientDependencies): ReleaseGitClient {
+    return {
+        async commit(filePaths, message) {
+            if (filePaths.length === 0) {
+                throw new Error('No changelog files were written; cannot create a release commit');
+            }
+            await runGit(deps, ['add', '--', ...filePaths]);
+            await runGit(deps, ['commit', '-m', message]);
+        },
+
+        async currentHead() {
+            const head = await runGit(deps, ['rev-parse', '--verify', 'HEAD']);
+            if (head.length === 0) {
+                throw new Error('Unable to read the current Git head');
+            }
+            return head;
+        },
+
+        async ensureClean() {
+            const status = await runGit(deps, ['status', '--porcelain=v1']);
+            if (status.length > 0) {
+                throw new Error('Git index and worktree must be clean before release writes');
+            }
+        },
+
+        async ensureTag(tagName, message, targetHead) {
+            const existingTag = await readGitOutputResult(deps, ['rev-parse', '--verify', `refs/tags/${tagName}^{}`]);
+            if (existingTag.kind === 'missing') {
+                await runGit(deps, ['tag', '-a', tagName, '-m', message, targetHead]);
+                return;
+            }
+            assert.strictEqual(existingTag.kind, 'found');
+            if (existingTag.value === targetHead) {
+                return;
+            }
+            throw new Error(`Tag "${tagName}" already exists at ${existingTag.value}, expected ${targetHead}`);
+        },
+
+        async pushFollowTags() {
+            await runGit(deps, ['push', '--follow-tags']);
+        }
+    };
+}

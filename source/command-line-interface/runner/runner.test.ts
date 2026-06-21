@@ -33,8 +33,10 @@ type Overrides = {
     readonly openFile?: SinonSpy;
     readonly createTemporaryFilePath?: () => string;
     readonly createPrLogEngine?: SinonSpy;
+    readonly createGitHubReleaseClient?: SinonSpy;
     readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
     readonly readPackageInfo?: () => Promise<Record<string, unknown>>;
+    readonly releaseGitClient?: CommandLineInterfaceRunnerDependencies['releaseGitClient'];
     progressBroadcaster?: ProgressBroadcaster;
     spinnerRenderer?: {
         add?: SinonSpy;
@@ -72,7 +74,7 @@ function createSpinnerRenderer(
     };
 }
 
-function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
+function createRunner(overrides: Overrides = {}): CommandLineInterfaceRunner {
     const progressBroadcaster = overrides.progressBroadcaster ?? createProgressBroadcaster();
     const log = createSpy(overrides.log, fake);
     const pageOutput = overrides.pageOutput ?? fake.resolves(undefined);
@@ -89,6 +91,11 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
                 renderGroupedTargetChangelog: fake.returns(''),
                 renderTargetChangelog: fake.returns(''),
                 updateChangelog: fake.returns('')
+            });
+        }),
+        createGitHubReleaseClient: createSpy(overrides.createGitHubReleaseClient, () => {
+            return fake.returns({
+                createReleaseIfMissing: fake.resolves('created')
             });
         }),
         currentDate() {
@@ -151,6 +158,13 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
             (async () => {
                 return { repository: { url: 'https://github.com/enormora/packtory' } };
             }),
+        releaseGitClient: overrides.releaseGitClient ?? {
+            commit: fake.resolves(undefined),
+            currentHead: fake.resolves('new-head'),
+            ensureClean: fake.resolves(undefined),
+            ensureTag: fake.resolves(undefined),
+            pushFollowTags: fake.resolves(undefined)
+        },
         workingDirectory: '/workspace'
     };
 
@@ -160,7 +174,7 @@ function runnerFactory(overrides: Overrides = {}): CommandLineInterfaceRunner {
 async function expectCommandLoadsConfig(command: 'preview' | 'publish'): Promise<void> {
     const loadConfig = fake.resolves('the-config');
     const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ loadConfig, buildAndPublishAll });
+    const runner = createRunner({ loadConfig, buildAndPublishAll });
 
     await runner.run(['foo', 'bar', command]);
 
@@ -172,7 +186,7 @@ async function expectCommandLoadsConfig(command: 'preview' | 'publish'): Promise
 async function expectHelp(args: readonly string[]): Promise<string> {
     const log = fake();
     const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll, log });
+    const runner = createRunner({ buildAndPublishAll, log });
 
     const exitCode = await runner.run(['foo', 'bar', ...args]);
 
@@ -180,13 +194,13 @@ async function expectHelp(args: readonly string[]): Promise<string> {
     return String(log.firstCall.args[0]);
 }
 
-async function expectSubcommandHelp(command: 'preview' | 'publish'): Promise<string> {
+async function expectSubcommandHelp(command: 'preview' | 'publish' | 'release'): Promise<string> {
     return expectHelp([command, '--help']);
 }
 
 async function expectCollectReportFlag(flag: '--report-html' | '--report-json'): Promise<void> {
     const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-    const runner = runnerFactory({ buildAndPublishAll });
+    const runner = createRunner({ buildAndPublishAll });
 
     await runner.run(['foo', 'bar', 'publish', flag]);
 
@@ -199,7 +213,7 @@ async function runPreview(
 ): Promise<{ readonly exitCode: number; readonly pageOutput: SinonSpy; readonly log: SinonSpy }> {
     const pageOutput = overrides.pageOutput ?? fake.resolves(undefined);
     const log = overrides.log ?? fake();
-    const runner = runnerFactory({ buildAndPublishAll, pageOutput, log });
+    const runner = createRunner({ buildAndPublishAll, pageOutput, log });
 
     const exitCode = await runner.run(['foo', 'bar', 'preview']);
 
@@ -213,7 +227,7 @@ suite('runner', function () {
 
     test('publish command runs in dry-run mode per default', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll });
+        const runner = createRunner({ buildAndPublishAll });
 
         await runner.run(['foo', 'bar', 'publish']);
 
@@ -227,7 +241,7 @@ suite('runner', function () {
 
     test('publish command runs not in dry-run mode when no-dry-run flag is set', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll });
+        const runner = createRunner({ buildAndPublishAll });
 
         await runner.run(['foo', 'bar', 'publish', '--no-dry-run']);
 
@@ -241,7 +255,7 @@ suite('runner', function () {
 
     test('publish command enables staged publishing when --stage is set', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll });
+        const runner = createRunner({ buildAndPublishAll });
 
         await runner.run(['foo', 'bar', 'publish', '--stage']);
 
@@ -257,9 +271,88 @@ suite('runner', function () {
         await expectCommandLoadsConfig('preview');
     });
 
+    test('release command loads the config file and plans the release', async function () {
+        const loadConfig = fake.resolves('the-config');
+        const planReleaseAgainstLatestPublished = fake.resolves({
+            result: Result.ok({ packages: [] }),
+            getReport() {
+                return createBuildReportFixture();
+            }
+        });
+        const runner = createRunner({ loadConfig, planReleaseAgainstLatestPublished });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release']);
+
+        assert.strictEqual(exitCode, 0);
+        assert.deepStrictEqual(planReleaseAgainstLatestPublished.firstCall.args, ['the-config']);
+    });
+
+    test('release command parses release action flags', async function () {
+        const planReleaseAgainstLatestPublished = fake.resolves({
+            result: Result.ok({
+                packages: [
+                    {
+                        name: 'pkg-a',
+                        previousVersion: '1.0.0',
+                        nextVersion: '1.0.1',
+                        artifactState: 'changed',
+                        changed: true,
+                        previousGitHead: 'old-head',
+                        currentGitHead: 'new-head',
+                        latestRegistryMetadata: { version: '1.0.0', publishedAt: undefined, gitHead: 'old-head' },
+                        artifactFiles: [],
+                        changedArtifactFiles: [],
+                        sourceFiles: [],
+                        changelogSourceFiles: []
+                    }
+                ]
+            }),
+            getReport() {
+                return createBuildReportFixture();
+            }
+        });
+        const buildAndPublishAll = fake.resolves(
+            toOutcome(Result.ok([{ bundle: { name: 'pkg-a', version: '1.0.1' } }]))
+        );
+        const ensureTag = fake.resolves(undefined);
+        const pushFollowTags = fake.resolves(undefined);
+        const runner = createRunner({
+            buildAndPublishAll,
+            planReleaseAgainstLatestPublished,
+            releaseGitClient: {
+                commit: fake.resolves(undefined),
+                currentHead: fake.resolves('new-head'),
+                ensureClean: fake.resolves(undefined),
+                ensureTag,
+                pushFollowTags
+            }
+        });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release', '--publish', '--tag', '--push', '--no-dry-run']);
+
+        assert.strictEqual(exitCode, 0);
+        assert.deepStrictEqual(buildAndPublishAll.firstCall.args[1], {
+            dryRun: false,
+            stage: false,
+            collectReport: false
+        });
+        assert.strictEqual(ensureTag.callCount, 1);
+        assert.strictEqual(pushFollowTags.callCount, 1);
+    });
+
+    test('release command parses the commit flag', async function () {
+        const log = fake();
+        const runner = createRunner({ log });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release', '--commit', '--no-dry-run']);
+
+        assert.strictEqual(exitCode, 1);
+        assert.deepStrictEqual(log.firstCall.args, ['--commit requires --write-changelog']);
+    });
+
     test('preview command always runs in dry-run mode with collectReport enabled', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll });
+        const runner = createRunner({ buildAndPublishAll });
 
         await runner.run(['foo', 'bar', 'preview']);
 
@@ -272,7 +365,7 @@ suite('runner', function () {
 
     test('returns exit code 0 when publish command had no errors', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll });
+        const runner = createRunner({ buildAndPublishAll });
 
         const exitCode = await runner.run(['foo', 'bar', 'publish']);
 
@@ -281,7 +374,7 @@ suite('runner', function () {
 
     test('returns exit code 1 when publish command has errors', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'config', issues: [] })));
-        const runner = runnerFactory({ buildAndPublishAll });
+        const runner = createRunner({ buildAndPublishAll });
 
         const exitCode = await runner.run(['foo', 'bar', 'publish']);
 
@@ -291,7 +384,7 @@ suite('runner', function () {
     test('returns exit code 1 instead of exiting the process when command parsing fails', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
         const log = fake();
-        const runner = runnerFactory({ buildAndPublishAll, log });
+        const runner = createRunner({ buildAndPublishAll, log });
 
         const exitCode = await runner.run(['foo', 'bar', 'not-a-command']);
 
@@ -303,7 +396,7 @@ suite('runner', function () {
 
     test('returns exit code 1 when the publish command name is misspelled', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll });
+        const runner = createRunner({ buildAndPublishAll });
 
         const exitCode = await runner.run(['foo', 'bar', 'publis']);
 
@@ -321,6 +414,7 @@ suite('runner', function () {
         );
         assert.ok(help.includes('preview'), 'Expected help output to include the preview command');
         assert.ok(help.includes('changelog'), 'Expected help output to include the changelog command');
+        assert.ok(help.includes('release'), 'Expected help output to include the release command');
     });
 
     test('prints subcommand help that includes the full publish command path', async function () {
@@ -335,8 +429,18 @@ suite('runner', function () {
         assert.match(help, /Builds all packages in fresh dry-run mode and opens a human preview\./);
     });
 
+    test('prints release subcommand help with release action flags', async function () {
+        const help = await expectSubcommandHelp('release');
+
+        assert.match(help, /packtory release/);
+        assert.match(help, /Plans or runs a release workflow\./);
+        assert.match(help, /--write-changelog/);
+        assert.match(help, /--github-release/);
+        assert.match(help, /--no-dry-run/);
+    });
+
     async function expectRunnerToRethrow(overrides: Overrides, expectedMessage: string): Promise<void> {
-        const runner = runnerFactory(overrides);
+        const runner = createRunner(overrides);
         try {
             await runner.run(['foo', 'bar', 'publish']);
             assert.fail('Expected run() should fail but it did not');
@@ -355,7 +459,7 @@ suite('runner', function () {
     ): Promise<{ readonly log: SinonSpy }> {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type, issues })));
         const log = fake();
-        const runner = runnerFactory({ buildAndPublishAll, log });
+        const runner = createRunner({ buildAndPublishAll, log });
 
         await runner.run(['foo', 'bar', 'publish']);
         return { log };
@@ -393,7 +497,7 @@ suite('runner', function () {
         extraArgs: readonly string[] = []
     ): Promise<SinonSpy> {
         const log = fake();
-        const runner = runnerFactory({ buildAndPublishAll, log });
+        const runner = createRunner({ buildAndPublishAll, log });
         await runner.run(['foo', 'bar', 'publish', ...extraArgs]);
         return log;
     }
@@ -448,7 +552,7 @@ suite('runner', function () {
     test('stops all spinners when buildAndPublishAll finishes without errors', async function () {
         const stopAll = fake();
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { stopAll } });
+        const runner = createRunner({ buildAndPublishAll, spinnerRenderer: { stopAll } });
 
         await runner.run(['foo', 'bar', 'publish']);
         assert.strictEqual(stopAll.callCount, 1);
@@ -458,7 +562,7 @@ suite('runner', function () {
         const add = fake();
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
         const progressBroadcaster = createProgressBroadcaster();
-        const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer: { add }, progressBroadcaster });
+        const runner = createRunner({ buildAndPublishAll, spinnerRenderer: { add }, progressBroadcaster });
 
         await runner.run(['foo', 'bar', 'publish']);
         progressBroadcaster.provider.emit('scheduled', { packageName: 'foo' });
@@ -474,7 +578,7 @@ suite('runner', function () {
     ): Promise<ProgressBroadcaster> {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
         const progressBroadcaster = createProgressBroadcaster();
-        const runner = runnerFactory({ buildAndPublishAll, spinnerRenderer, progressBroadcaster });
+        const runner = createRunner({ buildAndPublishAll, spinnerRenderer, progressBroadcaster });
 
         await runner.run(['foo', 'bar', 'publish']);
         progressBroadcaster.provider.emit(eventName as never, eventPayload as never);
@@ -570,7 +674,7 @@ suite('runner', function () {
         }
     });
 
-    function outcomeWithReport(result: unknown): {
+    function createOutcomeWithReport(result: unknown): {
         readonly result: unknown;
         readonly getReport: () => typeof sampleReport;
     } {
@@ -592,8 +696,8 @@ suite('runner', function () {
 
     async function runPublishWithReport(extraArgs: readonly string[]): Promise<FakeFileManager> {
         const fileManager = createFakeFileManager();
-        const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll, fileManager });
+        const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
+        const runner = createRunner({ buildAndPublishAll, fileManager });
         await runner.run(['foo', 'bar', 'publish', ...extraArgs]);
         return fileManager;
     }
@@ -644,7 +748,7 @@ suite('runner', function () {
     test('publish writes no report files when getReport returns undefined even with --report-json set', async function () {
         const fileManager = createFakeFileManager();
         const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-        const runner = runnerFactory({ buildAndPublishAll, fileManager });
+        const runner = createRunner({ buildAndPublishAll, fileManager });
 
         await runner.run(['foo', 'bar', 'publish', '--report-json']);
 
@@ -653,8 +757,10 @@ suite('runner', function () {
 
     test('publish writes the report even when the build failed', async function () {
         const fileManager = createFakeFileManager();
-        const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.err({ type: 'config', issues: ['boom'] })));
-        const runner = runnerFactory({ buildAndPublishAll, fileManager });
+        const buildAndPublishAll = fake.resolves(
+            createOutcomeWithReport(Result.err({ type: 'config', issues: ['boom'] }))
+        );
+        const runner = createRunner({ buildAndPublishAll, fileManager });
 
         const exitCode = await runner.run(['foo', 'bar', 'publish', '--report-json']);
 
@@ -663,7 +769,7 @@ suite('runner', function () {
     });
 
     test('preview pages previewable output and does not print it directly to stdout', async function () {
-        const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+        const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
         const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
 
         assert.strictEqual(exitCode, 0);
@@ -712,7 +818,9 @@ suite('runner', function () {
     });
 
     test('preview prints failure-only output directly to stdout without paging', async function () {
-        const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.err({ type: 'checks', issues: ['boom'] })));
+        const buildAndPublishAll = fake.resolves(
+            createOutcomeWithReport(Result.err({ type: 'checks', issues: ['boom'] }))
+        );
         const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
 
         assert.strictEqual(exitCode, 1);
@@ -723,7 +831,7 @@ suite('runner', function () {
 
     test('preview treats partial failures with no successful packages as failure-only output', async function () {
         const buildAndPublishAll = fake.resolves(
-            outcomeWithReport(Result.err({ type: 'partial', succeeded: [], failures: [new Error('boom')] }))
+            createOutcomeWithReport(Result.err({ type: 'partial', succeeded: [], failures: [new Error('boom')] }))
         );
         const { exitCode, pageOutput, log } = await runPreview(buildAndPublishAll);
 
@@ -734,11 +842,11 @@ suite('runner', function () {
     });
 
     test('preview --open writes a temporary html report and invokes the opener', async function () {
-        const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+        const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
         const fileManager = createFakeFileManager();
         const openFile = fake.resolves(true);
         const log = fake();
-        const runner = runnerFactory({
+        const runner = createRunner({
             buildAndPublishAll,
             fileManager,
             openFile,
@@ -758,10 +866,10 @@ suite('runner', function () {
     });
 
     test('preview --open prints the temp path only when opening fails', async function () {
-        const buildAndPublishAll = fake.resolves(outcomeWithReport(Result.ok([])));
+        const buildAndPublishAll = fake.resolves(createOutcomeWithReport(Result.ok([])));
         const openFile = fake.resolves(false);
         const log = fake();
-        const runner = runnerFactory({
+        const runner = createRunner({
             buildAndPublishAll,
             openFile,
             log,
@@ -778,7 +886,7 @@ suite('runner', function () {
     test('preview builds an empty fallback report when getReport returns undefined', async function () {
         const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'checks', issues: ['boom'] })));
         const log = fake();
-        const runner = runnerFactory({ buildAndPublishAll, log });
+        const runner = createRunner({ buildAndPublishAll, log });
 
         await runner.run(['foo', 'bar', 'preview']);
 
@@ -788,7 +896,7 @@ suite('runner', function () {
     test('preview --open writes an empty fallback report when getReport returns undefined', async function () {
         const fileManager = createFakeFileManager();
         const buildAndPublishAll = fake.resolves(toOutcome(Result.err({ type: 'checks', issues: ['boom'] })));
-        const runner = runnerFactory({
+        const runner = createRunner({
             buildAndPublishAll,
             fileManager,
             createTemporaryFilePath: () => '/tmp/packtory-preview-fallback.html'
@@ -808,7 +916,7 @@ suite('runner', function () {
     test('preview stops all spinners when config loading fails before the build starts', async function () {
         const stopAll = fake();
         const loadConfig = fake.rejects(new Error('config boom'));
-        const runner = runnerFactory({ loadConfig, spinnerRenderer: { stopAll } });
+        const runner = createRunner({ loadConfig, spinnerRenderer: { stopAll } });
 
         try {
             await runner.run(['foo', 'bar', 'preview']);
@@ -823,7 +931,7 @@ suite('runner', function () {
     test('release-diff command loads the config and invokes diffAgainstLatestPublished', async function () {
         const loadConfig = fake.resolves('the-config');
         const diffAgainstLatestPublished = fake.resolves(toReleaseDiffOutcome(Result.ok([])));
-        const runner = runnerFactory({ loadConfig, diffAgainstLatestPublished });
+        const runner = createRunner({ loadConfig, diffAgainstLatestPublished });
 
         const exitCode = await runner.run(['foo', 'bar', 'release-diff']);
 
@@ -837,7 +945,7 @@ suite('runner', function () {
         const diffAgainstLatestPublished = fake.resolves(
             toReleaseDiffOutcome(Result.err({ type: 'config', issues: ['invalid config'] }))
         );
-        const runner = runnerFactory({ diffAgainstLatestPublished });
+        const runner = createRunner({ diffAgainstLatestPublished });
 
         const exitCode = await runner.run(['foo', 'bar', 'release-diff']);
 
@@ -846,7 +954,7 @@ suite('runner', function () {
 
     test('release-diff --help advertises the command as a registry-diff against the latest published version', async function () {
         const log = fake();
-        const runner = runnerFactory({ log });
+        const runner = createRunner({ log });
 
         await runner.run(['foo', 'bar', 'release-diff', '--help']);
 
@@ -862,7 +970,7 @@ suite('runner', function () {
                 return createBuildReportFixture();
             }
         });
-        const runner = runnerFactory({ loadConfig, planReleaseAgainstLatestPublished });
+        const runner = createRunner({ loadConfig, planReleaseAgainstLatestPublished });
 
         const exitCode = await runner.run(['foo', 'bar', 'changelog']);
 
@@ -874,7 +982,7 @@ suite('runner', function () {
 
     test('changelog --help advertises grouped Markdown output for the next release', async function () {
         const log = fake();
-        const runner = runnerFactory({ log });
+        const runner = createRunner({ log });
 
         await runner.run(['foo', 'bar', 'changelog', '--help']);
 
@@ -885,7 +993,7 @@ suite('runner', function () {
     test('pack command loads the config and forwards the flags into packPackage', async function () {
         const loadConfig = fake.resolves('the-config');
         const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
-        const runner = runnerFactory({ loadConfig, packPackage });
+        const runner = createRunner({ loadConfig, packPackage });
 
         const exitCode = await runner.run([
             'foo',
@@ -915,7 +1023,7 @@ suite('runner', function () {
 
     test('pack command defaults the version to 0.0.0 when --version is omitted', async function () {
         const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
-        const runner = runnerFactory({ packPackage });
+        const runner = createRunner({ packPackage });
 
         await runner.run(['foo', 'bar', 'pack', 'pkg-a', '--format', 'zip', '--out', '/tmp/pkg-a.zip']);
 
@@ -930,7 +1038,7 @@ suite('runner', function () {
 
     test('pack command returns exit code 1 when packPackage reports an Err', async function () {
         const packPackage = fake.resolves(toOutcome(Result.err({ type: 'package-not-found', packageName: 'pkg-a' })));
-        const runner = runnerFactory({ packPackage });
+        const runner = createRunner({ packPackage });
 
         const exitCode = await runner.run([
             'foo',
@@ -950,7 +1058,7 @@ suite('runner', function () {
     test('pack command forwards --vendor-dependencies as true when the flag is supplied', async function () {
         const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
         const argv = 'foo,bar,pack,pkg-a,--format,zip,--out,/tmp/pkg-a.zip,--vendor-dependencies'.split(',');
-        await runnerFactory({ packPackage }).run(argv);
+        await createRunner({ packPackage }).run(argv);
 
         const forwarded = packPackage.firstCall.args[1] as { readonly vendorDependencies: boolean };
         assert.strictEqual(forwarded.vendorDependencies, true);
@@ -959,7 +1067,7 @@ suite('runner', function () {
     test('pack command accepts each of the zip, tar, and folder format values and forwards them to packPackage', async function () {
         for (const format of ['zip', 'tar', 'folder'] as const) {
             const packPackage = fake.resolves(toOutcome(Result.ok(undefined)));
-            const runner = runnerFactory({ packPackage });
+            const runner = createRunner({ packPackage });
 
             await runner.run(['foo', 'bar', 'pack', 'pkg-a', '--format', format, '--out', '/tmp/pkg-a.archive']);
 
@@ -971,7 +1079,7 @@ suite('runner', function () {
 
     test('pack --help advertises the command, positional <package>, --format, --out, and --version flags', async function () {
         const log = fake();
-        const runner = runnerFactory({ log });
+        const runner = createRunner({ log });
 
         await runner.run(['foo', 'bar', 'pack', '--help']);
 
@@ -985,7 +1093,7 @@ suite('runner', function () {
 
     test('pack command rejects --format values outside of zip, tar, or folder', async function () {
         const log = fake();
-        const runner = runnerFactory({ log });
+        const runner = createRunner({ log });
 
         const exitCode = await runner.run([
             'foo',

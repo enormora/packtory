@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
+import { execFile } from 'node:child_process';
 import { createPrLogEngine } from '@pr-log/core';
 import { createClock } from '../../common/clock.ts';
 import { createLineSpinnerRenderer } from '../../command-line-interface/spinner/line-spinner-renderer.ts';
@@ -17,6 +18,8 @@ import {
 import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner/spinner-worker-backend.ts';
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
 import { createDefaultPreviewIo } from '../../command-line-interface/preview-io/preview-io.ts';
+import { createGitHubReleaseClient } from '../../command-line-interface/runner/github-release-client.ts';
+import { createReleaseGitClient } from '../../command-line-interface/runner/release-git-client.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
@@ -44,6 +47,24 @@ function createSpinnerRenderer(): TerminalSpinnerRenderer {
 
     return createTerminalSpinnerRenderer({
         backend: createWorkerSpinnerBackend({ runtime: createBootedSpinnerRuntime() })
+    });
+}
+
+async function runGitCommand(
+    command: string,
+    args: readonly string[]
+): Promise<{
+    readonly stdout: string;
+    readonly stderr: string;
+}> {
+    return new Promise((resolve, reject) => {
+        execFile(command, Array.from(args), (error, stdout, stderr) => {
+            if (error !== null) {
+                reject(error instanceof Error ? error : new Error('Git command failed'));
+                return;
+            }
+            resolve({ stdout, stderr });
+        });
     });
 }
 
@@ -80,16 +101,20 @@ const { packtory, progressBroadcaster } = buildPacktoryComposition({
     promptForOneTimePassword,
     ciEnvironment: readCiEnvironment(process.env)
 });
+const workingDirectory = process.cwd();
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     createPrLogEngine,
+    createGitHubReleaseClient: (context) => {
+        return createGitHubReleaseClient({ ...context, fetch: globalThis.fetch });
+    },
     currentDate() {
         return new Date(clock.getCurrentTimeInMilliseconds());
     },
     packtory,
     progressBroadcaster: progressBroadcaster.consumer,
     spinnerRenderer,
-    configLoader: createConfigLoader({ currentWorkingDirectory: process.cwd(), importModule }),
+    configLoader: createConfigLoader({ currentWorkingDirectory: workingDirectory, importModule }),
     fileManager,
     pageOutput: async (content) => {
         const didPage = await previewIo.pagePreviewOutput(content);
@@ -103,9 +128,10 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
         return process.env[name];
     },
     async readPackageInfo() {
-        return parsePackageInfo(await fileManager.readFile(path.join(process.cwd(), 'package.json')));
+        return parsePackageInfo(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
     },
-    workingDirectory: process.cwd(),
+    releaseGitClient: createReleaseGitClient({ repositoryFolder: workingDirectory, runGitCommand }),
+    workingDirectory,
     log: console.log
 });
 

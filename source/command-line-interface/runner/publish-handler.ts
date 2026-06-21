@@ -26,7 +26,7 @@ async function reportOutcome(
     let exitCode = 0;
     if (outcome.result.isErr) {
         exitCode = 1;
-        printPublishFailure(log, outcome.result.error, { stage: flags.stage });
+        printPublishFailure(log, outcome.result.error, flags.stage);
     } else {
         printSuccessSummary(log, outcome.result.value, { stage: flags.stage });
     }

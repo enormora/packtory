@@ -63,17 +63,34 @@ type RepositoryRequestContext = {
     readonly repo: string;
 };
 
-async function requestGitHub<T>(request: Promise<T>): Promise<T> {
+function readReflectedProperty(value: unknown, property: string): unknown {
+    return Reflect.get(new Object(value), property) as unknown;
+}
+
+function createRequestError(error: unknown): Error {
+    const requestUrl = String(readReflectedProperty(readReflectedProperty(error, 'request'), 'url'));
+    const status = String(readReflectedProperty(error, 'status'));
+    const parsedUrl = new URL(requestUrl);
+    return new Error(`GitHub API request failed (${status}) for ${parsedUrl.pathname}${parsedUrl.search}`, {
+        cause: error
+    });
+}
+
+async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
     try {
         return await request;
     } catch (error) {
-        const requestUrl = String(Reflect.get(new Object(Reflect.get(new Object(error), 'request')), 'url'));
-        const status = String(Reflect.get(new Object(error), 'status'));
-        const parsedUrl = new URL(requestUrl);
-        throw new Error(`GitHub API request failed (${status}) for ${parsedUrl.pathname}${parsedUrl.search}`, {
-            cause: error
-        });
+        throw createRequestError(error);
     }
+}
+
+function createRequestHeaders(context: GitHubRepositoryContext): Readonly<Record<string, string>> {
+    return {
+        accept: 'application/vnd.github+json',
+        authorization: `Bearer ${context.token}`,
+        'user-agent': 'packtory-github-release-gate',
+        'x-github-api-version': '2022-11-28'
+    };
 }
 
 export function createGitHubReleaseGateApi(
@@ -82,12 +99,7 @@ export function createGitHubReleaseGateApi(
 ): GitHubReleaseGateApi {
     const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
     const requestContext: RepositoryRequestContext = {
-        headers: {
-            accept: 'application/vnd.github+json',
-            authorization: `Bearer ${context.token}`,
-            'user-agent': 'packtory-github-release-gate',
-            'x-github-api-version': '2022-11-28'
-        },
+        headers: createRequestHeaders(context),
         owner: context.owner,
         repo: context.repo
     };
@@ -101,7 +113,7 @@ export function createGitHubReleaseGateApi(
 
     return {
         async getMainBranchHeadSha() {
-            const branch = await requestGitHub<{ readonly data: BranchResponse }>(
+            const branch = await resolveGitHubResponse<{ readonly data: BranchResponse }>(
                 octokit.rest.repos.getBranch({
                     ...requestContext,
                     branch: context.defaultBranch
@@ -112,7 +124,7 @@ export function createGitHubReleaseGateApi(
         },
 
         async getMainCiRunStatus(ciWorkflowFile, headSha) {
-            const response = await requestGitHub<{ readonly data: WorkflowRunsResponse }>(
+            const response = await resolveGitHubResponse<{ readonly data: WorkflowRunsResponse }>(
                 octokit.rest.actions.listWorkflowRuns({
                     ...requestContext,
                     workflow_id: ciWorkflowFile,
@@ -151,7 +163,7 @@ export function createGitHubReleaseGateApi(
         },
 
         async getOpenPullRequestActivities() {
-            const openPullRequests = await requestGitHub<readonly PullRequest[]>(
+            const openPullRequests = await resolveGitHubResponse<readonly PullRequest[]>(
                 octokit.paginate(octokit.rest.pulls.list, {
                     ...requestContext,
                     state: 'open',
@@ -162,7 +174,7 @@ export function createGitHubReleaseGateApi(
 
             return Promise.all(
                 openPullRequests.map(async (pullRequest) => {
-                    const timeline = await requestGitHub<readonly RawTimelineEvent[]>(
+                    const timeline = await resolveGitHubResponse<readonly RawTimelineEvent[]>(
                         octokit.paginate(octokit.rest.issues.listEventsForTimeline, {
                             ...requestContext,
                             issue_number: pullRequest.number,

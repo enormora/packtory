@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createCachedCurrentGitHeadReader, createCurrentGitHeadReader } from './current-git-head.ts';
+import { createCurrentGitHeadReader } from './current-git-head.ts';
 
 suite('current-git-head', function () {
     test('reads and trims the current git head', async function () {
@@ -36,17 +36,5 @@ suite('current-git-head', function () {
         });
 
         assert.strictEqual(await reader(), undefined);
-    });
-
-    test('caches the first read result', async function () {
-        let calls = 0;
-        const reader = createCachedCurrentGitHeadReader(async () => {
-            calls += 1;
-            return 'abcdef123456';
-        });
-
-        assert.strictEqual(await reader(), 'abcdef123456');
-        assert.strictEqual(await reader(), 'abcdef123456');
-        assert.strictEqual(calls, 1);
     });
 });
