@@ -51,8 +51,27 @@ suite('changelog-settings', function () {
         assert.strictEqual(result.success, true);
     });
 
+    test('schema accepts label and base-ref settings without outputs', function () {
+        const result = safeParse(changelogSettingsSchema, {
+            labels: { bug: 'Fixes', operations: 'Operations' },
+            targetScopedLabelPattern: 'scope:{targetName}:{label}',
+            packageTagFormat: 'pkg/{packageName}/v{version}',
+            explicitBaseRef: 'main'
+        });
+
+        assert.strictEqual(result.success, true);
+    });
+
     test('schema rejects empty outputs', function () {
         assert.strictEqual(safeParse(changelogSettingsSchema, { outputs: [] }).success, false);
+    });
+
+    test('schema rejects empty label, pattern and base-ref settings', function () {
+        assert.strictEqual(safeParse(changelogSettingsSchema, { labels: { bug: '' } }).success, false);
+        assert.strictEqual(safeParse(changelogSettingsSchema, { labels: { '': 'Fixes' } }).success, false);
+        assert.strictEqual(safeParse(changelogSettingsSchema, { targetScopedLabelPattern: '' }).success, false);
+        assert.strictEqual(safeParse(changelogSettingsSchema, { packageTagFormat: '' }).success, false);
+        assert.strictEqual(safeParse(changelogSettingsSchema, { explicitBaseRef: '' }).success, false);
     });
 
     test('schema rejects unsafe output paths', function () {
@@ -91,6 +110,27 @@ suite('changelog-settings', function () {
         const result = validateChangelogSettings(configWith({ outputs: [{ kind: 'github-release' }] }));
 
         assert.deepStrictEqual(result, []);
+    });
+
+    test('validation accepts target-scoped label patterns with both placeholders', function () {
+        const result = validateChangelogSettings(
+            configWith({ targetScopedLabelPattern: 'scope:{targetName}:{label}' })
+        );
+
+        assert.deepStrictEqual(result, []);
+    });
+
+    test('validation rejects target-scoped label patterns without the target placeholder', function () {
+        assert.deepStrictEqual(validateChangelogSettings(configWith({ targetScopedLabelPattern: 'scope:{label}' })), [
+            'changelog.targetScopedLabelPattern must contain {targetName} and {label}'
+        ]);
+    });
+
+    test('validation rejects target-scoped label patterns without the label placeholder', function () {
+        assert.deepStrictEqual(
+            validateChangelogSettings(configWith({ targetScopedLabelPattern: 'scope:{targetName}' })),
+            ['changelog.targetScopedLabelPattern must contain {targetName} and {label}']
+        );
     });
 
     test('validation rejects duplicate repository-file paths', function () {

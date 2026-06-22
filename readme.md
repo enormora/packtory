@@ -199,15 +199,20 @@ The configuration for `packtory` is an object with the following properties:
     - Toggles and configures the cross-package checks that run after every bundle has been linked. Lives at the top level (not inside `commonPackageSettings`) because every check operates over the full set of bundles. See [Checks](#checks).
 
 4. **`changelog`** (Optional, Object):
-    - Configures outputs for `packtory changelog`.
+    - Configures changelog generation and outputs for `packtory changelog` and `packtory release --write-changelog`.
     - If omitted, `packtory changelog` prints grouped Markdown to the pager and writes no files.
+    - `labels` extends or overrides the default pull request label to changelog section mapping.
+    - `targetScopedLabelPattern` customizes package-specific labels. It must contain `{targetName}` and `{label}`.
+    - `packageTagFormat` customizes package tag lookup for changelog base refs. `explicitBaseRef` uses one fixed base ref instead.
     - `outputs` is a non-empty array of:
         - `{ kind: 'repository-file', path: 'CHANGELOG.md' }`: writes one grouped changelog at a repository-relative path.
         - `{ kind: 'package-file', path: 'CHANGELOG.md' }`: writes one package-specific changelog below each changed package's effective `sourcesFolder`.
         - `{ kind: 'github-release' }`: prints grouped release-body Markdown to the pager. Remote GitHub release creation is not implemented by `packtory changelog`.
+    - `outputs` can be omitted when only label or base-ref settings are configured.
     - Output paths must be safe relative paths. Absolute paths and parent-traversing paths are rejected.
     - Duplicate `github-release` outputs, duplicate repository-file paths, and package-file destinations that resolve to the same file are rejected.
     - Generated changelog files are ignored during pull request source attribution.
+    - JavaScript files are attributed through referenced source maps when they have a `sourceMappingURL`. Without that reference, the JavaScript file itself is attributed.
     - Changelog outputs are not automatically added to package artifacts. Use `additionalFiles` when a package artifact should include a generated changelog.
 
 5. **`packages`** (Required, Array):

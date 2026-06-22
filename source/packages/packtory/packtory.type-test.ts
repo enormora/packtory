@@ -33,6 +33,7 @@ type ProgressEventName =
     | 'scheduled';
 
 type PackageConfig = PacktoryConfig['packages'][number];
+type ChangelogSettings = NonNullable<PacktoryConfig['changelog']>;
 type Root = PackageConfig['roots'][string];
 type OkVariant<TResult> = Extract<TResult, { isOk: true }>;
 type ErrVariant<TResult> = Extract<TResult, { isErr: true }>;
@@ -137,6 +138,13 @@ describe('PacktoryConfig — accepted shapes', () => {
                 };
             };
             readonly checks: { readonly noDuplicatedFiles: { readonly enabled: true } };
+            readonly changelog: {
+                readonly explicitBaseRef: 'main';
+                readonly labels: { readonly operations: 'Operations' };
+                readonly outputs: readonly [{ readonly kind: 'repository-file'; readonly path: 'CHANGELOG.md' }];
+                readonly packageTagFormat: 'pkg/{packageName}/v{version}';
+                readonly targetScopedLabelPattern: 'scope:{targetName}:{label}';
+            };
             readonly commonPackageSettings: { readonly sourcesFolder: 'src'; readonly includeSourceMapFiles: true };
             readonly packages: readonly [
                 {
@@ -251,6 +259,16 @@ describe('PacktoryConfig — exposed structure', () => {
         type PackageChecks = NonNullable<PackageConfig['checks']>;
         type AreTheTypesWrong = NonNullable<PackageChecks['areTheTypesWrong']>;
         expect<AreTheTypesWrong['profile']>().type.toBe<'esm-only' | 'node16' | 'strict' | undefined>();
+    });
+});
+
+describe('PacktoryConfig changelog structure', () => {
+    test('changelog exposes generation and output settings', () => {
+        expect<ChangelogSettings['explicitBaseRef']>().type.toBe<string | undefined>();
+        expect<ChangelogSettings['labels']>().type.toBe<Readonly<Record<string, string>> | undefined>();
+        expect<ChangelogSettings['outputs']>().type.toBeAssignableTo<readonly unknown[] | undefined>();
+        expect<ChangelogSettings['packageTagFormat']>().type.toBe<string | undefined>();
+        expect<ChangelogSettings['targetScopedLabelPattern']>().type.toBe<string | undefined>();
     });
 });
 

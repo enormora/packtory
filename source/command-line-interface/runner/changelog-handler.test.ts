@@ -80,6 +80,7 @@ function partialFailureOutcome(spec: {
 
 type EngineOverrides = {
     readonly resolveChangelogBaseRef?: SinonSpy;
+    readonly resolvePullRequestLabels?: SinonSpy;
     readonly readPullRequestChangedFiles?: SinonSpy;
 };
 
@@ -97,7 +98,7 @@ function createEngine(overrides: EngineOverrides = {}): PrLogEngine {
         filterPullRequestsByTargetFiles: fake((input: { readonly pullRequests: readonly PullRequest[] }) => {
             return input.pullRequests;
         }),
-        resolvePullRequestLabels: fake.resolves(labeledPullRequests),
+        resolvePullRequestLabels: overrides.resolvePullRequestLabels ?? fake.resolves(labeledPullRequests),
         renderGroupedTargetChangelog: fake.returns('## pkg-a 1.0.1\n'),
         renderTargetChangelog: fake((input: { readonly targetName: string }) => {
             return `## ${input.targetName} 1.0.1\n`;
@@ -324,6 +325,44 @@ suite('changelog-handler', function () {
 
         assert.strictEqual(code, 0);
         assert.strictEqual(collectMergedPullRequests.callCount, 1);
+    });
+
+    test('passes configured changelog label and base-ref settings into pr-log', async function () {
+        const resolveChangelogBaseRef = fake.resolves({ ref: 'configured-base' });
+        const resolvePullRequestLabels = fake.resolves([{ id: 1, title: 'Fix package', label: 'operations' }]);
+        const engine = createEngine({ resolveChangelogBaseRef, resolvePullRequestLabels });
+        const spies = makeSpies(engine);
+
+        const code = await runChangelogHandler(
+            depsWith({
+                spies,
+                configLoader: configLoaderReturning({
+                    ...validConfig,
+                    changelog: {
+                        explicitBaseRef: 'main',
+                        labels: { operations: 'Operations' },
+                        packageTagFormat: 'pkg/{packageName}/v{version}',
+                        targetScopedLabelPattern: 'scope:{targetName}:{label}'
+                    }
+                })
+            })
+        );
+
+        assert.strictEqual(code, 0);
+        assert.deepStrictEqual(resolveChangelogBaseRef.firstCall.args[0], {
+            packageName: 'pkg-a',
+            previousVersion: '1.0.0',
+            previousGitHead: 'old-head',
+            packageTagFormat: 'pkg/{packageName}/v{version}',
+            explicitBaseRef: 'main'
+        });
+        const labelInput = resolvePullRequestLabels.firstCall.args[0] as {
+            readonly targetScopedLabelPattern: string;
+            readonly validLabels: ReadonlyMap<string, string>;
+        };
+        assert.strictEqual(labelInput.targetScopedLabelPattern, 'scope:{targetName}:{label}');
+        assert.strictEqual(labelInput.validLabels.get('bug'), 'Bug Fixes');
+        assert.strictEqual(labelInput.validLabels.get('operations'), 'Operations');
     });
 
     test('returns 1 when package.json repository is not a GitHub repository', async function () {

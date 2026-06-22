@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { z } from 'zod/mini';
-import { bundleRelativePathSchema } from './base-validations.ts';
+import { bundleRelativePathSchema, nonEmptyStringSchema } from './base-validations.ts';
 
 const repositoryFileOutputSchema = z.readonly(
     z.strictObject({
@@ -23,10 +23,15 @@ const githubReleaseOutputSchema = z.readonly(
 );
 
 const changelogOutputSchema = z.union([repositoryFileOutputSchema, packageFileOutputSchema, githubReleaseOutputSchema]);
+const validLabelsSchema = z.readonly(z.record(nonEmptyStringSchema, nonEmptyStringSchema));
 
 export const changelogSettingsSchema = z.readonly(
     z.strictObject({
-        outputs: z.readonly(z.tuple([changelogOutputSchema], changelogOutputSchema))
+        explicitBaseRef: z.optional(nonEmptyStringSchema),
+        labels: z.optional(validLabelsSchema),
+        outputs: z.optional(z.readonly(z.tuple([changelogOutputSchema], changelogOutputSchema))),
+        packageTagFormat: z.optional(nonEmptyStringSchema),
+        targetScopedLabelPattern: z.optional(nonEmptyStringSchema)
     })
 );
 
@@ -47,12 +52,12 @@ type ChangelogValidationConfig = {
     readonly packages: readonly PackageChangelogValidationConfig[];
 };
 
-function normalizedRelativePath(filePath: string): string {
+function normalizeRelativePath(filePath: string): string {
     return filePath.split(/[/\\]/u).join('/');
 }
 
-function normalizedFilePath(...filePathSegments: readonly string[]): string {
-    return path.normalize(path.join(...filePathSegments.map(normalizedRelativePath)));
+function normalizeFilePath(...filePathSegments: readonly string[]): string {
+    return path.normalize(path.join(...filePathSegments.map(normalizeRelativePath)));
 }
 
 function pushDuplicateValueIssues(
@@ -72,21 +77,34 @@ function pushDuplicateValueIssues(
     }
 }
 
-function sourcesFolderFor(
+function resolveSourcesFolder(
     packageConfig: PackageChangelogValidationConfig,
     packtoryConfig: ChangelogValidationConfig
 ): string | undefined {
     return packageConfig.sourcesFolder ?? packtoryConfig.commonPackageSettings?.sourcesFolder;
 }
 
-function packageFileDestinationPaths(packtoryConfig: ChangelogValidationConfig, outputPath: string): readonly string[] {
+function collectPackageFileDestinationPaths(
+    packtoryConfig: ChangelogValidationConfig,
+    outputPath: string
+): readonly string[] {
     return packtoryConfig.packages.flatMap((packageConfig) => {
-        const sourcesFolder = sourcesFolderFor(packageConfig, packtoryConfig);
+        const sourcesFolder = resolveSourcesFolder(packageConfig, packtoryConfig);
         if (sourcesFolder === undefined) {
             return [];
         }
-        return [normalizedFilePath(sourcesFolder, outputPath)];
+        return [normalizeFilePath(sourcesFolder, outputPath)];
     });
+}
+
+function validateTargetScopedLabelPattern(pattern: string | undefined): readonly string[] {
+    if (pattern === undefined) {
+        return [];
+    }
+    if (!pattern.includes('{targetName}') || !pattern.includes('{label}')) {
+        return ['changelog.targetScopedLabelPattern must contain {targetName} and {label}'];
+    }
+    return [];
 }
 
 export function validateChangelogSettings(packtoryConfig: ChangelogValidationConfig): readonly string[] {
@@ -94,8 +112,10 @@ export function validateChangelogSettings(packtoryConfig: ChangelogValidationCon
         return [];
     }
 
-    const { outputs } = packtoryConfig.changelog;
-    const issues: string[] = [];
+    const { outputs = [] } = packtoryConfig.changelog;
+    const issues: string[] = Array.from(
+        validateTargetScopedLabelPattern(packtoryConfig.changelog.targetScopedLabelPattern)
+    );
     const githubReleaseCount = outputs.filter((output) => {
         return output.kind === 'github-release';
     }).length;
@@ -107,7 +127,7 @@ export function validateChangelogSettings(packtoryConfig: ChangelogValidationCon
     pushDuplicateValueIssues(
         issues,
         outputs.flatMap((output) => {
-            return output.kind === 'repository-file' ? [normalizedRelativePath(output.path)] : [];
+            return output.kind === 'repository-file' ? [normalizeRelativePath(output.path)] : [];
         }),
         (duplicatePath) => {
             return `changelog.outputs must not contain duplicate repository-file path "${duplicatePath}"`;
@@ -117,7 +137,9 @@ export function validateChangelogSettings(packtoryConfig: ChangelogValidationCon
     pushDuplicateValueIssues(
         issues,
         outputs.flatMap((output) => {
-            return output.kind === 'package-file' ? packageFileDestinationPaths(packtoryConfig, output.path) : [];
+            return output.kind === 'package-file'
+                ? collectPackageFileDestinationPaths(packtoryConfig, output.path)
+                : [];
         }),
         (duplicatePath) => {
             return [
