@@ -1,4 +1,4 @@
-/* eslint-disable import/max-dependencies -- the CLI runner wires five subcommands plus shared dependencies */
+/* eslint-disable import/max-dependencies -- the CLI runner wires six subcommands plus shared dependencies */
 import { binary, command, flag, oneOf, option, positional, runSafely, string, subcommands } from 'cmd-ts';
 import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { FileManager } from '../../file-manager/file-manager.ts';
@@ -13,9 +13,17 @@ import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
 import { registerProgressListeners } from './progress-wiring.ts';
 import { runPublishHandler } from './publish-handler.ts';
+import type { GitHubReleaseClient } from './github-release-client.ts';
+import type { ReleaseGitClient } from './release-git-client.ts';
+import { runReleaseHandler } from './release-handler.ts';
 
 export type CommandLineInterfaceRunnerDependencies = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
+    readonly createGitHubReleaseClient: (context: {
+        readonly owner: string;
+        readonly repo: string;
+        readonly token: string;
+    }) => GitHubReleaseClient;
     readonly currentDate: () => Date;
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcastConsumer;
@@ -27,6 +35,7 @@ export type CommandLineInterfaceRunnerDependencies = {
     readonly createTemporaryFilePath: () => string;
     readonly readEnvironmentVariable: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
     readonly readPackageInfo: () => Promise<Record<string, unknown>>;
+    readonly releaseGitClient: ReleaseGitClient;
     readonly workingDirectory: string;
     log: (message: string) => void;
 };
@@ -34,6 +43,14 @@ export type CommandLineInterfaceRunnerDependencies = {
 export type CommandLineInterfaceRunner = {
     run: (programArguments: readonly string[]) => Promise<number>;
 };
+
+const publishCommandName = 'publish';
+const previewCommandName = 'preview';
+const releaseDiffCommandName = 'release-diff';
+const releaseCommandName = 'release';
+const changelogCommandName = 'changelog';
+const packCommandName = 'pack';
+const defaultPackVersion = '0.0.0';
 
 export function createCommandLineInterfaceRunner(
     dependencies: CommandLineInterfaceRunnerDependencies
@@ -48,19 +65,15 @@ export function createCommandLineInterfaceRunner(
         pageOutput,
         openFile,
         createTemporaryFilePath,
+        createGitHubReleaseClient,
         createPrLogEngine,
         currentDate,
         readEnvironmentVariable,
         readPackageInfo,
+        releaseGitClient,
         workingDirectory
     } = dependencies;
     let exitCode = 0;
-    const publishCommandName = 'publish';
-    const previewCommandName = 'preview';
-    const releaseDiffCommandName = 'release-diff';
-    const changelogCommandName = 'changelog';
-    const packCommandName = 'pack';
-    const defaultPackVersion = '0.0.0';
     const baseCommand = subcommands({
         name: 'packtory',
         cmds: {
@@ -113,6 +126,36 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader
+                    });
+                }
+            }),
+            [releaseCommandName]: command({
+                name: releaseCommandName,
+                description: 'Plans or runs a release workflow.',
+                args: {
+                    writeChangelog: flag({ long: 'write-changelog' }),
+                    commit: flag({ long: 'commit' }),
+                    publish: flag({ long: 'publish' }),
+                    tag: flag({ long: 'tag' }),
+                    push: flag({ long: 'push' }),
+                    githubRelease: flag({ long: 'github-release' }),
+                    noDryRun: flag({ long: 'no-dry-run' })
+                },
+                async handler({ writeChangelog, commit, publish, tag, push, githubRelease, noDryRun }) {
+                    exitCode = await runReleaseHandler({
+                        log,
+                        packtory,
+                        spinnerRenderer,
+                        configLoader,
+                        fileManager,
+                        createPrLogEngine,
+                        createGitHubReleaseClient,
+                        currentDate,
+                        readEnvironmentVariable,
+                        readPackageInfo,
+                        workingDirectory,
+                        gitClient: releaseGitClient,
+                        flags: { writeChangelog, commit, publish, tag, push, githubRelease, noDryRun }
                     });
                 }
             }),

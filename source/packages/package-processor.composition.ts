@@ -27,11 +27,7 @@ import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createZipBuilder } from '../zip/zip-builder.ts';
 import { createVersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
-import {
-    createCachedCurrentGitHeadReader,
-    createCurrentGitHeadReader,
-    type CurrentGitHeadReader
-} from '../git/current-git-head.ts';
+import { createCurrentGitHeadReader, type CurrentGitHeadReader } from '../git/current-git-head.ts';
 import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
 import { createLicenseResolver } from '../sbom/license-resolver.ts';
 import { createSbomFileBuilder, type SbomFileBuilder } from '../sbom/sbom-file.ts';
@@ -167,12 +163,10 @@ type CompositionParts = {
 function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {
     const repositoryFolder = options.repositoryFolder ?? process.cwd();
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
-    const readCurrentGitHead = createCachedCurrentGitHeadReader(
-        createCurrentGitHeadReader({
-            repositoryFolder,
-            runGitCommand
-        })
-    );
+    const readCurrentGitHead = createCurrentGitHeadReader({
+        repositoryFolder,
+        runGitCommand
+    });
     const dependencyScanner = createDependencyScannerWith(fileManager);
     const progressBroadcaster = createProgressBroadcaster();
     const artifactsBuilder = createArtifactsBuilder({

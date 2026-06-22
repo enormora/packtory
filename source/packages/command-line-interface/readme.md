@@ -21,6 +21,7 @@ packtory <command> [options]
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
+- **release:** Prints the next release plan by default, or runs one explicit release workflow when action flags and `--no-dry-run` are set.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
 - **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection — `pack` never talks to a registry.
 
@@ -31,6 +32,12 @@ packtory <command> [options]
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
 - **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
+- **release --write-changelog:** Writes configured changelog file outputs for packages in the release plan.
+- **release --commit:** Commits written changelog files. Requires `--write-changelog`.
+- **release --publish:** Publishes changed packages directly to npm. Staged publishing is not used by `release`.
+- **release --tag:** Creates one annotated tag per released package, named `{packageName}@{version}`.
+- **release --push:** Runs `git push --follow-tags`. Requires `--commit` or `--tag`.
+- **release --github-release:** Creates one GitHub Release per package tag. Requires `--tag --push`.
 - **pack &lt;package&gt; --format &lt;zip|tar|folder&gt; --out &lt;path&gt;:** Selects which package from the configuration to build and where to write it. `--format` and `--out` are required.
 - **pack --version &lt;version&gt;:** Stamps the produced manifest with the given version. Defaults to `0.0.0` when omitted, since `pack` is decoupled from the registry-driven automatic versioning used by `publish`.
 - **pack --vendor-dependencies:** Resolves every external (and bundle) dependency from the local `node_modules` and materializes them next to the package files inside the artifact. Use this for self-contained deployments where the runtime cannot run `npm install` (e.g. AWS Lambda zips). Without the flag, dependencies are recorded in the generated `package.json` only.
@@ -71,6 +78,19 @@ packtory <command> [options]
 - Generated changelog files are not automatically added to package artifacts. Use `additionalFiles` when a package artifact should include a changelog.
 - `packtory changelog` exits with code `0` on a clean run and `1` on config, release-plan, Git, GitHub, or changelog generation failures. Partial release-plan failures still render succeeded changed packages when changelog generation succeeds.
 - `changelog` never commits, tags, creates releases, creates deployments, writes registry data, or publishes packages.
+
+**Release behavior:**
+
+- `packtory release` prints the computed release plan and exits without writing.
+- Any action flag requires `--no-dry-run`.
+- Invalid combinations fail before writing: `--commit` requires `--write-changelog`; `--write-changelog --publish` requires `--commit`; `--push` requires `--commit` or `--tag`; `--github-release` requires `--tag --push`.
+- `--tag` requires `--publish` in the same run unless the registry latest `gitHead` already matches the current Git head. This allows retrying tag and GitHub Release creation after a publish succeeded.
+- Non-dry-run release writes require a clean Git index and worktree before the first write.
+- The write order is changelog files, commit, final release-plan recomputation, direct npm publish, annotated tags, `git push --follow-tags`, then GitHub Releases.
+- Existing package tags at the current head are accepted. Existing tags at another head fail.
+- Existing GitHub Releases for verified package tags are accepted and their notes are not rewritten.
+- Packtory uses inherited Git configuration, environment, and credentials. In CI, configure commit identity with standard variables such as `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL`, and configure push credentials outside Packtory.
+- GitHub Release creation reads `GH_TOKEN` first, then `GITHUB_TOKEN`.
 
 **Pack behavior:**
 

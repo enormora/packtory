@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { PrLogEngine, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
 import { compareValues } from '../common/sort-values.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
@@ -33,38 +34,39 @@ export type GeneratedChangelog = {
 };
 
 const changelogFileName = 'CHANGELOG.md';
-const changelogFileSuffix = `/${changelogFileName}`;
 
-function changedPackagesFrom(packages: readonly ReleasePlanPackage[]): readonly ReleasePlanPackage[] {
+function selectChangedPackages(packages: readonly ReleasePlanPackage[]): readonly ReleasePlanPackage[] {
     return packages.filter((packagePlan) => {
         return packagePlan.changed;
     });
 }
 
-function sortedUnique(values: ReadonlySet<string>): readonly string[] {
+function sortUniqueValues(values: ReadonlySet<string>): readonly string[] {
     return Array.from(values).toSorted(compareValues);
 }
 
-function changelogPathsFrom(packages: readonly ReleasePlanPackage[]): readonly string[] {
-    return sortedUnique(
+function isChangelogFilePath(filePath: string): boolean {
+    return path.posix.basename(filePath) === changelogFileName;
+}
+
+function collectChangelogPaths(packages: readonly ReleasePlanPackage[]): readonly string[] {
+    return sortUniqueValues(
         new Set(
             packages.flatMap((packagePlan) => {
-                return packagePlan.changelogSourceFiles.filter((filePath) => {
-                    return filePath === changelogFileName || filePath.endsWith(changelogFileSuffix);
-                });
+                return packagePlan.changelogSourceFiles.filter(isChangelogFilePath);
             })
         )
     );
 }
 
-function mergedIgnoredAttributionPaths(
+function mergeIgnoredAttributionPaths(
     packages: readonly ReleasePlanPackage[],
     configuredPaths: readonly string[]
 ): readonly string[] {
-    return sortedUnique(new Set([...changelogPathsFrom(packages), ...configuredPaths]));
+    return sortUniqueValues(new Set([...collectChangelogPaths(packages), ...configuredPaths]));
 }
 
-async function baseRefFor(
+async function resolveBaseRefFor(
     prLogEngine: GenerateChangelogInput['prLogEngine'],
     packagePlan: ReleasePlanPackage
 ): Promise<string> {
@@ -83,12 +85,12 @@ async function baseRefFor(
     return baseRef.ref;
 }
 
-async function targetPullRequestsFor(
+async function collectTargetPullRequests(
     input: GenerateChangelogInput,
     packagePlan: ReleasePlanPackage,
     ignoredAttributionPaths: readonly string[]
 ): Promise<readonly PullRequestWithLabel[]> {
-    const baseRef = await baseRefFor(input.prLogEngine, packagePlan);
+    const baseRef = await resolveBaseRefFor(input.prLogEngine, packagePlan);
     const pullRequests = await input.prLogEngine.collectMergedPullRequests({
         githubRepo: input.githubRepo,
         baseRef
@@ -115,18 +117,18 @@ async function targetPullRequestsFor(
     });
 }
 
-async function changelogTargetFor(
+async function createChangelogTarget(
     input: GenerateChangelogInput,
     packagePlan: ReleasePlanPackage,
     ignoredAttributionPaths: readonly string[]
 ): Promise<ChangelogTarget> {
     return {
         packagePlan,
-        pullRequests: await targetPullRequestsFor(input, packagePlan, ignoredAttributionPaths)
+        pullRequests: await collectTargetPullRequests(input, packagePlan, ignoredAttributionPaths)
     };
 }
 
-function targetSectionFrom(target: ChangelogTarget): TargetChangelogSection {
+function createTargetSection(target: ChangelogTarget): TargetChangelogSection {
     return {
         targetName: target.packagePlan.name,
         unreleased: false,
@@ -135,13 +137,13 @@ function targetSectionFrom(target: ChangelogTarget): TargetChangelogSection {
     };
 }
 
-function packageMarkdownByNameFrom(
+function createPackageMarkdownByName(
     input: GenerateChangelogInput,
     targets: readonly ChangelogTarget[]
 ): ReadonlyMap<string, string> {
     return new Map(
         targets.map((target) => {
-            const targetSection = targetSectionFrom(target);
+            const targetSection = createTargetSection(target);
             return [
                 target.packagePlan.name,
                 input.prLogEngine.renderTargetChangelog({
@@ -157,11 +159,11 @@ function packageMarkdownByNameFrom(
 }
 
 export async function generateChangelogOutputs(input: GenerateChangelogInput): Promise<GeneratedChangelog> {
-    const packages = changedPackagesFrom(input.packages);
-    const ignoredAttributionPaths = mergedIgnoredAttributionPaths(packages, input.ignoredAttributionPaths);
+    const packages = selectChangedPackages(input.packages);
+    const ignoredAttributionPaths = mergeIgnoredAttributionPaths(packages, input.ignoredAttributionPaths);
     const targets = await Promise.all(
         packages.map(async (packagePlan) => {
-            return changelogTargetFor(input, packagePlan, ignoredAttributionPaths);
+            return createChangelogTarget(input, packagePlan, ignoredAttributionPaths);
         })
     );
 
@@ -171,8 +173,8 @@ export async function generateChangelogOutputs(input: GenerateChangelogInput): P
             currentDate: input.currentDate,
             validLabels: input.validLabels,
             githubRepo: input.githubRepo,
-            targets: targets.map(targetSectionFrom)
+            targets: targets.map(createTargetSection)
         }),
-        packageMarkdownByName: packageMarkdownByNameFrom(input, targets)
+        packageMarkdownByName: createPackageMarkdownByName(input, targets)
     };
 }

@@ -36,7 +36,7 @@ suite('failure-printing', function () {
         const sink = captureLogger();
         const failure: PublishFailure = { type: 'config', issues: ['issue A', 'issue B'] };
 
-        printPublishFailure(sink.log, failure, { stage: false });
+        printPublishFailure(sink.log, failure, false);
 
         assert.strictEqual(sink.messages.length, 1);
         const message = sink.messages[0] ?? '';
@@ -48,7 +48,7 @@ suite('failure-printing', function () {
         const sink = captureLogger();
         const failure: PublishFailure = { type: 'checks', issues: ['check X'] };
 
-        printPublishFailure(sink.log, failure, { stage: false });
+        printPublishFailure(sink.log, failure, false);
 
         const message = sink.messages[0] ?? '';
         assert.match(message, /Checks failed, there are 1 issue\(s\)/u);
@@ -66,7 +66,7 @@ suite('failure-printing', function () {
             failures: [{ message: 'pkg-c failed' }] as never
         };
 
-        printPublishFailure(sink.log, failure, { stage: true });
+        printPublishFailure(sink.log, failure, true);
 
         assert.ok((sink.messages[0] ?? '').includes('package(s) failed'));
         assert.ok((sink.messages[0] ?? '').includes('- pkg-c failed'));
@@ -81,7 +81,7 @@ suite('failure-printing', function () {
             failures: [{ message: 'pkg-b failed' }] as never
         };
 
-        printPublishFailure(sink.log, failure, { stage: true });
+        printPublishFailure(sink.log, failure, true);
 
         assert.strictEqual(sink.messages.length, 1);
         assert.ok((sink.messages[0] ?? '').includes('- pkg-b failed'));

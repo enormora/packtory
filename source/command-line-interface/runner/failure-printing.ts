@@ -43,12 +43,12 @@ function isStagedResult(result: BuildAndPublishResult): result is StagedResult {
     return result.publication.type === 'staged';
 }
 
-function stagedResultsFrom(results: readonly BuildAndPublishResult[]): readonly StagedResult[] {
+function selectStagedResults(results: readonly BuildAndPublishResult[]): readonly StagedResult[] {
     return results.filter(isStagedResult);
 }
 
 function printStagedPackageList(log: Logger, results: readonly BuildAndPublishResult[]): void {
-    const stagedResults = stagedResultsFrom(results);
+    const stagedResults = selectStagedResults(results);
     if (stagedResults.length === 0) {
         return;
     }
@@ -60,8 +60,8 @@ function printIssueSummary(log: Logger, title: string, issues: readonly string[]
     log(`${header}\n\n- ${issues.join('\n- ')}`);
 }
 
-function stageSuccessSummary(results: readonly BuildAndPublishResult[]): string {
-    const stagedResults = stagedResultsFrom(results);
+function formatStageSuccessSummary(results: readonly BuildAndPublishResult[]): string {
+    const stagedResults = selectStagedResults(results);
     if (stagedResults.length === 0) {
         return (
             `${getSuccessSymbol()} Success: no packages were staged; ` +
@@ -74,7 +74,7 @@ function stageSuccessSummary(results: readonly BuildAndPublishResult[]): string 
     return `${getSuccessSymbol()} Success: staged ${stagedResults.length} package(s)${unchangedSuffix}`;
 }
 
-function printPartialErrorSummary(log: Logger, error: PublishPartialError, flags: { readonly stage: boolean }): void {
+function printPartialErrorSummary(log: Logger, error: PublishPartialError, stage: boolean): void {
     const total = error.succeeded.length + error.failures.length;
     const failureCount = red(String(error.failures.length));
     const successCount = green(String(error.succeeded.length));
@@ -85,15 +85,15 @@ function printPartialErrorSummary(log: Logger, error: PublishPartialError, flags
         return `- ${message}`;
     });
     log([summary, ...details].join('\n'));
-    if (flags.stage) {
+    if (stage) {
         printStagedPackageList(log, error.succeeded);
     }
 }
 
-export function printPublishFailure(log: Logger, error: PublishFailure, flags: { readonly stage: boolean }): void {
+export function printPublishFailure(log: Logger, error: PublishFailure, stage: boolean): void {
     match(error)
         .with({ type: partialFailureType }, (partialError) => {
-            printPartialErrorSummary(log, partialError, flags);
+            printPartialErrorSummary(log, partialError, stage);
         })
         .otherwise((issueError) => {
             printIssueSummary(log, issueTitleByType[issueError.type], issueError.issues);
@@ -110,6 +110,6 @@ export function printSuccessSummary(
         return;
     }
 
-    log(stageSuccessSummary(results));
+    log(formatStageSuccessSummary(results));
     printStagedPackageList(log, results);
 }
