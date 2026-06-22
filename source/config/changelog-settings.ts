@@ -107,15 +107,11 @@ function validateTargetScopedLabelPattern(pattern: string | undefined): readonly
     return [];
 }
 
-export function validateChangelogSettings(packtoryConfig: ChangelogValidationConfig): readonly string[] {
-    if (packtoryConfig.changelog === undefined) {
-        return [];
-    }
-
-    const { outputs = [] } = packtoryConfig.changelog;
-    const issues: string[] = Array.from(
-        validateTargetScopedLabelPattern(packtoryConfig.changelog.targetScopedLabelPattern)
-    );
+function collectChangelogOutputIssues(
+    packtoryConfig: ChangelogValidationConfig,
+    outputs: readonly ChangelogOutput[]
+): readonly string[] {
+    const issues: string[] = [];
     const githubReleaseCount = outputs.filter((output) => {
         return output.kind === 'github-release';
     }).length;
@@ -150,4 +146,16 @@ export function validateChangelogSettings(packtoryConfig: ChangelogValidationCon
     );
 
     return issues;
+}
+
+export function validateChangelogSettings(packtoryConfig: ChangelogValidationConfig): readonly string[] {
+    if (packtoryConfig.changelog === undefined) {
+        return [];
+    }
+
+    const patternIssues = validateTargetScopedLabelPattern(packtoryConfig.changelog.targetScopedLabelPattern);
+    const { outputs } = packtoryConfig.changelog;
+    return outputs === undefined
+        ? patternIssues
+        : [...patternIssues, ...collectChangelogOutputIssues(packtoryConfig, outputs)];
 }

@@ -112,8 +112,11 @@ export function collectGeneratedAttributionPaths(
     if (config.changelog === undefined) {
         return [];
     }
+    if (config.changelog.outputs === undefined) {
+        return [];
+    }
 
-    const paths = (config.changelog.outputs ?? [])
+    const paths = config.changelog.outputs
         .filter((output): output is FileChangelogOutput => {
             return output.kind !== 'github-release';
         })
@@ -212,21 +215,28 @@ async function writeChangelogDestination(
     return destination.filePath;
 }
 
+function collectChangelogDestinations(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    config: ChangelogConfig,
+    changelog: GeneratedChangelog
+): readonly FileChangelogDestination[] {
+    const outputs = config.changelog?.outputs;
+    if (outputs === undefined) {
+        return [];
+    }
+    return [
+        ...collectRepositoryDestinations(deps, outputs, changelog),
+        ...collectPackageDestinations(deps, config, outputs, changelog)
+    ];
+}
+
 export async function writeConfiguredChangelogs(
     deps: ChangelogDestinationDeps,
     config: ChangelogConfig,
     prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
     changelog: GeneratedChangelog
 ): Promise<readonly string[]> {
-    if (config.changelog === undefined) {
-        return [];
-    }
-
-    const { outputs = [] } = config.changelog;
-    const destinations = [
-        ...collectRepositoryDestinations(deps, outputs, changelog),
-        ...collectPackageDestinations(deps, config, outputs, changelog)
-    ];
+    const destinations = collectChangelogDestinations(deps, config, changelog);
     const writtenPaths: string[] = [];
     for (const destination of destinations) {
         const writtenPath = await writeChangelogDestination(deps, prLogEngine, destination);
