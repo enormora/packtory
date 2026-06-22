@@ -37,6 +37,7 @@ function createGeneratedChangelog(
 ): GeneratedChangelog {
     return {
         groupedMarkdown: 'grouped',
+        packageNamesWithoutChangelogEntries: [],
         packageMarkdownByName: overrides.packageMarkdownByName ?? new Map([['pkg-a', 'package-a']])
     };
 }
@@ -226,7 +227,7 @@ suite('changelog-destinations', function () {
             { ...deps, fileManager },
             createChangelogConfig({ changelog: { outputs: [{ kind: 'repository-file', path: 'CHANGELOG.md' }] } }),
             { updateChangelog: fake.returns('updated') },
-            { groupedMarkdown: '', packageMarkdownByName: new Map() }
+            { groupedMarkdown: '', packageNamesWithoutChangelogEntries: [], packageMarkdownByName: new Map() }
         );
 
         assert.deepStrictEqual(writtenPaths, []);

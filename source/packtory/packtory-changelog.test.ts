@@ -195,6 +195,35 @@ suite('packtory-changelog', function () {
         });
     });
 
+    test('omits package changelog markdown for packages without attributed pull requests', async function () {
+        const { engine, calls } = createEngine();
+        const emptyLabelResolver = fake.resolves([]);
+        const renderTargetChangelog = fake.returns('## 1.0.1 (June 13, 2026)\n');
+        const emptyEngine = {
+            ...engine,
+            resolvePullRequestLabels: emptyLabelResolver,
+            renderTargetChangelog
+        } as unknown as PrLogEngine;
+
+        const changelog = await generateChangelogOutputs({
+            packages: [releasePackage({ changelogSourceFiles: ['source/pkg-a.ts'] })],
+            prLogEngine: emptyEngine,
+            githubRepo: 'owner/repo',
+            packageInfo: {},
+            currentDate: new Date('2026-06-13T00:00:00.000Z'),
+            explicitBaseRef: undefined,
+            ignoredAttributionPaths: [],
+            packageTagFormat: undefined,
+            targetScopedLabelPattern: undefined,
+            validLabels
+        });
+
+        assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
+        assert.deepStrictEqual(changelog.packageNamesWithoutChangelogEntries, ['pkg-a']);
+        assert.deepStrictEqual(changelog.packageMarkdownByName, new Map());
+        assert.strictEqual(renderTargetChangelog.callCount, 0);
+    });
+
     test('uses the package base-ref resolver when a package has a previous git head but no previous version', async function () {
         const { engine, calls } = createEngine();
 

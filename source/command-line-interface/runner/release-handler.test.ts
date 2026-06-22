@@ -127,6 +127,45 @@ const defaultFlags: ReleaseFlags = {
 };
 const githubReleaseFlags = { githubRelease: true, noDryRun: true, push: true, tag: true } as const;
 const noReleaseMessage = 'No packages need release.';
+const unattributedPackageChangelogMessage =
+    'No changelog files were written; changelog attribution found no pull requests for pkg-a.';
+
+function createPackageChangelogConfig() {
+    return {
+        ...validConfig,
+        changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] }
+    };
+}
+
+function createTwoPackageChangelogConfig() {
+    return {
+        ...createPackageChangelogConfig(),
+        packages: [
+            validConfig.packages[0],
+            {
+                sourcesFolder: 'src/pkg-b',
+                mainPackageJson: { type: 'module' },
+                name: 'pkg-b',
+                roots: { main: { js: 'index.js' } },
+                publishSettings: { access: 'public' }
+            }
+        ]
+    };
+}
+
+function createConfigWithoutChangelogOutputs() {
+    return {
+        ...validConfig,
+        changelog: {}
+    };
+}
+
+function createEngineWithoutAttributedPullRequests(): PrLogEngine {
+    return {
+        ...createEngine(),
+        resolvePullRequestLabels: fake.resolves([])
+    } as unknown as PrLogEngine;
+}
 
 type Scenario = {
     readonly buildAndPublishAll?: SinonSpy;
@@ -240,6 +279,19 @@ function createReleaseHandlerDeps(scenario: Scenario = {}): ReleaseHandlerDeps {
     };
 }
 
+function createPackageChangelogDeps(
+    order: string[],
+    flags: Partial<ReleaseFlags>,
+    engine: PrLogEngine
+): ReleaseHandlerDeps {
+    return createReleaseHandlerDeps({
+        order,
+        engine,
+        flags,
+        config: createPackageChangelogConfig()
+    });
+}
+
 async function runScenario(scenario: Scenario): Promise<{
     readonly code: number;
     readonly deps: ReleaseHandlerDeps;
@@ -250,6 +302,18 @@ async function runScenario(scenario: Scenario): Promise<{
 
 function readFirstLogArgs(deps: ReleaseHandlerDeps): readonly unknown[] {
     return (deps.log as SinonSpy).firstCall.args;
+}
+
+async function assertCleanChangelogNoOp(
+    deps: ReleaseHandlerDeps,
+    order: string[],
+    expectedMessage: string
+): Promise<void> {
+    const code = await runReleaseHandler(deps);
+
+    assert.strictEqual(code, 0);
+    assert.deepStrictEqual(order, ['plan', 'clean']);
+    assert.deepStrictEqual(readFirstLogArgs(deps), [expectedMessage]);
 }
 
 async function assertFlagError(flags: Partial<ReleaseFlags>, expected: string): Promise<ReleaseHandlerDeps> {
@@ -588,6 +652,87 @@ suite('release-handler', function () {
 
         assert.strictEqual(code, 0);
         assert.deepStrictEqual(order, ['plan', 'clean']);
+    });
+
+    test('logs unwritten package changelogs when attribution finds no pull requests', async function () {
+        const order: string[] = [];
+        const deps = createPackageChangelogDeps(
+            order,
+            { writeChangelog: true, noDryRun: true },
+            createEngineWithoutAttributedPullRequests()
+        );
+
+        await assertCleanChangelogNoOp(deps, order, unattributedPackageChangelogMessage);
+    });
+
+    test('separates multiple unwritten package changelog names', async function () {
+        const order: string[] = [];
+        const deps = createReleaseHandlerDeps({
+            order,
+            engine: createEngineWithoutAttributedPullRequests(),
+            flags: { writeChangelog: true, noDryRun: true },
+            config: createTwoPackageChangelogConfig(),
+            planOutcomes: [
+                createReleasePlanOutcome([
+                    createReleasePackage(),
+                    createReleasePackage({ name: 'pkg-b', changelogSourceFiles: ['source/pkg-b.ts'] })
+                ])
+            ]
+        });
+
+        await assertCleanChangelogNoOp(
+            deps,
+            order,
+            'No changelog files were written; changelog attribution found no pull requests for pkg-a, pkg-b.'
+        );
+    });
+
+    test('logs unwritten changelogs when no file outputs are configured', async function () {
+        const order: string[] = [];
+        const deps = createReleaseHandlerDeps({
+            order,
+            flags: { writeChangelog: true, noDryRun: true },
+            config: createConfigWithoutChangelogOutputs()
+        });
+
+        await assertCleanChangelogNoOp(deps, order, 'No changelog files were written.');
+    });
+
+    test('rejects --commit when attribution writes no changelog files', async function () {
+        const order: string[] = [];
+        const deps = createPackageChangelogDeps(
+            order,
+            { writeChangelog: true, commit: true, noDryRun: true },
+            createEngineWithoutAttributedPullRequests()
+        );
+
+        const code = await runReleaseHandler(deps);
+
+        assert.strictEqual(code, 1);
+        assert.deepStrictEqual(order, ['plan', 'clean']);
+        assert.deepStrictEqual((deps.log as SinonSpy).firstCall.args, [unattributedPackageChangelogMessage]);
+    });
+
+    test('writes and commits non-empty package changelog output', async function () {
+        const order: string[] = [];
+        const deps = createPackageChangelogDeps(
+            order,
+            { writeChangelog: true, commit: true, noDryRun: true },
+            createEngine()
+        );
+
+        const code = await runReleaseHandler(deps);
+
+        assert.strictEqual(code, 0);
+        assert.deepStrictEqual(order, [
+            'plan',
+            'clean',
+            'commit:/repo/src/pkg-a/CHANGELOG.md:Release packages',
+            'plan'
+        ]);
+        assert.deepStrictEqual((deps.fileManager as ReturnType<typeof createFakeFileManager>).getAllWriteFileCalls(), [
+            { filePath: '/repo/src/pkg-a/CHANGELOG.md', content: '## pkg-a 1.0.1\n' }
+        ]);
     });
 
     test('uses configured changelog labels when writing release changelogs', async function () {

@@ -344,16 +344,20 @@ function resolvePlannedReleaseExitCode(
     return undefined;
 }
 
+function parseRequiredChangelogConfig(config: unknown): ValidChangelogConfig {
+    const validConfig = parseValidConfig(config);
+    if (validConfig === undefined) {
+        throw new Error('The loaded config is invalid for changelog generation');
+    }
+    return validConfig;
+}
+
 async function generateRequiredChangelog(
     deps: ReleaseHandlerDeps,
     config: unknown,
     packages: readonly ReleasePlanPackage[]
 ): Promise<ReleaseChangelog> {
-    const validConfig = parseValidConfig(config);
-    if (validConfig === undefined) {
-        throw new Error('The loaded config is invalid for changelog generation');
-    }
-    return generateReleaseChangelog(deps, validConfig, packages);
+    return generateReleaseChangelog(deps, parseRequiredChangelogConfig(config), packages);
 }
 
 async function commitChangelogAndReplan(
@@ -366,6 +370,33 @@ async function commitChangelogAndReplan(
     return committedPlan === undefined ? undefined : { changelog, planned: committedPlan };
 }
 
+function formatEmptyChangelogMessage(changelog: GeneratedChangelog): string {
+    const packageNames = changelog.packageNamesWithoutChangelogEntries;
+    if (packageNames.length === 0) {
+        return 'No changelog files were written.';
+    }
+    return [
+        'No changelog files were written; changelog attribution found no pull requests for ',
+        packageNames.join(', '),
+        '.'
+    ].join('');
+}
+
+function reportUnwrittenChangelogs(
+    deps: Pick<ReleaseHandlerDeps, 'flags' | 'log'>,
+    changelog: GeneratedChangelog,
+    writtenPaths: readonly string[]
+): void {
+    if (writtenPaths.length > 0) {
+        return;
+    }
+    const message = formatEmptyChangelogMessage(changelog);
+    if (deps.flags.commit) {
+        throw new Error(message);
+    }
+    deps.log(message);
+}
+
 async function writeChangelogAndMaybeCommit(
     deps: ReleaseHandlerDeps,
     planned: PlannedRelease
@@ -373,12 +404,10 @@ async function writeChangelogAndMaybeCommit(
     if (!deps.flags.writeChangelog) {
         return { changelog: undefined, planned };
     }
-    const validConfig = parseValidConfig(planned.config);
-    if (validConfig === undefined) {
-        throw new Error('The loaded config is invalid for changelog generation');
-    }
+    const validConfig = parseRequiredChangelogConfig(planned.config);
     const changelog = await generateReleaseChangelog(deps, validConfig, planned.packages);
     const writtenPaths = await writeConfiguredChangelogs(deps, changelog.config, changelog.engine, changelog.changelog);
+    reportUnwrittenChangelogs(deps, changelog.changelog, writtenPaths);
     if (!deps.flags.commit) {
         return { changelog, planned };
     }
