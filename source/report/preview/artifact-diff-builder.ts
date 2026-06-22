@@ -1,4 +1,4 @@
-import { createStructuredPatch } from '../../common/typed-diff.ts';
+import { structuredPatch } from 'diff';
 import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 import type { BundleArtifactIndex } from './bundle-artifact-index.ts';
 import { isDiffableArtifact, toPreviewDiffHunk, type PreviewDiffHunk } from './preview-document-diff.ts';
@@ -23,7 +23,7 @@ export async function buildDiffForArtifact(
     if (originalContent === finalArtifact.content) {
         return undefined;
     }
-    const patchFile = createStructuredPatch(
+    const patchFile = structuredPatch(
         artifact.path,
         artifact.path,
         originalContent,
