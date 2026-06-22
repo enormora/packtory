@@ -33,6 +33,7 @@ export type GenerateChangelogInput = {
 
 export type GeneratedChangelog = {
     readonly groupedMarkdown: string;
+    readonly packageNamesWithoutChangelogEntries: readonly string[];
     readonly packageMarkdownByName: ReadonlyMap<string, string>;
 };
 
@@ -145,12 +146,16 @@ function createTargetSection(target: ChangelogTarget): TargetChangelogSection {
     };
 }
 
+function hasChangelogEntries(target: ChangelogTarget): boolean {
+    return target.pullRequests.length > 0;
+}
+
 function createPackageMarkdownByName(
     input: GenerateChangelogInput,
     targets: readonly ChangelogTarget[]
 ): ReadonlyMap<string, string> {
     return new Map(
-        targets.map((target) => {
+        targets.filter(hasChangelogEntries).map((target) => {
             const targetSection = createTargetSection(target);
             return [
                 target.packagePlan.name,
@@ -174,6 +179,7 @@ export async function generateChangelogOutputs(input: GenerateChangelogInput): P
             return createChangelogTarget(input, packagePlan, ignoredAttributionPaths);
         })
     );
+    const targetsWithEntries = targets.filter(hasChangelogEntries);
 
     return {
         groupedMarkdown: input.prLogEngine.renderGroupedTargetChangelog({
@@ -181,8 +187,15 @@ export async function generateChangelogOutputs(input: GenerateChangelogInput): P
             currentDate: input.currentDate,
             validLabels: input.validLabels,
             githubRepo: input.githubRepo,
-            targets: targets.map(createTargetSection)
+            targets: targetsWithEntries.map(createTargetSection)
         }),
+        packageNamesWithoutChangelogEntries: targets
+            .filter((target) => {
+                return !hasChangelogEntries(target);
+            })
+            .map((target) => {
+                return target.packagePlan.name;
+            }),
         packageMarkdownByName: createPackageMarkdownByName(input, targets)
     };
 }
