@@ -71,7 +71,7 @@
         "@enormora/objectory": "0.0.9",
         "@ls-lint/ls-lint": "2.3.1",
         "@packtory/cli": "0.0.39",
-        "@packtory/github-release-gate": "0.0.11",
+        "@packtory/github-release-gate": "0.0.12",
         "@stryker-mutator/core": "9.6.1",
         "@stryker-mutator/mocha-runner": "9.6.1",
         "@types/mocha": "10.0.10",
