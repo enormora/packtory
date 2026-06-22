@@ -70,7 +70,7 @@ packtory <command> [options]
 
 - `packtory changelog` computes the same release plan used by Packtory's release planning API and skips unchanged packages.
 - Without `changelog.outputs`, it prints one grouped Markdown changelog for packages that would publish a changed artifact.
-- `changelog.outputs` can write a grouped repository file with `{ kind: 'repository-file', path }`, write package-specific files below each changed package's effective `sourcesFolder` with `{ kind: 'package-file', path }`, and print grouped release-body Markdown with `{ kind: 'github-release' }`.
+- `changelog.outputs` can write a grouped repository file with `{ kind: 'repository-file', path }`, write package-specific files below each changed package's effective `sourcesFolder` with `{ kind: 'package-file', path }`, write package-specific files to explicit repository-relative paths with `{ kind: 'package-file', paths }`, and print grouped release-body Markdown with `{ kind: 'github-release' }`.
 - `changelog.labels` extends or overrides the default pull request label mapping. `changelog.targetScopedLabelPattern` customizes package-specific labels and must contain `{targetName}` and `{label}`.
 - `changelog.packageTagFormat` customizes package tag lookup for changelog base refs. `changelog.explicitBaseRef` uses one fixed base ref instead.
 - Pull requests are attributed by comparing GitHub changed files against each package's attributed source files. Changelog files named `CHANGELOG.md` and configured generated changelog output paths are ignored as attribution inputs.

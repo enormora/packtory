@@ -16,13 +16,29 @@ const packageFileOutputSchema = z.readonly(
     })
 );
 
+const explicitPackageFileOutputSchema = z.readonly(
+    z.strictObject({
+        kind: z.literal('package-file'),
+        paths: z.readonly(z.record(nonEmptyStringSchema, bundleRelativePathSchema)).check(
+            z.refine((value) => {
+                return Object.keys(value).length > 0;
+            })
+        )
+    })
+);
+
 const githubReleaseOutputSchema = z.readonly(
     z.strictObject({
         kind: z.literal('github-release')
     })
 );
 
-const changelogOutputSchema = z.union([repositoryFileOutputSchema, packageFileOutputSchema, githubReleaseOutputSchema]);
+const changelogOutputSchema = z.union([
+    repositoryFileOutputSchema,
+    packageFileOutputSchema,
+    explicitPackageFileOutputSchema,
+    githubReleaseOutputSchema
+]);
 const validLabelsSchema = z.readonly(z.record(nonEmptyStringSchema, nonEmptyStringSchema));
 
 export const changelogSettingsSchema = z.readonly(
@@ -60,6 +76,10 @@ function normalizeFilePath(...filePathSegments: readonly string[]): string {
     return path.normalize(path.join(...filePathSegments.map(normalizeRelativePath)));
 }
 
+function normalizeChangelogOutputPath(filePath: string): string {
+    return path.normalize(normalizeRelativePath(filePath));
+}
+
 function pushDuplicateValueIssues(
     issues: string[],
     values: readonly string[],
@@ -86,14 +106,20 @@ function resolveSourcesFolder(
 
 function collectPackageFileDestinationPaths(
     packtoryConfig: ChangelogValidationConfig,
-    outputPath: string
+    output: ChangelogOutput
 ): readonly string[] {
+    if (output.kind !== 'package-file') {
+        return [];
+    }
+    if ('paths' in output) {
+        return Object.values(output.paths).map(normalizeChangelogOutputPath);
+    }
     return packtoryConfig.packages.flatMap((packageConfig) => {
         const sourcesFolder = resolveSourcesFolder(packageConfig, packtoryConfig);
         if (sourcesFolder === undefined) {
             return [];
         }
-        return [normalizeFilePath(sourcesFolder, outputPath)];
+        return [normalizeFilePath(sourcesFolder, output.path)];
     });
 }
 
@@ -133,9 +159,7 @@ function collectChangelogOutputIssues(
     pushDuplicateValueIssues(
         issues,
         outputs.flatMap((output) => {
-            return output.kind === 'package-file'
-                ? collectPackageFileDestinationPaths(packtoryConfig, output.path)
-                : [];
+            return collectPackageFileDestinationPaths(packtoryConfig, output);
         }),
         (duplicatePath) => {
             return [

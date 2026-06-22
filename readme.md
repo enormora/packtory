@@ -207,6 +207,7 @@ The configuration for `packtory` is an object with the following properties:
     - `outputs` is a non-empty array of:
         - `{ kind: 'repository-file', path: 'CHANGELOG.md' }`: writes one grouped changelog at a repository-relative path.
         - `{ kind: 'package-file', path: 'CHANGELOG.md' }`: writes one package-specific changelog below each changed package's effective `sourcesFolder`.
+        - `{ kind: 'package-file', paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' } }`: writes package-specific changelogs to explicit repository-relative paths. Every changed package must have a configured path.
         - `{ kind: 'github-release' }`: prints grouped release-body Markdown to the pager. Remote GitHub release creation is not implemented by `packtory changelog`.
     - `outputs` can be omitted when only label or base-ref settings are configured.
     - Output paths must be safe relative paths. Absolute paths and parent-traversing paths are rejected.

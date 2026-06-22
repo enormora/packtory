@@ -115,6 +115,30 @@ suite('changelog-destinations', function () {
         );
     });
 
+    test('collectGeneratedAttributionPaths includes explicit package file paths', function () {
+        assert.deepStrictEqual(
+            collectGeneratedAttributionPaths(
+                deps,
+                createChangelogConfig({
+                    changelog: {
+                        outputs: [
+                            {
+                                kind: 'package-file',
+                                paths: {
+                                    'pkg-a': 'packages/pkg-a/CHANGELOG.md',
+                                    'pkg-b': 'packages/pkg-b/CHANGELOG.md'
+                                }
+                            }
+                        ]
+                    },
+                    commonPackageSettings: undefined,
+                    packages: [{ name: 'pkg-a' }, { name: 'pkg-b' }]
+                })
+            ),
+            ['packages/pkg-a/CHANGELOG.md', 'packages/pkg-b/CHANGELOG.md']
+        );
+    });
+
     test('collectGeneratedAttributionPaths ignores github-release outputs', function () {
         assert.deepStrictEqual(
             collectGeneratedAttributionPaths(
@@ -221,6 +245,75 @@ suite('changelog-destinations', function () {
                 createGeneratedChangelog({ packageMarkdownByName: new Map([['missing', 'markdown']]) })
             ),
             /Config for package "missing" is missing/u
+        );
+    });
+
+    test('writeConfiguredChangelogs writes explicit package-file changelog outputs', async function () {
+        const fileManager = createFakeFileManager();
+
+        const writtenPaths = await writeConfiguredChangelogs(
+            { ...deps, fileManager },
+            createChangelogConfig({
+                changelog: {
+                    outputs: [
+                        {
+                            kind: 'package-file',
+                            paths: {
+                                'pkg-a': 'packages/pkg-a/CHANGELOG.md',
+                                'pkg-b': 'packages/pkg-b/CHANGELOG.md'
+                            }
+                        }
+                    ]
+                }
+            }),
+            {
+                updateChangelog: fake(
+                    (input: { readonly generatedChangelogMarkdown: string }) => input.generatedChangelogMarkdown
+                )
+            },
+            createGeneratedChangelog({
+                packageMarkdownByName: new Map([
+                    ['pkg-a', 'package-a'],
+                    ['pkg-b', 'package-b']
+                ])
+            })
+        );
+
+        assert.deepStrictEqual(writtenPaths, [
+            '/repo/packages/pkg-a/CHANGELOG.md',
+            '/repo/packages/pkg-b/CHANGELOG.md'
+        ]);
+        assert.deepStrictEqual(fileManager.getAllWriteFileCalls(), [
+            { filePath: '/repo/packages/pkg-a/CHANGELOG.md', content: 'package-a' },
+            { filePath: '/repo/packages/pkg-b/CHANGELOG.md', content: 'package-b' }
+        ]);
+    });
+
+    test('writeConfiguredChangelogs reports package markdown without an explicit path', async function () {
+        const fileManager = createFakeFileManager();
+
+        await assert.rejects(
+            writeConfiguredChangelogs(
+                { ...deps, fileManager },
+                createChangelogConfig({
+                    changelog: {
+                        outputs: [
+                            {
+                                kind: 'package-file',
+                                paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' }
+                            }
+                        ]
+                    }
+                }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog({
+                    packageMarkdownByName: new Map([
+                        ['pkg-a', 'package-a'],
+                        ['pkg-b', 'package-b']
+                    ])
+                })
+            ),
+            /Changelog output path for package "pkg-b" is missing/u
         );
     });
 

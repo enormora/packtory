@@ -121,6 +121,7 @@ type Spies = {
 type ChangelogOutputConfig =
     | { readonly kind: 'github-release' }
     | { readonly kind: 'package-file'; readonly path: string }
+    | { readonly kind: 'package-file'; readonly paths: Readonly<Record<string, string>> }
     | { readonly kind: 'repository-file'; readonly path: string };
 
 function spinnerRendererCapturing(stopAll: SinonSpy): TerminalSpinnerRenderer {
@@ -486,6 +487,18 @@ suite('changelog-handler', function () {
         assert.strictEqual(code, 0);
         assert.deepStrictEqual(fileManager.getWriteFileCall(0), {
             filePath: '/repo/src/pkg-a/CHANGELOG.md',
+            content: 'merged:\n## pkg-a 1.0.1\n'
+        });
+    });
+
+    test('writes explicit package-file changelog output paths', async function () {
+        const { code, fileManager } = await runWithChangelogOutputs({
+            outputs: [{ kind: 'package-file', paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' } }]
+        });
+
+        assert.strictEqual(code, 0);
+        assert.deepStrictEqual(fileManager.getWriteFileCall(0), {
+            filePath: '/repo/packages/pkg-a/CHANGELOG.md',
             content: 'merged:\n## pkg-a 1.0.1\n'
         });
     });

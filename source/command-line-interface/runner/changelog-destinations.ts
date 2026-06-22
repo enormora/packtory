@@ -36,6 +36,11 @@ type FileChangelogDestination = {
 };
 
 type FileChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' | 'repository-file' }>;
+type PackageChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' }>;
+type PackageChangelogOutputWithSharedPath = PackageChangelogOutput & { readonly path: string };
+type PackageChangelogOutputWithExplicitPaths = PackageChangelogOutput & {
+    readonly paths: Readonly<Record<string, string>>;
+};
 export type ChangelogGenerationOptions = {
     readonly explicitBaseRef: string | undefined;
     readonly packageTagFormat: string | undefined;
@@ -94,6 +99,26 @@ function resolvePackageFilePath(
     );
 }
 
+function resolveExplicitPackageFilePath(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    output: PackageChangelogOutputWithExplicitPaths,
+    packageName: string
+): string {
+    const outputPath = output.paths[packageName];
+    if (outputPath === undefined) {
+        throw new Error(`Changelog output path for package "${packageName}" is missing`);
+    }
+    return resolveRepositoryPath(deps, outputPath);
+}
+
+function hasSharedPackagePath(output: PackageChangelogOutput): output is PackageChangelogOutputWithSharedPath {
+    return 'path' in output;
+}
+
+function hasExplicitPackagePaths(output: PackageChangelogOutput): output is PackageChangelogOutputWithExplicitPaths {
+    return 'paths' in output;
+}
+
 function resolveRepositoryRelativePath(
     deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
     filePath: string
@@ -123,6 +148,11 @@ export function collectGeneratedAttributionPaths(
         .flatMap((output) => {
             if (output.kind === 'repository-file') {
                 return [resolveRepositoryPath(deps, output.path)];
+            }
+            if (hasExplicitPackagePaths(output)) {
+                return Object.values(output.paths).map((outputPath) => {
+                    return resolveRepositoryPath(deps, outputPath);
+                });
             }
             return config.packages.map((packageConfig) => {
                 return resolvePackageFilePath(deps, config, packageConfig, output.path);
@@ -160,24 +190,46 @@ function collectRepositoryDestinations(
     });
 }
 
+function collectPackageDestinationsWithSharedPath(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    config: ChangelogConfig,
+    output: PackageChangelogOutputWithSharedPath,
+    changelog: GeneratedChangelog
+): readonly FileChangelogDestination[] {
+    const packageConfigsByName = mapPackageConfigByName(config);
+    return Array.from(changelog.packageMarkdownByName, ([packageName, generatedMarkdown]) => {
+        const packageConfig = packageConfigsByName.get(packageName);
+        if (packageConfig === undefined) {
+            throw new Error(`Config for package "${packageName}" is missing`);
+        }
+        return { filePath: resolvePackageFilePath(deps, config, packageConfig, output.path), generatedMarkdown };
+    });
+}
+
+function collectPackageDestinationsWithExplicitPaths(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    output: PackageChangelogOutputWithExplicitPaths,
+    changelog: GeneratedChangelog
+): readonly FileChangelogDestination[] {
+    return Array.from(changelog.packageMarkdownByName, ([packageName, generatedMarkdown]) => {
+        return { filePath: resolveExplicitPackageFilePath(deps, output, packageName), generatedMarkdown };
+    });
+}
+
 function collectPackageDestinations(
     deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
     config: ChangelogConfig,
     outputs: readonly ChangelogOutput[],
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
-    const packageConfigsByName = mapPackageConfigByName(config);
     return outputs.flatMap((output) => {
         if (output.kind !== 'package-file') {
             return [];
         }
-        return Array.from(changelog.packageMarkdownByName).flatMap(([packageName, generatedMarkdown]) => {
-            const packageConfig = packageConfigsByName.get(packageName);
-            if (packageConfig === undefined) {
-                throw new Error(`Config for package "${packageName}" is missing`);
-            }
-            return [{ filePath: resolvePackageFilePath(deps, config, packageConfig, output.path), generatedMarkdown }];
-        });
+        if (hasSharedPackagePath(output)) {
+            return collectPackageDestinationsWithSharedPath(deps, config, output, changelog);
+        }
+        return collectPackageDestinationsWithExplicitPaths(deps, output, changelog);
     });
 }
 
