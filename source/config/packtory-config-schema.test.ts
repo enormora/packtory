@@ -141,6 +141,7 @@ suite('packtory-config-schema', function () {
                     outputs: [
                         { kind: 'repository-file', path: 'CHANGELOG.md' },
                         { kind: 'package-file', path: 'CHANGELOG.md' },
+                        { kind: 'package-file', paths: { foo: 'packages/foo/CHANGELOG.md' } },
                         { kind: 'github-release' }
                     ]
                 },

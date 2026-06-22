@@ -44,6 +44,13 @@ suite('changelog-settings', function () {
             outputs: [
                 { kind: 'repository-file', path: 'CHANGELOG.md' },
                 { kind: 'package-file', path: 'docs/CHANGELOG.md' },
+                {
+                    kind: 'package-file',
+                    paths: {
+                        'pkg-a': 'packages/pkg-a/CHANGELOG.md',
+                        'pkg-b': 'packages/pkg-b/CHANGELOG.md'
+                    }
+                },
                 { kind: 'github-release' }
             ]
         });
@@ -87,12 +94,33 @@ suite('changelog-settings', function () {
             }).success,
             false
         );
+        assert.strictEqual(
+            safeParse(changelogSettingsSchema, {
+                outputs: [{ kind: 'package-file', paths: { 'pkg-a': '../CHANGELOG.md' } }]
+            }).success,
+            false
+        );
+    });
+
+    test('schema rejects empty explicit package-file paths', function () {
+        assert.strictEqual(
+            safeParse(changelogSettingsSchema, {
+                outputs: [{ kind: 'package-file', paths: {} }]
+            }).success,
+            false
+        );
     });
 
     test('schema rejects extra output object properties', function () {
         assert.strictEqual(
             safeParse(changelogSettingsSchema, {
                 outputs: [{ kind: 'github-release', path: 'CHANGELOG.md' }]
+            }).success,
+            false
+        );
+        assert.strictEqual(
+            safeParse(changelogSettingsSchema, {
+                outputs: [{ kind: 'package-file', path: 'CHANGELOG.md', paths: { 'pkg-a': 'CHANGELOG.md' } }]
             }).success,
             false
         );
@@ -157,6 +185,29 @@ suite('changelog-settings', function () {
 
         assert.deepStrictEqual(result, [
             'changelog.outputs package-file destinations must resolve to unique files; "src/CHANGELOG.md" is duplicated'
+        ]);
+    });
+
+    test('validation rejects duplicate explicit package-file destinations', function () {
+        const result = validateChangelogSettings(
+            configWith({
+                outputs: [
+                    {
+                        kind: 'package-file',
+                        paths: {
+                            'pkg-a': 'packages/pkg-a/CHANGELOG.md',
+                            'pkg-b': 'packages\\pkg-a\\CHANGELOG.md'
+                        }
+                    }
+                ]
+            })
+        );
+
+        assert.deepStrictEqual(result, [
+            [
+                'changelog.outputs package-file destinations must resolve to unique files;',
+                '"packages/pkg-a/CHANGELOG.md" is duplicated'
+            ].join(' ')
         ]);
     });
 

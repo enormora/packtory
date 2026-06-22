@@ -141,7 +141,13 @@ describe('PacktoryConfig — accepted shapes', () => {
             readonly changelog: {
                 readonly explicitBaseRef: 'main';
                 readonly labels: { readonly operations: 'Operations' };
-                readonly outputs: readonly [{ readonly kind: 'repository-file'; readonly path: 'CHANGELOG.md' }];
+                readonly outputs: readonly [
+                    { readonly kind: 'repository-file'; readonly path: 'CHANGELOG.md' },
+                    {
+                        readonly kind: 'package-file';
+                        readonly paths: { readonly pkg: 'packages/pkg/CHANGELOG.md' };
+                    }
+                ];
                 readonly packageTagFormat: 'pkg/{packageName}/v{version}';
                 readonly targetScopedLabelPattern: 'scope:{targetName}:{label}';
             };
