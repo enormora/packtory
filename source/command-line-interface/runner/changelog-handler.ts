@@ -1,10 +1,11 @@
-import { defaultValidLabels, type PrLogEngine, type PrLogEngineOptions } from '@pr-log/core';
+import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import { generateChangelogOutputs } from '../../packtory/packtory-changelog.ts';
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import {
+    createChangelogGenerationOptions,
     collectGeneratedAttributionPaths,
     parseValidConfig,
     shouldPageGroupedChangelog,
@@ -61,14 +62,18 @@ async function renderChangelog(
     }
     const packageInfo = await deps.readPackageInfo();
     const prLogEngine = createEngine(deps);
+    const generationOptions = createChangelogGenerationOptions(config);
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine,
+        explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
         ignoredAttributionPaths: collectGeneratedAttributionPaths(deps, config),
         packageInfo,
+        packageTagFormat: generationOptions.packageTagFormat,
         currentDate: deps.currentDate(),
-        validLabels: defaultValidLabels
+        targetScopedLabelPattern: generationOptions.targetScopedLabelPattern,
+        validLabels: generationOptions.validLabels
     });
     if (shouldPageGroupedChangelog(config.changelog?.outputs) && changelog.groupedMarkdown.length > 0) {
         await deps.pageOutput(changelog.groupedMarkdown);

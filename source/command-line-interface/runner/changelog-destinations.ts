@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { PrLogEngine } from '@pr-log/core';
+import { defaultValidLabels, type PrLogEngine } from '@pr-log/core';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import type { ChangelogOutput } from '../../config/changelog-settings.ts';
 import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
@@ -11,8 +11,16 @@ type PackagePathConfig = {
     readonly sourcesFolder?: string | undefined;
 };
 
+type ChangelogSettingsConfig = {
+    readonly explicitBaseRef?: string | undefined;
+    readonly labels?: Readonly<Record<string, string>> | undefined;
+    readonly outputs?: readonly ChangelogOutput[] | undefined;
+    readonly packageTagFormat?: string | undefined;
+    readonly targetScopedLabelPattern?: string | undefined;
+};
+
 export type ChangelogConfig = {
-    readonly changelog?: { readonly outputs: readonly ChangelogOutput[] } | undefined;
+    readonly changelog?: ChangelogSettingsConfig | undefined;
     readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined } | undefined;
     readonly packages: readonly PackagePathConfig[];
 };
@@ -28,10 +36,25 @@ type FileChangelogDestination = {
 };
 
 type FileChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' | 'repository-file' }>;
+export type ChangelogGenerationOptions = {
+    readonly explicitBaseRef: string | undefined;
+    readonly packageTagFormat: string | undefined;
+    readonly targetScopedLabelPattern: string | undefined;
+    readonly validLabels: ReadonlyMap<string, string>;
+};
 
 export function parseValidConfig(config: unknown): ChangelogConfig | undefined {
     const result = safeParse(packtoryConfigSchema, config);
     return result.success ? result.data : undefined;
+}
+
+export function createChangelogGenerationOptions(config: ChangelogConfig): ChangelogGenerationOptions {
+    return {
+        explicitBaseRef: config.changelog?.explicitBaseRef,
+        packageTagFormat: config.changelog?.packageTagFormat,
+        targetScopedLabelPattern: config.changelog?.targetScopedLabelPattern,
+        validLabels: new Map([...defaultValidLabels, ...Object.entries(config.changelog?.labels ?? {})])
+    };
 }
 
 function normalizeConfiguredPath(filePath: string): string {
@@ -87,6 +110,9 @@ export function collectGeneratedAttributionPaths(
     config: ChangelogConfig
 ): readonly string[] {
     if (config.changelog === undefined) {
+        return [];
+    }
+    if (config.changelog.outputs === undefined) {
         return [];
     }
 
@@ -189,21 +215,28 @@ async function writeChangelogDestination(
     return destination.filePath;
 }
 
+function collectChangelogDestinations(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    config: ChangelogConfig,
+    changelog: GeneratedChangelog
+): readonly FileChangelogDestination[] {
+    const outputs = config.changelog?.outputs;
+    if (outputs === undefined) {
+        return [];
+    }
+    return [
+        ...collectRepositoryDestinations(deps, outputs, changelog),
+        ...collectPackageDestinations(deps, config, outputs, changelog)
+    ];
+}
+
 export async function writeConfiguredChangelogs(
     deps: ChangelogDestinationDeps,
     config: ChangelogConfig,
     prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
     changelog: GeneratedChangelog
 ): Promise<readonly string[]> {
-    if (config.changelog === undefined) {
-        return [];
-    }
-
-    const { outputs } = config.changelog;
-    const destinations = [
-        ...collectRepositoryDestinations(deps, outputs, changelog),
-        ...collectPackageDestinations(deps, config, outputs, changelog)
-    ];
+    const destinations = collectChangelogDestinations(deps, config, changelog);
     const writtenPaths: string[] = [];
     for (const destination of destinations) {
         const writtenPath = await writeChangelogDestination(deps, prLogEngine, destination);

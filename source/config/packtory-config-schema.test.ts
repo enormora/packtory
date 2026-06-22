@@ -134,6 +134,10 @@ suite('packtory-config-schema', function () {
             data: {
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 changelog: {
+                    labels: { operations: 'Operations' },
+                    targetScopedLabelPattern: 'scope:{targetName}:{label}',
+                    packageTagFormat: 'pkg/{packageName}/v{version}',
+                    explicitBaseRef: 'main',
                     outputs: [
                         { kind: 'repository-file', path: 'CHANGELOG.md' },
                         { kind: 'package-file', path: 'CHANGELOG.md' },

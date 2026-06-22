@@ -1,8 +1,9 @@
-import { defaultValidLabels, type PrLogEngine, type PrLogEngineOptions } from '@pr-log/core';
+import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
 import { generateChangelogOutputs, type GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import {
     collectGeneratedAttributionPaths,
+    createChangelogGenerationOptions,
     parseValidConfig,
     writeConfiguredChangelogs
 } from './changelog-destinations.ts';
@@ -220,14 +221,18 @@ async function generateReleaseChangelog(
 ): Promise<ReleaseChangelog> {
     const packageInfo = await deps.readPackageInfo();
     const engine = createEngine(deps);
+    const generationOptions = createChangelogGenerationOptions(config);
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine: engine,
+        explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
         ignoredAttributionPaths: collectGeneratedAttributionPaths(deps, config),
         packageInfo,
         currentDate: deps.currentDate(),
-        validLabels: defaultValidLabels
+        packageTagFormat: generationOptions.packageTagFormat,
+        targetScopedLabelPattern: generationOptions.targetScopedLabelPattern,
+        validLabels: generationOptions.validLabels
     });
     return { changelog, config, engine };
 }

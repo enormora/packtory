@@ -133,6 +133,7 @@ type Scenario = {
     readonly config?: unknown;
     readonly configLoader?: ConfigLoader;
     readonly createGitHubReleaseClient?: SinonSpy;
+    readonly engine?: PrLogEngine;
     readonly flags?: Partial<ReleaseFlags>;
     readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
     readonly readPackageInfo?: () => Promise<Record<string, unknown>>;
@@ -180,7 +181,7 @@ function createReleaseHandlerDeps(scenario: Scenario = {}): ReleaseHandlerDeps {
             if (scenario.readEnvironmentVariable === undefined) {
                 assert.strictEqual(options.githubToken, 'gh-token');
             }
-            return createEngine();
+            return scenario.engine ?? createEngine();
         },
         currentDate() {
             return new Date('2026-06-13T00:00:00.000Z');
@@ -587,6 +588,44 @@ suite('release-handler', function () {
 
         assert.strictEqual(code, 0);
         assert.deepStrictEqual(order, ['plan', 'clean']);
+    });
+
+    test('uses configured changelog labels when writing release changelogs', async function () {
+        const resolvePullRequestLabels = fake(
+            async (input: {
+                readonly targetScopedLabelPattern: string;
+                readonly validLabels: ReadonlyMap<string, string>;
+            }) => {
+                assert.strictEqual(input.targetScopedLabelPattern, 'scope:{targetName}:{label}');
+                assert.strictEqual(input.validLabels.get('bug'), 'Bug Fixes');
+                assert.strictEqual(input.validLabels.get('operations'), 'Operations');
+                return [{ id: 1, title: 'Fix package', label: 'operations' }];
+            }
+        );
+        const engine = {
+            ...createEngine(),
+            resolvePullRequestLabels
+        } as unknown as PrLogEngine;
+
+        const code = await runReleaseHandler(
+            createReleaseHandlerDeps({
+                engine,
+                flags: { writeChangelog: true, noDryRun: true },
+                config: {
+                    ...validConfig,
+                    changelog: {
+                        explicitBaseRef: 'main',
+                        labels: { operations: 'Operations' },
+                        outputs: [{ kind: 'repository-file', path: 'CHANGELOG.md' }],
+                        packageTagFormat: 'pkg/{packageName}/v{version}',
+                        targetScopedLabelPattern: 'scope:{targetName}:{label}'
+                    }
+                }
+            })
+        );
+
+        assert.strictEqual(code, 0);
+        assert.strictEqual(resolvePullRequestLabels.callCount, 1);
     });
 
     test('returns 1 when the post-commit release plan fails', async function () {

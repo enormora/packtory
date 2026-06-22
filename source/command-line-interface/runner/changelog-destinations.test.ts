@@ -5,6 +5,7 @@ import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import {
     collectGeneratedAttributionPaths,
+    createChangelogGenerationOptions,
     parseValidConfig,
     shouldPageGroupedChangelog,
     writeConfiguredChangelogs,
@@ -66,6 +67,32 @@ suite('changelog-destinations', function () {
             collectGeneratedAttributionPaths(deps, createChangelogConfig({ changelog: undefined })),
             []
         );
+        assert.deepStrictEqual(
+            collectGeneratedAttributionPaths(
+                deps,
+                createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } })
+            ),
+            []
+        );
+    });
+
+    test('createChangelogGenerationOptions combines defaults with configured settings', function () {
+        const options = createChangelogGenerationOptions(
+            createChangelogConfig({
+                changelog: {
+                    explicitBaseRef: 'main',
+                    labels: { bug: 'Fixed Bugs', operations: 'Operations' },
+                    packageTagFormat: 'pkg/{packageName}/v{version}',
+                    targetScopedLabelPattern: 'scope:{targetName}:{label}'
+                }
+            })
+        );
+
+        assert.strictEqual(options.explicitBaseRef, 'main');
+        assert.strictEqual(options.packageTagFormat, 'pkg/{packageName}/v{version}');
+        assert.strictEqual(options.targetScopedLabelPattern, 'scope:{targetName}:{label}');
+        assert.strictEqual(options.validLabels.get('bug'), 'Fixed Bugs');
+        assert.strictEqual(options.validLabels.get('operations'), 'Operations');
     });
 
     test('collectGeneratedAttributionPaths includes repository and in-repository package files', function () {
@@ -123,6 +150,20 @@ suite('changelog-destinations', function () {
         const writtenPaths = await writeConfiguredChangelogs(
             { ...deps, fileManager },
             createChangelogConfig({ changelog: undefined }),
+            { updateChangelog: fake.returns('updated') },
+            createGeneratedChangelog()
+        );
+
+        assert.deepStrictEqual(writtenPaths, []);
+        assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
+    });
+
+    test('writeConfiguredChangelogs does nothing when outputs are omitted from changelog config', async function () {
+        const fileManager = createFakeFileManager();
+
+        const writtenPaths = await writeConfiguredChangelogs(
+            { ...deps, fileManager },
+            createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } }),
             { updateChangelog: fake.returns('updated') },
             createGeneratedChangelog()
         );

@@ -10,10 +10,12 @@ type ChangelogTarget = {
 
 export type GenerateChangelogInput = {
     readonly currentDate: Date;
+    readonly explicitBaseRef: string | undefined;
     readonly githubRepo: string;
     readonly ignoredAttributionPaths: readonly string[];
     readonly packageInfo: Record<string, unknown>;
     readonly packages: readonly ReleasePlanPackage[];
+    readonly packageTagFormat: string | undefined;
     readonly prLogEngine: Pick<
         PrLogEngine,
         | 'collectMergedPullRequests'
@@ -25,6 +27,7 @@ export type GenerateChangelogInput = {
         | 'resolveLatestSemverChangelogBaseRef'
         | 'resolvePullRequestLabels'
     >;
+    readonly targetScopedLabelPattern: string | undefined;
     readonly validLabels: ReadonlyMap<string, string>;
 };
 
@@ -68,9 +71,14 @@ function mergeIgnoredAttributionPaths(
 
 async function resolveBaseRefFor(
     prLogEngine: GenerateChangelogInput['prLogEngine'],
-    packagePlan: ReleasePlanPackage
+    packagePlan: ReleasePlanPackage,
+    input: Pick<GenerateChangelogInput, 'explicitBaseRef' | 'packageTagFormat'>
 ): Promise<string> {
-    if (packagePlan.previousVersion === undefined && packagePlan.previousGitHead === undefined) {
+    if (
+        input.explicitBaseRef === undefined &&
+        packagePlan.previousVersion === undefined &&
+        packagePlan.previousGitHead === undefined
+    ) {
         const baseRef = await prLogEngine.resolveLatestSemverChangelogBaseRef();
         return baseRef.ref;
     }
@@ -79,8 +87,8 @@ async function resolveBaseRefFor(
         packageName: packagePlan.name,
         previousVersion: packagePlan.previousVersion,
         previousGitHead: packagePlan.previousGitHead,
-        packageTagFormat: undefined,
-        explicitBaseRef: undefined
+        packageTagFormat: input.packageTagFormat,
+        explicitBaseRef: input.explicitBaseRef
     });
     return baseRef.ref;
 }
@@ -90,7 +98,7 @@ async function collectTargetPullRequests(
     packagePlan: ReleasePlanPackage,
     ignoredAttributionPaths: readonly string[]
 ): Promise<readonly PullRequestWithLabel[]> {
-    const baseRef = await resolveBaseRefFor(input.prLogEngine, packagePlan);
+    const baseRef = await resolveBaseRefFor(input.prLogEngine, packagePlan, input);
     const pullRequests = await input.prLogEngine.collectMergedPullRequests({
         githubRepo: input.githubRepo,
         baseRef
@@ -113,7 +121,7 @@ async function collectTargetPullRequests(
         ignoredLabels: [],
         pullRequests: packagePullRequests,
         targetName: packagePlan.name,
-        targetScopedLabelPattern: undefined
+        targetScopedLabelPattern: input.targetScopedLabelPattern
     });
 }
 

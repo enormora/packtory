@@ -17,7 +17,7 @@ type ReferencedMap = {
 const sourceMappingPrefix = '//# sourceMappingURL=';
 const javaScriptFilePattern = /\.[cm]?jsx?$/u;
 
-function sortedUnique(values: readonly string[]): readonly string[] {
+function sortUniqueValues(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
 }
 
@@ -33,7 +33,7 @@ function toRepositoryRelativePath(repositoryFolder: string, filePath: string): s
     return relativePath.split(path.sep).join('/');
 }
 
-function sourceMappingUrlsFrom(fileContent: string): readonly string[] {
+function collectSourceMappingUrls(fileContent: string): readonly string[] {
     return fileContent.split('\n').flatMap((line) => {
         if (!line.startsWith(sourceMappingPrefix)) {
             return [];
@@ -58,7 +58,10 @@ function resolveMapSource(mapFilePath: string, traceMap: TraceMap, source: strin
     return path.resolve(path.dirname(mapFilePath), traceMap.sourceRoot ?? '', source);
 }
 
-function singleSourceMappingUrlFrom(sourceFilePath: string, sourceMappingUrls: readonly string[]): string | undefined {
+function resolveSingleSourceMappingUrl(
+    sourceFilePath: string,
+    sourceMappingUrls: readonly string[]
+): string | undefined {
     if (sourceMappingUrls.length > 1) {
         throw new Error(`Multiple sourceMappingURL references found in "${sourceFilePath}"`);
     }
@@ -82,7 +85,7 @@ async function readReferencedMap(
     sourceFilePath: string
 ): Promise<ReferencedMap | undefined> {
     const fileContent = await dependencies.fileManager.readFile(sourceFilePath);
-    const sourceMappingUrl = singleSourceMappingUrlFrom(sourceFilePath, sourceMappingUrlsFrom(fileContent));
+    const sourceMappingUrl = resolveSingleSourceMappingUrl(sourceFilePath, collectSourceMappingUrls(fileContent));
 
     if (sourceMappingUrl === undefined) {
         return undefined;
@@ -114,7 +117,7 @@ async function attributeJavaScriptFile(
     });
 }
 
-async function attributedFilesFor(
+async function collectAttributedFiles(
     dependencies: ChangelogSourceAttributionDependencies,
     entry: AnalyzedBundleResource
 ): Promise<readonly string[]> {
@@ -134,8 +137,8 @@ export async function attributeChangelogSourceFiles(
     const attributedFiles: string[] = [];
     for (const entry of analyzedBundle.contents) {
         if (!entry.isGeneratedManifest) {
-            attributedFiles.push(...(await attributedFilesFor(dependencies, entry)));
+            attributedFiles.push(...(await collectAttributedFiles(dependencies, entry)));
         }
     }
-    return sortedUnique(attributedFiles);
+    return sortUniqueValues(attributedFiles);
 }

@@ -83,10 +83,13 @@ async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngi
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine: engine,
+        explicitBaseRef: undefined,
         githubRepo: 'owner/repo',
         packageInfo: {},
+        packageTagFormat: undefined,
         currentDate: new Date('2026-06-13T00:00:00.000Z'),
         ignoredAttributionPaths: [],
+        targetScopedLabelPattern: undefined,
         validLabels
     });
     return changelog.groupedMarkdown;
@@ -234,12 +237,45 @@ suite('packtory-changelog', function () {
             githubRepo: 'owner/repo',
             packageInfo: {},
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
+            explicitBaseRef: undefined,
             ignoredAttributionPaths: ['docs/generated.md'],
+            packageTagFormat: undefined,
+            targetScopedLabelPattern: undefined,
             validLabels
         });
 
         assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].ignoredAttributionPaths, [
             'docs/generated.md'
         ]);
+    });
+
+    test('passes configured base-ref and label options to pr-log', async function () {
+        const { engine, calls } = createEngine();
+
+        await generateChangelogOutputs({
+            packages: [releasePackage({ previousVersion: undefined, previousGitHead: undefined })],
+            prLogEngine: engine,
+            explicitBaseRef: 'release-base',
+            githubRepo: 'owner/repo',
+            packageInfo: {},
+            packageTagFormat: 'pkg/{packageName}/v{version}',
+            currentDate: new Date('2026-06-13T00:00:00.000Z'),
+            ignoredAttributionPaths: [],
+            targetScopedLabelPattern: 'scope:{targetName}:{label}',
+            validLabels
+        });
+
+        assert.strictEqual(calls.resolveLatestSemverChangelogBaseRef.callCount, 0);
+        assert.deepStrictEqual(calls.resolveChangelogBaseRef.firstCall.args[0], {
+            packageName: 'pkg-a',
+            previousVersion: undefined,
+            previousGitHead: undefined,
+            packageTagFormat: 'pkg/{packageName}/v{version}',
+            explicitBaseRef: 'release-base'
+        });
+        const labelInput = calls.resolvePullRequestLabels.firstCall.args[0] as {
+            readonly targetScopedLabelPattern: string;
+        };
+        assert.strictEqual(labelInput.targetScopedLabelPattern, 'scope:{targetName}:{label}');
     });
 });
