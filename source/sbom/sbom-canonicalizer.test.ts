@@ -140,6 +140,23 @@ suite('sbom-canonicalizer', function () {
             assert.strictEqual(result.isExecutable, true);
         });
 
+        test('canonicalizes SBOM entries under the npm tarball package prefix', function () {
+            const previous = createFileDescription(
+                'package/sbom.cdx.json',
+                buildSbomFixtureContent({ packtoryVersion: '1.2.3' })
+            );
+            const current = createFileDescription(
+                'package/sbom.cdx.json',
+                buildSbomFixtureContent({ packtoryVersion: '9.9.9' })
+            );
+            const [result] = canonicalizeSbomInFileSet([current]);
+            const [previousResult] = canonicalizeSbomInFileSet([previous]);
+            assert.ok(result);
+            assert.ok(previousResult);
+            assert.strictEqual(result.filePath, 'package/sbom.cdx.json');
+            assert.strictEqual(result.content, previousResult.content);
+        });
+
         test('does not modify entries whose path is not sbom.cdx.json', function () {
             const other = createFileDescription('package.json', buildSbomFixtureContent());
             const [result] = canonicalizeSbomInFileSet([other]);

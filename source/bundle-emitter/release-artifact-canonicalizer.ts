@@ -1,9 +1,8 @@
 import { isPlainObject } from 'remeda';
+import { bundleRelativePath, packageManifestFilePath } from '../common/package-layout.ts';
 import { serializeStableJson } from '../common/stable-json.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
-
-const manifestPaths = new Set(['package.json', 'package/package.json']);
 
 function canonicalizeManifestContent(content: string): string {
     try {
@@ -21,7 +20,7 @@ function canonicalizeManifestContent(content: string): string {
 
 function canonicalizePackageManifestInFileSet(files: readonly FileDescription[]): readonly FileDescription[] {
     return files.map((file) => {
-        if (!manifestPaths.has(file.filePath)) {
+        if (bundleRelativePath(file.filePath) !== packageManifestFilePath) {
             return file;
         }
         return { ...file, content: canonicalizeManifestContent(file.content) };

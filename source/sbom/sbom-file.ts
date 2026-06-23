@@ -1,4 +1,5 @@
 import * as cdx from '@cyclonedx/cyclonedx-library';
+import { sbomArtifactFilePath } from '../common/package-layout.ts';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import { createFileDescription, type FileDescription } from '../file-manager/file-description.ts';
 import type { SbomPackage, SbomSiblingPackage } from '../published-package/published-package.ts';
@@ -29,10 +30,6 @@ type DependencyEntry = {
     readonly specifier: string;
     readonly scope: cdx.Enums.ComponentScope;
 };
-
-export function sbomFilePath(): string {
-    return 'sbom.cdx.json';
-}
 
 function isSbomEnabled(publishSettings: PublishSettings): boolean {
     return publishSettings.sbom?.enabled ?? true;
@@ -84,7 +81,7 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
             rootComponent: { name: bundle.packageJson.name, version: bundle.packageJson.version },
             dependencies: sbomDependencies
         });
-        return createFileDescription(sbomFilePath(), sbomSerializer.serialize(bom));
+        return createFileDescription(sbomArtifactFilePath, sbomSerializer.serialize(bom));
     }
 
     return {

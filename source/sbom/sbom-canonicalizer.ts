@@ -1,8 +1,8 @@
 import { isArray, isPlainObject } from 'remeda';
+import { bundleRelativePath, sbomArtifactFilePath } from '../common/package-layout.ts';
 import { serializeStableJson } from '../common/stable-json.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 
-const sbomFilePath = 'sbom.cdx.json';
 const packtoryToolName = 'packtory';
 
 function pluckObjectField(value: unknown, key: string): unknown {
@@ -43,7 +43,7 @@ function canonicalizeSbomContent(content: string): string {
 
 export function canonicalizeSbomInFileSet(files: readonly FileDescription[]): readonly FileDescription[] {
     return files.map((file) => {
-        if (file.filePath !== sbomFilePath) {
+        if (bundleRelativePath(file.filePath) !== sbomArtifactFilePath) {
             return file;
         }
         return { ...file, content: canonicalizeSbomContent(file.content) };

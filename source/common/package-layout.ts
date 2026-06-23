@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 export const packageManifestFilePath = 'package.json';
+export const sbomArtifactFilePath = 'sbom.cdx.json';
 export const installedDependenciesFolderName = 'node_modules';
 
 const tarballPackageRootPrefix = 'package/';
