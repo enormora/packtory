@@ -16,6 +16,13 @@ suite('versioning-settings', function () {
         assert.strictEqual(safeParse(versioningSettingsSchema, { automatic: false, version: '1' }).success, true);
     });
 
+    test('schema accepts the provider manual versioning branch', function () {
+        assert.strictEqual(
+            safeParse(versioningSettingsSchema, { automatic: false, provideVersion: () => '1' }).success,
+            true
+        );
+    });
+
     test('schema rejects mixing automatic with manual-only fields', function () {
         assert.strictEqual(safeParse(versioningSettingsSchema, { automatic: true, version: '1' }).success, false);
     });
@@ -47,12 +54,22 @@ suite('versioning-settings', function () {
         })
     );
 
+    test('validation succeeds when valid provider manual versioning settings are given', function () {
+        const provideVersion = () => '1';
+        const result = safeParse(versioningSettingsSchema, { automatic: false, provideVersion });
+
+        if (!result.success) {
+            assert.fail(`Validation failed with: ${result.error.message}`);
+        }
+        assert.deepStrictEqual(result.data, { automatic: false, provideVersion });
+    });
+
     test(
         'validation fails when a non-object is given',
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: 'foo',
-            expectedMessages: ['expected object, but got string']
+            expectedMessages: ['invalid value: expected object, but got string']
         })
     );
 
@@ -61,7 +78,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: {},
-            expectedMessages: ['at automatic: missing property']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -70,7 +87,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: 'yes' },
-            expectedMessages: ['at automatic: invalid value doesn’t match expected union']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -79,7 +96,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: undefined },
-            expectedMessages: ['at automatic: invalid value doesn’t match expected union']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -88,7 +105,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: null },
-            expectedMessages: ['at automatic: invalid value doesn’t match expected union']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -97,7 +114,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: true, version: '1' },
-            expectedMessages: ['unexpected additional property: "version"']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -115,7 +132,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: true, minimumVersion: '1', foo: 'bar' },
-            expectedMessages: ['unexpected additional property: "foo"']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -124,7 +141,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: true, minimumVersion: 42 },
-            expectedMessages: ['at minimumVersion: expected string, but got number']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -133,7 +150,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: true, minimumVersion: null },
-            expectedMessages: ['at minimumVersion: expected string, but got null']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -151,7 +168,16 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: false, version: '1', minimumVersion: '2' },
-            expectedMessages: ['unexpected additional property: "minimumVersion"']
+            expectedMessages: ['invalid value doesn’t match expected union']
+        })
+    );
+
+    test(
+        'validation fails when automatic is false and both manual version sources are given',
+        checkValidationFailure({
+            schema: versioningSettingsSchema,
+            data: { automatic: false, version: '1', provideVersion: () => '2' },
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -160,7 +186,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: false, version: '1', foo: 'bar' },
-            expectedMessages: ['unexpected additional property: "foo"']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -169,7 +195,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: false, version: 42 },
-            expectedMessages: ['at version: expected string, but got number']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -178,7 +204,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: false, version: undefined },
-            expectedMessages: ['at version: expected string, but got undefined']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -187,7 +213,7 @@ suite('versioning-settings', function () {
         checkValidationFailure({
             schema: versioningSettingsSchema,
             data: { automatic: false, version: null },
-            expectedMessages: ['at version: expected string, but got null']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 

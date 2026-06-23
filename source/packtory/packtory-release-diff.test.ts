@@ -55,7 +55,8 @@ function createDiff(
         artifactsBuilder,
         packageProcessor,
         progressBroadcaster: stubProgressBroadcaster,
-        scheduler
+        scheduler,
+        repositoryFolder: '/'
     };
     return createDiffAgainstLatestPublishedValidated(dependencies);
 }

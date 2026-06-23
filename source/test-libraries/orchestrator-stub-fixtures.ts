@@ -50,10 +50,12 @@ export function failingDependencies(message: string): {
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PackageScheduler;
     readonly progressBroadcaster: ProgressBroadcaster;
+    readonly repositoryFolder: string;
 } {
     return {
         packageProcessor: stubPackageProcessor,
         scheduler: failingScheduler({ succeeded: [], failures: [new Error(message)] }),
-        progressBroadcaster: stubProgressBroadcaster
+        progressBroadcaster: stubProgressBroadcaster,
+        repositoryFolder: '/'
     };
 }

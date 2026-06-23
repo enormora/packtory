@@ -4,6 +4,7 @@ import { safeParse } from '@schema-hub/zod-error-formatter';
 import type { ChangelogOutput } from '../../config/changelog-settings.ts';
 import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
+import * as generatedAttributionPaths from '../../packtory/generated-attribution-paths.ts';
 import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 
 type PackagePathConfig = {
@@ -35,7 +36,6 @@ type FileChangelogDestination = {
     readonly generatedMarkdown: string;
 };
 
-type FileChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' | 'repository-file' }>;
 type PackageChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' }>;
 type PackageChangelogOutputWithSharedPath = PackageChangelogOutput & { readonly path: string };
 type PackageChangelogOutputWithExplicitPaths = PackageChangelogOutput & {
@@ -115,57 +115,11 @@ function hasSharedPackagePath(output: PackageChangelogOutput): output is Package
     return 'path' in output;
 }
 
-function hasExplicitPackagePaths(output: PackageChangelogOutput): output is PackageChangelogOutputWithExplicitPaths {
-    return 'paths' in output;
-}
-
-function resolveRepositoryRelativePath(
-    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
-    filePath: string
-): string | undefined {
-    const relativePath = path.relative(deps.workingDirectory, filePath);
-    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-        return undefined;
-    }
-    return relativePath.split(path.sep).join('/');
-}
-
 export function collectGeneratedAttributionPaths(
     deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
     config: ChangelogConfig
 ): readonly string[] {
-    if (config.changelog === undefined) {
-        return [];
-    }
-    if (config.changelog.outputs === undefined) {
-        return [];
-    }
-
-    const paths = config.changelog.outputs
-        .filter((output): output is FileChangelogOutput => {
-            return output.kind !== 'github-release';
-        })
-        .flatMap((output) => {
-            if (output.kind === 'repository-file') {
-                return [resolveRepositoryPath(deps, output.path)];
-            }
-            if (hasExplicitPackagePaths(output)) {
-                return Object.values(output.paths).map((outputPath) => {
-                    return resolveRepositoryPath(deps, outputPath);
-                });
-            }
-            return config.packages.map((packageConfig) => {
-                return resolvePackageFilePath(deps, config, packageConfig, output.path);
-            });
-        });
-    return Array.from(
-        new Set(
-            paths.flatMap((filePath) => {
-                const relativePath = resolveRepositoryRelativePath(deps, filePath);
-                return relativePath === undefined ? [] : [relativePath];
-            })
-        )
-    );
+    return generatedAttributionPaths.collectGeneratedAttributionPaths(deps.workingDirectory, config);
 }
 
 export function shouldPageGroupedChangelog(outputs: readonly ChangelogOutput[] | undefined): boolean {

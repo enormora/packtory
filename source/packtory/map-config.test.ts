@@ -47,12 +47,9 @@ function runMapConfig(
             : { commonPackageSettings: options.commonPackageSettings }),
         packages: [packageWithFallback, ...additionalPackages]
     } as unknown as PacktoryConfigInput;
-    return configToBuildAndPublishOptions(
-        packageName,
-        { [packageName]: packageWithFallback },
-        baseConfig,
-        options.bundleDependencies ?? []
-    );
+    return configToBuildAndPublishOptions(packageName, { [packageName]: packageWithFallback }, baseConfig, {
+        existingBundles: options.bundleDependencies ?? []
+    });
 }
 
 function runMapConfigExpectingError(
@@ -85,7 +82,7 @@ suite('map-config', function () {
                         }
                     ]
                 },
-                []
+                { existingBundles: [] }
             );
             assert.fail('Expected configToBuildAndPublishOptions() should fail but it did not');
         } catch (error: unknown) {
@@ -526,9 +523,53 @@ suite('map-config', function () {
         } as unknown as PackageConfigInput;
         const config = { packages: [packageConfig] } as unknown as PacktoryConfigInput;
 
-        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, []);
+        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, {
+            existingBundles: []
+        });
 
         assert.deepStrictEqual(result.registrySettings, {});
+    });
+
+    test('collects generated changelog outputs as ignored attribution paths', function () {
+        const packageConfig = {
+            ...fooPackageConfigFactory.build({ sourcesFolder: 'packages/foo' }),
+            publishSettings: { access: 'public' }
+        } as unknown as PackageConfigInput;
+        const config = {
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            changelog: {
+                outputs: [
+                    { kind: 'repository-file', path: 'CHANGELOG.md' },
+                    { kind: 'package-file', path: 'docs/CHANGELOG.md' }
+                ]
+            },
+            packages: [packageConfig]
+        } as const;
+
+        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, {
+            existingBundles: [],
+            repositoryFolder: '/repo'
+        });
+
+        assert.deepStrictEqual(result.ignoredAttributionPaths, ['CHANGELOG.md', 'packages/foo/docs/CHANGELOG.md']);
+    });
+
+    test('collects ignored attribution paths against the repository root by default', function () {
+        const packageConfig = {
+            ...fooPackageConfigFactory.build({ sourcesFolder: '/src/pkg-a' }),
+            publishSettings: { access: 'public' }
+        } as unknown as PackageConfigInput;
+        const config = {
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
+            packages: [packageConfig]
+        } as const;
+
+        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, {
+            existingBundles: []
+        });
+
+        assert.deepStrictEqual(result.ignoredAttributionPaths, ['src/pkg-a/CHANGELOG.md']);
     });
 
     test('throws a "missing publish settings" error when neither commonPackageSettings nor the package supplies one', function () {
@@ -540,7 +581,9 @@ suite('map-config', function () {
 
         assert.throws(
             () => {
-                configToBuildAndPublishOptions('foo', { foo: packageWithoutPublishSettings }, config, []);
+                configToBuildAndPublishOptions('foo', { foo: packageWithoutPublishSettings }, config, {
+                    existingBundles: []
+                });
             },
             { message: 'Config for package "foo" is missing publish settings' }
         );

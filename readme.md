@@ -140,7 +140,22 @@ Packtory supports two versioning modes:
     - If no version is available in the registry, an initial version will be built and published with version `0.0.1` (default but can be changed in the configuration).
 
 2. **Manual Versioning:**
-    - Provide the exact version number in the configuration.
+    - Provide the exact version number in the configuration with `{ automatic: false, version: '1.2.3' }`.
+    - Or provide an async callback with `{ automatic: false, provideVersion }`.
+    - `provideVersion(input)` runs after Packtory has calculated the package attribution files. The input contains `packageName`, `currentVersion`, `targetSourceFiles`, `ignoredAttributionPaths`, `registrySettings`, and `stage`.
+    - The returned version is validated like a static manual version. Returning `currentVersion` keeps the package on the current registry version when no release is needed.
+
+```javascript
+versioning: {
+    automatic: false,
+    async provideVersion({ currentVersion, targetSourceFiles }) {
+        const touchedRuntimeSource = targetSourceFiles.some((filePath) => {
+            return filePath.startsWith('src/');
+        });
+        return touchedRuntimeSource ? '1.2.4' : (currentVersion ?? '1.2.3');
+    }
+}
+```
 
 ### Pack (on-disk artifacts)
 

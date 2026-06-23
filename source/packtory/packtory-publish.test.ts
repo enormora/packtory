@@ -13,7 +13,8 @@ function happyDependencies() {
     return {
         packageProcessor: stubPackageProcessor,
         scheduler: emptyScheduler,
-        progressBroadcaster: stubProgressBroadcaster
+        progressBroadcaster: stubProgressBroadcaster,
+        repositoryFolder: '/'
     };
 }
 

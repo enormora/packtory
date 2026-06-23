@@ -249,6 +249,40 @@ suite('changelog-destinations', function () {
         );
     });
 
+    test('writeConfiguredChangelogs reports package-file outputs without sourcesFolder', async function () {
+        const fileManager = createFakeFileManager();
+
+        await assert.rejects(
+            writeConfiguredChangelogs(
+                { ...deps, fileManager },
+                createChangelogConfig({
+                    changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
+                    commonPackageSettings: undefined,
+                    packages: [{ name: 'pkg-a' }]
+                }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog({ packageMarkdownByName: new Map([['pkg-a', 'markdown']]) })
+            ),
+            /Config for package "pkg-a" is missing the sources folder/u
+        );
+    });
+
+    test('writeConfiguredChangelogs uses common sourcesFolder for package-file outputs', async function () {
+        const fileManager = createFakeFileManager();
+
+        const writtenPaths = await writeConfiguredChangelogs(
+            { ...deps, fileManager },
+            createChangelogConfig({
+                changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
+                packages: [{ name: 'pkg-a' }]
+            }),
+            { updateChangelog: fake.returns('updated') },
+            createGeneratedChangelog({ packageMarkdownByName: new Map([['pkg-a', 'markdown']]) })
+        );
+
+        assert.deepStrictEqual(writtenPaths, ['/repo/src/CHANGELOG.md']);
+    });
+
     test('writeConfiguredChangelogs writes explicit package-file changelog outputs', async function () {
         const fileManager = createFakeFileManager();
 

@@ -1,8 +1,16 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Maybe } from 'true-myth';
+import type { VersionProviderInput } from '../../config/manual-versioning-settings.ts';
 import type { BuildAndPublishOptions } from '../map-config.ts';
-import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } from './version-trigger.ts';
+import {
+    determineBuildVersion,
+    inferVersionTrigger,
+    shouldIncreaseVersion,
+    type VersionProviderContext
+} from './version-trigger.ts';
+
+type ManualVersionProvider = (input: VersionProviderInput) => Promise<string> | string;
 
 function automaticOptions(minimumVersion?: string): BuildAndPublishOptions {
     return { versioning: { automatic: true, minimumVersion } } as unknown as BuildAndPublishOptions;
@@ -12,21 +20,86 @@ function pinnedOptions(version: string): BuildAndPublishOptions {
     return { versioning: { automatic: false, version } } as unknown as BuildAndPublishOptions;
 }
 
+function providerOptions(provideVersion: ManualVersionProvider): BuildAndPublishOptions {
+    return {
+        name: 'pkg-a',
+        versioning: { automatic: false, provideVersion }
+    } as unknown as BuildAndPublishOptions;
+}
+
+function providerContext(): VersionProviderContext {
+    return {
+        ignoredAttributionPaths: ['CHANGELOG.md'],
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        stage: false,
+        targetSourceFiles: ['source/index.ts']
+    };
+}
+
 suite('version-trigger', function () {
-    test('determineBuildVersion returns the current version when the registry already has one', function () {
-        assert.strictEqual(determineBuildVersion(Maybe.just('1.0.0'), automaticOptions()), '1.0.0');
+    test('determineBuildVersion returns the current version when the registry already has one', async function () {
+        assert.strictEqual(
+            await determineBuildVersion(Maybe.just('1.0.0'), automaticOptions(), providerContext()),
+            '1.0.0'
+        );
     });
 
-    test('determineBuildVersion returns the pinned version when automatic is disabled and no current version exists', function () {
-        assert.strictEqual(determineBuildVersion(Maybe.nothing<string>(), pinnedOptions('2.0.0')), '2.0.0');
+    test('determineBuildVersion returns the pinned version when automatic is disabled and no current version exists', async function () {
+        assert.strictEqual(
+            await determineBuildVersion(Maybe.nothing<string>(), pinnedOptions('2.0.0'), providerContext()),
+            '2.0.0'
+        );
     });
 
-    test('determineBuildVersion returns the minimum version when automatic is enabled and no current version exists', function () {
-        assert.strictEqual(determineBuildVersion(Maybe.nothing<string>(), automaticOptions('0.1.0')), '0.1.0');
+    test('determineBuildVersion returns the minimum version when automatic is enabled and no current version exists', async function () {
+        assert.strictEqual(
+            await determineBuildVersion(Maybe.nothing<string>(), automaticOptions('0.1.0'), providerContext()),
+            '0.1.0'
+        );
     });
 
-    test('determineBuildVersion defaults to "0.0.0" when automatic and no minimum version is set', function () {
-        assert.strictEqual(determineBuildVersion(Maybe.nothing<string>(), automaticOptions()), '0.0.0');
+    test('determineBuildVersion defaults to "0.0.0" when automatic and no minimum version is set', async function () {
+        assert.strictEqual(
+            await determineBuildVersion(Maybe.nothing<string>(), automaticOptions(), providerContext()),
+            '0.0.0'
+        );
+    });
+
+    test('determineBuildVersion calls async manual providers with package attribution context', async function () {
+        const providerInput: unknown[] = [];
+        const version = await determineBuildVersion(
+            Maybe.just('1.0.0'),
+            providerOptions(async (input) => {
+                providerInput.push(input);
+                return '1.0.1';
+            }),
+            providerContext()
+        );
+
+        assert.strictEqual(version, '1.0.1');
+        assert.deepStrictEqual(providerInput, [
+            {
+                packageName: 'pkg-a',
+                currentVersion: '1.0.0',
+                ignoredAttributionPaths: ['CHANGELOG.md'],
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+                stage: false,
+                targetSourceFiles: ['source/index.ts']
+            }
+        ]);
+    });
+
+    test('determineBuildVersion rejects empty provider versions', async function () {
+        await assert.rejects(
+            async () => {
+                await determineBuildVersion(
+                    Maybe.just('1.0.0'),
+                    providerOptions(() => ''),
+                    providerContext()
+                );
+            },
+            { message: 'Manual version provider must return a non-empty string' }
+        );
     });
 
     test('shouldIncreaseVersion returns false when automatic versioning is disabled', function () {

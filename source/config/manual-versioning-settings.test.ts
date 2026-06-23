@@ -4,10 +4,19 @@ import { suite, test } from 'mocha';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { manualVersioningSettingsSchema } from './manual-versioning-settings.ts';
 
+const provideVersion = () => '1.0.0';
+
 suite('manual-versioning-settings', function () {
     test('manual versioning schema accepts automatic false', function () {
         assert.strictEqual(
             safeParse(manualVersioningSettingsSchema, { automatic: false, version: '1.0.0' }).success,
+            true
+        );
+    });
+
+    test('manual versioning schema accepts provider versioning', function () {
+        assert.strictEqual(
+            safeParse(manualVersioningSettingsSchema, { automatic: false, provideVersion }).success,
             true
         );
     });
@@ -29,11 +38,47 @@ suite('manual-versioning-settings', function () {
     );
 
     test(
+        'manual versioning: validation succeeds with provider versioning',
+        checkValidationSuccess({
+            schema: manualVersioningSettingsSchema,
+            data: { automatic: false, provideVersion },
+            expectedData: { automatic: false, provideVersion }
+        })
+    );
+
+    test(
+        'manual versioning: validation fails when provideVersion is not a function',
+        checkValidationFailure({
+            schema: manualVersioningSettingsSchema,
+            data: { automatic: false, provideVersion: '1.0.0' },
+            expectedMessages: ['invalid value doesn’t match expected union']
+        })
+    );
+
+    test(
+        'manual versioning: validation fails when neither version nor provideVersion is given',
+        checkValidationFailure({
+            schema: manualVersioningSettingsSchema,
+            data: { automatic: false },
+            expectedMessages: ['invalid value doesn’t match expected union']
+        })
+    );
+
+    test(
+        'manual versioning: validation fails when both version and provideVersion are given',
+        checkValidationFailure({
+            schema: manualVersioningSettingsSchema,
+            data: { automatic: false, version: '1.0.0', provideVersion },
+            expectedMessages: ['invalid value doesn’t match expected union']
+        })
+    );
+
+    test(
         'manual versioning: validation fails with automatic true',
         checkValidationFailure({
             schema: manualVersioningSettingsSchema,
             data: { automatic: true, version: '1.0.0' },
-            expectedMessages: ['at automatic: invalid literal: expected false, but got boolean']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 
@@ -42,7 +87,7 @@ suite('manual-versioning-settings', function () {
         checkValidationFailure({
             schema: manualVersioningSettingsSchema,
             data: { automatic: false, minimumVersion: '1.0.0' },
-            expectedMessages: ['at version: missing property', 'unexpected additional property: "minimumVersion"']
+            expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
 });
