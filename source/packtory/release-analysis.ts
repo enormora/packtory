@@ -1,8 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import { maxDate } from '../common/max-date.ts';
-import { bundleRelativePath, packageManifestFilePath } from '../common/package-layout.ts';
+import { bundleRelativePath, packageManifestFilePath, sbomArtifactFilePath } from '../common/package-layout.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
-import { sbomFilePath } from '../sbom/sbom-file.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import {
     releaseAnalysisClassification,
@@ -83,7 +82,7 @@ function normalizePackageJsonForDependencyComparison(value: unknown): unknown {
 }
 
 function isDependencyDerivedFilePath(filePath: string): boolean {
-    return filePath === packageManifestFilePath || filePath === sbomFilePath();
+    return filePath === packageManifestFilePath || filePath === sbomArtifactFilePath;
 }
 
 function nonDependencyDerivedFilesMatch(
