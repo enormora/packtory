@@ -19,6 +19,7 @@ export type PublishStageDependencies = {
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PacktoryScheduler;
     readonly progressBroadcaster: ProgressBroadcaster;
+    readonly repositoryFolder: string;
 };
 
 export type PublishStageResult = Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>;
@@ -62,7 +63,7 @@ export async function determineVersionAndPublishAll(
                 packageName,
                 validatedConfig.packageConfigs,
                 validatedConfig.packtoryConfig,
-                existing
+                { existingBundles: existing, repositoryFolder: dependencies.repositoryFolder }
             );
         },
         execute: withFailureCapture(dependencies.progressBroadcaster.provider, 'publish', async (buildOptions) => {

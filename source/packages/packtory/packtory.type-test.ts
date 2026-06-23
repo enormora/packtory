@@ -19,7 +19,8 @@ import type {
     ResolveAndLinkAllOutcome,
     ResolveAndLinkAllResult,
     ResolveAndLinkFailure,
-    ResolvedPackage
+    ResolvedPackage,
+    VersionProviderInput
 } from './packtory.entry-point.ts';
 
 type ProgressEventName =
@@ -168,6 +169,24 @@ describe('PacktoryConfig — accepted shapes', () => {
             ];
         }>();
     });
+
+    test('accepts provider manual versioning', () => {
+        expect<PacktoryConfig>().type.toBeAssignableFrom<{
+            readonly registrySettings: {
+                readonly auth: { readonly type: 'bearer-token'; readonly token: 'any-token' };
+            };
+            readonly packages: readonly [
+                {
+                    readonly name: 'pkg';
+                    readonly roots: { readonly main: { readonly js: 'index.js' } };
+                    readonly versioning: {
+                        readonly automatic: false;
+                        readonly provideVersion: (input: VersionProviderInput) => Promise<string>;
+                    };
+                }
+            ];
+        }>();
+    });
 });
 
 describe('PacktoryConfig — rejected shapes', () => {
@@ -265,6 +284,17 @@ describe('PacktoryConfig — exposed structure', () => {
         type PackageChecks = NonNullable<PackageConfig['checks']>;
         type AreTheTypesWrong = NonNullable<PackageChecks['areTheTypesWrong']>;
         expect<AreTheTypesWrong['profile']>().type.toBe<'esm-only' | 'node16' | 'strict' | undefined>();
+    });
+});
+
+describe('VersionProviderInput', () => {
+    test('exposes package attribution inputs', () => {
+        expect<VersionProviderInput['packageName']>().type.toBe<string>();
+        expect<VersionProviderInput['currentVersion']>().type.toBe<string | undefined>();
+        expect<VersionProviderInput['targetSourceFiles']>().type.toBe<readonly string[]>();
+        expect<VersionProviderInput['ignoredAttributionPaths']>().type.toBe<readonly string[]>();
+        expect<VersionProviderInput['registrySettings']>().type.toBe<NonNullable<PacktoryConfig['registrySettings']>>();
+        expect<VersionProviderInput['stage']>().type.toBe<boolean>();
     });
 });
 

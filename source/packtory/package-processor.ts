@@ -1,6 +1,6 @@
+import type { BundleLinker } from '../linker/linker.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
-import type { BundleLinker } from '../linker/linker.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
@@ -24,6 +24,11 @@ export type PackageProcessorDependencies = {
     readonly resourceResolver: ResourceResolver;
     readonly sbomFileBuilder: SbomFileBuilder;
     readonly deadCodeEliminator: DeadCodeEliminator;
+    readonly fileManager: {
+        readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean }>;
+        readonly readFile: (filePath: string) => Promise<string>;
+    };
+    readonly repositoryFolder: string;
 };
 
 export type PackageProcessor = {

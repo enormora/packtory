@@ -1,29 +1,35 @@
 import { isDefined, pickBy } from 'remeda';
 import { noPublication } from '../bundle-emitter/publication-outcome.ts';
-import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { BuildAndPublishOptions } from './map-config.ts';
+import { createVersionProviderContext } from './options/version-provider-context.ts';
 import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } from './options/version-trigger.ts';
 import { publishedReleaseStatus, type PublishedReleaseStatus, wasAlreadyPublished } from './published-release-state.ts';
 
-type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion']>>;
-type CurrentVersion = Awaited<ReturnType<BundleEmitter['determineCurrentVersion']>>;
-type PublicationOutcome = Awaited<ReturnType<BundleEmitter['publish']>>;
-type PreviousReleaseArtifacts = Awaited<
-    ReturnType<BundleEmitter['checkBundleAlreadyPublished']>
->['previousReleaseArtifacts'];
-type ExtraFiles = Exclude<Awaited<ReturnType<SbomFileBuilder['generate']>>, undefined>;
-type SiblingPackage = Parameters<SbomFileBuilder['generate']>[1][number];
-
 type PublishDependencies = {
     readonly bundleEmitter: BundleEmitter;
+    readonly fileManager: {
+        readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean }>;
+        readonly readFile: (filePath: string) => Promise<string>;
+    };
     readonly progressBroadcaster: ProgressBroadcastProvider;
+    readonly repositoryFolder: string;
     readonly sbomFileBuilder: SbomFileBuilder;
     readonly versionManager: VersionManager;
 };
+
+type VersionedBundleWithManifest = Awaited<ReturnType<PublishDependencies['versionManager']['addVersion']>>;
+type CurrentVersion = Awaited<ReturnType<PublishDependencies['bundleEmitter']['determineCurrentVersion']>>;
+type PublicationOutcome = Awaited<ReturnType<PublishDependencies['bundleEmitter']['publish']>>;
+type PreviousReleaseArtifacts = Awaited<
+    ReturnType<PublishDependencies['bundleEmitter']['checkBundleAlreadyPublished']>
+>['previousReleaseArtifacts'];
+type ExtraFiles = Exclude<Awaited<ReturnType<PublishDependencies['sbomFileBuilder']['generate']>>, undefined>;
+type SiblingPackage = Parameters<PublishDependencies['sbomFileBuilder']['generate']>[1][number];
+type AnalyzedBundle = Parameters<typeof createVersionProviderContext>[1];
 
 export type BuildAndPublishResult = {
     readonly status: PublishedReleaseStatus;
@@ -73,7 +79,11 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             stage,
             versioning: options.versioning
         });
-        const version = determineBuildVersion(currentVersion, options);
+        const version = await determineBuildVersion(
+            currentVersion,
+            options,
+            await createVersionProviderContext(dependencies, analyzedBundle, options, stage)
+        );
         dependencies.progressBroadcaster.emit('building', { packageName: options.name, version });
         const versionedBundle = dependencies.versionManager.addVersion({
             bundle: analyzedBundle,

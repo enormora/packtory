@@ -30,7 +30,10 @@ type ExtraFiles = readonly FileDescription[];
 type PublicationOutcome = Awaited<ReturnType<RegistryClient['publishPackage']>>;
 type PublishSettings = Fourth<RegistryClientPublishArguments>;
 type RegistrySettings = Second<Parameters<RegistryClient['fetchLatestVersion']>>;
-type VersioningSettings = { readonly automatic: false; readonly version: string } | { readonly automatic: true };
+type VersioningSettings =
+    | { readonly automatic: false; readonly provideVersion: unknown }
+    | { readonly automatic: false; readonly version: string }
+    | { readonly automatic: true };
 type PreviousReleaseArtifacts = Awaited<ReturnType<typeof fetchPublishedArtifacts>>;
 
 export type BundleEmitterDependencies = {
@@ -102,6 +105,12 @@ function highestVersion(firstVersion: string, laterVersions: readonly string[]):
     return highest;
 }
 
+function hasVersionProvider(
+    versioning: VersioningSettings
+): versioning is Extract<VersioningSettings, { readonly provideVersion: unknown }> {
+    return 'provideVersion' in versioning;
+}
+
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
     const { artifactsBuilder, registryClient, ciRepositoryUrl, readCurrentGitHead } = dependencies;
 
@@ -119,7 +128,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
             throw new Error(stageFirstPublishUnsupportedMessage);
         }
 
-        if (!versioning.automatic) {
+        if (!versioning.automatic && !hasVersionProvider(versioning)) {
             return Maybe.just(versioning.version);
         }
 
@@ -135,7 +144,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
                 return determineCurrentVersionForStageMode(name, registrySettings, versioning);
             }
 
-            if (versioning.automatic) {
+            if (versioning.automatic || hasVersionProvider(versioning)) {
                 const latestVersion = await registryClient.fetchLatestVersion(name, registrySettings);
                 return latestVersion.map((version) => {
                     return version.version;

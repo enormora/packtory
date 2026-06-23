@@ -1,8 +1,28 @@
 import type { Maybe } from 'true-myth';
 import type { BuildAndPublishOptions } from '../map-config.ts';
 import type { VersionTrigger } from '../../progress/progress-broadcaster.ts';
+import { hasVersionProvider } from '../../config/versioning-settings.ts';
+import { validateManualVersion, type VersionProviderInput } from '../../config/manual-versioning-settings.ts';
 
-export function determineBuildVersion(currentVersion: Maybe<string>, options: BuildAndPublishOptions): string {
+export type VersionProviderContext = Pick<
+    VersionProviderInput,
+    'ignoredAttributionPaths' | 'registrySettings' | 'stage' | 'targetSourceFiles'
+>;
+
+export async function determineBuildVersion(
+    currentVersion: Maybe<string>,
+    options: BuildAndPublishOptions,
+    context: VersionProviderContext
+): Promise<string> {
+    if (hasVersionProvider(options.versioning)) {
+        return validateManualVersion(
+            await options.versioning.provideVersion({
+                ...context,
+                packageName: options.name,
+                currentVersion: currentVersion.isJust ? currentVersion.value : undefined
+            })
+        );
+    }
     if (currentVersion.isJust) {
         return currentVersion.value;
     }

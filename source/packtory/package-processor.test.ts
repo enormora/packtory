@@ -48,6 +48,23 @@ function createAnalyzedBundle(name = 'package-a'): AnalyzedBundle {
     };
 }
 
+function createAnalyzedResource(
+    sourceFilePath: string,
+    targetFilePath = sourceFilePath.slice(1)
+): AnalyzedBundle['contents'][number] {
+    return {
+        fileDescription: createTransferableFile(sourceFilePath, targetFilePath),
+        directDependencies: new Set(),
+        isExplicitlyIncluded: false,
+        isSubstituted: false,
+        analysis: {
+            sideEffectImports: new Set(),
+            sideEffectStatements: [],
+            survivingBindings: new Set()
+        }
+    };
+}
+
 function createVersionedBundle(
     name = 'package-a',
     version = '1.2.3',
@@ -87,6 +104,7 @@ type Overrides = {
     readonly publish?: SinonSpy;
     readonly generateSbom?: SinonSpy;
     readonly eliminate?: SinonSpy;
+    readonly repositoryFolder?: string;
 };
 
 type ProcessorContext = {
@@ -149,7 +167,16 @@ function createProcessor(overrides: Overrides = {}): ProcessorContext {
         bundleEmitter: { determineCurrentVersion, checkBundleAlreadyPublished, publish },
         versionManager: { addVersion, increaseVersion },
         sbomFileBuilder: { generate: generateSbom },
-        deadCodeEliminator: { eliminate }
+        deadCodeEliminator: { eliminate },
+        fileManager: {
+            async checkReadability() {
+                return { isReadable: true };
+            },
+            async readFile() {
+                return '';
+            }
+        },
+        repositoryFolder: overrides.repositoryFolder ?? '/'
     } as const;
 
     return {
@@ -187,6 +214,7 @@ function createBuildAndPublishOptions(): BuildAndPublishOptions {
         versioning: { automatic: true } as const,
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         publishSettings: { access: 'public', sbom: { enabled: false } } as const,
+        ignoredAttributionPaths: [],
         bundleDependencies: [createVersionedBundle('bundle-dependency', '1.0.0')],
         bundlePeerDependencies: [createVersionedBundle('peer-dependency', '2.0.0')]
     };
@@ -531,6 +559,47 @@ suite('package-processor', function () {
                 substitutionPublicModuleSourcePaths: undefined
             }
         ]);
+    });
+
+    test('tryBuildAndPublish() passes calculated attribution files to manual version providers', async function () {
+        const providerInputs: unknown[] = [];
+        const { processor } = createProcessor({ repositoryFolder: '/repo' });
+        const analyzedBundle = createAnalyzedBundle();
+        const buildOptions: BuildAndPublishOptions = {
+            ...createBuildAndPublishOptions(),
+            ignoredAttributionPaths: ['CHANGELOG.md'],
+            versioning: {
+                automatic: false,
+                async provideVersion(input) {
+                    providerInputs.push(input);
+                    return '1.2.3';
+                }
+            }
+        };
+
+        const result = await processor.tryBuildAndPublish({
+            analyzedBundle: {
+                ...analyzedBundle,
+                contents: [
+                    createAnalyzedResource('/repo/source/index.js'),
+                    createAnalyzedResource('/repo/docs/readme.md', 'readme.md')
+                ]
+            },
+            buildOptions,
+            stage: true
+        });
+
+        assert.deepStrictEqual(providerInputs, [
+            {
+                packageName: 'package-a',
+                currentVersion: undefined,
+                targetSourceFiles: ['docs/readme.md', 'source/index.js'],
+                ignoredAttributionPaths: ['CHANGELOG.md'],
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+                stage: true
+            }
+        ]);
+        assert.strictEqual(result.bundle.version, '1.2.3');
     });
 
     test('tryBuildAndPublish() keeps the configured manual version without rebuilding on a rerun', async function () {

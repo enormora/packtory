@@ -237,7 +237,7 @@ suite('emitter', function () {
         assert.deepStrictEqual(result, Maybe.just('the-version'));
     });
 
-    test('determineCurrentVersion() doesn’t fetches the latest version when manual versioning is enabled', async function () {
+    test('determineCurrentVersion() doesn’t fetch the latest version when static manual versioning is enabled', async function () {
         const fetchLatestVersion = fake.resolves(Maybe.nothing());
         const emitter = emitterFactory({ fetchLatestVersion });
 
@@ -249,7 +249,7 @@ suite('emitter', function () {
         assert.strictEqual(fetchLatestVersion.callCount, 0);
     });
 
-    test('determineCurrentVersion() returns the given version when manual versioning is enabled', async function () {
+    test('determineCurrentVersion() returns the given version when static manual versioning is enabled', async function () {
         const emitter = emitterFactory({});
 
         const result = await determineCurrentVersion(emitter, {
@@ -258,6 +258,19 @@ suite('emitter', function () {
         });
 
         assert.deepStrictEqual(result, Maybe.just('manual-version'));
+    });
+
+    test('determineCurrentVersion() fetches the latest version when provider manual versioning is enabled', async function () {
+        const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3' }));
+        const emitter = emitterFactory({ fetchLatestVersion });
+
+        const result = await determineCurrentVersion(emitter, {
+            stage: false,
+            versioning: { automatic: false, provideVersion: () => '9.9.9' }
+        });
+
+        assert.deepStrictEqual(result, Maybe.just('1.2.3'));
+        assert.deepStrictEqual(fetchLatestVersion.firstCall.args, ['the-name', registrySettings]);
     });
 
     test('determineCurrentVersion() selects the highest staged version in stage mode', async function () {
@@ -291,6 +304,20 @@ suite('emitter', function () {
 
         assert.deepStrictEqual(result, Maybe.just('9.9.9'));
         assert.strictEqual(fetchStagedVersions.callCount, 0);
+    });
+
+    test('determineCurrentVersion() selects the highest staged version for provider manual versioning in stage mode', async function () {
+        const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3' }));
+        const fetchStagedVersions = fake.resolves(['1.2.5', '1.2.4']);
+        const emitter = emitterFactory({ fetchLatestVersion, fetchStagedVersions });
+
+        const result = await determineCurrentVersion(emitter, {
+            stage: true,
+            versioning: { automatic: false, provideVersion: () => '9.9.9' }
+        });
+
+        assert.deepStrictEqual(result, Maybe.just('1.2.5'));
+        assert.deepStrictEqual(fetchStagedVersions.firstCall.args, ['the-name', registrySettings]);
     });
 
     test('determineCurrentVersion() rejects an invalid staged version returned by the registry', async function () {

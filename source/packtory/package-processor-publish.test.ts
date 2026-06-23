@@ -12,7 +12,16 @@ function stubDependencies() {
         bundleEmitter: {} as BundleEmitter,
         progressBroadcaster: {} as ProgressBroadcastProvider,
         sbomFileBuilder: {} as SbomFileBuilder,
-        versionManager: {} as VersionManager
+        versionManager: {} as VersionManager,
+        fileManager: {
+            async checkReadability() {
+                return { isReadable: true };
+            },
+            async readFile() {
+                return '';
+            }
+        },
+        repositoryFolder: '/'
     };
 }
 

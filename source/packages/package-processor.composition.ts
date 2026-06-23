@@ -200,7 +200,9 @@ export function buildPackageProcessorComposition(
         linker: createBundleLinker(),
         resourceResolver: parts.resourceResolver,
         sbomFileBuilder: parts.sbomFileBuilder,
-        deadCodeEliminator: parts.deadCodeEliminator
+        deadCodeEliminator: parts.deadCodeEliminator,
+        fileManager: parts.fileManager,
+        repositoryFolder: parts.repositoryFolder
     });
     const packageProcessor = withStageTimings(basePackageProcessor, parts.progressBroadcaster.provider);
     const packEmitter = createPackEmitter({

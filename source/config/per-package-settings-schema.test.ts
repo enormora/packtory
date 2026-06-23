@@ -40,12 +40,57 @@ suite('per-package-settings-schema', function () {
         expectedFieldType: 'record'
     });
 
-    createTestCasesForOptionalField({
-        schema: perPackageSettingsSchema,
-        data: validPerPackageSettings,
-        path: 'versioning',
-        expectedFieldType: 'object'
-    });
+    test(
+        'per package settings schema: validation succeeds when versioning is missing',
+        checkValidationSuccess({
+            schema: perPackageSettingsSchema,
+            data: {
+                name: validPerPackageSettings.name,
+                roots: validPerPackageSettings.roots,
+                bundleDependencies: validPerPackageSettings.bundleDependencies,
+                bundlePeerDependencies: validPerPackageSettings.bundlePeerDependencies
+            },
+            expectedData: {
+                name: validPerPackageSettings.name,
+                roots: validPerPackageSettings.roots,
+                bundleDependencies: validPerPackageSettings.bundleDependencies,
+                bundlePeerDependencies: validPerPackageSettings.bundlePeerDependencies
+            }
+        })
+    );
+
+    test(
+        'per package settings schema: validation succeeds when versioning is undefined',
+        checkValidationSuccess({
+            schema: perPackageSettingsSchema,
+            data: {
+                ...validPerPackageSettings,
+                versioning: undefined
+            },
+            expectedData: {
+                ...validPerPackageSettings,
+                versioning: undefined
+            }
+        })
+    );
+
+    test(
+        'per package settings schema: validation fails when versioning is null',
+        checkValidationFailure({
+            schema: perPackageSettingsSchema,
+            data: { ...validPerPackageSettings, versioning: null },
+            expectedMessages: ['at versioning: invalid value: expected object, but got null']
+        })
+    );
+
+    test(
+        'per package settings schema: validation fails when versioning is not an object',
+        checkValidationFailure({
+            schema: perPackageSettingsSchema,
+            data: { ...validPerPackageSettings, versioning: 42 },
+            expectedMessages: ['at versioning: invalid value: expected object, but got number']
+        })
+    );
 
     createTestCasesForOptionalField({
         schema: perPackageSettingsSchema,

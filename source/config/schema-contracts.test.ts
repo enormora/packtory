@@ -34,25 +34,34 @@ suite('schema-contracts', function () {
         });
     }).timeout(probeTestTimeoutMs);
 
-    test('versioning schema keeps the discriminant and both branches', async function () {
+    test('versioning schema keeps the automatic, static manual, and provider manual branches', async function () {
         const result = await runNodeProbe(`
             import { safeParse } from '@schema-hub/zod-error-formatter';
             import { versioningSettingsSchema } from './source/config/versioning-settings.ts';
 
             const unionDef = versioningSettingsSchema._zod.def.innerType.def;
+            function optionKeys(option) {
+                const optionDef = option.def.innerType.def;
+                if (optionDef.type === 'union') {
+                    return optionDef.options.map((nestedOption) => Object.keys(nestedOption.def.innerType.def.shape));
+                }
+                return Object.keys(optionDef.shape);
+            }
 
             console.log(JSON.stringify({
-                discriminator: unionDef.discriminator,
                 optionCount: unionDef.options.length,
-                branchKeys: unionDef.options.map((option) => Object.keys(option.def.innerType.def.shape)),
-                branchLiterals: unionDef.options.map((option) => {
-                    return option.def.innerType.def.shape.automatic.def.values[0];
-                }),
+                branchKeys: unionDef.options.map(optionKeys),
                 automaticSuccess: safeParse(versioningSettingsSchema, {
                     automatic: true,
                     minimumVersion: '1.0.0'
                 }).success,
                 manualSuccess: safeParse(versioningSettingsSchema, { automatic: false, version: '1.0.0' }).success,
+                providerSuccess: safeParse(versioningSettingsSchema, {
+                    automatic: false,
+                    provideVersion() {
+                        return '1.0.0';
+                    }
+                }).success,
                 invalidAutomaticBranchSuccess: safeParse(versioningSettingsSchema, {
                     automatic: true,
                     version: '1.0.0'
@@ -65,15 +74,17 @@ suite('schema-contracts', function () {
         `);
 
         assert.deepStrictEqual(result, {
-            discriminator: 'automatic',
             optionCount: 2,
             branchKeys: [
                 ['automatic', 'minimumVersion'],
-                ['automatic', 'version']
+                [
+                    ['automatic', 'version'],
+                    ['automatic', 'provideVersion']
+                ]
             ],
-            branchLiterals: [true, false],
             automaticSuccess: true,
             manualSuccess: true,
+            providerSuccess: true,
             invalidAutomaticBranchSuccess: false,
             invalidManualBranchSuccess: false
         });

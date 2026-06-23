@@ -6,6 +6,7 @@ import {
     type SharedPackageOptions,
     type VersioningSettings
 } from './options/prepare-package-options.ts';
+import { collectGeneratedAttributionPaths } from './generated-attribution-paths.ts';
 import { resolvePublishSettings, type PublishSettings } from './options/setting-resolvers.ts';
 
 export type BuildOptions = SharedPackageOptions<PublishedPackageWithManifest> & {
@@ -16,21 +17,27 @@ export type BuildAndPublishOptions = SharedPackageOptions<PublishedPackageWithMa
     readonly registrySettings: NonNullable<PacktoryConfig['registrySettings']>;
     readonly publishSettings: PublishSettings;
     readonly versioning: VersioningSettings;
+    readonly ignoredAttributionPaths: readonly string[];
 };
 
 export type ResolveAndLinkOptions = SharedPackageOptions<BundleSubstitutionSource>;
+
+export type BuildAndPublishMappingContext = {
+    readonly existingBundles: readonly PublishedPackageWithManifest[];
+    readonly repositoryFolder?: string | undefined;
+};
 
 export function configToBuildAndPublishOptions(
     packageName: string,
     packageConfigs: PackageConfigsByName,
     packtoryConfig: PacktoryConfig,
-    existingBundles: readonly PublishedPackageWithManifest[]
+    context: BuildAndPublishMappingContext
 ): BuildAndPublishOptions {
     const { packageConfig, sharedOptions, versioning } = preparePackageOptions(
         packageName,
         packageConfigs,
         packtoryConfig,
-        existingBundles
+        context.existingBundles
     );
     const publishSettings = resolvePublishSettings(packageConfig, packtoryConfig);
 
@@ -38,7 +45,8 @@ export function configToBuildAndPublishOptions(
         ...sharedOptions,
         versioning,
         registrySettings: packtoryConfig.registrySettings ?? {},
-        publishSettings
+        publishSettings,
+        ignoredAttributionPaths: collectGeneratedAttributionPaths(context.repositoryFolder ?? '/', packtoryConfig)
     };
 }
 

@@ -17,7 +17,8 @@ suite('publish-stage', function () {
             {
                 packageProcessor: stubPackageProcessor,
                 scheduler: emptyScheduler,
-                progressBroadcaster: stubProgressBroadcaster
+                progressBroadcaster: stubProgressBroadcaster,
+                repositoryFolder: '/'
             },
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
             [],
@@ -60,7 +61,8 @@ suite('publish-stage', function () {
             {
                 packageProcessor: stubPackageProcessor,
                 scheduler: iteratingScheduler(['pkg-orphan']),
-                progressBroadcaster: stubProgressBroadcaster
+                progressBroadcaster: stubProgressBroadcaster,
+                repositoryFolder: '/'
             },
             config as never,
             [],
@@ -100,7 +102,8 @@ suite('publish-stage', function () {
             {
                 packageProcessor: processor,
                 scheduler: iteratingScheduler(['pkg-a'], capture),
-                progressBroadcaster: stubProgressBroadcaster
+                progressBroadcaster: stubProgressBroadcaster,
+                repositoryFolder: '/'
             },
             config as never,
             [
