@@ -34,7 +34,8 @@ type Overrides = {
     readonly createTemporaryFilePath?: () => string;
     readonly createPrLogEngine?: SinonSpy;
     readonly createGitHubReleaseClient?: SinonSpy;
-    readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
+    readonly createReleasePullRequestGitHubClient?: SinonSpy;
+    readonly readEnvironmentVariable?: (name: string) => string | undefined;
     readonly readPackageInfo?: () => Promise<Record<string, unknown>>;
     readonly releaseGitClient?: CommandLineInterfaceRunnerDependencies['releaseGitClient'];
     progressBroadcaster?: ProgressBroadcaster;
@@ -96,6 +97,21 @@ function createRunner(overrides: Overrides = {}): CommandLineInterfaceRunner {
         createGitHubReleaseClient: createSpy(overrides.createGitHubReleaseClient, () => {
             return fake.returns({
                 createReleaseIfMissing: fake.resolves('created')
+            });
+        }),
+        createReleasePullRequestGitHubClient: createSpy(overrides.createReleasePullRequestGitHubClient, () => {
+            return fake.returns({
+                closeOpenReleasePullRequests: fake.resolves(undefined),
+                createOrUpdateReleasePullRequest: fake.resolves(1),
+                createStatus: fake.resolves(undefined),
+                deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
+                dispatchWorkflow: fake.resolves(undefined),
+                findDispatchedWorkflowRunId: fake.resolves(undefined),
+                getBranchHeadSha: fake.resolves('main-head'),
+                getPullRequest: fake.resolves(undefined),
+                getPullRequestHead: fake.resolves(undefined),
+                listCommitPullRequests: fake.resolves([]),
+                readWorkflowRunResult: fake.resolves({ conclusion: 'success', databaseId: 1, jobs: [] })
             });
         }),
         currentDate() {
@@ -161,10 +177,13 @@ function createRunner(overrides: Overrides = {}): CommandLineInterfaceRunner {
         releaseGitClient: overrides.releaseGitClient ?? {
             commit: fake.resolves(undefined),
             currentHead: fake.resolves('new-head'),
+            deleteRemoteBranch: fake.resolves(undefined),
             ensureClean: fake.resolves(undefined),
             ensureTag: fake.resolves(undefined),
+            pushHeadToBranch: fake.resolves(undefined),
             pushFollowTags: fake.resolves(undefined)
         },
+        sleep: fake.resolves(undefined),
         workingDirectory: '/workspace'
     };
 
@@ -196,6 +215,38 @@ async function expectHelp(args: readonly string[]): Promise<string> {
 
 async function expectSubcommandHelp(command: 'preview' | 'publish' | 'release'): Promise<string> {
     return expectHelp([command, '--help']);
+}
+
+function createReleasePullRequestConfig() {
+    return {
+        changelog: { outputs: [{ kind: 'repository-file', path: 'CHANGELOG.md' }] },
+        packages: [
+            {
+                sourcesFolder: 'src',
+                mainPackageJson: { type: 'module' },
+                name: 'pkg',
+                roots: { main: { js: 'index.js' } },
+                publishSettings: { access: 'public' }
+            }
+        ]
+    };
+}
+
+function createReleasePullRequestClient(overrides: Record<string, unknown>) {
+    return {
+        closeOpenReleasePullRequests: fake.resolves(undefined),
+        createOrUpdateReleasePullRequest: fake.resolves(1),
+        createStatus: fake.resolves(undefined),
+        deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
+        dispatchWorkflow: fake.resolves(undefined),
+        findDispatchedWorkflowRunId: fake.resolves(undefined),
+        getBranchHeadSha: fake.resolves('main-head'),
+        getPullRequest: fake.resolves(undefined),
+        getPullRequestHead: fake.resolves(undefined),
+        listCommitPullRequests: fake.resolves([]),
+        readWorkflowRunResult: fake.resolves({ conclusion: 'success', databaseId: 1, jobs: [] }),
+        ...overrides
+    };
 }
 
 async function expectCollectReportFlag(flag: '--report-html' | '--report-json'): Promise<void> {
@@ -322,8 +373,10 @@ suite('runner', function () {
             releaseGitClient: {
                 commit: fake.resolves(undefined),
                 currentHead: fake.resolves('new-head'),
+                deleteRemoteBranch: fake.resolves(undefined),
                 ensureClean: fake.resolves(undefined),
                 ensureTag,
+                pushHeadToBranch: fake.resolves(undefined),
                 pushFollowTags
             }
         });
@@ -988,6 +1041,144 @@ suite('runner', function () {
 
         const helpText = String(log.firstCall.args[0]);
         assert.match(helpText, /Generates grouped Markdown changelog output for the next release\./u);
+    });
+
+    test('release-pr authorize-publish writes a skipped publish decision for normal commits', async function () {
+        const log = fake();
+        const environment: Record<string, string> = {
+            GH_TOKEN: 'gh-token',
+            GITHUB_REPOSITORY: 'owner/repo',
+            GITHUB_SHA: 'commit-sha'
+        };
+        const runner = createRunner({
+            log,
+            loadConfig: fake.resolves(createReleasePullRequestConfig()),
+            readEnvironmentVariable(name) {
+                return environment[name];
+            }
+        });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release-pr', 'authorize-publish']);
+
+        assert.strictEqual(exitCode, 0);
+        assert.strictEqual(log.firstCall.args[0], 'should_publish=false');
+    });
+
+    test('release-pr authorize-publish forwards the manual release PR number', async function () {
+        const fileManager = createFakeFileManager();
+        const runner = createRunner({
+            fileManager,
+            loadConfig: fake.resolves(createReleasePullRequestConfig()),
+            createReleasePullRequestGitHubClient: fake.returns(
+                createReleasePullRequestClient({
+                    getPullRequest: fake.resolves({
+                        author: 'github-actions[bot]',
+                        baseRef: 'main',
+                        changedFiles: ['CHANGELOG.md'],
+                        headRef: 'release/packtory',
+                        headRepository: 'enormora/packtory',
+                        labels: ['release'],
+                        mergeCommitSha: 'merge-sha',
+                        merged: true,
+                        number: 12,
+                        subject: 'Release packages',
+                        title: 'Prepare release'
+                    })
+                })
+            ),
+            readEnvironmentVariable(name) {
+                return { GH_TOKEN: 'gh-token', GITHUB_OUTPUT: '/github-output', GITHUB_REF_NAME: 'main' }[name];
+            }
+        });
+
+        const exitCode = await runner.run([
+            'foo',
+            'bar',
+            'release-pr',
+            'authorize-publish',
+            '--release-pull-request',
+            '12'
+        ]);
+
+        assert.strictEqual(exitCode, 0);
+        assert.strictEqual(fileManager.getWriteFileCall(0).content.includes('release_pull_request_number=12'), true);
+    });
+
+    test('release-pr maintain routes through the release PR handler', async function () {
+        const log = fake();
+        const runner = createRunner({ log });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release-pr', 'maintain']);
+
+        assert.strictEqual(exitCode, 1);
+        assert.strictEqual(log.firstCall.args[0], 'Release PR writes require --no-dry-run');
+    });
+
+    test('release-pr validate routes the GitHub event through the release PR handler', async function () {
+        const log = fake();
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [{ value: JSON.stringify({ pull_request: { number: 12 } }) }]
+        });
+        const environment: Record<string, string> = {
+            GH_TOKEN: 'gh-token',
+            GITHUB_EVENT_NAME: 'pull_request',
+            GITHUB_EVENT_PATH: '/event.json',
+            GITHUB_REPOSITORY: 'owner/repo'
+        };
+        const runner = createRunner({
+            fileManager,
+            loadConfig: fake.resolves(createReleasePullRequestConfig()),
+            log,
+            createReleasePullRequestGitHubClient: fake.returns(
+                createReleasePullRequestClient({
+                    getPullRequestHead: fake.resolves({
+                        author: 'maintainer',
+                        changedFiles: ['src/index.ts'],
+                        headRef: 'feature',
+                        labels: ['bug'],
+                        parentShas: ['main-head'],
+                        subject: 'Fix bug',
+                        title: 'Fix bug'
+                    })
+                })
+            ),
+            readEnvironmentVariable(name) {
+                return environment[name];
+            }
+        });
+
+        const exitCode = await runner.run(['foo', 'bar', 'release-pr', 'validate']);
+
+        assert.strictEqual(exitCode, 0);
+        assert.strictEqual(log.firstCall.args[0], 'Release PR policy passed.');
+    });
+
+    test('release-pr help advertises release PR subcommands', async function () {
+        const help = await expectHelp(['release-pr', '--help']);
+
+        assert.match(help, /maintain/);
+        assert.match(help, /validate/);
+        assert.match(help, /authorize-publish/);
+    });
+
+    test('release-pr maintain help advertises writes and dry-run opt-in', async function () {
+        const help = await expectHelp(['release-pr', 'maintain', '--help']);
+
+        assert.match(help, /Creates or updates the generated release PR\./);
+        assert.match(help, /--no-dry-run/);
+    });
+
+    test('release-pr validate help advertises GitHub event validation', async function () {
+        const help = await expectHelp(['release-pr', 'validate', '--help']);
+
+        assert.match(help, /Validates the release PR policy for the current GitHub event\./);
+    });
+
+    test('release-pr authorize-publish help advertises manual retry input', async function () {
+        const help = await expectHelp(['release-pr', 'authorize-publish', '--help']);
+
+        assert.match(help, /Authorizes publishing from a merged release PR\./);
+        assert.match(help, /--release-pull-request/);
     });
 
     test('pack command loads the config and forwards the flags into packPackage', async function () {

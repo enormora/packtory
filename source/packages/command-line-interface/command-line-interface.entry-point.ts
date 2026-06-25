@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
 import { execFile } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createPrLogEngine } from '@pr-log/core';
 import { createClock } from '../../common/clock.ts';
 import { createLineSpinnerRenderer } from '../../command-line-interface/spinner/line-spinner-renderer.ts';
@@ -19,6 +20,7 @@ import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
 import { createDefaultPreviewIo } from '../../command-line-interface/preview-io/preview-io.ts';
 import { createGitHubReleaseClient } from '../../command-line-interface/runner/github-release-client.ts';
+import { createReleasePullRequestGitHubClient } from '../../command-line-interface/runner/release-pr-github-client.ts';
 import { createReleaseGitClient } from '../../command-line-interface/runner/release-git-client.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
@@ -108,6 +110,9 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     createGitHubReleaseClient: (context) => {
         return createGitHubReleaseClient({ ...context, fetch: globalThis.fetch });
     },
+    createReleasePullRequestGitHubClient: (context) => {
+        return createReleasePullRequestGitHubClient({ ...context, fetch: globalThis.fetch });
+    },
     currentDate() {
         return new Date(clock.getCurrentTimeInMilliseconds());
     },
@@ -131,6 +136,9 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
         return parsePackageInfo(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
     },
     releaseGitClient: createReleaseGitClient({ repositoryFolder: workingDirectory, runGitCommand }),
+    async sleep(milliseconds) {
+        await delay(milliseconds);
+    },
     workingDirectory,
     log: console.log
 });

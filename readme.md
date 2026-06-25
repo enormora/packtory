@@ -107,6 +107,18 @@ npx packtory release --write-changelog --commit --publish --tag --push --github-
 
 `release` writes changelogs, commits them, recomputes the final plan, publishes directly to npm, creates annotated `{packageName}@{version}` tags, pushes with `git push --follow-tags`, and creates GitHub Releases. It requires a clean Git index and worktree before writing. Commit identity and push credentials come from normal Git config and environment, such as `GIT_AUTHOR_*`, `GIT_COMMITTER_*`, and your configured Git credential helper or CI checkout credentials.
 
+For a reviewed release PR flow, use `release-pr`:
+
+```bash
+npx packtory release-pr maintain --no-dry-run
+npx packtory release-pr validate
+npx packtory release-pr authorize-publish
+```
+
+`release-pr maintain` prepares the changelog commit with the same release planning logic, pushes it to the configured release branch, and creates or updates the release PR. `release-pr validate` checks that release PRs only change configured changelog output files and are not batched with other PRs in a merge queue. `release-pr authorize-publish` lets a publish workflow proceed only when the current commit, or a manually supplied PR number, is a merged valid release PR.
+
+The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory dispatches the configured workflow on the release branch, waits for the run, and mirrors the configured job names back as commit statuses. Leave it unset when your release branch push already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human push, or another CI system.
+
 For more details about the CLI application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
 
 ## Concept
