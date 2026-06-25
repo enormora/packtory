@@ -15,14 +15,13 @@ type ReferencedMap = {
 };
 
 const sourceMappingPrefix = '//# sourceMappingURL=';
-const javaScriptFilePattern = /\.[cm]?jsx?$/u;
 
 function sortUniqueValues(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
 }
 
 function isJavaScriptFile(filePath: string): boolean {
-    return javaScriptFilePattern.test(filePath);
+    return /\.[cm]?jsx?$/u.test(filePath);
 }
 
 function toRepositoryRelativePath(repositoryFolder: string, filePath: string): string {

@@ -37,8 +37,6 @@ export type GeneratedChangelog = {
     readonly packageMarkdownByName: ReadonlyMap<string, string>;
 };
 
-const changelogFileName = 'CHANGELOG.md';
-
 function selectChangedPackages(packages: readonly ReleasePlanPackage[]): readonly ReleasePlanPackage[] {
     return packages.filter((packagePlan) => {
         return packagePlan.changed;
@@ -50,7 +48,7 @@ function sortUniqueValues(values: ReadonlySet<string>): readonly string[] {
 }
 
 function isChangelogFilePath(filePath: string): boolean {
-    return path.posix.basename(filePath) === changelogFileName;
+    return path.posix.basename(filePath) === 'CHANGELOG.md';
 }
 
 function collectChangelogPaths(packages: readonly ReleasePlanPackage[]): readonly string[] {

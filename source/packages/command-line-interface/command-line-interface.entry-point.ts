@@ -24,6 +24,7 @@ import { createReleasePullRequestGitHubClient } from '../../command-line-interfa
 import { createReleaseGitClient } from '../../command-line-interface/runner/release-git-client.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
+import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
 
 async function importModule(modulePath: string): Promise<unknown> {
@@ -73,6 +74,7 @@ async function runGitCommand(
 const spinnerRenderer = createSpinnerRenderer();
 const clock = createClock();
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const workingDirectory = process.cwd();
 const previewIo = createDefaultPreviewIo({
     async openFile(filePath) {
         const { default: open } = await import('open');
@@ -99,11 +101,22 @@ const promptForOneTimePassword = createOneTimePasswordPrompt({
     }
 });
 
+async function readPackageInfo(): Promise<Record<string, unknown>> {
+    return parsePackageInfo(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
+}
+
 const { packtory, progressBroadcaster } = buildPacktoryComposition({
     promptForOneTimePassword,
-    ciEnvironment: readCiEnvironment(process.env)
+    ciEnvironment: readCiEnvironment(process.env),
+    resolveVersionSource: createPullRequestLabelVersionSourceResolver({
+        createPrLogEngine,
+        readEnvironmentVariable(name) {
+            return process.env[name];
+        },
+        readPackageInfo,
+        workingDirectory
+    })
 });
-const workingDirectory = process.cwd();
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     createPrLogEngine,
@@ -132,9 +145,7 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     readEnvironmentVariable(name) {
         return process.env[name];
     },
-    async readPackageInfo() {
-        return parsePackageInfo(await fileManager.readFile(path.join(workingDirectory, 'package.json')));
-    },
+    readPackageInfo,
     releaseGitClient: createReleaseGitClient({ repositoryFolder: workingDirectory, runGitCommand }),
     async sleep(milliseconds) {
         await delay(milliseconds);

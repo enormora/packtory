@@ -3,7 +3,11 @@ import type { PacktoryConfig } from '../../config/config.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import { collectPublicModuleUsage } from '../../package-surface/public-module-usage.ts';
 import { withFailureCapture } from '../../report/decorators.ts';
-import { configToBuildAndPublishOptions, type BuildAndPublishOptions } from '../map-config.ts';
+import {
+    configToBuildAndPublishOptions,
+    type BuildAndPublishOptions,
+    type VersionSourceResolver
+} from '../map-config.ts';
 import type {
     BuildAndPublishResult,
     DetermineVersionAndPublishOptions,
@@ -20,6 +24,7 @@ export type PublishStageDependencies = {
     readonly scheduler: PacktoryScheduler;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly repositoryFolder: string;
+    readonly resolveVersionSource?: VersionSourceResolver | undefined;
 };
 
 export type PublishStageResult = Result<readonly BuildAndPublishResult[], PartialError<BuildAndPublishResult>>;
@@ -63,7 +68,11 @@ export async function determineVersionAndPublishAll(
                 packageName,
                 validatedConfig.packageConfigs,
                 validatedConfig.packtoryConfig,
-                { existingBundles: existing, repositoryFolder: dependencies.repositoryFolder }
+                {
+                    existingBundles: existing,
+                    repositoryFolder: dependencies.repositoryFolder,
+                    resolveVersionSource: dependencies.resolveVersionSource
+                }
             );
         },
         execute: withFailureCapture(dependencies.progressBroadcaster.provider, 'publish', async (buildOptions) => {

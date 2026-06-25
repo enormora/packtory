@@ -36,6 +36,18 @@ type ProgressEventName =
 type PackageConfig = PacktoryConfig['packages'][number];
 type ChangelogSettings = NonNullable<PacktoryConfig['changelog']>;
 type Root = PackageConfig['roots'][string];
+type ConfigWithVersioning<TVersioning> = {
+    readonly registrySettings: {
+        readonly auth: { readonly type: 'bearer-token'; readonly token: 'any-token' };
+    };
+    readonly packages: readonly [
+        {
+            readonly name: 'pkg';
+            readonly roots: { readonly main: { readonly js: 'index.js' } };
+            readonly versioning: TVersioning;
+        }
+    ];
+};
 type OkVariant<TResult> = Extract<TResult, { isOk: true }>;
 type ErrVariant<TResult> = Extract<TResult, { isErr: true }>;
 type PublishOk = OkVariant<PublishAllResult>['value'];
@@ -171,21 +183,21 @@ describe('PacktoryConfig — accepted shapes', () => {
     });
 
     test('accepts provider manual versioning', () => {
-        expect<PacktoryConfig>().type.toBeAssignableFrom<{
-            readonly registrySettings: {
-                readonly auth: { readonly type: 'bearer-token'; readonly token: 'any-token' };
-            };
-            readonly packages: readonly [
-                {
-                    readonly name: 'pkg';
-                    readonly roots: { readonly main: { readonly js: 'index.js' } };
-                    readonly versioning: {
-                        readonly automatic: false;
-                        readonly provideVersion: (input: VersionProviderInput) => Promise<string>;
-                    };
-                }
-            ];
-        }>();
+        expect<PacktoryConfig>().type.toBeAssignableFrom<
+            ConfigWithVersioning<{
+                readonly automatic: false;
+                readonly provideVersion: (input: VersionProviderInput) => Promise<string>;
+            }>
+        >();
+    });
+
+    test('accepts source manual versioning', () => {
+        expect<PacktoryConfig>().type.toBeAssignableFrom<
+            ConfigWithVersioning<{
+                readonly automatic: false;
+                readonly source: 'pull-request-labels';
+            }>
+        >();
     });
 });
 

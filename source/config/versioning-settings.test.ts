@@ -23,6 +23,13 @@ suite('versioning-settings', function () {
         );
     });
 
+    test('schema accepts the source manual versioning branch', function () {
+        assert.strictEqual(
+            safeParse(versioningSettingsSchema, { automatic: false, source: 'pull-request-labels' }).success,
+            true
+        );
+    });
+
     test('schema rejects mixing automatic with manual-only fields', function () {
         assert.strictEqual(safeParse(versioningSettingsSchema, { automatic: true, version: '1' }).success, false);
     });
@@ -63,6 +70,15 @@ suite('versioning-settings', function () {
         }
         assert.deepStrictEqual(result.data, { automatic: false, provideVersion });
     });
+
+    test(
+        'validation succeeds when valid source manual versioning settings are given',
+        checkValidationSuccess({
+            schema: versioningSettingsSchema,
+            data: { automatic: false, source: 'pull-request-labels' },
+            expectedData: { automatic: false, source: 'pull-request-labels' }
+        })
+    );
 
     test(
         'validation fails when a non-object is given',
@@ -176,7 +192,16 @@ suite('versioning-settings', function () {
         'validation fails when automatic is false and both manual version sources are given',
         checkValidationFailure({
             schema: versioningSettingsSchema,
-            data: { automatic: false, version: '1', provideVersion: () => '2' },
+            data: { automatic: false, version: '1', provideVersion: () => '2', source: 'pull-request-labels' },
+            expectedMessages: ['invalid value doesn’t match expected union']
+        })
+    );
+
+    test(
+        'validation fails when automatic is false and source is unknown',
+        checkValidationFailure({
+            schema: versioningSettingsSchema,
+            data: { automatic: false, source: 'unknown' },
             expectedMessages: ['invalid value doesn’t match expected union']
         })
     );
