@@ -1,6 +1,5 @@
 import { formatPathLevelMessage, formatSharedDeclarationsMessage } from './duplicate-messages.ts';
 import type { OwnerInfo } from './file-ownership.ts';
-import { intersectAll } from './set-intersection.ts';
 
 export type MultipleOwners = readonly [OwnerInfo, OwnerInfo, ...(readonly OwnerInfo[])];
 
@@ -18,12 +17,13 @@ export function duplicateMessage(filePath: string, owners: MultipleOwners): stri
         return formatPathLevelMessage(filePath, owners);
     }
     const [firstOwner, ...remainingOwners] = owners;
-    const sharedDeclarations = intersectAll([
-        firstOwner.survivingBindings,
-        ...remainingOwners.map((owner) => {
-            return owner.survivingBindings;
-        })
-    ]);
+    const sharedDeclarations = remainingOwners.reduce<Set<string>>((declarations, owner) => {
+        return new Set(
+            Array.from(declarations).filter((declaration) => {
+                return owner.survivingBindings.has(declaration);
+            })
+        );
+    }, new Set(firstOwner.survivingBindings));
     if (sharedDeclarations.size === 0) {
         return undefined;
     }
