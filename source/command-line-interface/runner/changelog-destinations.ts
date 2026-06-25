@@ -35,6 +35,10 @@ type FileChangelogDestination = {
     readonly filePath: string;
     readonly generatedMarkdown: string;
 };
+type ChangelogOutputFilePath = {
+    readonly filePath: string;
+    readonly packageName: string | undefined;
+};
 
 type PackageChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' }>;
 type PackageChangelogOutputWithSharedPath = PackageChangelogOutput & { readonly path: string };
@@ -144,6 +148,18 @@ function collectRepositoryDestinations(
     });
 }
 
+function collectRepositoryOutputFilePaths(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    outputs: readonly ChangelogOutput[]
+): readonly ChangelogOutputFilePath[] {
+    return outputs.flatMap((output) => {
+        if (output.kind !== 'repository-file') {
+            return [];
+        }
+        return [{ filePath: resolveRepositoryPath(deps, output.path), packageName: undefined }];
+    });
+}
+
 function collectPackageDestinationsWithSharedPath(
     deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
     config: ChangelogConfig,
@@ -160,6 +176,19 @@ function collectPackageDestinationsWithSharedPath(
     });
 }
 
+function collectPackageOutputFilePathsWithSharedPath(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    config: ChangelogConfig,
+    output: PackageChangelogOutputWithSharedPath
+): readonly ChangelogOutputFilePath[] {
+    return config.packages.map((packageConfig) => {
+        return {
+            filePath: resolvePackageFilePath(deps, config, packageConfig, output.path),
+            packageName: packageConfig.name
+        };
+    });
+}
+
 function collectPackageDestinationsWithExplicitPaths(
     deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
     output: PackageChangelogOutputWithExplicitPaths,
@@ -167,6 +196,15 @@ function collectPackageDestinationsWithExplicitPaths(
 ): readonly FileChangelogDestination[] {
     return Array.from(changelog.packageMarkdownByName, ([packageName, generatedMarkdown]) => {
         return { filePath: resolveExplicitPackageFilePath(deps, output, packageName), generatedMarkdown };
+    });
+}
+
+function collectPackageOutputFilePathsWithExplicitPaths(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    output: PackageChangelogOutputWithExplicitPaths
+): readonly ChangelogOutputFilePath[] {
+    return Object.entries(output.paths).map(([packageName, outputPath]) => {
+        return { filePath: resolveRepositoryPath(deps, outputPath), packageName };
     });
 }
 
@@ -185,6 +223,36 @@ function collectPackageDestinations(
         }
         return collectPackageDestinationsWithExplicitPaths(deps, output, changelog);
     });
+}
+
+function collectPackageOutputFilePaths(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    config: ChangelogConfig,
+    outputs: readonly ChangelogOutput[]
+): readonly ChangelogOutputFilePath[] {
+    return outputs.flatMap((output) => {
+        if (output.kind !== 'package-file') {
+            return [];
+        }
+        if (hasSharedPackagePath(output)) {
+            return collectPackageOutputFilePathsWithSharedPath(deps, config, output);
+        }
+        return collectPackageOutputFilePathsWithExplicitPaths(deps, output);
+    });
+}
+
+export function collectChangelogOutputFilePaths(
+    deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
+    config: ChangelogConfig
+): readonly ChangelogOutputFilePath[] {
+    const outputs = config.changelog?.outputs;
+    if (outputs === undefined) {
+        return [];
+    }
+    return [
+        ...collectRepositoryOutputFilePaths(deps, outputs),
+        ...collectPackageOutputFilePaths(deps, config, outputs)
+    ];
 }
 
 function isMissingFileError(error: unknown): boolean {

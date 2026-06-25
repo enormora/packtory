@@ -29,6 +29,30 @@ function createGitClientWithRunner(run: ReleaseGitCommandRunner): {
     };
 }
 
+function expectedPushHeadToBranchCalls(leaseHead: string): readonly GitCall[] {
+    return [
+        {
+            command: 'git',
+            args: ['-C', '/repo', 'fetch', 'origin', 'refs/heads/release/packtory:refs/remotes/origin/release/packtory']
+        },
+        {
+            command: 'git',
+            args: ['-C', '/repo', 'rev-parse', '--verify', 'refs/remotes/origin/release/packtory']
+        },
+        {
+            command: 'git',
+            args: [
+                '-C',
+                '/repo',
+                'push',
+                `--force-with-lease=refs/heads/release/packtory:${leaseHead}`,
+                'origin',
+                'HEAD:refs/heads/release/packtory'
+            ]
+        }
+    ];
+}
+
 suite('release-git-client', function () {
     test('ensureClean succeeds when git status is empty', async function () {
         const { calls, client } = createGitClientWithRunner(async () => {
@@ -142,5 +166,44 @@ suite('release-git-client', function () {
             command: 'git',
             args: ['-C', '/repo', 'push', '--follow-tags']
         });
+    });
+
+    test('deleteRemoteBranch ignores missing remote branches', async function () {
+        const { calls, client } = createGitClientWithRunner(async () => {
+            throw new Error('missing branch');
+        });
+
+        await client.deleteRemoteBranch('release/packtory');
+
+        assert.deepStrictEqual(calls[0], {
+            command: 'git',
+            args: ['-C', '/repo', 'push', 'origin', '--delete', 'release/packtory']
+        });
+    });
+
+    test('pushHeadToBranch pushes with a lease for an existing remote branch', async function () {
+        const { calls, client } = createGitClientWithRunner(async (_command, args) => {
+            if (args.includes('rev-parse')) {
+                return { stdout: 'remote-head\n', stderr: '' };
+            }
+            return { stdout: '', stderr: '' };
+        });
+
+        await client.pushHeadToBranch('release/packtory');
+
+        assert.deepStrictEqual(calls, expectedPushHeadToBranchCalls('remote-head'));
+    });
+
+    test('pushHeadToBranch pushes with an empty lease for a new remote branch', async function () {
+        const { calls, client } = createGitClientWithRunner(async (_command, args) => {
+            if (args.includes('rev-parse')) {
+                throw new Error('missing branch');
+            }
+            return { stdout: '', stderr: '' };
+        });
+
+        await client.pushHeadToBranch('release/packtory');
+
+        assert.deepStrictEqual(calls, expectedPushHeadToBranchCalls(''));
     });
 });

@@ -22,6 +22,7 @@ packtory <command> [options]
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
 - **release:** Prints the next release plan by default, or runs one explicit release workflow when action flags and `--no-dry-run` are set.
+- **release-pr:** Maintains, validates, and authorizes a reviewed release PR flow for generated changelog releases.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
 - **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection — `pack` never talks to a registry.
 
@@ -38,6 +39,10 @@ packtory <command> [options]
 - **release --tag:** Creates one annotated tag per released package, named `{packageName}@{version}`.
 - **release --push:** Runs `git push --follow-tags`. Requires `--commit` or `--tag`.
 - **release --github-release:** Creates one GitHub Release per package tag. Requires `--tag --push`.
+- **release-pr maintain --no-dry-run:** Writes and commits configured changelogs, pushes the configured release branch, and creates or updates the release PR.
+- **release-pr validate:** Validates the current GitHub `pull_request` or `merge_group` event against the release PR policy.
+- **release-pr authorize-publish:** Writes `should_publish` and publish target outputs for a workflow that should publish only after a valid release PR merge.
+- **release-pr authorize-publish --release-pull-request &lt;number&gt;:** Authorizes a manual retry from a merged release PR.
 - **pack &lt;package&gt; --format &lt;zip|tar|folder&gt; --out &lt;path&gt;:** Selects which package from the configuration to build and where to write it. `--format` and `--out` are required.
 - **pack --version &lt;version&gt;:** Stamps the produced manifest with the given version. Defaults to `0.0.0` when omitted, since `pack` is decoupled from the registry-driven automatic versioning used by `publish`.
 - **pack --vendor-dependencies:** Resolves every external (and bundle) dependency from the local `node_modules` and materializes them next to the package files inside the artifact. Use this for self-contained deployments where the runtime cannot run `npm install` (e.g. AWS Lambda zips). Without the flag, dependencies are recorded in the generated `package.json` only.
@@ -94,6 +99,17 @@ packtory <command> [options]
 - Existing GitHub Releases for verified package tags are accepted and their notes are not rewritten.
 - Packtory uses inherited Git configuration, environment, and credentials. In CI, configure commit identity with standard variables such as `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL`, and configure push credentials outside Packtory.
 - GitHub Release creation reads `GH_TOKEN` first, then `GITHUB_TOKEN`.
+
+**Release PR behavior:**
+
+- `release-pr maintain --no-dry-run` runs the changelog commit part of `packtory release`, pushes the result to `releasePullRequest.branch`, creates or updates the release PR, and replaces its labels with `releasePullRequest.label`.
+- If release planning produces no changelog commit, `maintain` closes the open release PR for that branch and deletes the remote release branch.
+- Release PR settings live in top-level `releasePullRequest`. Defaults are `branch: 'release/packtory'`, `label: 'release'`, `title: 'Prepare release'`, `commitSubject: 'Release packages'`, `defaultBranch: 'main'`, and `automationAuthor: 'github-actions[bot]'`.
+- The release PR policy derives allowed files from `changelog.outputs`. Repository and package changelog files are allowed. GitHub Release outputs are ignored because they do not write repository files.
+- `release-pr validate` accepts normal PRs without a release label. Release-labeled PRs must match the configured branch, title, author, commit subject, base head, and allowed files. Merge groups must not batch release PRs with other PRs.
+- `release-pr authorize-publish` writes GitHub step outputs when `$GITHUB_OUTPUT` exists, otherwise it prints them. Normal commits get `should_publish=false`. A merged valid release PR gets `should_publish=true`, `publish_commit_sha`, `release_commit_sha`, and `release_pull_request_number`.
+- Set `releasePullRequest.githubActionsCi` only for the GitHub Actions `GITHUB_TOKEN` workaround. With `trigger: 'workflow-dispatch'`, `workflowFile`, and `requiredStatusContexts`, `maintain` dispatches CI for the release branch, waits for the exact release commit run, and mirrors the configured job names as commit statuses.
+- Leave `githubActionsCi` unset when the release branch push already triggers normal CI, such as with a GitHub App token, PAT, human push, external automation, or non-GitHub CI.
 
 **Pack behavior:**
 

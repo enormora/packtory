@@ -1,5 +1,16 @@
-/* eslint-disable import/max-dependencies -- the CLI runner wires six subcommands plus shared dependencies */
-import { binary, command, flag, oneOf, option, positional, runSafely, string, subcommands } from 'cmd-ts';
+/* eslint-disable import/max-dependencies -- the CLI runner wires seven subcommands plus shared dependencies */
+import {
+    binary,
+    command,
+    flag,
+    oneOf,
+    option,
+    optional as optionalType,
+    positional,
+    runSafely,
+    string,
+    subcommands
+} from 'cmd-ts';
 import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
@@ -16,6 +27,8 @@ import { runPublishHandler } from './publish-handler.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
 import type { ReleaseGitClient } from './release-git-client.ts';
 import { runReleaseHandler } from './release-handler.ts';
+import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
+import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
 
 export type CommandLineInterfaceRunnerDependencies = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
@@ -24,6 +37,11 @@ export type CommandLineInterfaceRunnerDependencies = {
         readonly repo: string;
         readonly token: string;
     }) => GitHubReleaseClient;
+    readonly createReleasePullRequestGitHubClient: (context: {
+        readonly owner: string;
+        readonly repo: string;
+        readonly token: string;
+    }) => ReleasePullRequestGitHubClient;
     readonly currentDate: () => Date;
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcastConsumer;
@@ -33,9 +51,10 @@ export type CommandLineInterfaceRunnerDependencies = {
     readonly pageOutput: (content: string) => Promise<void>;
     readonly openFile: (filePath: string) => Promise<boolean>;
     readonly createTemporaryFilePath: () => string;
-    readonly readEnvironmentVariable: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
+    readonly readEnvironmentVariable: (name: string) => string | undefined;
     readonly readPackageInfo: () => Promise<Record<string, unknown>>;
     readonly releaseGitClient: ReleaseGitClient;
+    readonly sleep: (milliseconds: number) => Promise<void>;
     readonly workingDirectory: string;
     log: (message: string) => void;
 };
@@ -48,8 +67,12 @@ const publishCommandName = 'publish';
 const previewCommandName = 'preview';
 const releaseDiffCommandName = 'release-diff';
 const releaseCommandName = 'release';
+const releasePullRequestCommandName = 'release-pr';
+const authorizePublishReleasePullRequestCommandName = 'authorize-publish';
 const changelogCommandName = 'changelog';
+const maintainReleasePullRequestCommandName = 'maintain';
 const packCommandName = 'pack';
+const validateReleasePullRequestCommandName = 'validate';
 const defaultPackVersion = '0.0.0';
 
 export function createCommandLineInterfaceRunner(
@@ -66,11 +89,13 @@ export function createCommandLineInterfaceRunner(
         openFile,
         createTemporaryFilePath,
         createGitHubReleaseClient,
+        createReleasePullRequestGitHubClient,
         createPrLogEngine,
         currentDate,
         readEnvironmentVariable,
         readPackageInfo,
         releaseGitClient,
+        sleep,
         workingDirectory
     } = dependencies;
     let exitCode = 0;
@@ -157,6 +182,100 @@ export function createCommandLineInterfaceRunner(
                         gitClient: releaseGitClient,
                         flags: { writeChangelog, commit, publish, tag, push, githubRelease, noDryRun }
                     });
+                }
+            }),
+            [releasePullRequestCommandName]: subcommands({
+                name: releasePullRequestCommandName,
+                cmds: {
+                    [maintainReleasePullRequestCommandName]: command({
+                        name: maintainReleasePullRequestCommandName,
+                        description: 'Creates or updates the generated release PR.',
+                        args: {
+                            noDryRun: flag({ long: 'no-dry-run' })
+                        },
+                        async handler({ noDryRun }) {
+                            exitCode = await runReleasePullRequestHandler({
+                                log,
+                                packtory,
+                                spinnerRenderer,
+                                configLoader,
+                                fileManager,
+                                createPrLogEngine,
+                                createGitHubReleaseClient,
+                                createReleasePullRequestGitHubClient,
+                                currentDate,
+                                readEnvironmentVariable,
+                                readPackageInfo,
+                                workingDirectory,
+                                gitClient: releaseGitClient,
+                                sleep,
+                                flags: {
+                                    command: maintainReleasePullRequestCommandName,
+                                    noDryRun,
+                                    releasePullRequestNumber: undefined
+                                }
+                            });
+                        }
+                    }),
+                    [validateReleasePullRequestCommandName]: command({
+                        name: validateReleasePullRequestCommandName,
+                        description: 'Validates the release PR policy for the current GitHub event.',
+                        args: {},
+                        async handler() {
+                            exitCode = await runReleasePullRequestHandler({
+                                log,
+                                packtory,
+                                spinnerRenderer,
+                                configLoader,
+                                fileManager,
+                                createPrLogEngine,
+                                createGitHubReleaseClient,
+                                createReleasePullRequestGitHubClient,
+                                currentDate,
+                                readEnvironmentVariable,
+                                readPackageInfo,
+                                workingDirectory,
+                                gitClient: releaseGitClient,
+                                sleep,
+                                flags: {
+                                    command: validateReleasePullRequestCommandName,
+                                    releasePullRequestNumber: undefined
+                                }
+                            });
+                        }
+                    }),
+                    [authorizePublishReleasePullRequestCommandName]: command({
+                        name: authorizePublishReleasePullRequestCommandName,
+                        description: 'Authorizes publishing from a merged release PR.',
+                        args: {
+                            releasePullRequestNumber: option({
+                                long: 'release-pull-request',
+                                type: optionalType(string)
+                            })
+                        },
+                        async handler({ releasePullRequestNumber }) {
+                            exitCode = await runReleasePullRequestHandler({
+                                log,
+                                packtory,
+                                spinnerRenderer,
+                                configLoader,
+                                fileManager,
+                                createPrLogEngine,
+                                createGitHubReleaseClient,
+                                createReleasePullRequestGitHubClient,
+                                currentDate,
+                                readEnvironmentVariable,
+                                readPackageInfo,
+                                workingDirectory,
+                                gitClient: releaseGitClient,
+                                sleep,
+                                flags: {
+                                    command: authorizePublishReleasePullRequestCommandName,
+                                    releasePullRequestNumber
+                                }
+                            });
+                        }
+                    })
                 }
             }),
             [changelogCommandName]: command({

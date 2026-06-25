@@ -235,11 +235,17 @@ function createReleaseHandlerDeps(scenario: Scenario = {}): ReleaseHandlerDeps {
                 order.push('head');
                 return 'new-head';
             },
+            async deleteRemoteBranch() {
+                order.push('delete-branch');
+            },
             async ensureClean() {
                 order.push('clean');
             },
             async ensureTag(tagName) {
                 order.push(`tag:${tagName}`);
+            },
+            async pushHeadToBranch() {
+                order.push('push-branch');
             },
             async pushFollowTags() {
                 order.push('push');

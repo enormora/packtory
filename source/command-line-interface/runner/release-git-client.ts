@@ -8,8 +8,10 @@ type ReleaseGitCommandRunner = (
 export type ReleaseGitClient = {
     readonly commit: (filePaths: readonly string[], message: string) => Promise<void>;
     readonly currentHead: () => Promise<string>;
+    readonly deleteRemoteBranch: (branch: string) => Promise<void>;
     readonly ensureClean: () => Promise<void>;
     readonly ensureTag: (tagName: string, message: string, targetHead: string) => Promise<void>;
+    readonly pushHeadToBranch: (branch: string) => Promise<void>;
     readonly pushFollowTags: () => Promise<void>;
 };
 
@@ -53,6 +55,10 @@ export function createReleaseGitClient(deps: ReleaseGitClientDependencies): Rele
             return head;
         },
 
+        async deleteRemoteBranch(branch) {
+            await readGitOutputResult(deps, ['push', 'origin', '--delete', branch]);
+        },
+
         async ensureClean() {
             const status = await runGit(deps, ['status', '--porcelain=v1']);
             if (status.length > 0) {
@@ -71,6 +77,20 @@ export function createReleaseGitClient(deps: ReleaseGitClientDependencies): Rele
                 return;
             }
             throw new Error(`Tag "${tagName}" already exists at ${existingTag.value}, expected ${targetHead}`);
+        },
+
+        async pushHeadToBranch(branch) {
+            await readGitOutputResult(deps, ['fetch', 'origin', `refs/heads/${branch}:refs/remotes/origin/${branch}`]);
+            const remoteBranch = await readGitOutputResult(deps, [
+                'rev-parse',
+                '--verify',
+                `refs/remotes/origin/${branch}`
+            ]);
+            const lease =
+                remoteBranch.kind === 'found'
+                    ? `--force-with-lease=refs/heads/${branch}:${remoteBranch.value}`
+                    : `--force-with-lease=refs/heads/${branch}:`;
+            await runGit(deps, ['push', lease, 'origin', `HEAD:refs/heads/${branch}`]);
         },
 
         async pushFollowTags() {
