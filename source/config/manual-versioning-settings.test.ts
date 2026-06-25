@@ -21,6 +21,13 @@ suite('manual-versioning-settings', function () {
         );
     });
 
+    test('manual versioning schema accepts source versioning', function () {
+        assert.strictEqual(
+            safeParse(manualVersioningSettingsSchema, { automatic: false, source: 'pull-request-labels' }).success,
+            true
+        );
+    });
+
     test('manual versioning schema rejects automatic true', function () {
         assert.strictEqual(
             safeParse(manualVersioningSettingsSchema, { automatic: true, version: '1.0.0' }).success,
@@ -47,6 +54,15 @@ suite('manual-versioning-settings', function () {
     );
 
     test(
+        'manual versioning: validation succeeds with source versioning',
+        checkValidationSuccess({
+            schema: manualVersioningSettingsSchema,
+            data: { automatic: false, source: 'pull-request-labels' },
+            expectedData: { automatic: false, source: 'pull-request-labels' }
+        })
+    );
+
+    test(
         'manual versioning: validation fails when provideVersion is not a function',
         checkValidationFailure({
             schema: manualVersioningSettingsSchema,
@@ -65,10 +81,10 @@ suite('manual-versioning-settings', function () {
     );
 
     test(
-        'manual versioning: validation fails when both version and provideVersion are given',
+        'manual versioning: validation fails when multiple manual version choices are given',
         checkValidationFailure({
             schema: manualVersioningSettingsSchema,
-            data: { automatic: false, version: '1.0.0', provideVersion },
+            data: { automatic: false, version: '1.0.0', provideVersion, source: 'pull-request-labels' },
             expectedMessages: ['invalid value doesn’t match expected union']
         })
     );

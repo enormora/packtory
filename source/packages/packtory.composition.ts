@@ -29,7 +29,8 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
             versionManager: parts.versionManager,
             packEmitter: parts.packEmitter,
             vendorMaterializer: parts.vendorMaterializer,
-            readCurrentGitHead: parts.readCurrentGitHead
+            readCurrentGitHead: parts.readCurrentGitHead,
+            resolveVersionSource: options.resolveVersionSource
         }),
         progressBroadcaster: parts.progressBroadcaster
     };

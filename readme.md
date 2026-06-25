@@ -154,8 +154,10 @@ Packtory supports two versioning modes:
 2. **Manual Versioning:**
     - Provide the exact version number in the configuration with `{ automatic: false, version: '1.2.3' }`.
     - Or provide an async callback with `{ automatic: false, provideVersion }`.
+    - Or derive the exact version with a named source, such as `{ automatic: false, source: 'pull-request-labels' }`.
     - `provideVersion(input)` runs after Packtory has calculated the package attribution files. The input contains `packageName`, `currentVersion`, `targetSourceFiles`, `ignoredAttributionPaths`, `registrySettings`, and `stage`.
     - The returned version is validated like a static manual version. Returning `currentVersion` keeps the package on the current registry version when no release is needed.
+    - Version sources are still manual versioning from Packtory's perspective because the source chooses the exact version. Packtory's automatic mode is reserved for artifact comparison plus patch bumps.
 
 ```javascript
 versioning: {
@@ -168,6 +170,17 @@ versioning: {
     }
 }
 ```
+
+For pull request label based numbering, use the built-in source:
+
+```javascript
+versioning: {
+    automatic: false,
+    source: 'pull-request-labels'
+}
+```
+
+This source uses the same pull request attribution files as changelog generation. It inspects merged pull request labels since the package's current version tag, bumps `major` for `breaking`, `minor` for `feature`, and `patch` for other configured changelog labels. If no attributed pull request has a matching label, it returns the current version.
 
 ### Pack (on-disk artifacts)
 

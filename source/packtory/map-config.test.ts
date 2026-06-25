@@ -27,6 +27,7 @@ function runMapConfig(
         readonly packageName?: string;
         readonly extraConfig?: Partial<PacktoryConfigInput>;
         readonly extraPackages?: readonly PackageConfigInput[];
+        readonly resolveVersionSource?: ConfigArgs[3]['resolveVersionSource'];
     } = {}
 ): ReturnType<typeof configToBuildAndPublishOptions> {
     const packageName = options.packageName ?? 'foo';
@@ -48,7 +49,8 @@ function runMapConfig(
         packages: [packageWithFallback, ...additionalPackages]
     } as unknown as PacktoryConfigInput;
     return configToBuildAndPublishOptions(packageName, { [packageName]: packageWithFallback }, baseConfig, {
-        existingBundles: options.bundleDependencies ?? []
+        existingBundles: options.bundleDependencies ?? [],
+        resolveVersionSource: options.resolveVersionSource
     });
 }
 
@@ -417,6 +419,44 @@ suite('map-config', function () {
         );
 
         assert.deepStrictEqual(result.versioning, { automatic: false, version: '2.3.4' });
+    });
+
+    test('resolves source package versioning settings', async function () {
+        const provideVersion = async () => {
+            return '2.3.4';
+        };
+        const result = runMapConfig(
+            { ...fooPackageConfigFactory.build(), versioning: { automatic: false, source: 'pull-request-labels' } },
+            {
+                extraPackages: [],
+                resolveVersionSource({ packageName, source }) {
+                    assert.strictEqual(packageName, 'foo');
+                    assert.deepStrictEqual(source, { automatic: false, source: 'pull-request-labels' });
+                    return provideVersion;
+                }
+            }
+        );
+
+        assert.deepStrictEqual(result.versioning, { automatic: false, provideVersion });
+        assert.strictEqual(
+            await result.versioning.provideVersion({
+                packageName: 'foo',
+                currentVersion: undefined,
+                targetSourceFiles: [],
+                ignoredAttributionPaths: [],
+                registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+                stage: false
+            }),
+            '2.3.4'
+        );
+    });
+
+    test('throws when source package versioning has no resolver', function () {
+        runMapConfigExpectingError(
+            { ...fooPackageConfigFactory.build(), versioning: { automatic: false, source: 'pull-request-labels' } },
+            'Manual version source "pull-request-labels" is not available',
+            { extraPackages: [] }
+        );
     });
 
     test('merges additionalPackageJsonAttributes from per package and common settings', function () {

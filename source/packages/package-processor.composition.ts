@@ -20,6 +20,7 @@ import { createTypescriptProjectAnalyzer } from '../dependency-scanner/typescrip
 import { createFileManager, type FileManager } from '../file-manager/file-manager.ts';
 import { createBundleLinker } from '../linker/linker.ts';
 import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
+import type { VersionSourceResolver } from '../packtory/map-config.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { withStageTimings } from '../report/decorators.ts';
 import { createResourceResolver, type ResourceResolver } from '../resource-resolver/resource-resolver.ts';
@@ -73,6 +74,7 @@ export type PackageProcessorCompositionOptions = {
     readonly promptForOneTimePassword?: (() => Promise<string | undefined>) | undefined;
     readonly ciEnvironment: CiEnvironment;
     readonly repositoryFolder?: string | undefined;
+    readonly resolveVersionSource?: VersionSourceResolver | undefined;
 };
 
 function getEnvironmentVariable(variableName: string): string | undefined {

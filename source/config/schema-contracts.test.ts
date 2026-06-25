@@ -34,7 +34,7 @@ suite('schema-contracts', function () {
         });
     }).timeout(probeTestTimeoutMs);
 
-    test('versioning schema keeps the automatic, static manual, and provider manual branches', async function () {
+    test('versioning schema keeps the automatic and manual branches', async function () {
         const result = await runNodeProbe(`
             import { safeParse } from '@schema-hub/zod-error-formatter';
             import { versioningSettingsSchema } from './source/config/versioning-settings.ts';
@@ -62,6 +62,10 @@ suite('schema-contracts', function () {
                         return '1.0.0';
                     }
                 }).success,
+                sourceSuccess: safeParse(versioningSettingsSchema, {
+                    automatic: false,
+                    source: 'pull-request-labels'
+                }).success,
                 invalidAutomaticBranchSuccess: safeParse(versioningSettingsSchema, {
                     automatic: true,
                     version: '1.0.0'
@@ -79,12 +83,14 @@ suite('schema-contracts', function () {
                 ['automatic', 'minimumVersion'],
                 [
                     ['automatic', 'version'],
-                    ['automatic', 'provideVersion']
+                    ['automatic', 'provideVersion'],
+                    ['automatic', 'source']
                 ]
             ],
             automaticSuccess: true,
             manualSuccess: true,
             providerSuccess: true,
+            sourceSuccess: true,
             invalidAutomaticBranchSuccess: false,
             invalidManualBranchSuccess: false
         });

@@ -51,6 +51,7 @@ import {
 } from './packtory-results.ts';
 import type { PackageProcessor } from './package-processor.ts';
 import type { Scheduler as PacktoryScheduler } from './scheduler.ts';
+import type { VersionSourceResolver } from './map-config.ts';
 
 export type BuildAndPublishAllOptions = BuildAndPublishAllOptionsBase;
 export type ResolveAndLinkAllOptions = ResolveAndLinkAllOptionsBase;
@@ -89,6 +90,7 @@ type PacktoryDependencies = {
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;
     readonly readCurrentGitHead: CurrentGitHeadReader;
+    readonly resolveVersionSource?: VersionSourceResolver | undefined;
 };
 
 type ValidatedRunners = {

@@ -11,7 +11,10 @@ export type VersionProviderInput = {
     readonly stage: boolean;
 };
 
-type VersionProvider = (input: VersionProviderInput) => Promise<string> | string;
+export type VersionProvider = (input: VersionProviderInput) => Promise<string> | string;
+const pullRequestLabelsVersionSource = 'pull-request-labels';
+
+type VersionSource = typeof pullRequestLabelsVersionSource;
 
 type StaticManualVersioningSettings = {
     readonly automatic: false;
@@ -21,6 +24,11 @@ type StaticManualVersioningSettings = {
 type ProviderManualVersioningSettings = {
     readonly automatic: false;
     readonly provideVersion: VersionProvider;
+};
+
+export type SourceManualVersioningSettings = {
+    readonly automatic: false;
+    readonly source: VersionSource;
 };
 
 const staticManualVersioningSettingsSchema = z.readonly(
@@ -39,11 +47,25 @@ const providerManualVersioningSettingsSchema = z.readonly(
     })
 );
 
-export const manualVersioningSettingsSchema = z.readonly(
-    z.union([staticManualVersioningSettingsSchema, providerManualVersioningSettingsSchema])
+const sourceManualVersioningSettingsSchema = z.readonly(
+    z.strictObject({
+        automatic: z.literal(false),
+        source: z.literal(pullRequestLabelsVersionSource)
+    })
 );
 
-export type ManualVersioningSettings = ProviderManualVersioningSettings | StaticManualVersioningSettings;
+export const manualVersioningSettingsSchema = z.readonly(
+    z.union([
+        staticManualVersioningSettingsSchema,
+        providerManualVersioningSettingsSchema,
+        sourceManualVersioningSettingsSchema
+    ])
+);
+
+export type ManualVersioningSettings =
+    | ProviderManualVersioningSettings
+    | SourceManualVersioningSettings
+    | StaticManualVersioningSettings;
 
 export function validateManualVersion(version: unknown): string {
     const result = z.safeParse(nonEmptyStringSchema, version);
