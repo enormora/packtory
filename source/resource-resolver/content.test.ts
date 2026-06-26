@@ -32,6 +32,48 @@ suite('content', function () {
         ]);
     });
 
+    test('rejects local dependency paths outside sourcesFolder', function () {
+        assert.throws(
+            () => {
+                combineAllBundleFiles(
+                    '/src',
+                    [
+                        {
+                            filePath: '/secret.js',
+                            directDependencies: new Set(),
+                            project: 'project' as never
+                        }
+                    ],
+                    []
+                );
+            },
+            {
+                message: 'Local file "/secret.js" must resolve inside sourcesFolder "/src"'
+            }
+        );
+    });
+
+    test('rejects local dependency paths that resolve to sourcesFolder itself', function () {
+        assert.throws(
+            () => {
+                combineAllBundleFiles(
+                    '/src',
+                    [
+                        {
+                            filePath: '/src',
+                            directDependencies: new Set(),
+                            project: 'project' as never
+                        }
+                    ],
+                    []
+                );
+            },
+            {
+                message: 'Local file "/src" must resolve inside sourcesFolder "/src"'
+            }
+        );
+    });
+
     test('pins generated manifest resources to package.json at package root', function () {
         const result = combineAllBundleFiles(
             '/src',
