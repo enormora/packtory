@@ -248,11 +248,11 @@ suite('package-metadata-fetcher', function () {
         assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
     });
 
-    test('fetchPackageTarball rejects a tarball URL whose host differs from the configured registry', async function () {
+    test('fetchPackageTarball rejects a tarball URL whose origin differs from the configured registry', async function () {
         const buffer = fake.resolves(Buffer.from('tarball-bytes'));
         const expectedMessage =
-            'Refusing to download tarball from "attacker.example" because it differs from the configured ' +
-            'registry host "registry.npmjs.org". A tampered registry response could redirect the request and ' +
+            'Refusing to download tarball from "https://attacker.example" because it differs from the configured ' +
+            'registry origin "https://registry.npmjs.org". A tampered registry response could redirect the request and ' +
             'exfiltrate publish credentials.';
 
         try {
@@ -268,7 +268,7 @@ suite('package-metadata-fetcher', function () {
         assert.strictEqual(buffer.callCount, 0);
     });
 
-    test('fetchPackageTarball accepts a tarball URL whose host matches a custom configured registry', async function () {
+    test('fetchPackageTarball accepts a tarball URL whose origin matches a custom configured registry', async function () {
         const customSettings: RegistrySettings = {
             registryUrl: 'https://registry.example.test/',
             auth: { type: 'bearer-token', token: 'tok' }
