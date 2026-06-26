@@ -29,7 +29,7 @@ type Overrides = {
 };
 
 function dependencyScannerFactory(overrides: Overrides = {}): DependencyScanner {
-    const { analyzeProject = createFakeAnalyzeProject(), locate = fake.resolves(null) } = overrides;
+    const { analyzeProject = createFakeAnalyzeProject(), locate = fake.resolves(Maybe.nothing()) } = overrides;
     const fakeDependencies = {
         sourceMapFileLocator: { locate },
         typescriptProjectAnalyzer: { analyzeProject }
@@ -143,8 +143,8 @@ suite('scanner', function () {
         });
 
         assert.strictEqual(locate.callCount, 2);
-        assert.deepStrictEqual(locate.firstCall.args, ['/dir/entry.js']);
-        assert.deepStrictEqual(locate.secondCall.args, ['/dir/foo.js']);
+        assert.deepStrictEqual(locate.firstCall.args, ['/dir/entry.js', '/dir']);
+        assert.deepStrictEqual(locate.secondCall.args, ['/dir/foo.js', '/dir']);
     });
 
     async function scanWithSourceMapLocate(locate: SinonSpy): Promise<DependencyFiles> {

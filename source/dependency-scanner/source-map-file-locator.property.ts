@@ -21,7 +21,7 @@ suite('source-map-file-locator', function () {
                     return !/^\/\/# sourceMappingURL=(?<url>.+)$/m.test(value);
                 }),
                 async (fileContent) => {
-                    const result = await createLocator(fileContent, true).locate('/src/file.js');
+                    const result = await createLocator(fileContent, true).locate('/src/file.js', '/src');
                     assert.deepStrictEqual(result, Maybe.nothing());
                 }
             )
@@ -31,7 +31,10 @@ suite('source-map-file-locator', function () {
     test('locate() returns Maybe.nothing() when the referenced source-map file is unreadable', async function () {
         await fc.assert(
             fc.asyncProperty(fc.stringMatching(/^[a-z][\da-z-]{0,7}\.map$/), async (mapFileName) => {
-                const result = await createLocator(`//# sourceMappingURL=${mapFileName}`, false).locate('/src/file.js');
+                const result = await createLocator(`//# sourceMappingURL=${mapFileName}`, false).locate(
+                    '/src/file.js',
+                    '/src'
+                );
                 assert.deepStrictEqual(result, Maybe.nothing());
             })
         );
@@ -40,7 +43,10 @@ suite('source-map-file-locator', function () {
     test('locate() returns Maybe.just() when the referenced source-map file is readable', async function () {
         await fc.assert(
             fc.asyncProperty(fc.stringMatching(/^[a-z][\da-z-]{0,7}\.map$/), async (mapFileName) => {
-                const result = await createLocator(`//# sourceMappingURL=${mapFileName}`, true).locate('/src/file.js');
+                const result = await createLocator(`//# sourceMappingURL=${mapFileName}`, true).locate(
+                    '/src/file.js',
+                    '/src'
+                );
                 assert.deepStrictEqual(result, Maybe.just(`/src/${mapFileName}`));
             })
         );
