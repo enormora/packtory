@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
-import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
+import { validateVendorEntrySource, type VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 
 async function writeFileDescriptions(
     fileManager: FileManager,
@@ -22,6 +22,7 @@ async function copyVendorEntries(
 ): Promise<void> {
     for (const vendorEntry of vendorEntries) {
         const targetFilePath = path.join(targetFolder, vendorEntry.targetRelativePath);
+        await validateVendorEntrySource(fileManager, vendorEntry);
         await fileManager.copyFileBytes(vendorEntry.sourceAbsolutePath, targetFilePath);
         await fileManager.setExecutable(targetFilePath, vendorEntry.isExecutable);
     }

@@ -1,7 +1,7 @@
 import { zip as fflateZip } from 'fflate';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
-import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
+import { validateVendorEntrySource, type VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 
 type ZipEntryOptions = {
     readonly os: number;
@@ -20,7 +20,7 @@ export type ZipBuilder = {
 
 type ZipBuilderDependencies = {
     readonly zip?: AsyncZipFunction;
-    readonly fileManager?: Pick<FileManager, 'readFileBytes'>;
+    readonly fileManager?: Pick<FileManager, 'getRealPath' | 'readFileBytes'>;
 };
 
 const unixOperatingSystem = 3;
@@ -71,7 +71,7 @@ function buildFileEntry(payload: Uint8Array, isExecutable: boolean): [Uint8Array
 async function toFileMap(
     fileDescriptions: readonly FileDescription[],
     vendorEntries: readonly VendorEntry[],
-    readFileBytes: (filePath: string) => Promise<Buffer>
+    fileManager: Pick<FileManager, 'getRealPath' | 'readFileBytes'>
 ): Promise<ZippableFileMap> {
     const fileMap: ZippableFileMap = {};
     for (const fileDescription of fileDescriptions) {
@@ -81,7 +81,8 @@ async function toFileMap(
         );
     }
     for (const vendorEntry of vendorEntries) {
-        const payload = await readFileBytes(vendorEntry.sourceAbsolutePath);
+        await validateVendorEntrySource(fileManager, vendorEntry);
+        const payload = await fileManager.readFileBytes(vendorEntry.sourceAbsolutePath);
         fileMap[vendorEntry.targetRelativePath] = buildFileEntry(payload, vendorEntry.isExecutable);
     }
     return fileMap;
@@ -89,6 +90,9 @@ async function toFileMap(
 
 export function createZipBuilder(dependencies: ZipBuilderDependencies = {}): ZipBuilder {
     const fileManager = dependencies.fileManager ?? {
+        async getRealPath(filePath: string): Promise<string> {
+            return filePath;
+        },
         async readFileBytes(): Promise<Buffer> {
             throw new Error('readFileBytes is required to materialize vendor entries into the zip');
         }
@@ -97,9 +101,7 @@ export function createZipBuilder(dependencies: ZipBuilderDependencies = {}): Zip
 
     return {
         async build(fileDescriptions, vendorEntries = []) {
-            const fileMap = await toFileMap(fileDescriptions, vendorEntries, async (filePath) => {
-                return fileManager.readFileBytes(filePath);
-            });
+            const fileMap = await toFileMap(fileDescriptions, vendorEntries, fileManager);
             const data = await new Promise<Uint8Array>((resolve, reject) => {
                 zip(fileMap, {}, (error, zippedData) => {
                     if (error === null || error === undefined) {

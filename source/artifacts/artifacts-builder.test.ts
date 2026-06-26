@@ -284,6 +284,7 @@ suite('artifacts-builder', function () {
             [
                 {
                     sourceAbsolutePath: '/host/node_modules/pkg/index.js',
+                    sourcePackageRootPath: '/host/node_modules/pkg',
                     targetRelativePath: 'node_modules/pkg/index.js',
                     isExecutable: false
                 }
@@ -295,6 +296,7 @@ suite('artifacts-builder', function () {
         assert.deepStrictEqual(vendorArgs, [
             {
                 sourceAbsolutePath: '/host/node_modules/pkg/index.js',
+                sourcePackageRootPath: '/host/node_modules/pkg',
                 targetRelativePath: 'package/node_modules/pkg/index.js',
                 isExecutable: false
             }

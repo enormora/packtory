@@ -149,6 +149,9 @@ suite('zip-builder', function () {
     test('includes vendor entries with raw bytes from the file manager alongside inline file descriptions', async function () {
         const builder = createZipBuilder({
             fileManager: {
+                getRealPath: async (filePath) => {
+                    return filePath;
+                },
                 readFileBytes: async () => {
                     return Buffer.from('vendored-bytes', 'utf8');
                 }
@@ -161,6 +164,7 @@ suite('zip-builder', function () {
             [
                 {
                     sourceAbsolutePath: '/repo/node_modules/pkg/dist/main.js',
+                    sourcePackageRootPath: '/repo/node_modules/pkg',
                     targetRelativePath: 'node_modules/pkg/main.js',
                     isExecutable: false
                 }
@@ -187,6 +191,9 @@ suite('zip-builder', function () {
     test('marks executable vendor entries with the executable unix mode in the zip output', async function () {
         const builder = createZipBuilder({
             fileManager: {
+                getRealPath: async (filePath) => {
+                    return filePath;
+                },
                 readFileBytes: async () => {
                     return Buffer.from('#!/bin/sh\necho hi', 'utf8');
                 }
@@ -199,6 +206,7 @@ suite('zip-builder', function () {
             [
                 {
                     sourceAbsolutePath: '/repo/node_modules/pkg/bin/run.sh',
+                    sourcePackageRootPath: '/repo/node_modules/pkg',
                     targetRelativePath: 'node_modules/pkg/bin/run.sh',
                     isExecutable: true
                 }
@@ -225,6 +233,7 @@ suite('zip-builder', function () {
                 [
                     {
                         sourceAbsolutePath: '/anywhere',
+                        sourcePackageRootPath: '/anywhere',
                         targetRelativePath: 'node_modules/pkg/index.js',
                         isExecutable: false
                     }
@@ -237,6 +246,39 @@ suite('zip-builder', function () {
                 'readFileBytes is required to materialize vendor entries into the zip'
             );
         }
+    });
+
+    test('revalidates vendor source paths before reading zip bytes', async function () {
+        const builder = createZipBuilder({
+            fileManager: {
+                getRealPath: async () => {
+                    return '/repo/secret.js';
+                },
+                readFileBytes: async () => {
+                    assert.fail('expected readFileBytes not to be called');
+                }
+            }
+        });
+
+        await assert.rejects(
+            buildZipWithDeadline(
+                builder,
+                [],
+                [
+                    {
+                        sourceAbsolutePath: '/repo/node_modules/pkg/index.js',
+                        sourcePackageRootPath: '/repo/node_modules/pkg',
+                        targetRelativePath: 'node_modules/pkg/index.js',
+                        isExecutable: false
+                    }
+                ]
+            ),
+            {
+                message:
+                    'Vendored file "/repo/node_modules/pkg/index.js" resolved outside package root ' +
+                    '"/repo/node_modules/pkg"'
+            }
+        );
     });
 
     test('rejects when fflate reports an error', async function () {

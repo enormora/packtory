@@ -2,7 +2,7 @@ import zlib from 'node:zlib';
 import tar, { type Pack } from 'tar-stream';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
-import type { VendorEntry } from '../vendor-materializer/vendor-entry.ts';
+import { validateVendorEntrySource, type VendorEntry } from '../vendor-materializer/vendor-entry.ts';
 
 export type TarballBuilder = {
     build: (fileDescriptions: readonly FileDescription[], vendorEntries?: readonly VendorEntry[]) => Promise<Buffer>;
@@ -10,7 +10,7 @@ export type TarballBuilder = {
 
 type TarballBuilderDependencies = {
     readonly createGzip: typeof zlib.createGzip;
-    readonly fileManager: Pick<FileManager, 'readFileBytes'>;
+    readonly fileManager: Pick<FileManager, 'getRealPath' | 'readFileBytes'>;
 };
 
 const gzipHeaderOperationSystemTypeFieldIndex = 9;
@@ -33,6 +33,9 @@ const nonExecutableFileMode = 420;
 export function createTarballBuilder(dependencies: Partial<TarballBuilderDependencies> = {}): TarballBuilder {
     const createGzip = dependencies.createGzip ?? zlib.createGzip;
     const fileManager = dependencies.fileManager ?? {
+        async getRealPath(filePath: string): Promise<string> {
+            return filePath;
+        },
         async readFileBytes(): Promise<Buffer> {
             throw new Error('readFileBytes is required to materialize vendor entries into the tarball');
         }
@@ -60,6 +63,7 @@ export function createTarballBuilder(dependencies: Partial<TarballBuilderDepende
             addEntry(pack, fileDescription.filePath, fileDescription.isExecutable, fileDescription.content);
         }
         for (const vendorEntry of vendorEntries) {
+            await validateVendorEntrySource(fileManager, vendorEntry);
             const payload = await fileManager.readFileBytes(vendorEntry.sourceAbsolutePath);
             addEntry(pack, vendorEntry.targetRelativePath, vendorEntry.isExecutable, payload);
         }
