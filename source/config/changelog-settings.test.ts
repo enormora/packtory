@@ -1,6 +1,6 @@
 import assert from 'node:assert';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import { suite, test } from 'mocha';
+import { safeParse } from '../common/schema-validation.ts';
 import { changelogSettingsSchema, validateChangelogSettings } from './changelog-settings.ts';
 import type { PacktoryConfigWithoutRegistry } from './config.ts';
 

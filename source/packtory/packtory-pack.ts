@@ -1,7 +1,7 @@
 /* eslint-disable import/max-dependencies -- the pack orchestrator wires resolve+link, version manager, vendor materializer, and pack emitter */
 import { Result } from 'true-myth';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import { z } from 'zod/mini';
+import { safeParse } from '../common/schema-validation.ts';
 import { bundledInstalledDependencyPath } from '../common/package-layout.ts';
 import { packageNameMap } from '../common/package-name-map.ts';
 import { serializeStableJson } from '../common/stable-json.ts';

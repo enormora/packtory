@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { safeParse } from '@schema-hub/zod-error-formatter';
+import { safeParse } from '../common/schema-validation.ts';
 import { packageInterfaceSchema } from './package-interface.ts';
 
 suite('package-interface', function () {

@@ -1,8 +1,8 @@
 import assert from 'node:assert';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import { test, type Func } from 'mocha';
 import { isPlainObject, omit } from 'remeda';
 import type { $ZodType } from 'zod/v4/core';
+import { safeParse } from '../common/schema-validation.ts';
 
 const invalidNumberValue = 2;
 const objectLikeFieldTypes = new Set(['object', 'record', 'tuple', 'array']);

@@ -1,7 +1,7 @@
 import assert from 'node:assert';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { safeParse } from '../common/schema-validation.ts';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { isForbiddenAdditionalPackageJsonAttributeName, packageJsonDependencyFieldNames } from './package-json.ts';
 import { additionalPackageJsonAttributesSchema } from './additional-package-json-attributes-schema.ts';
