@@ -20,6 +20,24 @@ async function expectFailure(action: () => Promise<unknown>, expectedError: RegE
     }
 }
 
+async function buildTwoFileTar(): Promise<Buffer> {
+    const builder = createTarballBuilder();
+    return await builder.build([
+        { filePath: 'first.txt', content: 'first', isExecutable: false },
+        { filePath: 'second.txt', content: 'second', isExecutable: false }
+    ]);
+}
+
+async function extractSingleFile(
+    filePath: string,
+    content: string,
+    limits: Parameters<typeof extractTarEntries>[2]
+): Promise<Awaited<ReturnType<typeof extractTarEntries>>> {
+    const builder = createTarballBuilder();
+    const tar = await builder.build([{ filePath, content, isExecutable: false }]);
+    return await extractTarEntries(tar, {}, limits);
+}
+
 suite('extract-tar', function () {
     test('returns an empty array when the given tar buffer has no files', async function () {
         const builder = createTarballBuilder();
@@ -69,11 +87,7 @@ suite('extract-tar', function () {
     });
 
     test('returns every extracted entry in tar order when the tarball contains multiple files', async function () {
-        const builder = createTarballBuilder();
-        const tar = await builder.build([
-            { filePath: 'first.txt', content: 'first', isExecutable: false },
-            { filePath: 'second.txt', content: 'second', isExecutable: false }
-        ]);
+        const tar = await buildTwoFileTar();
 
         const entries = await withPromiseDeadline(extractTarEntries(tar), 'multi-file tar extraction');
 
@@ -85,6 +99,71 @@ suite('extract-tar', function () {
                 ['first.txt', 'first'],
                 ['second.txt', 'second']
             ]
+        );
+    });
+
+    test('rejects tarballs with too many entries', async function () {
+        const tar = await buildTwoFileTar();
+
+        await expectFailure(async () => {
+            await extractTarEntries(tar, {}, { maxEntryCount: 1, maxEntryPathLength: 4096, maxExtractedBytes: 1024 });
+        }, /^Error: Refusing to extract tarball with more than 1 entries$/u);
+    });
+
+    test('rejects tarballs with paths above the configured length limit', async function () {
+        const builder = createTarballBuilder();
+        const tar = await builder.build([{ filePath: 'long-file-name.txt', content: 'content', isExecutable: false }]);
+
+        await expectFailure(async () => {
+            await extractTarEntries(tar, {}, { maxEntryCount: 1, maxEntryPathLength: 8, maxExtractedBytes: 1024 });
+        }, /^Error: Refusing to extract tarball entry with path longer than 8 characters$/u);
+    });
+
+    test('rejects tarballs with paths above the default length limit', async function () {
+        const builder = createTarballBuilder();
+        const tar = await builder.build([{ filePath: 'a'.repeat(4097), content: 'content', isExecutable: false }]);
+
+        await expectFailure(async () => {
+            await extractTarEntries(tar);
+        }, /^Error: Refusing to extract tarball entry with path longer than 4096 characters$/u);
+    });
+
+    test('accepts tarballs with paths at the configured length limit', async function () {
+        const entries = await extractSingleFile('12345678', 'content', {
+            maxEntryCount: 1,
+            maxEntryPathLength: 8,
+            maxExtractedBytes: 1024
+        });
+
+        assert.deepStrictEqual(
+            entries.map((entry) => {
+                return entry.header.name;
+            }),
+            ['12345678']
+        );
+    });
+
+    test('rejects tarballs whose extracted content exceeds the configured size limit', async function () {
+        const builder = createTarballBuilder();
+        const tar = await builder.build([{ filePath: 'file.txt', content: 'content', isExecutable: false }]);
+
+        await expectFailure(async () => {
+            await extractTarEntries(tar, {}, { maxEntryCount: 1, maxEntryPathLength: 4096, maxExtractedBytes: 3 });
+        }, /^Error: Refusing to extract tarball larger than 3 bytes$/u);
+    });
+
+    test('accepts tarballs whose extracted content equals the configured size limit', async function () {
+        const entries = await extractSingleFile('file.txt', 'content', {
+            maxEntryCount: 1,
+            maxEntryPathLength: 4096,
+            maxExtractedBytes: 7
+        });
+
+        assert.deepStrictEqual(
+            entries.map((entry) => {
+                return entry.content;
+            }),
+            ['content']
         );
     });
 
