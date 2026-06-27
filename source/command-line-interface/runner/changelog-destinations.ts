@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { defaultValidLabels, type PrLogEngine } from '@pr-log/core';
-import { safeParse } from '@schema-hub/zod-error-formatter';
+import { safeParse } from '../../common/schema-validation.ts';
 import type { ChangelogOutput } from '../../config/changelog-settings.ts';
 import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';

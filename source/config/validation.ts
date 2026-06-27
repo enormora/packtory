@@ -1,6 +1,6 @@
 import { Result } from 'true-myth';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import type { ZodMiniType } from 'zod/mini';
+import { safeParse } from '../common/schema-validation.ts';
 import type { DirectedGraph } from '../directed-graph/graph.ts';
 import type { PackageConfig, PackageConfigsByName, PacktoryConfig, PacktoryConfigWithoutRegistry } from './config.ts';
 import { validateCyclicDependencies, validateDuplicatePackages } from './cross-package-validation.ts';

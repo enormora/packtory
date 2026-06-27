@@ -1,7 +1,7 @@
 import assert from 'node:assert';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import fc from 'fast-check';
 import { suite, test } from 'mocha';
+import { safeParse } from '../common/schema-validation.ts';
 import { configToResolveAndLinkOptions } from '../packtory/map-config.ts';
 import { linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { PacktoryConfig } from './config.ts';

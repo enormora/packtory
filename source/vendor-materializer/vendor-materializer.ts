@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import npa from 'npm-package-arg';
 import { Result } from 'true-myth';
 import { z } from 'zod/mini';
+import { safeParse } from '../common/schema-validation.ts';
 import {
     ancestorInstalledDependencyPathCandidates,
     bundledInstalledDependencyPath,

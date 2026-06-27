@@ -1,5 +1,5 @@
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import { z } from 'zod/mini';
+import { safeParse } from '../../common/schema-validation.ts';
 import { releasePullRequestSettingsSchema, type ReleasePullRequestSettings } from './release-pull-request-settings.ts';
 
 type GitHubActionsCiConfig = {

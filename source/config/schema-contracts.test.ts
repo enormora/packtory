@@ -6,7 +6,8 @@ const probeTestTimeoutMs = 10_000;
 
 suite('schema-contracts', function () {
     test('leaf config schemas keep their expected object keys and strict object behavior', async function () {
-        const result = await runNodeProbe(`
+        const result = await runNodeProbe(
+            `
             import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
             import { rootSchema } from './source/config/root.ts';
             import { mainPackageJsonSchema } from './source/config/main-package-json-schema.ts';
@@ -21,7 +22,9 @@ suite('schema-contracts', function () {
                 rootCatchallType: rootSchema._zod.def.innerType.def.catchall.type,
                 registrySettingsCatchallType: registrySettingsSchema._zod.def.innerType.def.catchall.type
             }));
-        `);
+        `,
+            { timeoutMs: probeTestTimeoutMs }
+        );
 
         assert.deepStrictEqual(result, {
             additionalFileShape: ['sourceFilePath', 'targetFilePath'],
@@ -35,8 +38,9 @@ suite('schema-contracts', function () {
     }).timeout(probeTestTimeoutMs);
 
     test('versioning schema keeps the automatic and manual branches', async function () {
-        const result = await runNodeProbe(`
-            import { safeParse } from '@schema-hub/zod-error-formatter';
+        const result = await runNodeProbe(
+            `
+            import { safeParse } from './source/common/schema-validation.ts';
             import { versioningSettingsSchema } from './source/config/versioning-settings.ts';
 
             const unionDef = versioningSettingsSchema._zod.def.innerType.def;
@@ -75,7 +79,9 @@ suite('schema-contracts', function () {
                     minimumVersion: '1.0.0'
                 }).success
             }));
-        `);
+        `,
+            { timeoutMs: probeTestTimeoutMs }
+        );
 
         assert.deepStrictEqual(result, {
             optionCount: 2,
@@ -97,8 +103,9 @@ suite('schema-contracts', function () {
     }).timeout(probeTestTimeoutMs);
 
     test('package json schemas keep their runtime structure and forbidden key behavior', async function () {
-        const result = await runNodeProbe(`
-            import { safeParse } from '@schema-hub/zod-error-formatter';
+        const result = await runNodeProbe(
+            `
+            import { safeParse } from './source/common/schema-validation.ts';
             import {
                 additionalPackageJsonAttributesSchema
             } from './source/config/additional-package-json-attributes-schema.ts';
@@ -132,7 +139,9 @@ suite('schema-contracts', function () {
                 }).success,
                 forbiddenKeySuccesses
             }));
-        `);
+        `,
+            { timeoutMs: probeTestTimeoutMs }
+        );
 
         assert.deepStrictEqual(result, {
             mainShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
@@ -147,8 +156,9 @@ suite('schema-contracts', function () {
     }).timeout(probeTestTimeoutMs);
 
     test('packtory config schemas keep their union and package tuple structure', async function () {
-        const result = await runNodeProbe(`
-            import { safeParse } from '@schema-hub/zod-error-formatter';
+        const result = await runNodeProbe(
+            `
+            import { safeParse } from './source/common/schema-validation.ts';
             import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
             import {
                 packtoryConfigWithoutRegistrySchema
@@ -187,7 +197,9 @@ suite('schema-contracts', function () {
                     ]
                 }).success
             }));
-        `);
+        `,
+            { timeoutMs: probeTestTimeoutMs }
+        );
 
         assert.deepStrictEqual(result, {
             optionCount: 4,
@@ -244,8 +256,9 @@ suite('schema-contracts', function () {
     }).timeout(probeTestTimeoutMs);
 
     test('schema source modules still validate representative valid and invalid inputs', async function () {
-        const result = await runNodeProbe(`
-            import { safeParse } from '@schema-hub/zod-error-formatter';
+        const result = await runNodeProbe(
+            `
+            import { safeParse } from './source/common/schema-validation.ts';
             import { additionalFileDescriptionSchema } from './source/config/additional-files.ts';
             import { rootSchema } from './source/config/root.ts';
             import { packtoryConfigSchema } from './source/config/packtory-config-schema.ts';
@@ -299,7 +312,9 @@ suite('schema-contracts', function () {
                     packages: []
                 }).success
             }));
-        `);
+        `,
+            { timeoutMs: probeTestTimeoutMs }
+        );
 
         assert.deepStrictEqual(result, {
             validAdditionalFileSuccess: true,

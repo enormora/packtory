@@ -1,6 +1,6 @@
 import assert from 'node:assert';
-import { safeParse } from '@schema-hub/zod-error-formatter';
 import { suite, test } from 'mocha';
+import { safeParse } from '../../common/schema-validation.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
