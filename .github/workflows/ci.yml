@@ -32,7 +32,7 @@ jobs:
               with:
                   node-version: ${{ matrix.node-version }}
             - name: Install dependencies
-              run: npm clean-install
+              run: npm clean-install --ignore-scripts
             - name: Static Code Analysis
               run: npx just lint
             - name: Compile Typescript
@@ -58,7 +58,7 @@ jobs:
               with:
                   node-version: 26.x
             - name: Install dependencies
-              run: npm clean-install
+              run: npm clean-install --ignore-scripts
             - name: Run mutation tests
               run: npx just test-mutation
 
@@ -76,7 +76,9 @@ jobs:
               with:
                   node-version: 26.x
             - name: Install dependencies
-              run: npm clean-install
+              run: npm clean-install --ignore-scripts
+            - name: Build benchmark native dependency
+              run: npm rebuild node-pty
             - name: Run benchmarks
               run: npx just benchmark
 
