@@ -103,6 +103,7 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
             includeSourceMapFiles,
             additionalFiles,
             mainPackageJson: options.mainPackageJson,
+            additionalChangelogSourceFiles: [],
             additionalPackageJsonAttributes: options.additionalPackageJsonAttributes,
             allowMutableSpecifiers: options.allowMutableSpecifiers,
             bundleDependencies,

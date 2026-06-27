@@ -98,6 +98,14 @@ export function validatedReleaseConfigFor(packageNames: readonly string[]): Vali
     return result.value;
 }
 
+export function validatedReleaseConfig(config: Parameters<typeof validateConfig>[0]): ValidConfigResult {
+    const result = validateConfig(config);
+    if (result.isErr) {
+        assert.fail(`Expected config to validate: ${result.error.join(', ')}`);
+    }
+    return result.value;
+}
+
 function packageProcessorFor(
     buildResults: readonly BuildAndPublishResult[],
     onMissingResult: () => never
@@ -232,7 +240,12 @@ export function resolvedPackagesFor(
                 sourcesFolder: packageConfig.sourcesFolder ?? 'source',
                 includeSourceMapFiles: packageConfig.includeSourceMapFiles ?? false,
                 additionalFiles: packageConfig.additionalFiles ?? [],
-                mainPackageJson: packageConfig.mainPackageJson ?? { type: 'module' },
+                mainPackageJson: packageConfig.mainPackageJson ??
+                    validated.packtoryConfig.commonPackageSettings?.mainPackageJson ?? { type: 'module' },
+                additionalChangelogSourceFiles: [
+                    ...(validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []),
+                    ...(packageConfig.additionalChangelogSourceFiles ?? [])
+                ],
                 additionalPackageJsonAttributes: packageConfig.additionalPackageJsonAttributes ?? {},
                 allowMutableSpecifiers: [],
                 deadCodeElimination: packageConfig.deadCodeElimination,

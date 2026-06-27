@@ -10,6 +10,7 @@ import {
     packageProcessorCheckingStage,
     packageProcessorWithFailure,
     previousReleaseArtifactsFor,
+    validatedReleaseConfig,
     resolvedPackagesFor as sharedResolvedPackagesFor,
     validatedReleaseConfigFor,
     type ReleaseFileCollection
@@ -295,7 +296,7 @@ suite('packtory-release-plan', function () {
         assert.match(partial.failures[0]?.message ?? '', /Source map "\/source\/index\.js\.map".*not readable/u);
     });
 
-    test('returns a partial failure when a publish result has no matching analyzed bundle', async function () {
+    test('returns a partial failure when a publish result has no matching resolved package', async function () {
         const result = await planFor({
             packageNames: ['pkg-a'],
             buildResults: [buildResultFor({ packageName: 'pkg-other' })],
@@ -306,7 +307,7 @@ suite('packtory-release-plan', function () {
 
         const partial = expectPartialFailure(result);
         assert.deepStrictEqual(partial.succeeded, []);
-        assert.match(partial.failures[0]?.message ?? '', /Analyzed bundle for package "pkg-other" is missing/u);
+        assert.match(partial.failures[0]?.message ?? '', /Resolved package "pkg-other" is missing/u);
     });
 
     test('wraps non-Error plan failures in Error objects', async function () {
@@ -400,6 +401,36 @@ suite('packtory-release-plan', function () {
             'assets/readme.md',
             'source/index.js',
             'source/substituted.js'
+        ]);
+    });
+
+    test('attributes root package manifest inputs used by generated package manifests', async function () {
+        const validated = validatedReleaseConfig({
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            commonPackageSettings: {
+                additionalChangelogSourceFiles: ['package-lock.json'],
+                mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
+                publishSettings: { access: 'public' },
+                sourcesFolder: 'source'
+            },
+            packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a.js' } } }]
+        });
+        const plan = createPlanner({
+            packageNames: ['pkg-a'],
+            buildResults: [buildResultFor()],
+            collectContents() {
+                return [{ filePath: 'package/index.js', content: 'new', isExecutable: false }];
+            }
+        });
+
+        const result = await plan(validated, async () => {
+            return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
+        });
+
+        assert.deepStrictEqual(expectPlan(result).packages[0]?.changelogSourceFiles, [
+            'package-lock.json',
+            'package.json',
+            'source/pkg-a.js'
         ]);
     });
 

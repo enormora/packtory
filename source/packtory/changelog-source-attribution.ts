@@ -9,6 +9,12 @@ export type ChangelogSourceAttributionDependencies = {
     readonly repositoryFolder: string;
 };
 
+type ManifestChangelogInputs = {
+    readonly dependencies?: Readonly<Record<string, unknown>> | undefined;
+    readonly imports?: Readonly<Record<string, unknown>> | undefined;
+    readonly peerDependencies?: Readonly<Record<string, unknown>> | undefined;
+};
+
 type ReferencedMap = {
     readonly content: string;
     readonly mapFilePath: string;
@@ -18,6 +24,25 @@ const sourceMappingPrefix = '//# sourceMappingURL=';
 
 function sortUniqueValues(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
+}
+
+function hasEntries(value: Readonly<Record<string, unknown>> | undefined): boolean {
+    return value !== undefined && Object.keys(value).length > 0;
+}
+
+function hasGeneratedManifestInputs(mainPackageJson: ManifestChangelogInputs): boolean {
+    return (
+        hasEntries(mainPackageJson.dependencies) ||
+        hasEntries(mainPackageJson.peerDependencies) ||
+        hasEntries(mainPackageJson.imports)
+    );
+}
+
+export function collectManifestChangelogSourceFiles(
+    mainPackageJson: ManifestChangelogInputs,
+    additionalSourceFiles: readonly string[]
+): readonly string[] {
+    return [...(hasGeneratedManifestInputs(mainPackageJson) ? ['package.json'] : []), ...additionalSourceFiles];
 }
 
 function isJavaScriptFile(filePath: string): boolean {
@@ -131,9 +156,10 @@ async function collectAttributedFiles(
 
 export async function attributeChangelogSourceFiles(
     dependencies: ChangelogSourceAttributionDependencies,
-    analyzedBundle: AnalyzedBundle
+    analyzedBundle: AnalyzedBundle,
+    additionalSourceFiles: readonly string[]
 ): Promise<readonly string[]> {
-    const attributedFiles: string[] = [];
+    const attributedFiles: string[] = Array.from(additionalSourceFiles);
     for (const entry of analyzedBundle.contents) {
         if (!entry.isGeneratedManifest) {
             attributedFiles.push(...(await collectAttributedFiles(dependencies, entry)));

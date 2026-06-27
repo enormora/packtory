@@ -17,14 +17,19 @@ export type BuildOptions = SharedPackageOptions<PublishedPackageWithManifest> & 
     readonly version: string;
 };
 
-export type BuildAndPublishOptions = SharedPackageOptions<PublishedPackageWithManifest> & {
-    readonly registrySettings: NonNullable<PacktoryConfig['registrySettings']>;
-    readonly publishSettings: PublishSettings;
-    readonly versioning: PublishVersioningSettings;
-    readonly ignoredAttributionPaths: readonly string[];
+type PackageAttributionOptions = {
+    readonly additionalChangelogSourceFiles: readonly string[];
 };
 
-export type ResolveAndLinkOptions = SharedPackageOptions<BundleSubstitutionSource>;
+export type BuildAndPublishOptions = PackageAttributionOptions &
+    SharedPackageOptions<PublishedPackageWithManifest> & {
+        readonly registrySettings: NonNullable<PacktoryConfig['registrySettings']>;
+        readonly publishSettings: PublishSettings;
+        readonly versioning: PublishVersioningSettings;
+        readonly ignoredAttributionPaths: readonly string[];
+    };
+
+export type ResolveAndLinkOptions = PackageAttributionOptions & SharedPackageOptions<BundleSubstitutionSource>;
 
 export type BuildAndPublishMappingContext = {
     readonly existingBundles: readonly PublishedPackageWithManifest[];
@@ -62,7 +67,7 @@ export function configToBuildAndPublishOptions(
     packtoryConfig: PacktoryConfig,
     context: BuildAndPublishMappingContext
 ): BuildAndPublishOptions {
-    const { packageConfig, sharedOptions, versioning } = preparePackageOptions(
+    const { additionalChangelogSourceFiles, packageConfig, sharedOptions, versioning } = preparePackageOptions(
         packageName,
         packageConfigs,
         packtoryConfig,
@@ -72,6 +77,7 @@ export function configToBuildAndPublishOptions(
 
     return {
         ...sharedOptions,
+        additionalChangelogSourceFiles,
         versioning: resolveVersioning(packageName, versioning, packtoryConfig, context.resolveVersionSource),
         registrySettings: packtoryConfig.registrySettings ?? {},
         publishSettings,
@@ -85,7 +91,15 @@ export function configToResolveAndLinkOptions(
     packtoryConfig: PacktoryConfigWithoutRegistry,
     existingBundles: readonly BundleSubstitutionSource[]
 ): ResolveAndLinkOptions {
-    const { sharedOptions } = preparePackageOptions(packageName, packageConfigs, packtoryConfig, existingBundles);
+    const { additionalChangelogSourceFiles, sharedOptions } = preparePackageOptions(
+        packageName,
+        packageConfigs,
+        packtoryConfig,
+        existingBundles
+    );
 
-    return sharedOptions;
+    return {
+        ...sharedOptions,
+        additionalChangelogSourceFiles
+    };
 }

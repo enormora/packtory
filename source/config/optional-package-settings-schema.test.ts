@@ -9,6 +9,7 @@ import {
 import { optionalPackageSettingsSchema } from './optional-package-settings-schema.ts';
 
 const validOptionalPackageSettings = {
+    additionalChangelogSourceFiles: ['package-lock.json'],
     additionalFiles: [{ sourceFilePath: 'README.md', targetFilePath: 'README.md' }],
     includeSourceMapFiles: true,
     additionalPackageJsonAttributes: { license: 'MIT' }
@@ -21,6 +22,13 @@ suite('optional-package-settings-schema', function () {
 
     test('optional package settings schema rejects an invalid includeSourceMapFiles value', function () {
         assert.strictEqual(safeParse(optionalPackageSettingsSchema, { includeSourceMapFiles: 'yes' }).success, false);
+    });
+
+    createTestCasesForOptionalField({
+        schema: optionalPackageSettingsSchema,
+        data: validOptionalPackageSettings,
+        path: 'additionalChangelogSourceFiles',
+        expectedFieldType: 'array'
     });
 
     createTestCasesForOptionalField({
