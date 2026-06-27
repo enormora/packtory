@@ -35,6 +35,15 @@ type ResolvedBundleFile = {
     readonly isGeneratedManifest?: true | undefined;
 };
 
+function toSourceRelativeTargetPath(sourcesFolder: string, filePath: string): string {
+    const targetFilePath = path.relative(sourcesFolder, filePath);
+    if (targetFilePath.startsWith('..') || path.isAbsolute(targetFilePath) || targetFilePath.length === 0) {
+        throw new Error(`Local file "${filePath}" must resolve inside sourcesFolder "${sourcesFolder}"`);
+    }
+
+    return targetFilePath;
+}
+
 export function combineAllBundleFiles(
     sourcesFolder: string,
     localDependencies: readonly LocalFile[],
@@ -43,7 +52,7 @@ export function combineAllBundleFiles(
     const resolvedLocalFiles = localDependencies.map((localFile) => {
         const targetFilePath = localFile.isGeneratedManifest
             ? packageManifestFilePath
-            : path.relative(sourcesFolder, localFile.filePath);
+            : toSourceRelativeTargetPath(sourcesFolder, localFile.filePath);
         const resolvedBundleFile: ResolvedBundleFile = {
             sourceFilePath: localFile.filePath,
             targetFilePath,
