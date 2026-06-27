@@ -5,6 +5,7 @@
     "labels": ["renovate", "upgrade"],
     "dependencyDashboard": false,
     "rebaseStalePrs": true,
+    "minimumReleaseAge": "3 days",
     "lockFileMaintenance": {
         "enabled": true,
         "automerge": true
