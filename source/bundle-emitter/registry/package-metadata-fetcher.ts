@@ -15,6 +15,7 @@ import { assertTarballOriginMatchesRegistry } from './validate-tarball-host.ts';
 const notFoundStatusCode = 404;
 const forbiddenStatusCode = 403;
 const abbreviatedResponseAcceptHeader = 'application/vnd.npm.install-v1+json';
+const maxDownloadedTarballBytes = 268_435_456;
 
 export type PackageVersionDetails = {
     readonly version: string;
@@ -31,6 +32,21 @@ export type PackageReleaseMetadata = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value instanceof Object;
+}
+
+type BufferedRegistryResponse = {
+    readonly buffer: () => Promise<Buffer>;
+    readonly headers: { readonly get: (name: string) => string | null } | undefined;
+};
+
+function assertDownloadedTarballSize(size: number): void {
+    if (size > maxDownloadedTarballBytes) {
+        throw new Error(`Refusing to download tarball larger than ${maxDownloadedTarballBytes} bytes`);
+    }
+}
+
+function assertContentLengthWithinDownloadLimit(response: BufferedRegistryResponse): void {
+    assertDownloadedTarballSize(Number(response.headers?.get('content-length')));
 }
 
 function isMissingPackageError(error: unknown): boolean {
@@ -239,5 +255,8 @@ export async function fetchPackageTarball(
     const response = await retryWithFallbackAuth(registrySettings, auth, async (options) => {
         return npmFetch(tarballUrl, options);
     });
-    return response.buffer();
+    assertContentLengthWithinDownloadLimit(response);
+    const tarball = await response.buffer();
+    assertDownloadedTarballSize(tarball.length);
+    return tarball;
 }

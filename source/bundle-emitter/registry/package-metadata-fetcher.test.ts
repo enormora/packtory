@@ -11,6 +11,7 @@ import {
 } from './package-metadata-fetcher.ts';
 
 type FakeNpmFetch = SinonSpy & { json: SinonSpy };
+type FakeResponseHeaders = { readonly get: (name: string) => string | null };
 
 const settings: RegistrySettings = { auth: { type: 'bearer-token', token: 'tok' } };
 const latestVersion = '1.2.3';
@@ -20,6 +21,24 @@ function fakeNpmFetch(json: SinonSpy, buffer: SinonSpy = fake.resolves(Buffer.fr
     const npmFetch: FakeNpmFetch = fake.resolves({ buffer }) as FakeNpmFetch;
     npmFetch.json = json;
     return npmFetch as unknown as typeof _npmFetch;
+}
+
+function fakeNpmFetchWithHeaders(json: SinonSpy, buffer: SinonSpy, headers: FakeResponseHeaders): typeof _npmFetch {
+    const npmFetch: FakeNpmFetch = fake.resolves({ buffer, headers }) as FakeNpmFetch;
+    npmFetch.json = json;
+    return npmFetch as unknown as typeof _npmFetch;
+}
+
+async function fetchTarballWithContentLength(contentLength: string | null): Promise<{
+    readonly buffer: SinonSpy;
+    readonly headers: { readonly get: SinonSpy };
+    readonly result: Buffer;
+}> {
+    const buffer = fake.resolves(Buffer.from('tarball-bytes'));
+    const headers = { get: fake.returns(contentLength) };
+    const result = await fetchPackageTarball(fakeNpmFetchWithHeaders(fake(), buffer, headers), tarballUrl, settings);
+
+    return { buffer, headers, result };
 }
 
 function latestPackageResponse(time?: string): Record<string, unknown> {
@@ -246,6 +265,55 @@ suite('package-metadata-fetcher', function () {
         const result = await fetchPackageTarball(fakeNpmFetch(fake(), buffer), tarballUrl, settings);
 
         assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
+    });
+
+    test('fetchPackageTarball rejects when the content length is above the download limit', async function () {
+        const buffer = fake.resolves(Buffer.from('tarball-bytes'));
+        const headers = { get: fake.returns(String(256 * 1024 * 1024 + 1)) };
+
+        try {
+            await fetchPackageTarball(fakeNpmFetchWithHeaders(fake(), buffer, headers), tarballUrl, settings);
+            assert.fail('Expected fetchPackageTarball() to throw but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual((error as Error).message, 'Refusing to download tarball larger than 268435456 bytes');
+        }
+        assert.strictEqual(buffer.callCount, 0);
+        assert.deepStrictEqual(headers.get.firstCall.args, ['content-length']);
+    });
+
+    test('fetchPackageTarball accepts when the content length equals the download limit', async function () {
+        const { buffer, result } = await fetchTarballWithContentLength(String(256 * 1024 * 1024));
+
+        assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
+        assert.strictEqual(buffer.callCount, 1);
+    });
+
+    test('fetchPackageTarball treats a null content length header as absent', async function () {
+        const { buffer, result } = await fetchTarballWithContentLength(null);
+
+        assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
+        assert.strictEqual(buffer.callCount, 1);
+    });
+
+    test('fetchPackageTarball ignores invalid content length headers', async function () {
+        for (const contentLength of ['not-a-number', '-1']) {
+            const { buffer, result } = await fetchTarballWithContentLength(contentLength);
+
+            assert.deepStrictEqual(result, Buffer.from('tarball-bytes'), contentLength);
+            assert.strictEqual(buffer.callCount, 1, contentLength);
+        }
+    });
+
+    test('fetchPackageTarball rejects when the buffered tarball is above the download limit', async function () {
+        const buffer = fake.resolves({ length: 256 * 1024 * 1024 + 1 } as Buffer);
+
+        try {
+            await fetchPackageTarball(fakeNpmFetch(fake(), buffer), tarballUrl, settings);
+            assert.fail('Expected fetchPackageTarball() to throw but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual((error as Error).message, 'Refusing to download tarball larger than 268435456 bytes');
+        }
+        assert.strictEqual(buffer.callCount, 1);
     });
 
     test('fetchPackageTarball rejects a tarball URL whose origin differs from the configured registry', async function () {
