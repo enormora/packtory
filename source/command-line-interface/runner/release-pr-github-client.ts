@@ -3,6 +3,16 @@ import { Octokit } from '@octokit/core';
 import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
 import { createGitHubJsonRequestHeaders } from './github-api-request.ts';
+import {
+    findWorkflowRunIdInRuns,
+    observedWorkflowRunIds,
+    runDatabaseId,
+    selectReleaseWorkflow,
+    workflowMatchesIdentifier,
+    type ReleaseWorkflow,
+    type ReleaseWorkflowRun,
+    type WorkflowRunLookupResult
+} from './release-pr-workflow-runs.ts';
 
 export type PullRequestDetails = {
     readonly author: string;
@@ -39,7 +49,6 @@ type WorkflowRunResult = {
     readonly databaseId: number;
     readonly jobs: readonly WorkflowJobResult[];
 };
-
 export type ReleasePullRequestGitHubClient = {
     readonly closeOpenReleasePullRequests: (input: {
         readonly baseBranch: string;
@@ -64,11 +73,11 @@ export type ReleasePullRequestGitHubClient = {
         readonly headSha: string;
     }) => Promise<void>;
     readonly dispatchWorkflow: (input: { readonly ref: string; readonly workflowFile: string }) => Promise<void>;
-    readonly findDispatchedWorkflowRunId: (input: {
+    readonly findDispatchedWorkflowRun: (input: {
         readonly branch: string;
         readonly headSha: string;
         readonly workflowFile: string;
-    }) => Promise<number | undefined>;
+    }) => Promise<WorkflowRunLookupResult>;
     readonly getBranchHeadSha: (branch: string) => Promise<string>;
     readonly getPullRequest: (pullRequestNumber: number) => Promise<PullRequestDetails>;
     readonly getPullRequestHead: (pullRequestNumber: number) => Promise<PullRequestHeadDetails>;
@@ -102,23 +111,15 @@ type RawCommit = {
     readonly commit: { readonly message: string };
     readonly parents: readonly { readonly sha: string }[];
 };
-type RawWorkflowRun = {
+type RawWorkflowRun = ReleaseWorkflowRun & {
     readonly conclusion: string | null;
-    readonly databaseId?: number | undefined;
-    readonly database_id?: number | undefined;
-    readonly event: string;
-    readonly head_sha: string;
-    readonly name?: string | null | undefined;
-    readonly path?: string | null | undefined;
     readonly status: string | null;
-    readonly workflow_id?: number | null | undefined;
 };
 type RawWorkflowJob = {
     readonly conclusion: string | null;
     readonly html_url?: string | null | undefined;
     readonly name: string;
 };
-type RawWorkflow = { readonly id: number; readonly name: string; readonly path: string };
 
 type RequestContext = {
     readonly headers: Readonly<Record<string, string>>;
@@ -140,66 +141,6 @@ function commitSubject(commit: RawCommit): string {
         return commit.commit.message;
     }
     return commit.commit.message.slice(0, firstLineBreak);
-}
-
-function runDatabaseId(run: RawWorkflowRun): number | undefined {
-    return run.database_id ?? run.databaseId;
-}
-
-function workflowMatchesIdentifier(workflow: RawWorkflow, identifier: string): boolean {
-    return (
-        String(workflow.id) === identifier ||
-        workflow.name === identifier ||
-        workflow.path === identifier ||
-        workflow.path.endsWith(`/${identifier}`)
-    );
-}
-
-function workflowRunPathMatches(run: RawWorkflowRun, workflow: RawWorkflow): boolean {
-    return (
-        run.path === undefined ||
-        run.path === null ||
-        run.path === workflow.path ||
-        run.path.endsWith(`/${workflow.path}`)
-    );
-}
-
-function workflowRunIdentityComparisons(run: RawWorkflowRun, workflow: RawWorkflow): readonly boolean[] {
-    return [
-        run.workflow_id === undefined || run.workflow_id === null || run.workflow_id === workflow.id,
-        workflowRunPathMatches(run, workflow),
-        run.name === undefined || run.name === null || run.name === workflow.name
-    ];
-}
-
-function workflowRunMatchesIdentity(run: RawWorkflowRun, workflow: RawWorkflow): boolean {
-    return workflowRunIdentityComparisons(run, workflow).every(Boolean);
-}
-
-function workflowRunMatchesInput(run: RawWorkflowRun, workflow: RawWorkflow, headSha: string): boolean {
-    return run.head_sha === headSha && run.event === 'workflow_dispatch' && workflowRunMatchesIdentity(run, workflow);
-}
-
-function selectRawWorkflow(identifier: string, matches: readonly RawWorkflow[]): RawWorkflow {
-    const workflow = matches[0];
-    if (workflow === undefined) {
-        throw new Error(`GitHub Actions workflow "${identifier}" was not found`);
-    }
-    if (matches.length === 1) {
-        return { id: workflow.id, name: workflow.name, path: workflow.path };
-    }
-    throw new Error(`GitHub Actions workflow "${identifier}" matched multiple workflows`);
-}
-
-function findWorkflowRunIdInRuns(
-    runs: readonly RawWorkflowRun[],
-    workflow: RawWorkflow,
-    headSha: string
-): number | undefined {
-    const run = runs.find((workflowRun) => {
-        return workflowRunMatchesInput(workflowRun, workflow, headSha);
-    });
-    return run === undefined ? undefined : runDatabaseId(run);
 }
 
 function pullRequestIsMerged(pullRequest: RawPullRequest): boolean {
@@ -314,18 +255,18 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         return response.data.number;
     }
 
-    async function resolveRawWorkflow(identifier: string): Promise<RawWorkflow> {
+    async function resolveRawWorkflow(identifier: string): Promise<ReleaseWorkflow> {
         const response = await resolveGitHubResponse(
             octokit.rest.actions.listRepoWorkflows({
                 ...requestContext,
                 per_page: 100
             })
         );
-        const workflows = response.data.workflows as readonly RawWorkflow[];
+        const workflows = response.data.workflows as readonly ReleaseWorkflow[];
         const matches = workflows.filter((workflow) => {
             return workflowMatchesIdentifier(workflow, identifier);
         });
-        return selectRawWorkflow(identifier, matches);
+        return selectReleaseWorkflow(identifier, matches);
     }
 
     return {
@@ -422,7 +363,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
             );
         },
 
-        async findDispatchedWorkflowRunId(input) {
+        async findDispatchedWorkflowRun(input) {
             const workflow = await resolveRawWorkflow(input.workflowFile);
             const workflowResponse = await resolveGitHubResponse(
                 octokit.rest.actions.listWorkflowRuns({
@@ -433,13 +374,14 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                     per_page: 100
                 })
             );
-            const workflowRunId = findWorkflowRunIdInRuns(
-                workflowResponse.data.workflow_runs as readonly RawWorkflowRun[],
-                workflow,
-                input.headSha
-            );
+            const workflowRuns = workflowResponse.data.workflow_runs as readonly RawWorkflowRun[];
+            const workflowRunId = findWorkflowRunIdInRuns(workflowRuns, workflow, input.headSha);
             if (workflowRunId !== undefined) {
-                return workflowRunId;
+                return {
+                    event: 'workflow_dispatch',
+                    observedRunIds: observedWorkflowRunIds(workflowRuns),
+                    runId: workflowRunId
+                };
             }
 
             const repoResponse = await resolveGitHubResponse(
@@ -450,11 +392,12 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                     per_page: 100
                 })
             );
-            return findWorkflowRunIdInRuns(
-                repoResponse.data.workflow_runs as readonly RawWorkflowRun[],
-                workflow,
-                input.headSha
-            );
+            const repoRuns = repoResponse.data.workflow_runs as readonly RawWorkflowRun[];
+            return {
+                event: 'workflow_dispatch',
+                observedRunIds: [...observedWorkflowRunIds(workflowRuns), ...observedWorkflowRunIds(repoRuns)],
+                runId: findWorkflowRunIdInRuns(repoRuns, workflow, input.headSha)
+            };
         },
 
         async getBranchHeadSha(branch) {

@@ -133,13 +133,22 @@ function createFetch(records: RecordedRequest[]): typeof globalThis.fetch {
         if (url.pathname === '/repos/owner/repo/statuses/release-head') {
             return jsonResponse({});
         }
-        if (url.pathname === '/repos/owner/repo/actions/runs') {
+        if (url.pathname === '/repos/owner/repo/actions/runs' && url.searchParams.get('event') === 'pull_request') {
             return jsonResponse({
                 workflow_runs: [
                     { conclusion: 'action_required', database_id: 10, event: 'pull_request', head_sha: 'release-head' },
                     { conclusion: 'action_required', event: 'pull_request', head_sha: 'release-head' },
                     { conclusion: 'action_required', database_id: 12, event: 'pull_request', head_sha: 'other-head' },
-                    { conclusion: 'success', database_id: 13, event: 'pull_request', head_sha: 'release-head' },
+                    { conclusion: 'success', database_id: 13, event: 'pull_request', head_sha: 'release-head' }
+                ]
+            });
+        }
+        if (
+            url.pathname === '/repos/owner/repo/actions/runs' &&
+            url.searchParams.get('event') === 'workflow_dispatch'
+        ) {
+            return jsonResponse({
+                workflow_runs: [
                     { conclusion: 'success', database_id: 11, event: 'workflow_dispatch', head_sha: 'release-head' }
                 ]
             });
@@ -225,7 +234,7 @@ async function assertDispatchedWorkflowLookupFails(
 
     await assert.rejects(
         async () => {
-            await client.findDispatchedWorkflowRunId({
+            await client.findDispatchedWorkflowRun({
                 branch: 'release/packtory',
                 headSha: 'release-head',
                 workflowFile
@@ -241,7 +250,7 @@ suite('release-pr-github-client', function () {
         const client = createClient(createFetch(records));
 
         await client.closeOpenReleasePullRequests({ baseBranch: 'main', releaseBranch: 'release/packtory' });
-        assert.strictEqual(
+        assert.deepStrictEqual(
             await client.createOrUpdateReleasePullRequest({
                 baseBranch: 'main',
                 body: 'Body',
@@ -268,29 +277,27 @@ suite('release-pr-github-client', function () {
         await client.deleteActionRequiredPullRequestRuns({ branch: 'release/packtory', headSha: 'release-head' });
         await client.dispatchWorkflow({ ref: 'release/packtory', workflowFile: 'ci.yml' });
 
-        assert.strictEqual(
-            await client.findDispatchedWorkflowRunId({
+        assert.deepStrictEqual(
+            await client.findDispatchedWorkflowRun({
                 branch: 'release/packtory',
                 headSha: 'release-head',
                 workflowFile: 'ci.yml'
             }),
-            11
+            { event: 'workflow_dispatch', observedRunIds: [11], runId: 11 }
         );
-        assert.strictEqual(
-            await client.findDispatchedWorkflowRunId({
-                branch: 'release/packtory',
-                headSha: 'missing-head',
-                workflowFile: 'ci.yml'
-            }),
-            undefined
-        );
-        assert.strictEqual(
-            await client.findDispatchedWorkflowRunId({
+        const missingRun = await client.findDispatchedWorkflowRun({
+            branch: 'release/packtory',
+            headSha: 'missing-head',
+            workflowFile: 'ci.yml'
+        });
+        assert.strictEqual(missingRun.runId, undefined);
+        assert.deepStrictEqual(
+            await client.findDispatchedWorkflowRun({
                 branch: 'release/packtory',
                 headSha: 'release-head',
                 workflowFile: 'ci-db.yml'
             }),
-            12
+            { event: 'workflow_dispatch', observedRunIds: [12], runId: 12 }
         );
         assert.strictEqual(await client.getBranchHeadSha('main'), 'main-head');
         assert.deepStrictEqual(await client.getPullRequestHead(12), {
@@ -517,11 +524,12 @@ suite('release-pr-github-client', function () {
         };
         const client = createClient(fetchMock);
         async function findRunId(headSha: string): Promise<number | undefined> {
-            return client.findDispatchedWorkflowRunId({
+            const result = await client.findDispatchedWorkflowRun({
                 branch: 'release/packtory',
                 headSha,
                 workflowFile: 'ci.yml'
             });
+            return result.runId;
         }
 
         assert.strictEqual(await findRunId('exact-head'), 20);

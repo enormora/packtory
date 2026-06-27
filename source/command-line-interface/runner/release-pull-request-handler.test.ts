@@ -75,7 +75,7 @@ function createReleasePullRequestClient(
         createStatus: fake.resolves(undefined),
         deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
         dispatchWorkflow: fake.resolves(undefined),
-        findDispatchedWorkflowRunId: fake.resolves(1),
+        findDispatchedWorkflowRun: fake.resolves({ event: 'workflow_dispatch', observedRunIds: [1], runId: 1 }),
         getBranchHeadSha: fake.resolves('main-head'),
         getPullRequest: fake.resolves({
             author: 'github-actions[bot]',
