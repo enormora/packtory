@@ -108,13 +108,17 @@ type RawWorkflowRun = {
     readonly database_id?: number | undefined;
     readonly event: string;
     readonly head_sha: string;
+    readonly name?: string | null | undefined;
+    readonly path?: string | null | undefined;
     readonly status: string | null;
+    readonly workflow_id?: number | null | undefined;
 };
 type RawWorkflowJob = {
     readonly conclusion: string | null;
     readonly html_url?: string | null | undefined;
     readonly name: string;
 };
+type RawWorkflow = { readonly id: number; readonly name: string; readonly path: string };
 
 type RequestContext = {
     readonly headers: Readonly<Record<string, string>>;
@@ -140,6 +144,62 @@ function commitSubject(commit: RawCommit): string {
 
 function runDatabaseId(run: RawWorkflowRun): number | undefined {
     return run.database_id ?? run.databaseId;
+}
+
+function workflowMatchesIdentifier(workflow: RawWorkflow, identifier: string): boolean {
+    return (
+        String(workflow.id) === identifier ||
+        workflow.name === identifier ||
+        workflow.path === identifier ||
+        workflow.path.endsWith(`/${identifier}`)
+    );
+}
+
+function workflowRunPathMatches(run: RawWorkflowRun, workflow: RawWorkflow): boolean {
+    return (
+        run.path === undefined ||
+        run.path === null ||
+        run.path === workflow.path ||
+        run.path.endsWith(`/${workflow.path}`)
+    );
+}
+
+function workflowRunIdentityComparisons(run: RawWorkflowRun, workflow: RawWorkflow): readonly boolean[] {
+    return [
+        run.workflow_id === undefined || run.workflow_id === null || run.workflow_id === workflow.id,
+        workflowRunPathMatches(run, workflow),
+        run.name === undefined || run.name === null || run.name === workflow.name
+    ];
+}
+
+function workflowRunMatchesIdentity(run: RawWorkflowRun, workflow: RawWorkflow): boolean {
+    return workflowRunIdentityComparisons(run, workflow).every(Boolean);
+}
+
+function workflowRunMatchesInput(run: RawWorkflowRun, workflow: RawWorkflow, headSha: string): boolean {
+    return run.head_sha === headSha && run.event === 'workflow_dispatch' && workflowRunMatchesIdentity(run, workflow);
+}
+
+function selectRawWorkflow(identifier: string, matches: readonly RawWorkflow[]): RawWorkflow {
+    const workflow = matches[0];
+    if (workflow === undefined) {
+        throw new Error(`GitHub Actions workflow "${identifier}" was not found`);
+    }
+    if (matches.length === 1) {
+        return { id: workflow.id, name: workflow.name, path: workflow.path };
+    }
+    throw new Error(`GitHub Actions workflow "${identifier}" matched multiple workflows`);
+}
+
+function findWorkflowRunIdInRuns(
+    runs: readonly RawWorkflowRun[],
+    workflow: RawWorkflow,
+    headSha: string
+): number | undefined {
+    const run = runs.find((workflowRun) => {
+        return workflowRunMatchesInput(workflowRun, workflow, headSha);
+    });
+    return run === undefined ? undefined : runDatabaseId(run);
 }
 
 function pullRequestIsMerged(pullRequest: RawPullRequest): boolean {
@@ -254,6 +314,20 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         return response.data.number;
     }
 
+    async function resolveRawWorkflow(identifier: string): Promise<RawWorkflow> {
+        const response = await resolveGitHubResponse(
+            octokit.rest.actions.listRepoWorkflows({
+                ...requestContext,
+                per_page: 100
+            })
+        );
+        const workflows = response.data.workflows as readonly RawWorkflow[];
+        const matches = workflows.filter((workflow) => {
+            return workflowMatchesIdentifier(workflow, identifier);
+        });
+        return selectRawWorkflow(identifier, matches);
+    }
+
     return {
         async closeOpenReleasePullRequests(input) {
             const pullRequests = await resolveGitHubResponse(
@@ -338,29 +412,49 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         },
 
         async dispatchWorkflow(input) {
+            const workflow = await resolveRawWorkflow(input.workflowFile);
             await resolveGitHubResponse(
                 octokit.rest.actions.createWorkflowDispatch({
                     ...requestContext,
                     ref: input.ref,
-                    workflow_id: input.workflowFile
+                    workflow_id: workflow.id
                 })
             );
         },
 
         async findDispatchedWorkflowRunId(input) {
-            const response = await resolveGitHubResponse(
+            const workflow = await resolveRawWorkflow(input.workflowFile);
+            const workflowResponse = await resolveGitHubResponse(
                 octokit.rest.actions.listWorkflowRuns({
                     ...requestContext,
                     branch: input.branch,
                     event: 'workflow_dispatch',
-                    workflow_id: input.workflowFile,
+                    workflow_id: workflow.id,
                     per_page: 100
                 })
             );
-            const run = response.data.workflow_runs.find((workflowRun) => {
-                return workflowRun.head_sha === input.headSha;
-            });
-            return run === undefined ? undefined : runDatabaseId(run as RawWorkflowRun);
+            const workflowRunId = findWorkflowRunIdInRuns(
+                workflowResponse.data.workflow_runs as readonly RawWorkflowRun[],
+                workflow,
+                input.headSha
+            );
+            if (workflowRunId !== undefined) {
+                return workflowRunId;
+            }
+
+            const repoResponse = await resolveGitHubResponse(
+                octokit.rest.actions.listWorkflowRunsForRepo({
+                    ...requestContext,
+                    branch: input.branch,
+                    event: 'workflow_dispatch',
+                    per_page: 100
+                })
+            );
+            return findWorkflowRunIdInRuns(
+                repoResponse.data.workflow_runs as readonly RawWorkflowRun[],
+                workflow,
+                input.headSha
+            );
         },
 
         async getBranchHeadSha(branch) {

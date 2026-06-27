@@ -165,17 +165,35 @@ function createFetch(records: RecordedRequest[]): typeof globalThis.fetch {
                 total_count: 1
             });
         }
-        if (url.pathname === '/repos/owner/repo/actions/workflows/ci.yml/dispatches') {
-            return emptyResponse();
-        }
-        if (url.pathname === '/repos/owner/repo/actions/workflows/ci.yml/runs') {
+        if (url.pathname === '/repos/owner/repo/actions/workflows') {
             return jsonResponse({
-                workflow_runs: [{ database_id: 11, event: 'workflow_dispatch', head_sha: 'release-head' }]
+                total_count: 2,
+                workflows: [
+                    { id: 101, name: 'Continuous Integration', path: '.github/workflows/ci.yml' },
+                    { id: 102, name: 'Database CI', path: '.github/workflows/ci-db.yml' }
+                ]
             });
         }
-        if (url.pathname === '/repos/owner/repo/actions/workflows/ci-db.yml/runs') {
+        if (url.pathname === '/repos/owner/repo/actions/workflows/101/dispatches') {
+            return emptyResponse();
+        }
+        if (url.pathname === '/repos/owner/repo/actions/workflows/101/runs') {
             return jsonResponse({
-                workflow_runs: [{ databaseId: 12, event: 'workflow_dispatch', head_sha: 'release-head' }]
+                workflow_runs: []
+            });
+        }
+        if (url.pathname === '/repos/owner/repo/actions/workflows/102/runs') {
+            return jsonResponse({
+                workflow_runs: [
+                    {
+                        databaseId: 12,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        name: 'Database CI',
+                        path: 'enormora/packtory/.github/workflows/ci-db.yml',
+                        workflow_id: 102
+                    }
+                ]
             });
         }
         if (url.pathname === '/repos/owner/repo/branches/main') {
@@ -184,6 +202,37 @@ function createFetch(records: RecordedRequest[]): typeof globalThis.fetch {
 
         return jsonResponse({ message: `Unhandled ${method} ${url.pathname}` }, 500);
     };
+}
+
+function createWorkflowListFetch(workflows: readonly Record<string, unknown>[]): typeof globalThis.fetch {
+    return async (input) => {
+        const url = requestUrl(input);
+
+        if (url.pathname === '/repos/owner/repo/actions/workflows') {
+            return jsonResponse({ total_count: workflows.length, workflows });
+        }
+
+        return jsonResponse({ message: `Unhandled ${url.pathname}` }, 500);
+    };
+}
+
+async function assertDispatchedWorkflowLookupFails(
+    workflows: readonly Record<string, unknown>[],
+    workflowFile: string,
+    message: string
+): Promise<void> {
+    const client = createClient(createWorkflowListFetch(workflows));
+
+    await assert.rejects(
+        async () => {
+            await client.findDispatchedWorkflowRunId({
+                branch: 'release/packtory',
+                headSha: 'release-head',
+                workflowFile
+            });
+        },
+        { message }
+    );
 }
 
 suite('release-pr-github-client', function () {
@@ -302,13 +351,22 @@ suite('release-pr-github-client', function () {
             hasRequestWithBody(
                 records,
                 'POST',
-                '/repos/owner/repo/actions/workflows/ci.yml/dispatches',
+                '/repos/owner/repo/actions/workflows/101/dispatches',
                 '"ref":"release/packtory"'
             ),
             true
         );
         assert.ok(records.some((record) => record.search.includes('event=pull_request')));
         assert.ok(records.some((record) => record.search.includes('event=workflow_dispatch')));
+        assert.ok(
+            records.some((record) => {
+                return (
+                    record.method === 'GET' &&
+                    record.path === '/repos/owner/repo/actions/runs' &&
+                    requestHasSearchParameter(record, 'event', 'workflow_dispatch')
+                );
+            })
+        );
         assert.strictEqual(readHeader(records[0]?.headers, 'user-agent'), 'packtory-release-pr');
     });
 
@@ -344,6 +402,150 @@ suite('release-pr-github-client', function () {
         assert.strictEqual(
             records.some((record) => record.method === 'POST' && record.path === '/repos/owner/repo/pulls'),
             true
+        );
+    });
+
+    test('resolves dispatched workflows by id, name, and path', async function () {
+        const records: RecordedRequest[] = [];
+        const fetchMock: typeof globalThis.fetch = async (input, init) => {
+            const { method, url } = recordRequest(records, input, init);
+
+            if (url.pathname === '/repos/owner/repo/actions/workflows') {
+                return jsonResponse({
+                    total_count: 3,
+                    workflows: [
+                        { id: 101, name: 'Continuous Integration', path: '.github/workflows/ci.yml' },
+                        { id: 102, name: 'Database CI', path: '.github/workflows/ci-db.yml' },
+                        { id: 103, name: 'Release CI', path: '.github/workflows/release.yml' }
+                    ]
+                });
+            }
+            if (url.pathname.endsWith('/dispatches') && method === 'POST') {
+                return emptyResponse();
+            }
+
+            return jsonResponse({ message: `Unhandled ${method} ${url.pathname}` }, 500);
+        };
+        const client = createClient(fetchMock);
+
+        await client.dispatchWorkflow({ ref: 'release/packtory', workflowFile: '101' });
+        await client.dispatchWorkflow({ ref: 'release/packtory', workflowFile: 'Database CI' });
+        await client.dispatchWorkflow({ ref: 'release/packtory', workflowFile: '.github/workflows/release.yml' });
+
+        assert.deepStrictEqual(
+            records.filter((record) => record.method === 'POST').map((record) => record.path),
+            [
+                '/repos/owner/repo/actions/workflows/101/dispatches',
+                '/repos/owner/repo/actions/workflows/102/dispatches',
+                '/repos/owner/repo/actions/workflows/103/dispatches'
+            ]
+        );
+    });
+
+    test('matches dispatched workflow runs by workflow identity fields', async function () {
+        const fetchMock: typeof globalThis.fetch = async (input) => {
+            const url = requestUrl(input);
+
+            if (url.pathname === '/repos/owner/repo/actions/workflows') {
+                return jsonResponse({
+                    total_count: 1,
+                    workflows: [{ id: 101, name: 'Continuous Integration', path: '.github/workflows/ci.yml' }]
+                });
+            }
+            if (url.pathname === '/repos/owner/repo/actions/workflows/101/runs') {
+                assert.strictEqual(url.searchParams.get('event'), 'workflow_dispatch');
+                return jsonResponse({
+                    workflow_runs: [
+                        {
+                            database_id: 20,
+                            event: 'workflow_dispatch',
+                            head_sha: 'exact-head',
+                            name: 'Continuous Integration',
+                            path: '.github/workflows/ci.yml',
+                            workflow_id: 101
+                        },
+                        {
+                            database_id: 10,
+                            event: 'workflow_dispatch',
+                            head_sha: 'suffix-head',
+                            name: 'Continuous Integration',
+                            path: '.github/workflows/ci.yml',
+                            workflow_id: 999
+                        },
+                        {
+                            database_id: 11,
+                            event: 'workflow_dispatch',
+                            head_sha: 'suffix-head',
+                            name: 'Continuous Integration',
+                            path: '.github/workflows/other.yml',
+                            workflow_id: 101
+                        },
+                        {
+                            database_id: 12,
+                            event: 'workflow_dispatch',
+                            head_sha: 'suffix-head',
+                            name: 'Other CI',
+                            path: '.github/workflows/ci.yml',
+                            workflow_id: 101
+                        },
+                        {
+                            database_id: 13,
+                            event: 'workflow_dispatch',
+                            head_sha: 'suffix-head',
+                            name: 'Continuous Integration',
+                            path: 'owner/repo/.github/workflows/ci.yml',
+                            workflow_id: 101
+                        },
+                        {
+                            database_id: 14,
+                            event: 'workflow_dispatch',
+                            head_sha: 'null-head',
+                            name: null,
+                            path: null,
+                            workflow_id: null
+                        },
+                        {
+                            database_id: 15,
+                            event: 'workflow_dispatch',
+                            head_sha: 'omitted-head'
+                        }
+                    ]
+                });
+            }
+
+            return jsonResponse({ message: `Unhandled ${url.pathname}` }, 500);
+        };
+        const client = createClient(fetchMock);
+        async function findRunId(headSha: string): Promise<number | undefined> {
+            return client.findDispatchedWorkflowRunId({
+                branch: 'release/packtory',
+                headSha,
+                workflowFile: 'ci.yml'
+            });
+        }
+
+        assert.strictEqual(await findRunId('exact-head'), 20);
+        assert.strictEqual(await findRunId('suffix-head'), 13);
+        assert.strictEqual(await findRunId('null-head'), 14);
+        assert.strictEqual(await findRunId('omitted-head'), 15);
+    });
+
+    test('fails when a dispatched workflow identifier matches no workflow', async function () {
+        await assertDispatchedWorkflowLookupFails(
+            [],
+            'missing.yml',
+            'GitHub Actions workflow "missing.yml" was not found'
+        );
+    });
+
+    test('fails when a dispatched workflow identifier matches multiple workflows', async function () {
+        await assertDispatchedWorkflowLookupFails(
+            [
+                { id: 101, name: 'CI', path: '.github/workflows/ci.yml' },
+                { id: 102, name: 'CI copy', path: '.github/workflows/ci.yml' }
+            ],
+            'ci.yml',
+            'GitHub Actions workflow "ci.yml" matched multiple workflows'
         );
     });
 
