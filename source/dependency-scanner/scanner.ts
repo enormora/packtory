@@ -39,26 +39,34 @@ type ReferenceLists = {
     readonly externalDependencies: readonly string[];
 };
 
+type ScanContext = {
+    readonly folder: string;
+    readonly graph: DependencyGraph;
+    readonly options: Required<ScanOptions>;
+    readonly project: TypescriptProject;
+};
+
 export function createDependencyScanner(
     dependencyScannerDependencies: Readonly<DependencyScannerDependencies>
 ): DependencyScanner {
     const { sourceMapFileLocator, typescriptProjectAnalyzer } = dependencyScannerDependencies;
 
-    async function getDependencyNodeData(
-        project: TypescriptProject | undefined,
-        sourceFilePath: string,
-        externalDependencies: readonly string[],
-        options: Required<ScanOptions>
-    ): Promise<DependencyGraphNodeData> {
+    async function getDependencyNodeData(args: {
+        readonly externalDependencies: readonly string[];
+        readonly options: Required<ScanOptions>;
+        readonly project: TypescriptProject | undefined;
+        readonly sourceFilePath: string;
+        readonly sourcesFolder: string;
+    }): Promise<DependencyGraphNodeData> {
         const sourceMapFilePath =
-            options.includeSourceMapFiles && isCodeFile(sourceFilePath)
-                ? await sourceMapFileLocator.locate(sourceFilePath)
+            args.options.includeSourceMapFiles && isCodeFile(args.sourceFilePath)
+                ? await sourceMapFileLocator.locate(args.sourceFilePath, args.sourcesFolder)
                 : Maybe.nothing<string>();
 
         return {
             sourceMapFilePath,
-            externalDependencies,
-            project
+            externalDependencies: args.externalDependencies,
+            project: args.project
         };
     }
 
@@ -80,59 +88,52 @@ export function createDependencyScanner(
         };
     }
 
-    async function connectLocalReferences(args: {
-        readonly graph: DependencyGraph;
-        readonly localReferences: readonly ScannableLocalReference[];
-        readonly options: Required<ScanOptions>;
-        readonly project: TypescriptProject;
-        readonly scanReference: (
-            project: TypescriptProject,
-            reference: ScannableLocalReference,
-            graph: DependencyGraph,
-            options: Required<ScanOptions>
-        ) => Promise<void>;
-        readonly sourceFilePath: string;
-    }): Promise<void> {
-        for (const localReference of args.localReferences) {
-            if (!args.graph.isKnown(localReference.filePath)) {
-                await args.scanReference(args.project, localReference, args.graph, args.options);
-            }
-            if (!args.graph.hasConnection(args.sourceFilePath, localReference.filePath)) {
-                args.graph.connect(args.sourceFilePath, localReference.filePath);
-            }
-        }
+    function getReferencedModules(
+        project: TypescriptProject,
+        reference: ScannableLocalReference
+    ): readonly ModuleReference[] {
+        return reference.kind === moduleReferenceKind.localCode ? project.getReferencedModules(reference.filePath) : [];
+    }
+
+    function getNodeProject(
+        project: TypescriptProject,
+        reference: ScannableLocalReference
+    ): TypescriptProject | undefined {
+        return reference.kind === moduleReferenceKind.localCode ? project : undefined;
+    }
+
+    function toDependencyNode(
+        reference: ScannableLocalReference,
+        nodeData: DependencyGraphNodeData
+    ): DependencyGraphNodeData {
+        return reference.kind === moduleReferenceKind.generatedManifest
+            ? { ...nodeData, isGeneratedManifest: true }
+            : nodeData;
     }
 
     async function scanDependenciesOfReference(
-        project: TypescriptProject,
-        reference: ScannableLocalReference,
-        graph: DependencyGraph,
-        options: Required<ScanOptions>
+        context: ScanContext,
+        reference: ScannableLocalReference
     ): Promise<void> {
         const sourceFilePath = reference.filePath;
-        const referencedModules =
-            reference.kind === moduleReferenceKind.localCode ? project.getReferencedModules(sourceFilePath) : [];
+        const referencedModules = getReferencedModules(context.project, reference);
         const { localReferences, externalDependencies } = collectReferenceLists(referencedModules);
-        const nodeData = await getDependencyNodeData(
-            reference.kind === moduleReferenceKind.localCode ? project : undefined,
-            sourceFilePath,
+        const nodeData = await getDependencyNodeData({
             externalDependencies,
-            options
-        );
-        graph.addDependency(
+            options: context.options,
+            project: getNodeProject(context.project, reference),
             sourceFilePath,
-            reference.kind === moduleReferenceKind.generatedManifest
-                ? { ...nodeData, isGeneratedManifest: true }
-                : nodeData
-        );
-        await connectLocalReferences({
-            graph,
-            localReferences,
-            options,
-            project,
-            scanReference: scanDependenciesOfReference,
-            sourceFilePath
+            sourcesFolder: context.folder
         });
+        context.graph.addDependency(sourceFilePath, toDependencyNode(reference, nodeData));
+        for (const localReference of localReferences) {
+            if (!context.graph.isKnown(localReference.filePath)) {
+                await scanDependenciesOfReference(context, localReference);
+            }
+            if (!context.graph.hasConnection(sourceFilePath, localReference.filePath)) {
+                context.graph.connect(sourceFilePath, localReference.filePath);
+            }
+        }
     }
 
     return {
@@ -151,10 +152,13 @@ export function createDependencyScanner(
             });
 
             await scanDependenciesOfReference(
-                project,
-                { kind: moduleReferenceKind.localCode, filePath: entryPointFile },
-                graph,
-                scanOptions
+                {
+                    folder,
+                    graph,
+                    options: scanOptions,
+                    project
+                },
+                { kind: moduleReferenceKind.localCode, filePath: entryPointFile }
             );
 
             return graph;
