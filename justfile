@@ -60,4 +60,4 @@ benchmark:
     node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts
 
 publish-dry-run:
-    npx packtory publish
+    packtory publish
