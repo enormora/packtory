@@ -5,6 +5,7 @@ import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../config/
 import type { MainPackageJson } from '../../config/package-json.ts';
 import {
     buildAdditionalPackageJsonAttributes,
+    resolveAdditionalChangelogSourceFiles,
     resolveAllowMutableSpecifiers,
     resolveIncludeSourceMapFiles,
     resolveMainPackageJson,
@@ -84,6 +85,14 @@ suite('setting-resolvers', function () {
             config({ commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: ['lodash'] } } as never })
         );
         assert.deepStrictEqual(result, ['react']);
+    });
+
+    test('resolveAdditionalChangelogSourceFiles merges common and package paths', function () {
+        const result = resolveAdditionalChangelogSourceFiles(
+            pkg({ additionalChangelogSourceFiles: ['packages/pkg/package.json'] }),
+            config({ commonPackageSettings: { additionalChangelogSourceFiles: ['package-lock.json'] } as never })
+        );
+        assert.deepStrictEqual(result, ['package-lock.json', 'packages/pkg/package.json']);
     });
 
     test('buildAdditionalPackageJsonAttributes merges common attributes with package-level overrides', function () {

@@ -53,6 +53,16 @@ export function resolveAllowMutableSpecifiers(
     return dependencyPolicy?.allowMutableSpecifiers ?? [];
 }
 
+export function resolveAdditionalChangelogSourceFiles(
+    packageConfig: PackageConfig,
+    packtoryConfig: PacktoryConfigWithoutRegistry
+): readonly string[] {
+    return [
+        ...(packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []),
+        ...(packageConfig.additionalChangelogSourceFiles ?? [])
+    ];
+}
+
 export function buildAdditionalPackageJsonAttributes(
     packageConfig: PackageConfig,
     packtoryConfig: PacktoryConfigWithoutRegistry

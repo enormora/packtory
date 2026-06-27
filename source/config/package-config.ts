@@ -12,6 +12,7 @@ import type { VersioningSettings } from './versioning-settings.ts';
 export type CommonPackageSettings = {
     readonly sourcesFolder?: string | undefined;
     readonly mainPackageJson?: MainPackageJson | undefined;
+    readonly additionalChangelogSourceFiles?: readonly string[] | undefined;
     readonly additionalFiles?: readonly AdditionalFileDescription[] | undefined;
     readonly includeSourceMapFiles?: boolean | undefined;
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;
@@ -28,6 +29,7 @@ type PackageConfigBase = {
     readonly bundlePeerDependencies?: readonly string[] | undefined;
     readonly sourcesFolder?: string | undefined;
     readonly mainPackageJson?: MainPackageJson | undefined;
+    readonly additionalChangelogSourceFiles?: readonly string[] | undefined;
     readonly additionalFiles?: readonly AdditionalFileDescription[] | undefined;
     readonly includeSourceMapFiles?: boolean | undefined;
     readonly additionalPackageJsonAttributes?: AdditionalPackageJsonAttributes | undefined;

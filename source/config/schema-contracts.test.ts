@@ -214,6 +214,7 @@ suite('schema-contracts', function () {
             packageShapeKeys: [
                 'sourcesFolder',
                 'mainPackageJson',
+                'additionalChangelogSourceFiles',
                 'additionalFiles',
                 'includeSourceMapFiles',
                 'additionalPackageJsonAttributes',
@@ -243,6 +244,7 @@ suite('schema-contracts', function () {
             commonShapeKeys: [
                 'sourcesFolder',
                 'mainPackageJson',
+                'additionalChangelogSourceFiles',
                 'additionalFiles',
                 'includeSourceMapFiles',
                 'additionalPackageJsonAttributes',

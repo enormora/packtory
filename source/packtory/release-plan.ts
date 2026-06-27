@@ -9,6 +9,7 @@ import type { BuildAndPublishResult } from './package-processor.ts';
 import { publishedReleaseArtifactsOf, wasAlreadyPublished } from './published-release-state.ts';
 import {
     attributeChangelogSourceFiles,
+    collectManifestChangelogSourceFiles,
     type ChangelogSourceAttributionDependencies
 } from './changelog-source-attribution.ts';
 
@@ -18,6 +19,14 @@ type CollectArtifactContents = (
     prefix: string | undefined,
     extraFiles: BuildAndPublishResult['extraFiles']
 ) => readonly FileDescription[];
+type ChangelogSourceInputOptions = {
+    readonly additionalChangelogSourceFiles: readonly string[];
+    readonly mainPackageJson: Parameters<typeof collectManifestChangelogSourceFiles>[0];
+};
+type ReleasePlanPackageInput = {
+    readonly changelogSourceFiles: readonly string[];
+    readonly currentGitHead: string | undefined;
+};
 
 export type ReleasePlanMapperDependencies = ChangelogSourceAttributionDependencies & {
     readonly artifactsBuilder: { readonly collectContents: CollectArtifactContents };
@@ -25,6 +34,13 @@ export type ReleasePlanMapperDependencies = ChangelogSourceAttributionDependenci
 
 function sortedUnique(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
+}
+
+export function collectReleasePlanChangelogSourceFiles(resolveOptions: ChangelogSourceInputOptions): readonly string[] {
+    return collectManifestChangelogSourceFiles(
+        resolveOptions.mainPackageJson,
+        resolveOptions.additionalChangelogSourceFiles
+    );
 }
 
 function packageRelativeFiles(files: readonly FileDescription[]): readonly string[] {
@@ -95,7 +111,7 @@ export async function createReleasePlanPackage(
     dependencies: ReleasePlanMapperDependencies,
     analyzedBundle: AnalyzedBundle,
     buildResult: BuildAndPublishResult,
-    currentGitHead: string | undefined
+    input: ReleasePlanPackageInput
 ): Promise<ReleasePlanPackage> {
     const newFiles = dependencies.artifactsBuilder.collectContents(
         buildResult.bundle,
@@ -111,11 +127,15 @@ export async function createReleasePlanPackage(
         artifactState,
         changed: artifactState !== 'unchanged',
         previousGitHead: latestRegistryMetadata?.gitHead,
-        currentGitHead,
+        currentGitHead: input.currentGitHead,
         latestRegistryMetadata,
         artifactFiles: packageRelativeFiles(newFiles),
         changedArtifactFiles: changedArtifactFilesFrom(artifactState, buildResult, newFiles),
         sourceFiles: sourceFilesFrom(analyzedBundle),
-        changelogSourceFiles: await attributeChangelogSourceFiles(dependencies, analyzedBundle)
+        changelogSourceFiles: await attributeChangelogSourceFiles(
+            dependencies,
+            analyzedBundle,
+            input.changelogSourceFiles
+        )
     };
 }

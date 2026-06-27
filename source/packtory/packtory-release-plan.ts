@@ -1,6 +1,5 @@
 import { Result } from 'true-myth';
 import type { ValidConfigResult } from '../config/validation.ts';
-import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import {
     partialFailureType,
@@ -12,7 +11,11 @@ import {
 } from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import { mapResolvePartialFailure, succeededResultsFrom } from './partial-result.ts';
-import { createReleasePlanPackage, type ReleasePlanMapperDependencies } from './release-plan.ts';
+import {
+    collectReleasePlanChangelogSourceFiles,
+    createReleasePlanPackage,
+    type ReleasePlanMapperDependencies
+} from './release-plan.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
 
@@ -35,28 +38,36 @@ function toReleasePlanError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
 }
 
-function analyzedBundlesByNameFrom(resolvedPackages: readonly ResolvedPackage[]): ReadonlyMap<string, AnalyzedBundle> {
+function resolvedPackagesByNameFrom(
+    resolvedPackages: readonly ResolvedPackage[]
+): ReadonlyMap<string, ResolvedPackage> {
     return new Map(
         resolvedPackages.map((resolvedPackage) => {
-            return [resolvedPackage.name, resolvedPackage.analyzedBundle] as const;
+            return [resolvedPackage.name, resolvedPackage] as const;
         })
     );
 }
 
 async function appendPackagePlan(args: {
     readonly artifactsBuilder: ReleasePlanOrchestratorDependencies['artifactsBuilder'];
-    readonly analyzedBundlesByName: ReadonlyMap<string, AnalyzedBundle>;
     readonly buildResult: BuildAndPublishResult;
     readonly currentGitHead: string | undefined;
     readonly fileManager: ReleasePlanOrchestratorDependencies['fileManager'];
     readonly packages: ReleasePlanPackage[];
     readonly repositoryFolder: string;
+    readonly resolvedPackagesByName: ReadonlyMap<string, ResolvedPackage>;
 }): Promise<void> {
-    const analyzedBundle = args.analyzedBundlesByName.get(args.buildResult.bundle.name);
-    if (analyzedBundle === undefined) {
-        throw new Error(`Analyzed bundle for package "${args.buildResult.bundle.name}" is missing`);
+    const packageName = args.buildResult.bundle.name;
+    const resolvedPackage = args.resolvedPackagesByName.get(packageName);
+    if (resolvedPackage === undefined) {
+        throw new Error(`Resolved package "${packageName}" is missing`);
     }
-    args.packages.push(await createReleasePlanPackage(args, analyzedBundle, args.buildResult, args.currentGitHead));
+    args.packages.push(
+        await createReleasePlanPackage(args, resolvedPackage.analyzedBundle, args.buildResult, {
+            changelogSourceFiles: collectReleasePlanChangelogSourceFiles(resolvedPackage.resolveOptions),
+            currentGitHead: args.currentGitHead
+        })
+    );
 }
 
 async function planSucceededPublishes(
@@ -65,7 +76,7 @@ async function planSucceededPublishes(
     succeededPublish: readonly BuildAndPublishResult[],
     currentGitHead: string | undefined
 ): Promise<Result<readonly ReleasePlanPackage[], PlanStageError>> {
-    const analyzedBundlesByName = analyzedBundlesByNameFrom(resolvedPackages);
+    const resolvedPackagesByName = resolvedPackagesByNameFrom(resolvedPackages);
     const packages: ReleasePlanPackage[] = [];
     const failures: Error[] = [];
 
@@ -73,12 +84,12 @@ async function planSucceededPublishes(
         try {
             await appendPackagePlan({
                 artifactsBuilder: dependencies.artifactsBuilder,
-                analyzedBundlesByName,
                 buildResult,
                 currentGitHead,
                 fileManager: dependencies.fileManager,
                 packages,
-                repositoryFolder: dependencies.repositoryFolder
+                repositoryFolder: dependencies.repositoryFolder,
+                resolvedPackagesByName
             });
         } catch (error: unknown) {
             failures.push(toReleasePlanError(error));

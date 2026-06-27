@@ -201,6 +201,7 @@ function createResolveOptions(): ResolveAndLinkOptions {
         includeSourceMapFiles: true,
         additionalFiles: [{ sourceFilePath: '/src/readme.md', targetFilePath: 'readme.md' }],
         mainPackageJson: { type: 'module' as const, dependencies: { dep: '^1.0.0' } },
+        additionalChangelogSourceFiles: [],
         additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
         allowMutableSpecifiers: [],
         bundleDependencies: [createLinkedBundle('bundle-dependency')],
@@ -280,7 +281,7 @@ suite('package-processor', function () {
         const linkedBundle = createLinkedBundle();
         const linkBundle = fake.resolves(linkedBundle);
         const addVersion = fake.returns(createVersionedBundle());
-        const { processor, addVersion: addVersionSpy } = createProcessor({ linkBundle, addVersion });
+        const { processor, addVersion: addVersionSpy, resolve } = createProcessor({ linkBundle, addVersion });
 
         const result = await processor.build({
             ...createBuildAndPublishOptions(),
@@ -288,6 +289,22 @@ suite('package-processor', function () {
         });
 
         assert.strictEqual(result.packageJson.version, '1.2.3');
+        assert.deepStrictEqual(resolve.firstCall.args, [
+            {
+                name: 'package-a',
+                sourcesFolder: '/src',
+                roots: { main: { js: '/src/index.js' } },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+                includeSourceMapFiles: true,
+                additionalFiles: [{ sourceFilePath: '/src/readme.md', targetFilePath: 'readme.md' }],
+                mainPackageJson: { type: 'module', dependencies: { dep: '^1.0.0' } },
+                additionalChangelogSourceFiles: [],
+                additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
+                allowMutableSpecifiers: [],
+                bundleDependencies: [createVersionedBundle('bundle-dependency', '1.0.0')],
+                bundlePeerDependencies: [createVersionedBundle('peer-dependency', '2.0.0')]
+            }
+        ]);
         assert.deepStrictEqual(addVersionSpy.firstCall.args, [
             {
                 bundle: { ...linkedBundle, contents: [], sideEffectsField: undefined },
@@ -593,7 +610,7 @@ suite('package-processor', function () {
             {
                 packageName: 'package-a',
                 currentVersion: undefined,
-                targetSourceFiles: ['docs/readme.md', 'source/index.js'],
+                targetSourceFiles: ['docs/readme.md', 'package.json', 'source/index.js'],
                 ignoredAttributionPaths: ['CHANGELOG.md'],
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 stage: true

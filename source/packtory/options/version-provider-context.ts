@@ -2,6 +2,7 @@ import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.
 import { hasVersionProvider } from '../../config/versioning-settings.ts';
 import {
     attributeChangelogSourceFiles,
+    collectManifestChangelogSourceFiles,
     type ChangelogSourceAttributionDependencies
 } from '../changelog-source-attribution.ts';
 import type { BuildAndPublishOptions } from '../map-config.ts';
@@ -13,12 +14,23 @@ export async function createVersionProviderContext(
     options: BuildAndPublishOptions,
     stage: boolean
 ): Promise<VersionProviderContext> {
+    let targetSourceFiles: readonly string[] = [];
+    if (hasVersionProvider(options.versioning)) {
+        const manifestChangelogSourceFiles = collectManifestChangelogSourceFiles(
+            options.mainPackageJson,
+            options.additionalChangelogSourceFiles
+        );
+        targetSourceFiles = await attributeChangelogSourceFiles(
+            dependencies,
+            analyzedBundle,
+            manifestChangelogSourceFiles
+        );
+    }
+
     return {
         ignoredAttributionPaths: options.ignoredAttributionPaths,
         registrySettings: options.registrySettings,
         stage,
-        targetSourceFiles: hasVersionProvider(options.versioning)
-            ? await attributeChangelogSourceFiles(dependencies, analyzedBundle)
-            : []
+        targetSourceFiles
     };
 }

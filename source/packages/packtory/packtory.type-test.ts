@@ -164,7 +164,11 @@ describe('PacktoryConfig — accepted shapes', () => {
                 readonly packageTagFormat: 'pkg/{packageName}/v{version}';
                 readonly targetScopedLabelPattern: 'scope:{targetName}:{label}';
             };
-            readonly commonPackageSettings: { readonly sourcesFolder: 'src'; readonly includeSourceMapFiles: true };
+            readonly commonPackageSettings: {
+                readonly sourcesFolder: 'src';
+                readonly additionalChangelogSourceFiles: readonly ['package-lock.json'];
+                readonly includeSourceMapFiles: true;
+            };
             readonly packages: readonly [
                 {
                     readonly name: 'pkg';
@@ -176,6 +180,7 @@ describe('PacktoryConfig — accepted shapes', () => {
                     };
                     readonly bundleDependencies: readonly ['effect'];
                     readonly bundlePeerDependencies: readonly ['react'];
+                    readonly additionalChangelogSourceFiles: readonly ['packages/pkg/package.json'];
                     readonly includeSourceMapFiles: false;
                 }
             ];

@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { analyzedBundle, analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
-import { attributeChangelogSourceFiles } from './changelog-source-attribution.ts';
+import { attributeChangelogSourceFiles, collectManifestChangelogSourceFiles } from './changelog-source-attribution.ts';
 
 function sourceMap(sources: readonly (string | null)[], sourceRoot = ''): string {
     return JSON.stringify({
@@ -50,11 +50,40 @@ function missingMapFileManager(sourceContent: string): ReturnType<typeof createF
 async function attributeSingleFile(fileManager: ReturnType<typeof createFakeFileManager>, sourceFilePath: string) {
     return attributeChangelogSourceFiles(
         { fileManager, repositoryFolder: '/repo' },
-        bundleWith([analyzedBundleResource(sourceFilePath)])
+        bundleWith([analyzedBundleResource(sourceFilePath)]),
+        []
     );
 }
 
 suite('changelog-source-attribution', function () {
+    test('attributes package.json when generated manifest dependency fields are populated', function () {
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles(
+                {
+                    dependencies: {},
+                    peerDependencies: { peer: '^1.0.0' },
+                    imports: {}
+                },
+                ['package-lock.json']
+            ),
+            ['package.json', 'package-lock.json']
+        );
+    });
+
+    test('skips package.json attribution when generated manifest dependency fields are empty', function () {
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles(
+                {
+                    dependencies: {},
+                    peerDependencies: {},
+                    imports: {}
+                },
+                ['package-lock.json']
+            ),
+            ['package-lock.json']
+        );
+    });
+
     test('attributes plain JavaScript without a source map to the JavaScript file', async function () {
         const fileManager = createFakeFileManager({
             simulatedReadFileResponses: [{ value: 'export const value = 1;\n' }]
@@ -62,7 +91,8 @@ suite('changelog-source-attribution', function () {
 
         const result = await attributeChangelogSourceFiles(
             { fileManager, repositoryFolder: '/repo' },
-            bundleWith([analyzedBundleResource('/repo/source/index.js')])
+            bundleWith([analyzedBundleResource('/repo/source/index.js')]),
+            []
         );
 
         assert.deepStrictEqual(result, ['source/index.js']);
@@ -75,7 +105,8 @@ suite('changelog-source-attribution', function () {
 
         const result = await attributeChangelogSourceFiles(
             { fileManager, repositoryFolder: '/repo' },
-            bundleWith([analyzedBundleResource('/repo/source/index.js')])
+            bundleWith([analyzedBundleResource('/repo/source/index.js')]),
+            []
         );
 
         assert.deepStrictEqual(result, ['source/index.js']);
@@ -168,7 +199,8 @@ suite('changelog-source-attribution', function () {
         await assert.rejects(
             attributeChangelogSourceFiles(
                 { fileManager, repositoryFolder: '/repo' },
-                bundleWith([analyzedBundleResource('/repo/dist/index.js')])
+                bundleWith([analyzedBundleResource('/repo/dist/index.js')]),
+                []
             ),
             /Multiple sourceMappingURL references found in "\/repo\/dist\/index\.js"/u
         );
@@ -188,7 +220,8 @@ suite('changelog-source-attribution', function () {
         await assert.rejects(
             attributeChangelogSourceFiles(
                 { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
-                bundleWith([analyzedBundleResource('/repo', { targetFilePath: 'repo' })])
+                bundleWith([analyzedBundleResource('/repo', { targetFilePath: 'repo' })]),
+                []
             ),
             /Changelog source file "\/repo" is outside repository folder "\/repo"/u
         );
@@ -202,7 +235,8 @@ suite('changelog-source-attribution', function () {
 
         const result = await attributeChangelogSourceFiles(
             { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
-            bundleWith([generatedManifest, analyzedBundleResource('/repo/source/index.d.ts')])
+            bundleWith([generatedManifest, analyzedBundleResource('/repo/source/index.d.ts')]),
+            []
         );
 
         assert.deepStrictEqual(result, ['source/index.d.ts']);
@@ -216,7 +250,8 @@ suite('changelog-source-attribution', function () {
                     isExplicitlyIncluded: true,
                     targetFilePath: 'readme.md'
                 })
-            ])
+            ]),
+            []
         );
 
         assert.deepStrictEqual(result, ['assets/readme.md']);
@@ -234,7 +269,8 @@ suite('changelog-source-attribution', function () {
                 analyzedBundleResource('/repo/source/index.d.ts'),
                 analyzedBundleResource('/repo/source/index.js.map'),
                 analyzedBundleResource('/repo/assets/readme.md', { targetFilePath: 'readme.md' })
-            ])
+            ]),
+            []
         );
 
         assert.deepStrictEqual(result, ['assets/readme.md', 'source/index.d.ts', 'source/index.js.map']);

@@ -8,6 +8,7 @@ import { getRequiredArrayValue, mapRequiredArrayValue } from './required-value-h
 import {
     buildAdditionalPackageJsonAttributes,
     resolveAdditionalFiles,
+    resolveAdditionalChangelogSourceFiles,
     resolveAllowMutableSpecifiers,
     resolveDeadCodeElimination,
     resolveIncludeSourceMapFiles,
@@ -32,6 +33,7 @@ export type SharedPackageOptions<TBundle extends { name: string }> = ManifestOpt
     };
 
 export type PreparedPackageOptions<TBundle extends { name: string }> = {
+    readonly additionalChangelogSourceFiles: readonly string[];
     readonly packageConfig: PackageConfig;
     readonly sharedOptions: SharedPackageOptions<TBundle>;
     readonly versioning: VersioningSettings;
@@ -90,7 +92,8 @@ export function preparePackageOptions<TBundle extends { name: string }>(
 ): PreparedPackageOptions<TBundle> {
     const packageConfig = getPackageConfig(packageName, packageConfigs);
     const sharedOptions = buildSharedOptions(packageConfig, packtoryConfig, existingBundles);
+    const additionalChangelogSourceFiles = resolveAdditionalChangelogSourceFiles(packageConfig, packtoryConfig);
     const versioning = packageConfig.versioning ?? { automatic: true };
 
-    return { packageConfig, sharedOptions, versioning };
+    return { additionalChangelogSourceFiles, packageConfig, sharedOptions, versioning };
 }
