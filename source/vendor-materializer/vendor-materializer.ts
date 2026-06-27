@@ -212,6 +212,7 @@ const walkPackageDirectory = async (
 
         state.collected.push({
             sourceAbsolutePath: path.join(state.packageDirectory.rootDirectory, relativeEntryPath),
+            sourcePackageRootPath: state.packageDirectory.rootDirectory,
             targetRelativePath: bundledInstalledDependencyPath(state.packageDirectory.packageName, relativeEntryPath),
             isExecutable: false
         });

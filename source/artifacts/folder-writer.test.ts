@@ -61,6 +61,7 @@ suite('folder-writer', function () {
             [
                 {
                     sourceAbsolutePath: '/repo/node_modules/pkg/index.js',
+                    sourcePackageRootPath: '/repo/node_modules/pkg',
                     targetRelativePath: 'node_modules/pkg/index.js',
                     isExecutable: false
                 }
@@ -72,5 +73,34 @@ suite('folder-writer', function () {
             from: '/repo/node_modules/pkg/index.js',
             to: '/target/node_modules/pkg/index.js'
         });
+    });
+
+    test('writeArtifactsToFolder revalidates vendor source paths before copying', async function () {
+        const fileManager = createFakeFileManager({
+            simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }],
+            simulatedRealPathResponses: [{ value: '/repo/secret.js' }]
+        });
+
+        await assert.rejects(
+            writeArtifactsToFolder(
+                fileManager,
+                '/target',
+                [],
+                [
+                    {
+                        sourceAbsolutePath: '/repo/node_modules/pkg/index.js',
+                        sourcePackageRootPath: '/repo/node_modules/pkg',
+                        targetRelativePath: 'node_modules/pkg/index.js',
+                        isExecutable: false
+                    }
+                ]
+            ),
+            {
+                message:
+                    'Vendored file "/repo/node_modules/pkg/index.js" resolved outside package root ' +
+                    '"/repo/node_modules/pkg"'
+            }
+        );
+        assert.strictEqual(fileManager.getCopyFileBytesCallCount(), 0);
     });
 });

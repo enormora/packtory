@@ -153,6 +153,9 @@ suite('tarball-builder', function () {
     test('includes vendor entries with raw bytes from the file manager alongside inline file descriptions', async function () {
         const builder = createTarballBuilder({
             fileManager: {
+                getRealPath: async (filePath) => {
+                    return filePath;
+                },
                 readFileBytes: async () => {
                     return Buffer.from('vendored-bytes', 'utf8');
                 }
@@ -164,6 +167,7 @@ suite('tarball-builder', function () {
             [
                 {
                     sourceAbsolutePath: '/repo/node_modules/pkg/dist/main.js',
+                    sourcePackageRootPath: '/repo/node_modules/pkg',
                     targetRelativePath: 'node_modules/pkg/main.js',
                     isExecutable: false
                 }
@@ -185,6 +189,9 @@ suite('tarball-builder', function () {
     test('marks executable vendor entries with the executable mode in the tarball', async function () {
         const builder = createTarballBuilder({
             fileManager: {
+                getRealPath: async (filePath) => {
+                    return filePath;
+                },
                 readFileBytes: async () => {
                     return Buffer.from('#!/bin/sh', 'utf8');
                 }
@@ -196,6 +203,7 @@ suite('tarball-builder', function () {
             [
                 {
                     sourceAbsolutePath: '/repo/bin/run.sh',
+                    sourcePackageRootPath: '/repo',
                     targetRelativePath: 'node_modules/pkg/bin/run.sh',
                     isExecutable: true
                 }
@@ -210,6 +218,7 @@ suite('tarball-builder', function () {
         const builder = createTarballBuilder();
         const vendorEntry = {
             sourceAbsolutePath: '/missing',
+            sourcePackageRootPath: '/missing',
             targetRelativePath: 'node_modules/pkg/lib.js',
             isExecutable: false
         };
@@ -221,5 +230,37 @@ suite('tarball-builder', function () {
             capturedMessage = (error as Error).message;
         }
         assert.strictEqual(capturedMessage, 'readFileBytes is required to materialize vendor entries into the tarball');
+    });
+
+    test('revalidates vendor source paths before reading tarball bytes', async function () {
+        const builder = createTarballBuilder({
+            fileManager: {
+                getRealPath: async () => {
+                    return '/repo/secret.js';
+                },
+                readFileBytes: async () => {
+                    assert.fail('expected readFileBytes not to be called');
+                }
+            }
+        });
+
+        await assert.rejects(
+            builder.build(
+                [],
+                [
+                    {
+                        sourceAbsolutePath: '/repo/node_modules/pkg/index.js',
+                        sourcePackageRootPath: '/repo/node_modules/pkg',
+                        targetRelativePath: 'node_modules/pkg/index.js',
+                        isExecutable: false
+                    }
+                ]
+            ),
+            {
+                message:
+                    'Vendored file "/repo/node_modules/pkg/index.js" resolved outside package root ' +
+                    '"/repo/node_modules/pkg"'
+            }
+        );
     });
 });

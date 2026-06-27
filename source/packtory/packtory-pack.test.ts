@@ -92,6 +92,7 @@ function createDependencies(overrides: {
     readonly materializerSpy?: SinonSpy;
     readonly vendorEntries?: readonly {
         readonly sourceAbsolutePath: string;
+        readonly sourcePackageRootPath: string;
         readonly targetRelativePath: string;
         readonly isExecutable: boolean;
     }[];
@@ -531,6 +532,7 @@ suite('packtory-pack', function () {
         const vendorEntries = [
             {
                 sourceAbsolutePath: '/repo/node_modules/left-pad/index.js',
+                sourcePackageRootPath: '/repo/node_modules/left-pad',
                 targetRelativePath: 'node_modules/left-pad/index.js',
                 isExecutable: false
             }

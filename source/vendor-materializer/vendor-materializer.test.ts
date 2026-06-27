@@ -37,6 +37,7 @@ type MaterializedSnapshot = {
     readonly entries: readonly {
         readonly targetRelativePath: string;
         readonly sourceAbsolutePath: string;
+        readonly sourcePackageRootPath: string;
         readonly isExecutable: boolean;
     }[];
     readonly packageNames: readonly string[];
@@ -112,6 +113,7 @@ suite('vendor-materializer', function () {
         assert.deepStrictEqual(result.entries, [
             {
                 sourceAbsolutePath: '/repo/node_modules/broken/index.js',
+                sourcePackageRootPath: '/repo/node_modules/broken',
                 targetRelativePath: 'node_modules/broken/index.js',
                 isExecutable: false
             }
@@ -161,11 +163,13 @@ suite('vendor-materializer', function () {
         assert.deepStrictEqual(result.entries, [
             {
                 sourceAbsolutePath: '/repo/node_modules/leaf/index.js',
+                sourcePackageRootPath: '/repo/node_modules/leaf',
                 targetRelativePath: 'node_modules/leaf/index.js',
                 isExecutable: false
             },
             {
                 sourceAbsolutePath: '/repo/node_modules/leaf/package.json',
+                sourcePackageRootPath: '/repo/node_modules/leaf',
                 targetRelativePath: 'node_modules/leaf/package.json',
                 isExecutable: false
             }
@@ -267,6 +271,7 @@ suite('vendor-materializer', function () {
         assert.deepStrictEqual(result.entries, [
             {
                 sourceAbsolutePath: '/repo/node_modules/pkg/src/index.js',
+                sourcePackageRootPath: '/repo/node_modules/pkg',
                 targetRelativePath: 'node_modules/pkg/src/index.js',
                 isExecutable: false
             }
@@ -302,6 +307,7 @@ suite('vendor-materializer', function () {
         assert.deepStrictEqual(result.entries, [
             {
                 sourceAbsolutePath: '/workspace/node_modules/hoisted/index.js',
+                sourcePackageRootPath: '/workspace/node_modules/hoisted',
                 targetRelativePath: 'node_modules/hoisted/index.js',
                 isExecutable: false
             }
