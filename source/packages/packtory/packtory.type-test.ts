@@ -9,6 +9,7 @@ import type {
     resolveAndLinkAll,
     BuildReport,
     PacktoryConfig,
+    PackageReleaseAnalysisClassification,
     PublishAllOutcome,
     PublishAllResult,
     ReleasePlan,
@@ -394,6 +395,7 @@ describe('ReleasePlanResult', () => {
         expect<ReleasePlanPackage['previousVersion']>().type.toBe<string | undefined>();
         expect<ReleasePlanPackage['nextVersion']>().type.toBe<string>();
         expect<ReleasePlanPackage['artifactState']>().type.toBe<ReleasePlanArtifactState>();
+        expect<ReleasePlanPackage['releaseClassification']>().type.toBe<PackageReleaseAnalysisClassification>();
         expect<ReleasePlanPackage['changed']>().type.toBe<boolean>();
         expect<ReleasePlanPackage['previousGitHead']>().type.toBe<string | undefined>();
         expect<ReleasePlanPackage['currentGitHead']>().type.toBe<string | undefined>();

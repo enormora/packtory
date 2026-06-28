@@ -5,11 +5,12 @@ import { Result } from 'true-myth';
 import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage } from '../../packtory/packtory.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import type { ConfigLoader } from '../config-loader.ts';
-import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
+import { createReleasePlanPackageFixture } from '../../test-libraries/release-plan-package-fixtures.ts';
 import { runReleaseHandler, type ReleaseHandlerDeps } from './release-handler.ts';
 
 type ReleaseFlags = ReleaseHandlerDeps['flags'];
+type ConfigLoader = ReleaseHandlerDeps['configLoader'];
+type TerminalSpinnerRenderer = ReleaseHandlerDeps['spinnerRenderer'];
 
 const validConfig = {
     packages: [
@@ -27,27 +28,14 @@ const validConfig = {
 } as const;
 
 function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
-    return {
-        name: 'pkg-a',
-        previousVersion: '1.0.0',
-        nextVersion: '1.0.1',
-        artifactState: 'changed',
-        changed: true,
-        previousGitHead: 'old-head',
-        currentGitHead: 'new-head',
-        latestRegistryMetadata: { version: '1.0.0', publishedAt: undefined, gitHead: 'old-head' },
-        artifactFiles: ['index.js'],
-        changedArtifactFiles: ['index.js'],
-        sourceFiles: ['source/pkg-a.ts'],
-        changelogSourceFiles: ['source/pkg-a.ts'],
-        ...overrides
-    };
+    return createReleasePlanPackageFixture(overrides);
 }
 
 function createCurrentHeadRetryPackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
     return createReleasePackage({
         changed: false,
         artifactState: 'unchanged',
+        releaseClassification: 'unchanged',
         latestRegistryMetadata: {
             version: '1.0.1',
             publishedAt: undefined,

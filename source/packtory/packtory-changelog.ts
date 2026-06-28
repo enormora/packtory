@@ -1,12 +1,15 @@
 import path from 'node:path';
 import type { PrLogEngine, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
 import { compareValues } from '../common/sort-values.ts';
-import type { ReleasePlanPackage } from './packtory-results.ts';
+import { releaseAnalysisClassification, type ReleasePlanPackage } from './packtory-results.ts';
 
 type ChangelogTarget = {
     readonly packagePlan: ReleasePlanPackage;
     readonly pullRequests: readonly PullRequestWithLabel[];
 };
+
+const dependencyUpdateLabel = 'upgrade';
+const dependencyUpdateTitle = 'Update dependencies';
 
 export type GenerateChangelogInput = {
     readonly currentDate: Date;
@@ -135,12 +138,29 @@ async function createChangelogTarget(
     };
 }
 
+function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
+    if (target.packagePlan.releaseClassification !== releaseAnalysisClassification.dependencyOnly) {
+        return target.pullRequests;
+    }
+
+    return target.pullRequests.map((pullRequest) => {
+        return { ...pullRequest, title: dependencyUpdateTitle, label: dependencyUpdateLabel };
+    });
+}
+
+function changelogLabelsForRendering(validLabels: ReadonlyMap<string, string>): ReadonlyMap<string, string> {
+    if (validLabels.has(dependencyUpdateLabel)) {
+        return validLabels;
+    }
+    return new Map([...validLabels, [dependencyUpdateLabel, 'Dependency Upgrades']]);
+}
+
 function createTargetSection(target: ChangelogTarget): TargetChangelogSection {
     return {
         targetName: target.packagePlan.name,
         unreleased: false,
         versionNumber: target.packagePlan.nextVersion,
-        mergedPullRequests: target.pullRequests
+        mergedPullRequests: changelogPullRequestsFor(target)
     };
 }
 
@@ -152,6 +172,7 @@ function createPackageMarkdownByName(
     input: GenerateChangelogInput,
     targets: readonly ChangelogTarget[]
 ): ReadonlyMap<string, string> {
+    const validLabels = changelogLabelsForRendering(input.validLabels);
     return new Map(
         targets.filter(hasChangelogEntries).map((target) => {
             const targetSection = createTargetSection(target);
@@ -160,7 +181,7 @@ function createPackageMarkdownByName(
                 input.prLogEngine.renderTargetChangelog({
                     packageInfo: input.packageInfo,
                     currentDate: input.currentDate,
-                    validLabels: input.validLabels,
+                    validLabels,
                     githubRepo: input.githubRepo,
                     ...targetSection
                 })
@@ -172,6 +193,7 @@ function createPackageMarkdownByName(
 export async function generateChangelogOutputs(input: GenerateChangelogInput): Promise<GeneratedChangelog> {
     const packages = selectChangedPackages(input.packages);
     const ignoredAttributionPaths = mergeIgnoredAttributionPaths(packages, input.ignoredAttributionPaths);
+    const validLabels = changelogLabelsForRendering(input.validLabels);
     const targets = await Promise.all(
         packages.map(async (packagePlan) => {
             return createChangelogTarget(input, packagePlan, ignoredAttributionPaths);
@@ -183,7 +205,7 @@ export async function generateChangelogOutputs(input: GenerateChangelogInput): P
         groupedMarkdown: input.prLogEngine.renderGroupedTargetChangelog({
             packageInfo: input.packageInfo,
             currentDate: input.currentDate,
-            validLabels: input.validLabels,
+            validLabels,
             githubRepo: input.githubRepo,
             targets: targetsWithEntries.map(createTargetSection)
         }),

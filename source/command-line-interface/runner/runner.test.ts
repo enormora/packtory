@@ -351,6 +351,7 @@ suite('runner', function () {
                         previousVersion: '1.0.0',
                         nextVersion: '1.0.1',
                         artifactState: 'changed',
+                        releaseClassification: 'substantive',
                         changed: true,
                         previousGitHead: 'old-head',
                         currentGitHead: 'new-head',

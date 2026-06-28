@@ -14,16 +14,23 @@ import { mapResolvePartialFailure, succeededResultsFrom } from './partial-result
 import {
     collectReleasePlanChangelogSourceFiles,
     createReleasePlanPackage,
+    type CollectReleaseArtifactFiles,
     type ReleasePlanMapperDependencies
 } from './release-plan.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
+import { classifyPackageRelease } from './release-analysis.ts';
 import { determineVersionAndPublishAll, type PublishStageDependencies } from './stages/publish-stage.ts';
 
 type ResolveAndLinkAllValidated = (
     config: ValidConfigResult
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
-type ReleasePlanOrchestratorDependencies = PublishStageDependencies & ReleasePlanMapperDependencies;
+type ReleasePlanArtifactDependencies = {
+    readonly artifactsBuilder: { readonly collectContents: CollectReleaseArtifactFiles };
+};
+type ReleasePlanOrchestratorDependencies = PublishStageDependencies &
+    ReleasePlanArtifactDependencies &
+    ReleasePlanMapperDependencies;
 type ReleasePlanDependencies = ReleasePlanOrchestratorDependencies & {
     readonly readCurrentGitHead: CurrentGitHeadReader;
 };
@@ -62,10 +69,17 @@ async function appendPackagePlan(args: {
     if (resolvedPackage === undefined) {
         throw new Error(`Resolved package "${packageName}" is missing`);
     }
+    const releaseArtifactFiles = args.artifactsBuilder.collectContents(
+        args.buildResult.bundle,
+        'package',
+        args.buildResult.extraFiles
+    );
     args.packages.push(
         await createReleasePlanPackage(args, resolvedPackage.analyzedBundle, args.buildResult, {
             changelogSourceFiles: collectReleasePlanChangelogSourceFiles(resolvedPackage.resolveOptions),
-            currentGitHead: args.currentGitHead
+            currentGitHead: args.currentGitHead,
+            releaseArtifactFiles,
+            releaseClassification: classifyPackageRelease(args.buildResult, releaseArtifactFiles).classification
         })
     );
 }
