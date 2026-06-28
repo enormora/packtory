@@ -106,7 +106,11 @@ function createRunner(overrides: Overrides = {}): CommandLineInterfaceRunner {
                 createStatus: fake.resolves(undefined),
                 deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
                 dispatchWorkflow: fake.resolves(undefined),
-                findDispatchedWorkflowRunId: fake.resolves(undefined),
+                findDispatchedWorkflowRun: fake.resolves({
+                    event: 'workflow_dispatch',
+                    observedRunIds: [],
+                    runId: undefined
+                }),
                 getBranchHeadSha: fake.resolves('main-head'),
                 getPullRequest: fake.resolves(undefined),
                 getPullRequestHead: fake.resolves(undefined),
@@ -239,7 +243,7 @@ function createReleasePullRequestClient(overrides: Record<string, unknown>) {
         createStatus: fake.resolves(undefined),
         deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
         dispatchWorkflow: fake.resolves(undefined),
-        findDispatchedWorkflowRunId: fake.resolves(undefined),
+        findDispatchedWorkflowRun: fake.resolves({ event: 'workflow_dispatch', observedRunIds: [], runId: undefined }),
         getBranchHeadSha: fake.resolves('main-head'),
         getPullRequest: fake.resolves(undefined),
         getPullRequestHead: fake.resolves(undefined),
