@@ -17,6 +17,7 @@ function createReleasePackage() {
         previousVersion: '1.0.0',
         nextVersion: '1.0.1',
         artifactState: 'changed' as const,
+        releaseClassification: 'substantive' as const,
         changed: true,
         previousGitHead: undefined,
         currentGitHead: 'current-head',

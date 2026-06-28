@@ -11,26 +11,17 @@ import type {
 } from '@pr-log/core';
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
-import type { ConfigLoader } from '../config-loader.ts';
+import { createReleasePlanPackageFixture } from '../../test-libraries/release-plan-package-fixtures.ts';
 import { runChangelogHandler, type ChangelogHandlerDeps } from './changelog-handler.ts';
 
+type ConfigLoader = ChangelogHandlerDeps['configLoader'];
+type TerminalSpinnerRenderer = ChangelogHandlerDeps['spinnerRenderer'];
+
 function releasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
-    return {
-        name: 'pkg-a',
-        previousVersion: '1.0.0',
-        nextVersion: '1.0.1',
-        artifactState: 'changed',
-        changed: true,
-        previousGitHead: 'old-head',
-        currentGitHead: 'new-head',
+    return createReleasePlanPackageFixture({
         latestRegistryMetadata: undefined,
-        artifactFiles: ['index.js'],
-        changedArtifactFiles: ['index.js'],
-        sourceFiles: ['source/pkg-a.ts'],
-        changelogSourceFiles: ['source/pkg-a.ts'],
         ...overrides
-    };
+    });
 }
 
 const validConfig = {

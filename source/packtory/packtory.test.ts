@@ -778,6 +778,7 @@ suite('packtory', function () {
                 previousVersion: undefined,
                 nextVersion: '1.0.0',
                 artifactState: 'first-publish',
+                releaseClassification: 'first-publish',
                 changed: true,
                 previousGitHead: undefined,
                 currentGitHead: undefined,

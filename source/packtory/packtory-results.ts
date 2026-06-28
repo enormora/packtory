@@ -195,6 +195,7 @@ export type ReleasePlanPackage = {
     readonly previousVersion: string | undefined;
     readonly nextVersion: string;
     readonly artifactState: 'changed' | 'first-publish' | 'unchanged';
+    readonly releaseClassification: PackageReleaseAnalysisClassification;
     readonly changed: boolean;
     readonly previousGitHead: string | undefined;
     readonly currentGitHead: string | undefined;

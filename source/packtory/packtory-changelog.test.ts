@@ -19,6 +19,7 @@ function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPack
         previousVersion: '1.0.0',
         nextVersion: '1.0.1',
         artifactState: 'changed',
+        releaseClassification: 'substantive',
         changed: true,
         previousGitHead: undefined,
         currentGitHead: 'current-head',
@@ -193,6 +194,54 @@ suite('packtory-changelog', function () {
             ]),
             ignoredAttributionPaths: ['CHANGELOG.md']
         });
+    });
+
+    test('renders dependency-only package changes as dependency updates', async function () {
+        const { engine, calls } = createEngine();
+
+        await render(
+            [
+                releasePackage({
+                    releaseClassification: 'dependency-only',
+                    changedArtifactFiles: ['package.json', 'sbom.cdx.json']
+                })
+            ],
+            engine
+        );
+
+        assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, [
+            {
+                targetName: 'pkg-a',
+                unreleased: false,
+                versionNumber: '1.0.1',
+                mergedPullRequests: [{ id: 1, title: 'Update dependencies', label: 'upgrade' }]
+            }
+        ]);
+        assert.strictEqual(
+            calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels.get('upgrade'),
+            'Dependency Upgrades'
+        );
+    });
+
+    test('preserves configured dependency update changelog labels', async function () {
+        const { engine, calls } = createEngine();
+        const customValidLabels = new Map([...validLabels, ['upgrade', 'Upgrades']]);
+
+        await generateChangelogOutputs({
+            packages: [releasePackage({ releaseClassification: 'dependency-only' })],
+            prLogEngine: engine,
+            githubRepo: 'owner/repo',
+            packageInfo: {},
+            currentDate: new Date('2026-06-13T00:00:00.000Z'),
+            explicitBaseRef: undefined,
+            ignoredAttributionPaths: [],
+            packageTagFormat: undefined,
+            targetScopedLabelPattern: undefined,
+            validLabels: customValidLabels
+        });
+
+        assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels, customValidLabels);
+        assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels.get('upgrade'), 'Upgrades');
     });
 
     test('omits package changelog markdown for packages without attributed pull requests', async function () {

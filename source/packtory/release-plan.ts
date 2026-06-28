@@ -14,11 +14,12 @@ import {
 } from './changelog-source-attribution.ts';
 
 type ReleasePlanArtifactState = ReleasePlanPackage['artifactState'];
-type CollectArtifactContents = (
+export type CollectReleaseArtifactFiles = (
     bundle: BuildAndPublishResult['bundle'],
     prefix: string | undefined,
     extraFiles: BuildAndPublishResult['extraFiles']
 ) => readonly FileDescription[];
+
 type ChangelogSourceInputOptions = {
     readonly additionalChangelogSourceFiles: readonly string[];
     readonly mainPackageJson: Parameters<typeof collectManifestChangelogSourceFiles>[0];
@@ -26,11 +27,11 @@ type ChangelogSourceInputOptions = {
 type ReleasePlanPackageInput = {
     readonly changelogSourceFiles: readonly string[];
     readonly currentGitHead: string | undefined;
+    readonly releaseClassification: ReleasePlanPackage['releaseClassification'];
+    readonly releaseArtifactFiles: readonly FileDescription[];
 };
 
-export type ReleasePlanMapperDependencies = ChangelogSourceAttributionDependencies & {
-    readonly artifactsBuilder: { readonly collectContents: CollectArtifactContents };
-};
+export type ReleasePlanMapperDependencies = ChangelogSourceAttributionDependencies;
 
 function sortedUnique(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
@@ -113,11 +114,6 @@ export async function createReleasePlanPackage(
     buildResult: BuildAndPublishResult,
     input: ReleasePlanPackageInput
 ): Promise<ReleasePlanPackage> {
-    const newFiles = dependencies.artifactsBuilder.collectContents(
-        buildResult.bundle,
-        'package',
-        buildResult.extraFiles
-    );
     const artifactState = artifactStateFrom(buildResult);
     const latestRegistryMetadata = registryMetadataFrom(buildResult);
     return {
@@ -125,12 +121,13 @@ export async function createReleasePlanPackage(
         previousVersion: latestRegistryMetadata?.version,
         nextVersion: buildResult.bundle.version,
         artifactState,
+        releaseClassification: input.releaseClassification,
         changed: artifactState !== 'unchanged',
         previousGitHead: latestRegistryMetadata?.gitHead,
         currentGitHead: input.currentGitHead,
         latestRegistryMetadata,
-        artifactFiles: packageRelativeFiles(newFiles),
-        changedArtifactFiles: changedArtifactFilesFrom(artifactState, buildResult, newFiles),
+        artifactFiles: packageRelativeFiles(input.releaseArtifactFiles),
+        changedArtifactFiles: changedArtifactFilesFrom(artifactState, buildResult, input.releaseArtifactFiles),
         sourceFiles: sourceFilesFrom(analyzedBundle),
         changelogSourceFiles: await attributeChangelogSourceFiles(
             dependencies,

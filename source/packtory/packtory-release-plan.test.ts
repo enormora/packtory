@@ -139,6 +139,7 @@ suite('packtory-release-plan', function () {
                 previousVersion: undefined,
                 nextVersion: '0.1.0',
                 artifactState: 'first-publish',
+                releaseClassification: 'first-publish',
                 changed: true,
                 previousGitHead: undefined,
                 currentGitHead: undefined,
@@ -168,6 +169,7 @@ suite('packtory-release-plan', function () {
             previousVersion: '1.0.0',
             nextVersion: '1.0.1',
             artifactState: 'changed',
+            releaseClassification: 'substantive',
             changed: true,
             latestRegistryMetadata: {
                 version: '1.0.0',
@@ -197,6 +199,7 @@ suite('packtory-release-plan', function () {
             previousVersion: '1.0.0',
             nextVersion: '1.0.1',
             artifactState: 'unchanged',
+            releaseClassification: 'unchanged',
             changed: false,
             latestRegistryMetadata: {
                 version: '1.0.0',
@@ -432,6 +435,59 @@ suite('packtory-release-plan', function () {
             'package.json',
             'source/pkg-a.js'
         ]);
+    });
+
+    test('plans substitution-driven generated dependency changes as dependency-only releases', async function () {
+        const result = await planFor({
+            packageNames: ['pkg-a'],
+            buildResults: [
+                buildResultFor({
+                    previousReleaseArtifacts: previousReleaseArtifactsFor({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        files: [
+                            {
+                                filePath: 'package/package.json',
+                                content: '{"name":"pkg-a","version":"1.0.0","dependencies":{"pkg-b":"1.0.0"}}',
+                                isExecutable: false
+                            },
+                            {
+                                filePath: 'package/sbom.cdx.json',
+                                content: '{"components":[{"name":"pkg-b","version":"1.0.0"}]}',
+                                isExecutable: false
+                            },
+                            { filePath: 'package/index.js', content: 'stable', isExecutable: false }
+                        ]
+                    })
+                })
+            ],
+            collectContents() {
+                return [
+                    {
+                        filePath: 'package/package.json',
+                        content: '{"name":"pkg-a","version":"1.0.1","dependencies":{"pkg-b":"1.0.1"}}',
+                        isExecutable: false
+                    },
+                    {
+                        filePath: 'package/sbom.cdx.json',
+                        content: '{"components":[{"name":"pkg-b","version":"1.0.1"}]}',
+                        isExecutable: false
+                    },
+                    { filePath: 'package/index.js', content: 'stable', isExecutable: false }
+                ];
+            },
+            bundleContents: {
+                'pkg-a': [
+                    analyzedBundleResource('/source/pkg-a.js'),
+                    analyzedBundleResource('/source/pkg-b.js', { isSubstituted: true })
+                ]
+            }
+        });
+
+        const packagePlan = expectPlan(result).packages[0];
+        assert.strictEqual(packagePlan?.releaseClassification, 'dependency-only');
+        assert.deepStrictEqual(packagePlan.changedArtifactFiles, ['package.json', 'sbom.cdx.json']);
+        assert.deepStrictEqual(packagePlan.changelogSourceFiles, ['source/pkg-a.js', 'source/pkg-b.js']);
     });
 
     test('maps partial resolve failures to release-plan partial failures with empty succeeded entries', async function () {
