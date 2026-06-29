@@ -103,7 +103,7 @@ function validatedManifestAttributionConfig(): ValidConfigResult {
     return validatedReleaseConfig({
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         commonPackageSettings: {
-            additionalChangelogSourceFiles: ['package-lock.json'],
+            additionalChangelogSourceFiles: ['npm-shrinkwrap.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'],
             mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
             publishSettings: { access: 'public' },
             sourcesFolder: 'source'
@@ -472,7 +472,14 @@ suite('packtory-release-plan', function () {
                 previousIndex: 'same',
                 previousPackageJson: '{"name":"pkg-a","version":"1.0.0","dependencies":{"commander":"^13.0.0"}}'
             }),
-            ['package-lock.json', 'package.json', 'source/pkg-a.js']
+            [
+                'npm-shrinkwrap.json',
+                'package-lock.json',
+                'package.json',
+                'pnpm-lock.yaml',
+                'source/pkg-a.js',
+                'yarn.lock'
+            ]
         );
     });
 

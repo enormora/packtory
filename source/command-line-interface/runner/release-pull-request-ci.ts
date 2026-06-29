@@ -104,9 +104,6 @@ function workflowStatusState(conclusion: string): 'error' | 'failure' | 'success
 }
 
 function workflowStatusDescription(conclusion: string): string {
-    if (conclusion === 'success') {
-        return 'Dispatched release CI job success.';
-    }
     return `Dispatched release CI job ${conclusion}.`;
 }
 
