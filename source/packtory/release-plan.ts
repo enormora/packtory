@@ -1,13 +1,18 @@
-import { bundleRelativePath } from '../common/package-layout.ts';
+import { bundleRelativePath, packageManifestFilePath } from '../common/package-layout.ts';
 import { compareValues } from '../common/sort-values.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { buildFileSetDiff } from '../report/release-diff/file-set-diff.ts';
 import { canonicalizeReleaseArtifactFiles } from '../bundle-emitter/release-artifact-canonicalizer.ts';
-import type { ReleasePlanPackage, ReleasePlanRegistryMetadata } from './packtory-results.ts';
+import {
+    releaseAnalysisClassification,
+    type ReleasePlanPackage,
+    type ReleasePlanRegistryMetadata
+} from './packtory-results.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
 import { publishedReleaseArtifactsOf, wasAlreadyPublished } from './published-release-state.ts';
 import {
+    attributeSelectedChangelogSourceFiles,
     attributeChangelogSourceFiles,
     collectManifestChangelogSourceFiles,
     type ChangelogSourceAttributionDependencies
@@ -25,7 +30,7 @@ type ChangelogSourceInputOptions = {
     readonly mainPackageJson: Parameters<typeof collectManifestChangelogSourceFiles>[0];
 };
 type ReleasePlanPackageInput = {
-    readonly changelogSourceFiles: readonly string[];
+    readonly changelogSourceOptions: ChangelogSourceInputOptions;
     readonly currentGitHead: string | undefined;
     readonly releaseClassification: ReleasePlanPackage['releaseClassification'];
     readonly releaseArtifactFiles: readonly FileDescription[];
@@ -37,11 +42,32 @@ function sortedUnique(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
 }
 
-export function collectReleasePlanChangelogSourceFiles(resolveOptions: ChangelogSourceInputOptions): readonly string[] {
-    return collectManifestChangelogSourceFiles(
-        resolveOptions.mainPackageJson,
-        resolveOptions.additionalChangelogSourceFiles
+function isPackageManifestInputPath(filePath: string): boolean {
+    return ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock'].includes(filePath);
+}
+
+function collectConfiguredChangelogSourceFiles(
+    additionalSourceFiles: readonly string[],
+    includeManifestInputFiles: boolean
+): readonly string[] {
+    return additionalSourceFiles.filter((filePath) => {
+        return includeManifestInputFiles || !isPackageManifestInputPath(filePath);
+    });
+}
+
+function collectReleasePlanChangelogSourceFiles(
+    resolveOptions: ChangelogSourceInputOptions,
+    changedArtifactFiles: readonly string[]
+): readonly string[] {
+    const includeManifestInputFiles = changedArtifactFiles.includes(packageManifestFilePath);
+    const configuredSourceFiles = collectConfiguredChangelogSourceFiles(
+        resolveOptions.additionalChangelogSourceFiles,
+        includeManifestInputFiles
     );
+    if (!includeManifestInputFiles) {
+        return configuredSourceFiles;
+    }
+    return collectManifestChangelogSourceFiles(resolveOptions.mainPackageJson, configuredSourceFiles);
 }
 
 function packageRelativeFiles(files: readonly FileDescription[]): readonly string[] {
@@ -108,6 +134,32 @@ function changedArtifactFilesFrom(
     ]);
 }
 
+function shouldAttributeAllBundleSources(releaseClassification: ReleasePlanPackage['releaseClassification']): boolean {
+    return (
+        releaseClassification === releaseAnalysisClassification.dependencyOnly ||
+        releaseClassification === releaseAnalysisClassification.unchanged
+    );
+}
+
+async function attributedChangelogSourceFiles(input: {
+    readonly analyzedBundle: AnalyzedBundle;
+    readonly changelogSourceFiles: readonly string[];
+    readonly changedArtifactFiles: readonly string[];
+    readonly dependencies: ReleasePlanMapperDependencies;
+    readonly releaseClassification: ReleasePlanPackage['releaseClassification'];
+}): Promise<readonly string[]> {
+    if (shouldAttributeAllBundleSources(input.releaseClassification)) {
+        return attributeChangelogSourceFiles(input.dependencies, input.analyzedBundle, input.changelogSourceFiles);
+    }
+
+    return attributeSelectedChangelogSourceFiles(
+        input.dependencies,
+        input.analyzedBundle,
+        input.changelogSourceFiles,
+        new Set(input.changedArtifactFiles)
+    );
+}
+
 export async function createReleasePlanPackage(
     dependencies: ReleasePlanMapperDependencies,
     analyzedBundle: AnalyzedBundle,
@@ -116,6 +168,11 @@ export async function createReleasePlanPackage(
 ): Promise<ReleasePlanPackage> {
     const artifactState = artifactStateFrom(buildResult);
     const latestRegistryMetadata = registryMetadataFrom(buildResult);
+    const changedArtifactFiles = changedArtifactFilesFrom(artifactState, buildResult, input.releaseArtifactFiles);
+    const changelogSourceFiles = collectReleasePlanChangelogSourceFiles(
+        input.changelogSourceOptions,
+        changedArtifactFiles
+    );
     return {
         name: buildResult.bundle.name,
         previousVersion: latestRegistryMetadata?.version,
@@ -127,12 +184,14 @@ export async function createReleasePlanPackage(
         currentGitHead: input.currentGitHead,
         latestRegistryMetadata,
         artifactFiles: packageRelativeFiles(input.releaseArtifactFiles),
-        changedArtifactFiles: changedArtifactFilesFrom(artifactState, buildResult, input.releaseArtifactFiles),
+        changedArtifactFiles,
         sourceFiles: sourceFilesFrom(analyzedBundle),
-        changelogSourceFiles: await attributeChangelogSourceFiles(
-            dependencies,
+        changelogSourceFiles: await attributedChangelogSourceFiles({
             analyzedBundle,
-            input.changelogSourceFiles
-        )
+            changedArtifactFiles,
+            changelogSourceFiles,
+            dependencies,
+            releaseClassification: input.releaseClassification
+        })
     };
 }
