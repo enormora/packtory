@@ -13,7 +13,8 @@ import {
     resolveDeadCodeElimination,
     resolveIncludeSourceMapFiles,
     resolveMainPackageJson,
-    resolveSourcesFolder
+    resolveSourcesFolder,
+    type AdditionalChangelogSourceFiles
 } from './setting-resolvers.ts';
 import { resolveSurface } from './surface-resolution.ts';
 
@@ -33,7 +34,7 @@ export type SharedPackageOptions<TBundle extends { name: string }> = ManifestOpt
     };
 
 export type PreparedPackageOptions<TBundle extends { name: string }> = {
-    readonly additionalChangelogSourceFiles: readonly string[];
+    readonly additionalChangelogSourceFiles: AdditionalChangelogSourceFiles;
     readonly packageConfig: PackageConfig;
     readonly sharedOptions: SharedPackageOptions<TBundle>;
     readonly versioning: VersioningSettings;

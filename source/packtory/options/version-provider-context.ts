@@ -8,6 +8,13 @@ import {
 import type { BuildAndPublishOptions } from '../map-config.ts';
 import type { VersionProviderContext } from './version-trigger.ts';
 
+function allConfiguredChangelogSourceFiles(options: BuildAndPublishOptions): readonly string[] {
+    return [
+        ...options.additionalChangelogSourceFiles.sharedFiles,
+        ...options.additionalChangelogSourceFiles.packageFiles
+    ];
+}
+
 export async function createVersionProviderContext(
     dependencies: ChangelogSourceAttributionDependencies,
     analyzedBundle: AnalyzedBundle,
@@ -18,7 +25,7 @@ export async function createVersionProviderContext(
     if (hasVersionProvider(options.versioning)) {
         const manifestChangelogSourceFiles = collectManifestChangelogSourceFiles(
             options.mainPackageJson,
-            options.additionalChangelogSourceFiles
+            allConfiguredChangelogSourceFiles(options)
         );
         targetSourceFiles = await attributeChangelogSourceFiles(
             dependencies,

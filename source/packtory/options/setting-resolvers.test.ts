@@ -87,12 +87,24 @@ suite('setting-resolvers', function () {
         assert.deepStrictEqual(result, ['react']);
     });
 
-    test('resolveAdditionalChangelogSourceFiles merges common and package paths', function () {
+    test('resolveAdditionalChangelogSourceFiles keeps common and package paths separate', function () {
         const result = resolveAdditionalChangelogSourceFiles(
             pkg({ additionalChangelogSourceFiles: ['packages/pkg/package.json'] }),
             config({ commonPackageSettings: { additionalChangelogSourceFiles: ['package-lock.json'] } as never })
         );
-        assert.deepStrictEqual(result, ['package-lock.json', 'packages/pkg/package.json']);
+        assert.deepStrictEqual(result, {
+            packageFiles: ['packages/pkg/package.json'],
+            sharedFiles: ['package-lock.json']
+        });
+    });
+
+    test('resolveAdditionalChangelogSourceFiles defaults absent common and package paths to empty lists', function () {
+        const result = resolveAdditionalChangelogSourceFiles(pkg({}), config());
+
+        assert.deepStrictEqual(result, {
+            packageFiles: [],
+            sharedFiles: []
+        });
     });
 
     test('buildAdditionalPackageJsonAttributes merges common attributes with package-level overrides', function () {

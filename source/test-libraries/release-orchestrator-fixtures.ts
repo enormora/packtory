@@ -242,10 +242,10 @@ export function resolvedPackagesFor(
                 additionalFiles: packageConfig.additionalFiles ?? [],
                 mainPackageJson: packageConfig.mainPackageJson ??
                     validated.packtoryConfig.commonPackageSettings?.mainPackageJson ?? { type: 'module' },
-                additionalChangelogSourceFiles: [
-                    ...(validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []),
-                    ...(packageConfig.additionalChangelogSourceFiles ?? [])
-                ],
+                additionalChangelogSourceFiles: {
+                    packageFiles: packageConfig.additionalChangelogSourceFiles ?? [],
+                    sharedFiles: validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []
+                },
                 additionalPackageJsonAttributes: packageConfig.additionalPackageJsonAttributes ?? {},
                 allowMutableSpecifiers: [],
                 deadCodeElimination: packageConfig.deadCodeElimination,
