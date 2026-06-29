@@ -9,7 +9,11 @@ import {
     type VersioningSettings
 } from './options/prepare-package-options.ts';
 import { collectGeneratedAttributionPaths } from './generated-attribution-paths.ts';
-import { resolvePublishSettings, type PublishSettings } from './options/setting-resolvers.ts';
+import {
+    resolvePublishSettings,
+    type AdditionalChangelogSourceFiles,
+    type PublishSettings
+} from './options/setting-resolvers.ts';
 
 type PublishVersioningSettings = Exclude<VersioningSettings, SourceManualVersioningSettings>;
 
@@ -18,7 +22,7 @@ export type BuildOptions = SharedPackageOptions<PublishedPackageWithManifest> & 
 };
 
 type PackageAttributionOptions = {
-    readonly additionalChangelogSourceFiles: readonly string[];
+    readonly additionalChangelogSourceFiles: AdditionalChangelogSourceFiles;
 };
 
 export type BuildAndPublishOptions = PackageAttributionOptions &

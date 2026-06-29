@@ -26,7 +26,10 @@ export type CollectReleaseArtifactFiles = (
 ) => readonly FileDescription[];
 
 type ChangelogSourceInputOptions = {
-    readonly additionalChangelogSourceFiles: readonly string[];
+    readonly additionalChangelogSourceFiles: {
+        readonly packageFiles: readonly string[];
+        readonly sharedFiles: readonly string[];
+    };
     readonly mainPackageJson: Parameters<typeof collectManifestChangelogSourceFiles>[0];
 };
 type ReleasePlanPackageInput = {
@@ -46,13 +49,8 @@ function isPackageManifestInputPath(filePath: string): boolean {
     return ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock'].includes(filePath);
 }
 
-function collectConfiguredChangelogSourceFiles(
-    additionalSourceFiles: readonly string[],
-    includeManifestInputFiles: boolean
-): readonly string[] {
-    return additionalSourceFiles.filter((filePath) => {
-        return includeManifestInputFiles || !isPackageManifestInputPath(filePath);
-    });
+function collectSharedManifestInputFiles(sharedSourceFiles: readonly string[]): readonly string[] {
+    return sharedSourceFiles.filter(isPackageManifestInputPath);
 }
 
 function collectReleasePlanChangelogSourceFiles(
@@ -60,14 +58,14 @@ function collectReleasePlanChangelogSourceFiles(
     changedArtifactFiles: readonly string[]
 ): readonly string[] {
     const includeManifestInputFiles = changedArtifactFiles.includes(packageManifestFilePath);
-    const configuredSourceFiles = collectConfiguredChangelogSourceFiles(
-        resolveOptions.additionalChangelogSourceFiles,
-        includeManifestInputFiles
-    );
+    const configuredSourceFiles = resolveOptions.additionalChangelogSourceFiles.packageFiles;
     if (!includeManifestInputFiles) {
         return configuredSourceFiles;
     }
-    return collectManifestChangelogSourceFiles(resolveOptions.mainPackageJson, configuredSourceFiles);
+    return collectManifestChangelogSourceFiles(resolveOptions.mainPackageJson, [
+        ...collectSharedManifestInputFiles(resolveOptions.additionalChangelogSourceFiles.sharedFiles),
+        ...configuredSourceFiles
+    ]);
 }
 
 function packageRelativeFiles(files: readonly FileDescription[]): readonly string[] {

@@ -50,7 +50,7 @@ suite('version-provider-context', function () {
             },
             analyzedBundle({ contents: [analyzedBundleResource('/source/index.js')] }),
             {
-                additionalChangelogSourceFiles: ['package-lock.json'],
+                additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: ['package-lock.json'] },
                 ignoredAttributionPaths: ['CHANGELOG.md'],
                 mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
                 registrySettings: {},

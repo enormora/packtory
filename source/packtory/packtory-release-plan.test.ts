@@ -103,7 +103,13 @@ function validatedManifestAttributionConfig(): ValidConfigResult {
     return validatedReleaseConfig({
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         commonPackageSettings: {
-            additionalChangelogSourceFiles: ['npm-shrinkwrap.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'],
+            additionalChangelogSourceFiles: [
+                'npm-shrinkwrap.json',
+                'package-lock.json',
+                'packtory.config.js',
+                'pnpm-lock.yaml',
+                'yarn.lock'
+            ],
             mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
             publishSettings: { access: 'public' },
             sourcesFolder: 'source'
@@ -495,6 +501,41 @@ suite('packtory-release-plan', function () {
             }),
             ['source/pkg-a.js']
         );
+    });
+
+    test('keeps package-level explicit changelog source files in package attribution', async function () {
+        const validated = validatedReleaseConfig({
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            commonPackageSettings: {
+                additionalChangelogSourceFiles: ['packtory.config.js'],
+                mainPackageJson: { type: 'module' },
+                publishSettings: { access: 'public' },
+                sourcesFolder: 'source'
+            },
+            packages: [
+                {
+                    additionalChangelogSourceFiles: ['packages/pkg-a/release-notes.md'],
+                    name: 'pkg-a',
+                    roots: { main: { js: 'pkg-a.js' } }
+                }
+            ]
+        });
+        const plan = createPlanner({
+            packageNames: ['pkg-a'],
+            buildResults: [publishedBuildResultFor()],
+            collectContents() {
+                return [releaseArtifactFile('package/index.js', 'new')];
+            }
+        });
+
+        const result = await plan(validated, async () => {
+            return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
+        });
+
+        assert.deepStrictEqual(expectPlan(result).packages[0]?.changelogSourceFiles, [
+            'packages/pkg-a/release-notes.md',
+            'source/pkg-a.js'
+        ]);
     });
 
     test('plans substitution-driven generated dependency changes as dependency-only releases', async function () {
