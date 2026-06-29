@@ -6,6 +6,11 @@ export type NpmOidcIdTokenResolverDependencies = {
     readonly fetch: typeof globalThis.fetch;
     readonly getEnvironmentVariable: (variableName: string) => string | undefined;
 };
+type GitHubActionsRequestConfig = {
+    readonly requestToken: string;
+    readonly requestUrl: URL;
+};
+type EnvironmentVariableReader = (variableName: string) => string | undefined;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return value instanceof Object && !Array.isArray(value);
@@ -47,10 +52,7 @@ function assertTrustedOidcRequestUrl(value: string): URL {
     return parsed;
 }
 
-function getGitHubActionsRequestConfig(getEnvironmentVariable: (variableName: string) => string | undefined): {
-    readonly requestUrl: URL;
-    readonly requestToken: string;
-} {
+function getGitHubActionsRequestConfig(getEnvironmentVariable: EnvironmentVariableReader): GitHubActionsRequestConfig {
     const requestUrl = getEnvironmentVariable('ACTIONS_ID_TOKEN_REQUEST_URL');
     const requestToken = getEnvironmentVariable('ACTIONS_ID_TOKEN_REQUEST_TOKEN');
 
@@ -76,11 +78,11 @@ function parseGitHubActionsIdTokenResponse(body: unknown): string {
 
 function usesGitHubActionsProvider(
     auth: NpmOidcPublishAuth,
-    getEnvironmentVariable: (variableName: string) => string | undefined
+    getEnvironmentVariable: EnvironmentVariableReader
 ): boolean {
     const provider = auth.provider ?? 'auto';
     const runsInGitHubActions = getEnvironmentVariable('GITHUB_ACTIONS') === 'true';
-    return provider === 'github-actions' || (provider === 'auto' && runsInGitHubActions);
+    return provider === 'github-actions' || provider === 'auto' && runsInGitHubActions;
 }
 
 export function createNpmOidcIdTokenResolver(
@@ -102,7 +104,7 @@ export function createNpmOidcIdTokenResolver(
         return parseGitHubActionsIdTokenResponse(await response.json());
     }
 
-    return async (auth) => {
+    return async function (auth) {
         if (usesGitHubActionsProvider(auth, getEnvironmentVariable)) {
             return fetchGitHubActionsIdToken();
         }

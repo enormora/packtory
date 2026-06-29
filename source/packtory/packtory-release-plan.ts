@@ -25,11 +25,10 @@ type ResolveAndLinkAllValidated = (
 ) => Promise<Result<readonly ResolvedPackage[], ResolveAndLinkFailure>>;
 
 type ReleasePlanArtifactDependencies = {
-    readonly artifactsBuilder: { readonly collectContents: CollectReleaseArtifactFiles };
+    readonly artifactsBuilder: { readonly collectContents: CollectReleaseArtifactFiles; };
 };
-type ReleasePlanOrchestratorDependencies = PublishStageDependencies &
-    ReleasePlanArtifactDependencies &
-    ReleasePlanMapperDependencies;
+type ReleasePlanPublishingDependencies = PublishStageDependencies & ReleasePlanArtifactDependencies;
+type ReleasePlanOrchestratorDependencies = ReleasePlanMapperDependencies & ReleasePlanPublishingDependencies;
 type ReleasePlanDependencies = ReleasePlanOrchestratorDependencies & {
     readonly readCurrentGitHead: CurrentGitHeadReader;
 };
@@ -48,21 +47,22 @@ function resolvedPackagesByNameFrom(
     resolvedPackages: readonly ResolvedPackage[]
 ): ReadonlyMap<string, ResolvedPackage> {
     return new Map(
-        resolvedPackages.map((resolvedPackage) => {
-            return [resolvedPackage.name, resolvedPackage] as const;
+        resolvedPackages.map(function (resolvedPackage) {
+            return [ resolvedPackage.name, resolvedPackage ] as const;
         })
     );
 }
 
-async function appendPackagePlan(args: {
+type CreatePackagePlanInput = {
     readonly artifactsBuilder: ReleasePlanOrchestratorDependencies['artifactsBuilder'];
     readonly buildResult: BuildAndPublishResult;
     readonly currentGitHead: string | undefined;
     readonly fileManager: ReleasePlanOrchestratorDependencies['fileManager'];
-    readonly packages: ReleasePlanPackage[];
     readonly repositoryFolder: string;
     readonly resolvedPackagesByName: ReadonlyMap<string, ResolvedPackage>;
-}): Promise<void> {
+};
+
+async function createPackagePlan(args: CreatePackagePlanInput): Promise<ReleasePlanPackage> {
     const packageName = args.buildResult.bundle.name;
     const resolvedPackage = args.resolvedPackagesByName.get(packageName);
     if (resolvedPackage === undefined) {
@@ -73,14 +73,12 @@ async function appendPackagePlan(args: {
         'package',
         args.buildResult.extraFiles
     );
-    args.packages.push(
-        await createReleasePlanPackage(args, resolvedPackage.analyzedBundle, args.buildResult, {
-            changelogSourceOptions: resolvedPackage.resolveOptions,
-            currentGitHead: args.currentGitHead,
-            releaseArtifactFiles,
-            releaseClassification: classifyPackageRelease(args.buildResult, releaseArtifactFiles).classification
-        })
-    );
+    return createReleasePlanPackage(args, resolvedPackage.analyzedBundle, args.buildResult, {
+        changelogSourceOptions: resolvedPackage.resolveOptions,
+        currentGitHead: args.currentGitHead,
+        releaseArtifactFiles,
+        releaseClassification: classifyPackageRelease(args.buildResult, releaseArtifactFiles).classification
+    });
 }
 
 async function planSucceededPublishes(
@@ -95,15 +93,15 @@ async function planSucceededPublishes(
 
     for (const buildResult of succeededPublish) {
         try {
-            await appendPackagePlan({
+            const packagePlan = await createPackagePlan({
                 artifactsBuilder: dependencies.artifactsBuilder,
                 buildResult,
                 currentGitHead,
                 fileManager: dependencies.fileManager,
-                packages,
                 repositoryFolder: dependencies.repositoryFolder,
                 resolvedPackagesByName
             });
+            packages.push(packagePlan);
         } catch (error: unknown) {
             failures.push(toReleasePlanError(error));
         }
@@ -120,7 +118,7 @@ function mapResolveFailureToReleasePlanFailure(error: ResolveAndLinkFailure): Re
 }
 
 function buildPartialFromPublish(
-    publishResult: Extract<PublishStageOutcome, { isErr: true }>,
+    publishResult: Extract<PublishStageOutcome, { readonly isErr: true; }>,
     packages: readonly ReleasePlanPackage[]
 ): ReleasePlanFailure {
     return {

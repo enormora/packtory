@@ -185,15 +185,18 @@ type Events = {
 
 type Listener<TPayload> = (payload: TPayload) => void;
 
-type ProgressEventName =
-    | 'building'
-    | 'done'
-    | 'error'
-    | 'linking'
-    | 'publishing'
-    | 'rebuilding'
-    | 'resolving'
-    | 'scheduled';
+type ProgressEventNames = readonly [
+    'building',
+    'done',
+    'error',
+    'linking',
+    'publishing',
+    'rebuilding',
+    'resolving',
+    'scheduled'
+];
+
+type ProgressEventName = ProgressEventNames[number];
 
 export type ProgressBroadcastProvider = {
     readonly emit: <TEventName extends keyof Events>(eventName: TEventName, payload: Events[TEventName]) => void;
@@ -227,7 +230,7 @@ export type ProgressBroadcaster = {
     readonly consumer: ProgressBroadcastConsumer;
 };
 
-function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<Events[TEventName]>> } {
+function createListenerRegistry(): { [TEventName in keyof Events]: Set<Listener<Events[TEventName]>>; } {
     return {
         scheduled: new Set(),
         resolving: new Set(),
@@ -255,20 +258,20 @@ export function createProgressBroadcaster(): ProgressBroadcaster {
 
     return {
         provider: {
-            emit: (eventName, payload) => {
-                listeners[eventName].forEach((listener) => {
+            emit(eventName, payload) {
+                listeners[eventName].forEach(function (listener) {
                     listener(payload);
                 });
             },
-            hasSubscribers: (eventName) => {
+            hasSubscribers(eventName) {
                 return listeners[eventName].size > 0;
             }
         },
         consumer: {
-            on: (eventName, listener) => {
+            on(eventName, listener) {
                 listeners[eventName].add(listener);
             },
-            off: (eventName, listener) => {
+            off(eventName, listener) {
                 listeners[eventName].delete(listener);
             }
         }

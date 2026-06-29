@@ -111,8 +111,9 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
         resolveAndLinkAllValidated: createResolveAndLinkAllValidated(dependencies),
         runBuildAndPublishValidated: createRunBuildAndPublishValidated(dependencies),
         diffAgainstLatestPublishedValidated: createDiffAgainstLatestPublishedValidated(dependencies),
-        analyzeReleaseAgainstLatestPublishedValidated:
-            createAnalyzeReleaseAgainstLatestPublishedValidated(dependencies),
+        analyzeReleaseAgainstLatestPublishedValidated: createAnalyzeReleaseAgainstLatestPublishedValidated(
+            dependencies
+        ),
         planReleaseAgainstLatestPublishedValidated: createPlanReleaseAgainstLatestPublishedValidated(dependencies),
         runPackValidated: createRunPackValidated(dependencies)
     };
@@ -133,7 +134,39 @@ function ensureAuthConfiguredForRealPublish(
     if (options.dryRun || validated.packtoryConfig.registrySettings?.auth !== undefined) {
         return Result.ok(validated);
     }
-    return Result.err(Result.err(configError([missingPublishAuthIssue])));
+    return Result.err(Result.err(configError([ missingPublishAuthIssue ])));
+}
+
+type ReportedOperationArgs<TValidated, TResult, TReport, TOutcome> = {
+    readonly config: unknown;
+    readonly attachReporting: () => Reporting<TReport>;
+    readonly validate: (config: unknown) => Result<TValidated, readonly string[]>;
+    readonly runValidated: (validated: TValidated) => Promise<TResult>;
+    readonly createValidationErrorResult: (issues: readonly string[]) => TResult;
+    readonly createOutcome: (result: TResult, getReport: () => TReport) => TOutcome;
+};
+
+async function createReportedOutcome<TValidated, TResult, TReport, TOutcome>(
+    args: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>,
+    getReport: () => TReport
+): Promise<TOutcome> {
+    const validation = args.validate(args.config);
+    const result = validation.isErr
+        ? args.createValidationErrorResult(validation.error)
+        : await args.runValidated(validation.value);
+
+    return args.createOutcome(result, getReport);
+}
+
+async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(
+    args: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>
+): Promise<TOutcome> {
+    const reporting = args.attachReporting();
+    try {
+        return await createReportedOutcome(args, reporting.getReport);
+    } finally {
+        reporting.dispose();
+    }
 }
 
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
@@ -145,27 +178,6 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         planReleaseAgainstLatestPublishedValidated,
         runPackValidated
     } = createValidatedRunners(dependencies);
-
-    async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(args: {
-        readonly config: unknown;
-        readonly attachReporting: () => Reporting<TReport>;
-        readonly validate: (config: unknown) => Result<TValidated, readonly string[]>;
-        readonly runValidated: (validated: TValidated) => Promise<TResult>;
-        readonly createValidationErrorResult: (issues: readonly string[]) => TResult;
-        readonly createOutcome: (result: TResult, getReport: () => TReport) => TOutcome;
-    }): Promise<TOutcome> {
-        const reporting = args.attachReporting();
-        try {
-            const validation = args.validate(args.config);
-            const result = validation.isErr
-                ? args.createValidationErrorResult(validation.error)
-                : await args.runValidated(validation.value);
-
-            return args.createOutcome(result, reporting.getReport);
-        } finally {
-            reporting.dispose();
-        }
-    }
 
     async function resolveAndLinkAllPublic(
         config: unknown,

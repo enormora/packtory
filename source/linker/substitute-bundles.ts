@@ -9,7 +9,7 @@ export function substituteDependencies(
     bundleDependencies: readonly BundleSubstitutionSource[]
 ): SubstitutedResourceGraph {
     const substitutedGraph = createSubstitutedResourceGraph();
-    const outstandingConnections: { from: string; to: string }[] = [];
+    const outstandingConnections: { readonly from: string; readonly to: string; }[] = [];
     const visited = new Set<string>();
 
     function recordOutstandingConnections(
@@ -36,7 +36,7 @@ export function substituteDependencies(
         );
     }
 
-    resourceGraph.traverse((node) => {
+    resourceGraph.traverse(function (node) {
         if (visited.has(node.id)) {
             return;
         }
@@ -54,7 +54,7 @@ export function substituteDependencies(
             bundleDependencies: isSubstituted ? replacements.bundleDependencies : [],
             isSubstituted,
             isExplicitlyIncluded: node.data.isExplicitlyIncluded,
-            ...(node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {})
+            ...node.data.isGeneratedManifest && { isGeneratedManifest: true }
         });
     });
 

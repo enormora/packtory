@@ -20,9 +20,9 @@ export type PreviewDiffHunk = {
     readonly lines: readonly PreviewDiffLine[];
 };
 
-type StructuredHunk = StructuredPatch['hunks'][number];
+type StructuredHunk = Readonly<StructuredPatch['hunks'][number]>;
 
-export function isDiffableArtifact(entry: ArtifactEntry): entry is ArtifactEntry & { readonly sourcePath: string } {
+export function isDiffableArtifact(entry: ArtifactEntry): entry is ArtifactEntry & { readonly sourcePath: string; } {
     return (
         entry.sourcePath !== undefined &&
         entry.status === 'changed' &&
@@ -44,11 +44,12 @@ function toDiffLineType(line: string): PreviewDiffLineType {
 export function toPreviewDiffHunk(hunk: StructuredHunk): PreviewDiffHunk {
     return {
         header: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`,
-        lines: hunk.lines
-            .filter((line) => {
+        lines: hunk
+            .lines
+            .filter(function (line) {
                 return !line.startsWith('\\');
             })
-            .map((line) => {
+            .map(function (line) {
                 return { type: toDiffLineType(line), text: line };
             })
     };

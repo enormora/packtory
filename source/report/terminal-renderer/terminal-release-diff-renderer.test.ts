@@ -35,7 +35,7 @@ function document(overrides: Partial<ReleaseDiffDocument> = {}): ReleaseDiffDocu
 suite('terminal-release-diff-renderer', function () {
     test('renderTerminalReleaseDiff renders the document title with the chip', function () {
         const output = renderTerminalReleaseDiff(document(), { color: false });
-        const [firstLine] = output.split('\n');
+        const [ firstLine ] = output.split('\n');
         assert.strictEqual(firstLine, 'Packtory release diff  [vs registry latest]');
     });
 
@@ -78,10 +78,12 @@ suite('terminal-release-diff-renderer', function () {
         );
 
         const lines = output.split('\n');
-        const fileLine = lines.find((line) => {
+        const fileLine = lines.find(function (line) {
             return line.includes('files added');
         });
-        assert.ok(fileLine);
+        if (fileLine === undefined) {
+            assert.fail('expected files added line');
+        }
         assert.match(fileLine, /^ {12}· /u);
     });
 
@@ -93,12 +95,13 @@ suite('terminal-release-diff-renderer', function () {
             '0 package(s) · 0 changed · 0 first-publish · 0 unchanged · 0 failed',
             '            · 0 files added · 0 removed · 0 modified',
             ''
-        ].join('\n');
+        ]
+            .join('\n');
         assert.strictEqual(output, expectedOutput);
     });
 
     test('renderTerminalReleaseDiff includes an Issues section header followed by each issue prefixed with "- "', function () {
-        const output = renderTerminalReleaseDiff(document({ issues: ['first issue', 'second issue'] }), {
+        const output = renderTerminalReleaseDiff(document({ issues: [ 'first issue', 'second issue' ] }), {
             color: false
         });
 
@@ -106,7 +109,7 @@ suite('terminal-release-diff-renderer', function () {
     });
 
     test('renderTerminalReleaseDiff joins document sections with a blank line separator and ends with a newline', function () {
-        const output = renderTerminalReleaseDiff(document({ issues: ['the issue'] }), { color: false });
+        const output = renderTerminalReleaseDiff(document({ issues: [ 'the issue' ] }), { color: false });
         assert.match(output, /\[vs registry latest\]\n\n0 package/u);
         assert.match(output, /0 modified\n\nIssues/u);
         assert.ok(output.endsWith('\n'));
@@ -115,7 +118,7 @@ suite('terminal-release-diff-renderer', function () {
     test('renderTerminalReleaseDiff renders each package section in order separated by blank lines', function () {
         const output = renderTerminalReleaseDiff(
             document({
-                packages: [pkg({ name: 'pkg-a', state: 'unchanged' }), pkg({ name: 'pkg-b', state: 'unchanged' })]
+                packages: [ pkg({ name: 'pkg-a', state: 'unchanged' }), pkg({ name: 'pkg-b', state: 'unchanged' }) ]
             }),
             { color: false }
         );
@@ -130,13 +133,13 @@ suite('terminal-release-diff-renderer', function () {
 
     test('renderFailureOnlyTerminalReleaseDiff joins each header line with a single newline and ends with a newline', function () {
         const output = renderFailureOnlyTerminalReleaseDiff(
-            document({ resultType: 'config', issues: ['invalid config'] }),
+            document({ resultType: 'config', issues: [ 'invalid config' ] }),
             { color: false }
         );
 
         assert.strictEqual(
             output,
-            ['Packtory release diff [vs registry latest]', 'Configuration issues', '- invalid config', ''].join('\n')
+            [ 'Packtory release diff [vs registry latest]', 'Configuration issues', '- invalid config', '' ].join('\n')
         );
     });
 });

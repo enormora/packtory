@@ -10,7 +10,7 @@ export type ChangelogSourceAttributionDependencies = {
     readonly repositoryFolder: string;
 };
 
-type ManifestChangelogInputs = {
+export type ManifestChangelogInputs = {
     readonly dependencies?: Readonly<Record<string, unknown>> | undefined;
     readonly imports?: Readonly<Record<string, unknown>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, unknown>> | undefined;
@@ -24,7 +24,7 @@ const packageManifestInputFilePaths = new Set([
     'yarn.lock'
 ]);
 
-const dependencyFieldNames = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const;
+const dependencyFieldNames = [ 'dependencies', 'optionalDependencies', 'peerDependencies' ] as const;
 
 type ReferencedMap = {
     readonly content: string;
@@ -73,9 +73,10 @@ function changedDependencyNamesFor(
 ): readonly string[] {
     const previousDependencies = dependencyFieldFrom(previousManifest, fieldName);
     const currentDependencies = dependencyFieldFrom(currentManifest, fieldName);
-    const names = new Set([...Object.keys(previousDependencies), ...Object.keys(currentDependencies)]);
-    return Array.from(names)
-        .filter((name) => {
+    const names = new Set([ ...Object.keys(previousDependencies), ...Object.keys(currentDependencies) ]);
+    return Array
+        .from(names)
+        .filter(function (name) {
             return previousDependencies[name] !== currentDependencies[name];
         })
         .toSorted(compareValues);
@@ -85,7 +86,7 @@ export function collectManifestChangelogSourceFiles(
     mainPackageJson: ManifestChangelogInputs,
     additionalSourceFiles: readonly string[]
 ): readonly string[] {
-    return [...(hasGeneratedManifestInputs(mainPackageJson) ? ['package.json'] : []), ...additionalSourceFiles];
+    return [ ...hasGeneratedManifestInputs(mainPackageJson) ? [ 'package.json' ] : [], ...additionalSourceFiles ];
 }
 
 export function isPackageManifestInputPath(filePath: string): boolean {
@@ -102,13 +103,15 @@ export function changedPackageManifestDependencyNames(
         return [];
     }
 
-    return Array.from(
-        new Set(
-            dependencyFieldNames.flatMap((fieldName) => {
-                return changedDependencyNamesFor(previousManifest, currentManifest, fieldName);
-            })
+    return Array
+        .from(
+            new Set(
+                dependencyFieldNames.flatMap(function (fieldName) {
+                    return changedDependencyNamesFor(previousManifest, currentManifest, fieldName);
+                })
+            )
         )
-    ).toSorted(compareValues);
+        .toSorted(compareValues);
 }
 
 function isJavaScriptFile(filePath: string): boolean {
@@ -124,12 +127,12 @@ function toRepositoryRelativePath(repositoryFolder: string, filePath: string): s
 }
 
 function collectSourceMappingUrls(fileContent: string): readonly string[] {
-    return fileContent.split('\n').flatMap((line) => {
+    return fileContent.split('\n').flatMap(function (line) {
         if (!line.startsWith(sourceMappingPrefix)) {
             return [];
         }
         const sourceMappingUrl = line.slice(sourceMappingPrefix.length);
-        return sourceMappingUrl === '' ? [] : [sourceMappingUrl];
+        return sourceMappingUrl === '' ? [] : [ sourceMappingUrl ];
     });
 }
 
@@ -195,11 +198,11 @@ async function attributeJavaScriptFile(
 ): Promise<readonly string[]> {
     const referencedMap = await readReferencedMap(dependencies, sourceFilePath);
     if (referencedMap === undefined) {
-        return [toRepositoryRelativePath(dependencies.repositoryFolder, sourceFilePath)];
+        return [ toRepositoryRelativePath(dependencies.repositoryFolder, sourceFilePath) ];
     }
 
     const traceMap = parseTraceMap(referencedMap.mapFilePath, referencedMap.content);
-    return traceMap.sources.map((source) => {
+    return traceMap.sources.map(function (source) {
         return toRepositoryRelativePath(
             dependencies.repositoryFolder,
             resolveMapSource(referencedMap.mapFilePath, traceMap, source)
@@ -217,7 +220,7 @@ async function collectAttributedFiles(
     if (isJavaScriptFile(sourceFilePath)) {
         return attributeJavaScriptFile(dependencies, sourceFilePath);
     }
-    return [toRepositoryRelativePath(dependencies.repositoryFolder, sourceFilePath)];
+    return [ toRepositoryRelativePath(dependencies.repositoryFolder, sourceFilePath) ];
 }
 
 export async function attributeChangelogSourceFiles(
@@ -228,7 +231,7 @@ export async function attributeChangelogSourceFiles(
     const attributedFiles: string[] = Array.from(additionalSourceFiles);
     for (const entry of analyzedBundle.contents) {
         if (!entry.isGeneratedManifest) {
-            attributedFiles.push(...(await collectAttributedFiles(dependencies, entry)));
+            attributedFiles.push(...await collectAttributedFiles(dependencies, entry));
         }
     }
     return sortUniqueValues(attributedFiles);
@@ -244,7 +247,7 @@ export async function attributeSelectedChangelogSourceFiles(
     for (const entry of analyzedBundle.contents) {
         const targetFilePath = bundleRelativePath(entry.fileDescription.targetFilePath);
         if (!entry.isGeneratedManifest && selectedArtifactFiles.has(targetFilePath)) {
-            attributedFiles.push(...(await collectAttributedFiles(dependencies, entry)));
+            attributedFiles.push(...await collectAttributedFiles(dependencies, entry));
         }
     }
     return sortUniqueValues(attributedFiles);

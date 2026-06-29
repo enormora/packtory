@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
-import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
+import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
 
 async function createBaseConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
     return {
@@ -33,14 +33,61 @@ async function createBaseConfig(fixturePath: string): Promise<PacktoryConfigWith
     };
 }
 
+function packageConfigAt(config: PacktoryConfigWithoutRegistry, index: number): PackageConfig {
+    const packageConfig = config.packages[index];
+    assert.ok(packageConfig !== undefined);
+    return packageConfig;
+}
+
+function firstIssue(issues: readonly string[]): string {
+    const [ issue ] = issues;
+    assert.ok(issue !== undefined);
+    return issue;
+}
+
+async function maxBundleOverrideConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+    const baseConfig = await createBaseConfig(fixturePath);
+    return {
+        ...baseConfig,
+        checks: { maxBundleSize: { enabled: true, bytes: 10_000 } },
+        packages: [
+            {
+                ...packageConfigAt(baseConfig, 0),
+                checks: { maxBundleSize: { bytes: 1 } }
+            },
+            packageConfigAt(baseConfig, 1)
+        ]
+    };
+}
+
+async function duplicateConsentConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+    const baseConfig = await createBaseConfig(fixturePath);
+    const sharedFile = `${fixturePath}/src/shared/util.js`;
+    return {
+        ...baseConfig,
+        checks: { noDuplicatedFiles: { enabled: true } },
+        packages: [
+            {
+                ...packageConfigAt(baseConfig, 0),
+                checks: { noDuplicatedFiles: { allowList: [ sharedFile ] } }
+            },
+            packageConfigAt(baseConfig, 1)
+        ]
+    };
+}
+
+async function duplicatedFilesCheckConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+    const baseConfig = await createBaseConfig(fixturePath);
+    return {
+        ...baseConfig,
+        checks: { noDuplicatedFiles: { enabled: true } }
+    };
+}
+
 suite('checks', function () {
     test('resolveAndLinkAll() reports duplicated files when the rule is enabled', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const baseConfig = await createBaseConfig(fixturePath);
-        const config = {
-            ...baseConfig,
-            checks: { noDuplicatedFiles: { enabled: true } }
-        };
+        const config = await duplicatedFilesCheckConfig(fixturePath);
 
         const { result } = await resolveAndLinkAll(config);
 
@@ -54,7 +101,8 @@ suite('checks', function () {
                 [
                     `File "${fixturePath}/src/shared/util.js" has shared declarations across multiple packages:`,
                     '  - "sharedValue" → pkg-a, pkg-b'
-                ].join('\n')
+                ]
+                    .join('\n')
             ]);
         } else {
             assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
@@ -80,7 +128,7 @@ suite('checks', function () {
         const sharedFile = `${fixturePath}/src/shared/util.js`;
         const config = {
             ...baseConfig,
-            checks: { noDuplicatedFiles: { enabled: true, allowList: [sharedFile] } }
+            checks: { noDuplicatedFiles: { enabled: true, allowList: [ sharedFile ] } }
         };
 
         const { result } = await resolveAndLinkAll(config);
@@ -99,10 +147,10 @@ suite('checks', function () {
         const config = {
             ...baseConfig,
             checks: { noDuplicatedFiles: { enabled: true } },
-            packages: baseConfig.packages.map((packageConfig) => {
+            packages: baseConfig.packages.map(function (packageConfig) {
                 return {
                     ...packageConfig,
-                    checks: { noDuplicatedFiles: { allowList: [sharedFile] } }
+                    checks: { noDuplicatedFiles: { allowList: [ sharedFile ] } }
                 };
             })
         };
@@ -158,7 +206,10 @@ suite('checks', function () {
         const config = {
             ...baseConfig,
             checks: { noUnusedBundleDependencies: { enabled: true } },
-            packages: [baseConfig.packages[1]!, { ...baseConfig.packages[0]!, bundleDependencies: ['pkg-b'] }]
+            packages: [
+                packageConfigAt(baseConfig, 1),
+                { ...packageConfigAt(baseConfig, 0), bundleDependencies: [ 'pkg-b' ] }
+            ]
         };
 
         const { result } = await resolveAndLinkAll(config);
@@ -179,18 +230,7 @@ suite('checks', function () {
 
     test('resolveAndLinkAll reports a per-package bundle size override that is exceeded', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const baseConfig = await createBaseConfig(fixturePath);
-        const config = {
-            ...baseConfig,
-            checks: { maxBundleSize: { enabled: true, bytes: 10_000 } },
-            packages: [
-                {
-                    ...baseConfig.packages[0]!,
-                    checks: { maxBundleSize: { bytes: 1 } }
-                },
-                baseConfig.packages[1]!
-            ]
-        };
+        const config = await maxBundleOverrideConfig(fixturePath);
 
         const { result } = await resolveAndLinkAll(config);
 
@@ -202,7 +242,7 @@ suite('checks', function () {
         if (result.error.type === 'checks') {
             assert.strictEqual(result.error.issues.length, 1);
             assert.match(
-                result.error.issues[0]!,
+                firstIssue(result.error.issues),
                 /^Package "pkg-a" exceeds the maximum bundle size: \d+ bytes \(limit: 1 bytes\)$/u
             );
         } else {
@@ -215,7 +255,7 @@ suite('checks', function () {
         const baseConfig = await createBaseConfig(fixturePath);
         const config = {
             ...baseConfig,
-            checks: { requiredFiles: { enabled: true, files: ['LICENSE'] } }
+            checks: { requiredFiles: { enabled: true, files: [ 'LICENSE' ] } }
         };
 
         const { result } = await resolveAndLinkAll(config);
@@ -237,19 +277,7 @@ suite('checks', function () {
 
     test('resolveAndLinkAll reports the duplicate when one owner does not consent', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const baseConfig = await createBaseConfig(fixturePath);
-        const sharedFile = `${fixturePath}/src/shared/util.js`;
-        const config = {
-            ...baseConfig,
-            checks: { noDuplicatedFiles: { enabled: true } },
-            packages: [
-                {
-                    ...baseConfig.packages[0]!,
-                    checks: { noDuplicatedFiles: { allowList: [sharedFile] } }
-                },
-                baseConfig.packages[1]!
-            ]
-        };
+        const config = await duplicateConsentConfig(fixturePath);
 
         const { result } = await resolveAndLinkAll(config);
 
@@ -261,9 +289,10 @@ suite('checks', function () {
         if (result.error.type === 'checks') {
             assert.deepStrictEqual(result.error.issues, [
                 [
-                    `File "${sharedFile}" has shared declarations across multiple packages:`,
+                    `File "${fixturePath}/src/shared/util.js" has shared declarations across multiple packages:`,
                     '  - "sharedValue" → pkg-a, pkg-b'
-                ].join('\n')
+                ]
+                    .join('\n')
             ]);
         } else {
             assert.fail(`Expected a checks failure, but received "${result.error.type}"`);

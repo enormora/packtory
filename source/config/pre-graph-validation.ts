@@ -6,7 +6,7 @@ import { validatePackageSurfaceRules } from './root-config-validation.ts';
 import { validateAllowScriptsConsistency, validatePublishSettingsArePlaced } from './settings-validation.ts';
 
 export function packageListToRecord(packages: readonly PackageConfig[]): PackageConfigsByName {
-    return indexBy(packages, (packageConfig) => {
+    return indexBy(packages, function (packageConfig) {
         return packageConfig.name;
     });
 }

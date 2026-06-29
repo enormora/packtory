@@ -40,7 +40,7 @@ suite('multiple-packages', function () {
             },
             mainPackageJson: await loadPackageJson(fixture),
             includeSourceMapFiles: true,
-            bundleDependencies: [firstBundle],
+            bundleDependencies: [ firstBundle ],
             bundlePeerDependencies: [],
             additionalPackageJsonAttributes: {},
             additionalFiles: [],
@@ -59,8 +59,8 @@ suite('multiple-packages', function () {
             },
             mainPackageJson: await loadPackageJson(fixture),
             includeSourceMapFiles: true,
-            bundleDependencies: [firstBundle],
-            bundlePeerDependencies: [secondBundle],
+            bundleDependencies: [ firstBundle ],
+            bundlePeerDependencies: [ secondBundle ],
             additionalPackageJsonAttributes: {},
             additionalFiles: [],
             allowMutableSpecifiers: [],
@@ -99,7 +99,7 @@ suite('multiple-packages', function () {
                         analysis: bindingAnalysis('qux')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/qux.js.map')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/qux.js.map') ]),
                         fileDescription: {
                             content: "export const qux = 'qux';\n//# sourceMappingURL=qux.js.map\n",
                             isExecutable: false,
@@ -137,7 +137,7 @@ suite('multiple-packages', function () {
                         analysis: emptyAnalysis
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.d.ts')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.d.ts') ]),
                         fileDescription: {
                             content: "export declare const foo: import('./foo.js').Foo;\n",
                             isExecutable: false,
@@ -149,7 +149,7 @@ suite('multiple-packages', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/baz.d.ts')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/baz.d.ts') ]),
                         fileDescription: {
                             content: "import { Baz } from './baz.js';\nexport type Foo = string;\n",
                             isExecutable: false,
@@ -226,7 +226,7 @@ suite('multiple-packages', function () {
                         analysis: bindingAnalysis('bar')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/bar.js.map')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/bar.js.map') ]),
                         fileDescription: {
                             isExecutable: false,
                             sourceFilePath: path.join(fixture, 'src/bar.js'),
@@ -331,7 +331,7 @@ suite('multiple-packages', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js.map')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js.map') ]),
                         fileDescription: {
                             isExecutable: false,
                             sourceFilePath: path.join(fixture, 'src/foo.js'),

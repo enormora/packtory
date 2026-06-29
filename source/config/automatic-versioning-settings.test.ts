@@ -33,7 +33,7 @@ suite('automatic-versioning-settings', function () {
         checkValidationFailure({
             schema: automaticVersioningSettingsSchema,
             data: { automatic: false, minimumVersion: '1.0.0' },
-            expectedMessages: ['at automatic: invalid literal: expected true, but got boolean']
+            expectedMessages: [ 'at automatic: invalid literal: expected true, but got boolean' ]
         })
     );
 
@@ -42,7 +42,7 @@ suite('automatic-versioning-settings', function () {
         checkValidationFailure({
             schema: automaticVersioningSettingsSchema,
             data: { automatic: true, version: '1.0.0' },
-            expectedMessages: ['unexpected additional property: "version"']
+            expectedMessages: [ 'unexpected additional property: "version"' ]
         })
     );
 });

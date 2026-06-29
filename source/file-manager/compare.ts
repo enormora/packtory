@@ -8,7 +8,7 @@ export const fileDescriptionComparisonStatus = {
 } as const;
 
 type FileDescriptionsComparisonResult = {
-    status: (typeof fileDescriptionComparisonStatus)[keyof typeof fileDescriptionComparisonStatus];
+    readonly status: (typeof fileDescriptionComparisonStatus)[keyof typeof fileDescriptionComparisonStatus];
 };
 
 export function compareFileDescriptions(
@@ -19,13 +19,13 @@ export function compareFileDescriptions(
         return { status: fileDescriptionComparisonStatus.notEqual };
     }
 
-    const byFilePath = (fileDescription: FileDescription): string => {
+    const byFilePath = function (fileDescription: FileDescription): string {
         return fileDescription.filePath;
     };
     const sortedFileDescriptionsA = sortBy(fileDescriptionsA, byFilePath);
     const sortedFileDescriptionsB = sortBy(fileDescriptionsB, byFilePath);
 
-    for (const [index, fileDescriptionA] of sortedFileDescriptionsA.entries()) {
+    for (const [ index, fileDescriptionA ] of sortedFileDescriptionsA.entries()) {
         const fileDescriptionB = sortedFileDescriptionsB[index];
 
         if (fileDescriptionB === undefined || !areFileDescriptionEqual(fileDescriptionA, fileDescriptionB)) {

@@ -5,8 +5,8 @@ import { inspectLinkerRewrites } from './inspect-linker-rewrites.ts';
 suite('inspect-linker-rewrites', function () {
     test('inspectLinkerRewrites returns no rewrites when no resource is substituted', function () {
         const rewrites = inspectLinkerRewrites({
-            contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: false }],
-            linkedBundleDependencies: new Map<string, unknown>([['pkg-b', {}]])
+            contents: [ { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: false } ],
+            linkedBundleDependencies: new Map<string, unknown>([ [ 'pkg-b', {} ] ])
         });
 
         assert.deepStrictEqual(rewrites, []);
@@ -19,8 +19,8 @@ suite('inspect-linker-rewrites', function () {
                 { fileDescription: { sourceFilePath: '/src/b.ts' }, isSubstituted: true }
             ],
             linkedBundleDependencies: new Map<string, unknown>([
-                ['pkg-b', {}],
-                ['pkg-c', {}]
+                [ 'pkg-b', {} ],
+                [ 'pkg-c', {} ]
             ])
         });
 
@@ -35,7 +35,7 @@ suite('inspect-linker-rewrites', function () {
     test('inspectLinkerRewrites returns an empty array when given no resources', function () {
         const rewrites = inspectLinkerRewrites({
             contents: [],
-            linkedBundleDependencies: new Map<string, unknown>([['pkg-b', {}]])
+            linkedBundleDependencies: new Map<string, unknown>([ [ 'pkg-b', {} ] ])
         });
 
         assert.deepStrictEqual(rewrites, []);
@@ -43,7 +43,7 @@ suite('inspect-linker-rewrites', function () {
 
     test('inspectLinkerRewrites returns an empty array when there are no linked bundle dependencies', function () {
         const rewrites = inspectLinkerRewrites({
-            contents: [{ fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true }],
+            contents: [ { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true } ],
             linkedBundleDependencies: new Map<string, unknown>()
         });
 
@@ -56,7 +56,7 @@ suite('inspect-linker-rewrites', function () {
                 { fileDescription: { sourceFilePath: '/src/a.ts' }, isSubstituted: true },
                 { fileDescription: { sourceFilePath: '/src/b.ts' }, isSubstituted: false }
             ],
-            linkedBundleDependencies: new Map<string, unknown>([['pkg-b', {}]])
+            linkedBundleDependencies: new Map<string, unknown>([ [ 'pkg-b', {} ] ])
         });
 
         assert.deepStrictEqual(rewrites, [

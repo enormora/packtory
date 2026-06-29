@@ -14,17 +14,17 @@ suite('extract-package-tarball', function () {
 
     test('returns the extracted file descriptions when the given tarball is not empty', async function () {
         const tarballBuilder = createTarballBuilder();
-        const tarball = await tarballBuilder.build([{ filePath: 'foo', content: 'bar', isExecutable: true }]);
+        const tarball = await tarballBuilder.build([ { filePath: 'foo', content: 'bar', isExecutable: true } ]);
         const files = await extractPackageTarball(tarball);
 
-        assert.deepStrictEqual(files, [{ filePath: 'foo', content: 'bar', isExecutable: true }]);
+        assert.deepStrictEqual(files, [ { filePath: 'foo', content: 'bar', isExecutable: true } ]);
     });
 
     test('marks extracted files as non-executable when the tar header has no executable mode', async function () {
         const tarballBuilder = createTarballBuilder();
-        const tarball = await tarballBuilder.build([{ filePath: 'foo', content: 'bar', isExecutable: false }]);
+        const tarball = await tarballBuilder.build([ { filePath: 'foo', content: 'bar', isExecutable: false } ]);
         const files = await extractPackageTarball(tarball);
 
-        assert.deepStrictEqual(files, [{ filePath: 'foo', content: 'bar', isExecutable: false }]);
+        assert.deepStrictEqual(files, [ { filePath: 'foo', content: 'bar', isExecutable: false } ]);
     });
 });

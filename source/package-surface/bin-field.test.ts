@@ -8,7 +8,7 @@ const explicitCliBundle: SurfaceBundleLike = {
     roots: { cli: executableShebangRoot('cli.js') },
     surface: {
         mode: 'explicit',
-        packageInterface: { bins: [{ root: 'cli', name: 'pkg-a-cli' }] }
+        packageInterface: { bins: [ { root: 'cli', name: 'pkg-a-cli' } ] }
     }
 };
 

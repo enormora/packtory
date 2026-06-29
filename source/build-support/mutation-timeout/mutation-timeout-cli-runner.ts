@@ -14,12 +14,29 @@ export type MutationTimeoutCheckDependencies = {
 };
 
 function resolveErrorWriter(dependencies: MutationTimeoutCheckDependencies): ErrorWriter {
-    return (
-        dependencies.writeError ??
-        ((message) => {
-            dependencies.stderrWrite(`${message}\n`);
-        })
-    );
+    if (dependencies.writeError !== undefined) {
+        return dependencies.writeError;
+    }
+
+    return function writeStderrError(message) {
+        dependencies.stderrWrite(`${message}\n`);
+    };
+}
+
+async function runMutationTimeoutCheckWithoutErrorHandling(
+    argv: readonly string[],
+    dependencies: MutationTimeoutCheckDependencies,
+    writeError: ErrorWriter
+): Promise<number> {
+    const reportPath = argv[reportPathArgIndex] ?? defaultReportPath;
+    const failureMessage = await checkMutationTimeoutReport(reportPath, dependencies.fileManager);
+
+    if (failureMessage !== undefined) {
+        writeError(failureMessage);
+        return 1;
+    }
+
+    return 0;
 }
 
 export async function runMutationTimeoutCheck(
@@ -28,15 +45,7 @@ export async function runMutationTimeoutCheck(
 ): Promise<number> {
     const writeError = resolveErrorWriter(dependencies);
     try {
-        const reportPath = argv[reportPathArgIndex] ?? defaultReportPath;
-        const failureMessage = await checkMutationTimeoutReport(reportPath, dependencies.fileManager);
-
-        if (failureMessage !== undefined) {
-            writeError(failureMessage);
-            return 1;
-        }
-
-        return 0;
+        return await runMutationTimeoutCheckWithoutErrorHandling(argv, dependencies, writeError);
     } catch (error) {
         writeError(error instanceof Error ? error.message : String(error));
         return 1;

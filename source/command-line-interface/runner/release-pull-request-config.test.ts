@@ -26,13 +26,14 @@ suite('release-pull-request-config', function () {
                     githubActionsCi: {
                         trigger: 'workflow-dispatch',
                         workflowFile: 'ci.yml',
-                        requiredStatusContexts: ['Node.js']
+                        requiredStatusContexts: [ 'Node.js' ]
                     }
                 }
-            }).githubActionsCi,
+            })
+                .githubActionsCi,
             {
                 deleteActionRequiredPullRequestRuns: true,
-                requiredStatusContexts: ['Node.js'],
+                requiredStatusContexts: [ 'Node.js' ],
                 workflowFile: 'ci.yml'
             }
         );
@@ -46,7 +47,7 @@ suite('release-pull-request-config', function () {
                     githubActionsCi: {
                         trigger: 'workflow-dispatch',
                         workflowFile: 'ci.yml',
-                        requiredStatusContexts: ['Node.js v24.x']
+                        requiredStatusContexts: [ 'Node.js v24.x' ]
                     }
                 },
                 packages: []
@@ -57,7 +58,7 @@ suite('release-pull-request-config', function () {
                     githubActionsCi: {
                         trigger: 'workflow-dispatch',
                         workflowFile: 'ci.yml',
-                        requiredStatusContexts: ['Node.js v24.x']
+                        requiredStatusContexts: [ 'Node.js v24.x' ]
                     }
                 }
             }

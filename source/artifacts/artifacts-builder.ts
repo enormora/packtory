@@ -73,7 +73,7 @@ export function createArtifactsBuilder(dependencies: ArtifactsBuilderDependencie
 
         async buildTarball(bundle, extraFiles, vendorEntries = []) {
             const contents = collectContents(bundle, 'package', extraFiles);
-            const prefixedVendor = vendorEntries.map((entry) => {
+            const prefixedVendor = vendorEntries.map(function (entry) {
                 return applyPrefixToVendorEntry('package', entry);
             });
             const tarData = await tarballBuilder.build(contents, prefixedVendor);

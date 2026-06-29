@@ -17,9 +17,9 @@ function validateShebangRoot(bundleName: string, entryName: string, root: RootFi
 }
 
 function buildEntries(bundle: ExplicitBinBundle, bins: BinEntries): readonly (readonly [string, string])[] {
-    return bins.map((entry) => {
+    return bins.map(function (entry) {
         const root = validateShebangRoot(bundle.name, entry.name, getRoot(bundle, entry.root));
-        return [entry.name, toImportTarget(root.js.targetFilePath)];
+        return [ entry.name, toImportTarget(root.js.targetFilePath) ];
     });
 }
 

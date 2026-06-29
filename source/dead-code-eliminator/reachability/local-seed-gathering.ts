@@ -8,30 +8,47 @@ export type FileBindings = FileBindingSet & {
     readonly sourceFile: Readonly<SourceFile>;
 };
 
-function addStatementSeeds(
+function statementSeeds(
     statements: readonly Statement[],
-    declarationIndex: DeclarationNodeIndex,
-    seeds: Set<string>
-): void {
-    for (const statement of statements) {
-        for (const target of collectIdentifierTargets(statement, declarationIndex)) {
-            seeds.add(target);
-        }
-    }
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
+    return statements.flatMap(function (statement) {
+        return Array.from(collectIdentifierTargets(statement, declarationIndex));
+    });
 }
 
-function addEntryPointExportDeclarationSeeds(
+function entryPointExportDeclarationSeeds(
     file: FileBindings,
-    declarationIndex: DeclarationNodeIndex,
-    seeds: Set<string>
-): void {
-    for (const statement of file.sourceFile.getStatements()) {
-        if (TsMorphNode.isExportDeclaration(statement)) {
-            for (const target of collectIdentifierTargets(statement, declarationIndex)) {
-                seeds.add(target);
-            }
-        }
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
+    return file.sourceFile.getStatements().flatMap(function (statement) {
+        return TsMorphNode.isExportDeclaration(statement)
+            ? Array.from(collectIdentifierTargets(statement, declarationIndex))
+            : [];
+    });
+}
+
+function exportedBindingSeeds(file: FileBindings, isEntry: boolean): readonly string[] {
+    if (!isEntry) {
+        return [];
     }
+    return file.bindings.flatMap(function (binding) {
+        return binding.isExported ? [ bindingId(file.sourceFilePath, binding.name) ] : [];
+    });
+}
+
+function seedsForFile(
+    file: FileBindings,
+    isEntry: boolean,
+    declarationIndex: DeclarationNodeIndex,
+    deadCodeElimination: DeadCodeEliminationSettings | undefined
+): readonly string[] {
+    const impureStatements = collectImpureStatements(file.sourceFile, deadCodeElimination);
+    return [
+        ...exportedBindingSeeds(file, isEntry),
+        ...isEntry ? entryPointExportDeclarationSeeds(file, declarationIndex) : [],
+        ...statementSeeds(impureStatements, declarationIndex)
+    ];
 }
 
 export function gatherLocalSeeds(
@@ -43,15 +60,10 @@ export function gatherLocalSeeds(
     const seeds = new Set<string>();
     for (const file of files) {
         const isEntry = entryPointFilePaths.has(file.sourceFilePath);
-        for (const binding of file.bindings) {
-            if (isEntry && binding.isExported) {
-                seeds.add(bindingId(file.sourceFilePath, binding.name));
-            }
+        const fileSeeds = seedsForFile(file, isEntry, declarationIndex, deadCodeElimination);
+        for (const seed of fileSeeds) {
+            seeds.add(seed);
         }
-        if (isEntry) {
-            addEntryPointExportDeclarationSeeds(file, declarationIndex, seeds);
-        }
-        addStatementSeeds(collectImpureStatements(file.sourceFile, deadCodeElimination), declarationIndex, seeds);
     }
     return seeds;
 }

@@ -9,7 +9,7 @@ export type RootFileDescription = {
         readonly isExecutable: boolean;
         readonly content: string;
     };
-    readonly declarationFile?: { readonly sourceFilePath: string; readonly targetFilePath: string } | undefined;
+    readonly declarationFile?: { readonly sourceFilePath: string; readonly targetFilePath: string; } | undefined;
 };
 
 export type BundleLike = {
@@ -18,12 +18,12 @@ export type BundleLike = {
     readonly roots: Readonly<Record<string, RootFileDescription>>;
     readonly surface: PackageSurface;
     readonly contents: readonly {
-        readonly fileDescription: { readonly sourceFilePath: string; readonly targetFilePath: string };
+        readonly fileDescription: { readonly sourceFilePath: string; readonly targetFilePath: string; };
     }[];
 };
 
-export type ExplicitSurface = Extract<PackageSurface, { readonly mode: 'explicit' }>;
-export type ImplicitSurface = Extract<PackageSurface, { readonly mode: 'implicit' }>;
+export type ExplicitSurface = Extract<PackageSurface, { readonly mode: 'explicit'; }>;
+export type ImplicitSurface = Extract<PackageSurface, { readonly mode: 'implicit'; }>;
 
 export type ExportsField = NonNullable<PackageJson['exports']>;
 export type ExportEntry = Readonly<Record<string, unknown>>;

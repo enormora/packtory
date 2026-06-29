@@ -16,23 +16,24 @@ type SuccessfulMainCiRun = {
     readonly updatedAt: Date;
 };
 
-export type MainCiRunStatus =
-    | { readonly kind: 'in_progress' }
-    | { readonly kind: 'missing' }
-    | { readonly kind: 'success'; readonly run: SuccessfulMainCiRun };
+type MainCiRunInProgressStatus = { readonly kind: 'in_progress'; };
+type MainCiRunMissingStatus = { readonly kind: 'missing'; };
+type MainCiRunSuccessStatus = { readonly kind: 'success'; readonly run: SuccessfulMainCiRun; };
+
+export type MainCiRunStatus = MainCiRunInProgressStatus | MainCiRunMissingStatus | MainCiRunSuccessStatus;
+
+type CiDecisionReason = 'activity_not_stale' | 'ci_in_progress' | 'ci_not_green';
+type DependencyPolicyDecisionReason = keyof {
+    readonly dependency_only_min_age_elapsed: true;
+    readonly dependency_only_min_age_not_elapsed: true;
+    readonly dependency_only_published_at_unknown: true;
+};
+type PublishWindowDecisionReason = 'max_latency_elapsed' | 'quiet_period_elapsed' | 'release_unchanged';
+type GitHubReleaseGateDecisionReason = CiDecisionReason | DependencyPolicyDecisionReason | PublishWindowDecisionReason;
 
 export type GitHubReleaseGateDecision = {
     readonly logs: readonly string[];
-    readonly reason:
-        | 'activity_not_stale'
-        | 'ci_in_progress'
-        | 'ci_not_green'
-        | 'dependency_only_min_age_elapsed'
-        | 'dependency_only_min_age_not_elapsed'
-        | 'dependency_only_published_at_unknown'
-        | 'max_latency_elapsed'
-        | 'quiet_period_elapsed'
-        | 'release_unchanged';
+    readonly reason: GitHubReleaseGateDecisionReason;
     readonly shouldPublish: boolean;
 };
 
@@ -59,6 +60,11 @@ type DecisionLogContext = {
     readonly quietPeriodElapsed: boolean;
 };
 
+type ElapsedFlags = {
+    readonly maxLatencyElapsed: boolean;
+    readonly quietPeriodElapsed: boolean;
+};
+
 function createDecision(
     shouldPublish: boolean,
     reason: GitHubReleaseGateDecision['reason'],
@@ -68,7 +74,7 @@ function createDecision(
     return {
         shouldPublish,
         reason,
-        logs: [...logs, decisionLog]
+        logs: [ ...logs, decisionLog ]
     };
 }
 
@@ -121,10 +127,7 @@ function getElapsedFlags(
     input: GitHubReleaseGateInput,
     mainHeadCiSuccessAt: Date,
     lastRelevantActivityAt: Date
-): {
-    readonly maxLatencyElapsed: boolean;
-    readonly quietPeriodElapsed: boolean;
-} {
+): ElapsedFlags {
     return {
         quietPeriodElapsed: hasElapsed(
             input.now,
@@ -137,20 +140,18 @@ function getElapsedFlags(
 
 function isBranchActivityEvent(eventName: string | undefined): boolean {
     const activityEventName = String(eventName);
-    return (
-        activityEventName === 'committed' ||
-        activityEventName === 'head_ref_deleted' ||
-        activityEventName === 'head_ref_force_pushed' ||
-        activityEventName === 'head_ref_restored'
+    return [ 'committed', 'head_ref_deleted', 'head_ref_force_pushed', 'head_ref_restored' ].includes(
+        activityEventName
     );
 }
 
 function lastRelevantActivityAtFor(input: GitHubReleaseGateInput, mainHeadCiSuccessAt: Date): Date {
-    const otherActivityDates: Date[] = [];
-
-    for (const pullRequestActivity of input.pullRequestActivities) {
-        otherActivityDates.push(pullRequestActivity.activityAt);
-    }
+    const otherActivityDates: Date[] = Array.from(
+        input.pullRequestActivities,
+        function (pullRequestActivity) {
+            return pullRequestActivity.activityAt;
+        }
+    );
 
     return maxDate(mainHeadCiSuccessAt, otherActivityDates);
 }

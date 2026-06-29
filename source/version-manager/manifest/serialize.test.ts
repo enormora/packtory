@@ -3,14 +3,14 @@ import { suite, test } from 'mocha';
 import type { JsonValue, PackageJson } from 'type-fest';
 import { serializePackageJson } from './serialize.ts';
 
-suite('serialize', function () {
+function registerObjectSortingTests(): void {
     test('serializes the given data with 4 spaces indentation', function () {
         const result = serializePackageJson({ a: 'foo', b: 'bar' });
         assert.strictEqual(result, '{\n    "a": "foo",\n    "b": "bar"\n}');
     });
 
     test('serializes arrays correctly', function () {
-        const result = serializePackageJson({ foo: ['a', 'b'] });
+        const result = serializePackageJson({ foo: [ 'a', 'b' ] });
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "b"\n    ]\n}');
     });
 
@@ -20,7 +20,7 @@ suite('serialize', function () {
     });
 
     test('sorts simple array correctly', function () {
-        const result = serializePackageJson({ foo: ['b', 'a', 0, true] });
+        const result = serializePackageJson({ foo: [ 'b', 'a', 0, true ] });
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "b",\n        0,\n        true\n    ]\n}');
     });
 
@@ -28,7 +28,9 @@ suite('serialize', function () {
         const result = serializePackageJson({ b: 'foo', a: { d: 'bar', c: 'baz' } });
         assert.strictEqual(
             result,
-            ['{', '    "a": {', '        "c": "baz",', '        "d": "bar"', '    },', '    "b": "foo"', '}'].join('\n')
+            [ '{', '    "a": {', '        "c": "baz",', '        "d": "bar"', '    },', '    "b": "foo"', '}' ].join(
+                '\n'
+            )
         );
     });
 
@@ -46,7 +48,8 @@ suite('serialize', function () {
                 '    },',
                 '    "b": "foo"',
                 '}'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -64,15 +67,17 @@ suite('serialize', function () {
     });
 
     test('sorts objects nested within array correctly', function () {
-        const result = serializePackageJson({ foo: ['f', { b: '1', a: '2', d: [3, 2] }, 'c'] });
+        const result = serializePackageJson({ foo: [ 'f', { b: '1', a: '2', d: [ 3, 2 ] }, 'c' ] });
         assert.strictEqual(
             result,
             '{\n    "foo": [\n        "f",\n        {\n            "a": "2",\n            "b": "1",\n            "d": [\n                2,\n                3\n            ]\n        },\n        "c"\n    ]\n}'
         );
     });
+}
 
+function registerArrayAndSpecialCaseTests(): void {
     test('sorts primitive array values so false stays before true and numbers stay ordered', function () {
-        const result = serializePackageJson({ foo: [true, false, 2, 1] });
+        const result = serializePackageJson({ foo: [ true, false, 2, 1 ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        false,\n        true,\n        1,\n        2\n    ]\n}');
     });
@@ -81,7 +86,7 @@ suite('serialize', function () {
         const result = serializePackageJson({
             imports: {
                 '#foo': {
-                    default: ['./z.js', './a.js']
+                    default: [ './z.js', './a.js' ]
                 }
             }
         });
@@ -99,7 +104,8 @@ suite('serialize', function () {
                 '        }',
                 '    }',
                 '}'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -123,7 +129,8 @@ suite('serialize', function () {
                 '        }',
                 '    }',
                 '}'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -131,7 +138,7 @@ suite('serialize', function () {
         const result = serializePackageJson({
             exports: {
                 '.': {
-                    import: ['./z.js', './a.js']
+                    import: [ './z.js', './a.js' ]
                 }
             }
         });
@@ -149,24 +156,27 @@ suite('serialize', function () {
                 '        }',
                 '    }',
                 '}'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
+}
 
+function registerArraySortingEdgeCaseTests(): void {
     test('keeps equal primitive values stable without collapsing them', function () {
-        const result = serializePackageJson({ foo: ['b', 'a', 'a'] });
+        const result = serializePackageJson({ foo: [ 'b', 'a', 'a' ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "a",\n        "b"\n    ]\n}');
     });
 
     test('sorts descending string arrays into ascending order', function () {
-        const result = serializePackageJson({ foo: ['z', 'm', 'a'] });
+        const result = serializePackageJson({ foo: [ 'z', 'm', 'a' ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        "a",\n        "m",\n        "z"\n    ]\n}');
     });
 
     test('sorts descending numeric arrays into ascending order', function () {
-        const result = serializePackageJson({ foo: [3, 2, 1] });
+        const result = serializePackageJson({ foo: [ 3, 2, 1 ] });
 
         assert.strictEqual(result, '{\n    "foo": [\n        1,\n        2,\n        3\n    ]\n}');
     });
@@ -187,7 +197,7 @@ suite('serialize', function () {
 
     test('serializes null values inside arrays and nested records without reordering record keys incorrectly', function () {
         const result = serializePackageJson({
-            foo: [{ z: null, a: [null, 'b', 'a'] }]
+            foo: [ { z: null, a: [ null, 'b', 'a' ] } ]
         });
 
         assert.strictEqual(
@@ -204,10 +214,16 @@ suite('serialize', function () {
 
     test('throws for circular arrays as well as circular records', function () {
         const circularArray: JsonValue[] = [];
-        circularArray.push(circularArray as unknown as JsonValue);
+        circularArray.push(circularArray);
 
-        assert.throws(() => {
+        assert.throws(function () {
             serializePackageJson({ foo: circularArray });
         }, /^Error: Circular structures are not supported$/);
     });
+}
+
+suite('serialize', function () {
+    registerObjectSortingTests();
+    registerArrayAndSpecialCaseTests();
+    registerArraySortingEdgeCaseTests();
 });

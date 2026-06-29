@@ -9,7 +9,7 @@ export function resolveDeadCodeEliminationByName(
 ): ReadonlyMap<string, DeadCodeEliminationSettings | undefined> {
     const commonSettings = validated.packtoryConfig.commonPackageSettings?.deadCodeElimination;
     return new Map(
-        validated.packtoryConfig.packages.map((packageConfig) => {
+        validated.packtoryConfig.packages.map(function (packageConfig) {
             return [
                 packageConfig.name,
                 resolveDeadCodeEliminationSettings(packageConfig.deadCodeElimination, commonSettings)

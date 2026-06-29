@@ -33,6 +33,16 @@ function toReleaseAnalysisError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
 }
 
+function analyzeBuildResult(
+    artifactsBuilder: ReleaseAnalysisOrchestratorDependencies['artifactsBuilder'],
+    buildResult: BuildAndPublishResult
+): PackageReleaseAnalysis {
+    const newFiles = wasAlreadyPublished(buildResult)
+        ? buildResult.extraFiles
+        : artifactsBuilder.collectContents(buildResult.bundle, 'package', buildResult.extraFiles);
+    return classifyPackageRelease(buildResult, newFiles);
+}
+
 async function analyzeSucceededPublishes(
     artifactsBuilder: ReleaseAnalysisOrchestratorDependencies['artifactsBuilder'],
     succeededPublish: readonly BuildAndPublishResult[]
@@ -42,10 +52,7 @@ async function analyzeSucceededPublishes(
 
     for (const buildResult of succeededPublish) {
         try {
-            const newFiles = wasAlreadyPublished(buildResult)
-                ? buildResult.extraFiles
-                : artifactsBuilder.collectContents(buildResult.bundle, 'package', buildResult.extraFiles);
-            analyses.push(classifyPackageRelease(buildResult, newFiles));
+            analyses.push(analyzeBuildResult(artifactsBuilder, buildResult));
         } catch (error: unknown) {
             failures.push(toReleaseAnalysisError(error));
         }
@@ -62,7 +69,7 @@ function mapResolveFailureToReleaseAnalysisFailure(error: ResolveAndLinkFailure)
 }
 
 function buildPartialFromPublish(
-    publishResult: Extract<PublishStageOutcome, { isErr: true }>,
+    publishResult: Extract<PublishStageOutcome, { readonly isErr: true; }>,
     analyses: readonly PackageReleaseAnalysis[]
 ): ReleaseAnalysisFailure {
     return {

@@ -23,7 +23,7 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
     const handlers = new Map<number, HandlerInfo>();
 
     function runScheduledHandlers(): void {
-        Array.from(handlers.entries()).forEach(([id, handlerInfo]) => {
+        Array.from(handlers).forEach(function ([ id, handlerInfo ]) {
             if (currentTimestamp >= handlerInfo.executionTimestamp) {
                 handlers.delete(id);
                 handlerInfo.handler();
@@ -53,14 +53,12 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
             const executionTimestamp = currentTimestamp + delayInMilliseconds;
             handlers.set(currentHandlerIndex, {
                 executionTimestamp,
-                handler: () => {
+                handler() {
                     handler(...args);
                 }
             });
 
             runScheduledHandlers();
-
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- node/browser timeout handle types differ
             return currentHandlerIndex as unknown as TimerHandle;
         },
 

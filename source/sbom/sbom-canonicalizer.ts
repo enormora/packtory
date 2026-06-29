@@ -42,7 +42,7 @@ function canonicalizeSbomContent(content: string): string {
 }
 
 export function canonicalizeSbomInFileSet(files: readonly FileDescription[]): readonly FileDescription[] {
-    return files.map((file) => {
+    return files.map(function (file) {
         if (bundleRelativePath(file.filePath) !== sbomArtifactFilePath) {
             return file;
         }

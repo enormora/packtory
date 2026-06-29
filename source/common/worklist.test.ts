@@ -10,18 +10,18 @@ suite('worklist', function () {
     });
 
     test('takeNext yields initial and scheduled items in order', function () {
-        const worklist = createWorklist([1]);
+        const worklist = createWorklist([ 1 ]);
         worklist.schedule(2);
-        worklist.scheduleAll([3, 4]);
+        worklist.scheduleAll([ 3, 4 ]);
 
         assert.deepStrictEqual(
-            [worklist.takeNext(), worklist.takeNext(), worklist.takeNext(), worklist.takeNext()],
-            [1, 2, 3, 4]
+            [ worklist.takeNext(), worklist.takeNext(), worklist.takeNext(), worklist.takeNext() ],
+            [ 1, 2, 3, 4 ]
         );
     });
 
     test('takeNext returns undefined once all items are consumed', function () {
-        const worklist = createWorklist(['main']);
+        const worklist = createWorklist([ 'main' ]);
         worklist.schedule('worker');
 
         assert.strictEqual(worklist.takeNext(), 'main');
@@ -30,7 +30,7 @@ suite('worklist', function () {
     });
 
     test('schedule can add more work after the current queue is exhausted', function () {
-        const worklist = createWorklist(['main']);
+        const worklist = createWorklist([ 'main' ]);
 
         assert.strictEqual(worklist.takeNext(), 'main');
         assert.strictEqual(worklist.takeNext(), undefined);

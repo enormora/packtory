@@ -20,7 +20,26 @@ suite('timeout-mutant-collector', function () {
             collectTimeoutMutants({
                 files: {
                     'source/a.ts': {
-                        mutants: [{ status: 'Killed', location: { start: { line: 1, column: 2 } } }]
+                        mutants: [ { status: 'Killed', location: { start: { line: 1, column: 2 } } } ]
+                    }
+                }
+            }),
+            []
+        );
+    });
+
+    test('collectTimeoutMutants ignores static Timeout mutants', function () {
+        assert.deepStrictEqual(
+            collectTimeoutMutants({
+                files: {
+                    'source/a.ts': {
+                        mutants: [
+                            {
+                                status: 'Timeout',
+                                static: true,
+                                location: { start: { line: 3, column: 4 } }
+                            }
+                        ]
                     }
                 }
             }),
@@ -33,11 +52,11 @@ suite('timeout-mutant-collector', function () {
             collectTimeoutMutants({
                 files: {
                     'source/a.ts': {
-                        mutants: [{ status: 'Timeout', location: { start: { line: 3, column: 4 } } }]
+                        mutants: [ { status: 'Timeout', location: { start: { line: 3, column: 4 } } } ]
                     }
                 }
             }),
-            [{ filePath: 'source/a.ts', line: 3, column: 4 }]
+            [ { filePath: 'source/a.ts', line: 3, column: 4 } ]
         );
     });
 
@@ -52,7 +71,7 @@ suite('timeout-mutant-collector', function () {
                         ]
                     },
                     'source/b.ts': {
-                        mutants: [{ status: 'Timeout', location: { start: { line: 5, column: 6 } } }]
+                        mutants: [ { status: 'Timeout', location: { start: { line: 5, column: 6 } } } ]
                     }
                 }
             }),

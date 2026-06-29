@@ -21,10 +21,10 @@ function collectResourceSpecificExternalDependencies(
 ): readonly string[] {
     return pipe(
         Array.from(externalDependencies.values()),
-        filter((dependency) => {
+        filter(function (dependency) {
             return dependency.referencedFrom.includes(resource.fileDescription.sourceFilePath);
         }),
-        map((dependency) => {
+        map(function (dependency) {
             return dependency.name;
         })
     );
@@ -41,7 +41,7 @@ export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceG
             externalDependencies,
             project: resource.project,
             isExplicitlyIncluded: resource.isExplicitlyIncluded,
-            ...(resource.isGeneratedManifest ? { isGeneratedManifest: true } : {})
+            ...resource.isGeneratedManifest && { isGeneratedManifest: true }
         });
     }
 

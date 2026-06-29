@@ -1,10 +1,10 @@
 import type { OwnerInfo } from './file-ownership.ts';
 
 function ownerNames(owners: readonly OwnerInfo[]): readonly string[] {
-    const bundleNames = owners.map((owner) => {
+    const bundleNames = owners.map(function (owner) {
         return owner.bundleName;
     });
-    return bundleNames.toSorted((left, right) => {
+    return bundleNames.toSorted(function (left, right) {
         return left.localeCompare(right);
     });
 }
@@ -15,10 +15,10 @@ export function formatSharedDeclarationsMessage(
     owners: readonly OwnerInfo[]
 ): string {
     const ownersList = ownerNames(owners).join(', ');
-    const sortedDeclarations = Array.from(sharedDeclarations).toSorted((left, right) => {
+    const sortedDeclarations = Array.from(sharedDeclarations).toSorted(function (left, right) {
         return left.localeCompare(right);
     });
-    const lines = [`File "${filePath}" has shared declarations across multiple packages:`];
+    const lines = [ `File "${filePath}" has shared declarations across multiple packages:` ];
 
     for (const declaration of sortedDeclarations) {
         lines.push(`  - "${declaration}" → ${ownersList}`);

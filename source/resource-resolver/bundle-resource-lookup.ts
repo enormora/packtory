@@ -6,7 +6,7 @@ function requireFileDescriptionBySourcePath(
     filePath: string,
     resources: readonly BundleResource[]
 ): TransferableFileDescription {
-    const matchingResource = resources.find((resource) => {
+    const matchingResource = resources.find(function (resource) {
         return resource.fileDescription.sourceFilePath === filePath;
     });
     if (matchingResource === undefined) {
@@ -19,9 +19,11 @@ function resolveDeclarationFileResource(
     declarationFilePath: string | undefined,
     contents: readonly BundleResource[]
 ): TransferableFileDescription | undefined {
-    return contents.find((resource) => {
-        return resource.fileDescription.sourceFilePath === declarationFilePath;
-    })?.fileDescription;
+    return contents
+        .find(function (resource) {
+            return resource.fileDescription.sourceFilePath === declarationFilePath;
+        })
+        ?.fileDescription;
 }
 
 export function buildResolvedRoots(
@@ -30,9 +32,9 @@ export function buildResolvedRoots(
 ): ResolvedBundle['roots'] {
     const resolvedRoots: Record<
         string,
-        { js: TransferableFileDescription; declarationFile: TransferableFileDescription | undefined }
+        { readonly js: TransferableFileDescription; readonly declarationFile: TransferableFileDescription | undefined; }
     > = {};
-    for (const [rootId, root] of Object.entries(normalized.roots)) {
+    for (const [ rootId, root ] of Object.entries(normalized.roots)) {
         const jsResource = requireFileDescriptionBySourcePath(root.js, contents);
         const declarationFile = resolveDeclarationFileResource(root.declarationFile, contents);
         resolvedRoots[rootId] = { js: jsResource, declarationFile };

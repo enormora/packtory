@@ -18,8 +18,8 @@ export function bindRequiredMethod<Result>(
         throw new TypeError(`Expected ${methodName} to be a function`);
     }
 
-    return (filePath) => {
-        const result: unknown = Reflect.apply(method, object, [filePath]);
+    return function (filePath) {
+        const result: unknown = Reflect.apply(method, object, [ filePath ]);
 
         if (!validateResult(result)) {
             throw new TypeError(`Expected ${methodName} to return ${expectedResultDescription}`);

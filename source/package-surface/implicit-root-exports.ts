@@ -11,7 +11,7 @@ export function buildImplicitRootExports(
         '.': buildExportEntry(getRoot(bundle, surface.defaultModuleRoot))
     };
 
-    for (const [rootId, root] of Object.entries(bundle.roots)) {
+    for (const [ rootId, root ] of Object.entries(bundle.roots)) {
         if (rootId !== surface.defaultModuleRoot) {
             rootExports[`./${root.js.targetFilePath}`] = buildExportEntry(root);
         }

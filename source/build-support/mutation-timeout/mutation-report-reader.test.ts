@@ -3,14 +3,14 @@ import { suite, test } from 'mocha';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { readMutationReport } from './mutation-report-reader.ts';
 
-function createReadFileError(code: string, message: string): Error & { readonly code: string } {
+function createReadFileError(code: string, message: string): Error & { readonly code: string; } {
     return Object.assign(new Error(message), { code });
 }
 
 suite('mutation-report-reader', function () {
     test('readMutationReport parses the JSON report from the file manager', async function () {
         const fileManager = createFakeFileManager({
-            simulatedReadFileResponses: [{ value: JSON.stringify({ files: { 'source/a.ts': { mutants: [] } } }) }]
+            simulatedReadFileResponses: [ { value: JSON.stringify({ files: { 'source/a.ts': { mutants: [] } } }) } ]
         });
 
         assert.deepStrictEqual(await readMutationReport('mutation-report.json', fileManager), {
@@ -19,7 +19,7 @@ suite('mutation-report-reader', function () {
     });
 
     test('readMutationReport passes the requested report path to the file manager', async function () {
-        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [{ value: '{}' }] });
+        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '{}' } ] });
 
         await readMutationReport('some/path.json', fileManager);
 
@@ -43,7 +43,7 @@ suite('mutation-report-reader', function () {
 
     test('readMutationReport preserves the original ENOENT error as cause', async function () {
         const cause = createReadFileError('ENOENT', "ENOENT: no such file or directory, open '/missing.json'");
-        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [{ error: cause }] });
+        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { error: cause } ] });
 
         try {
             await readMutationReport('/missing.json', fileManager);
@@ -55,7 +55,7 @@ suite('mutation-report-reader', function () {
 
     test('readMutationReport rethrows non-ENOENT file system errors unchanged', async function () {
         const cause = createReadFileError('EACCES', 'permission denied');
-        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [{ error: cause }] });
+        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { error: cause } ] });
 
         try {
             await readMutationReport('/locked.json', fileManager);
@@ -66,7 +66,7 @@ suite('mutation-report-reader', function () {
     });
 
     test('readMutationReport rethrows invalid JSON parse errors as SyntaxError', async function () {
-        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [{ value: '{' }] });
+        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '{' } ] });
 
         try {
             await readMutationReport('mutation-report.json', fileManager);

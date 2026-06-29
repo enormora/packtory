@@ -36,11 +36,15 @@ suite('host-method-binding', function () {
         const read = bindRequiredMethod(host, 'readFileSync', 'a string', isString);
 
         assert.strictEqual(read('/p/a.ts'), 'content');
-        assert.deepStrictEqual(calls, ['/p/a.ts']);
+        assert.deepStrictEqual(calls, [ '/p/a.ts' ]);
     });
 
     test('bindRequiredMethod throws when the method returns a value that fails validation', function () {
-        const host = { readFileSync: () => 42 } as unknown as FileSystemHost;
+        const host = {
+            readFileSync() {
+                return 42;
+            }
+        } as unknown as FileSystemHost;
         const read = bindRequiredMethod(host, 'readFileSync', 'a string', isString);
 
         try {

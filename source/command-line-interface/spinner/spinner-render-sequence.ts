@@ -3,9 +3,9 @@ import { findHighestActiveSlotIndex, readAllSnapshots, type SlotSnapshot } from 
 import type { SpinnerSharedAccessors } from './spinner-shared-state.ts';
 
 export type RenderState = {
-    snapshots: readonly SlotSnapshot[];
-    renderedLineCount: number;
-    frameIndex: number;
+    readonly snapshots: readonly SlotSnapshot[];
+    readonly renderedLineCount: number;
+    readonly frameIndex: number;
 };
 
 export type RenderTickOutput = {

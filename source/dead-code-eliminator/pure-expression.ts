@@ -80,7 +80,7 @@ function templateExpressionIsPure(expression: Expression, recurse: ExpressionPur
     return expression
         .asKindOrThrow(SyntaxKind.TemplateExpression)
         .getTemplateSpans()
-        .every((span) => {
+        .every(function (span) {
             return recurse(span.getExpression());
         });
 }
@@ -89,7 +89,7 @@ function arrayLiteralExpressionIsPure(expression: Expression, recurse: Expressio
     return expression
         .asKindOrThrow(SyntaxKind.ArrayLiteralExpression)
         .getElements()
-        .every((element) => {
+        .every(function (element) {
             return isPureArrayElement(element, recurse);
         });
 }
@@ -98,7 +98,7 @@ function objectLiteralExpressionIsPure(expression: Expression, recurse: Expressi
     return expression
         .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
         .getProperties()
-        .every((property) => {
+        .every(function (property) {
             return isPurePropertyAssignment(property, recurse);
         });
 }
@@ -167,7 +167,7 @@ function expressionPurityRuleFor(kind: SyntaxKind): PurityRule | undefined {
 
 export function isPureExpression(expression: Expression, settings: DeadCodeEliminationSettings | undefined): boolean {
     const unwrapped = unwrapExpression(expression);
-    const recurse: ExpressionPurityChecker = (candidate) => {
+    const recurse: ExpressionPurityChecker = function (candidate) {
         return isPureExpression(candidate, settings);
     };
     const kind = unwrapped.getKind();

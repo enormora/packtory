@@ -12,7 +12,7 @@ const explicitBundle: BundleLike = {
     contents: [],
     surface: {
         mode: 'explicit',
-        packageInterface: { modules: [{ root: 'main', export: './entry' }] }
+        packageInterface: { modules: [ { root: 'main', export: './entry' } ] }
     }
 };
 

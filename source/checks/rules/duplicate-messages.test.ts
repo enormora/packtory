@@ -10,13 +10,13 @@ function owner(bundleName: string, survivingBindings: readonly string[] = []): O
 suite('duplicate-messages', function () {
     test('formatPathLevelMessage lists the owners alphabetically after the path', function () {
         assert.strictEqual(
-            formatPathLevelMessage('/src/dup.ts', [owner('pkg-c'), owner('pkg-a'), owner('pkg-b')]),
+            formatPathLevelMessage('/src/dup.ts', [ owner('pkg-c'), owner('pkg-a'), owner('pkg-b') ]),
             'File "/src/dup.ts" is included in multiple packages: pkg-a, pkg-b, pkg-c'
         );
     });
 
     test('formatSharedDeclarationsMessage sorts the shared declarations and owners alphabetically', function () {
-        const message = formatSharedDeclarationsMessage('/src/dup.ts', new Set(['z', 'a']), [
+        const message = formatSharedDeclarationsMessage('/src/dup.ts', new Set([ 'z', 'a' ]), [
             owner('pkg-b'),
             owner('pkg-a')
         ]);
@@ -27,7 +27,8 @@ suite('duplicate-messages', function () {
                 'File "/src/dup.ts" has shared declarations across multiple packages:',
                 '  - "a" → pkg-a, pkg-b',
                 '  - "z" → pkg-a, pkg-b'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 });

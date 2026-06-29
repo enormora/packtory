@@ -18,9 +18,9 @@ suite('version-provider-context', function () {
                 },
                 repositoryFolder: '/'
             },
-            analyzedBundle({ contents: [analyzedBundleResource('/source/index.js')] }),
+            analyzedBundle({ contents: [ analyzedBundleResource('/source/index.js') ] }),
             {
-                ignoredAttributionPaths: ['CHANGELOG.md'],
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                 registrySettings: {},
                 versioning: { automatic: true }
             } as unknown as BuildAndPublishOptions,
@@ -28,7 +28,7 @@ suite('version-provider-context', function () {
         );
 
         assert.deepStrictEqual(context, {
-            ignoredAttributionPaths: ['CHANGELOG.md'],
+            ignoredAttributionPaths: [ 'CHANGELOG.md' ],
             registrySettings: {},
             stage: false,
             targetSourceFiles: []
@@ -48,10 +48,10 @@ suite('version-provider-context', function () {
                 },
                 repositoryFolder: '/'
             },
-            analyzedBundle({ contents: [analyzedBundleResource('/source/index.js')] }),
+            analyzedBundle({ contents: [ analyzedBundleResource('/source/index.js') ] }),
             {
-                additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: ['package-lock.json'] },
-                ignoredAttributionPaths: ['CHANGELOG.md'],
+                additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [ 'package-lock.json' ] },
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                 mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
                 registrySettings: {},
                 versioning: {
@@ -64,6 +64,6 @@ suite('version-provider-context', function () {
             false
         );
 
-        assert.deepStrictEqual(context.targetSourceFiles, ['package-lock.json', 'package.json', 'source/index.js']);
+        assert.deepStrictEqual(context.targetSourceFiles, [ 'package-lock.json', 'package.json', 'source/index.js' ]);
     });
 });

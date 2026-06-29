@@ -50,7 +50,7 @@ suite('release-diff-summary', function () {
     });
 
     test('includes the failed package count in total but not in any other state bucket', function () {
-        const summary = summarizeReleaseDiff([stateView({ state: 'changed' })], 2);
+        const summary = summarizeReleaseDiff([ stateView({ state: 'changed' }) ], 2);
         assert.strictEqual(summary.totalPackages, 3);
         assert.strictEqual(summary.failedPackages, 2);
         assert.strictEqual(summary.changedPackages, 1);
@@ -61,15 +61,15 @@ suite('release-diff-summary', function () {
             [
                 stateView({
                     files: {
-                        added: [addedFile('a'), addedFile('b')],
-                        removed: [addedFile('c')],
+                        added: [ addedFile('a'), addedFile('b') ],
+                        removed: [ addedFile('c') ],
                         modified: [],
                         unchanged: []
                     }
                 }),
                 stateView({
                     files: {
-                        added: [addedFile('d')],
+                        added: [ addedFile('d') ],
                         removed: [],
                         modified: [
                             {

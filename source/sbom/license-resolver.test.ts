@@ -5,7 +5,7 @@ import { createLicenseResolver } from './license-resolver.ts';
 
 async function expectResolvedLicense(packageJsonContent: string): Promise<string | undefined> {
     const fileManager = createFakeFileManager({
-        simulatedReadFileResponses: [{ value: packageJsonContent }]
+        simulatedReadFileResponses: [ { value: packageJsonContent } ]
     });
     const resolver = createLicenseResolver({ fileManager });
 
@@ -21,7 +21,7 @@ suite('license-resolver', function () {
 
     test('resolveLicense() reads from the dependency’s package.json under node_modules', async function () {
         const fileManager = createFakeFileManager({
-            simulatedReadFileResponses: [{ value: JSON.stringify({ license: 'MIT' }) }]
+            simulatedReadFileResponses: [ { value: JSON.stringify({ license: 'MIT' }) } ]
         });
         const resolver = createLicenseResolver({ fileManager });
 
@@ -61,7 +61,7 @@ suite('license-resolver', function () {
 
     test('resolveLicense() throws a descriptive error when the dependency is not installed', async function () {
         const fileManager = createFakeFileManager({
-            simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }]
+            simulatedCheckReadabilityResponses: [ { value: { isReadable: false } } ]
         });
         const resolver = createLicenseResolver({ fileManager });
 

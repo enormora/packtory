@@ -30,18 +30,16 @@ import { runReleaseHandler } from './release-handler.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
 
+type GitHubClientContext = {
+    readonly owner: string;
+    readonly repo: string;
+    readonly token: string;
+};
+
 export type CommandLineInterfaceRunnerDependencies = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
-    readonly createGitHubReleaseClient: (context: {
-        readonly owner: string;
-        readonly repo: string;
-        readonly token: string;
-    }) => GitHubReleaseClient;
-    readonly createReleasePullRequestGitHubClient: (context: {
-        readonly owner: string;
-        readonly repo: string;
-        readonly token: string;
-    }) => ReleasePullRequestGitHubClient;
+    readonly createGitHubReleaseClient: (context: GitHubClientContext) => GitHubReleaseClient;
+    readonly createReleasePullRequestGitHubClient: (context: GitHubClientContext) => ReleasePullRequestGitHubClient;
     readonly currentDate: () => Date;
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcastConsumer;
@@ -52,7 +50,7 @@ export type CommandLineInterfaceRunnerDependencies = {
     readonly openFile: (filePath: string) => Promise<boolean>;
     readonly createTemporaryFilePath: () => string;
     readonly readEnvironmentVariable: (name: string) => string | undefined;
-    readonly readPackageInfo: () => Promise<Record<string, unknown>>;
+    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
     readonly releaseGitClient: ReleaseGitClient;
     readonly sleep: (milliseconds: number) => Promise<void>;
     readonly workingDirectory: string;
@@ -303,12 +301,12 @@ export function createCommandLineInterfaceRunner(
                 description: 'Builds a single configured package and writes it as a zip, tar, or folder artifact.',
                 args: {
                     packageName: positional({ type: string, displayName: 'package' }),
-                    format: option({ long: 'format', type: oneOf(['zip', 'tar', 'folder']) }),
+                    format: option({ long: 'format', type: oneOf([ 'zip', 'tar', 'folder' ]) }),
                     outputPath: option({ long: 'out', type: string }),
                     version: option({
                         long: 'version',
                         type: string,
-                        defaultValue: () => {
+                        defaultValue() {
                             return defaultPackVersion;
                         }
                     }),

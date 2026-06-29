@@ -12,7 +12,7 @@ type CommandParseError = {
 };
 
 function hasCommandParseError(result: CommandParseResult): result is CommandParseError & CommandParseResult {
-    return 'error' in result;
+    return Object.hasOwn(result, 'error');
 }
 
 export function getParseExitCode(log: (message: string) => void, result: CommandParseResult): number | undefined {

@@ -2,10 +2,16 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
-import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
+import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { createPackEmitter, type PackEmitterDependencies } from './pack-emitter.ts';
 
-function makeBundle(): ReturnType<typeof versionedBundleWithManifest> {
+type PackEmitterFixture = {
+    readonly deps: PackEmitterDependencies;
+    readonly fileManager: FakeFileManager;
+};
+
+function makeBundle(): VersionedBundleWithManifest {
     return versionedBundleWithManifest({
         contents: [],
         packageJson: { name: 'the-pkg', version: '1.0.0' },
@@ -14,14 +20,11 @@ function makeBundle(): ReturnType<typeof versionedBundleWithManifest> {
     });
 }
 
-function createDependencies(overrides: Partial<PackEmitterDependencies['artifactsBuilder']> = {}): {
-    readonly deps: PackEmitterDependencies;
-    readonly fileManager: ReturnType<typeof createFakeFileManager>;
-} {
+function createDependencies(overrides: Partial<PackEmitterDependencies['artifactsBuilder']> = {}): PackEmitterFixture {
     const fileManager = createFakeFileManager();
     const artifactsBuilder = {
-        buildZip: overrides.buildZip ?? fake.resolves({ zipData: Buffer.from([80, 75]) }),
-        buildTarball: overrides.buildTarball ?? fake.resolves({ tarData: Buffer.from([31, 139]) }),
+        buildZip: overrides.buildZip ?? fake.resolves({ zipData: Buffer.from([ 80, 75 ]) }),
+        buildTarball: overrides.buildTarball ?? fake.resolves({ tarData: Buffer.from([ 31, 139 ]) }),
         buildFolder: overrides.buildFolder ?? fake.resolves(undefined)
     };
     return {
@@ -32,7 +35,7 @@ function createDependencies(overrides: Partial<PackEmitterDependencies['artifact
 
 suite('pack-emitter', function () {
     test('writes the zip artifact bytes returned by buildZip to the output path', async function () {
-        const zipData = Buffer.from([80, 75, 5, 6]);
+        const zipData = Buffer.from([ 80, 75, 5, 6 ]);
         const buildZip = fake.resolves({ zipData });
         const { deps, fileManager } = createDependencies({ buildZip });
         const emitter = createPackEmitter(deps);
@@ -41,7 +44,7 @@ suite('pack-emitter', function () {
         await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip', vendorEntries: [], extraFiles: [] });
 
         assert.strictEqual(buildZip.callCount, 1);
-        assert.deepStrictEqual(buildZip.firstCall.args, [bundle, [], []]);
+        assert.deepStrictEqual(buildZip.firstCall.args, [ bundle, [], [] ]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
         assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
             filePath: '/out/fn.zip',
@@ -50,7 +53,7 @@ suite('pack-emitter', function () {
     });
 
     test('writes the tarball artifact bytes returned by buildTarball to the output path', async function () {
-        const tarData = Buffer.from([31, 139, 8, 0]);
+        const tarData = Buffer.from([ 31, 139, 8, 0 ]);
         const buildTarball = fake.resolves({ tarData });
         const { deps, fileManager } = createDependencies({ buildTarball });
         const emitter = createPackEmitter(deps);
@@ -59,7 +62,7 @@ suite('pack-emitter', function () {
         await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz', vendorEntries: [], extraFiles: [] });
 
         assert.strictEqual(buildTarball.callCount, 1);
-        assert.deepStrictEqual(buildTarball.firstCall.args, [bundle, [], []]);
+        assert.deepStrictEqual(buildTarball.firstCall.args, [ bundle, [], [] ]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 1);
         assert.deepStrictEqual(fileManager.getWriteBinaryFileCall(0), {
             filePath: '/out/pkg.tgz',
@@ -82,7 +85,7 @@ suite('pack-emitter', function () {
         });
 
         assert.strictEqual(buildFolder.callCount, 1);
-        assert.deepStrictEqual(buildFolder.firstCall.args, [bundle, '/out/extracted', [], []]);
+        assert.deepStrictEqual(buildFolder.firstCall.args, [ bundle, '/out/extracted', [], [] ]);
         assert.strictEqual(fileManager.getWriteBinaryFileCallCount(), 0);
     });
 });

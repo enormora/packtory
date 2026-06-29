@@ -11,11 +11,19 @@ export type ReleaseDiffSummary = {
     readonly modifiedFiles: number;
 };
 
-function classifyStateCounts(packages: readonly PackageReleaseDiffStateView[]): {
+type ReleaseDiffStateCounts = {
     readonly changedPackages: number;
     readonly firstPublishPackages: number;
     readonly unchangedPackages: number;
-} {
+};
+
+type ReleaseDiffFileCounts = {
+    readonly addedFiles: number;
+    readonly removedFiles: number;
+    readonly modifiedFiles: number;
+};
+
+function classifyStateCounts(packages: readonly PackageReleaseDiffStateView[]): ReleaseDiffStateCounts {
     let changedPackages = 0;
     let firstPublishPackages = 0;
     let unchangedPackages = 0;
@@ -31,11 +39,7 @@ function classifyStateCounts(packages: readonly PackageReleaseDiffStateView[]): 
     return { changedPackages, firstPublishPackages, unchangedPackages };
 }
 
-function aggregateFileCounts(packages: readonly PackageReleaseDiffStateView[]): {
-    readonly addedFiles: number;
-    readonly removedFiles: number;
-    readonly modifiedFiles: number;
-} {
+function aggregateFileCounts(packages: readonly PackageReleaseDiffStateView[]): ReleaseDiffFileCounts {
     let addedFiles = 0;
     let removedFiles = 0;
     let modifiedFiles = 0;

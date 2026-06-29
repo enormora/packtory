@@ -39,7 +39,7 @@ suite('preview-document-diff', function () {
             oldLines: 1,
             newStart: 1,
             newLines: 1,
-            lines: ['+inserted', '-removed', ' context line']
+            lines: [ '+inserted', '-removed', ' context line' ]
         });
         assert.deepStrictEqual(hunk.lines, [
             { type: 'add', text: '+inserted' },
@@ -54,9 +54,9 @@ suite('preview-document-diff', function () {
             oldLines: 1,
             newStart: 1,
             newLines: 1,
-            lines: ['+kept', '\\ No newline at end of file']
+            lines: [ '+kept', '\\ No newline at end of file' ]
         });
-        assert.deepStrictEqual(hunk.lines, [{ type: 'add', text: '+kept' }]);
+        assert.deepStrictEqual(hunk.lines, [ { type: 'add', text: '+kept' } ]);
     });
 
     test('toPreviewDiffHunk renders the hunk header with the unified-diff line-range format', function () {

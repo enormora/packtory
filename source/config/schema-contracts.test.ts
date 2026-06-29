@@ -27,15 +27,16 @@ suite('schema-contracts', function () {
         );
 
         assert.deepStrictEqual(result, {
-            additionalFileShape: ['sourceFilePath', 'targetFilePath'],
-            rootShape: ['js', 'declarationFile'],
-            registrySettingsShape: ['registryUrl', 'auth'],
-            mainPackageJsonShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
+            additionalFileShape: [ 'sourceFilePath', 'targetFilePath' ],
+            rootShape: [ 'js', 'declarationFile' ],
+            registrySettingsShape: [ 'registryUrl', 'auth' ],
+            mainPackageJsonShape: [ 'type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports' ],
             additionalFileCatchallType: 'never',
             rootCatchallType: 'never',
             registrySettingsCatchallType: 'never'
         });
-    }).timeout(probeTestTimeoutMs);
+    })
+        .timeout(probeTestTimeoutMs);
 
     test('versioning schema keeps the automatic and manual branches', async function () {
         const result = await runNodeProbe(
@@ -86,11 +87,11 @@ suite('schema-contracts', function () {
         assert.deepStrictEqual(result, {
             optionCount: 2,
             branchKeys: [
-                ['automatic', 'minimumVersion'],
+                [ 'automatic', 'minimumVersion' ],
                 [
-                    ['automatic', 'version'],
-                    ['automatic', 'provideVersion'],
-                    ['automatic', 'source']
+                    [ 'automatic', 'version' ],
+                    [ 'automatic', 'provideVersion' ],
+                    [ 'automatic', 'source' ]
                 ]
             ],
             automaticSuccess: true,
@@ -100,7 +101,8 @@ suite('schema-contracts', function () {
             invalidAutomaticBranchSuccess: false,
             invalidManualBranchSuccess: false
         });
-    }).timeout(probeTestTimeoutMs);
+    })
+        .timeout(probeTestTimeoutMs);
 
     test('package json schemas keep their runtime structure and forbidden key behavior', async function () {
         const result = await runNodeProbe(
@@ -144,16 +146,17 @@ suite('schema-contracts', function () {
         );
 
         assert.deepStrictEqual(result, {
-            mainShape: ['type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports'],
+            mainShape: [ 'type', 'dependencies', 'devDependencies', 'peerDependencies', 'imports' ],
             typeLiteral: 'module',
             dependencyRecordType: 'record',
             devDependencyRecordType: 'record',
             peerDependencyRecordType: 'record',
             importsRecordType: 'record',
             validMainSuccess: true,
-            forbiddenKeySuccesses: [false, false, false, false, false, false, false, false, false, false, false]
+            forbiddenKeySuccesses: [ false, false, false, false, false, false, false, false, false, false, false ]
         });
-    }).timeout(probeTestTimeoutMs);
+    })
+        .timeout(probeTestTimeoutMs);
 
     test('packtory config schemas keep their union and package tuple structure', async function () {
         const result = await runNodeProbe(
@@ -164,12 +167,20 @@ suite('schema-contracts', function () {
                 packtoryConfigWithoutRegistrySchema
             } from './source/config/packtory-config-without-registry-schema.ts';
 
+            function unwrapSchemaDef(schema) {
+                let current = schema;
+                while (current.def?.innerType !== undefined) {
+                    current = current.def.innerType;
+                }
+                return current.def;
+            }
+
             const withoutRegistryOptions = packtoryConfigWithoutRegistrySchema._zod.def.options;
             const firstOptionShape = withoutRegistryOptions[0].def.innerType.def.shape;
             const packageTuple = firstOptionShape.packages._zod.def.innerType.def;
             const packageShape = packageTuple.items[0].def.innerType.def.shape;
-            const checksShape = firstOptionShape.checks.def.innerType.def.shape;
-            const commonShape = firstOptionShape.commonPackageSettings.def.innerType.def.shape;
+            const checksShape = unwrapSchemaDef(firstOptionShape.checks).shape;
+            const commonShape = unwrapSchemaDef(firstOptionShape.commonPackageSettings).shape;
 
             console.log(JSON.stringify({
                 optionCount: withoutRegistryOptions.length,
@@ -204,13 +215,13 @@ suite('schema-contracts', function () {
         assert.deepStrictEqual(result, {
             optionCount: 4,
             topLevelKeys: [
-                ['changelog', 'checks', 'commonPackageSettings', 'packages'],
-                ['changelog', 'checks', 'commonPackageSettings', 'packages'],
-                ['changelog', 'checks', 'commonPackageSettings', 'packages'],
-                ['changelog', 'checks', 'commonPackageSettings', 'packages']
+                [ 'changelog', 'checks', 'commonPackageSettings', 'packages' ],
+                [ 'changelog', 'checks', 'commonPackageSettings', 'packages' ],
+                [ 'changelog', 'checks', 'commonPackageSettings', 'packages' ],
+                [ 'changelog', 'checks', 'commonPackageSettings', 'packages' ]
             ],
-            packageTupleItemCounts: [1, 1, 1, 1],
-            packageTupleHasRest: [true, true, true, true],
+            packageTupleItemCounts: [ 1, 1, 1, 1 ],
+            packageTupleHasRest: [ true, true, true, true ],
             packageShapeKeys: [
                 'sourcesFolder',
                 'mainPackageJson',
@@ -252,10 +263,11 @@ suite('schema-contracts', function () {
                 'dependencyPolicy',
                 'deadCodeElimination'
             ],
-            configIntersectionLeftKeys: ['registrySettings'],
+            configIntersectionLeftKeys: [ 'registrySettings' ],
             validWithoutRegistrySuccess: true
         });
-    }).timeout(probeTestTimeoutMs);
+    })
+        .timeout(probeTestTimeoutMs);
 
     test('schema source modules still validate representative valid and invalid inputs', async function () {
         const result = await runNodeProbe(
@@ -330,5 +342,6 @@ suite('schema-contracts', function () {
             missingConfigRegistrySuccess: true,
             emptyConfigPackagesSuccess: false
         });
-    }).timeout(probeTestTimeoutMs);
+    })
+        .timeout(probeTestTimeoutMs);
 });

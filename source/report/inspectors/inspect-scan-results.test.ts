@@ -24,8 +24,8 @@ suite('inspect-scan-results', function () {
         const bundle = {
             contents: [],
             externalDependencies: new Map<string, unknown>([
-                ['lodash', { version: '^4' }],
-                ['react', { version: '^18' }]
+                [ 'lodash', { version: '^4' } ],
+                [ 'react', { version: '^18' } ]
             ])
         };
 

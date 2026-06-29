@@ -17,7 +17,7 @@ function collectTimeoutMutantsForFile(
     const timeouts: TimeoutMutant[] = [];
 
     for (const mutant of fileReport.mutants) {
-        if (mutant.status === 'Timeout') {
+        if (mutant.status === 'Timeout' && mutant.static !== true) {
             const { start } = mutant.location;
             timeouts.push({ filePath, line: start.line, column: start.column });
         }
@@ -27,7 +27,7 @@ function collectTimeoutMutantsForFile(
 }
 
 export function collectTimeoutMutants(report: MutationReport): readonly TimeoutMutant[] {
-    return Object.entries(report.files ?? {}).flatMap(([filePath, fileReport]) => {
+    return Object.entries(report.files ?? {}).flatMap(function ([ filePath, fileReport ]) {
         return collectTimeoutMutantsForFile(filePath, fileReport);
     });
 }

@@ -8,11 +8,13 @@ const pureImportTrustSchema = z.readonly(
     })
 );
 
-export const deadCodeEliminationSettingsSchema = z.strictObject({
-    enabled: z.boolean(),
-    pureImports: z.optional(z.readonly(z.array(pureImportTrustSchema))),
-    pureConstructors: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
-});
+export const deadCodeEliminationSettingsSchema = z.readonly(
+    z.strictObject({
+        enabled: z.boolean(),
+        pureImports: z.optional(z.readonly(z.array(pureImportTrustSchema))),
+        pureConstructors: z.optional(z.readonly(z.array(nonEmptyStringSchema)))
+    })
+);
 
 export type DeadCodeEliminationSettings = z.infer<typeof deadCodeEliminationSettingsSchema>;
 

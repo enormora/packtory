@@ -4,7 +4,7 @@ export function calculatePercentile(values: readonly number[], percentile: numbe
     assert.ok(values.length > 0, 'Cannot calculate a percentile from an empty value list');
     assert.ok(percentile >= 0 && percentile <= 1, `Percentile must be between 0 and 1, received "${percentile}"`);
 
-    const sortedValues = Array.from(values).toSorted((left, right) => {
+    const sortedValues = Array.from(values).toSorted(function (left, right) {
         return left - right;
     });
     const index = Math.ceil(sortedValues.length * percentile) - 1;

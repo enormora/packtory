@@ -2,7 +2,7 @@ import { z } from 'zod/mini';
 import { nonEmptyStringSchema } from './base-validations.ts';
 
 const exportKeySchema = z.string().check(
-    z.refine((value) => {
+    z.refine(function (value) {
         return value === '.' || value.startsWith('./');
     })
 );
@@ -21,9 +21,9 @@ const binExposureSchema = z.readonly(
     })
 );
 
-const nonEmptyModuleExposuresSchema = z.readonly(z.tuple([moduleExposureSchema], moduleExposureSchema));
-const nonEmptyBinExposuresSchema = z.readonly(z.tuple([binExposureSchema], binExposureSchema));
-const nonEmptyPrivateRootsSchema = z.readonly(z.tuple([nonEmptyStringSchema], nonEmptyStringSchema));
+const nonEmptyModuleExposuresSchema = z.readonly(z.tuple([ moduleExposureSchema ], moduleExposureSchema));
+const nonEmptyBinExposuresSchema = z.readonly(z.tuple([ binExposureSchema ], binExposureSchema));
+const nonEmptyPrivateRootsSchema = z.readonly(z.tuple([ nonEmptyStringSchema ], nonEmptyStringSchema));
 
 export const packageInterfaceSchema = z.readonly(
     z
@@ -33,7 +33,7 @@ export const packageInterfaceSchema = z.readonly(
             privateRoots: z.optional(nonEmptyPrivateRootsSchema)
         })
         .check(
-            z.refine((value) => {
+            z.refine(function (value) {
                 return value.modules !== undefined || value.bins !== undefined;
             })
         )

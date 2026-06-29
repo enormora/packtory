@@ -1,9 +1,20 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
-import { createReportAggregator } from './report-aggregator.ts';
+import { createReportAggregator, type ReportAggregator } from './report-aggregator.ts';
 
-suite('report-aggregator', function () {
+function aggregatorWithEffectiveConfig(): ReportAggregator {
+    const broadcaster = createProgressBroadcaster();
+    const aggregator = createReportAggregator(broadcaster.consumer);
+    const opaqueConfig: Readonly<Record<string, unknown>> = { name: 'pkg-a' };
+    broadcaster.provider.emit('effectiveConfigResolved', {
+        packageName: 'pkg-a',
+        config: opaqueConfig
+    });
+    return aggregator;
+}
+
+function registerArtifactReportTests(): void {
     test('only transformed DCE files contribute changed status when outputs are materialized', function () {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
@@ -70,7 +81,7 @@ suite('report-aggregator', function () {
                 kind: 'source',
                 sourcePath: '/src/index.js',
                 status: 'changed',
-                badges: ['dead-code-elimination']
+                badges: [ 'dead-code-elimination' ]
             },
             {
                 path: 'kept.js',
@@ -82,7 +93,9 @@ suite('report-aggregator', function () {
             }
         ]);
     });
+}
 
+function registerLifecycleTests(): void {
     test('aggregator build() is memoised - second call returns the same object reference', function () {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
@@ -124,9 +137,9 @@ suite('report-aggregator', function () {
         if (pkg === undefined) {
             assert.fail('expected pkg-a in report');
         }
-        assert.strictEqual('inputs' in pkg, false);
-        assert.strictEqual('outputs' in pkg, false);
-        assert.strictEqual('failure' in pkg, false);
+        assert.strictEqual(Object.hasOwn(pkg, 'inputs'), false);
+        assert.strictEqual(Object.hasOwn(pkg, 'outputs'), false);
+        assert.strictEqual(Object.hasOwn(pkg, 'failure'), false);
     });
 
     test('build() reports schemaVersion 1 on an empty aggregator', function () {
@@ -159,18 +172,9 @@ suite('report-aggregator', function () {
 
         assert.deepStrictEqual(aggregator.build().aggregate.crossBundleLinks, []);
     });
+}
 
-    function aggregatorWithEffectiveConfig(): ReturnType<typeof createReportAggregator> {
-        const broadcaster = createProgressBroadcaster();
-        const aggregator = createReportAggregator(broadcaster.consumer);
-        const opaqueConfig: Readonly<Record<string, unknown>> = { name: 'pkg-a' };
-        broadcaster.provider.emit('effectiveConfigResolved', {
-            packageName: 'pkg-a',
-            config: opaqueConfig
-        });
-        return aggregator;
-    }
-
+function registerInputReportTests(): void {
     test('buildInputs() backfills missing roots, siblingVersions, and sourceFileCount when only effectiveConfig is set', function () {
         const aggregator = aggregatorWithEffectiveConfig();
 
@@ -197,7 +201,7 @@ suite('report-aggregator', function () {
         if (inputs === undefined) {
             assert.fail('expected inputs');
         }
-        assert.strictEqual('effectiveConfig' in inputs, false);
+        assert.strictEqual(Object.hasOwn(inputs, 'effectiveConfig'), false);
     });
 
     test('artifactsCollected reports totalBytes 0 for an empty entries list', function () {
@@ -220,22 +224,37 @@ suite('report-aggregator', function () {
         assert.deepStrictEqual(report.packages['pkg-a']?.timings, { publish: 1 });
         assert.deepStrictEqual(report.packages['pkg-b']?.timings, { publish: 2 });
     });
+}
 
+function registerUnsubscribeTests(): void {
     test('unsubscribe() removes every event subscription', function () {
         const broadcaster = createProgressBroadcaster();
         const aggregator = createReportAggregator(broadcaster.consumer);
 
         aggregator.unsubscribe();
 
-        assert.strictEqual(broadcaster.provider.hasSubscribers('inputsResolved'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('effectiveConfigResolved'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('versionDetermined'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('packageJsonAssembled'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('scanCompleted'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('linkingCompleted'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('eliminationCompleted'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('stageTimed'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('packageFailed'), false);
-        assert.strictEqual(broadcaster.provider.hasSubscribers('artifactsCollected'), false);
+        for (
+            const eventName of [
+                'inputsResolved',
+                'effectiveConfigResolved',
+                'versionDetermined',
+                'packageJsonAssembled',
+                'scanCompleted',
+                'linkingCompleted',
+                'eliminationCompleted',
+                'stageTimed',
+                'packageFailed',
+                'artifactsCollected'
+            ] as const
+        ) {
+            assert.strictEqual(broadcaster.provider.hasSubscribers(eventName), false);
+        }
     });
+}
+
+suite('report-aggregator', function () {
+    registerArtifactReportTests();
+    registerLifecycleTests();
+    registerInputReportTests();
+    registerUnsubscribeTests();
 });

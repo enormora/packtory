@@ -9,11 +9,16 @@ export type ImportedExpressionOrigin = {
 
 export type ExpressionPurityChecker = (expression: Expression) => boolean;
 
+type TrustedImport = {
+    readonly from: string;
+    readonly imports?: readonly string[] | undefined;
+};
+
 function importedOriginForDeclaration(declaration: TsMorphNode): ImportedExpressionOrigin | undefined {
     if (TsMorphNode.isImportSpecifier(declaration)) {
         return {
             from: declaration.getImportDeclaration().getModuleSpecifierValue(),
-            path: [declaration.getName()]
+            path: [ declaration.getName() ]
         };
     }
 
@@ -29,7 +34,7 @@ function importedOriginForDeclaration(declaration: TsMorphNode): ImportedExpress
         const importDeclaration = declaration.getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration);
         return {
             from: importDeclaration.getModuleSpecifierValue(),
-            path: ['default']
+            path: [ 'default' ]
         };
     }
 
@@ -54,7 +59,7 @@ function importedOriginForIdentifier(identifier: Identifier): ImportedExpression
 
 function originMatchesTrustedImport(
     origin: ImportedExpressionOrigin,
-    trustedImport: { readonly from: string; readonly imports?: readonly string[] | undefined }
+    trustedImport: TrustedImport
 ): boolean {
     if (trustedImport.from !== origin.from) {
         return false;
@@ -62,7 +67,7 @@ function originMatchesTrustedImport(
     if (trustedImport.imports === undefined) {
         return true;
     }
-    const [pathHead = trustedImport.from] = origin.path;
+    const [ pathHead = trustedImport.from ] = origin.path;
     return pathHead !== trustedImport.from && trustedImport.imports.includes(pathHead);
 }
 
@@ -74,13 +79,13 @@ function expressionOriginIsTrusted(
     if (origin === undefined || pureImports === undefined) {
         return false;
     }
-    return pureImports.some((trustedImport) => {
+    return pureImports.some(function (trustedImport) {
         return originMatchesTrustedImport(origin, trustedImport);
     });
 }
 
 function arePureCallArguments(callArguments: readonly TsMorphNode[], recurse: ExpressionPurityChecker): boolean {
-    return callArguments.every((argument) => {
+    return callArguments.every(function (argument) {
         if (TsMorphNode.isSpreadElement(argument)) {
             return recurse(argument.getExpression());
         }
@@ -92,7 +97,7 @@ function appendPropertyAccess(
     base: ImportedExpressionOrigin | undefined,
     propertyName: string
 ): ImportedExpressionOrigin | undefined {
-    return base === undefined ? undefined : { from: base.from, path: [...base.path, propertyName] };
+    return base === undefined ? undefined : { from: base.from, path: [ ...base.path, propertyName ] };
 }
 
 function originOfTrustedCall(

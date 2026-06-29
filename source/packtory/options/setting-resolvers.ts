@@ -12,7 +12,7 @@ export type PublishSettings = NonNullable<PackageConfig['publishSettings']>;
 
 type AdditionalFileDescription = Extract<
     ResourceResolveOptions['additionalFiles'][number],
-    { readonly sourceFilePath: string; readonly targetFilePath: string }
+    { readonly sourceFilePath: string; readonly targetFilePath: string; }
 >;
 
 export function resolveSourcesFolder(
@@ -90,7 +90,7 @@ function mergeAdditionalFilesByTarget(
     secondFiles: readonly AdditionalFileDescription[] = []
 ): readonly AdditionalFileDescription[] {
     const result = new Map<string, AdditionalFileDescription>();
-    for (const file of [...firstFiles, ...secondFiles]) {
+    for (const file of [ ...firstFiles, ...secondFiles ]) {
         result.set(file.targetFilePath, file);
     }
     return Array.from(result.values());
@@ -105,7 +105,7 @@ export function resolveAdditionalFiles(
         packtoryConfig.commonPackageSettings?.additionalFiles,
         packageConfig.additionalFiles
     );
-    return merged.map((additionalFile) => {
+    return merged.map(function (additionalFile) {
         return normalizeAdditionalFile(additionalFile, sourcesFolder);
     });
 }

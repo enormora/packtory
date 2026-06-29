@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createPackageReleaseDiff as basePkg } from '../../test-libraries/release-diff-fixtures.ts';
-import { createColors } from './terminal-preview-renderer-shared.ts';
+import { createColors, type Colors } from './terminal-preview-renderer-shared.ts';
 import { renderReleaseDiffPackage } from './terminal-release-diff-package-renderer.ts';
 
-function colors() {
+function colors(): Colors {
     return createColors(false);
 }
 
@@ -42,7 +42,8 @@ suite('terminal-release-diff-package-renderer', function () {
                 '  + package.json (2 B)',
                 '    ▸ lib/',
                 '    + index.js (20 B)'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -50,8 +51,8 @@ suite('terminal-release-diff-package-renderer', function () {
         const output = renderReleaseDiffPackage(
             basePkg({
                 files: {
-                    added: [{ path: 'lib/new.js', sizeBytes: 12, isExecutable: false }],
-                    removed: [{ path: 'lib/legacy.js', sizeBytes: 4, isExecutable: false }],
+                    added: [ { path: 'lib/new.js', sizeBytes: 12, isExecutable: false } ],
+                    removed: [ { path: 'lib/legacy.js', sizeBytes: 4, isExecutable: false } ],
                     modified: [
                         {
                             path: 'package.json',
@@ -73,7 +74,7 @@ suite('terminal-release-diff-package-renderer', function () {
                             }
                         }
                     ],
-                    unchanged: [{ path: 'readme.md', sizeBytes: 10, isExecutable: false }]
+                    unchanged: [ { path: 'readme.md', sizeBytes: 10, isExecutable: false } ]
                 }
             }),
             colors()
@@ -94,7 +95,8 @@ suite('terminal-release-diff-package-renderer', function () {
                 '      @@ -1,1 +1,1 @@',
                 '      -"version": "1.0.0"',
                 '      +"version": "1.0.1"'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -126,7 +128,8 @@ suite('terminal-release-diff-package-renderer', function () {
                 '  Modified (1)',
                 '    ▸ assets/',
                 '    ~ logo.png (100 B -> 110 B) (binary, no text diff)'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -158,7 +161,8 @@ suite('terminal-release-diff-package-renderer', function () {
                 '  Modified (1)',
                 '    ▸ bin/',
                 '    ~ cli.js (50 B -> 50 B) mode 644 -> 755 (mode only)'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -190,7 +194,7 @@ suite('terminal-release-diff-package-renderer', function () {
         const output = renderReleaseDiffPackage(
             basePkg({
                 files: {
-                    added: [{ path: 'a.js', sizeBytes: 1, isExecutable: false }],
+                    added: [ { path: 'a.js', sizeBytes: 1, isExecutable: false } ],
                     removed: [],
                     modified: [],
                     unchanged: []
@@ -204,7 +208,8 @@ suite('terminal-release-diff-package-renderer', function () {
                 'pkg-a  1.0.0 -> 1.0.1  ·  1 added, 0 removed, 0 modified, 0 unchanged',
                 '  Added (1)',
                 '  + a.js (1 B)'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 });

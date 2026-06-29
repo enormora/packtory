@@ -13,7 +13,7 @@ export type SbomDependency = {
     readonly license: string | undefined;
 };
 
-type SbomBuilderOptions = {
+export type SbomBuilderOptions = {
     readonly toolVersion: string;
     readonly rootComponent: SbomRootComponent;
     readonly dependencies: readonly SbomDependency[];
@@ -30,17 +30,6 @@ function isParseableSpdxExpression(value: string): boolean {
 
 function buildPurl(name: string, versionOrSpecifier: string): string {
     return `pkg:npm/${name}@${encodeURIComponent(versionOrSpecifier)}`;
-}
-
-function attachLicense(component: cdx.Models.Component, license: string | undefined): void {
-    if (license === undefined) {
-        return;
-    }
-    if (isParseableSpdxExpression(license)) {
-        component.licenses.add(new cdx.Models.LicenseExpression(license));
-        return;
-    }
-    component.licenses.add(new cdx.Models.NamedLicense(license));
 }
 
 function buildRootComponent(rootComponent: SbomRootComponent): cdx.Models.Component {
@@ -60,7 +49,14 @@ function buildDependencyComponent(dependency: SbomDependency): cdx.Models.Compon
         purl,
         scope: dependency.scope
     });
-    attachLicense(component, dependency.license);
+    if (dependency.license === undefined) {
+        return component;
+    }
+    if (isParseableSpdxExpression(dependency.license)) {
+        component.licenses.add(new cdx.Models.LicenseExpression(dependency.license));
+        return component;
+    }
+    component.licenses.add(new cdx.Models.NamedLicense(dependency.license));
     return component;
 }
 

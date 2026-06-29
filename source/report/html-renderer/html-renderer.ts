@@ -1,4 +1,3 @@
-/* eslint-disable @stylistic/max-len -- HTML template literals are intentionally long */
 import type { PreviewDocument } from '../preview/preview-document.ts';
 import { escapeHtml } from './html-escaping.ts';
 import { renderIssuesSection, renderSummaryCard, serializeJsonBlock } from './html-primitives.ts';
@@ -36,6 +35,11 @@ function renderSummaryCards(document: PreviewDocument): string {
 }
 
 export function renderHtmlReport(document: PreviewDocument): string {
+    const generatedAt = escapeHtml(document.report.generatedAt);
+    const schemaVersion = escapeHtml(String(document.report.schemaVersion));
+    const metadata = `Schema version: ${schemaVersion} · Generated at: ${generatedAt}`;
+    const reportData = escapeHtml(serializeJsonBlock(document.report));
+
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -49,13 +53,13 @@ export function renderHtmlReport(document: PreviewDocument): string {
         <section class="header">
             <div class="mode-label">${escapeHtml(document.modeLabel)}</div>
             <h1>${escapeHtml(document.title)}</h1>
-            <p class="meta">Schema version: ${escapeHtml(String(document.report.schemaVersion))} · Generated at: ${escapeHtml(document.report.generatedAt)}</p>
+            <p class="meta">${metadata}</p>
         </section>
         <section class="summary">${renderSummaryCards(document)}
         </section>
         ${renderIssues(document)}
         <section class="packages">${renderPackages(document)}</section>
-        <script type="application/json" id="packtory-report-data">${escapeHtml(serializeJsonBlock(document.report))}</script>
+        <script type="application/json" id="packtory-report-data">${reportData}</script>
     </main>
 </body>
 </html>`;

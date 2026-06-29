@@ -12,7 +12,25 @@ type AuthorizedReleasePublish = {
     readonly shouldPublish: true;
 };
 
-export type ReleasePublishAuthorization = AuthorizedReleasePublish | { readonly shouldPublish: false };
+export type ReleasePublishAuthorization = AuthorizedReleasePublish | { readonly shouldPublish: false; };
+
+type PullRequestAuthorizationInput = {
+    readonly config: ReleasePullRequestPolicyConfig;
+    readonly expectedMergeCommitSha: string;
+    readonly pullRequest: PullRequestDetails;
+    readonly repository: string;
+};
+type CommitAuthorizationInput = {
+    readonly config: ReleasePullRequestPolicyConfig;
+    readonly commitSha: string;
+    readonly pullRequests: readonly PullRequestDetails[];
+    readonly repository: string;
+};
+type PullRequestPublishAuthorizationInput = {
+    readonly config: ReleasePullRequestPolicyConfig;
+    readonly pullRequest: PullRequestDetails;
+    readonly repository: string;
+};
 
 function selectSingleReleasePullRequest(
     pullRequests: readonly PullRequestDetails[],
@@ -42,12 +60,7 @@ function toPublishInput(pullRequest: PullRequestDetails, repository: string): Re
     };
 }
 
-function isAuthorizedPullRequest(input: {
-    readonly config: ReleasePullRequestPolicyConfig;
-    readonly expectedMergeCommitSha: string;
-    readonly pullRequest: PullRequestDetails;
-    readonly repository: string;
-}): boolean {
+function isAuthorizedPullRequest(input: PullRequestAuthorizationInput): boolean {
     let authorized = true;
     try {
         validateReleasePullRequestPublishPolicy(
@@ -61,13 +74,8 @@ function isAuthorizedPullRequest(input: {
     return authorized;
 }
 
-export function authorizeReleasePublishFromCommit(input: {
-    readonly config: ReleasePullRequestPolicyConfig;
-    readonly commitSha: string;
-    readonly pullRequests: readonly PullRequestDetails[];
-    readonly repository: string;
-}): ReleasePublishAuthorization {
-    const releasePullRequests = input.pullRequests.filter((pullRequest) => {
+export function authorizeReleasePublishFromCommit(input: CommitAuthorizationInput): ReleasePublishAuthorization {
+    const releasePullRequests = input.pullRequests.filter(function (pullRequest) {
         return isAuthorizedPullRequest({
             config: input.config,
             expectedMergeCommitSha: input.commitSha,
@@ -89,11 +97,9 @@ export function authorizeReleasePublishFromCommit(input: {
     };
 }
 
-export function authorizeReleasePublishFromPullRequest(input: {
-    readonly config: ReleasePullRequestPolicyConfig;
-    readonly pullRequest: PullRequestDetails;
-    readonly repository: string;
-}): ReleasePublishAuthorization {
+export function authorizeReleasePublishFromPullRequest(
+    input: PullRequestPublishAuthorizationInput
+): ReleasePublishAuthorization {
     if (input.pullRequest.mergeCommitSha === undefined) {
         throw new Error(`Pull request #${input.pullRequest.number} is not a merged release PR`);
     }

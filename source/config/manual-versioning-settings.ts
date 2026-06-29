@@ -16,12 +16,12 @@ const pullRequestLabelsVersionSource = 'pull-request-labels';
 
 type VersionSource = typeof pullRequestLabelsVersionSource;
 
-type StaticManualVersioningSettings = {
+type StaticManualSettings = {
     readonly automatic: false;
     readonly version: string;
 };
 
-type ProviderManualVersioningSettings = {
+type ProviderManualSettings = {
     readonly automatic: false;
     readonly provideVersion: VersionProvider;
 };
@@ -41,7 +41,7 @@ const staticManualVersioningSettingsSchema = z.readonly(
 const providerManualVersioningSettingsSchema = z.readonly(
     z.strictObject({
         automatic: z.literal(false),
-        provideVersion: z.custom<VersionProvider>((value) => {
+        provideVersion: z.custom<VersionProvider>(function (value) {
             return typeof value === 'function';
         })
     })
@@ -62,10 +62,7 @@ export const manualVersioningSettingsSchema = z.readonly(
     ])
 );
 
-export type ManualVersioningSettings =
-    | ProviderManualVersioningSettings
-    | SourceManualVersioningSettings
-    | StaticManualVersioningSettings;
+export type ManualVersioningSettings = ProviderManualSettings | SourceManualVersioningSettings | StaticManualSettings;
 
 export function validateManualVersion(version: unknown): string {
     const result = z.safeParse(nonEmptyStringSchema, version);

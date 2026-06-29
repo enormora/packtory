@@ -1,11 +1,17 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import { createNpmOidcIdTokenResolver } from './npm-oidc-id-token-resolver.ts';
+import {
+    createNpmOidcIdTokenResolver,
+    type NpmOidcIdTokenResolver
+} from './npm-oidc-id-token-resolver.ts';
 
 type Overrides = {
     readonly fetch?: typeof globalThis.fetch;
     readonly environmentVariables?: Readonly<Record<string, string | undefined>>;
+};
+type FetchCallRecorder = {
+    readonly push: (args: readonly unknown[]) => unknown;
 };
 
 const gitHubActionsEnvironmentVariables = {
@@ -16,19 +22,17 @@ const gitHubActionsEnvironmentVariables = {
 function createEnvironmentVariableReader(
     environmentVariables: Readonly<Record<string, string | undefined>> = {}
 ): (variableName: string) => string | undefined {
-    return (variableName) => {
+    return function (variableName) {
         const value = environmentVariables[variableName];
         return value === undefined || value.length === 0 ? undefined : value;
     };
 }
 
-function resolverFactory(overrides: Readonly<Overrides> = {}) {
+function resolverFactory(overrides: Readonly<Overrides> = {}): NpmOidcIdTokenResolver {
     const {
-        fetch: fetchImplementation = fake.resolves({
-            ok: true,
-            status: 200,
-            json: fake.resolves({ value: 'github-id-token' })
-        }) as unknown as typeof globalThis.fetch,
+        fetch: fetchImplementation = fake.resolves(
+            Response.json({ value: 'github-id-token' }, { status: 200 })
+        ),
         environmentVariables = {}
     } = overrides;
 
@@ -38,8 +42,8 @@ function resolverFactory(overrides: Readonly<Overrides> = {}) {
     });
 }
 
-function createGitHubActionsFetch(fetchCalls?: unknown[][]): typeof globalThis.fetch {
-    return (async (...args: unknown[]) => {
+function createGitHubActionsFetch(fetchCalls?: FetchCallRecorder): typeof globalThis.fetch {
+    return (async function (...args: readonly unknown[]) {
         fetchCalls?.push(args);
         return {
             ok: true,
@@ -49,7 +53,7 @@ function createGitHubActionsFetch(fetchCalls?: unknown[][]): typeof globalThis.f
     }) as unknown as typeof globalThis.fetch;
 }
 
-function createGitHubActionsResolver(overrides: Readonly<Overrides> = {}) {
+function createGitHubActionsResolver(overrides: Readonly<Overrides> = {}): NpmOidcIdTokenResolver {
     return resolverFactory({
         ...overrides,
         environmentVariables: {
@@ -69,104 +73,108 @@ async function expectFailure(action: () => Promise<unknown>, expectedError: RegE
 }
 
 suite('npm-oidc-id-token-resolver', function () {
-    test('resolver uses the default environment variable when npm oidc provider is omitted', async function () {
-        const resolveIdToken = resolverFactory({
-            environmentVariables: {
-                GITHUB_ACTIONS: 'false',
-                NPM_ID_TOKEN: 'upstream-id-token'
-            }
-        });
-
-        const idToken = await resolveIdToken({ type: 'npm-oidc' });
-
-        assert.strictEqual(idToken, 'upstream-id-token');
-    });
-
-    test('resolver fetches a GitHub Actions id token when requested', async function () {
-        const fetchCalls: unknown[][] = [];
-        const resolveIdToken = createGitHubActionsResolver({
-            fetch: createGitHubActionsFetch(fetchCalls)
-        });
-
-        const idToken = await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
-
-        assert.strictEqual(idToken, 'github-id-token');
-        assert.deepStrictEqual(fetchCalls, [
-            [
-                new URL(
-                    'https://pipelinesghub.actions.githubusercontent.com/id-token?audience=npm%3Aregistry.npmjs.org'
-                ),
-                {
-                    headers: { Authorization: 'Bearer actions-request-token' }
+    suite('provider selection', function () {
+        test('resolver uses the default environment variable when npm oidc provider is omitted', async function () {
+            const resolveIdToken = resolverFactory({
+                environmentVariables: {
+                    GITHUB_ACTIONS: 'false',
+                    NPM_ID_TOKEN: 'upstream-id-token'
                 }
-            ]
-        ]);
-    });
+            });
 
-    test('resolver auto-detects GitHub Actions when npm oidc provider is omitted', async function () {
-        const fetchCalls: unknown[][] = [];
-        const resolveIdToken = createGitHubActionsResolver({
-            fetch: createGitHubActionsFetch(fetchCalls),
-            environmentVariables: {
-                GITHUB_ACTIONS: 'true'
-            }
+            const idToken = await resolveIdToken({ type: 'npm-oidc' });
+
+            assert.strictEqual(idToken, 'upstream-id-token');
         });
 
-        const idToken = await resolveIdToken({ type: 'npm-oidc' });
+        test('resolver fetches a GitHub Actions id token when requested', async function () {
+            const fetchCalls: (readonly unknown[])[] = [];
+            const resolveIdToken = createGitHubActionsResolver({
+                fetch: createGitHubActionsFetch(fetchCalls)
+            });
 
-        assert.strictEqual(idToken, 'github-id-token');
-        assert.strictEqual(fetchCalls.length, 1);
-    });
+            const idToken = await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
 
-    test('resolver uses the env provider even when GitHub Actions markers are present', async function () {
-        const fetchSpy = fake() as unknown as typeof globalThis.fetch;
-        const resolveIdToken = resolverFactory({
-            fetch: fetchSpy,
-            environmentVariables: {
-                GITHUB_ACTIONS: 'true',
-                NPM_ID_TOKEN: 'upstream-id-token'
-            }
+            assert.strictEqual(idToken, 'github-id-token');
+            assert.deepStrictEqual(fetchCalls, [
+                [
+                    new URL(
+                        'https://pipelinesghub.actions.githubusercontent.com/id-token?audience=npm%3Aregistry.npmjs.org'
+                    ),
+                    {
+                        headers: { Authorization: 'Bearer actions-request-token' }
+                    }
+                ]
+            ]);
         });
 
-        const idToken = await resolveIdToken({ type: 'npm-oidc', provider: 'env' });
+        test('resolver auto-detects GitHub Actions when npm oidc provider is omitted', async function () {
+            const fetchCalls: (readonly unknown[])[] = [];
+            const resolveIdToken = createGitHubActionsResolver({
+                fetch: createGitHubActionsFetch(fetchCalls),
+                environmentVariables: {
+                    GITHUB_ACTIONS: 'true'
+                }
+            });
 
-        assert.strictEqual(idToken, 'upstream-id-token');
-        assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 0);
-    });
+            const idToken = await resolveIdToken({ type: 'npm-oidc' });
 
-    test('resolver falls back to environment id tokens when auto-detection does not match GitHub Actions', async function () {
-        const fetchSpy = fake() as unknown as typeof globalThis.fetch;
-        const resolveIdToken = resolverFactory({
-            fetch: fetchSpy,
-            environmentVariables: {
-                GITHUB_ACTIONS: 'false',
-                NPM_ID_TOKEN: 'upstream-id-token'
-            }
+            assert.strictEqual(idToken, 'github-id-token');
+            assert.strictEqual(fetchCalls.length, 1);
         });
 
-        const idToken = await resolveIdToken({ type: 'npm-oidc', provider: 'auto' });
+        test('resolver uses the env provider even when GitHub Actions markers are present', async function () {
+            const fetchSpy = fake() as unknown as typeof globalThis.fetch;
+            const resolveIdToken = resolverFactory({
+                fetch: fetchSpy,
+                environmentVariables: {
+                    GITHUB_ACTIONS: 'true',
+                    NPM_ID_TOKEN: 'upstream-id-token'
+                }
+            });
 
-        assert.strictEqual(idToken, 'upstream-id-token');
-        assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 0);
+            const idToken = await resolveIdToken({ type: 'npm-oidc', provider: 'env' });
+
+            assert.strictEqual(idToken, 'upstream-id-token');
+            assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 0);
+        });
+
+        test('resolver falls back to environment id tokens when auto-detection does not match GitHub Actions', async function () {
+            const fetchSpy = fake() as unknown as typeof globalThis.fetch;
+            const resolveIdToken = resolverFactory({
+                fetch: fetchSpy,
+                environmentVariables: {
+                    GITHUB_ACTIONS: 'false',
+                    NPM_ID_TOKEN: 'upstream-id-token'
+                }
+            });
+
+            const idToken = await resolveIdToken({ type: 'npm-oidc', provider: 'auto' });
+
+            assert.strictEqual(idToken, 'upstream-id-token');
+            assert.strictEqual((fetchSpy as unknown as SinonSpy).callCount, 0);
+        });
     });
 
     test('resolver rejects GitHub Actions OIDC when required environment variables are missing', async function () {
         const resolveIdToken = resolverFactory();
 
-        await expectFailure(async () => {
+        await expectFailure(async function () {
             await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
         }, /^Error: GitHub Actions OIDC requires ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN$/u);
     });
 
     suite('GitHub Actions missing environment variables', function () {
-        for (const [missingVariable, requestUrl, requestToken] of [
-            ['ACTIONS_ID_TOKEN_REQUEST_URL', undefined, 'actions-request-token'],
-            [
-                'ACTIONS_ID_TOKEN_REQUEST_TOKEN',
-                'https://pipelinesghub.actions.githubusercontent.com/id-token',
-                undefined
-            ]
-        ] as const) {
+        for (
+            const [ missingVariable, requestUrl, requestToken ] of [
+                [ 'ACTIONS_ID_TOKEN_REQUEST_URL', undefined, 'actions-request-token' ],
+                [
+                    'ACTIONS_ID_TOKEN_REQUEST_TOKEN',
+                    'https://pipelinesghub.actions.githubusercontent.com/id-token',
+                    undefined
+                ]
+            ] as const
+        ) {
             test(`resolver rejects GitHub Actions OIDC when ${missingVariable} is missing`, async function () {
                 const resolveIdToken = createGitHubActionsResolver({
                     environmentVariables: {
@@ -175,20 +183,25 @@ suite('npm-oidc-id-token-resolver', function () {
                     }
                 });
 
-                await expectFailure(async () => {
-                    await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
-                }, /^Error: GitHub Actions OIDC requires ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN$/u);
+                await expectFailure(
+                    async function () {
+                        await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
+                    },
+                    /^Error: GitHub Actions OIDC requires ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN$/u
+                );
             });
         }
     });
 
     suite('GitHub Actions invalid id token responses', function () {
-        for (const [testName, response] of [
-            ['an unusable', {}],
-            ['a non-object', 'invalid-response'],
-            ['an array', Object.assign([], { value: 'github-id-token' })],
-            ['an empty', { value: '' }]
-        ] as const) {
+        for (
+            const [ testName, response ] of [
+                [ 'an unusable', {} ],
+                [ 'a non-object', 'invalid-response' ],
+                [ 'an array', Object.assign([], { value: 'github-id-token' }) ],
+                [ 'an empty', { value: '' } ]
+            ] as const
+        ) {
             test(`resolver rejects ${testName} GitHub Actions id token response`, async function () {
                 const resolveIdToken = createGitHubActionsResolver({
                     fetch: fake.resolves({
@@ -198,7 +211,7 @@ suite('npm-oidc-id-token-resolver', function () {
                     }) as unknown as typeof globalThis.fetch
                 });
 
-                await expectFailure(async () => {
+                await expectFailure(async function () {
                     await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
                 }, /^Error: GitHub Actions OIDC token response did not contain a usable id_token$/u);
             });
@@ -214,7 +227,7 @@ suite('npm-oidc-id-token-resolver', function () {
             }) as unknown as typeof globalThis.fetch
         });
 
-        await expectFailure(async () => {
+        await expectFailure(async function () {
             await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
         }, /^Error: GitHub Actions OIDC token request failed with status 500$/u);
     });
@@ -222,7 +235,7 @@ suite('npm-oidc-id-token-resolver', function () {
     test('resolver rejects a missing environment id token for env provider', async function () {
         const resolveIdToken = resolverFactory();
 
-        await expectFailure(async () => {
+        await expectFailure(async function () {
             await resolveIdToken({ type: 'npm-oidc', provider: 'env', idTokenEnvVar: 'CUSTOM_ID_TOKEN' });
         }, /^Error: OIDC id_token environment variable "CUSTOM_ID_TOKEN" is missing$/u);
     });
@@ -232,7 +245,7 @@ suite('npm-oidc-id-token-resolver', function () {
             environmentVariables: { CUSTOM_ID_TOKEN: '' }
         });
 
-        await expectFailure(async () => {
+        await expectFailure(async function () {
             await resolveIdToken({ type: 'npm-oidc', provider: 'env', idTokenEnvVar: 'CUSTOM_ID_TOKEN' });
         }, /^Error: OIDC id_token environment variable "CUSTOM_ID_TOKEN" is missing$/u);
     });
@@ -249,7 +262,7 @@ suite('npm-oidc-id-token-resolver', function () {
                 'ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with ".actions.githubusercontent.com", ' +
                 'got "attacker.example". A non-GitHub host would receive the GitHub-issued OIDC bearer.';
             await expectFailure(
-                async () => {
+                async function () {
                     await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
                 },
                 new RegExp(`^Error: ${expectedSuffix.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')}$`, 'u')
@@ -263,19 +276,21 @@ suite('npm-oidc-id-token-resolver', function () {
                 }
             });
 
-            await expectFailure(async () => {
+            await expectFailure(async function () {
                 await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
             }, /hostname must end with "\.actions\.githubusercontent\.com"/u);
         });
 
         test('resolver rejects an http ACTIONS_ID_TOKEN_REQUEST_URL', async function () {
+            const requestUrl = new URL('https://pipelinesghub.actions.githubusercontent.com/id-token');
+            requestUrl.protocol = 'http:';
             const resolveIdToken = createGitHubActionsResolver({
                 environmentVariables: {
-                    ACTIONS_ID_TOKEN_REQUEST_URL: 'http://pipelinesghub.actions.githubusercontent.com/id-token'
+                    ACTIONS_ID_TOKEN_REQUEST_URL: requestUrl.href
                 }
             });
 
-            await expectFailure(async () => {
+            await expectFailure(async function () {
                 await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
             }, /^Error: ACTIONS_ID_TOKEN_REQUEST_URL must use https/u);
         });
@@ -287,7 +302,7 @@ suite('npm-oidc-id-token-resolver', function () {
                 }
             });
 
-            await expectFailure(async () => {
+            await expectFailure(async function () {
                 await resolveIdToken({ type: 'npm-oidc', provider: 'github-actions' });
             }, /^Error: ACTIONS_ID_TOKEN_REQUEST_URL is not a valid URL/u);
         });

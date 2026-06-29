@@ -33,13 +33,28 @@ async function consumerProducerConfig(fixturePath: string): Promise<PacktoryConf
             {
                 name: 'pkg-consumer',
                 roots: { main: { js: path.join(fixturePath, 'src/pkg-consumer/index.js') } },
-                bundleDependencies: ['pkg-producer']
+                bundleDependencies: [ 'pkg-producer' ]
             },
             {
                 name: 'pkg-producer',
                 roots: { main: { js: path.join(fixturePath, 'src/pkg-producer/index.js') } }
             }
         ]
+    };
+}
+
+async function duplicatedFilesConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
+    return {
+        commonPackageSettings: {
+            sourcesFolder: path.join(fixturePath, 'src'),
+            mainPackageJson: await loadPackageJson(fixturePath),
+            publishSettings: { access: 'public' }
+        },
+        packages: [
+            { name: 'pkg-a', roots: { main: { js: path.join(fixturePath, 'src/pkg-a/index.js') } } },
+            { name: 'pkg-b', roots: { main: { js: path.join(fixturePath, 'src/pkg-b/index.js') } } }
+        ],
+        checks: { noDuplicatedFiles: { enabled: true } }
     };
 }
 
@@ -51,7 +66,7 @@ function expectOk(outcome: Awaited<ReturnType<typeof resolveAndLinkAll>>): reado
 }
 
 function findPackage(packages: readonly ResolvedPackage[], name: string): ResolvedPackage {
-    const match = packages.find((entry) => {
+    const match = packages.find(function (entry) {
         return entry.name === name;
     });
     if (match === undefined) {
@@ -64,13 +79,29 @@ function findResource(
     pkg: ResolvedPackage,
     targetFilePath: string
 ): ResolvedPackage['analyzedBundle']['contents'][number] {
-    const match = pkg.analyzedBundle.contents.find((resource) => {
+    const match = pkg.analyzedBundle.contents.find(function (resource) {
         return resource.fileDescription.targetFilePath === targetFilePath;
     });
     if (match === undefined) {
         assert.fail(`Expected to find target file "${targetFilePath}" in bundle "${pkg.name}"`);
     }
     return match;
+}
+
+function assertSharedDeclarationIssue(
+    result: Readonly<Awaited<ReturnType<typeof resolveAndLinkAll>>['result']>
+): void {
+    if (!result.isErr) {
+        assert.fail('Expected the noDuplicatedFiles rule to fail');
+        return;
+    }
+    if (result.error.type !== 'checks') {
+        assert.fail(`Expected a checks failure, got ${result.error.type}`);
+    }
+    const [ issue ] = result.error.issues;
+    assert.ok(issue !== undefined);
+    assert.ok(issue.includes('shared/util.js'));
+    assert.ok(issue.includes('"sharedValue"'), 'message should name the shared declaration');
 }
 
 suite('dead-code-elimination', function () {
@@ -102,7 +133,7 @@ suite('dead-code-elimination', function () {
             entry.fileDescription.content.includes('unusedHelper'),
             'unusedHelper must be kept because the file has top-level side effects'
         );
-        assert.deepStrictEqual(pkg.analyzedBundle.sideEffectsField, ['./pkg/index.js']);
+        assert.deepStrictEqual(pkg.analyzedBundle.sideEffectsField, [ './pkg/index.js' ]);
     });
 
     test('preserves a binding in pkg-producer that pkg-consumer imports across bundles', async function () {
@@ -126,29 +157,7 @@ suite('dead-code-elimination', function () {
 
     test('the smart noDuplicatedFiles rule reports shared declarations using symbol names', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const config: PacktoryConfigWithoutRegistry = {
-            commonPackageSettings: {
-                sourcesFolder: path.join(fixturePath, 'src'),
-                mainPackageJson: await loadPackageJson(fixturePath),
-                publishSettings: { access: 'public' }
-            },
-            packages: [
-                { name: 'pkg-a', roots: { main: { js: path.join(fixturePath, 'src/pkg-a/index.js') } } },
-                { name: 'pkg-b', roots: { main: { js: path.join(fixturePath, 'src/pkg-b/index.js') } } }
-            ],
-            checks: { noDuplicatedFiles: { enabled: true } }
-        };
-        const { result } = await resolveAndLinkAll(config);
-        if (!result.isErr) {
-            assert.fail('Expected the noDuplicatedFiles rule to fail');
-            return;
-        }
-        if (result.error.type !== 'checks') {
-            assert.fail(`Expected a checks failure, got ${result.error.type}`);
-        }
-        const [issue] = result.error.issues;
-        assert.ok(issue !== undefined);
-        assert.ok(issue.includes('shared/util.js'));
-        assert.ok(issue.includes('"sharedValue"'), 'message should name the shared declaration');
+        const { result } = await resolveAndLinkAll(await duplicatedFilesConfig(fixturePath));
+        assertSharedDeclarationIssue(result);
     });
 });

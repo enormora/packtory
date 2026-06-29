@@ -26,7 +26,7 @@ type LibnpmpublishOptions = {
     readonly defaultTag: string;
     readonly access: 'public';
     readonly registry: string;
-    readonly forceAuth: { readonly token: string };
+    readonly forceAuth: { readonly token: string; };
     readonly authType: 'web';
     readonly otp?: string;
 };
@@ -36,6 +36,11 @@ type LibnpmpublishFunction = (
     tarball: Buffer,
     options: LibnpmpublishOptions
 ) => Promise<unknown>;
+
+type OneTimePasswordRequiredError = {
+    readonly code: 'EOTP';
+    readonly body?: unknown;
+};
 
 export type PackagePublicationDependencies = {
     readonly publish: LibnpmpublishFunction;
@@ -49,11 +54,11 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return value instanceof Object && !Array.isArray(value);
 }
 
-function isOneTimePasswordRequiredError(error: unknown): error is { readonly body?: unknown } {
+function isOneTimePasswordRequiredError(error: unknown): error is OneTimePasswordRequiredError {
     return isRecord(error) && error.code === 'EOTP';
 }
 
-function extractWebOtpUrls(error: { readonly body?: unknown }): WebOtpUrls | undefined {
+function extractWebOtpUrls(error: OneTimePasswordRequiredError): WebOtpUrls | undefined {
     const { body } = error;
     if (!isRecord(body)) {
         return undefined;

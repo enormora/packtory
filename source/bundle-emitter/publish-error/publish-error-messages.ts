@@ -34,7 +34,7 @@ export function buildInvalidProvenanceFileMessage(filePath: string): string {
 export function buildProvenanceDigestMismatchMessage(filePath: string): string {
     return (
         `Provenance bundle at "${filePath}" was signed against a different tarball ` +
-        'than the one packtory built. Re-generate the bundle from the current source — ' +
+        'than the one packtory built. Re-generate the bundle from the current source: ' +
         'shipping a mismatched attestation would defeat the purpose of provenance.'
     );
 }

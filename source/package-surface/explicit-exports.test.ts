@@ -7,7 +7,7 @@ import type { ExplicitSurface } from './package-shape.ts';
 const mainOnlyBundle = { name: 'package-a', roots: { main: plainRoot('index.js') } };
 const rootSurface: ExplicitSurface = {
     mode: 'explicit',
-    packageInterface: { modules: [{ root: 'main', export: '.' }] }
+    packageInterface: { modules: [ { root: 'main', export: '.' } ] }
 };
 
 suite('explicit-exports', function () {
@@ -46,7 +46,7 @@ suite('explicit-exports', function () {
         const bundle = { name: 'package-a', roots: { cli: plainRoot('cli.js') } };
         const surface: ExplicitSurface = {
             mode: 'explicit',
-            packageInterface: { bins: [{ root: 'cli', name: 'package-a' }] }
+            packageInterface: { bins: [ { root: 'cli', name: 'package-a' } ] }
         };
 
         assert.deepStrictEqual(buildExplicitExportsField(bundle, surface), {});
@@ -61,10 +61,10 @@ suite('explicit-exports', function () {
     test('throws when an export references an unknown root', function () {
         const surface: ExplicitSurface = {
             mode: 'explicit',
-            packageInterface: { modules: [{ root: 'missing', export: '.' }] }
+            packageInterface: { modules: [ { root: 'missing', export: '.' } ] }
         };
 
-        assert.throws(() => {
+        assert.throws(function () {
             buildExplicitExportsField(mainOnlyBundle, surface);
         }, /^Error: Package "package-a" references unknown root "missing"$/u);
     });

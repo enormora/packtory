@@ -13,7 +13,7 @@ type SbomFixtureOverrides = Partial<SbomFixtureFields> & {
     readonly dependencyComponents?: readonly ToolComponent[];
 };
 
-const sbomFixtureFactory = createFactory<SbomFixtureFields>(() => {
+const sbomFixtureFactory = createFactory<SbomFixtureFields>(function () {
     return { packtoryVersion: '1.0.0' };
 });
 
@@ -21,7 +21,7 @@ export function buildSbomFixtureContent(overrides: SbomFixtureOverrides = {}): s
     const { dependencyComponents = [], ...fixtureOverrides } = overrides;
     const fields = sbomFixtureFactory.build(fixtureOverrides);
     const sbom: Record<string, unknown> = {
-        metadata: { tools: { components: [{ name: 'packtory', version: fields.packtoryVersion }] } }
+        metadata: { tools: { components: [ { name: 'packtory', version: fields.packtoryVersion } ] } }
     };
     if (dependencyComponents.length > 0) {
         sbom.components = dependencyComponents;

@@ -1,7 +1,7 @@
 import type { PackageProcessor } from '../packtory/package-processor.ts';
 import type { ProgressBroadcastProvider, StageName } from '../progress/progress-broadcaster.ts';
 
-type Named = { readonly name: string };
+type Named = { readonly name: string; };
 
 function emitTiming(
     progressBroadcaster: ProgressBroadcastProvider,
@@ -24,7 +24,7 @@ export function withFailureCapture<TOptions extends Named, TResult>(
     stage: StageName,
     execute: (options: TOptions) => Promise<TResult>
 ): (options: TOptions) => Promise<TResult> {
-    return async (options: TOptions): Promise<TResult> => {
+    return async function (options: TOptions): Promise<TResult> {
         try {
             return await execute(options);
         } catch (error: unknown) {

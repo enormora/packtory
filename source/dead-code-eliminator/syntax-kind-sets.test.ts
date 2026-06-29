@@ -12,14 +12,16 @@ import {
 
 suite('syntax-kind-sets', function () {
     test('pureLeafKinds classifies primitive literals and function expressions as pure leaves', function () {
-        for (const kind of [
-            SyntaxKind.StringLiteral,
-            SyntaxKind.NumericLiteral,
-            SyntaxKind.TrueKeyword,
-            SyntaxKind.NullKeyword,
-            SyntaxKind.Identifier,
-            SyntaxKind.ArrowFunction
-        ]) {
+        for (
+            const kind of [
+                SyntaxKind.StringLiteral,
+                SyntaxKind.NumericLiteral,
+                SyntaxKind.TrueKeyword,
+                SyntaxKind.NullKeyword,
+                SyntaxKind.Identifier,
+                SyntaxKind.ArrowFunction
+            ]
+        ) {
             assert.strictEqual(pureLeafKinds.has(kind), true);
         }
     });
@@ -30,12 +32,14 @@ suite('syntax-kind-sets', function () {
     });
 
     test('allowedPrefixUnaryOperators only permits arithmetic and boolean prefixes', function () {
-        for (const kind of [
-            SyntaxKind.MinusToken,
-            SyntaxKind.PlusToken,
-            SyntaxKind.ExclamationToken,
-            SyntaxKind.TildeToken
-        ]) {
+        for (
+            const kind of [
+                SyntaxKind.MinusToken,
+                SyntaxKind.PlusToken,
+                SyntaxKind.ExclamationToken,
+                SyntaxKind.TildeToken
+            ]
+        ) {
             assert.strictEqual(allowedPrefixUnaryOperators.has(kind), true);
         }
     });
@@ -47,42 +51,52 @@ suite('syntax-kind-sets', function () {
     });
 
     test('inherentlyPurePropertyKinds includes accessors, methods, and shorthand properties', function () {
-        for (const kind of [
-            SyntaxKind.ShorthandPropertyAssignment,
-            SyntaxKind.MethodDeclaration,
-            SyntaxKind.GetAccessor,
-            SyntaxKind.SetAccessor
-        ]) {
+        for (
+            const kind of [
+                SyntaxKind.ShorthandPropertyAssignment,
+                SyntaxKind.MethodDeclaration,
+                SyntaxKind.GetAccessor,
+                SyntaxKind.SetAccessor
+            ]
+        ) {
             assert.strictEqual(inherentlyPurePropertyKinds.has(kind), true);
         }
     });
 
     test('pureDeclarationKinds includes function, interface, type alias, enum, namespace, and export declarations', function () {
-        for (const kind of [
-            SyntaxKind.FunctionDeclaration,
-            SyntaxKind.InterfaceDeclaration,
-            SyntaxKind.TypeAliasDeclaration,
-            SyntaxKind.EnumDeclaration,
-            SyntaxKind.ModuleDeclaration,
-            SyntaxKind.ExportDeclaration,
-            SyntaxKind.EmptyStatement
-        ]) {
+        for (
+            const kind of [
+                SyntaxKind.FunctionDeclaration,
+                SyntaxKind.InterfaceDeclaration,
+                SyntaxKind.TypeAliasDeclaration,
+                SyntaxKind.EnumDeclaration,
+                SyntaxKind.ModuleDeclaration,
+                SyntaxKind.ExportDeclaration,
+                SyntaxKind.EmptyStatement
+            ]
+        ) {
             assert.strictEqual(pureDeclarationKinds.has(kind), true);
         }
     });
 
     test('describeControlFlowStatementKind maps control-flow statements to labels', function () {
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.IfStatement), 'if statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ForStatement), 'for statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ForInStatement), 'for-in statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ForOfStatement), 'for-of statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.WhileStatement), 'while statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.DoStatement), 'do-while statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.SwitchStatement), 'switch statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.TryStatement), 'try statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ThrowStatement), 'throw statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.LabeledStatement), 'labeled statement');
-        assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.Block), 'block statement');
+        const expectedLabels = new Map([
+            [ SyntaxKind.IfStatement, 'if statement' ],
+            [ SyntaxKind.ForStatement, 'for statement' ],
+            [ SyntaxKind.ForInStatement, 'for-in statement' ],
+            [ SyntaxKind.ForOfStatement, 'for-of statement' ],
+            [ SyntaxKind.WhileStatement, 'while statement' ],
+            [ SyntaxKind.DoStatement, 'do-while statement' ],
+            [ SyntaxKind.SwitchStatement, 'switch statement' ],
+            [ SyntaxKind.TryStatement, 'try statement' ],
+            [ SyntaxKind.ThrowStatement, 'throw statement' ],
+            [ SyntaxKind.LabeledStatement, 'labeled statement' ],
+            [ SyntaxKind.Block, 'block statement' ]
+        ]);
+
+        for (const [ kind, label ] of expectedLabels) {
+            assert.strictEqual(describeControlFlowStatementKind(kind), label);
+        }
         assert.strictEqual(describeControlFlowStatementKind(SyntaxKind.ExpressionStatement), undefined);
     });
 });

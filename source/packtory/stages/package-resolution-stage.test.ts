@@ -1,7 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../config/config.ts';
+import { buildPackageGraph } from '../../config/package-graph-builder.ts';
+import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
-import type { ProgressBroadcaster } from '../packtory-results.ts';
 import { createIteratingScheduler as iteratingScheduler } from '../../test-libraries/iterating-scheduler.ts';
 import {
     emptyScheduler,
@@ -11,26 +13,47 @@ import {
 } from '../../test-libraries/orchestrator-stub-fixtures.ts';
 import { resolvePackages } from './package-resolution-stage.ts';
 
-function configWithPackage(name: string) {
+type InputsResolvedPayload = {
+    readonly packageName: string;
+    readonly roots: Readonly<Record<string, string>>;
+    readonly sourceFileCount: number;
+    readonly siblingVersions: Readonly<Record<string, string>>;
+};
+
+function packageConfig(name: string): PackageConfig {
     return {
-        packageConfigs: {
-            [name]: {
-                name,
-                roots: { main: { js: `${name}/index.js` } },
-                sourcesFolder: '/src',
-                mainPackageJson: { name, version: '1.0.0', type: 'module' },
-                publishSettings: { access: 'public' }
-            }
-        },
-        packtoryConfig: {
-            commonPackageSettings: {
-                sourcesFolder: '/src',
-                mainPackageJson: { type: 'module' },
-                publishSettings: { access: 'public' }
-            },
-            packages: [{ name, roots: { main: { js: `${name}/index.js` } } }]
-        }
+        name,
+        roots: { main: { js: `${name}/index.js` } },
+        sourcesFolder: '/src',
+        mainPackageJson: { type: 'module' },
+        publishSettings: { access: 'public' }
     };
+}
+
+function configWithoutRegistry(packages: readonly PackageConfig[]): ValidConfigWithoutRegistryResult {
+    const packageConfigs: Readonly<Record<string, PackageConfig>> = Object.fromEntries(
+        packages.map(function (entry) {
+            return [ entry.name, entry ];
+        })
+    );
+    const packtoryConfig: PacktoryConfigWithoutRegistry = {
+        commonPackageSettings: {
+            sourcesFolder: '/src',
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' }
+        },
+        packages
+    };
+
+    return { packageConfigs, packtoryConfig, packageGraph: buildPackageGraph(packageConfigs) };
+}
+
+function emptyConfig(): ValidConfigWithoutRegistryResult {
+    return configWithoutRegistry([]);
+}
+
+function configWithPackage(name: string): ValidConfigWithoutRegistryResult {
+    return configWithoutRegistry([ packageConfig(name) ]);
 }
 
 suite('package-resolution-stage', function () {
@@ -41,7 +64,7 @@ suite('package-resolution-stage', function () {
                 scheduler: emptyScheduler,
                 progressBroadcaster: stubProgressBroadcaster
             },
-            { packageConfigs: {}, packtoryConfig: { packages: [] } } as never
+            emptyConfig()
         );
 
         assert.strictEqual(result.isOk, true);
@@ -49,22 +72,16 @@ suite('package-resolution-stage', function () {
 
     test('resolvePackages forwards scheduler failures unchanged to its caller', async function () {
         const result = await resolvePackages(failingDependencies('boom'), {
-            packageConfigs: {},
-            packtoryConfig: { packages: [] }
-        } as never);
+            ...emptyConfig()
+        });
 
         assert.strictEqual(result.isErr, true);
     });
 
     test('resolvePackages emits inputsResolved with package name, roots, zero source files, and empty sibling versions when subscribed', async function () {
         const broadcaster = createProgressBroadcaster();
-        const received: {
-            readonly packageName: string;
-            readonly roots: Readonly<Record<string, string>>;
-            readonly sourceFileCount: number;
-            readonly siblingVersions: Readonly<Record<string, string>>;
-        }[] = [];
-        broadcaster.consumer.on('inputsResolved', (payload) => {
+        const received: InputsResolvedPayload[] = [];
+        broadcaster.consumer.on('inputsResolved', function (payload) {
             received.push({
                 packageName: payload.packageName,
                 roots: payload.roots,
@@ -76,10 +93,10 @@ suite('package-resolution-stage', function () {
         await resolvePackages(
             {
                 packageProcessor: stubPackageProcessor,
-                scheduler: iteratingScheduler(['pkg-a']),
-                progressBroadcaster: broadcaster as unknown as ProgressBroadcaster
+                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                progressBroadcaster: broadcaster
             },
-            configWithPackage('pkg-a') as never
+            configWithPackage('pkg-a')
         );
 
         assert.deepStrictEqual(received, [
@@ -93,13 +110,13 @@ suite('package-resolution-stage', function () {
         const trackingBroadcaster = {
             consumer: realBroadcaster.consumer,
             provider: {
-                emit: (eventName: string, payload: unknown) => {
+                emit(eventName: string, payload: unknown) {
                     if (eventName === 'inputsResolved') {
                         emitCount += 1;
                     }
                     realBroadcaster.provider.emit(eventName as never, payload as never);
                 },
-                hasSubscribers: (eventName: string) => {
+                hasSubscribers(eventName: string) {
                     return realBroadcaster.provider.hasSubscribers(eventName as never);
                 }
             }
@@ -108,10 +125,10 @@ suite('package-resolution-stage', function () {
         await resolvePackages(
             {
                 packageProcessor: stubPackageProcessor,
-                scheduler: iteratingScheduler(['pkg-a']),
-                progressBroadcaster: trackingBroadcaster as unknown as ProgressBroadcaster
+                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                progressBroadcaster: trackingBroadcaster
             },
-            configWithPackage('pkg-a') as never
+            configWithPackage('pkg-a')
         );
 
         assert.strictEqual(emitCount, 0);

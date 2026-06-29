@@ -81,7 +81,7 @@ The scheduler decides which packages can run in parallel without violating depen
 For each generation we collect every package with in-degree 0, then "delete" them (decrement in-degree of their successors), and repeat until the graph is empty. The result is a partition of $V$:
 
 $$
-\text{generations}(G) = [V_0, V_1, \ldots, V_k] \quad \text{where} \quad V_i = \{ v \in V \setminus \bigcup_{j < i} V_j \mid \mathrm{indeg}(v, G_i) = 0 \}
+\text{generations}(G) = (V_0, V_1, \ldots, V_k) \quad \text{where} \quad V_i = \{ v \in V \setminus \bigcup_{j < i} V_j \mid \mathrm{indeg}(v, G_i) = 0 \}
 $$
 
 Packages in the same generation have no path between them and can be executed concurrently with `Promise.allSettled`. The implementation is `getTopologicalGenerations`.
@@ -120,13 +120,13 @@ flowchart LR
 
 After every generation the scheduler appends the produced `LinkedBundle`s (or `VersionedBundle`s, depending on the phase) into a flat list and passes it to the next generation's `createOptions`. That list is what the linker uses to do import substitution (§5).
 
-## 4. Stage: Resource Resolver — dependency scanning
+## 4. Stage: Resource Resolver, dependency scanning
 
 Goal: starting from a package's root files, find **every local source file reachable through `import` statements**, plus every `node_modules` import that needs to land in the generated `package.json`.
 
 ### Algorithm
 
-```
+```text
 scan(root, sourcesFolder):
     project ← create ts-morph Project rooted at sourcesFolder
     graph ← empty directed acyclic graph
@@ -252,11 +252,11 @@ The neighbour relation is computed by walking every `Identifier` inside the bind
 
 Implementation: `bfsClosure`.
 
-### Step 4 — Remove what survives
+### Step 4, remove what survives
 
 For every file, the analyzer computes:
 
-```
+```text
 shouldTransform  = transformationsEnabled ∧ fileHasNoSideEffects
 survivingNames   = shouldTransform ? reachable ∩ fileBindings : fileBindings
 ```
@@ -304,9 +304,9 @@ The same classifier serves three purposes:
 
 1. **Gating tree-shaking** per file (above).
 2. **Generating the `sideEffects` field** of the published manifest (`computeSideEffectsField`):
-    - All files pure → `"sideEffects": false`
-    - Some files impure → `"sideEffects": ["./impure.js", ...]` (sorted)
-    - All files impure → omit the field
+   - All files pure → `"sideEffects": false`
+   - Some files impure → `"sideEffects": ["./impure.js", ...]` (sorted)
+   - All files impure → omit the field
 3. **The opt-in `noSideEffects` check**, which fails the build on any impure file not on an allow-list.
 
 A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins.
@@ -315,10 +315,9 @@ A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins.
 
 When a `.map` file is paired with a code file the analyzer transformed, packtory rebuilds the map so the published version still maps back to the _original_ sources at the new line/column positions.
 
-<details>
-<summary>The algorithm</summary>
+Algorithm:
 
-```
+```text
 recomposeSourceMap(originalMap, originalCode, transformedCode, atoms):
     trace ← TraceMap(originalMap)
     origIdx ← line-column index over originalCode
@@ -337,8 +336,6 @@ recomposeSourceMap(originalMap, originalCode, transformedCode, atoms):
 `PositionAtom`s describe the surviving byte ranges from the removal pass: `(originalStart, originalEnd, newStart)`. `translateGeneratedOffset` is a binary search over those atoms.
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
-
-</details>
 
 ## 7. Stage: Checks
 
@@ -375,13 +372,13 @@ The rationale: a published package whose `dependencies` point at a `workspace:*`
 
 `buildPackageManifest` composes the final `package.json` in this order: user-provided `additionalAttributes` first, then the auto-emitted `sideEffects` field (only if the user didn't provide one), then the _non-overridable_ identity fields (`name`, `version`, `main`, `type`, `dependencies`, `peerDependencies`, `types`). The serializer emits keys in a deterministic order so byte-identical runs produce byte-identical manifests — which matters for automatic versioning (§9).
 
-## 9. Stage: Bundle Emitter — automatic version detection
+## 9. Stage: Bundle Emitter, automatic version detection
 
 In _manual_ versioning, the configured version is used verbatim. In _automatic_ mode, packtory decides for itself whether to bump.
 
 ### The algorithm
 
-```
+```text
 automaticPublish(bundle):
     latest ← registry.fetchLatestVersion(bundle.name)
     if latest is Nothing:
@@ -400,8 +397,8 @@ Key properties:
 - **Byte-identical comparison.** `compareFileDescriptions` sorts both file lists by `filePath` and checks every file for equality. The `package.json` produced by the serializer is deterministic, so a no-op rebuild yields a no-op publish.
 - **Only patch bumps.** packtory's worldview is "every release could be breaking anyway, so semver minor/major distinctions are noise". The argument: with enough consumers, every observable behaviour — an error message string, log ordering, the shape of a thrown object, even timing — becomes load-bearing for someone (Hyrum's Law). The author's intended public contract and consumers' actual contract are different sets, so a "patch" by the author can be a breaking change for a consumer, and the major/minor/patch trichotomy is a fiction in practice. This drastically simplifies the algorithm: there is exactly one operation, `semver.inc(v, 'patch')`.
 
-    [![xkcd 1172: Workflow](https://imgs.xkcd.com/comics/workflow.png)](https://xkcd.com/1172/)
-    <sub>_xkcd 1172, "Workflow" — every change breaks somebody's workflow, so pretending otherwise just hides the risk behind a bump-level._</sub>
+  [![xkcd 1172: Workflow](https://imgs.xkcd.com/comics/workflow.png)](https://xkcd.com/1172/)
+  _xkcd 1172, "Workflow": every change breaks somebody's workflow, so pretending otherwise just hides the risk behind a bump-level._
 
 - **The tarball is the source of truth.** packtory does _not_ trust the registry's metadata (size, shasum). It downloads and unpacks, then compares contents. This catches "I republished the same version after editing a file" anomalies that show up in some registries.
 

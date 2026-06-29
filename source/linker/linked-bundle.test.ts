@@ -24,8 +24,10 @@ suite('linked-bundle', function () {
         });
 
         assert.deepStrictEqual(
-            result.map((resource) => resource.name),
-            ['a', 'c']
+            result.map(function (resource) {
+                return resource.name;
+            }),
+            [ 'a', 'c' ]
         );
     });
 

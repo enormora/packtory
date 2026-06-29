@@ -17,7 +17,7 @@ suite('required-value-helpers', function () {
     });
 
     test('getRequiredArrayValue returns the array unchanged when it has at least one element', function () {
-        assert.deepStrictEqual(getRequiredArrayValue(['a', 'b'], 'msg'), ['a', 'b']);
+        assert.deepStrictEqual(getRequiredArrayValue([ 'a', 'b' ], 'msg'), [ 'a', 'b' ]);
     });
 
     test('getRequiredArrayValue throws with the given message when the array is empty', function () {
@@ -31,8 +31,10 @@ suite('required-value-helpers', function () {
 
     test('mapRequiredArrayValue maps every element with the supplied mapper while preserving the non-empty signature', function () {
         assert.deepStrictEqual(
-            mapRequiredArrayValue([1, 2, 3], (value) => value * 2),
-            [2, 4, 6]
+            mapRequiredArrayValue([ 1, 2, 3 ], function (value) {
+                return value * 2;
+            }),
+            [ 2, 4, 6 ]
         );
     });
 });

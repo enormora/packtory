@@ -22,15 +22,15 @@ export function registerProgressListeners(
     progressBroadcaster: ProgressBroadcastConsumer,
     spinnerRenderer: TerminalSpinnerRenderer
 ): void {
-    progressBroadcaster.on('scheduled', (payload) => {
+    progressBroadcaster.on('scheduled', function (payload) {
         spinnerRenderer.add(payload.packageName, payload.packageName, 'Scheduled …');
     });
 
-    progressBroadcaster.on('error', (payload) => {
+    progressBroadcaster.on('error', function (payload) {
         spinnerRenderer.stop(payload.packageName, 'failure', payload.error.message);
     });
 
-    progressBroadcaster.on('done', (payload) => {
+    progressBroadcaster.on('done', function (payload) {
         spinnerRenderer.stop(
             payload.packageName,
             'success',
@@ -38,11 +38,11 @@ export function registerProgressListeners(
         );
     });
 
-    progressBroadcaster.on('building', (payload) => {
+    progressBroadcaster.on('building', function (payload) {
         spinnerRenderer.updateMessage(payload.packageName, `Building package with version ${payload.version}`);
     });
 
-    progressBroadcaster.on('rebuilding', (payload) => {
+    progressBroadcaster.on('rebuilding', function (payload) {
         spinnerRenderer.updateMessage(payload.packageName, `Rebuilding package with version ${payload.version}`);
     });
 }

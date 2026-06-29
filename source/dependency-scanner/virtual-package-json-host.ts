@@ -23,14 +23,14 @@ export function createVirtualPackageJsonHost(
 
     const virtualFileSystemHost: FileSystemHost = {
         ...fileSystemHost,
-        fileExists: async (filePath: string): Promise<boolean> => {
+        async fileExists(filePath: string): Promise<boolean> {
             if (path.resolve(filePath) === packageJsonPath) {
                 return true;
             }
 
             return fileSystemHost.fileExists(filePath);
         },
-        [syncMethodNames.fileExists]: (filePath: string): boolean => {
+        [syncMethodNames.fileExists](filePath: string): boolean {
             if (path.resolve(filePath) === packageJsonPath) {
                 return true;
             }
@@ -38,14 +38,14 @@ export function createVirtualPackageJsonHost(
             // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
             return fileExistsSync(filePath);
         },
-        readFile: async (filePath: string, encoding?: string): Promise<string> => {
+        async readFile(filePath: string, encoding?: string): Promise<string> {
             if (path.resolve(filePath) === packageJsonPath) {
                 return serializedPackageJson;
             }
 
             return fileSystemHost.readFile(filePath, encoding);
         },
-        [syncMethodNames.readFile]: (filePath: string): string => {
+        [syncMethodNames.readFile](filePath: string): string {
             if (path.resolve(filePath) === packageJsonPath) {
                 return serializedPackageJson;
             }

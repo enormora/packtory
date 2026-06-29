@@ -25,13 +25,14 @@ type PackageAttributionOptions = {
     readonly additionalChangelogSourceFiles: AdditionalChangelogSourceFiles;
 };
 
-export type BuildAndPublishOptions = PackageAttributionOptions &
-    SharedPackageOptions<PublishedPackageWithManifest> & {
-        readonly registrySettings: NonNullable<PacktoryConfig['registrySettings']>;
-        readonly publishSettings: PublishSettings;
-        readonly versioning: PublishVersioningSettings;
-        readonly ignoredAttributionPaths: readonly string[];
-    };
+type BuildAndPublishSharedOptions = PackageAttributionOptions & SharedPackageOptions<PublishedPackageWithManifest>;
+
+export type BuildAndPublishOptions = BuildAndPublishSharedOptions & {
+    readonly registrySettings: NonNullable<PacktoryConfig['registrySettings']>;
+    readonly publishSettings: PublishSettings;
+    readonly versioning: PublishVersioningSettings;
+    readonly ignoredAttributionPaths: readonly string[];
+};
 
 export type ResolveAndLinkOptions = PackageAttributionOptions & SharedPackageOptions<BundleSubstitutionSource>;
 
@@ -41,11 +42,13 @@ export type BuildAndPublishMappingContext = {
     readonly resolveVersionSource?: VersionSourceResolver | undefined;
 };
 
-export type VersionSourceResolver = (input: {
+type VersionSourceResolverInput = {
     readonly packageName: string;
     readonly source: SourceManualVersioningSettings;
     readonly packtoryConfig: PacktoryConfig;
-}) => VersionProvider;
+};
+
+export type VersionSourceResolver = (input: VersionSourceResolverInput) => VersionProvider;
 
 function resolveVersioning(
     packageName: string,

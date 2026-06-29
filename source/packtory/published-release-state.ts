@@ -9,11 +9,17 @@ export const publishedReleaseStatus = {
 export type PublishedReleaseStatus = (typeof publishedReleaseStatus)[keyof typeof publishedReleaseStatus];
 
 type BuildResultWithPublishedState = {
-    readonly previousReleaseArtifacts:
-        | { readonly isJust: false }
-        | { readonly isJust: true; readonly value: PublishedReleaseArtifacts };
+    readonly previousReleaseArtifacts: PublishedReleaseArtifactsMaybe;
     readonly status: PublishedReleaseStatus;
 };
+
+type NoPublishedReleaseArtifacts = { readonly isJust: false; };
+type PublishedReleaseArtifactsValue = { readonly isJust: true; readonly value: PublishedReleaseArtifacts; };
+type PublishedReleaseArtifactStates = readonly [
+    NoPublishedReleaseArtifacts,
+    PublishedReleaseArtifactsValue
+];
+type PublishedReleaseArtifactsMaybe = PublishedReleaseArtifactStates[number];
 
 export function wasAlreadyPublished(buildResult: BuildResultWithPublishedState): boolean {
     return buildResult.status === publishedReleaseStatus.alreadyPublished;

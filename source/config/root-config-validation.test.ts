@@ -9,11 +9,13 @@ function pkg(overrides: Partial<PackageConfig>): PackageConfig {
         roots: { main: { js: 'index.js' } },
         sourcesFolder: 'src',
         ...overrides
-    } as unknown as PackageConfig;
+    };
 }
 
 function configs(...packages: readonly PackageConfig[]): PackageConfigsByName {
-    return Object.fromEntries(packages.map((packageConfig) => [packageConfig.name, packageConfig]));
+    return Object.fromEntries(packages.map(function (packageConfig) {
+        return [ packageConfig.name, packageConfig ];
+    }));
 }
 
 suite('root-config-validation', function () {
@@ -26,15 +28,15 @@ suite('root-config-validation', function () {
             configs(pkg({ roots: { main: { js: 'index.js' }, extra: { js: 'extra.js' } } }))
         );
 
-        assert.deepStrictEqual(result, ['Package "pkg-a" must define defaultModuleRoot when multiple roots exist']);
+        assert.deepStrictEqual(result, [ 'Package "pkg-a" must define defaultModuleRoot when multiple roots exist' ]);
     });
 
     test('validatePackageSurfaceRules reports an unknown defaultModuleRoot for an implicit package', function () {
         const result = validatePackageSurfaceRules(
-            configs(pkg({ roots: { main: { js: 'index.js' } }, defaultModuleRoot: 'missing' } as never))
+            configs(pkg({ roots: { main: { js: 'index.js' } }, defaultModuleRoot: 'missing' }))
         );
 
-        assert.deepStrictEqual(result, ['Package "pkg-a" references unknown defaultModuleRoot "missing"']);
+        assert.deepStrictEqual(result, [ 'Package "pkg-a" references unknown defaultModuleRoot "missing"' ]);
     });
 
     test('validatePackageSurfaceRules reports duplicate javascript targets across roots', function () {
@@ -50,14 +52,16 @@ suite('root-config-validation', function () {
             configs(
                 pkg({
                     roots: { main: { js: 'index.js' } },
-                    packageInterface: { modules: [{ root: 'missing', export: '.' }] }
+                    packageInterface: { modules: [ { root: 'missing', export: '.' } ] }
                 })
             )
         );
 
         assert.ok(
             result.some(
-                (issue) => issue.includes('module export "."') && issue.includes('references unknown root "missing"')
+                function (issue) {
+                    return issue.includes('module export "."') && issue.includes('references unknown root "missing"');
+                }
             )
         );
     });
@@ -77,7 +81,9 @@ suite('root-config-validation', function () {
             )
         );
 
-        assert.ok(result.some((issue) => issue.includes('duplicate export key "."')));
+        assert.ok(result.some(function (issue) {
+            return issue.includes('duplicate export key "."');
+        }));
     });
 
     test('validatePackageSurfaceRules reports an unused root in explicit mode', function () {
@@ -85,12 +91,14 @@ suite('root-config-validation', function () {
             configs(
                 pkg({
                     roots: { main: { js: 'index.js' }, unused: { js: 'unused.js' } },
-                    packageInterface: { modules: [{ root: 'main', export: '.' }] }
+                    packageInterface: { modules: [ { root: 'main', export: '.' } ] }
                 })
             )
         );
 
-        assert.ok(result.some((issue) => issue.includes('unused root "unused"')));
+        assert.ok(result.some(function (issue) {
+            return issue.includes('unused root "unused"');
+        }));
     });
 
     test('validatePackageSurfaceRules rejects mixing defaultModuleRoot with packageInterface', function () {
@@ -98,12 +106,14 @@ suite('root-config-validation', function () {
             configs(
                 pkg({
                     defaultModuleRoot: 'main',
-                    packageInterface: { modules: [{ root: 'main', export: '.' }] }
+                    packageInterface: { modules: [ { root: 'main', export: '.' } ] }
                 } as never)
             )
         );
 
-        assert.ok(result.some((issue) => issue.includes('cannot combine defaultModuleRoot with packageInterface')));
+        assert.ok(result.some(function (issue) {
+            return issue.includes('cannot combine defaultModuleRoot with packageInterface');
+        }));
     });
 
     test('validatePackageSurfaceRules reports a private root that conflicts with a public export', function () {
@@ -112,13 +122,15 @@ suite('root-config-validation', function () {
                 pkg({
                     roots: { main: { js: 'index.js' } },
                     packageInterface: {
-                        modules: [{ root: 'main', export: '.' }],
-                        privateRoots: ['main']
+                        modules: [ { root: 'main', export: '.' } ],
+                        privateRoots: [ 'main' ]
                     }
                 } as never)
             )
         );
 
-        assert.ok(result.some((issue) => issue.includes('cannot be both public and private')));
+        assert.ok(result.some(function (issue) {
+            return issue.includes('cannot be both public and private');
+        }));
     });
 });

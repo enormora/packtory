@@ -31,8 +31,8 @@ export type TerminalSpinnerRendererDependencies = {
 type SpinnerSlot = {
     readonly slotIndex: number;
     readonly label: string;
-    message: string;
-    status: Status | 'running';
+    readonly message: string;
+    readonly status: Status | 'running';
 };
 
 const cancelMessage = 'Canceled …';
@@ -74,14 +74,13 @@ export function createTerminalSpinnerRenderer(
 
         updateMessage(id, message) {
             const spinner = getSpinnerById(id);
-            spinner.message = message;
+            spinners.set(id, { ...spinner, message });
             backend.update(spinner.slotIndex, spinner.label, message);
         },
 
         stop(id, status, message) {
             const spinner = getSpinnerById(id);
-            spinner.message = message;
-            spinner.status = status;
+            spinners.set(id, { ...spinner, message, status });
             const finalState = status === spinnerResultStatus.success ? 'succeeded' : 'failed';
             backend.finish(spinner.slotIndex, finalState, spinner.label, message);
         },
@@ -89,7 +88,6 @@ export function createTerminalSpinnerRenderer(
         stopAll() {
             for (const spinner of spinners.values()) {
                 if (spinner.status === 'running') {
-                    spinner.message = cancelMessage;
                     backend.finish(spinner.slotIndex, 'canceled', spinner.label, cancelMessage);
                 }
             }

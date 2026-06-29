@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-type-assertion -- shared stubs cast partial mocks of complex orchestrator types */
 import { Result } from 'true-myth';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackageProcessor } from '../packtory/package-processor.ts';
@@ -12,15 +11,37 @@ const emptyEliminatorValue = {
 };
 
 const stubProcessorValue = {
-    resolveAndLink: async () => undefined,
-    build: async () => undefined,
-    buildAndPublish: async () => undefined,
-    tryBuildAndPublish: async () => undefined
+    async resolveAndLink() {
+        return undefined;
+    },
+    async build() {
+        return undefined;
+    },
+    async buildAndPublish() {
+        return undefined;
+    },
+    async tryBuildAndPublish() {
+        return undefined;
+    }
 };
 
 const stubBroadcasterValue = {
-    consumer: { on: () => undefined, off: () => undefined },
-    provider: { emit: () => undefined, hasSubscribers: () => false }
+    consumer: {
+        on() {
+            return undefined;
+        },
+        off() {
+            return undefined;
+        }
+    },
+    provider: {
+        emit() {
+            return undefined;
+        },
+        hasSubscribers() {
+            return false;
+        }
+    }
 };
 
 const okSchedulerValue = {
@@ -34,27 +55,31 @@ export const stubPackageProcessor = stubProcessorValue as unknown as PackageProc
 export const stubProgressBroadcaster = stubBroadcasterValue as unknown as ProgressBroadcaster;
 export const emptyScheduler = okSchedulerValue as unknown as PackageScheduler;
 
-export function failingScheduler(error: {
+type FailingSchedulerError = {
     readonly succeeded: readonly never[];
     readonly failures: readonly Error[];
-}): PackageScheduler {
+};
+
+type FailingDependencies = {
+    readonly packageProcessor: PackageProcessor;
+    readonly scheduler: PackageScheduler;
+    readonly progressBroadcaster: ProgressBroadcaster;
+    readonly repositoryFolder: string;
+};
+
+export function failingScheduler(error: FailingSchedulerError): PackageScheduler {
     const value = {
         async runForEachScheduledPackage() {
             return Result.err(error);
         }
     };
-    return value as unknown as PackageScheduler;
+    return value;
 }
 
-export function failingDependencies(message: string): {
-    readonly packageProcessor: PackageProcessor;
-    readonly scheduler: PackageScheduler;
-    readonly progressBroadcaster: ProgressBroadcaster;
-    readonly repositoryFolder: string;
-} {
+export function failingDependencies(message: string): FailingDependencies {
     return {
         packageProcessor: stubPackageProcessor,
-        scheduler: failingScheduler({ succeeded: [], failures: [new Error(message)] }),
+        scheduler: failingScheduler({ succeeded: [], failures: [ new Error(message) ] }),
         progressBroadcaster: stubProgressBroadcaster,
         repositoryFolder: '/'
     };

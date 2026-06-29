@@ -1,23 +1,35 @@
-export type GitCommandRunner = (
+import { tryOr as tryTaskOr } from 'true-myth/task';
+
+type GitCommandRunner = (
     command: string,
     args: readonly string[]
-) => Promise<{ readonly stdout: string; readonly stderr: string }>;
+) => Promise<{ readonly stdout: string; readonly stderr: string; }>;
 
 export type CurrentGitHeadReader = () => Promise<string | undefined>;
 
-export function createCurrentGitHeadReader(dependencies: {
+type GitCommandResult = Awaited<ReturnType<GitCommandRunner>>;
+
+type CurrentGitHeadReaderDependencies = {
     readonly runGitCommand: GitCommandRunner;
     readonly repositoryFolder: string;
-}): CurrentGitHeadReader {
-    return async () => {
-        function markGitFailure(): null {
-            return null;
-        }
+};
 
-        const result = await dependencies
-            .runGitCommand('git', ['-C', dependencies.repositoryFolder, 'rev-parse', '--verify', 'HEAD'])
-            .catch(markGitFailure);
-        if (result === null) {
+async function readGitHeadResult(
+    dependencies: CurrentGitHeadReaderDependencies
+): Promise<GitCommandResult | undefined> {
+    const result = await tryTaskOr(undefined, async function () {
+        return dependencies.runGitCommand(
+            'git',
+            [ '-C', dependencies.repositoryFolder, 'rev-parse', '--verify', 'HEAD' ]
+        );
+    });
+    return result.unwrapOr(undefined);
+}
+
+export function createCurrentGitHeadReader(dependencies: CurrentGitHeadReaderDependencies): CurrentGitHeadReader {
+    return async function () {
+        const result = await readGitHeadResult(dependencies);
+        if (result === undefined) {
             return undefined;
         }
         const currentGitHead = result.stdout.trim();

@@ -3,8 +3,13 @@ import os from 'node:os';
 import { createPreviewIo, type PreviewIo, type PreviewIoDependencies } from './preview-io-shared.ts';
 import { defaultSpawnProcess } from './preview-spawn.ts';
 
-type DefaultPreviewIoDependencies = Partial<Pick<PreviewIoDependencies, 'randomUuid' | 'spawnProcess' | 'tmpdir'>> &
-    Pick<PreviewIoDependencies, 'openFile' | 'pager' | 'shell' | 'stdoutIsTTY'>;
+type OptionalDefaultPreviewIoDependencies = Partial<
+    Pick<PreviewIoDependencies, 'randomUuid' | 'spawnProcess' | 'tmpdir'>
+>;
+
+type RequiredDefaultPreviewIoDependencies = Pick<PreviewIoDependencies, 'openFile' | 'pager' | 'shell' | 'stdoutIsTTY'>;
+
+type DefaultPreviewIoDependencies = OptionalDefaultPreviewIoDependencies & RequiredDefaultPreviewIoDependencies;
 
 export function createDefaultPreviewIo(dependencies: DefaultPreviewIoDependencies): PreviewIo {
     return createPreviewIo({

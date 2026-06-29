@@ -13,8 +13,7 @@ type Second<TValues extends readonly unknown[]> = TValues extends readonly [
     unknown,
     infer TValue,
     ...(readonly unknown[])
-]
-    ? TValue
+] ? TValue
     : never;
 type Fourth<TValues extends readonly unknown[]> = TValues extends readonly [
     unknown,
@@ -22,18 +21,17 @@ type Fourth<TValues extends readonly unknown[]> = TValues extends readonly [
     unknown,
     infer TValue,
     ...(readonly unknown[])
-]
-    ? TValue
+] ? TValue
     : never;
 type RegistryClientPublishArguments = Parameters<RegistryClient['publishPackage']>;
 type ExtraFiles = readonly FileDescription[];
 type PublicationOutcome = Awaited<ReturnType<RegistryClient['publishPackage']>>;
 type PublishSettings = Fourth<RegistryClientPublishArguments>;
 type RegistrySettings = Second<Parameters<RegistryClient['fetchLatestVersion']>>;
-type VersioningSettings =
-    | { readonly automatic: false; readonly provideVersion: unknown }
-    | { readonly automatic: false; readonly version: string }
-    | { readonly automatic: true };
+type ProvidedVersioningSettings = { readonly automatic: false; readonly provideVersion: unknown; };
+type FixedVersioningSettings = { readonly automatic: false; readonly version: string; };
+type AutomaticVersioningSettings = { readonly automatic: true; };
+type VersioningSettings = AutomaticVersioningSettings | FixedVersioningSettings | ProvidedVersioningSettings;
 type PreviousReleaseArtifacts = Awaited<ReturnType<typeof fetchPublishedArtifacts>>;
 
 export type BundleEmitterDependencies = {
@@ -81,7 +79,8 @@ const stageFirstPublishUnsupportedMessage =
 const npmRegistryUrl = 'https://registry.npmjs.org/';
 
 function isNpmRegistry(registryUrl: string | undefined): boolean {
-    return new URL(registryUrl ?? npmRegistryUrl).href === npmRegistryUrl;
+    const resolvedRegistryUrl = new URL(registryUrl ?? npmRegistryUrl);
+    return resolvedRegistryUrl.href === npmRegistryUrl;
 }
 
 function validateVersion(version: string): string {
@@ -107,8 +106,8 @@ function highestVersion(firstVersion: string, laterVersions: readonly string[]):
 
 function hasVersionProvider(
     versioning: VersioningSettings
-): versioning is Extract<VersioningSettings, { readonly provideVersion: unknown }> {
-    return 'provideVersion' in versioning;
+): versioning is Extract<VersioningSettings, { readonly provideVersion: unknown; }> {
+    return Object.hasOwn(versioning, 'provideVersion');
 }
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
@@ -146,7 +145,7 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
 
             if (versioning.automatic || hasVersionProvider(versioning)) {
                 const latestVersion = await registryClient.fetchLatestVersion(name, registrySettings);
-                return latestVersion.map((version) => {
+                return latestVersion.map(function (version) {
                     return version.version;
                 });
             }
@@ -179,10 +178,9 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
 
             const tarball = await artifactsBuilder.buildTarball(options.bundle, options.extraFiles);
             const currentGitHead = await readCurrentGitHead();
-            const publishManifest =
-                currentGitHead === undefined
-                    ? options.bundle.packageJson
-                    : { ...options.bundle.packageJson, gitHead: currentGitHead };
+            const publishManifest = currentGitHead === undefined
+                ? options.bundle.packageJson
+                : { ...options.bundle.packageJson, gitHead: currentGitHead };
 
             return registryClient.publishPackage(
                 publishManifest,

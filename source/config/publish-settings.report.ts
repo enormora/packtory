@@ -1,9 +1,9 @@
 import { isDefined, pickBy } from 'remeda';
 import type { PublicPublishSettings, PublishSettings } from './publish-settings.ts';
 
-type RedactedProvenance =
-    | { readonly type: 'auto' }
-    | { readonly type: 'file'; readonly path: string; readonly inlined: false };
+type AutoProvenance = { readonly type: 'auto'; };
+type FileProvenance = { readonly type: 'file'; readonly path: string; readonly inlined: false; };
+type RedactedProvenance = AutoProvenance | FileProvenance;
 
 export type RedactedPublishSettings = {
     readonly access: PublishSettings['access'];
@@ -25,10 +25,9 @@ export function redactPublishSettings(settings: PublishSettings): RedactedPublis
             access: settings.access,
             allowScripts: settings.allowScripts,
             sbom: settings.sbom,
-            provenance:
-                settings.access === 'public' && settings.provenance !== undefined
-                    ? redactProvenance(settings.provenance)
-                    : undefined
+            provenance: settings.access === 'public' && settings.provenance !== undefined
+                ? redactProvenance(settings.provenance)
+                : undefined
         },
         isDefined
     );

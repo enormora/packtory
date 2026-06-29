@@ -17,12 +17,6 @@ type ExternalDependencyEntry = {
     readonly kind: 'dependencies' | 'peerDependencies';
 };
 
-type SpecifierAccumulator = {
-    readonly mutableOffenders: MutableOffender[];
-    readonly malformedOffenders: MalformedOffender[];
-    readonly usedAllowListEntries: Set<string>;
-};
-
 function getVersionFromDependencies(
     moduleName: string,
     mainPackageJson: MainPackageJson,
@@ -54,14 +48,49 @@ function resolveExternalDependencyEntry(
     };
 }
 
-function recordClassification(
-    entry: ExternalDependencyEntry,
-    allowMutableSpecifiers: readonly string[],
-    accumulator: SpecifierAccumulator
+function createDependencyRecord(): Record<string, string> {
+    return {};
+}
+
+function throwHighestPriorityFailure(
+    mutableOffenders: readonly MutableOffender[],
+    malformedOffenders: readonly MalformedOffender[],
+    usedAllowListEntries: ReadonlySet<string>,
+    allowMutableSpecifiers: readonly string[]
 ): void {
+    if (malformedOffenders.length > 0) {
+        throw new Error(renderMalformedSpecifierMessage(malformedOffenders));
+    }
+    if (mutableOffenders.length > 0) {
+        throw new Error(renderMutableSpecifierMessage(mutableOffenders));
+    }
+    const unusedAllowListEntries = allowMutableSpecifiers.filter(function (entry) {
+        return !usedAllowListEntries.has(entry);
+    });
+    if (unusedAllowListEntries.length > 0) {
+        throw new Error(renderUnusedAllowListMessage(unusedAllowListEntries));
+    }
+}
+
+type OffenderCollector<TOffender> = {
+    readonly push: (offender: TOffender) => unknown;
+};
+
+type UsedAllowListEntryCollector = {
+    readonly add: (entry: string) => unknown;
+};
+
+type ClassificationRecorders = {
+    readonly allowMutableSpecifiers: readonly string[];
+    readonly malformedOffenders: OffenderCollector<MalformedOffender>;
+    readonly mutableOffenders: OffenderCollector<MutableOffender>;
+    readonly usedAllowListEntries: UsedAllowListEntryCollector;
+};
+
+function recordClassification(entry: ExternalDependencyEntry, recorders: ClassificationRecorders): void {
     const classification = classifySpecifier(entry.name, entry.version);
     if (classification.kind === 'malformed') {
-        accumulator.malformedOffenders.push({
+        recorders.malformedOffenders.push({
             name: entry.name,
             specifier: entry.version,
             reason: classification.reason
@@ -69,10 +98,10 @@ function recordClassification(
         return;
     }
     if (classification.kind === 'mutable') {
-        if (allowMutableSpecifiers.includes(entry.name)) {
-            accumulator.usedAllowListEntries.add(entry.name);
+        if (recorders.allowMutableSpecifiers.includes(entry.name)) {
+            recorders.usedAllowListEntries.add(entry.name);
         } else {
-            accumulator.mutableOffenders.push({
+            recorders.mutableOffenders.push({
                 name: entry.name,
                 specifier: entry.version,
                 npaType: classification.npaType
@@ -81,43 +110,31 @@ function recordClassification(
     }
 }
 
-function throwHighestPriorityFailure(
-    accumulator: SpecifierAccumulator,
-    allowMutableSpecifiers: readonly string[]
-): void {
-    if (accumulator.malformedOffenders.length > 0) {
-        throw new Error(renderMalformedSpecifierMessage(accumulator.malformedOffenders));
-    }
-    if (accumulator.mutableOffenders.length > 0) {
-        throw new Error(renderMutableSpecifierMessage(accumulator.mutableOffenders));
-    }
-    const unusedAllowListEntries = allowMutableSpecifiers.filter((entry) => {
-        return !accumulator.usedAllowListEntries.has(entry);
-    });
-    if (unusedAllowListEntries.length > 0) {
-        throw new Error(renderUnusedAllowListMessage(unusedAllowListEntries));
-    }
-}
-
 export function groupExternalDependencies(
     bundle: Pick<AnalyzedBundle, 'externalDependencies'>,
     mainPackageJson: MainPackageJson,
     allowMutableSpecifiers: readonly string[]
-): Readonly<GroupedDependencies> {
-    const grouped: GroupedDependencies = { dependencies: {}, peerDependencies: {} };
-    const accumulator: SpecifierAccumulator = {
-        mutableOffenders: [],
-        malformedOffenders: [],
-        usedAllowListEntries: new Set<string>()
+): GroupedDependencies {
+    const grouped = {
+        dependencies: createDependencyRecord(),
+        peerDependencies: createDependencyRecord()
     };
+    const mutableOffenders: MutableOffender[] = [];
+    const malformedOffenders: MalformedOffender[] = [];
+    const usedAllowListEntries = new Set<string>();
 
     for (const dependencyName of bundle.externalDependencies.keys()) {
         const entry = resolveExternalDependencyEntry(dependencyName, mainPackageJson);
-        recordClassification(entry, allowMutableSpecifiers, accumulator);
+        recordClassification(entry, {
+            allowMutableSpecifiers,
+            mutableOffenders,
+            malformedOffenders,
+            usedAllowListEntries
+        });
         grouped[entry.kind][entry.name] = entry.version;
     }
 
-    throwHighestPriorityFailure(accumulator, allowMutableSpecifiers);
+    throwHighestPriorityFailure(mutableOffenders, malformedOffenders, usedAllowListEntries, allowMutableSpecifiers);
 
     return grouped;
 }

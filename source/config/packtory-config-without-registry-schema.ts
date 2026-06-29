@@ -26,7 +26,7 @@ const packageConfigWithOptionalCommonPackageSettingsSchema = z.readonly(
         commonPackageSettings: z.optional(
             z.extend(optionalCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape)
         ),
-        packages: z.readonly(z.tuple([packageSchemaWithAllCommonSettings], packageSchemaWithAllCommonSettings))
+        packages: z.readonly(z.tuple([ packageSchemaWithAllCommonSettings ], packageSchemaWithAllCommonSettings))
     })
 );
 
@@ -34,7 +34,9 @@ const packageConfigWithRequiredCommonPackageSettingsSchema = z.readonly(
     z.object({
         ...topLevelSettingsSchemaShape,
         commonPackageSettings: z.extend(requiredCommonPackageSettingsSchema, optionalPackageSettingsSchema.shape),
-        packages: z.readonly(z.tuple([packageSchemaWithPartialCommonSettings], packageSchemaWithPartialCommonSettings))
+        packages: z.readonly(
+            z.tuple([ packageSchemaWithPartialCommonSettings ], packageSchemaWithPartialCommonSettings)
+        )
     })
 );
 
@@ -46,7 +48,7 @@ const packageConfigWithRequiredMainPackageJsonSchema = z.readonly(
             optionalPackageSettingsSchema.shape
         ),
         packages: z.readonly(
-            z.tuple([packageSchemaWithMandatorySourcesFolder], packageSchemaWithMandatorySourcesFolder)
+            z.tuple([ packageSchemaWithMandatorySourcesFolder ], packageSchemaWithMandatorySourcesFolder)
         )
     })
 );
@@ -59,7 +61,7 @@ const packageConfigWithRequiredSourcesFolderSchema = z.readonly(
             optionalPackageSettingsSchema.shape
         ),
         packages: z.readonly(
-            z.tuple([packageSchemaWithMandatoryMainPackageJson], packageSchemaWithMandatoryMainPackageJson)
+            z.tuple([ packageSchemaWithMandatoryMainPackageJson ], packageSchemaWithMandatoryMainPackageJson)
         )
     })
 );

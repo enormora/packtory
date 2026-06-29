@@ -1,4 +1,4 @@
-export type ErrorLike = { readonly message: string; readonly code?: unknown };
+export type ErrorLike = { readonly message: string; readonly code?: unknown; };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
     return value instanceof Object;

@@ -5,7 +5,14 @@ import { validateConfig } from './validation.ts';
 
 const packageNameArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}$/);
 
-function createValidPackage(name: string) {
+type GeneratedPackageConfig = {
+    readonly name: string;
+    readonly sourcesFolder: string;
+    readonly mainPackageJson: { readonly type: 'module'; };
+    readonly roots: { readonly main: { readonly js: string; }; };
+};
+
+function createValidPackage(name: string): GeneratedPackageConfig {
     return {
         name,
         sourcesFolder: `/src/${name}`,
@@ -19,7 +26,7 @@ suite('validation', function () {
         fc.assert(
             fc.property(
                 fc.oneof(fc.boolean(), fc.integer(), fc.string(), fc.constant(null), fc.constant(undefined)),
-                (value) => {
+                function (value) {
                     const result = validateConfig(value);
                     assert.strictEqual(result.isErr, true);
                 }
@@ -29,7 +36,7 @@ suite('validation', function () {
 
     test('validateConfig() rejects configs with missing bundle dependencies', function () {
         fc.assert(
-            fc.property(packageNameArbitrary, packageNameArbitrary, (packageName, missingDependencyName) => {
+            fc.property(packageNameArbitrary, packageNameArbitrary, function (packageName, missingDependencyName) {
                 fc.pre(packageName !== missingDependencyName);
 
                 const result = validateConfig({
@@ -37,7 +44,7 @@ suite('validation', function () {
                     packages: [
                         {
                             ...createValidPackage(packageName),
-                            bundleDependencies: [missingDependencyName]
+                            bundleDependencies: [ missingDependencyName ]
                         }
                     ]
                 });
@@ -49,12 +56,12 @@ suite('validation', function () {
 
     test('validateConfig() rejects duplicate package definitions and cyclic dependencies', function () {
         fc.assert(
-            fc.property(packageNameArbitrary, packageNameArbitrary, (firstName, secondName) => {
+            fc.property(packageNameArbitrary, packageNameArbitrary, function (firstName, secondName) {
                 fc.pre(firstName !== secondName);
 
                 const duplicateResult = validateConfig({
                     registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-                    packages: [createValidPackage(firstName), createValidPackage(firstName)]
+                    packages: [ createValidPackage(firstName), createValidPackage(firstName) ]
                 });
                 assert.strictEqual(duplicateResult.isErr, true);
 
@@ -63,11 +70,11 @@ suite('validation', function () {
                     packages: [
                         {
                             ...createValidPackage(firstName),
-                            bundleDependencies: [secondName]
+                            bundleDependencies: [ secondName ]
                         },
                         {
                             ...createValidPackage(secondName),
-                            bundleDependencies: [firstName]
+                            bundleDependencies: [ firstName ]
                         }
                     ]
                 });

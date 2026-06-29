@@ -4,13 +4,71 @@ import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.
 type GitHubActionsCiConfig = NonNullable<ReleasePullRequestConfig['githubActionsCi']>;
 type WorkflowRunLookup = Awaited<ReturnType<ReleasePullRequestGitHubClient['findDispatchedWorkflowRun']>>;
 type WorkflowRunResult = Awaited<ReturnType<ReleasePullRequestGitHubClient['readWorkflowRunResult']>>;
+type WorkflowSleep = (milliseconds: number) => Promise<void>;
+
+type WorkflowRunLookupFailureInput = {
+    readonly branch: string;
+    readonly headSha: string;
+    readonly observedRunIds: readonly number[];
+    readonly workflowFile: string;
+};
+
+type FindDispatchedWorkflowRunInput = {
+    readonly ciConfig: GitHubActionsCiConfig;
+    readonly client: ReleasePullRequestGitHubClient;
+    readonly config: ReleasePullRequestConfig;
+    readonly headSha: string;
+};
+
+type WaitForDispatchedWorkflowRunInput = FindDispatchedWorkflowRunInput & {
+    readonly sleep: WorkflowSleep;
+};
+
+type WorkflowStatusMirrorInput = {
+    readonly ciConfig: GitHubActionsCiConfig;
+    readonly client: ReleasePullRequestGitHubClient;
+    readonly headSha: string;
+    readonly runResult: WorkflowRunResult;
+};
+
+type WaitForWorkflowCompletionInput = {
+    readonly ciConfig: GitHubActionsCiConfig;
+    readonly client: ReleasePullRequestGitHubClient;
+    readonly headSha: string;
+    readonly runId: number;
+    readonly sleep: WorkflowSleep;
+};
+
+type MirrorWorkflowStatusInput = {
+    readonly client: ReleasePullRequestGitHubClient;
+    readonly context: string;
+    readonly headSha: string;
+    readonly runResult: WorkflowRunResult;
+};
+
+type PendingWorkflowStatusesInput = {
+    readonly ciConfig: GitHubActionsCiConfig;
+    readonly client: ReleasePullRequestGitHubClient;
+    readonly headSha: string;
+};
+
+type FailedWorkflowStatusesInput = PendingWorkflowStatusesInput & {
+    readonly description: string;
+};
+
+type RunConfiguredGitHubActionsCiInput = {
+    readonly client: ReleasePullRequestGitHubClient;
+    readonly config: ReleasePullRequestConfig;
+    readonly headSha: string;
+    readonly sleep: WorkflowSleep;
+};
 
 const workflowRunLookupAttempts = 30;
 const workflowRunCompletionAttempts = 120;
 const workflowPollIntervalMilliseconds = 10_000;
 
 function createRetryAttempts(count: number): readonly number[] {
-    return Array.from({ length: count }, (_value, index) => {
+    return Array.from({ length: count }, function (_value, index) {
         return index;
     });
 }
@@ -26,12 +84,7 @@ function formatObservedRunIds(observedRunIds: readonly number[]): string {
     return observedRunIds.join(', ');
 }
 
-function formatWorkflowRunLookupFailure(input: {
-    readonly branch: string;
-    readonly headSha: string;
-    readonly observedRunIds: readonly number[];
-    readonly workflowFile: string;
-}): string {
+function formatWorkflowRunLookupFailure(input: WorkflowRunLookupFailureInput): string {
     return (
         `Release workflow run was not created for ${input.headSha}; ` +
         `workflow=${input.workflowFile}, branch=${input.branch}, event=workflow_dispatch, ` +
@@ -39,12 +92,7 @@ function formatWorkflowRunLookupFailure(input: {
     );
 }
 
-async function findDispatchedWorkflowRun(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly headSha: string;
-}): Promise<WorkflowRunLookup> {
+async function findDispatchedWorkflowRun(input: FindDispatchedWorkflowRunInput): Promise<WorkflowRunLookup> {
     return input.client.findDispatchedWorkflowRun({
         branch: input.config.branch,
         headSha: input.headSha,
@@ -52,13 +100,7 @@ async function findDispatchedWorkflowRun(input: {
     });
 }
 
-async function waitForDispatchedWorkflowRun(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly headSha: string;
-    readonly sleep: (milliseconds: number) => Promise<void>;
-}): Promise<number> {
+async function waitForDispatchedWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
     let lookup = await findDispatchedWorkflowRun(input);
     for (const attempt of createRetryAttempts(workflowRunLookupAttempts)) {
         if (attempt !== 0) {
@@ -85,13 +127,13 @@ function requiredJobResultFor(
     runResult: WorkflowRunResult,
     context: string
 ): WorkflowRunResult['jobs'][number] | undefined {
-    return runResult.jobs.find((candidate) => {
+    return runResult.jobs.find(function (candidate) {
         return candidate.name === context;
     });
 }
 
 function allRequiredJobsCompleted(runResult: WorkflowRunResult, contexts: readonly string[]): boolean {
-    return contexts.every((context) => {
+    return contexts.every(function (context) {
         return requiredJobResultFor(runResult, context)?.conclusion !== undefined;
     });
 }
@@ -114,14 +156,9 @@ function workflowStatusTargetUrl(
     return job?.url ?? runResult.url;
 }
 
-async function mirrorKnownWorkflowStatuses(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly headSha: string;
-    readonly runResult: WorkflowRunResult;
-}): Promise<void> {
+async function mirrorKnownWorkflowStatuses(input: WorkflowStatusMirrorInput): Promise<void> {
     await Promise.all(
-        input.ciConfig.requiredStatusContexts.map(async (context) => {
+        input.ciConfig.requiredStatusContexts.map(async function (context) {
             const job = requiredJobResultFor(input.runResult, context);
             if (job === undefined) {
                 await input.client.createStatus({
@@ -154,13 +191,7 @@ async function mirrorKnownWorkflowStatuses(input: {
     );
 }
 
-async function waitForWorkflowCompletion(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly headSha: string;
-    readonly runId: number;
-    readonly sleep: (milliseconds: number) => Promise<void>;
-}): Promise<WorkflowRunResult> {
+async function waitForWorkflowCompletion(input: WaitForWorkflowCompletionInput): Promise<WorkflowRunResult> {
     for (const attempt of createRetryAttempts(workflowRunCompletionAttempts)) {
         const result = await input.client.readWorkflowRunResult(input.runId);
         if (
@@ -225,12 +256,7 @@ function finalWorkflowStatusFor(
     return completedWorkflowStatus(job.conclusion, workflowStatusTargetUrl(runResult, job));
 }
 
-async function mirrorWorkflowStatus(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly context: string;
-    readonly headSha: string;
-    readonly runResult: WorkflowRunResult;
-}): Promise<boolean> {
+async function mirrorWorkflowStatus(input: MirrorWorkflowStatusInput): Promise<boolean> {
     const job = requiredJobResultFor(input.runResult, input.context);
     const status = finalWorkflowStatusFor(input.context, job, input.runResult);
     await input.client.createStatus({
@@ -243,25 +269,16 @@ async function mirrorWorkflowStatus(input: {
     return status.passed;
 }
 
-async function mirrorWorkflowStatuses(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly headSha: string;
-    readonly runResult: WorkflowRunResult;
-}): Promise<boolean> {
+async function mirrorWorkflowStatuses(input: WorkflowStatusMirrorInput): Promise<boolean> {
     const statuses = await Promise.all(
-        input.ciConfig.requiredStatusContexts.map(async (context) => {
+        input.ciConfig.requiredStatusContexts.map(async function (context) {
             return mirrorWorkflowStatus({ ...input, context });
         })
     );
     return statuses.every(Boolean);
 }
 
-async function createPendingWorkflowStatuses(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly headSha: string;
-}): Promise<void> {
+async function createPendingWorkflowStatuses(input: PendingWorkflowStatusesInput): Promise<void> {
     for (const context of input.ciConfig.requiredStatusContexts) {
         await input.client.createStatus({
             commitSha: input.headSha,
@@ -273,12 +290,7 @@ async function createPendingWorkflowStatuses(input: {
     }
 }
 
-async function createFailedWorkflowStatuses(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly description: string;
-    readonly headSha: string;
-}): Promise<void> {
+async function createFailedWorkflowStatuses(input: FailedWorkflowStatusesInput): Promise<void> {
     for (const context of input.ciConfig.requiredStatusContexts) {
         await input.client.createStatus({
             commitSha: input.headSha,
@@ -290,13 +302,7 @@ async function createFailedWorkflowStatuses(input: {
     }
 }
 
-async function dispatchWorkflowRun(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly headSha: string;
-    readonly sleep: (milliseconds: number) => Promise<void>;
-}): Promise<number> {
+async function dispatchWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
     await createPendingWorkflowStatuses(input);
     try {
         await input.client.dispatchWorkflow({
@@ -314,23 +320,12 @@ async function dispatchWorkflowRun(input: {
     }
 }
 
-async function resolveWorkflowRunId(input: {
-    readonly ciConfig: GitHubActionsCiConfig;
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly headSha: string;
-    readonly sleep: (milliseconds: number) => Promise<void>;
-}): Promise<number> {
+async function resolveWorkflowRunId(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
     const { runId } = await findDispatchedWorkflowRun(input);
     return runId ?? dispatchWorkflowRun(input);
 }
 
-export async function runConfiguredGitHubActionsCi(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly headSha: string;
-    readonly sleep: (milliseconds: number) => Promise<void>;
-}): Promise<boolean> {
+export async function runConfiguredGitHubActionsCi(input: RunConfiguredGitHubActionsCiInput): Promise<boolean> {
     const { githubActionsCi } = input.config;
     if (githubActionsCi === undefined) {
         return true;

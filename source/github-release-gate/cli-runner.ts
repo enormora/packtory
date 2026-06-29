@@ -3,9 +3,18 @@ import type { ReleaseAnalysisOutcome } from '../packages/packtory/packtory.entry
 import { createGitHubReleaseGateApi } from './github-api.ts';
 import { applyPacktoryReleasePolicy } from './release-policy.ts';
 import { type GitHubReleaseGateDecision, evaluateGitHubReleaseGate } from './release-gate.ts';
-import { createGitHubRepositoryContext, readGitHubReleaseGateRunnerConfig } from './runner-config.ts';
+import {
+    createGitHubRepositoryContext,
+    readGitHubReleaseGateRunnerConfig,
+    type GitHubReleaseGateRunnerConfig
+} from './runner-config.ts';
 
 type StdoutWriter = (message: string) => void;
+type DecisionOutput = {
+    readonly fileManager: Pick<FileManager, 'writeFile'>;
+    readonly githubOutputPath: string;
+    readonly stdoutWrite: StdoutWriter;
+};
 
 export type GitHubReleaseGateRunnerDependencies = {
     readonly analyzeReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleaseAnalysisOutcome>;
@@ -18,11 +27,12 @@ export type GitHubReleaseGateRunnerDependencies = {
 };
 
 function formatReleaseAnalysisFailure(
-    error: Exclude<ReleaseAnalysisOutcome['result'], { readonly isOk: true }>['error']
+    error: Readonly<Exclude<ReleaseAnalysisOutcome['result'], { readonly isOk: true; }>['error']>
 ): string {
     if (error.type === 'partial') {
-        return error.failures
-            .map((failure: Error) => {
+        return error
+            .failures
+            .map(function (failure: Pick<Error, 'message'>) {
                 return failure.message;
             })
             .join('\n');
@@ -42,15 +52,12 @@ function buildGitHubOutput(mainHeadSha: string, decision: GitHubReleaseGateDecis
         `main_head_sha=${mainHeadSha}`,
         `should_publish=${decision.shouldPublish}`,
         `reason=${decision.reason}`
-    ].join('\n');
+    ]
+        .join('\n');
 }
 
 async function writeDecision(
-    output: {
-        readonly fileManager: Pick<FileManager, 'writeFile'>;
-        readonly githubOutputPath: string;
-        readonly stdoutWrite: StdoutWriter;
-    },
+    output: DecisionOutput,
     mainHeadSha: string,
     decision: GitHubReleaseGateDecision
 ): Promise<void> {
@@ -63,9 +70,9 @@ async function evaluatePacktoryPolicy(
         GitHubReleaseGateRunnerDependencies,
         'analyzeReleaseAgainstLatestPublished' | 'loadPacktoryConfig'
     >,
-    config: Readonly<ReturnType<typeof readGitHubReleaseGateRunnerConfig>>,
+    config: Readonly<GitHubReleaseGateRunnerConfig>,
     now: Date,
-    timeGateDecision: GitHubReleaseGateDecision & { readonly shouldPublish: true }
+    timeGateDecision: GitHubReleaseGateDecision & { readonly shouldPublish: true; }
 ): Promise<GitHubReleaseGateDecision> {
     const packtoryConfig = await dependencies.loadPacktoryConfig();
     const releaseAnalysis = await dependencies.analyzeReleaseAgainstLatestPublished(packtoryConfig);
@@ -83,8 +90,8 @@ async function evaluatePacktoryPolicy(
 
 async function loadGitHubTimeGateDecision(
     dependencies: Pick<GitHubReleaseGateRunnerDependencies, 'fetch' | 'now'>,
-    config: Readonly<ReturnType<typeof readGitHubReleaseGateRunnerConfig>>
-): Promise<{ readonly decision: GitHubReleaseGateDecision; readonly mainHeadSha: string; readonly now: Date }> {
+    config: Readonly<GitHubReleaseGateRunnerConfig>
+): Promise<{ readonly decision: GitHubReleaseGateDecision; readonly mainHeadSha: string; readonly now: Date; }> {
     const githubApi = createGitHubReleaseGateApi(dependencies.fetch, createGitHubRepositoryContext(config));
     const mainHeadSha = await githubApi.getMainBranchHeadSha();
     const mainCiRunStatus = await githubApi.getMainCiRunStatus(config.ciWorkflowFile, mainHeadSha);
