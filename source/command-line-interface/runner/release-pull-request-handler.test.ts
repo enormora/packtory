@@ -104,7 +104,8 @@ function createReleasePullRequestClient(
         readWorkflowRunResult: fake.resolves({
             conclusion: 'success',
             databaseId: 1,
-            jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }]
+            jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }],
+            url: 'https://run'
         }),
         ...overrides
     };

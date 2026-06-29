@@ -157,7 +157,7 @@ function createFetch(records: RecordedRequest[]): typeof globalThis.fetch {
             return emptyResponse();
         }
         if (url.pathname === '/repos/owner/repo/actions/runs/11') {
-            return jsonResponse({ conclusion: 'success' });
+            return jsonResponse({ conclusion: 'success', html_url: 'https://run/11' });
         }
         if (url.pathname === '/repos/owner/repo/actions/runs/12') {
             return jsonResponse({ conclusion: null });
@@ -317,12 +317,14 @@ suite('release-pr-github-client', function () {
         assert.deepStrictEqual(await client.readWorkflowRunResult(11), {
             conclusion: 'success',
             databaseId: 11,
-            jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }]
+            jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }],
+            url: 'https://run/11'
         });
         assert.deepStrictEqual(await client.readWorkflowRunResult(12), {
             conclusion: undefined,
             databaseId: 12,
-            jobs: [{ conclusion: undefined, name: 'Node.js', url: undefined }]
+            jobs: [{ conclusion: undefined, name: 'Node.js', url: undefined }],
+            url: undefined
         });
         assert.deepStrictEqual(
             records.filter((record) => record.method === 'DELETE').map((record) => record.path),
@@ -375,6 +377,8 @@ suite('release-pr-github-client', function () {
             })
         );
         assert.strictEqual(readHeader(records[0]?.headers, 'user-agent'), 'packtory-release-pr');
+        assert.strictEqual(readHeader(records[0]?.headers, 'accept'), 'application/vnd.github+json');
+        assert.strictEqual(readHeader(records[0]?.headers, 'x-github-api-version'), '2022-11-28');
     });
 
     test('creates a release pull request when no open release pull request exists', async function () {

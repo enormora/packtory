@@ -31,16 +31,20 @@ function workflowRunPathMatches(run: ReleaseWorkflowRun, workflow: ReleaseWorkfl
     );
 }
 
-function workflowRunIdentityComparisons(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): readonly boolean[] {
-    return [
-        run.workflow_id === undefined || run.workflow_id === null || run.workflow_id === workflow.id,
-        workflowRunPathMatches(run, workflow),
-        run.name === undefined || run.name === null || run.name === workflow.name
-    ];
+function workflowRunIdMatches(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): boolean {
+    return run.workflow_id === undefined || run.workflow_id === null || run.workflow_id === workflow.id;
+}
+
+function workflowRunNameMatches(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): boolean {
+    return run.name === undefined || run.name === null || run.name === workflow.name;
 }
 
 function workflowRunMatchesIdentity(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): boolean {
-    return workflowRunIdentityComparisons(run, workflow).every(Boolean);
+    return (
+        workflowRunIdMatches(run, workflow) &&
+        workflowRunPathMatches(run, workflow) &&
+        workflowRunNameMatches(run, workflow)
+    );
 }
 
 function workflowRunMatchesInput(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow, headSha: string): boolean {
@@ -72,10 +76,13 @@ export function findWorkflowRunIdInRuns(
     workflow: ReleaseWorkflow,
     headSha: string
 ): number | undefined {
-    const run = runs.find((workflowRun) => {
-        return workflowRunMatchesInput(workflowRun, workflow, headSha);
-    });
-    return run === undefined ? undefined : runDatabaseId(run);
+    const matchingRunIds = runs
+        .filter((workflowRun) => {
+            return workflowRunMatchesInput(workflowRun, workflow, headSha);
+        })
+        .map(runDatabaseId)
+        .filter(isDefined);
+    return matchingRunIds.length === 0 ? undefined : Math.max(...matchingRunIds);
 }
 
 export function observedWorkflowRunIds(runs: readonly ReleaseWorkflowRun[]): readonly number[] {

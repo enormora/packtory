@@ -11,6 +11,10 @@ type WorkflowRunResult = Awaited<ReturnType<ReleasePullRequestGitHubClient['read
 type WorkflowRunLookupInput = Parameters<ReleasePullRequestGitHubClient['findDispatchedWorkflowRun']>[0];
 type StatusInput = Parameters<ReleasePullRequestGitHubClient['createStatus']>[0];
 type StatusSpy = { readonly getCall: (index: number) => { readonly args: readonly unknown[] } };
+type WorkflowJobResult = WorkflowRunResult['jobs'][number];
+
+const workflowRunUrl = 'https://run';
+const nodeJobUrl = 'https://run/job';
 
 function workflowRunFound(runId = 1, observedRunIds: readonly number[] = [runId]): WorkflowRunLookup {
     return { event: 'workflow_dispatch', observedRunIds, runId };
@@ -44,6 +48,23 @@ function readWorkflowRunResultSequence(results: readonly [WorkflowRunResult, ...
     });
 }
 
+function workflowJob(conclusion: string | undefined, name: string, url: string | undefined): WorkflowJobResult {
+    return { conclusion, name, url };
+}
+
+function workflowRunResult(conclusion: string | undefined, jobs: readonly WorkflowJobResult[]): WorkflowRunResult {
+    return {
+        conclusion,
+        databaseId: 1,
+        jobs,
+        url: workflowRunUrl
+    };
+}
+
+function nodeJob(conclusion: string | undefined): WorkflowJobResult {
+    return workflowJob(conclusion, 'Node.js', nodeJobUrl);
+}
+
 function createConfig(requiredStatusContexts: readonly string[] = ['Node.js']): ReleasePullRequestConfig {
     return {
         automationAuthor: 'github-actions[bot]',
@@ -73,11 +94,7 @@ function createClient(overrides: Partial<ReleasePullRequestGitHubClient> = {}): 
         getPullRequest: fake.resolves(undefined as never),
         getPullRequestHead: fake.resolves(undefined as never),
         listCommitPullRequests: fake.resolves([]),
-        readWorkflowRunResult: fake.resolves({
-            conclusion: 'success',
-            databaseId: 1,
-            jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }]
-        }),
+        readWorkflowRunResult: fake.resolves(workflowRunResult('success', [nodeJob('success')])),
         ...overrides
     };
 }
@@ -94,11 +111,7 @@ async function assertTerminalRequiredJobStatus(conclusion: string, state: Status
     const createStatus = fake.resolves(undefined);
     const client = createClient({
         createStatus,
-        readWorkflowRunResult: fake.resolves({
-            conclusion,
-            databaseId: 1,
-            jobs: [{ conclusion, name: 'Node.js', url: 'https://run/job' }]
-        })
+        readWorkflowRunResult: fake.resolves(workflowRunResult(conclusion, [nodeJob(conclusion)]))
     });
 
     assert.strictEqual(
@@ -205,7 +218,7 @@ suite('release-pull-request-ci', function () {
             context: 'Missing job',
             description: 'Missing dispatched release CI job: Missing job.',
             state: 'failure',
-            targetUrl: undefined
+            targetUrl: 'https://run'
         });
     });
 
@@ -227,7 +240,7 @@ suite('release-pull-request-ci', function () {
             context: 'Missing job',
             description: 'Missing dispatched release CI job: Missing job.',
             state: 'failure',
-            targetUrl: undefined
+            targetUrl: 'https://run'
         });
     });
 
@@ -334,19 +347,11 @@ suite('release-pull-request-ci', function () {
     test('mirrors a running required job with its job URL while waiting', async function () {
         const createStatus = fake.resolves(undefined);
         const readWorkflowRunResult = readWorkflowRunResultSequence([
-            {
-                conclusion: undefined,
-                databaseId: 1,
-                jobs: [
-                    { conclusion: undefined, name: 'Other job', url: 'https://run/other-job' },
-                    { conclusion: undefined, name: 'Node.js', url: 'https://run/job' }
-                ]
-            },
-            {
-                conclusion: 'success',
-                databaseId: 1,
-                jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }]
-            }
+            workflowRunResult(undefined, [
+                workflowJob(undefined, 'Other job', 'https://run/other-job'),
+                nodeJob(undefined)
+            ]),
+            workflowRunResult('success', [nodeJob('success')])
         ]);
 
         assert.strictEqual(
@@ -373,19 +378,42 @@ suite('release-pull-request-ci', function () {
         });
     });
 
+    test('mirrors missing required jobs as running with the workflow run URL while waiting', async function () {
+        const createStatus = fake.resolves(undefined);
+        const readWorkflowRunResult = readWorkflowRunResultSequence([
+            workflowRunResult(undefined, []),
+            workflowRunResult('success', [nodeJob('success')])
+        ]);
+
+        assert.strictEqual(
+            await runConfiguredGitHubActionsCi({
+                client: createClient({ createStatus, readWorkflowRunResult }),
+                config: createConfig(),
+                headSha: 'release-head',
+                sleep: fake.resolves(undefined)
+            }),
+            true
+        );
+
+        assertStatusCall(createStatus, 0, {
+            context: 'Node.js',
+            description: 'Dispatched release CI job running.',
+            state: 'pending',
+            targetUrl: 'https://run'
+        });
+        assertStatusCall(createStatus, 1, {
+            context: 'Node.js',
+            description: 'Dispatched release CI job success.',
+            state: 'success',
+            targetUrl: 'https://run/job'
+        });
+    });
+
     test('does not mirror a running status for a completed job', async function () {
         const createStatus = fake.resolves(undefined);
         const readWorkflowRunResult = readWorkflowRunResultSequence([
-            {
-                conclusion: undefined,
-                databaseId: 1,
-                jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }]
-            },
-            {
-                conclusion: 'success',
-                databaseId: 1,
-                jobs: [{ conclusion: 'success', name: 'Node.js', url: 'https://run/job' }]
-            }
+            workflowRunResult(undefined, [nodeJob('success')]),
+            workflowRunResult('success', [nodeJob('success')])
         ]);
 
         assert.strictEqual(
@@ -409,15 +437,13 @@ suite('release-pull-request-ci', function () {
 
     test('finishes when required jobs completed before the workflow conclusion is indexed', async function () {
         const createStatus = fake.resolves(undefined);
-        const readWorkflowRunResult = fake.resolves({
-            conclusion: undefined,
-            databaseId: 1,
-            jobs: [
-                { conclusion: 'success', name: 'Node v22', url: 'https://run/node-22' },
-                { conclusion: 'success', name: 'Node v24', url: 'https://run/node-24' },
-                { conclusion: 'success', name: 'Node v26', url: 'https://run/node-26' }
-            ]
-        });
+        const readWorkflowRunResult = fake.resolves(
+            workflowRunResult(undefined, [
+                workflowJob('success', 'Node v22', 'https://run/node-22'),
+                workflowJob('success', 'Node v24', 'https://run/node-24'),
+                workflowJob('success', 'Node v26', 'https://run/node-26')
+            ])
+        );
 
         assert.strictEqual(
             await runConfiguredGitHubActionsCi({
@@ -453,22 +479,14 @@ suite('release-pull-request-ci', function () {
     test('mirrors completed and running required jobs while waiting for remaining jobs', async function () {
         const createStatus = fake.resolves(undefined);
         const readWorkflowRunResult = readWorkflowRunResultSequence([
-            {
-                conclusion: undefined,
-                databaseId: 1,
-                jobs: [
-                    { conclusion: 'success', name: 'Node v22', url: 'https://run/node-22' },
-                    { conclusion: undefined, name: 'Node v24', url: 'https://run/node-24' }
-                ]
-            },
-            {
-                conclusion: undefined,
-                databaseId: 1,
-                jobs: [
-                    { conclusion: 'success', name: 'Node v22', url: 'https://run/node-22' },
-                    { conclusion: 'success', name: 'Node v24', url: 'https://run/node-24' }
-                ]
-            }
+            workflowRunResult(undefined, [
+                workflowJob('success', 'Node v22', 'https://run/node-22'),
+                workflowJob(undefined, 'Node v24', 'https://run/node-24')
+            ]),
+            workflowRunResult(undefined, [
+                workflowJob('success', 'Node v22', 'https://run/node-22'),
+                workflowJob('success', 'Node v24', 'https://run/node-24')
+            ])
         ]);
 
         assert.strictEqual(
@@ -508,7 +526,7 @@ suite('release-pull-request-ci', function () {
     });
 
     test('fails when the dispatched workflow run does not complete', async function () {
-        const readWorkflowRunResult = fake.resolves({ conclusion: undefined, databaseId: 1, jobs: [] });
+        const readWorkflowRunResult = fake.resolves(workflowRunResult(undefined, []));
         const sleep = fake.resolves(undefined);
         await assert.rejects(
             runConfiguredGitHubActionsCi({
