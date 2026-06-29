@@ -48,6 +48,7 @@ type WorkflowRunResult = {
     readonly conclusion: string | undefined;
     readonly databaseId: number;
     readonly jobs: readonly WorkflowJobResult[];
+    readonly url: string | undefined;
 };
 export type ReleasePullRequestGitHubClient = {
     readonly closeOpenReleasePullRequests: (input: {
@@ -113,6 +114,7 @@ type RawCommit = {
 };
 type RawWorkflowRun = ReleaseWorkflowRun & {
     readonly conclusion: string | null;
+    readonly html_url?: string | null | undefined;
     readonly status: string | null;
 };
 type RawWorkflowJob = {
@@ -473,7 +475,8 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                         name: job.name,
                         url: job.html_url ?? undefined
                     };
-                })
+                }),
+                url: runResponse.data.html_url
             };
         }
     };

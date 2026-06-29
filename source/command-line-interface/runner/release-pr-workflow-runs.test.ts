@@ -88,6 +88,126 @@ suite('release-pr-workflow-runs', function () {
         );
     });
 
+    test('ignores newer workflow dispatch runs with mismatched workflow identity fields', function () {
+        assert.strictEqual(
+            findWorkflowRunIdInRuns(
+                [
+                    {
+                        database_id: 20,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        name: 'Continuous Integration',
+                        path: 'enormora/packtory/.github/workflows/continuous-integration.yml',
+                        workflow_id: 101
+                    },
+                    {
+                        database_id: 23,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        name: 'Continuous Integration',
+                        path: 'enormora/packtory/.github/workflows/continuous-integration.yml',
+                        workflow_id: 102
+                    },
+                    {
+                        database_id: 22,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        name: 'Continuous Integration',
+                        path: 'enormora/packtory/.github/workflows/other.yml',
+                        workflow_id: 101
+                    },
+                    {
+                        database_id: 21,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        name: 'Other CI',
+                        path: 'enormora/packtory/.github/workflows/continuous-integration.yml',
+                        workflow_id: 101
+                    }
+                ],
+                workflow,
+                'release-head'
+            ),
+            20
+        );
+    });
+
+    test('chooses the newest matching workflow dispatch run for a head SHA', function () {
+        assert.strictEqual(
+            findWorkflowRunIdInRuns(
+                [
+                    {
+                        database_id: 10,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        workflow_id: 101
+                    },
+                    {
+                        database_id: 12,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        workflow_id: 101
+                    }
+                ],
+                workflow,
+                'release-head'
+            ),
+            12
+        );
+    });
+
+    test('keeps the first matching workflow dispatch run when later matches are older or missing ids', function () {
+        assert.strictEqual(
+            findWorkflowRunIdInRuns(
+                [
+                    {
+                        database_id: 12,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        workflow_id: 101
+                    },
+                    {
+                        database_id: 10,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        workflow_id: 101
+                    },
+                    {
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        workflow_id: 101
+                    }
+                ],
+                workflow,
+                'release-head'
+            ),
+            12
+        );
+    });
+
+    test('replaces a matching workflow dispatch run without an id when a newer identified run appears', function () {
+        assert.strictEqual(
+            findWorkflowRunIdInRuns(
+                [
+                    {
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        workflow_id: 101
+                    },
+                    {
+                        database_id: 12,
+                        event: 'workflow_dispatch',
+                        head_sha: 'release-head',
+                        workflow_id: 101
+                    }
+                ],
+                workflow,
+                'release-head'
+            ),
+            12
+        );
+    });
+
     test('collects defined workflow run ids', function () {
         assert.deepStrictEqual(
             observedWorkflowRunIds([

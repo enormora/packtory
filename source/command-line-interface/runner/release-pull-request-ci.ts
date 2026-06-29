@@ -107,6 +107,13 @@ function workflowStatusDescription(conclusion: string): string {
     return `Dispatched release CI job ${conclusion}.`;
 }
 
+function workflowStatusTargetUrl(
+    runResult: WorkflowRunResult,
+    job: WorkflowRunResult['jobs'][number] | undefined
+): string | undefined {
+    return job?.url ?? runResult.url;
+}
+
 async function mirrorKnownWorkflowStatuses(input: {
     readonly ciConfig: GitHubActionsCiConfig;
     readonly client: ReleasePullRequestGitHubClient;
@@ -117,6 +124,13 @@ async function mirrorKnownWorkflowStatuses(input: {
         input.ciConfig.requiredStatusContexts.map(async (context) => {
             const job = requiredJobResultFor(input.runResult, context);
             if (job === undefined) {
+                await input.client.createStatus({
+                    commitSha: input.headSha,
+                    context,
+                    description: 'Dispatched release CI job running.',
+                    state: 'pending',
+                    targetUrl: input.runResult.url
+                });
                 return;
             }
             if (job.conclusion === undefined) {
@@ -125,7 +139,7 @@ async function mirrorKnownWorkflowStatuses(input: {
                     context,
                     description: 'Dispatched release CI job running.',
                     state: 'pending',
-                    targetUrl: job.url
+                    targetUrl: workflowStatusTargetUrl(input.runResult, job)
                 });
                 return;
             }
@@ -134,7 +148,7 @@ async function mirrorKnownWorkflowStatuses(input: {
                 context,
                 description: workflowStatusDescription(job.conclusion),
                 state: workflowStatusState(job.conclusion),
-                targetUrl: job.url
+                targetUrl: workflowStatusTargetUrl(input.runResult, job)
             });
         })
     );
@@ -174,12 +188,12 @@ type FinalWorkflowStatus = {
     readonly targetUrl: string | undefined;
 };
 
-function incompleteWorkflowStatus(context: string): FinalWorkflowStatus {
+function incompleteWorkflowStatus(context: string, targetUrl: string | undefined): FinalWorkflowStatus {
     return {
         description: missingWorkflowStatusDescription(context),
         passed: false,
         state: 'failure',
-        targetUrl: undefined
+        targetUrl
     };
 }
 
@@ -202,12 +216,13 @@ function completedWorkflowStatus(conclusion: string, targetUrl: string | undefin
 
 function finalWorkflowStatusFor(
     context: string,
-    job: WorkflowRunResult['jobs'][number] | undefined
+    job: WorkflowRunResult['jobs'][number] | undefined,
+    runResult: WorkflowRunResult
 ): FinalWorkflowStatus {
     if (job?.conclusion === undefined) {
-        return incompleteWorkflowStatus(context);
+        return incompleteWorkflowStatus(context, workflowStatusTargetUrl(runResult, job));
     }
-    return completedWorkflowStatus(job.conclusion, job.url);
+    return completedWorkflowStatus(job.conclusion, workflowStatusTargetUrl(runResult, job));
 }
 
 async function mirrorWorkflowStatus(input: {
@@ -217,7 +232,7 @@ async function mirrorWorkflowStatus(input: {
     readonly runResult: WorkflowRunResult;
 }): Promise<boolean> {
     const job = requiredJobResultFor(input.runResult, input.context);
-    const status = finalWorkflowStatusFor(input.context, job);
+    const status = finalWorkflowStatusFor(input.context, job, input.runResult);
     await input.client.createStatus({
         commitSha: input.headSha,
         context: input.context,
