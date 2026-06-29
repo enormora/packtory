@@ -25,6 +25,7 @@ function createReleasePackage() {
         artifactFiles: ['dist/index.js'],
         changedArtifactFiles: ['dist/index.js'],
         sourceFiles: ['src/index.ts'],
+        changelogDependencyNames: [],
         changelogSourceFiles: ['src/index.ts']
     };
 }

@@ -1,7 +1,8 @@
 import path from 'node:path';
-import type { PrLogEngine, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
+import type { PrLogEngine, PullRequest, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
 import { compareValues } from '../common/sort-values.ts';
 import { releaseAnalysisClassification, type ReleasePlanPackage } from './packtory-results.ts';
+import { isPackageManifestInputPath } from './changelog-source-attribution.ts';
 
 type ChangelogTarget = {
     readonly packagePlan: ReleasePlanPackage;
@@ -71,6 +72,37 @@ function mergeIgnoredAttributionPaths(
     return sortUniqueValues(new Set([...collectChangelogPaths(packages), ...configuredPaths]));
 }
 
+function pullRequestTitleMentionsDependency(pullRequest: PullRequest, dependencyName: string): boolean {
+    return pullRequest.title.toLowerCase().includes(dependencyName.toLowerCase());
+}
+
+function selectManifestDependencyPullRequests(
+    packagePlan: ReleasePlanPackage,
+    pullRequests: readonly PullRequest[],
+    changedFilesByPullRequest: ReadonlyMap<number, readonly string[]>
+): readonly PullRequest[] {
+    return pullRequests.filter((pullRequest) => {
+        const changedFiles = changedFilesByPullRequest.get(pullRequest.id);
+        return (
+            changedFiles !== undefined &&
+            changedFiles.some(isPackageManifestInputPath) &&
+            packagePlan.changelogDependencyNames.some((dependencyName) => {
+                return pullRequestTitleMentionsDependency(pullRequest, dependencyName);
+            })
+        );
+    });
+}
+
+function mergePullRequests(pullRequests: readonly PullRequest[]): readonly PullRequest[] {
+    return Array.from(
+        new Map(
+            pullRequests.map((pullRequest) => {
+                return [pullRequest.id, pullRequest] as const;
+            })
+        ).values()
+    );
+}
+
 async function resolveBaseRefFor(
     prLogEngine: GenerateChangelogInput['prLogEngine'],
     packagePlan: ReleasePlanPackage,
@@ -116,12 +148,17 @@ async function collectTargetPullRequests(
         changedFilesByPullRequest,
         ignoredAttributionPaths
     });
+    const dependencyPullRequests = selectManifestDependencyPullRequests(
+        packagePlan,
+        pullRequests,
+        changedFilesByPullRequest
+    );
 
     return input.prLogEngine.resolvePullRequestLabels({
         githubRepo: input.githubRepo,
         validLabels: input.validLabels,
         ignoredLabels: [],
-        pullRequests: packagePullRequests,
+        pullRequests: mergePullRequests([...packagePullRequests, ...dependencyPullRequests]),
         targetName: packagePlan.name,
         targetScopedLabelPattern: input.targetScopedLabelPattern
     });

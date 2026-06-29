@@ -406,6 +406,7 @@ describe('ReleasePlanResult', () => {
         expect<ReleasePlanPackage['artifactFiles']>().type.toBe<readonly string[]>();
         expect<ReleasePlanPackage['changedArtifactFiles']>().type.toBe<readonly string[]>();
         expect<ReleasePlanPackage['sourceFiles']>().type.toBe<readonly string[]>();
+        expect<ReleasePlanPackage['changelogDependencyNames']>().type.toBe<readonly string[]>();
         expect<ReleasePlanPackage['changelogSourceFiles']>().type.toBe<readonly string[]>();
     });
 

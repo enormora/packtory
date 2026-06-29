@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import vm from 'node:vm';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
-import type { ValidConfigResult } from '../config/validation.ts';
 import { analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import {
     buildResultFor,
@@ -25,6 +24,24 @@ type PackageProcessor = ReleaseTestDependencies['packageProcessor'];
 type FileCollection = ReleaseFileCollection;
 type ReleasePlanFileManager = ReleaseTestDependencies['fileManager'];
 type ReleaseArtifactFile = { readonly content: string; readonly filePath: string; readonly isExecutable: false };
+type ValidatedReleaseConfig = ReturnType<typeof validatedReleaseConfig>;
+type TestPullRequest = { readonly id: number; readonly title: string };
+type PathFilterInput = {
+    readonly pullRequests: readonly TestPullRequest[];
+    readonly changedFilesByPullRequest: ReadonlyMap<number, readonly string[]>;
+    readonly targetSourceFiles: readonly string[];
+    readonly ignoredAttributionPaths: readonly string[];
+};
+type ChangelogRenderInput = {
+    readonly targetName: string;
+    readonly mergedPullRequests: readonly TestPullRequest[];
+};
+type GroupedChangelogRenderInput = {
+    readonly targets: readonly ChangelogRenderInput[];
+};
+type PullRequestLabelInput = {
+    readonly pullRequests: readonly TestPullRequest[];
+};
 
 function createPlanner(spec: {
     readonly packageNames: readonly string[];
@@ -39,7 +56,7 @@ function createPlanner(spec: {
 }
 
 function resolvedPackagesFor(
-    validated: ValidConfigResult,
+    validated: ValidatedReleaseConfig,
     bundleContents: Readonly<Record<string, readonly ReturnType<typeof analyzedBundleResource>[]>> = {}
 ): readonly ResolvedPackage[] {
     return sharedResolvedPackagesFor(validated, {
@@ -99,7 +116,7 @@ function packageManifest(content: string): ReleaseArtifactFile {
     return releaseArtifactFile('package/package.json', content);
 }
 
-function validatedManifestAttributionConfig(): ValidConfigResult {
+function validatedManifestAttributionConfig(): ValidatedReleaseConfig {
     return validatedReleaseConfig({
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         commonPackageSettings: {
@@ -125,12 +142,10 @@ function expectPlan(result: ReleasePlanResult) {
     return result.value;
 }
 
-async function planManifestAttribution(spec: {
-    readonly currentIndex: string;
-    readonly currentPackageJson: string;
-    readonly previousIndex: string;
-    readonly previousPackageJson: string;
-}): Promise<readonly string[]> {
+async function planPackageManifestFiles(
+    previousFiles: readonly ReleaseArtifactFile[],
+    currentFiles: readonly ReleaseArtifactFile[]
+) {
     const validated = validatedManifestAttributionConfig();
     const plan = createPlanner({
         packageNames: ['pkg-a'],
@@ -139,18 +154,12 @@ async function planManifestAttribution(spec: {
                 previousReleaseArtifacts: previousReleaseArtifactsFor({
                     version: '1.0.0',
                     publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                    files: [
-                        packageManifest(spec.previousPackageJson),
-                        releaseArtifactFile('package/index.js', spec.previousIndex)
-                    ]
+                    files: previousFiles
                 })
             })
         ],
         collectContents() {
-            return [
-                packageManifest(spec.currentPackageJson),
-                releaseArtifactFile('package/index.js', spec.currentIndex)
-            ];
+            return currentFiles;
         }
     });
 
@@ -158,7 +167,31 @@ async function planManifestAttribution(spec: {
         return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
     });
 
-    return expectPlan(result).packages[0]?.changelogSourceFiles ?? [];
+    const packagePlan = expectPlan(result).packages[0];
+    assert.ok(packagePlan);
+    return packagePlan;
+}
+
+async function planManifestPackage(spec: {
+    readonly currentIndex: string;
+    readonly currentPackageJson: string;
+    readonly previousIndex: string;
+    readonly previousPackageJson: string;
+}) {
+    return planPackageManifestFiles(
+        [releaseArtifactFile('package/index.js', spec.previousIndex), packageManifest(spec.previousPackageJson)],
+        [releaseArtifactFile('package/index.js', spec.currentIndex), packageManifest(spec.currentPackageJson)]
+    );
+}
+
+async function planManifestAttribution(spec: {
+    readonly currentIndex: string;
+    readonly currentPackageJson: string;
+    readonly previousIndex: string;
+    readonly previousPackageJson: string;
+}): Promise<readonly string[]> {
+    const packagePlan = await planManifestPackage(spec);
+    return packagePlan.changelogSourceFiles;
 }
 
 function expectPartialFailure(result: ReleasePlanResult) {
@@ -166,6 +199,59 @@ function expectPartialFailure(result: ReleasePlanResult) {
         assert.fail('Expected a partial release-plan failure');
     }
     return result.error;
+}
+
+function createPathFilteringChangelogEngine(
+    pullRequests: readonly TestPullRequest[],
+    changedFilesByPullRequest: ReadonlyMap<number, readonly string[]>
+) {
+    return {
+        collectMergedPullRequests: async () => {
+            return pullRequests;
+        },
+        readPullRequestChangedFiles: async () => {
+            return changedFilesByPullRequest;
+        },
+        filterPullRequestsByTargetFiles(input: PathFilterInput) {
+            return input.pullRequests.filter((pullRequest) => {
+                const changedFiles = input.changedFilesByPullRequest.get(pullRequest.id) ?? [];
+                return changedFiles.some((filePath) => {
+                    return (
+                        input.targetSourceFiles.includes(filePath) && !input.ignoredAttributionPaths.includes(filePath)
+                    );
+                });
+            });
+        },
+        renderGroupedTargetChangelog(input: GroupedChangelogRenderInput) {
+            return input.targets
+                .map((target) => {
+                    return `${target.targetName}:${target.mergedPullRequests
+                        .map((pullRequest) => {
+                            return pullRequest.id;
+                        })
+                        .join(',')}`;
+                })
+                .join('\n');
+        },
+        renderTargetChangelog(input: ChangelogRenderInput) {
+            return `${input.targetName}:${input.mergedPullRequests
+                .map((pullRequest) => {
+                    return pullRequest.id;
+                })
+                .join(',')}`;
+        },
+        resolveChangelogBaseRef: async () => {
+            return { ref: 'base' };
+        },
+        resolveLatestSemverChangelogBaseRef: async () => {
+            return { ref: 'base' };
+        },
+        resolvePullRequestLabels: async (input: PullRequestLabelInput) => {
+            return input.pullRequests.map((pullRequest) => {
+                return { ...pullRequest, label: 'bug' };
+            });
+        }
+    };
 }
 
 suite('packtory-release-plan', function () {
@@ -211,6 +297,7 @@ suite('packtory-release-plan', function () {
                 artifactFiles: ['index.js', 'package.json', 'readme.md'],
                 changedArtifactFiles: ['index.js', 'package.json', 'readme.md'],
                 sourceFiles: ['/source/pkg-a.js'],
+                changelogDependencyNames: [],
                 changelogSourceFiles: ['source/pkg-a.js']
             }
         ]);
@@ -245,6 +332,7 @@ suite('packtory-release-plan', function () {
             artifactFiles: ['extra.js', 'index.js'],
             changedArtifactFiles: ['extra.js', 'index.js', 'removed.js'],
             sourceFiles: ['/source/pkg-a.js'],
+            changelogDependencyNames: [],
             changelogSourceFiles: ['source/pkg-a.js']
         });
     });
@@ -275,6 +363,7 @@ suite('packtory-release-plan', function () {
             artifactFiles: ['index.js'],
             changedArtifactFiles: [],
             sourceFiles: ['/source/pkg-a.js'],
+            changelogDependencyNames: [],
             changelogSourceFiles: ['source/pkg-a.js']
         });
     });
@@ -470,23 +559,16 @@ suite('packtory-release-plan', function () {
         assert.deepStrictEqual(expectPlan(result).packages[0]?.changelogSourceFiles, ['source/index.js']);
     });
 
-    test('attributes root package manifest inputs when generated package manifests change', async function () {
-        assert.deepStrictEqual(
-            await planManifestAttribution({
-                currentIndex: 'same',
-                currentPackageJson: '{"name":"pkg-a","version":"1.0.1","dependencies":{"commander":"^14.0.0"}}',
-                previousIndex: 'same',
-                previousPackageJson: '{"name":"pkg-a","version":"1.0.0","dependencies":{"commander":"^13.0.0"}}'
-            }),
-            [
-                'npm-shrinkwrap.json',
-                'package-lock.json',
-                'package.json',
-                'pnpm-lock.yaml',
-                'source/pkg-a.js',
-                'yarn.lock'
-            ]
-        );
+    test('tracks generated package manifest dependency changes separately from source files', async function () {
+        const packagePlan = await planManifestPackage({
+            currentIndex: 'same',
+            currentPackageJson: '{"name":"pkg-a","version":"1.0.1","dependencies":{"commander":"^14.0.0"}}',
+            previousIndex: 'same',
+            previousPackageJson: '{"name":"pkg-a","version":"1.0.0","dependencies":{"commander":"^13.0.0"}}'
+        });
+
+        assert.deepStrictEqual(packagePlan.changelogSourceFiles, ['source/pkg-a.js']);
+        assert.deepStrictEqual(packagePlan.changelogDependencyNames, ['commander']);
     });
 
     test('skips root package manifest inputs when generated package manifests do not change', async function () {
@@ -501,6 +583,42 @@ suite('packtory-release-plan', function () {
             }),
             ['source/pkg-a.js']
         );
+    });
+
+    test('skips root package manifest inputs when only generated package manifest versions change', async function () {
+        const packagePlan = await planManifestPackage({
+            currentIndex: 'same',
+            currentPackageJson: '{"name":"pkg-a","version":"1.0.1","dependencies":{"commander":"^14.0.0"}}',
+            previousIndex: 'same',
+            previousPackageJson: '{"name":"pkg-a","version":"1.0.0","dependencies":{"commander":"^14.0.0"}}'
+        });
+
+        assert.deepStrictEqual(packagePlan.changelogSourceFiles, ['source/pkg-a.js']);
+        assert.deepStrictEqual(packagePlan.changelogDependencyNames, []);
+    });
+
+    test('skips dependency attribution when the previous generated package manifest is missing', async function () {
+        const packagePlan = await planPackageManifestFiles(
+            [releaseArtifactFile('package/index.js', 'same')],
+            [
+                releaseArtifactFile('package/index.js', 'same'),
+                packageManifest('{"name":"pkg-a","version":"1.0.1","dependencies":{"commander":"^14.0.0"}}')
+            ]
+        );
+
+        assert.deepStrictEqual(packagePlan.changelogDependencyNames, []);
+    });
+
+    test('skips dependency attribution when the current generated package manifest is missing', async function () {
+        const packagePlan = await planPackageManifestFiles(
+            [
+                releaseArtifactFile('package/index.js', 'same'),
+                packageManifest('{"name":"pkg-a","version":"1.0.0","dependencies":{"commander":"^13.0.0"}}')
+            ],
+            [releaseArtifactFile('package/index.js', 'same')]
+        );
+
+        assert.deepStrictEqual(packagePlan.changelogDependencyNames, []);
     });
 
     test('keeps package-level explicit changelog source files in package attribution', async function () {
@@ -536,6 +654,124 @@ suite('packtory-release-plan', function () {
             'packages/pkg-a/release-notes.md',
             'source/pkg-a.js'
         ]);
+    });
+
+    test('attributes changelog entries through package artifact inputs', async function () {
+        const validated = validatedReleaseConfig({
+            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+            commonPackageSettings: {
+                additionalChangelogSourceFiles: ['package-lock.json', 'packtory.config.js'],
+                mainPackageJson: { type: 'module' },
+                publishSettings: { access: 'public' },
+                sourcesFolder: 'source'
+            },
+            packages: [
+                {
+                    name: 'pkg-a',
+                    mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
+                    roots: { main: { js: 'pkg-a.js' } }
+                },
+                { name: 'pkg-b', roots: { main: { js: 'pkg-b.js' } } }
+            ]
+        });
+        const plan = createPlanner({
+            packageNames: ['pkg-a', 'pkg-b'],
+            buildResults: [
+                buildResultFor({
+                    packageName: 'pkg-a',
+                    previousReleaseArtifacts: previousReleaseArtifactsFor({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        files: [
+                            packageManifest(
+                                '{"name":"pkg-a","version":"1.0.0","dependencies":{"commander":"^13.0.0"}}'
+                            ),
+                            releaseArtifactFile('package/index.js', 'stable')
+                        ]
+                    })
+                }),
+                buildResultFor({
+                    packageName: 'pkg-b',
+                    previousReleaseArtifacts: previousReleaseArtifactsFor({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        files: [
+                            packageManifest('{"name":"pkg-b","version":"1.0.0"}'),
+                            releaseArtifactFile('package/index.js', 'old')
+                        ]
+                    })
+                })
+            ],
+            collectContents(bundle) {
+                if (bundle.name === 'pkg-a') {
+                    return [
+                        packageManifest('{"name":"pkg-a","version":"1.0.1","dependencies":{"commander":"^14.0.0"}}'),
+                        releaseArtifactFile('package/index.js', 'stable')
+                    ];
+                }
+
+                return [
+                    packageManifest('{"name":"pkg-b","version":"1.0.1"}'),
+                    releaseArtifactFile('package/index.js', 'new')
+                ];
+            }
+        });
+
+        const result = await plan(validated, async () => {
+            return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
+        });
+        const releasePlan = expectPlan(result);
+        const { generateChangelogOutputs } = await import('./packtory-changelog.ts');
+        const changelog = await generateChangelogOutputs({
+            packages: releasePlan.packages,
+            prLogEngine: createPathFilteringChangelogEngine(
+                [
+                    { id: 1, title: 'Update dependency commander to v14' },
+                    { id: 2, title: 'Update @packtory/cli to 0.0.42' },
+                    { id: 3, title: 'Adopt Packtory release workflow' },
+                    { id: 4, title: 'Fix pkg-b source' }
+                ],
+                new Map([
+                    [1, ['package.json', 'package-lock.json']],
+                    [2, ['package.json', 'package-lock.json']],
+                    [3, ['.github/workflows/release.yml']],
+                    [4, ['source/pkg-b.js']]
+                ])
+            ),
+            explicitBaseRef: undefined,
+            githubRepo: 'owner/repo',
+            packageInfo: {},
+            packageTagFormat: undefined,
+            currentDate: new Date('2026-06-13T00:00:00.000Z'),
+            ignoredAttributionPaths: [],
+            targetScopedLabelPattern: undefined,
+            validLabels: new Map([['bug', 'Bug Fixes']])
+        });
+
+        assert.deepStrictEqual(
+            releasePlan.packages.map((packagePlan) => {
+                return {
+                    name: packagePlan.name,
+                    changelogDependencyNames: packagePlan.changelogDependencyNames,
+                    changelogSourceFiles: packagePlan.changelogSourceFiles
+                };
+            }),
+            [
+                {
+                    name: 'pkg-a',
+                    changelogDependencyNames: ['commander'],
+                    changelogSourceFiles: ['source/pkg-a.js']
+                },
+                {
+                    name: 'pkg-b',
+                    changelogDependencyNames: [],
+                    changelogSourceFiles: ['source/pkg-b.js']
+                }
+            ]
+        );
+        assert.strictEqual(changelog.packageMarkdownByName.get('pkg-a'), 'pkg-a:1');
+        assert.strictEqual(changelog.packageMarkdownByName.get('pkg-b'), 'pkg-b:4');
+        assert.strictEqual(changelog.groupedMarkdown, 'pkg-a:1\npkg-b:4');
     });
 
     test('plans substitution-driven generated dependency changes as dependency-only releases', async function () {

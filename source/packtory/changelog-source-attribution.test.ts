@@ -2,7 +2,12 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { analyzedBundle, analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
-import { attributeChangelogSourceFiles, collectManifestChangelogSourceFiles } from './changelog-source-attribution.ts';
+import {
+    attributeChangelogSourceFiles,
+    changedPackageManifestDependencyNames,
+    collectManifestChangelogSourceFiles,
+    isPackageManifestInputPath
+} from './changelog-source-attribution.ts';
 
 function sourceMap(sources: readonly (string | null)[], sourceRoot = ''): string {
     return JSON.stringify({
@@ -82,6 +87,45 @@ suite('changelog-source-attribution', function () {
             ),
             ['package-lock.json']
         );
+    });
+
+    test('skips package.json attribution when generated manifest dependency fields are omitted', function () {
+        assert.deepStrictEqual(collectManifestChangelogSourceFiles({}, ['package-lock.json']), ['package-lock.json']);
+    });
+
+    test('identifies root package manifest input paths', function () {
+        assert.deepStrictEqual(
+            [
+                'package.json',
+                'package-lock.json',
+                'npm-shrinkwrap.json',
+                'pnpm-lock.yaml',
+                'yarn.lock',
+                'packages/pkg-a/package.json'
+            ].map(isPackageManifestInputPath),
+            [true, true, true, true, true, false]
+        );
+    });
+
+    test('collects changed generated package manifest dependency names', function () {
+        assert.deepStrictEqual(
+            changedPackageManifestDependencyNames(
+                '{"dependencies":{"commander":"^13.0.0"},"optionalDependencies":{"left-pad":"^1.0.0"}}',
+                '{"dependencies":{"commander":"^14.0.0"},"peerDependencies":{"react":"^19.0.0"}}'
+            ),
+            ['commander', 'left-pad', 'react']
+        );
+    });
+
+    test('rejects malformed generated package manifests for dependency attribution', function () {
+        assert.throws(() => {
+            changedPackageManifestDependencyNames('not json', '{}');
+        });
+    });
+
+    test('ignores non-object generated package manifests for dependency attribution', function () {
+        assert.deepStrictEqual(changedPackageManifestDependencyNames('[]', '{}'), []);
+        assert.deepStrictEqual(changedPackageManifestDependencyNames('{}', 'null'), []);
     });
 
     test('attributes plain JavaScript without a source map to the JavaScript file', async function () {
