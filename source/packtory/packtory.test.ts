@@ -786,6 +786,7 @@ suite('packtory', function () {
                 artifactFiles: ['index.js'],
                 changedArtifactFiles: ['index.js'],
                 sourceFiles: ['/package-a/index.js'],
+                changelogDependencyNames: [],
                 changelogSourceFiles: ['package-a/index.js']
             }
         ]);

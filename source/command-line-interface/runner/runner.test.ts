@@ -359,6 +359,7 @@ suite('runner', function () {
                         artifactFiles: [],
                         changedArtifactFiles: [],
                         sourceFiles: [],
+                        changelogDependencyNames: [],
                         changelogSourceFiles: []
                     }
                 ]

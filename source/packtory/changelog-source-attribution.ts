@@ -16,6 +16,16 @@ type ManifestChangelogInputs = {
     readonly peerDependencies?: Readonly<Record<string, unknown>> | undefined;
 };
 
+const packageManifestInputFilePaths = new Set([
+    'package.json',
+    'package-lock.json',
+    'npm-shrinkwrap.json',
+    'pnpm-lock.yaml',
+    'yarn.lock'
+]);
+
+const dependencyFieldNames = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const;
+
 type ReferencedMap = {
     readonly content: string;
     readonly mapFilePath: string;
@@ -39,11 +49,66 @@ function hasGeneratedManifestInputs(mainPackageJson: ManifestChangelogInputs): b
     );
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseJsonRecord(content: string): Readonly<Record<string, unknown>> | undefined {
+    const parsed = JSON.parse(content) as unknown;
+    return isRecord(parsed) ? parsed : undefined;
+}
+
+function dependencyFieldFrom(
+    manifest: Readonly<Record<string, unknown>>,
+    fieldName: (typeof dependencyFieldNames)[number]
+): Readonly<Record<string, unknown>> {
+    const field = manifest[fieldName];
+    return isRecord(field) ? field : {};
+}
+
+function changedDependencyNamesFor(
+    previousManifest: Readonly<Record<string, unknown>>,
+    currentManifest: Readonly<Record<string, unknown>>,
+    fieldName: (typeof dependencyFieldNames)[number]
+): readonly string[] {
+    const previousDependencies = dependencyFieldFrom(previousManifest, fieldName);
+    const currentDependencies = dependencyFieldFrom(currentManifest, fieldName);
+    const names = new Set([...Object.keys(previousDependencies), ...Object.keys(currentDependencies)]);
+    return Array.from(names)
+        .filter((name) => {
+            return previousDependencies[name] !== currentDependencies[name];
+        })
+        .toSorted(compareValues);
+}
+
 export function collectManifestChangelogSourceFiles(
     mainPackageJson: ManifestChangelogInputs,
     additionalSourceFiles: readonly string[]
 ): readonly string[] {
     return [...(hasGeneratedManifestInputs(mainPackageJson) ? ['package.json'] : []), ...additionalSourceFiles];
+}
+
+export function isPackageManifestInputPath(filePath: string): boolean {
+    return packageManifestInputFilePaths.has(filePath);
+}
+
+export function changedPackageManifestDependencyNames(
+    previousManifestContent: string,
+    currentManifestContent: string
+): readonly string[] {
+    const previousManifest = parseJsonRecord(previousManifestContent);
+    const currentManifest = parseJsonRecord(currentManifestContent);
+    if (previousManifest === undefined || currentManifest === undefined) {
+        return [];
+    }
+
+    return Array.from(
+        new Set(
+            dependencyFieldNames.flatMap((fieldName) => {
+                return changedDependencyNamesFor(previousManifest, currentManifest, fieldName);
+            })
+        )
+    ).toSorted(compareValues);
 }
 
 function isJavaScriptFile(filePath: string): boolean {

@@ -14,6 +14,7 @@ export function createReleasePlanPackageFixture(overrides: Partial<ReleasePlanPa
         artifactFiles: ['index.js'],
         changedArtifactFiles: ['index.js'],
         sourceFiles: ['source/pkg-a.ts'],
+        changelogDependencyNames: [],
         changelogSourceFiles: ['source/pkg-a.ts'],
         ...overrides
     };

@@ -14,7 +14,7 @@ import { publishedReleaseArtifactsOf, wasAlreadyPublished } from './published-re
 import {
     attributeSelectedChangelogSourceFiles,
     attributeChangelogSourceFiles,
-    collectManifestChangelogSourceFiles,
+    changedPackageManifestDependencyNames,
     type ChangelogSourceAttributionDependencies
 } from './changelog-source-attribution.ts';
 
@@ -30,7 +30,6 @@ type ChangelogSourceInputOptions = {
         readonly packageFiles: readonly string[];
         readonly sharedFiles: readonly string[];
     };
-    readonly mainPackageJson: Parameters<typeof collectManifestChangelogSourceFiles>[0];
 };
 type ReleasePlanPackageInput = {
     readonly changelogSourceOptions: ChangelogSourceInputOptions;
@@ -45,27 +44,8 @@ function sortedUnique(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
 }
 
-function isPackageManifestInputPath(filePath: string): boolean {
-    return ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock'].includes(filePath);
-}
-
-function collectSharedManifestInputFiles(sharedSourceFiles: readonly string[]): readonly string[] {
-    return sharedSourceFiles.filter(isPackageManifestInputPath);
-}
-
-function collectReleasePlanChangelogSourceFiles(
-    resolveOptions: ChangelogSourceInputOptions,
-    changedArtifactFiles: readonly string[]
-): readonly string[] {
-    const includeManifestInputFiles = changedArtifactFiles.includes(packageManifestFilePath);
-    const configuredSourceFiles = resolveOptions.additionalChangelogSourceFiles.packageFiles;
-    if (!includeManifestInputFiles) {
-        return configuredSourceFiles;
-    }
-    return collectManifestChangelogSourceFiles(resolveOptions.mainPackageJson, [
-        ...collectSharedManifestInputFiles(resolveOptions.additionalChangelogSourceFiles.sharedFiles),
-        ...configuredSourceFiles
-    ]);
+function collectReleasePlanChangelogSourceFiles(resolveOptions: ChangelogSourceInputOptions): readonly string[] {
+    return resolveOptions.additionalChangelogSourceFiles.packageFiles;
 }
 
 function packageRelativeFiles(files: readonly FileDescription[]): readonly string[] {
@@ -132,6 +112,30 @@ function changedArtifactFilesFrom(
     ]);
 }
 
+function manifestArtifactContentFrom(files: readonly FileDescription[]): string | undefined {
+    const manifestFile = files.find((file) => {
+        return bundleRelativePath(file.filePath) === packageManifestFilePath;
+    });
+    return manifestFile === undefined ? undefined : manifestFile.content;
+}
+
+function collectReleasePlanChangelogDependencyNames(
+    buildResult: BuildAndPublishResult,
+    currentFiles: readonly FileDescription[]
+): readonly string[] {
+    const previousFiles = publishedReleaseArtifactsOf(buildResult)?.files;
+    const previousManifest = previousFiles === undefined ? undefined : manifestArtifactContentFrom(previousFiles);
+    const currentManifest = manifestArtifactContentFrom(currentFiles);
+    if (previousManifest === undefined) {
+        return [];
+    }
+    if (currentManifest === undefined) {
+        return [];
+    }
+
+    return changedPackageManifestDependencyNames(previousManifest, currentManifest);
+}
+
 function shouldAttributeAllBundleSources(releaseClassification: ReleasePlanPackage['releaseClassification']): boolean {
     return (
         releaseClassification === releaseAnalysisClassification.dependencyOnly ||
@@ -167,9 +171,10 @@ export async function createReleasePlanPackage(
     const artifactState = artifactStateFrom(buildResult);
     const latestRegistryMetadata = registryMetadataFrom(buildResult);
     const changedArtifactFiles = changedArtifactFilesFrom(artifactState, buildResult, input.releaseArtifactFiles);
-    const changelogSourceFiles = collectReleasePlanChangelogSourceFiles(
-        input.changelogSourceOptions,
-        changedArtifactFiles
+    const changelogSourceFiles = collectReleasePlanChangelogSourceFiles(input.changelogSourceOptions);
+    const changelogDependencyNames = collectReleasePlanChangelogDependencyNames(
+        buildResult,
+        input.releaseArtifactFiles
     );
     return {
         name: buildResult.bundle.name,
@@ -184,6 +189,7 @@ export async function createReleasePlanPackage(
         artifactFiles: packageRelativeFiles(input.releaseArtifactFiles),
         changedArtifactFiles,
         sourceFiles: sourceFilesFrom(analyzedBundle),
+        changelogDependencyNames,
         changelogSourceFiles: await attributedChangelogSourceFiles({
             analyzedBundle,
             changedArtifactFiles,

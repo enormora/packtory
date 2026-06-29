@@ -27,6 +27,7 @@ function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPack
         artifactFiles: ['dist/index.js'],
         changedArtifactFiles: ['dist/index.js'],
         sourceFiles: ['source/pkg-a.ts'],
+        changelogDependencyNames: [],
         changelogSourceFiles: ['source/pkg-a.ts'],
         ...overrides
     };
@@ -42,6 +43,12 @@ type EngineCalls = {
     readonly resolveLatestSemverChangelogBaseRef: SinonSpy;
     readonly resolvePullRequestLabels: SinonSpy;
 };
+
+function labelPullRequests(input: { readonly pullRequests: readonly PullRequest[] }): readonly PullRequestWithLabel[] {
+    return input.pullRequests.map((pullRequest) => {
+        return { ...pullRequest, label: 'bug' };
+    });
+}
 
 function createEngine(): { readonly engine: PrLogEngine; readonly calls: EngineCalls } {
     const pullRequests: readonly PullRequest[] = [
@@ -80,8 +87,8 @@ function createEngine(): { readonly engine: PrLogEngine; readonly calls: EngineC
     return { engine: calls as unknown as PrLogEngine, calls };
 }
 
-async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngine): Promise<string> {
-    const changelog = await generateChangelogOutputs({
+async function generatePackageChangelog(packages: readonly ReleasePlanPackage[], engine: PrLogEngine) {
+    return generateChangelogOutputs({
         packages,
         prLogEngine: engine,
         explicitBaseRef: undefined,
@@ -93,6 +100,10 @@ async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngi
         targetScopedLabelPattern: undefined,
         validLabels
     });
+}
+
+async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngine): Promise<string> {
+    const changelog = await generatePackageChangelog(packages, engine);
     return changelog.groupedMarkdown;
 }
 
@@ -254,23 +265,61 @@ suite('packtory-changelog', function () {
             renderTargetChangelog
         } as unknown as PrLogEngine;
 
-        const changelog = await generateChangelogOutputs({
-            packages: [releasePackage({ changelogSourceFiles: ['source/pkg-a.ts'] })],
-            prLogEngine: emptyEngine,
-            githubRepo: 'owner/repo',
-            packageInfo: {},
-            currentDate: new Date('2026-06-13T00:00:00.000Z'),
-            explicitBaseRef: undefined,
-            ignoredAttributionPaths: [],
-            packageTagFormat: undefined,
-            targetScopedLabelPattern: undefined,
-            validLabels
-        });
+        const changelog = await generatePackageChangelog(
+            [releasePackage({ changelogSourceFiles: ['source/pkg-a.ts'] })],
+            emptyEngine
+        );
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
         assert.deepStrictEqual(changelog.packageNamesWithoutChangelogEntries, ['pkg-a']);
         assert.deepStrictEqual(changelog.packageMarkdownByName, new Map());
         assert.strictEqual(renderTargetChangelog.callCount, 0);
+    });
+
+    test('ignores manifest dependency pull requests without changed file records', async function () {
+        const { engine, calls } = createEngine();
+        const pullRequest = { id: 1, title: 'Update dependency commander to v14' };
+        const emptyEngine = {
+            ...engine,
+            collectMergedPullRequests: fake.resolves([pullRequest]),
+            readPullRequestChangedFiles: fake.resolves(new Map()),
+            filterPullRequestsByTargetFiles: fake.returns([]),
+            resolvePullRequestLabels: fake(labelPullRequests)
+        } as unknown as PrLogEngine;
+
+        const changelog = await generatePackageChangelog(
+            [releasePackage({ changelogDependencyNames: ['commander'], changelogSourceFiles: [] })],
+            emptyEngine
+        );
+
+        assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
+        assert.deepStrictEqual(changelog.packageMarkdownByName, new Map());
+    });
+
+    test('includes manifest dependency pull requests matching one dependency name', async function () {
+        const pullRequest = { id: 1, title: 'Update dependency commander to v14' };
+        const { engine, calls } = createEngine();
+        const dependencyEngine = {
+            ...engine,
+            collectMergedPullRequests: fake.resolves([pullRequest]),
+            readPullRequestChangedFiles: fake.resolves(new Map([[1, ['package.json', '.github/workflows/ci.yml']]])),
+            filterPullRequestsByTargetFiles: fake.returns([]),
+            resolvePullRequestLabels: fake(labelPullRequests)
+        } as unknown as PrLogEngine;
+
+        await render(
+            [releasePackage({ changelogDependencyNames: ['commander', 'react'], changelogSourceFiles: [] })],
+            dependencyEngine
+        );
+
+        assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, [
+            {
+                targetName: 'pkg-a',
+                unreleased: false,
+                versionNumber: '1.0.1',
+                mergedPullRequests: [{ id: 1, title: 'Update dependency commander to v14', label: 'bug' }]
+            }
+        ]);
     });
 
     test('uses the package base-ref resolver when a package has a previous git head but no previous version', async function () {
