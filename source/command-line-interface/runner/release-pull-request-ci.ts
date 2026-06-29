@@ -81,7 +81,33 @@ async function waitForDispatchedWorkflowRun(input: {
     );
 }
 
-async function mirrorRunningWorkflowStatuses(input: {
+function requiredJobResultFor(
+    runResult: WorkflowRunResult,
+    context: string
+): WorkflowRunResult['jobs'][number] | undefined {
+    return runResult.jobs.find((candidate) => {
+        return candidate.name === context;
+    });
+}
+
+function allRequiredJobsCompleted(runResult: WorkflowRunResult, contexts: readonly string[]): boolean {
+    return contexts.every((context) => {
+        return requiredJobResultFor(runResult, context)?.conclusion !== undefined;
+    });
+}
+
+function workflowStatusState(conclusion: string): 'error' | 'failure' | 'success' {
+    if (conclusion === 'success') {
+        return 'success';
+    }
+    return conclusion === 'failure' ? 'failure' : 'error';
+}
+
+function workflowStatusDescription(conclusion: string): string {
+    return `Dispatched release CI job ${conclusion}.`;
+}
+
+async function mirrorKnownWorkflowStatuses(input: {
     readonly ciConfig: GitHubActionsCiConfig;
     readonly client: ReleasePullRequestGitHubClient;
     readonly headSha: string;
@@ -89,17 +115,25 @@ async function mirrorRunningWorkflowStatuses(input: {
 }): Promise<void> {
     await Promise.all(
         input.ciConfig.requiredStatusContexts.map(async (context) => {
-            const job = input.runResult.jobs.find((candidate) => {
-                return candidate.name === context;
-            });
-            if (job === undefined || job.conclusion !== undefined) {
+            const job = requiredJobResultFor(input.runResult, context);
+            if (job === undefined) {
+                return;
+            }
+            if (job.conclusion === undefined) {
+                await input.client.createStatus({
+                    commitSha: input.headSha,
+                    context,
+                    description: 'Dispatched release CI job running.',
+                    state: 'pending',
+                    targetUrl: job.url
+                });
                 return;
             }
             await input.client.createStatus({
                 commitSha: input.headSha,
                 context,
-                description: 'Dispatched release CI job running.',
-                state: 'pending',
+                description: workflowStatusDescription(job.conclusion),
+                state: workflowStatusState(job.conclusion),
                 targetUrl: job.url
             });
         })
@@ -115,10 +149,13 @@ async function waitForWorkflowCompletion(input: {
 }): Promise<WorkflowRunResult> {
     for (const attempt of createRetryAttempts(workflowRunCompletionAttempts)) {
         const result = await input.client.readWorkflowRunResult(input.runId);
-        if (result.conclusion !== undefined) {
+        if (
+            result.conclusion !== undefined ||
+            allRequiredJobsCompleted(result, input.ciConfig.requiredStatusContexts)
+        ) {
             return result;
         }
-        await mirrorRunningWorkflowStatuses({ ...input, runResult: result });
+        await mirrorKnownWorkflowStatuses({ ...input, runResult: result });
         if (!isLastAttempt(attempt, workflowRunCompletionAttempts)) {
             await input.sleep(workflowPollIntervalMilliseconds);
         }
@@ -126,11 +163,51 @@ async function waitForWorkflowCompletion(input: {
     throw new Error(`Release workflow run ${input.runId} did not complete`);
 }
 
-function formatWorkflowStatusFailure(context: string, conclusion: string | undefined): string {
-    if (conclusion === undefined) {
-        return `Missing dispatched release CI job: ${context}.`;
+function missingWorkflowStatusDescription(context: string): string {
+    return `Missing dispatched release CI job: ${context}.`;
+}
+
+type FinalWorkflowStatus = {
+    readonly description: string;
+    readonly passed: boolean;
+    readonly state: 'error' | 'failure' | 'success';
+    readonly targetUrl: string | undefined;
+};
+
+function incompleteWorkflowStatus(context: string): FinalWorkflowStatus {
+    return {
+        description: missingWorkflowStatusDescription(context),
+        passed: false,
+        state: 'failure',
+        targetUrl: undefined
+    };
+}
+
+function completedWorkflowStatus(conclusion: string, targetUrl: string | undefined): FinalWorkflowStatus {
+    if (conclusion === 'success') {
+        return {
+            description: 'Dispatched release CI job success.',
+            passed: true,
+            state: 'success',
+            targetUrl
+        };
     }
-    return `Dispatched release CI job ${conclusion}.`;
+    return {
+        description: workflowStatusDescription(conclusion),
+        passed: false,
+        state: workflowStatusState(conclusion),
+        targetUrl
+    };
+}
+
+function finalWorkflowStatusFor(
+    context: string,
+    job: WorkflowRunResult['jobs'][number] | undefined
+): FinalWorkflowStatus {
+    if (job?.conclusion === undefined) {
+        return incompleteWorkflowStatus(context);
+    }
+    return completedWorkflowStatus(job.conclusion, job.url);
 }
 
 async function mirrorWorkflowStatus(input: {
@@ -139,27 +216,16 @@ async function mirrorWorkflowStatus(input: {
     readonly headSha: string;
     readonly runResult: WorkflowRunResult;
 }): Promise<boolean> {
-    const job = input.runResult.jobs.find((candidate) => {
-        return candidate.name === input.context;
-    });
-    if (job?.conclusion === 'success') {
-        await input.client.createStatus({
-            commitSha: input.headSha,
-            context: input.context,
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: job.url
-        });
-        return true;
-    }
+    const job = requiredJobResultFor(input.runResult, input.context);
+    const status = finalWorkflowStatusFor(input.context, job);
     await input.client.createStatus({
         commitSha: input.headSha,
         context: input.context,
-        description: formatWorkflowStatusFailure(input.context, job?.conclusion),
-        state: 'failure',
-        targetUrl: job?.url
+        description: status.description,
+        state: status.state,
+        targetUrl: status.targetUrl
     });
-    return false;
+    return status.passed;
 }
 
 async function mirrorWorkflowStatuses(input: {

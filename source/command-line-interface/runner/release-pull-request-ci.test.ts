@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import type { Except } from 'type-fest';
 import { runConfiguredGitHubActionsCi } from './release-pull-request-ci.ts';
 import type { ReleasePullRequestConfig } from './release-pull-request-config.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
@@ -8,6 +9,8 @@ import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.
 type WorkflowRunLookup = Awaited<ReturnType<ReleasePullRequestGitHubClient['findDispatchedWorkflowRun']>>;
 type WorkflowRunResult = Awaited<ReturnType<ReleasePullRequestGitHubClient['readWorkflowRunResult']>>;
 type WorkflowRunLookupInput = Parameters<ReleasePullRequestGitHubClient['findDispatchedWorkflowRun']>[0];
+type StatusInput = Parameters<ReleasePullRequestGitHubClient['createStatus']>[0];
+type StatusSpy = { readonly getCall: (index: number) => { readonly args: readonly unknown[] } };
 
 function workflowRunFound(runId = 1, observedRunIds: readonly number[] = [runId]): WorkflowRunLookup {
     return { event: 'workflow_dispatch', observedRunIds, runId };
@@ -79,6 +82,43 @@ function createClient(overrides: Partial<ReleasePullRequestGitHubClient> = {}): 
     };
 }
 
+function releaseStatus(input: Except<StatusInput, 'commitSha'>): StatusInput {
+    return { commitSha: 'release-head', ...input };
+}
+
+function assertStatusCall(createStatus: StatusSpy, callIndex: number, input: Except<StatusInput, 'commitSha'>): void {
+    assert.deepStrictEqual(createStatus.getCall(callIndex).args[0], releaseStatus(input));
+}
+
+async function assertTerminalRequiredJobStatus(conclusion: string, state: StatusInput['state']): Promise<void> {
+    const createStatus = fake.resolves(undefined);
+    const client = createClient({
+        createStatus,
+        readWorkflowRunResult: fake.resolves({
+            conclusion,
+            databaseId: 1,
+            jobs: [{ conclusion, name: 'Node.js', url: 'https://run/job' }]
+        })
+    });
+
+    assert.strictEqual(
+        await runConfiguredGitHubActionsCi({
+            client,
+            config: createConfig(),
+            headSha: 'release-head',
+            sleep: fake.resolves(undefined)
+        }),
+        false
+    );
+
+    assertStatusCall(createStatus, 0, {
+        context: 'Node.js',
+        description: `Dispatched release CI job ${conclusion}.`,
+        state,
+        targetUrl: 'https://run/job'
+    });
+}
+
 suite('release-pull-request-ci', function () {
     test('returns true without dispatch when GitHub Actions CI is not configured', async function () {
         assert.strictEqual(
@@ -114,15 +154,13 @@ suite('release-pull-request-ci', function () {
             true
         );
 
-        assert.deepStrictEqual(createStatus.firstCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 0, {
             context: 'Node.js',
             description: 'Waiting for dispatched release CI.',
             state: 'pending',
             targetUrl: undefined
         });
-        assert.deepStrictEqual(createStatus.secondCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 1, {
             context: 'Node.js',
             description: 'Dispatched release CI job success.',
             state: 'success',
@@ -157,15 +195,13 @@ suite('release-pull-request-ci', function () {
             false
         );
 
-        assert.deepStrictEqual(createStatus.firstCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 0, {
             context: 'Node.js',
             description: 'Dispatched release CI job success.',
             state: 'success',
             targetUrl: 'https://run/job'
         });
-        assert.deepStrictEqual(createStatus.secondCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 1, {
             context: 'Missing job',
             description: 'Missing dispatched release CI job: Missing job.',
             state: 'failure',
@@ -187,8 +223,7 @@ suite('release-pull-request-ci', function () {
             false
         );
 
-        assert.deepStrictEqual(createStatus.firstCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 0, {
             context: 'Missing job',
             description: 'Missing dispatched release CI job: Missing job.',
             state: 'failure',
@@ -197,33 +232,11 @@ suite('release-pull-request-ci', function () {
     });
 
     test('returns false and mirrors a failed required job', async function () {
-        const createStatus = fake.resolves(undefined);
-        const client = createClient({
-            createStatus,
-            readWorkflowRunResult: fake.resolves({
-                conclusion: 'failure',
-                databaseId: 1,
-                jobs: [{ conclusion: 'failure', name: 'Node.js', url: 'https://run/job' }]
-            })
-        });
+        await assertTerminalRequiredJobStatus('failure', 'failure');
+    });
 
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client,
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            false
-        );
-
-        assert.deepStrictEqual(createStatus.firstCall.args[0], {
-            commitSha: 'release-head',
-            context: 'Node.js',
-            description: 'Dispatched release CI job failure.',
-            state: 'failure',
-            targetUrl: 'https://run/job'
-        });
+    test('returns false and mirrors a cancelled required job as an error', async function () {
+        await assertTerminalRequiredJobStatus('cancelled', 'error');
     });
 
     test('does not delete blocked pull request runs when cleanup is disabled', async function () {
@@ -272,8 +285,7 @@ suite('release-pull-request-ci', function () {
         );
         assert.strictEqual(findDispatchedWorkflowRun.callCount, 31);
         assert.strictEqual(sleep.callCount, 29);
-        assert.deepStrictEqual(createStatus.secondCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 1, {
             context: 'Node.js',
             description: 'Dispatched release CI did not start.',
             state: 'error',
@@ -347,15 +359,13 @@ suite('release-pull-request-ci', function () {
             true
         );
 
-        assert.deepStrictEqual(createStatus.firstCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 0, {
             context: 'Node.js',
             description: 'Dispatched release CI job running.',
             state: 'pending',
             targetUrl: 'https://run/job'
         });
-        assert.deepStrictEqual(createStatus.secondCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 1, {
             context: 'Node.js',
             description: 'Dispatched release CI job success.',
             state: 'success',
@@ -389,12 +399,111 @@ suite('release-pull-request-ci', function () {
         );
 
         assert.strictEqual(createStatus.callCount, 1);
-        assert.deepStrictEqual(createStatus.firstCall.args[0], {
-            commitSha: 'release-head',
+        assertStatusCall(createStatus, 0, {
             context: 'Node.js',
             description: 'Dispatched release CI job success.',
             state: 'success',
             targetUrl: 'https://run/job'
+        });
+    });
+
+    test('finishes when required jobs completed before the workflow conclusion is indexed', async function () {
+        const createStatus = fake.resolves(undefined);
+        const readWorkflowRunResult = fake.resolves({
+            conclusion: undefined,
+            databaseId: 1,
+            jobs: [
+                { conclusion: 'success', name: 'Node v22', url: 'https://run/node-22' },
+                { conclusion: 'success', name: 'Node v24', url: 'https://run/node-24' },
+                { conclusion: 'success', name: 'Node v26', url: 'https://run/node-26' }
+            ]
+        });
+
+        assert.strictEqual(
+            await runConfiguredGitHubActionsCi({
+                client: createClient({ createStatus, readWorkflowRunResult }),
+                config: createConfig(['Node v22', 'Node v24', 'Node v26']),
+                headSha: 'release-head',
+                sleep: fake.resolves(undefined)
+            }),
+            true
+        );
+
+        assert.strictEqual(readWorkflowRunResult.callCount, 1);
+        assertStatusCall(createStatus, 0, {
+            context: 'Node v22',
+            description: 'Dispatched release CI job success.',
+            state: 'success',
+            targetUrl: 'https://run/node-22'
+        });
+        assertStatusCall(createStatus, 1, {
+            context: 'Node v24',
+            description: 'Dispatched release CI job success.',
+            state: 'success',
+            targetUrl: 'https://run/node-24'
+        });
+        assertStatusCall(createStatus, 2, {
+            context: 'Node v26',
+            description: 'Dispatched release CI job success.',
+            state: 'success',
+            targetUrl: 'https://run/node-26'
+        });
+    });
+
+    test('mirrors completed and running required jobs while waiting for remaining jobs', async function () {
+        const createStatus = fake.resolves(undefined);
+        const readWorkflowRunResult = readWorkflowRunResultSequence([
+            {
+                conclusion: undefined,
+                databaseId: 1,
+                jobs: [
+                    { conclusion: 'success', name: 'Node v22', url: 'https://run/node-22' },
+                    { conclusion: undefined, name: 'Node v24', url: 'https://run/node-24' }
+                ]
+            },
+            {
+                conclusion: undefined,
+                databaseId: 1,
+                jobs: [
+                    { conclusion: 'success', name: 'Node v22', url: 'https://run/node-22' },
+                    { conclusion: 'success', name: 'Node v24', url: 'https://run/node-24' }
+                ]
+            }
+        ]);
+
+        assert.strictEqual(
+            await runConfiguredGitHubActionsCi({
+                client: createClient({ createStatus, readWorkflowRunResult }),
+                config: createConfig(['Node v22', 'Node v24']),
+                headSha: 'release-head',
+                sleep: fake.resolves(undefined)
+            }),
+            true
+        );
+
+        assertStatusCall(createStatus, 0, {
+            context: 'Node v22',
+            description: 'Dispatched release CI job success.',
+            state: 'success',
+            targetUrl: 'https://run/node-22'
+        });
+        assertStatusCall(createStatus, 1, {
+            context: 'Node v24',
+            description: 'Dispatched release CI job running.',
+            state: 'pending',
+            targetUrl: 'https://run/node-24'
+        });
+        assertStatusCall(createStatus, 2, {
+            context: 'Node v22',
+            description: 'Dispatched release CI job success.',
+            state: 'success',
+            targetUrl: 'https://run/node-22'
+        });
+        assertStatusCall(createStatus, 3, {
+            context: 'Node v24',
+            description: 'Dispatched release CI job success.',
+            state: 'success',
+            targetUrl: 'https://run/node-24'
         });
     });
 

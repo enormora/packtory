@@ -12,7 +12,6 @@ import {
 import type { BuildAndPublishResult } from './package-processor.ts';
 import { mapResolvePartialFailure, succeededResultsFrom } from './partial-result.ts';
 import {
-    collectReleasePlanChangelogSourceFiles,
     createReleasePlanPackage,
     type CollectReleaseArtifactFiles,
     type ReleasePlanMapperDependencies
@@ -76,7 +75,7 @@ async function appendPackagePlan(args: {
     );
     args.packages.push(
         await createReleasePlanPackage(args, resolvedPackage.analyzedBundle, args.buildResult, {
-            changelogSourceFiles: collectReleasePlanChangelogSourceFiles(resolvedPackage.resolveOptions),
+            changelogSourceOptions: resolvedPackage.resolveOptions,
             currentGitHead: args.currentGitHead,
             releaseArtifactFiles,
             releaseClassification: classifyPackageRelease(args.buildResult, releaseArtifactFiles).classification

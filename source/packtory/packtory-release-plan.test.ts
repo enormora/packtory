@@ -24,6 +24,7 @@ type BuildAndPublishResult = Awaited<ReturnType<ReleaseTestDependencies['package
 type PackageProcessor = ReleaseTestDependencies['packageProcessor'];
 type FileCollection = ReleaseFileCollection;
 type ReleasePlanFileManager = ReleaseTestDependencies['fileManager'];
+type ReleaseArtifactFile = { readonly content: string; readonly filePath: string; readonly isExecutable: false };
 
 function createPlanner(spec: {
     readonly packageNames: readonly string[];
@@ -44,7 +45,7 @@ function resolvedPackagesFor(
     return sharedResolvedPackagesFor(validated, {
         bundleContents,
         defaultContents(packageName) {
-            return [analyzedBundleResource(`/source/${packageName}.js`)];
+            return [analyzedBundleResource(`/source/${packageName}.js`, { targetFilePath: 'index.js' })];
         }
     });
 }
@@ -90,11 +91,68 @@ function publishedBuildResultFor(status: BuildAndPublishResult['status'] = 'new-
     });
 }
 
+function releaseArtifactFile(filePath: string, content: string): ReleaseArtifactFile {
+    return { filePath, content, isExecutable: false };
+}
+
+function packageManifest(content: string): ReleaseArtifactFile {
+    return releaseArtifactFile('package/package.json', content);
+}
+
+function validatedManifestAttributionConfig(): ValidConfigResult {
+    return validatedReleaseConfig({
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        commonPackageSettings: {
+            additionalChangelogSourceFiles: ['npm-shrinkwrap.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'],
+            mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
+            publishSettings: { access: 'public' },
+            sourcesFolder: 'source'
+        },
+        packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a.js' } } }]
+    });
+}
+
 function expectPlan(result: ReleasePlanResult) {
     if (result.isErr) {
         assert.fail(`Expected release plan, got ${result.error.type}`);
     }
     return result.value;
+}
+
+async function planManifestAttribution(spec: {
+    readonly currentIndex: string;
+    readonly currentPackageJson: string;
+    readonly previousIndex: string;
+    readonly previousPackageJson: string;
+}): Promise<readonly string[]> {
+    const validated = validatedManifestAttributionConfig();
+    const plan = createPlanner({
+        packageNames: ['pkg-a'],
+        buildResults: [
+            buildResultFor({
+                previousReleaseArtifacts: previousReleaseArtifactsFor({
+                    version: '1.0.0',
+                    publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                    files: [
+                        packageManifest(spec.previousPackageJson),
+                        releaseArtifactFile('package/index.js', spec.previousIndex)
+                    ]
+                })
+            })
+        ],
+        collectContents() {
+            return [
+                packageManifest(spec.currentPackageJson),
+                releaseArtifactFile('package/index.js', spec.currentIndex)
+            ];
+        }
+    });
+
+    const result = await plan(validated, async () => {
+        return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
+    });
+
+    return expectPlan(result).packages[0]?.changelogSourceFiles ?? [];
 }
 
 function expectPartialFailure(result: ReleasePlanResult) {
@@ -373,7 +431,7 @@ suite('packtory-release-plan', function () {
         assert.fail('Expected an error result');
     });
 
-    test('excludes generated manifests and includes substituted and additional source files', async function () {
+    test('attributes only source files for changed artifacts in substantive releases', async function () {
         const generatedManifest = {
             ...analyzedBundleResource('/source/package.json', { targetFilePath: 'package.json' }),
             isGeneratedManifest: true as const
@@ -387,9 +445,12 @@ suite('packtory-release-plan', function () {
             bundleContents: {
                 'pkg-a': [
                     generatedManifest,
-                    analyzedBundleResource('/source/index.js'),
-                    analyzedBundleResource('/source/index.js'),
-                    analyzedBundleResource('/source/substituted.js', { isSubstituted: true }),
+                    analyzedBundleResource('/source/index.js', { targetFilePath: 'index.js' }),
+                    analyzedBundleResource('/source/index.js', { targetFilePath: 'index.js' }),
+                    analyzedBundleResource('/source/substituted.js', {
+                        isSubstituted: true,
+                        targetFilePath: 'substituted.js'
+                    }),
                     analyzedBundleResource('/assets/readme.md', { targetFilePath: 'readme.md' })
                 ]
             }
@@ -400,41 +461,40 @@ suite('packtory-release-plan', function () {
             '/source/index.js',
             '/source/substituted.js'
         ]);
-        assert.deepStrictEqual(expectPlan(result).packages[0]?.changelogSourceFiles, [
-            'assets/readme.md',
-            'source/index.js',
-            'source/substituted.js'
-        ]);
+        assert.deepStrictEqual(expectPlan(result).packages[0]?.changelogSourceFiles, ['source/index.js']);
     });
 
-    test('attributes root package manifest inputs used by generated package manifests', async function () {
-        const validated = validatedReleaseConfig({
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            commonPackageSettings: {
-                additionalChangelogSourceFiles: ['package-lock.json'],
-                mainPackageJson: { type: 'module', dependencies: { commander: '^14.0.0' } },
-                publishSettings: { access: 'public' },
-                sourcesFolder: 'source'
-            },
-            packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a.js' } } }]
-        });
-        const plan = createPlanner({
-            packageNames: ['pkg-a'],
-            buildResults: [buildResultFor()],
-            collectContents() {
-                return [{ filePath: 'package/index.js', content: 'new', isExecutable: false }];
-            }
-        });
+    test('attributes root package manifest inputs when generated package manifests change', async function () {
+        assert.deepStrictEqual(
+            await planManifestAttribution({
+                currentIndex: 'same',
+                currentPackageJson: '{"name":"pkg-a","version":"1.0.1","dependencies":{"commander":"^14.0.0"}}',
+                previousIndex: 'same',
+                previousPackageJson: '{"name":"pkg-a","version":"1.0.0","dependencies":{"commander":"^13.0.0"}}'
+            }),
+            [
+                'npm-shrinkwrap.json',
+                'package-lock.json',
+                'package.json',
+                'pnpm-lock.yaml',
+                'source/pkg-a.js',
+                'yarn.lock'
+            ]
+        );
+    });
 
-        const result = await plan(validated, async () => {
-            return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(resolvedPackagesFor(validated));
-        });
+    test('skips root package manifest inputs when generated package manifests do not change', async function () {
+        const packageJsonContent = '{"name":"pkg-a","version":"1.0.1","dependencies":{"commander":"^14.0.0"}}';
 
-        assert.deepStrictEqual(expectPlan(result).packages[0]?.changelogSourceFiles, [
-            'package-lock.json',
-            'package.json',
-            'source/pkg-a.js'
-        ]);
+        assert.deepStrictEqual(
+            await planManifestAttribution({
+                currentIndex: 'new',
+                currentPackageJson: packageJsonContent,
+                previousIndex: 'old',
+                previousPackageJson: packageJsonContent
+            }),
+            ['source/pkg-a.js']
+        );
     });
 
     test('plans substitution-driven generated dependency changes as dependency-only releases', async function () {
@@ -478,8 +538,8 @@ suite('packtory-release-plan', function () {
             },
             bundleContents: {
                 'pkg-a': [
-                    analyzedBundleResource('/source/pkg-a.js'),
-                    analyzedBundleResource('/source/pkg-b.js', { isSubstituted: true })
+                    analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'index.js' }),
+                    analyzedBundleResource('/source/pkg-b.js', { isSubstituted: true, targetFilePath: 'pkg-b.js' })
                 ]
             }
         });
