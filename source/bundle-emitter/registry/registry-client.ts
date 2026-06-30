@@ -26,6 +26,7 @@ type PublishOptionsForLibrary = PublishLibraryOptions & {
 type PublishOptionsWithOneTimePassword = PublishOptionsForLibrary & {
     readonly otpPrompt: (() => Promise<string | undefined>) | undefined;
 };
+type PublishPromise = Promise<unknown>;
 type PublishPackageArguments = readonly [
     manifest: PublishManifest,
     tarData: Buffer,
@@ -54,14 +55,16 @@ export type RegistryClient = {
     fetchTarball: (tarballUrl: string, config: RegistrySettings) => Promise<Buffer>;
 };
 
-function hasStageId(response: unknown): response is { readonly stageId: string } {
+function isStageIdRecord(response: unknown): response is Readonly<Record<'stageId', unknown>> {
     return (
         typeof response === 'object' &&
         response !== null &&
-        'stageId' in response &&
-        typeof response.stageId === 'string' &&
-        response.stageId.length > 0
+        Object.hasOwn(response, 'stageId')
     );
+}
+
+function hasStageId(response: unknown): response is { readonly stageId: string; } {
+    return isStageIdRecord(response) && typeof response.stageId === 'string' && response.stageId.length > 0;
 }
 
 function readStageId(response: unknown): string {
@@ -70,6 +73,27 @@ function readStageId(response: unknown): string {
     }
 
     return response.stageId;
+}
+
+async function readPublishedPublicationOutcome(publishPromise: PublishPromise): Promise<PublicationOutcome> {
+    await publishPromise;
+    return publishedToRegistry;
+}
+
+async function readStagedPublicationOutcome(publishPromise: PublishPromise): Promise<PublicationOutcome> {
+    return stagedForApproval(readStageId(await publishPromise));
+}
+
+async function readPublicationOutcome(
+    publishPromise: PublishPromise,
+    readOutcome: (publishPromise: PublishPromise) => Promise<PublicationOutcome>,
+    publishSettings: PublishSettings
+): Promise<PublicationOutcome> {
+    try {
+        return await readOutcome(publishPromise);
+    } catch (error: unknown) {
+        throw remapPublishError(error, publishSettings);
+    }
 }
 
 export function createRegistryClient(dependencies: Readonly<RegistryClientDependencies>): RegistryClient {
@@ -88,30 +112,26 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
             return fetchPackageTarball(npmFetch, tarballUrl, registrySettings);
         },
 
-        async publishPackage(...[manifest, tarData, registrySettings, publishSettings, stage]) {
+        async publishPackage(...[ manifest, tarData, registrySettings, publishSettings, stage ]) {
             const authOptions = await oidcExchanger.resolveWriteAuthOptions(manifest.name, registrySettings);
             const publishOptionsFromSettings = buildPublishOptionsForPublishSettings(publishSettings);
             const publishOptions: PublishOptionsForLibrary = {
                 defaultTag: 'latest',
                 ...authOptions,
                 ...publishOptionsFromSettings,
-                ...(stage ? { stage: true } : {})
+                ...stage && { stage: true }
             };
             const publishOptionsWithOneTimePassword: PublishOptionsWithOneTimePassword = {
                 ...publishOptions,
                 otpPrompt: promptForOneTimePassword
             };
-            const publishPromise =
-                promptForOneTimePassword === undefined
-                    ? publish(manifest, tarData, publishOptions)
-                    : publish(manifest, tarData, publishOptionsWithOneTimePassword);
+            const publishOptionsForOneTimePassword = promptForOneTimePassword === undefined
+                ? publishOptions
+                : publishOptionsWithOneTimePassword;
+            const publishPromise = publish(manifest, tarData, publishOptionsForOneTimePassword);
+            const readOutcome = stage ? readStagedPublicationOutcome : readPublishedPublicationOutcome;
 
-            try {
-                const response = await publishPromise;
-                return stage ? stagedForApproval(readStageId(response)) : publishedToRegistry;
-            } catch (error: unknown) {
-                throw remapPublishError(error, publishSettings);
-            }
+            return readPublicationOutcome(publishPromise, readOutcome, publishSettings);
         },
 
         async fetchLatestVersion(packageName, registrySettings) {

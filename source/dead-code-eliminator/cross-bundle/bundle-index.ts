@@ -14,13 +14,13 @@ export type ResolvedTarget = {
 };
 
 export function indexBundles(
-    inputs: readonly { readonly bundle: LinkedBundle; readonly fileBindings: readonly FileBindings[] }[]
+    inputs: readonly { readonly bundle: LinkedBundle; readonly fileBindings: readonly FileBindings[]; }[]
 ): ReadonlyMap<string, IndexedBundle> {
     const map = new Map<string, IndexedBundle>();
     for (const input of inputs) {
         const bindingsByFilePath = new Map<string, FileBindings>(
-            input.fileBindings.map((file) => {
-                return [file.sourceFilePath, file];
+            input.fileBindings.map(function (file) {
+                return [ file.sourceFilePath, file ];
             })
         );
         map.set(input.bundle.name, { bundle: input.bundle, bindingsByFilePath });

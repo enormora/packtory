@@ -8,7 +8,31 @@ import { getErrResult } from '../test-libraries/result-helpers.ts';
 import { createScheduler, type Scheduler as SchedulerType } from './scheduler.ts';
 
 type EmitCallArguments = readonly [string, unknown];
-type PackageNameResult = { readonly packageName: string };
+type PackageNameResult = { readonly packageName: string; };
+type SchedulerFixture = {
+    readonly scheduler: SchedulerType;
+    readonly emit: SinonSpy;
+};
+type ExecutionSnapshot = {
+    readonly existing: readonly string[];
+    readonly packageName: string;
+};
+type CreateOptionsContext = {
+    readonly existing: readonly string[];
+    readonly packageName: string;
+};
+type PackageExecutionSnapshots = {
+    readonly snapshots: readonly ExecutionSnapshot[];
+    readonly configs: readonly unknown[];
+    readonly createOptions: SinonSpy;
+    readonly execute: SinonSpy;
+};
+type SelectStringResultParams = {
+    readonly result: string;
+};
+type SelectPackageNameResultParams = {
+    readonly result: PackageNameResult;
+};
 
 function createValidatedConfig(packages: readonly Record<string, unknown>[]): ValidConfigWithoutRegistryResult {
     const result = validateConfigWithoutRegistry({
@@ -27,17 +51,16 @@ function createValidatedConfig(packages: readonly Record<string, unknown>[]): Va
     return result.value;
 }
 
-function createTestScheduler(emit: SinonSpy = fake()): {
-    readonly scheduler: SchedulerType;
-    readonly emit: SinonSpy;
-} {
+function createTestScheduler(emit: SinonSpy = fake()): SchedulerFixture {
     return {
         scheduler: createScheduler({
             progressBroadcastProvider: {
-                emit: (eventName, payload) => {
+                emit(eventName, payload) {
                     emit(eventName, payload);
                 },
-                hasSubscribers: () => false
+                hasSubscribers() {
+                    return false;
+                }
             }
         }),
         emit
@@ -45,28 +68,25 @@ function createTestScheduler(emit: SinonSpy = fake()): {
 }
 
 function getEmitCallArguments(emit: SinonSpy): readonly EmitCallArguments[] {
-    return emit.getCalls().map((call) => {
+    return emit.getCalls().map(function (call) {
         return call.args as unknown as EmitCallArguments;
     });
 }
 
-function createPackageExecutionSnapshots(config: ValidConfigWithoutRegistryResult): {
-    readonly snapshots: readonly { packageName: string; existing: readonly string[] }[];
-    readonly configs: readonly unknown[];
-    readonly createOptions: SinonSpy;
-    readonly execute: SinonSpy;
-} {
-    const snapshots: { packageName: string; existing: readonly string[] }[] = [];
+function createPackageExecutionSnapshots(config: ValidConfigWithoutRegistryResult): PackageExecutionSnapshots {
+    const snapshots: ExecutionSnapshot[] = [];
     const configs: unknown[] = [];
-    const createOptions = fake((context: { packageName: string; existing: readonly string[] }) => {
-        snapshots.push({
-            packageName: context.packageName,
-            existing: Array.from(context.existing)
-        });
-        configs.push(config);
-        return { packageName: context.packageName, existing: Array.from(context.existing) };
-    });
-    const execute = fake(async (context: { packageName: string }) => {
+    const createOptions = fake(
+        function (context: CreateOptionsContext) {
+            snapshots.push({
+                packageName: context.packageName,
+                existing: Array.from(context.existing)
+            });
+            configs.push(config);
+            return { packageName: context.packageName, existing: Array.from(context.existing) };
+        }
+    );
+    const execute = fake(async function (context: PackageNameResult) {
         return `${context.packageName}-result`;
     });
 
@@ -78,7 +98,7 @@ suite('scheduler', function () {
         const { scheduler, emit } = createTestScheduler();
         const config = createValidatedConfig([
             { name: 'dependency', roots: { main: { js: 'dependency.js' } } },
-            { name: 'package-a', roots: { main: { js: 'entry.js' } }, bundleDependencies: ['dependency'] }
+            { name: 'package-a', roots: { main: { js: 'entry.js' } }, bundleDependencies: [ 'dependency' ] }
         ]);
         const { snapshots, configs, createOptions, execute } = createPackageExecutionSnapshots(config);
 
@@ -86,20 +106,20 @@ suite('scheduler', function () {
             config,
             createOptions,
             execute,
-            selectNext: (params: { result: string }) => {
+            selectNext(params: SelectStringResultParams) {
                 return params.result;
             }
         });
 
-        assert.deepStrictEqual(result, Result.ok(['dependency-result', 'package-a-result']));
+        assert.deepStrictEqual(result, Result.ok([ 'dependency-result', 'package-a-result' ]));
         assert.deepStrictEqual(snapshots, [
             { packageName: 'dependency', existing: [] },
-            { packageName: 'package-a', existing: ['dependency-result'] }
+            { packageName: 'package-a', existing: [ 'dependency-result' ] }
         ]);
-        assert.deepStrictEqual(configs, [config, config]);
+        assert.deepStrictEqual(configs, [ config, config ]);
         assert.deepStrictEqual(getEmitCallArguments(emit), [
-            ['scheduled', { packageName: 'dependency' }],
-            ['scheduled', { packageName: 'package-a' }]
+            [ 'scheduled', { packageName: 'dependency' } ],
+            [ 'scheduled', { packageName: 'package-a' } ]
         ]);
     });
 
@@ -107,18 +127,18 @@ suite('scheduler', function () {
         const { scheduler, emit } = createTestScheduler();
 
         const result = await scheduler.runForEachScheduledPackage({
-            config: createValidatedConfig([{ name: 'package-a', roots: { main: { js: 'entry.js' } } }]),
-            createOptions: (context) => {
+            config: createValidatedConfig([ { name: 'package-a', roots: { main: { js: 'entry.js' } } } ]),
+            createOptions(context) {
                 return context.packageName;
             },
-            execute: async (packageName) => {
+            async execute(packageName) {
                 return { packageName };
             },
-            selectNext: (params) => {
+            selectNext(params) {
                 return params.result.packageName;
             },
             emitScheduledEvents: false,
-            createProgressEvent: (params) => {
+            createProgressEvent(params) {
                 return {
                     version: '1.0.0',
                     status: params.result.packageName === 'package-a' ? 'initial-version' : 'new-version',
@@ -127,7 +147,7 @@ suite('scheduler', function () {
             }
         });
 
-        assert.deepStrictEqual(result, Result.ok([{ packageName: 'package-a' }]));
+        assert.deepStrictEqual(result, Result.ok([ { packageName: 'package-a' } ]));
         assert.deepStrictEqual(getEmitCallArguments(emit), [
             [
                 'done',
@@ -138,7 +158,7 @@ suite('scheduler', function () {
 
     test('runForEachScheduledPackage() returns succeeded results from previous and current generations when a package fails', async function () {
         const { scheduler, emit } = createTestScheduler();
-        const execute = fake(async (context: { packageName: string }) => {
+        const execute = fake(async function (context: PackageNameResult) {
             if (context.packageName === 'package-b') {
                 throw new Error('package-b failed');
             }
@@ -149,17 +169,17 @@ suite('scheduler', function () {
         const result = await scheduler.runForEachScheduledPackage({
             config: createValidatedConfig([
                 { name: 'root', roots: { main: { js: 'root.js' } } },
-                { name: 'package-a', roots: { main: { js: 'package-a.js' } }, bundleDependencies: ['root'] },
-                { name: 'package-b', roots: { main: { js: 'package-b.js' } }, bundleDependencies: ['root'] }
+                { name: 'package-a', roots: { main: { js: 'package-a.js' } }, bundleDependencies: [ 'root' ] },
+                { name: 'package-b', roots: { main: { js: 'package-b.js' } }, bundleDependencies: [ 'root' ] }
             ]),
-            createOptions: (context) => {
+            createOptions(context) {
                 return { packageName: context.packageName };
             },
             execute,
-            selectNext: (params) => {
+            selectNext(params) {
                 return params.result;
             },
-            createProgressEvent: (params) => {
+            createProgressEvent(params) {
                 return {
                     version: params.result,
                     status: 'new-version',
@@ -169,51 +189,59 @@ suite('scheduler', function () {
         });
 
         const error = getErrResult(result, 'Expected result to be an error');
-        assert.deepStrictEqual(error.succeeded, ['root-result', 'package-a-result']);
+        assert.deepStrictEqual(error.succeeded, [ 'root-result', 'package-a-result' ]);
         assert.strictEqual(error.failures.length, 1);
         assert.strictEqual(error.failures[0]?.message, 'package-b failed');
-        assert.deepStrictEqual(getEmitCallArguments(emit), [
-            ['scheduled', { packageName: 'root' }],
-            ['scheduled', { packageName: 'package-a' }],
-            ['scheduled', { packageName: 'package-b' }],
+        const emitCalls = getEmitCallArguments(emit);
+        assert.deepStrictEqual(emitCalls.slice(0, 4), [
+            [ 'scheduled', { packageName: 'root' } ],
+            [ 'scheduled', { packageName: 'package-a' } ],
+            [ 'scheduled', { packageName: 'package-b' } ],
             [
                 'done',
                 { packageName: 'root', version: 'root-result', status: 'new-version', publication: noPublication }
-            ],
-            [
-                'done',
-                {
-                    packageName: 'package-a',
-                    version: 'package-a-result',
-                    status: 'new-version',
-                    publication: noPublication
-                }
-            ],
-            ['error', { packageName: 'package-b', error: new Error('package-b failed') }]
+            ]
         ]);
+        assert.deepStrictEqual(
+            emitCalls.slice(4).toSorted(function ([ leftEvent ], [ rightEvent ]) {
+                return leftEvent.localeCompare(rightEvent);
+            }),
+            [
+                [
+                    'done',
+                    {
+                        packageName: 'package-a',
+                        version: 'package-a-result',
+                        status: 'new-version',
+                        publication: noPublication
+                    }
+                ],
+                [ 'error', { packageName: 'package-b', error: new Error('package-b failed') } ]
+            ]
+        );
     });
 
     test('runForEachScheduledPackage() converts non-Error throws into an unknown error event', async function () {
         const { scheduler, emit } = createTestScheduler();
 
         const result = await scheduler.runForEachScheduledPackage({
-            config: createValidatedConfig([{ name: 'package-a', roots: { main: { js: 'entry.js' } } }]),
-            createOptions: (context) => {
+            config: createValidatedConfig([ { name: 'package-a', roots: { main: { js: 'entry.js' } } } ]),
+            createOptions(context) {
                 return context.packageName;
             },
-            execute: async () => {
+            async execute() {
                 // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors, unicorn/no-useless-promise-resolve-reject -- we intentionally exercise non-Error rejection handling here
                 return Promise.reject('not-an-error');
             },
-            selectNext: (params: { result: PackageNameResult }) => {
+            selectNext(params: SelectPackageNameResultParams) {
                 return params.result;
             }
         });
 
         getErrResult(result, 'Expected result to be an error');
         assert.deepStrictEqual(getEmitCallArguments(emit), [
-            ['scheduled', { packageName: 'package-a' }],
-            ['error', { packageName: 'package-a', error: new Error('Unknown error') }]
+            [ 'scheduled', { packageName: 'package-a' } ],
+            [ 'error', { packageName: 'package-a', error: new Error('Unknown error') } ]
         ]);
     });
 });

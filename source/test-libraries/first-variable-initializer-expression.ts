@@ -2,7 +2,7 @@ import { SyntaxKind, type Expression } from 'ts-morph';
 import { createProject } from './typescript-project.ts';
 
 export function firstVariableInitializerExpression(content: string): Expression {
-    const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
     const sourceFile = project.getSourceFileOrThrow('index.ts');
 
     for (const statement of sourceFile.getChildrenOfKind(SyntaxKind.VariableStatement)) {

@@ -2,6 +2,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
+import type { PackageConfig, PacktoryConfig } from '../../config/config.ts';
+import { buildPackageGraph } from '../../config/package-graph-builder.ts';
+import type { ValidConfigResult } from '../../config/validation.ts';
 import { createIteratingScheduler as iteratingScheduler } from '../../test-libraries/iterating-scheduler.ts';
 import {
     emptyScheduler,
@@ -12,6 +15,38 @@ import {
 import { determineVersionAndPublishAll } from './publish-stage.ts';
 
 suite('publish-stage', function () {
+    function packageConfig(name: string): PackageConfig {
+        return {
+            name,
+            roots: { main: { js: 'index.js' } },
+            sourcesFolder: '/src',
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' }
+        };
+    }
+
+    function configWithPackages(packages: readonly PackageConfig[]): ValidConfigResult {
+        const packageConfigs: Readonly<Record<string, PackageConfig>> = Object.fromEntries(
+            packages.map(function (entry) {
+                return [ entry.name, entry ];
+            })
+        );
+        const packtoryConfig: PacktoryConfig = {
+            registrySettings: { registryUrl: 'https://example.com', auth: { type: 'bearer-token', token: 'x' } },
+            packages
+        };
+
+        return { packageConfigs, packtoryConfig, packageGraph: buildPackageGraph(packageConfigs) };
+    }
+
+    function emptyConfig(): ValidConfigResult {
+        return configWithPackages([]);
+    }
+
+    function publishableConfig(name: string): ValidConfigResult {
+        return configWithPackages([ packageConfig(name) ]);
+    }
+
     test('determineVersionAndPublishAll returns Ok([]) when no packages are scheduled', async function () {
         const result = await determineVersionAndPublishAll(
             {
@@ -20,7 +55,7 @@ suite('publish-stage', function () {
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
+            emptyConfig(),
             [],
             { dryRun: false, stage: false }
         );
@@ -31,7 +66,7 @@ suite('publish-stage', function () {
     test('determineVersionAndPublishAll forwards a scheduler failure unchanged', async function () {
         const result = await determineVersionAndPublishAll(
             failingDependencies('boom'),
-            { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
+            emptyConfig(),
             [],
             { dryRun: false, stage: false }
         );
@@ -39,32 +74,17 @@ suite('publish-stage', function () {
         assert.strictEqual(result.isErr, true);
     });
 
-    function publishableConfig(name: string) {
-        const packageEntry = {
-            name,
-            roots: { main: { js: 'index.js' } },
-            sourcesFolder: '/src',
-            mainPackageJson: { name, version: '1.0.0', type: 'module' },
-            publishSettings: { access: 'public' },
-            registrySettings: { registryUrl: 'https://example.com', token: 'x' }
-        };
-        return {
-            packageConfigs: { [name]: packageEntry },
-            packtoryConfig: { packages: [packageEntry] }
-        };
-    }
-
     test('determineVersionAndPublishAll returns a partial failure when no analyzed bundle is found for a scheduled package', async function () {
         const config = publishableConfig('pkg-orphan');
 
         const result = await determineVersionAndPublishAll(
             {
                 packageProcessor: stubPackageProcessor,
-                scheduler: iteratingScheduler(['pkg-orphan']),
+                scheduler: iteratingScheduler([ 'pkg-orphan' ]),
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            config as never,
+            config,
             [],
             { dryRun: false, stage: false }
         );
@@ -101,11 +121,11 @@ suite('publish-stage', function () {
         await determineVersionAndPublishAll(
             {
                 packageProcessor: processor,
-                scheduler: iteratingScheduler(['pkg-a'], capture),
+                scheduler: iteratingScheduler([ 'pkg-a' ], capture),
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            config as never,
+            config,
             [
                 {
                     name: 'pkg-a',
@@ -121,7 +141,7 @@ suite('publish-stage', function () {
             { dryRun: false, stage: false }
         );
 
-        assert.deepStrictEqual(capture.selected, [bundle]);
+        assert.deepStrictEqual(capture.selected, [ bundle ]);
         assert.deepStrictEqual(capture.events, [
             { version: '2.0.0', status: 'new-version', publication: noPublication }
         ]);

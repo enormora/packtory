@@ -40,7 +40,7 @@ function isDecodedZip(value: unknown): value is DecodedZip {
         return false;
     }
 
-    return Object.values(value).every((entry) => {
+    return Object.values(value).every(function (entry) {
         return entry instanceof Uint8Array;
     });
 }
@@ -51,8 +51,8 @@ function createUnzipFunction(): UnzipFunction {
         throw new TypeError('fflate unzip export is not callable');
     }
 
-    return (data, callback) => {
-        Reflect.apply(unzipValue, undefined, [data, callback]);
+    return function (data, callback) {
+        Reflect.apply(unzipValue, undefined, [ data, callback ]);
     };
 }
 
@@ -102,9 +102,9 @@ function readCentralDirectoryMetadata(buffer: Buffer): Map<string, CentralDirect
 async function decodeZipContents(buffer: Buffer): Promise<DecodedZip> {
     const unzipFunction = createUnzipFunction();
 
-    return await new Promise<DecodedZip>((resolve, reject) => {
+    return await new Promise<DecodedZip>(function (resolve, reject) {
         const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-        unzipFunction(data, (error, decoded) => {
+        unzipFunction(data, function (error, decoded) {
             if (error === null || error === undefined) {
                 if (!isDecodedZip(decoded)) {
                     reject(new Error('fflate unzip returned an invalid decoded payload'));
@@ -121,14 +121,15 @@ async function decodeZipContents(buffer: Buffer): Promise<DecodedZip> {
 export async function extractZipEntries(buffer: Buffer): Promise<readonly ZipEntry[]> {
     const decoded = await decodeZipContents(buffer);
     const metadataByName = readCentralDirectoryMetadata(buffer);
-    return Object.entries(decoded).map(([name, data]) => {
+    const textDecoder = new TextDecoder();
+    return Object.entries(decoded).map(function ([ name, data ]) {
         const metadata = metadataByName.get(name);
         if (metadata === undefined) {
             throw new Error(`zip entry "${name}" is missing from the central directory`);
         }
         return {
             name,
-            content: new TextDecoder().decode(data),
+            content: textDecoder.decode(data),
             unixMode: metadata.unixMode,
             osOfOrigin: metadata.osOfOrigin
         };

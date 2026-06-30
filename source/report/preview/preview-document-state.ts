@@ -19,7 +19,7 @@ export function hasMeaningfulChanges(
 ): boolean {
     return (
         eliminatedSourceFiles.length > 0 ||
-        artifacts.some((artifact) => {
+        artifacts.some(function (artifact) {
             return artifact.status === 'changed';
         })
     );

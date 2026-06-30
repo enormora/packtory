@@ -25,7 +25,7 @@ type EntryPointScriptCall = {
         readonly githubOutput: string | undefined;
     };
     readonly mkdtempPrefix: string;
-    readonly readFile: { readonly encoding: 'utf8'; readonly path: string };
+    readonly readFile: { readonly encoding: 'utf8'; readonly path: string; };
 };
 
 const testDeadlineMilliseconds = 200;
@@ -50,14 +50,17 @@ suite('github-release-gate-test-support', function () {
         const ciRunsRoute = routes[ciRunsPath];
         const pullsRoute = routes[pullsPath];
 
-        assert.ok(ciRunsRoute);
-        assert.ok(pullsRoute);
+        if (ciRunsRoute === undefined || pullsRoute === undefined) {
+            assert.fail('expected base GitHub API routes');
+        }
         assert.strictEqual(
-            (ciRunsRoute.body as { workflow_runs: readonly [{ html_url: string }] }).workflow_runs[0].html_url,
+            (ciRunsRoute.body as { readonly workflow_runs: readonly [{ readonly html_url: string; }]; })
+                .workflow_runs[0]
+                .html_url,
             'https://github.com/enormora/packtory/actions/runs/1'
         );
         assert.strictEqual(
-            (pullsRoute.body as readonly [{ html_url: string }])[0].html_url,
+            (pullsRoute.body as readonly [{ readonly html_url: string; }])[0].html_url,
             'https://github.com/enormora/packtory/pull/1'
         );
     });
@@ -79,14 +82,14 @@ suite('github-release-gate-test-support', function () {
     });
 
     test('getServerPort rejects null and string addresses', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             getServerPort({
                 address() {
                     return null;
                 }
             });
         }, /Expected TCP server address/u);
-        assert.throws(() => {
+        assert.throws(function () {
             getServerPort({
                 address() {
                     return 'pipe';
@@ -96,19 +99,20 @@ suite('github-release-gate-test-support', function () {
     });
 
     test('closeServer resolves on a clean server shutdown', async function () {
-        await withDeadline(
-            closeServer({
-                close(callback) {
-                    callback();
-                }
-            }),
-            'closeServer',
-            testDeadlineMilliseconds
-        );
+        let didClose = false;
+        const shutdown = closeServer({
+            close(callback) {
+                didClose = true;
+                callback();
+            }
+        });
+        await withDeadline(shutdown, 'closeServer', testDeadlineMilliseconds);
+
+        assert.strictEqual(didClose, true);
     });
 
     test('closeServer rejects when the server close callback receives an error', async function () {
-        await assert.rejects(async () => {
+        await assert.rejects(async function () {
             await withDeadline(
                 closeServer({
                     close(callback) {
@@ -123,7 +127,7 @@ suite('github-release-gate-test-support', function () {
 
     test('withGitHubApiServer returns a 404 JSON response for unknown routes', async function () {
         await withDeadline(
-            withGitHubApiServer({}, async (apiBaseUrl) => {
+            withGitHubApiServer({}, async function (apiBaseUrl) {
                 const response = await fetch(`${apiBaseUrl}/missing`, {
                     signal: AbortSignal.timeout(testDeadlineMilliseconds)
                 });
@@ -151,7 +155,7 @@ suite('github-release-gate-test-support', function () {
                         status: 201
                     }
                 },
-                async (url) => {
+                async function (url) {
                     apiBaseUrl = url;
                     const response = await fetch(`${url}/ready`, {
                         signal: AbortSignal.timeout(testDeadlineMilliseconds)
@@ -170,7 +174,7 @@ suite('github-release-gate-test-support', function () {
 
         assert.strictEqual(actionResult, 'done');
         assert.match(apiBaseUrl, /^http:\/\/127\.0\.0\.1:\d+$/u);
-        await assert.rejects(async () => {
+        await assert.rejects(async function () {
             await fetch(`${apiBaseUrl}/ready`, {
                 signal: AbortSignal.timeout(testDeadlineMilliseconds)
             });
@@ -226,7 +230,7 @@ suite('github-release-gate-test-support', function () {
         assert.deepStrictEqual(observedReadFile, { encoding: 'utf8', path: scriptOutputPath });
         assert.deepStrictEqual(calls, {
             execFile: {
-                args: ['--experimental-strip-types', '--enable-source-maps', '/entry.ts'],
+                args: [ '--experimental-strip-types', '--enable-source-maps', '/entry.ts' ],
                 cwd: '/workspace',
                 encoding: 'utf8',
                 file: '/node',

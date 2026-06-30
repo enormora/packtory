@@ -98,7 +98,7 @@ suite('registry-response-schemas', function () {
     test('parseOidcExchangeResponse reports validation issues when expires is missing', function () {
         assert.deepStrictEqual(parseOidcExchangeResponse({ token: 'abc' }), {
             success: false,
-            issues: ['at expires: missing property']
+            issues: [ 'at expires: missing property' ]
         });
     });
 

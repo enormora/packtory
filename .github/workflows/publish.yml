@@ -40,10 +40,10 @@ jobs:
               env:
                   CI_WORKFLOW_FILE: ci.yml
                   DEFAULT_BRANCH: main
-                  DEPENDENCY_ONLY_MIN_AGE_DAYS: '7'
+                  DEPENDENCY_ONLY_MIN_AGE_DAYS: "7"
                   GITHUB_TOKEN: ${{ github.token }}
-                  MAX_LATENCY_HOURS: '24'
-                  QUIET_PERIOD_MINUTES: '45'
+                  MAX_LATENCY_HOURS: "24"
+                  QUIET_PERIOD_MINUTES: "45"
             - name: Log gate decision when publish is skipped
               if: steps.release-gate.outputs.should_publish != 'true'
               env:

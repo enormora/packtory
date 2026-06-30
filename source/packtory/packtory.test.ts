@@ -2,17 +2,86 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
-import type { PacktoryConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
-import { bundleResource, linkedBundle, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
-import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
-import { createTestProgressBroadcaster, getErrResult, getOkResult } from '../test-libraries/result-helpers.ts';
-import type { PackageProcessor } from './package-processor.ts';
-import { createPacktory } from './packtory.ts';
+import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import {
+    bundleResource,
+    linkedBundle,
+    versionedBundleWithManifest,
+    type BundleFixtureLinkedBundle,
+    type BundleFixtureVersionedBundleWithManifest
+} from '../test-libraries/bundle-fixtures.ts';
+import { createTestEliminator, type TestEliminator } from '../test-libraries/eliminator-fixtures.ts';
+import {
+    createTestProgressBroadcaster,
+    type TestProgressBroadcaster,
+    getErrResult,
+    getOkResult
+} from '../test-libraries/result-helpers.ts';
+import { createPacktory, type Packtory } from './packtory.ts';
 
-type PublicationOutcome = { readonly type: 'none' } | { readonly type: 'published' };
+type PublicationOutcome = { readonly type: 'none'; } | { readonly type: 'published'; };
+type ProgressEventInput = {
+    readonly packageName: string;
+    readonly result: unknown;
+    readonly options: unknown;
+};
 
-const noPublicationOutcome: Extract<PublicationOutcome, { type: 'none' }> = { type: 'none' };
-const publishedOutcome: Extract<PublicationOutcome, { type: 'published' }> = { type: 'published' };
+type ProgressEvent = {
+    readonly version: string;
+    readonly status: 'already-published' | 'initial-version' | 'new-version';
+    readonly publication: PublicationOutcome;
+};
+
+type StageResultList = readonly unknown[] & {
+    readonly push: (value: unknown) => unknown;
+};
+
+type StageCreateOptionsInput = {
+    readonly packageName: string;
+    readonly existing: StageResultList;
+    readonly config: unknown;
+};
+
+type SelectNextInput = {
+    readonly result: unknown;
+    readonly options: unknown;
+};
+
+type PackageEntryConfig = {
+    readonly name: string;
+};
+
+type SchedulerConfig = {
+    readonly packtoryConfig: { readonly packages: readonly PackageEntryConfig[]; };
+};
+
+type TestProgressBroadcasterFixture = TestProgressBroadcaster;
+
+type TestDeadCodeEliminator = TestEliminator;
+
+type TestPackageProcessor = {
+    readonly resolveAndLink: SinonSpy;
+    readonly tryBuildAndPublish: SinonSpy;
+    readonly buildAndPublish: SinonSpy;
+    readonly build: () => Promise<never>;
+};
+
+type CollectContents = () => readonly {
+    readonly filePath: string;
+    readonly content: string;
+    readonly isExecutable: boolean;
+}[];
+
+type ResolveOptionsInput = {
+    readonly name: string;
+};
+
+type BuildOptionsInput = {
+    readonly buildOptions: { readonly name: string; };
+};
+
+const noPublicationOutcome: Extract<PublicationOutcome, { readonly type: 'none'; }> = { type: 'none' };
+const publishedOutcome: Extract<PublicationOutcome, { readonly type: 'published'; }> = { type: 'published' };
 
 const releasePlanFileReader = {
     async checkReadability() {
@@ -23,15 +92,15 @@ const releasePlanFileReader = {
     }
 };
 
-function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): ReturnType<typeof linkedBundle> {
+function createLinkedBundle(name: string, sourceFilePath = `/${name}/index.js`): BundleFixtureLinkedBundle {
     return linkedBundle({
         name,
-        contents: [{ ...bundleResource(sourceFilePath, { targetFilePath: 'index.js' }), isSubstituted: false }],
+        contents: [ { ...bundleResource(sourceFilePath, { targetFilePath: 'index.js' }), isSubstituted: false } ],
         roots: { main: { js: { sourceFilePath, targetFilePath: 'index.js', content: '', isExecutable: false } } }
     });
 }
 
-function createVersionedBundle(name: string, version = '1.0.0'): ReturnType<typeof versionedBundleWithManifest> {
+function createVersionedBundle(name: string, version = '1.0.0'): BundleFixtureVersionedBundleWithManifest {
     return versionedBundleWithManifest({
         name,
         version,
@@ -48,38 +117,19 @@ function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): P
             mainPackageJson: { type: 'module' },
             publishSettings: { access: 'public' }
         },
-        packages: [{ name: 'package-a', roots: { main: { js: 'package-a/index.js' } } }],
+        packages: [ { name: 'package-a', roots: { main: { js: 'package-a/index.js' } } } ],
         ...overrides
     };
 }
 
-function createConfig(overrides: Record<string, unknown> = {}): PacktoryConfig {
-    return {
-        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        ...createConfigWithoutRegistry(overrides)
-    };
-}
-
-type CreateProgressEvent = (params: {
-    readonly packageName: string;
-    readonly result: unknown;
-    readonly options: unknown;
-}) => {
-    version: string;
-    status: 'already-published' | 'initial-version' | 'new-version';
-    publication: PublicationOutcome;
-};
+type CreateProgressEvent = (params: ProgressEventInput) => ProgressEvent;
 
 type StageParams = {
-    readonly createOptions: (context: {
-        packageName: string;
-        existing: readonly unknown[];
-        config: unknown;
-    }) => unknown;
+    readonly createOptions: (context: StageCreateOptionsInput) => unknown;
     readonly execute: (options: unknown) => Promise<unknown>;
-    readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
+    readonly selectNext: (params: SelectNextInput) => unknown;
     readonly createProgressEvent?: CreateProgressEvent | undefined;
-    readonly config: { packtoryConfig: { packages: readonly { name: string }[] } };
+    readonly config: SchedulerConfig;
 };
 
 type SchedulerOverrides = {
@@ -87,113 +137,79 @@ type SchedulerOverrides = {
     readonly publishStage?: (params: StageParams) => Promise<Result<readonly unknown[], unknown>>;
 };
 
+type PacktoryFactoryOverrides = SchedulerOverrides & {
+    readonly collectContents?: CollectContents;
+    readonly resolveAndLink?: SinonSpy;
+    readonly tryBuildAndPublish?: SinonSpy;
+    readonly buildAndPublish?: SinonSpy;
+    readonly deadCodeEliminator?: TestDeadCodeEliminator;
+    readonly packEmitterPack?: SinonSpy;
+    readonly versionManagerAddVersion?: SinonSpy;
+};
+
+type ScheduledStageParams = StageParams & {
+    readonly emitScheduledEvents?: boolean;
+};
+
+type DefaultRunStage = (params: StageParams) => Promise<Result<unknown[], never>>;
+
 type PacktoryUnderTest = {
-    readonly packtory: ReturnType<typeof createPacktory>;
+    readonly packtory: Packtory;
     readonly resolveAndLink: SinonSpy;
     readonly tryBuildAndPublish: SinonSpy;
     readonly buildAndPublish: SinonSpy;
     readonly scheduler: {
         readonly runForEachScheduledPackage: SinonSpy;
     };
-    readonly progressBroadcaster: ReturnType<typeof createTestProgressBroadcaster>;
+    readonly progressBroadcaster: TestProgressBroadcasterFixture;
 };
 
-const twoPackageEntries: readonly {
+type TestPackageEntry = {
     readonly name: string;
-    readonly roots: { readonly main: { readonly js: string } };
-}[] = [
+    readonly roots: { readonly main: { readonly js: string; }; };
+};
+
+const twoPackageEntries: readonly TestPackageEntry[] = [
     { name: 'package-a', roots: { main: { js: 'package-a/index.js' } } },
     { name: 'package-b', roots: { main: { js: 'package-b/index.js' } } }
 ];
 
-function recordStageSuccess(params: {
-    readonly existing: unknown[];
-    readonly succeeded: unknown[];
-    readonly selectNext: (params: { result: unknown; options: unknown }) => unknown;
-    readonly result: unknown;
-    readonly options: unknown;
-}): void {
-    params.existing.push(params.selectNext({ result: params.result, options: params.options }));
-    params.succeeded.push(params.result);
+function fallback<TValue>(value: TValue | undefined, defaultValue: TValue): TValue {
+    return value ?? defaultValue;
 }
 
-async function runPublishStageUntilFailure(params: {
-    readonly createOptions: StageParams['createOptions'];
-    readonly execute: StageParams['execute'];
-    readonly selectNext: StageParams['selectNext'];
-    readonly config: StageParams['config'];
-}): Promise<Result<readonly unknown[], unknown>> {
-    const succeeded: unknown[] = [];
-    const failures: Error[] = [];
-    const existing: unknown[] = [];
-
-    for (const packageConfig of params.config.packtoryConfig.packages) {
-        const options = params.createOptions({
-            packageName: packageConfig.name,
-            existing,
-            config: params.config
-        });
-        try {
-            const result = await params.execute(options);
-            recordStageSuccess({
-                existing,
-                succeeded,
-                selectNext: params.selectNext,
-                result,
-                options
-            });
-        } catch (error: unknown) {
-            failures.push(error as Error);
-        }
-    }
-
-    return Result.err({ succeeded, failures });
+function createResolveAndLinkSpy(): SinonSpy {
+    return fake(async function (options: ResolveOptionsInput) {
+        return createLinkedBundle(options.name);
+    });
 }
 
-function createPacktoryUnderTest(
-    overrides: SchedulerOverrides & {
-        readonly collectContents?: () => readonly {
-            readonly filePath: string;
-            readonly content: string;
-            readonly isExecutable: boolean;
-        }[];
-        readonly resolveAndLink?: SinonSpy;
-        readonly tryBuildAndPublish?: SinonSpy;
-        readonly buildAndPublish?: SinonSpy;
-        readonly deadCodeEliminator?: ReturnType<typeof createTestEliminator>;
-        readonly packEmitterPack?: SinonSpy;
-        readonly versionManagerAddVersion?: SinonSpy;
-    } = {}
-): PacktoryUnderTest {
-    const resolveAndLink =
-        overrides.resolveAndLink ??
-        fake(async (options: { name: string }) => {
-            return createLinkedBundle(options.name);
-        });
-    const tryBuildAndPublish =
-        overrides.tryBuildAndPublish ??
-        fake(async (options: { buildOptions: { name: string } }) => {
-            return {
-                bundle: createVersionedBundle(options.buildOptions.name),
-                status: 'initial-version' as const,
-                publication: noPublicationOutcome,
-                extraFiles: [],
-                previousReleaseArtifacts: Maybe.nothing()
-            };
-        });
-    const buildAndPublish =
-        overrides.buildAndPublish ??
-        fake(async (options: { buildOptions: { name: string } }) => {
-            return {
-                bundle: createVersionedBundle(options.buildOptions.name),
-                status: 'new-version' as const,
-                publication: publishedOutcome,
-                extraFiles: [],
-                previousReleaseArtifacts: Maybe.nothing()
-            };
-        });
+function createTryBuildAndPublishSpy(): SinonSpy {
+    return fake(async function (options: BuildOptionsInput) {
+        return {
+            bundle: createVersionedBundle(options.buildOptions.name),
+            status: 'initial-version' as const,
+            publication: noPublicationOutcome,
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        };
+    });
+}
 
-    const defaultRunStage = async (params: StageParams): Promise<Result<unknown[], never>> => {
+function createBuildAndPublishSpy(): SinonSpy {
+    return fake(async function (options: BuildOptionsInput) {
+        return {
+            bundle: createVersionedBundle(options.buildOptions.name),
+            status: 'new-version' as const,
+            publication: publishedOutcome,
+            extraFiles: [],
+            previousReleaseArtifacts: Maybe.nothing()
+        };
+    });
+}
+
+function createDefaultRunStage(): DefaultRunStage {
+    return async function (params: StageParams): Promise<Result<unknown[], never>> {
         const existing: unknown[] = [];
         const results: unknown[] = [];
 
@@ -211,28 +227,37 @@ function createPacktoryUnderTest(
 
         return Result.ok(results);
     };
+}
+
+async function runScheduledStage(
+    params: ScheduledStageParams,
+    overrides: SchedulerOverrides,
+    defaultRunStage: DefaultRunStage
+): Promise<Result<readonly unknown[], unknown>> {
+    if (params.emitScheduledEvents === false) {
+        return overrides.publishStage === undefined ? defaultRunStage(params) : overrides.publishStage(params);
+    }
+    return overrides.resolveStage === undefined ? defaultRunStage(params) : overrides.resolveStage(params);
+}
+
+function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): PacktoryUnderTest {
+    const resolveAndLink = fallback(overrides.resolveAndLink, createResolveAndLinkSpy());
+    const tryBuildAndPublish = fallback(overrides.tryBuildAndPublish, createTryBuildAndPublishSpy());
+    const buildAndPublish = fallback(overrides.buildAndPublish, createBuildAndPublishSpy());
+    const defaultRunStage = createDefaultRunStage();
 
     const scheduler = {
-        runForEachScheduledPackage: fake(async (params: StageParams & { readonly emitScheduledEvents?: boolean }) => {
-            if (params.emitScheduledEvents === false) {
-                if (overrides.publishStage !== undefined) {
-                    return overrides.publishStage(params as never);
-                }
-                return defaultRunStage(params);
+        runForEachScheduledPackage: fake(
+            async function (params: ScheduledStageParams) {
+                return runScheduledStage(params, overrides, defaultRunStage);
             }
-
-            if (overrides.resolveStage !== undefined) {
-                return overrides.resolveStage(params);
-            }
-
-            return defaultRunStage(params);
-        })
+        )
     };
-    const packageProcessor: PackageProcessor = {
+    const packageProcessor: TestPackageProcessor = {
         resolveAndLink,
         tryBuildAndPublish,
         buildAndPublish,
-        build: async () => {
+        async build() {
             throw new Error('Not implemented in tests');
         }
     };
@@ -242,28 +267,36 @@ function createPacktoryUnderTest(
         packtory: createPacktory({
             packageProcessor,
             scheduler: scheduler as never,
-            deadCodeEliminator: overrides.deadCodeEliminator ?? createTestEliminator(),
+            deadCodeEliminator: fallback(overrides.deadCodeEliminator, createTestEliminator()),
             progressBroadcaster,
-            artifactsBuilder: { collectContents: overrides.collectContents ?? (() => []) },
+            artifactsBuilder: {
+                collectContents: fallback(overrides.collectContents, function () {
+                    return [];
+                })
+            },
             fileManager: releasePlanFileReader,
             repositoryFolder: '/',
             versionManager: {
-                addVersion: (overrides.versionManagerAddVersion ??
-                    (() => {
+                addVersion: fallback(
+                    overrides.versionManagerAddVersion,
+                    fake(function () {
                         throw new Error('versionManager.addVersion not implemented in tests');
-                    })) as never,
-                increaseVersion: () => {
+                    })
+                ) as never,
+                increaseVersion() {
                     throw new Error('versionManager.increaseVersion not implemented in tests');
                 }
             },
             packEmitter: {
-                pack: (overrides.packEmitterPack ??
-                    (async () => {
+                pack: fallback(
+                    overrides.packEmitterPack,
+                    fake(async function () {
                         throw new Error('packEmitter.pack not implemented in tests');
-                    })) as never
+                    })
+                ) as never
             },
             vendorMaterializer: {
-                materializeExternals: async () => {
+                async materializeExternals() {
                     return Result.ok({
                         entries: [],
                         packageNames: [],
@@ -283,7 +316,7 @@ function createPacktoryUnderTest(
     };
 }
 
-suite('packtory', function () {
+suite('packtory resolve', function () {
     test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async function () {
         const { packtory } = createPacktoryUnderTest();
 
@@ -293,9 +326,9 @@ suite('packtory', function () {
         assert.strictEqual(error.type, 'config');
     });
 
-    function createPacktoryThatSharesSourceFile(): ReturnType<typeof createPacktoryUnderTest> {
+    function createPacktoryThatSharesSourceFile(): PacktoryUnderTest {
         return createPacktoryUnderTest({
-            resolveAndLink: fake(async (options: { name: string }) => {
+            resolveAndLink: fake(async function (options: ResolveOptionsInput) {
                 return createLinkedBundle(options.name, '/shared.js');
             })
         });
@@ -315,7 +348,7 @@ suite('packtory', function () {
             result,
             Result.err({
                 type: 'checks',
-                issues: ['File "/shared.js" is included in multiple packages: package-a, package-b']
+                issues: [ 'File "/shared.js" is included in multiple packages: package-a, package-b' ]
             })
         );
     });
@@ -330,7 +363,7 @@ suite('packtory', function () {
                     {
                         name: 'package-a',
                         roots: { main: { js: 'package-a/index.js' } },
-                        bundleDependencies: ['dependency']
+                        bundleDependencies: [ 'dependency' ]
                     }
                 ]
             })
@@ -340,495 +373,10 @@ suite('packtory', function () {
         assert.strictEqual(resolveAndLink.callCount, 2);
         assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 1);
         assert.deepStrictEqual(
-            resolvedPackages.map((entry) => {
+            resolvedPackages.map(function (entry) {
                 return entry.name;
             }),
-            ['dependency', 'package-a']
+            [ 'dependency', 'package-a' ]
         );
-    });
-
-    test('buildAndPublishAll() returns config issues when the config with registry is invalid', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const { result } = await packtory.buildAndPublishAll({ invalid: true }, { dryRun: true, stage: false });
-
-        assert.deepStrictEqual(
-            result,
-            Result.err({
-                type: 'config',
-                issues: ['invalid value doesn’t match expected union']
-            })
-        );
-    });
-
-    test('buildAndPublishAll() fails fast with a single config issue when non-dry-run lacks auth', async function () {
-        const buildAndPublish = fake();
-        const tryBuildAndPublish = fake();
-        const resolveAndLink = fake();
-        const { packtory, scheduler } = createPacktoryUnderTest({
-            resolveAndLink,
-            buildAndPublish,
-            tryBuildAndPublish
-        });
-
-        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
-            dryRun: false,
-            stage: false
-        });
-
-        assert.deepStrictEqual(
-            result,
-            Result.err({
-                type: 'config',
-                issues: [
-                    'registrySettings.auth must be configured to publish; run with dryRun=true to skip the registry write.'
-                ]
-            })
-        );
-        assert.strictEqual(resolveAndLink.callCount, 0);
-        assert.strictEqual(tryBuildAndPublish.callCount, 0);
-        assert.strictEqual(buildAndPublish.callCount, 0);
-        assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 0);
-    });
-
-    test('buildAndPublishAll() allows dry-run when auth is omitted (anonymous read)', async function () {
-        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
-
-        const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
-            dryRun: true,
-            stage: false
-        });
-
-        assert.strictEqual(result.isOk, true);
-        assert.strictEqual(tryBuildAndPublish.callCount, 1);
-        assert.strictEqual(buildAndPublish.callCount, 0);
-    });
-
-    test('buildAndPublishAll() returns check failures without entering publish mode', async function () {
-        const buildAndPublish = fake();
-        const tryBuildAndPublish = fake();
-        const { packtory } = createPacktoryUnderTest({
-            resolveAndLink: fake(async (options: { name: string }) => {
-                return createLinkedBundle(options.name, '/shared.js');
-            }),
-            buildAndPublish,
-            tryBuildAndPublish
-        });
-
-        const { result } = await packtory.buildAndPublishAll(
-            createConfig({
-                checks: { noDuplicatedFiles: { enabled: true } },
-                packages: twoPackageEntries
-            }),
-            { dryRun: false, stage: false }
-        );
-
-        assert.deepStrictEqual(
-            result,
-            Result.err({
-                type: 'checks',
-                issues: ['File "/shared.js" is included in multiple packages: package-a, package-b']
-            })
-        );
-        assert.strictEqual(tryBuildAndPublish.callCount, 0);
-        assert.strictEqual(buildAndPublish.callCount, 0);
-    });
-
-    test('buildAndPublishAll() uses tryBuildAndPublish() in dry-run mode and returns successful publish results', async function () {
-        const { packtory, tryBuildAndPublish, buildAndPublish, scheduler } = createPacktoryUnderTest();
-
-        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false });
-
-        assert.deepStrictEqual(
-            result,
-            Result.ok([
-                {
-                    bundle: createVersionedBundle('package-a'),
-                    status: 'initial-version',
-                    publication: noPublicationOutcome,
-                    extraFiles: [],
-                    previousReleaseArtifacts: Maybe.nothing()
-                }
-            ])
-        );
-        assert.strictEqual(tryBuildAndPublish.callCount, 1);
-        assert.strictEqual(buildAndPublish.callCount, 0);
-        assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 2);
-    });
-
-    test('buildAndPublishAll() uses buildAndPublish() outside dry-run mode', async function () {
-        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
-
-        const { result } = await packtory.buildAndPublishAll(createConfig(), { dryRun: false, stage: false });
-
-        assert.deepStrictEqual(
-            result,
-            Result.ok([
-                {
-                    bundle: createVersionedBundle('package-a'),
-                    status: 'new-version',
-                    publication: publishedOutcome,
-                    extraFiles: [],
-                    previousReleaseArtifacts: Maybe.nothing()
-                }
-            ])
-        );
-        assert.strictEqual(tryBuildAndPublish.callCount, 0);
-        assert.strictEqual(buildAndPublish.callCount, 1);
-    });
-
-    function subscribeToPackageFailed(
-        progressBroadcaster: PacktoryUnderTest['progressBroadcaster']
-    ): { packageName: string; stage: string; message: string }[] {
-        const received: { packageName: string; stage: string; message: string }[] = [];
-        progressBroadcaster.consumer.on('packageFailed', (payload) => {
-            received.push({ packageName: payload.packageName, stage: payload.stage, message: payload.message });
-        });
-        return received;
-    }
-
-    test('resolveAndLinkAll() emits packageFailed with stage "resolveAndLink" when the resolve step throws', async function () {
-        const resolveAndLink = fake(async () => {
-            throw new Error('resolve crashed');
-        });
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-            resolveAndLink,
-            resolveStage: runPublishStageUntilFailure
-        });
-        const received = subscribeToPackageFailed(progressBroadcaster);
-
-        await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
-
-        assert.deepStrictEqual(received, [
-            { packageName: 'package-a', stage: 'resolveAndLink', message: 'resolve crashed' }
-        ]);
-    });
-
-    test('buildAndPublishAll() emits packageFailed with stage "publish" when the publish step throws', async function () {
-        const buildAndPublish = fake(async () => {
-            throw new Error('publish crashed');
-        });
-        const tryBuildAndPublish = fake(async () => {
-            throw new Error('publish crashed');
-        });
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-            buildAndPublish,
-            tryBuildAndPublish,
-            publishStage: runPublishStageUntilFailure
-        });
-        const received = subscribeToPackageFailed(progressBroadcaster);
-
-        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false });
-
-        const publishFailures = received.filter((entry) => {
-            return entry.stage === 'publish';
-        });
-        assert.deepStrictEqual(publishFailures, [
-            { packageName: 'package-a', stage: 'publish', message: 'publish crashed' }
-        ]);
-    });
-
-    test('resolveAndLinkAll() disposes the report aggregator after the call completes', async function () {
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-
-        await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
-
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-    });
-
-    test('resolveAndLinkAll() disposes the report aggregator even when the call throws', async function () {
-        const resolveAndLink = fake(async () => {
-            throw new Error('boom');
-        });
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-            resolveAndLink,
-            resolveStage: runPublishStageUntilFailure
-        });
-
-        await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
-
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-    });
-
-    test('buildAndPublishAll() disposes the report aggregator after the call completes', async function () {
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-
-        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false, collectReport: true });
-
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-    });
-
-    test('buildAndPublishAll() disposes the report aggregator even when the call throws', async function () {
-        const buildAndPublish = fake(async () => {
-            throw new Error('boom');
-        });
-        const tryBuildAndPublish = fake(async () => {
-            throw new Error('boom');
-        });
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-            buildAndPublish,
-            tryBuildAndPublish,
-            publishStage: runPublishStageUntilFailure
-        });
-
-        await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false, collectReport: true });
-
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-    });
-
-    test('resolveAndLinkAll() with collectReport=true returns a non-undefined getReport', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const outcome = await packtory.resolveAndLinkAll(createConfigWithoutRegistry(), { collectReport: true });
-
-        assert.notStrictEqual(outcome.getReport(), undefined);
-    });
-
-    test('resolveAndLinkAll() without collectReport returns a getReport that yields undefined', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const outcome = await packtory.resolveAndLinkAll(createConfigWithoutRegistry());
-
-        assert.strictEqual(outcome.getReport(), undefined);
-    });
-
-    test('buildAndPublishAll() with collectReport=true returns a non-undefined getReport', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const outcome = await packtory.buildAndPublishAll(createConfig(), {
-            dryRun: true,
-            stage: false,
-            collectReport: true
-        });
-
-        assert.notStrictEqual(outcome.getReport(), undefined);
-    });
-
-    test('buildAndPublishAll() without collectReport returns a getReport that yields undefined', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const outcome = await packtory.buildAndPublishAll(createConfig(), { dryRun: true, stage: false });
-
-        assert.strictEqual(outcome.getReport(), undefined);
-    });
-
-    test('diffAgainstLatestPublished() returns config issues when the config with registry is invalid', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const { result } = await packtory.diffAgainstLatestPublished({ invalid: true });
-
-        if (result.isOk) {
-            assert.fail('expected an Err result');
-        }
-        assert.strictEqual(result.error.type, 'config');
-    });
-
-    test('diffAgainstLatestPublished() returns Ok with release-diff entries for the configured packages', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const { result } = await packtory.diffAgainstLatestPublished(createConfig());
-
-        if (result.isErr) {
-            assert.fail(`expected an Ok result, got ${JSON.stringify(result.error)}`);
-        }
-        assert.ok(result.value.length >= 0);
-    });
-
-    test('diffAgainstLatestPublished() runs through the dry-run publish path (tryBuildAndPublish), never the real publish', async function () {
-        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
-
-        await packtory.diffAgainstLatestPublished(createConfig());
-
-        assert.strictEqual(tryBuildAndPublish.callCount, 1);
-        assert.strictEqual(buildAndPublish.callCount, 0);
-    });
-
-    test('diffAgainstLatestPublished() always exposes a getReport that returns a BuildReport with the version decisions made during the dry-run', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const outcome = await packtory.diffAgainstLatestPublished(createConfig());
-
-        const report = outcome.getReport();
-        assert.ok(report.packages['package-a']);
-    });
-
-    test('diffAgainstLatestPublished() disposes the report aggregator on exit so no listeners are left dangling', async function () {
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-
-        await packtory.diffAgainstLatestPublished(createConfig());
-
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('versionDetermined'), false);
-    });
-
-    test('analyzeReleaseAgainstLatestPublished() returns config issues when the config with registry is invalid', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const { result } = await packtory.analyzeReleaseAgainstLatestPublished({ invalid: true });
-
-        if (result.isOk) {
-            assert.fail('expected an Err result');
-        }
-        assert.strictEqual(result.error.type, 'config');
-    });
-
-    test('analyzeReleaseAgainstLatestPublished() classifies first publishes through the dry-run publish path', async function () {
-        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest();
-
-        const { result } = await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
-
-        if (result.isErr) {
-            assert.fail(`expected an Ok result, got ${JSON.stringify(result.error)}`);
-        }
-        assert.strictEqual(result.value.classification, 'first-publish');
-        assert.strictEqual(tryBuildAndPublish.callCount, 1);
-        assert.strictEqual(buildAndPublish.callCount, 0);
-    });
-
-    test('analyzeReleaseAgainstLatestPublished() disposes the report aggregator after the call completes', async function () {
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-
-        await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
-
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-    });
-
-    test('analyzeReleaseAgainstLatestPublished() disposes the report aggregator even when the call throws', async function () {
-        const resolveAndLink = fake(async () => {
-            throw new Error('boom');
-        });
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest({
-            resolveAndLink,
-            resolveStage: runPublishStageUntilFailure
-        });
-
-        await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
-
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-    });
-
-    test('analyzeReleaseAgainstLatestPublished() exposes a getReport and classifies dependency-only package.json changes', async function () {
-        const { packtory } = createPacktoryUnderTest({
-            tryBuildAndPublish: fake(async (options: { buildOptions: { name: string } }) => {
-                return {
-                    bundle: createVersionedBundle(options.buildOptions.name, '1.0.1'),
-                    status: 'new-version' as const,
-                    publication: noPublicationOutcome,
-                    extraFiles: [],
-                    previousReleaseArtifacts: Maybe.just({
-                        version: '1.0.0',
-                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                        gitHead: undefined,
-                        files: [
-                            {
-                                filePath: 'package.json',
-                                content: '{"name":"package-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}',
-                                isExecutable: false
-                            }
-                        ]
-                    })
-                };
-            }),
-            collectContents: () => {
-                return [
-                    {
-                        filePath: 'package.json',
-                        content: '{"name":"package-a","version":"1.0.1","dependencies":{"a":"1.1.0"}}',
-                        isExecutable: false
-                    }
-                ];
-            }
-        });
-
-        const outcome = await packtory.analyzeReleaseAgainstLatestPublished(createConfig());
-
-        if (outcome.result.isErr) {
-            assert.fail(`expected an Ok result, got ${JSON.stringify(outcome.result.error)}`);
-        }
-        assert.strictEqual(outcome.result.value.classification, 'dependency-only');
-        assert.deepStrictEqual(outcome.result.value.mostRecentPublishedAt, new Date('2026-05-01T00:00:00.000Z'));
-        assert.ok(outcome.getReport().packages['package-a']);
-    });
-
-    test('planReleaseAgainstLatestPublished() returns config issues when the config with registry is invalid', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const { result } = await packtory.planReleaseAgainstLatestPublished({ invalid: true });
-
-        if (result.isOk) {
-            assert.fail('expected an Err result');
-        }
-        assert.strictEqual(result.error.type, 'config');
-    });
-
-    test('planReleaseAgainstLatestPublished() builds a release plan through the dry-run publish path', async function () {
-        const { packtory, tryBuildAndPublish, buildAndPublish } = createPacktoryUnderTest({
-            collectContents() {
-                return [{ filePath: 'package/index.js', content: 'new', isExecutable: false }];
-            }
-        });
-
-        const { result } = await packtory.planReleaseAgainstLatestPublished(createConfig());
-
-        if (result.isErr) {
-            assert.fail(`expected an Ok result, got ${JSON.stringify(result.error)}`);
-        }
-        assert.deepStrictEqual(result.value.packages, [
-            {
-                name: 'package-a',
-                previousVersion: undefined,
-                nextVersion: '1.0.0',
-                artifactState: 'first-publish',
-                releaseClassification: 'first-publish',
-                changed: true,
-                previousGitHead: undefined,
-                currentGitHead: undefined,
-                latestRegistryMetadata: undefined,
-                artifactFiles: ['index.js'],
-                changedArtifactFiles: ['index.js'],
-                sourceFiles: ['/package-a/index.js'],
-                changelogDependencyNames: [],
-                changelogSourceFiles: ['package-a/index.js']
-            }
-        ]);
-        assert.strictEqual(tryBuildAndPublish.callCount, 1);
-        assert.strictEqual(buildAndPublish.callCount, 0);
-    });
-
-    test('planReleaseAgainstLatestPublished() exposes a getReport and disposes the report aggregator', async function () {
-        const { packtory, progressBroadcaster } = createPacktoryUnderTest();
-
-        const outcome = await packtory.planReleaseAgainstLatestPublished(createConfig());
-
-        assert.ok(outcome.getReport().packages['package-a']);
-        assert.strictEqual(progressBroadcaster.provider.hasSubscribers('inputsResolved'), false);
-    });
-
-    const packPublicOptions = {
-        packageName: 'package-a',
-        format: 'zip' as const,
-        outputPath: '/out/package-a.zip',
-        version: '1.0.0',
-        vendorDependencies: false
-    };
-
-    test('packPackage() returns a config failure when the supplied config is invalid', async function () {
-        const { packtory } = createPacktoryUnderTest();
-
-        const { result } = await packtory.packPackage({ invalid: true }, packPublicOptions);
-
-        const error = getErrResult(result, 'expected packPackage() to fail with a config error');
-        assert.strictEqual(error.type, 'config');
-    });
-
-    test('packPackage() returns Ok and forwards the bundle to packEmitter.pack when the config validates and the package is resolvable', async function () {
-        const versionManagerAddVersion = fake.returns(createVersionedBundle('package-a'));
-        const packEmitterPack = fake.resolves(undefined);
-        const { packtory } = createPacktoryUnderTest({ versionManagerAddVersion, packEmitterPack });
-
-        const { result } = await packtory.packPackage(createConfigWithoutRegistry(), packPublicOptions);
-
-        getOkResult(result, 'expected packPackage() to succeed');
-        assert.strictEqual(versionManagerAddVersion.callCount, 1);
-        assert.strictEqual(packEmitterPack.callCount, 1);
     });
 });

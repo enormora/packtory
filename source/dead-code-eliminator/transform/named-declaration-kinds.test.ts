@@ -1,11 +1,19 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { Statement } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
 
-function statementsFor(content: string) {
-    const project = createProject({ withFiles: [{ filePath: '/source.ts', content }] });
+function statementsFor(content: string): readonly Statement[] {
+    const project = createProject({ withFiles: [ { filePath: '/source.ts', content } ] });
     return project.getSourceFileOrThrow('/source.ts').getStatements();
+}
+
+function firstTwoStatements(content: string): readonly [Statement, Statement] {
+    const [ first, second ] = statementsFor(content);
+    assert.ok(first !== undefined);
+    assert.ok(second !== undefined);
+    return [ first, second ];
 }
 
 suite('named-declaration-kinds', function () {
@@ -18,7 +26,8 @@ suite('named-declaration-kinds', function () {
                 'type T = number;',
                 'enum E { A }',
                 'namespace N {}'
-            ].join('\n')
+            ]
+                .join('\n')
         );
 
         for (const statement of statements) {
@@ -27,9 +36,9 @@ suite('named-declaration-kinds', function () {
     });
 
     test('isNamedDeclaration returns false for variable statements and side-effecting expressions', function () {
-        const [variableStatement, expressionStatement] = statementsFor('const x = 1;\nconsole.log("hi");');
+        const [ variableStatement, expressionStatement ] = firstTwoStatements('const x = 1;\nconsole.log("hi");');
 
-        assert.strictEqual(isNamedDeclaration(variableStatement!), false);
-        assert.strictEqual(isNamedDeclaration(expressionStatement!), false);
+        assert.strictEqual(isNamedDeclaration(variableStatement), false);
+        assert.strictEqual(isNamedDeclaration(expressionStatement), false);
     });
 });

@@ -9,7 +9,12 @@ import {
 } from '../test-libraries/bundle-fixtures.ts';
 import type { PackageInterface } from '../config/package-interface.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
-import { buildVersionedBundle, type BuildVersionedBundleOptions } from './versioned-bundle.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import {
+    buildVersionedBundle,
+    type BuildVersionedBundleOptions,
+    type VersionedBundle
+} from './versioned-bundle.ts';
 
 type BuildOverrides = Partial<BuildVersionedBundleOptions> & {
     readonly mainPackageJson?: MainPackageJson;
@@ -28,7 +33,7 @@ function buildOptions(overrides: BuildOverrides = {}): BuildVersionedBundleOptio
     };
 }
 
-function explicitCliBundle(packageInterface: PackageInterface) {
+function explicitCliBundle(packageInterface: PackageInterface): AnalyzedBundle {
     return createAnalyzedBundle({
         roots: {
             cli: {
@@ -47,7 +52,7 @@ function explicitCliBundle(packageInterface: PackageInterface) {
     });
 }
 
-function assertCliMainFile(result: ReturnType<typeof buildVersionedBundle>): void {
+function assertCliMainFile(result: VersionedBundle): void {
     assert.deepStrictEqual(result.mainFile, {
         sourceFilePath: '/src/cli.js',
         targetFilePath: 'cli.js',
@@ -68,8 +73,8 @@ suite('versioned-bundle', function () {
             buildOptions({
                 bundle: createAnalyzedBundle({
                     linkedBundleDependencies: new Map([
-                        ['bundle-dependency', createReferencedDependency('bundle-dependency')],
-                        ['peer-dependency', createReferencedDependency('peer-dependency')]
+                        [ 'bundle-dependency', createReferencedDependency('bundle-dependency') ],
+                        [ 'peer-dependency', createReferencedDependency('peer-dependency') ]
                     ])
                 }),
                 bundleDependencies: [
@@ -102,7 +107,7 @@ suite('versioned-bundle', function () {
     test('buildVersionedBundle() exposes the bin field and omits typesMainFile for an explicit bin-only surface', function () {
         const result = buildVersionedBundle(
             buildOptions({
-                bundle: explicitCliBundle({ bins: [{ root: 'cli', name: 'package-a' }] })
+                bundle: explicitCliBundle({ bins: [ { root: 'cli', name: 'package-a' } ] })
             })
         );
 
@@ -113,7 +118,7 @@ suite('versioned-bundle', function () {
     });
 
     test('buildVersionedBundle() throws when an implicit surface references an unknown defaultModuleRoot', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             buildVersionedBundle(
                 buildOptions({
                     bundle: createAnalyzedBundle({
@@ -126,14 +131,14 @@ suite('versioned-bundle', function () {
     });
 
     test('buildVersionedBundle() throws when an explicit module entry references an unknown root', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             buildVersionedBundle(
                 buildOptions({
                     bundle: createAnalyzedBundle({
                         roots: {},
                         surface: {
                             mode: 'explicit',
-                            packageInterface: { modules: [{ root: 'missing', export: '.' }] }
+                            packageInterface: { modules: [ { root: 'missing', export: '.' } ] }
                         }
                     })
                 })

@@ -42,17 +42,17 @@ export type PackageReport = {
             readonly symbols: readonly DroppedSymbol[];
             readonly seeds: readonly CrossBundleSeed[];
         };
-        readonly linker?: { readonly rewrites: readonly ImportRewrite[] };
+        readonly linker?: { readonly rewrites: readonly ImportRewrite[]; };
         readonly version?: VersionDecision;
         readonly packageJson?: Readonly<Record<string, FieldProvenance>>;
     };
     readonly outputs?: {
-        readonly tarball: { readonly entries: readonly ArtifactEntry[]; readonly totalBytes: number };
+        readonly tarball: { readonly entries: readonly ArtifactEntry[]; readonly totalBytes: number; };
     };
     readonly publication?: PublicationOutcome;
     readonly eliminatedSourceFiles?: readonly EliminatedSourceFile[];
     readonly timings: Readonly<Record<string, number>>;
-    readonly failure?: { readonly stage: StageName; readonly message: string };
+    readonly failure?: { readonly stage: StageName; readonly message: string; };
 };
 
 export type BuildReport = {
@@ -68,22 +68,22 @@ type Required<T> = NonNullable<T>;
 type Inputs = Required<PackageReport['inputs']>;
 
 export type MutablePackageReport = {
-    roots?: Inputs['roots'];
-    siblingVersions?: Inputs['siblingVersions'];
-    sourceFileCount?: Inputs['sourceFileCount'];
-    effectiveConfig?: RedactedConfig;
-    decisions: {
-        dependencyScan?: Required<PackageReport['decisions']['dependencyScan']>;
-        deadCodeElimination?: Required<PackageReport['decisions']['deadCodeElimination']>;
-        linker?: Required<PackageReport['decisions']['linker']>;
-        version?: Required<PackageReport['decisions']['version']>;
-        packageJson?: Required<PackageReport['decisions']['packageJson']>;
+    readonly roots?: Inputs['roots'];
+    readonly siblingVersions?: Inputs['siblingVersions'];
+    readonly sourceFileCount?: Inputs['sourceFileCount'];
+    readonly effectiveConfig?: RedactedConfig;
+    readonly decisions: {
+        readonly dependencyScan?: Required<PackageReport['decisions']['dependencyScan']>;
+        readonly deadCodeElimination?: Required<PackageReport['decisions']['deadCodeElimination']>;
+        readonly linker?: Required<PackageReport['decisions']['linker']>;
+        readonly version?: Required<PackageReport['decisions']['version']>;
+        readonly packageJson?: Required<PackageReport['decisions']['packageJson']>;
     };
-    outputs?: Required<PackageReport['outputs']>;
-    publication?: Required<PackageReport['publication']>;
-    eliminatedSourceFiles?: PackageReport['eliminatedSourceFiles'];
-    timings: Record<string, number>;
-    failure?: Required<PackageReport['failure']>;
+    readonly outputs?: Required<PackageReport['outputs']>;
+    readonly publication?: Required<PackageReport['publication']>;
+    readonly eliminatedSourceFiles?: PackageReport['eliminatedSourceFiles'];
+    readonly timings: Readonly<Record<string, number>>;
+    readonly failure?: Required<PackageReport['failure']>;
 };
 
 export function createEmptyMutablePackageReport(): MutablePackageReport {

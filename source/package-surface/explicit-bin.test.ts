@@ -6,14 +6,14 @@ import type { ExplicitSurface } from './package-shape.ts';
 
 const cliBin: ExplicitSurface = {
     mode: 'explicit',
-    packageInterface: { bins: [{ root: 'cli', name: 'package-a' }] }
+    packageInterface: { bins: [ { root: 'cli', name: 'package-a' } ] }
 };
 
 suite('explicit-bin', function () {
     test('returns undefined when the explicit surface declares no bins', function () {
         const modulesOnly: ExplicitSurface = {
             mode: 'explicit',
-            packageInterface: { modules: [{ root: 'main', export: '.' }] }
+            packageInterface: { modules: [ { root: 'main', export: '.' } ] }
         };
 
         assert.strictEqual(buildExplicitBinField({ name: 'package-a', roots: {} }, modulesOnly), undefined);
@@ -47,7 +47,7 @@ suite('explicit-bin', function () {
     });
 
     test('throws when a bin root has no shebang in its content', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             buildExplicitBinField({ name: 'package-a', roots: { cli: plainRoot('cli.js') } }, cliBin);
         }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang$/u);
     });
@@ -55,7 +55,7 @@ suite('explicit-bin', function () {
     test('rejects executable-without-shebang roots as bin targets', function () {
         const executableWithoutShebang = rootWithSource('', 'cli.js', { content: 'plain\n', isExecutable: true });
 
-        assert.throws(() => {
+        assert.throws(function () {
             buildExplicitBinField({ name: 'package-a', roots: { cli: executableWithoutShebang } }, cliBin);
         }, /^Error: Package "package-a" bin "package-a" must point to a root with a shebang$/u);
     });
@@ -63,10 +63,10 @@ suite('explicit-bin', function () {
     test('throws when a bin references an unknown root', function () {
         const missingBin: ExplicitSurface = {
             mode: 'explicit',
-            packageInterface: { bins: [{ root: 'missing', name: 'package-a' }] }
+            packageInterface: { bins: [ { root: 'missing', name: 'package-a' } ] }
         };
 
-        assert.throws(() => {
+        assert.throws(function () {
             buildExplicitBinField({ name: 'package-a', roots: { cli: shebangRoot('cli.js') } }, missingBin);
         }, /^Error: Package "package-a" references unknown root "missing"$/u);
     });

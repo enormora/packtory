@@ -31,7 +31,7 @@ export function buildReachabilityIndex(
     const declarationIndex = buildDeclarationNodeIndex(input.files);
     const nodeById = buildNodeById(input.files);
     const maximumNodeCount = nodeById.size;
-    const expand = (id: string): Iterable<string> => {
+    const expand = function (id: string): Iterable<string> {
         const node = nodeById.get(id);
         return node === undefined ? emptyStringSet : collectIdentifierTargets(node, declarationIndex);
     };

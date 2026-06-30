@@ -8,6 +8,10 @@ type SubstitutionBundleLookups = {
     readonly targetFilePaths: ReadonlySet<string>;
     readonly rootSourceFilePaths: ReadonlySet<string>;
 };
+type BundleContentLookups = {
+    readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
+    readonly targetFilePaths: ReadonlySet<string>;
+};
 type DeclarationCompanionRule = {
     readonly declarationExtension: string;
     readonly jsExtension: string;
@@ -23,10 +27,7 @@ function collectRootSourceFilePaths(bundle: SubstitutionBundle): ReadonlySet<str
     return rootSourceFilePaths;
 }
 
-function collectBundleContentLookups(bundle: SubstitutionBundle): {
-    readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
-    readonly targetFilePaths: ReadonlySet<string>;
-} {
+function collectBundleContentLookups(bundle: SubstitutionBundle): BundleContentLookups {
     const contentBySourceFilePath = new Map<string, BundleContent>();
     const targetFilePaths = new Set<string>();
 
@@ -88,11 +89,13 @@ function findDeclarationCompanionTargetPath(
     targetFilePaths: ReadonlySet<string>,
     targetFilePath: string
 ): string | null | undefined {
-    for (const rule of [
-        { declarationExtension: '.d.mts', jsExtension: '.mjs' },
-        { declarationExtension: '.d.cts', jsExtension: '.cjs' },
-        { declarationExtension: '.d.ts', jsExtension: '.js' }
-    ] as const) {
+    for (
+        const rule of [
+            { declarationExtension: '.d.mts', jsExtension: '.mjs' },
+            { declarationExtension: '.d.cts', jsExtension: '.cjs' },
+            { declarationExtension: '.d.ts', jsExtension: '.js' }
+        ] as const
+    ) {
         const declarationTargetPath = declarationCompanionTargetPathFor(rule, targetFilePaths, targetFilePath);
         if (declarationTargetPath !== undefined) {
             return declarationTargetPath;
@@ -139,7 +142,7 @@ export function collectSubstitutionExports(
     for (const sourceFilePath of substitutionPublicModuleSourcePaths) {
         const entry = buildSubstitutionExportEntry(bundle.name, lookups, sourceFilePath);
         if (entry !== undefined) {
-            const [exportKey, exportEntry] = entry;
+            const [ exportKey, exportEntry ] = entry;
             substitutionExports[exportKey] = exportEntry;
         }
     }

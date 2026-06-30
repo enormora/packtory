@@ -13,18 +13,14 @@ export function bundleRelativePath(filePath: string): string {
 function currentAndAncestorFolders(startFolder: string): readonly string[] {
     const folders: string[] = [];
     let currentFolder = path.resolve(startFolder);
-    const ancestorSteps = Array.from({ length: currentFolder.split(path.sep).length + 1 });
+    let parentFolder = path.dirname(currentFolder);
 
-    ancestorSteps.some(() => {
+    while (parentFolder !== currentFolder) {
         folders.push(currentFolder);
-        const parentFolder = path.dirname(currentFolder);
-        if (parentFolder === currentFolder) {
-            return true;
-        }
-
         currentFolder = parentFolder;
-        return false;
-    });
+        parentFolder = path.dirname(currentFolder);
+    }
+    folders.push(currentFolder);
 
     return folders;
 }
@@ -65,11 +61,12 @@ export function ancestorInstalledDependencyPathCandidates(
     currentFolder: string,
     relativeTargetPath: string
 ): readonly string[] {
-    const candidates: string[] = [];
-
-    for (const folder of currentAndAncestorFolders(currentFolder)) {
-        candidates.push(path.join(folder, installedDependenciesFolderName, relativeTargetPath));
-    }
+    const candidates: string[] = Array.from(
+        currentAndAncestorFolders(currentFolder),
+        function (folder) {
+            return path.join(folder, installedDependenciesFolderName, relativeTargetPath);
+        }
+    );
 
     return candidates;
 }

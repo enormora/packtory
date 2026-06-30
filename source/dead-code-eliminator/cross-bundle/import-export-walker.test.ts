@@ -4,26 +4,25 @@ import { linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { indexBundles, type IndexedBundle } from './bundle-index.ts';
 import { walkCrossBundleStatements } from './import-export-walker.ts';
-import { createSeedStore } from './seed-store.ts';
+import { createSeedStore, type SeedMap } from './seed-store.ts';
 
 function emptyIndex(): ReadonlyMap<string, IndexedBundle> {
-    return indexBundles([{ bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] }]);
+    return indexBundles([ { bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] } ]);
 }
 
 function walkContent(
     content: string,
     localReachable: ReadonlySet<string> = new Set()
-): ReturnType<typeof createSeedStore> {
-    const project = createProject({ withFiles: [{ filePath: '/a/index.ts', content }] });
+): SeedMap {
+    const project = createProject({ withFiles: [ { filePath: '/a/index.ts', content } ] });
     const sourceFile = project.getSourceFileOrThrow('/a/index.ts');
     const seeds = createSeedStore();
-    walkCrossBundleStatements(sourceFile, {
+    return walkCrossBundleStatements(sourceFile, {
         indexed: emptyIndex(),
         seeds,
         sourceFilePath: sourceFile.getFilePath(),
         localReachable
     });
-    return seeds;
 }
 
 suite('import-export-walker', function () {
@@ -32,7 +31,7 @@ suite('import-export-walker', function () {
     });
 
     test('walkCrossBundleStatements ignores imports whose specifier matches no indexed bundle', function () {
-        assert.strictEqual(walkContent('import { x } from "external";', new Set(['x'])).size, 0);
+        assert.strictEqual(walkContent('import { x } from "external";', new Set([ 'x' ])).size, 0);
     });
 
     test('walkCrossBundleStatements ignores exports whose specifier matches no indexed bundle', function () {

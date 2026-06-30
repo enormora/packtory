@@ -1,7 +1,7 @@
 import { parseValidConfig } from './changelog-destinations.ts';
 import { formatGitHubRepositoryName, parseGitHubRepositoryParts } from './github-repository.ts';
 import type { ReleaseGitClient } from './release-git-client.ts';
-import { runReleaseHandler } from './release-handler.ts';
+import { runReleaseHandler, type ReleaseHandlerDeps } from './release-handler.ts';
 import {
     authorizeReleasePublishFromCommit,
     authorizeReleasePublishFromPullRequest,
@@ -24,7 +24,7 @@ import {
 
 type Logger = (message: string) => void;
 type EnvironmentReader = (name: string) => string | undefined;
-type ReleaseHandlerDependencies = Parameters<typeof runReleaseHandler>[0];
+type ReleaseHandlerDependencies = ReleaseHandlerDeps;
 
 type AuthorizePublishReleasePullRequestFlags = {
     readonly command: 'authorize-publish';
@@ -42,19 +42,18 @@ type ValidateReleasePullRequestFlags = {
     readonly releasePullRequestNumber: undefined;
 };
 
-type ReleasePullRequestFlags =
-    | AuthorizePublishReleasePullRequestFlags
-    | MaintainReleasePullRequestFlags
-    | ValidateReleasePullRequestFlags;
+type ReleasePullRequestWriteFlags = AuthorizePublishReleasePullRequestFlags | MaintainReleasePullRequestFlags;
+type ReleasePullRequestFlags = ReleasePullRequestWriteFlags | ValidateReleasePullRequestFlags;
+type GitHubClientContext = {
+    readonly owner: string;
+    readonly repo: string;
+    readonly token: string;
+};
 
 export type ReleasePullRequestHandlerDependencies = {
     readonly createGitHubReleaseClient: ReleaseHandlerDependencies['createGitHubReleaseClient'];
     readonly createPrLogEngine: ReleaseHandlerDependencies['createPrLogEngine'];
-    readonly createReleasePullRequestGitHubClient: (context: {
-        readonly owner: string;
-        readonly repo: string;
-        readonly token: string;
-    }) => ReleasePullRequestGitHubClient;
+    readonly createReleasePullRequestGitHubClient: (context: GitHubClientContext) => ReleasePullRequestGitHubClient;
     readonly currentDate: () => Date;
     readonly fileManager: {
         readonly readFile: (filePath: string) => Promise<string>;
@@ -65,10 +64,10 @@ export type ReleasePullRequestHandlerDependencies = {
     readonly log: Logger;
     readonly packtory: ReleaseHandlerDependencies['packtory'];
     readonly readEnvironmentVariable: EnvironmentReader;
-    readonly readPackageInfo: () => Promise<Record<string, unknown>>;
+    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
     readonly sleep: (milliseconds: number) => Promise<void>;
-    readonly spinnerRenderer: { readonly stopAll: () => void };
-    readonly configLoader: { readonly load: () => Promise<unknown> };
+    readonly spinnerRenderer: { readonly stopAll: () => void; };
+    readonly configLoader: { readonly load: () => Promise<unknown>; };
     readonly workingDirectory: string;
 };
 
@@ -77,29 +76,42 @@ type LoadedReleasePullRequestConfig = {
     readonly policyConfig: ReleasePullRequestPolicyConfig;
 };
 
+type GitHubMergeGroupEvent = {
+    readonly base_sha?: string | undefined;
+    readonly head_sha?: string | undefined;
+};
+type GitHubPullRequestEvent = {
+    readonly number?: number | undefined;
+};
 type GitHubEvent = {
-    readonly merge_group?: { readonly base_sha?: string | undefined; readonly head_sha?: string | undefined };
-    readonly pull_request?: { readonly number?: number | undefined };
+    readonly merge_group?: GitHubMergeGroupEvent | undefined;
+    readonly pull_request?: GitHubPullRequestEvent | undefined;
 };
 type GitHubContext = {
     readonly client: ReleasePullRequestGitHubClient;
     readonly repository: string;
 };
-
+type GitHubRepositoryNameParts = {
+    readonly owner: string;
+    readonly repo: string;
+};
+type GitHubRepository = GitHubRepositoryNameParts & {
+    readonly name: string;
+};
 function formatHandlerError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
 function readGitHubToken(dependencies: Pick<ReleasePullRequestHandlerDependencies, 'readEnvironmentVariable'>): string {
-    const token =
-        dependencies.readEnvironmentVariable('GH_TOKEN') ?? dependencies.readEnvironmentVariable('GITHUB_TOKEN');
+    const token = dependencies.readEnvironmentVariable('GH_TOKEN') ??
+        dependencies.readEnvironmentVariable('GITHUB_TOKEN');
     if (token === undefined) {
         throw new Error('GH_TOKEN or GITHUB_TOKEN must be set');
     }
     return token;
 }
 
-function parseGitHubRepositoryName(repositoryName: string): { readonly owner: string; readonly repo: string } {
+function parseGitHubRepositoryName(repositoryName: string): GitHubRepositoryNameParts {
     const ownerSeparatorIndex = repositoryName.indexOf('/');
     const owner = repositoryName.slice(0, ownerSeparatorIndex);
     const repo = repositoryName.slice(ownerSeparatorIndex + 1);
@@ -111,7 +123,7 @@ function parseGitHubRepositoryName(repositoryName: string): { readonly owner: st
 
 async function readGitHubRepository(
     dependencies: Pick<ReleasePullRequestHandlerDependencies, 'readEnvironmentVariable' | 'readPackageInfo'>
-): Promise<{ readonly name: string; readonly owner: string; readonly repo: string }> {
+): Promise<GitHubRepository> {
     const repositoryName = dependencies.readEnvironmentVariable('GITHUB_REPOSITORY');
     if (repositoryName !== undefined) {
         const { owner, repo } = parseGitHubRepositoryName(repositoryName);
@@ -122,10 +134,7 @@ async function readGitHubRepository(
     return { ...repository, name: formatGitHubRepositoryName(packageInfo) };
 }
 
-async function createGitHubClient(dependencies: ReleasePullRequestHandlerDependencies): Promise<{
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly repository: string;
-}> {
+async function createGitHubClient(dependencies: ReleasePullRequestHandlerDependencies): Promise<GitHubContext> {
     const repository = await readGitHubRepository(dependencies);
     return {
         client: dependencies.createReleasePullRequestGitHubClient({
@@ -225,13 +234,12 @@ async function prepareReleasePullRequest(
     return releaseHead === originalHead ? undefined : releaseHead;
 }
 
-async function updateReleasePullRequest(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly dependencies: ReleasePullRequestHandlerDependencies;
-    readonly releaseHead: string;
-}): Promise<number> {
-    const { client, config, dependencies, releaseHead } = input;
+async function updateReleasePullRequest(
+    dependencies: ReleasePullRequestHandlerDependencies,
+    client: ReleasePullRequestGitHubClient,
+    config: ReleasePullRequestConfig,
+    releaseHead: string
+): Promise<number> {
     await dependencies.gitClient.pushHeadToBranch(config.branch);
     const pullRequestNumber = await client.createOrUpdateReleasePullRequest({
         baseBranch: config.defaultBranch,
@@ -250,27 +258,22 @@ async function updateReleasePullRequest(input: {
     return ciSucceeded ? 0 : 1;
 }
 
-async function finishReleasePullRequestMaintenance(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly dependencies: ReleasePullRequestHandlerDependencies;
-    readonly releaseHead: string | undefined;
-}): Promise<number> {
-    if (input.releaseHead === undefined) {
-        await closeReleaseState(input.dependencies, input.client, input.config);
-        input.dependencies.log('No release content remains');
+async function finishReleasePullRequestMaintenance(
+    dependencies: ReleasePullRequestHandlerDependencies,
+    client: ReleasePullRequestGitHubClient,
+    config: ReleasePullRequestConfig,
+    releaseHead: string | undefined
+): Promise<number> {
+    if (releaseHead === undefined) {
+        await closeReleaseState(dependencies, client, config);
+        dependencies.log('No release content remains');
         return 0;
     }
-    return updateReleasePullRequest({
-        client: input.client,
-        config: input.config,
-        dependencies: input.dependencies,
-        releaseHead: input.releaseHead
-    });
+    return updateReleasePullRequest(dependencies, client, config, releaseHead);
 }
 
 type MaintainReleasePullRequestHandlerDependencies = ReleasePullRequestHandlerDependencies & {
-    readonly flags: Extract<ReleasePullRequestFlags, { readonly command: 'maintain' }>;
+    readonly flags: Extract<ReleasePullRequestFlags, { readonly command: 'maintain'; }>;
 };
 
 async function runMaintain(dependencies: MaintainReleasePullRequestHandlerDependencies): Promise<number> {
@@ -281,7 +284,7 @@ async function runMaintain(dependencies: MaintainReleasePullRequestHandlerDepend
     const loadedConfig = await loadReleasePullRequestConfig(dependencies);
     const { client } = await createGitHubClient(dependencies);
     const releaseHead = await prepareReleasePullRequest(dependencies);
-    return finishReleasePullRequestMaintenance({ client, config: loadedConfig.config, dependencies, releaseHead });
+    return finishReleasePullRequestMaintenance(dependencies, client, loadedConfig.config, releaseHead);
 }
 
 function readRequiredEnvironmentVariable(dependencies: ReleasePullRequestHandlerDependencies, name: string): string {
@@ -292,25 +295,29 @@ function readRequiredEnvironmentVariable(dependencies: ReleasePullRequestHandler
     return value;
 }
 
+function parseJsonString(content: string): unknown {
+    return JSON.parse(content) as unknown;
+}
+
 async function readGitHubEvent(dependencies: ReleasePullRequestHandlerDependencies): Promise<GitHubEvent> {
     const eventPath = readRequiredEnvironmentVariable(dependencies, 'GITHUB_EVENT_PATH');
-    const parsedEvent: unknown = JSON.parse(await dependencies.fileManager.readFile(eventPath));
+    const parsedEvent = parseJsonString(await dependencies.fileManager.readFile(eventPath));
     if (!isGitHubEvent(parsedEvent)) {
         throw new Error('GitHub event payload must be an object');
     }
     return parsedEvent;
 }
 
-async function toPolicyInput(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly expectedBaseSha: string;
-    readonly pullRequestNumber: number;
-}): Promise<ReleasePullRequestPolicyInput> {
-    const pullRequest = await input.client.getPullRequestHead(input.pullRequestNumber);
+async function toPolicyInput(
+    client: ReleasePullRequestGitHubClient,
+    expectedBaseSha: string,
+    pullRequestNumber: number
+): Promise<ReleasePullRequestPolicyInput> {
+    const pullRequest = await client.getPullRequestHead(pullRequestNumber);
     return {
         author: pullRequest.author,
         changedFiles: pullRequest.changedFiles,
-        expectedBaseSha: input.expectedBaseSha,
+        expectedBaseSha,
         headRef: pullRequest.headRef,
         labels: pullRequest.labels,
         parentShas: pullRequest.parentShas,
@@ -319,53 +326,53 @@ async function toPolicyInput(input: {
     };
 }
 
-async function runPullRequestValidation(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: LoadedReleasePullRequestConfig;
-    readonly event: GitHubEvent;
-}): Promise<void> {
-    const pullRequestNumber = input.event.pull_request?.number;
+async function runPullRequestValidation(
+    client: ReleasePullRequestGitHubClient,
+    config: LoadedReleasePullRequestConfig,
+    event: GitHubEvent
+): Promise<void> {
+    const pullRequestNumber = event.pull_request?.number;
     if (pullRequestNumber === undefined) {
         throw new Error('GitHub pull_request event payload is missing pull_request.number');
     }
-    const expectedBaseSha = await input.client.getBranchHeadSha(input.config.config.defaultBranch);
-    const policyInput = await toPolicyInput({ client: input.client, expectedBaseSha, pullRequestNumber });
-    if (policyInput.labels.includes(input.config.config.label)) {
-        validateReleasePullRequestPolicy(policyInput, input.config.policyConfig);
+    const expectedBaseSha = await client.getBranchHeadSha(config.config.defaultBranch);
+    const policyInput = await toPolicyInput(client, expectedBaseSha, pullRequestNumber);
+    if (policyInput.labels.includes(config.config.label)) {
+        validateReleasePullRequestPolicy(policyInput, config.policyConfig);
     }
 }
 
-async function runMergeGroupValidation(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: LoadedReleasePullRequestConfig;
-    readonly event: GitHubEvent;
-}): Promise<void> {
-    const headSha = input.event.merge_group?.head_sha;
-    const expectedBaseSha = input.event.merge_group?.base_sha;
+async function runMergeGroupValidation(
+    client: ReleasePullRequestGitHubClient,
+    config: LoadedReleasePullRequestConfig,
+    event: GitHubEvent
+): Promise<void> {
+    const headSha = event.merge_group?.head_sha;
+    const expectedBaseSha = event.merge_group?.base_sha;
     if (headSha === undefined || expectedBaseSha === undefined) {
         throw new Error('GitHub merge_group event payload is missing merge group SHAs');
     }
-    const pullRequests = await input.client.listCommitPullRequests(headSha);
+    const pullRequests = await client.listCommitPullRequests(headSha);
     const policyInputs = await Promise.all(
-        pullRequests.map(async (pullRequest) => {
-            return toPolicyInput({ client: input.client, expectedBaseSha, pullRequestNumber: pullRequest.number });
+        pullRequests.map(async function (pullRequest) {
+            return toPolicyInput(client, expectedBaseSha, pullRequest.number);
         })
     );
-    validateReleaseMergeGroupPolicy({ pullRequests: policyInputs }, input.config.policyConfig);
+    validateReleaseMergeGroupPolicy({ pullRequests: policyInputs }, config.policyConfig);
 }
 
-async function validateGitHubEvent(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: LoadedReleasePullRequestConfig;
-    readonly event: GitHubEvent;
-    readonly eventName: string;
-}): Promise<void> {
-    if (input.eventName === 'pull_request') {
-        await runPullRequestValidation(input);
+async function validateGitHubEvent(
+    client: ReleasePullRequestGitHubClient,
+    config: LoadedReleasePullRequestConfig,
+    event: GitHubEvent,
+    eventName: string
+): Promise<void> {
+    if (eventName === 'pull_request') {
+        await runPullRequestValidation(client, config, event);
         return;
     }
-    if (input.eventName === 'merge_group') {
-        await runMergeGroupValidation(input);
+    if (eventName === 'merge_group') {
+        await runMergeGroupValidation(client, config, event);
         return;
     }
     throw new Error('release-pr validate only supports pull_request and merge_group events');
@@ -376,14 +383,14 @@ async function runValidate(dependencies: ReleasePullRequestHandlerDependencies):
     const { client } = await createGitHubClient(dependencies);
     const eventName = readRequiredEnvironmentVariable(dependencies, 'GITHUB_EVENT_NAME');
     const event = await readGitHubEvent(dependencies);
-    await validateGitHubEvent({ client, config: loadedConfig, event, eventName });
+    await validateGitHubEvent(client, loadedConfig, event, eventName);
     dependencies.log('Release PR policy passed.');
     return 0;
 }
 
 function formatAuthorizationOutput(authorization: ReleasePublishAuthorization): readonly string[] {
     if (!authorization.shouldPublish) {
-        return ['should_publish=false'];
+        return [ 'should_publish=false' ];
     }
     return [
         'should_publish=true',
@@ -421,54 +428,52 @@ async function writeAuthorizationOutput(
 }
 
 async function authorizeManualPublish(
-    input: {
-        readonly config: LoadedReleasePullRequestConfig;
-        readonly dependencies: ReleasePullRequestHandlerDependencies;
-        readonly github: GitHubContext;
-    },
+    config: LoadedReleasePullRequestConfig,
+    dependencies: ReleasePullRequestHandlerDependencies,
+    github: GitHubContext,
     releasePullRequestNumber: string
 ): Promise<ReleasePublishAuthorization> {
-    const refName = readRequiredEnvironmentVariable(input.dependencies, 'GITHUB_REF_NAME');
-    if (refName !== input.config.config.defaultBranch) {
-        throw new Error(`Manual release publish retries must run from ${input.config.config.defaultBranch}`);
+    const refName = readRequiredEnvironmentVariable(dependencies, 'GITHUB_REF_NAME');
+    if (refName !== config.config.defaultBranch) {
+        throw new Error(`Manual release publish retries must run from ${config.config.defaultBranch}`);
     }
     return authorizeReleasePublishFromPullRequest({
-        config: input.config.policyConfig,
-        pullRequest: await input.github.client.getPullRequest(Number(releasePullRequestNumber)),
-        repository: input.github.repository
+        config: config.policyConfig,
+        pullRequest: await github.client.getPullRequest(Number(releasePullRequestNumber)),
+        repository: github.repository
     });
 }
 
-async function authorizePushPublish(input: {
-    readonly config: LoadedReleasePullRequestConfig;
-    readonly dependencies: ReleasePullRequestHandlerDependencies;
-    readonly github: GitHubContext;
-}): Promise<ReleasePublishAuthorization> {
-    const commitSha = readRequiredEnvironmentVariable(input.dependencies, 'GITHUB_SHA');
+async function authorizePushPublish(
+    config: LoadedReleasePullRequestConfig,
+    dependencies: ReleasePullRequestHandlerDependencies,
+    github: GitHubContext
+): Promise<ReleasePublishAuthorization> {
+    const commitSha = readRequiredEnvironmentVariable(dependencies, 'GITHUB_SHA');
     return authorizeReleasePublishFromCommit({
         commitSha,
-        config: input.config.policyConfig,
-        pullRequests: await input.github.client.listCommitPullRequests(commitSha),
-        repository: input.github.repository
+        config: config.policyConfig,
+        pullRequests: await github.client.listCommitPullRequests(commitSha),
+        repository: github.repository
     });
 }
 
-async function authorizePublish(input: {
-    readonly config: LoadedReleasePullRequestConfig;
-    readonly dependencies: ReleasePullRequestHandlerDependencies;
-    readonly github: GitHubContext;
-}): Promise<ReleasePublishAuthorization> {
-    const { releasePullRequestNumber } = input.dependencies.flags;
+async function authorizePublish(
+    config: LoadedReleasePullRequestConfig,
+    dependencies: ReleasePullRequestHandlerDependencies,
+    github: GitHubContext
+): Promise<ReleasePublishAuthorization> {
+    const { releasePullRequestNumber } = dependencies.flags;
     if (releasePullRequestNumber !== undefined) {
-        return authorizeManualPublish(input, releasePullRequestNumber);
+        return authorizeManualPublish(config, dependencies, github, releasePullRequestNumber);
     }
-    return authorizePushPublish(input);
+    return authorizePushPublish(config, dependencies, github);
 }
 
 async function runAuthorizePublish(dependencies: ReleasePullRequestHandlerDependencies): Promise<number> {
     const config = await loadReleasePullRequestConfig(dependencies);
     const github = await createGitHubClient(dependencies);
-    await writeAuthorizationOutput(dependencies, await authorizePublish({ config, dependencies, github }));
+    await writeAuthorizationOutput(dependencies, await authorizePublish(config, dependencies, github));
     return 0;
 }
 

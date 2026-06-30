@@ -5,7 +5,7 @@ import type { MainPackageJson } from '../../config/package-json.ts';
 import { groupExternalDependencies } from './external-dependency-classification.ts';
 
 function externalDep(name: string): ExternalDependency {
-    return { name, referencedFrom: ['/src/a.ts'] };
+    return { name, referencedFrom: [ '/src/a.ts' ] };
 }
 
 const baseMainPackageJson: MainPackageJson = { type: 'module' };
@@ -13,7 +13,7 @@ const workspaceMalformedReason =
     'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace,' +
     ' not valid in a published manifest';
 
-suite('external-dependency-classification', function () {
+function registerExternalDependencyGroupingTests(): void {
     test('groupExternalDependencies returns empty groups when the bundle has no external dependencies', function () {
         assert.deepStrictEqual(
             groupExternalDependencies({ externalDependencies: new Map() }, baseMainPackageJson, []),
@@ -27,7 +27,7 @@ suite('external-dependency-classification', function () {
     test('groupExternalDependencies routes a direct dependency version to dependencies', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([['left-pad', externalDep('left-pad')]]) },
+                { externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]) },
                 { ...baseMainPackageJson, dependencies: { 'left-pad': '^1.0.0' } },
                 []
             ),
@@ -38,7 +38,7 @@ suite('external-dependency-classification', function () {
     test('groupExternalDependencies routes a peer dependency version to peerDependencies', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([['react', externalDep('react')]]) },
+                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
                 { ...baseMainPackageJson, peerDependencies: { react: '^19.0.0' } },
                 []
             ),
@@ -49,7 +49,7 @@ suite('external-dependency-classification', function () {
     test('groupExternalDependencies prefers peerDependencies over dependencies when the dep is in both', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([['react', externalDep('react')]]) },
+                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
                 {
                     ...baseMainPackageJson,
                     dependencies: { react: '^18.0.0' },
@@ -64,7 +64,7 @@ suite('external-dependency-classification', function () {
     test('groupExternalDependencies throws when an external dependency is missing from the main package.json', function () {
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([['left-pad', externalDep('left-pad')]]) },
+                { externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]) },
                 baseMainPackageJson,
                 []
             );
@@ -76,16 +76,19 @@ suite('external-dependency-classification', function () {
             );
         }
     });
+}
 
+function registerExternalDependencyPolicyTests(): void {
     test('groupExternalDependencies throws a mutable-specifier message when a dep uses a git url', function () {
         const expected = [
             "Refusing to publish: 1 dependency uses a mutable specifier, which bypasses the npm registry's integrity guarantees:",
             '  - "react" → "git+https://github.com/our-fork/react#v18.0.0" (git)',
             'Add the dep name to dependencyPolicy.allowMutableSpecifiers to allow this on purpose.'
-        ].join('\n');
+        ]
+            .join('\n');
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([['react', externalDep('react')]]) },
+                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
                 { ...baseMainPackageJson, dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' } },
                 []
             );
@@ -100,10 +103,11 @@ suite('external-dependency-classification', function () {
             'Refusing to publish: 1 dependency has a specifier that npm cannot publish:',
             `  - "shared-utils" → "workspace:*" (${workspaceMalformedReason})`,
             'Replace with a registry version (e.g. "^1.2.3"). Mutable-specifier allow-listing does not apply here.'
-        ].join('\n');
+        ]
+            .join('\n');
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([['shared-utils', externalDep('shared-utils')]]) },
+                { externalDependencies: new Map([ [ 'shared-utils', externalDep('shared-utils') ] ]) },
                 { ...baseMainPackageJson, dependencies: { 'shared-utils': 'workspace:*' } },
                 []
             );
@@ -118,8 +122,8 @@ suite('external-dependency-classification', function () {
             groupExternalDependencies(
                 {
                     externalDependencies: new Map([
-                        ['shared-utils', externalDep('shared-utils')],
-                        ['react', externalDep('react')]
+                        [ 'shared-utils', externalDep('shared-utils') ],
+                        [ 'react', externalDep('react') ]
                     ])
                 },
                 {
@@ -140,9 +144,9 @@ suite('external-dependency-classification', function () {
     test('groupExternalDependencies lets a mutable specifier through when its name is in allowMutableSpecifiers', function () {
         assert.deepStrictEqual(
             groupExternalDependencies(
-                { externalDependencies: new Map([['react', externalDep('react')]]) },
+                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
                 { ...baseMainPackageJson, dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' } },
-                ['react']
+                [ 'react' ]
             ),
             {
                 dependencies: { react: 'git+https://github.com/our-fork/react#v18.0.0' },
@@ -156,12 +160,13 @@ suite('external-dependency-classification', function () {
             'Refusing to publish: 1 entry in dependencyPolicy.allowMutableSpecifiers is not in use:',
             '  - "old-vendored-pkg"',
             'Remove unused entries — they reflect stale exceptions to the integrity policy.'
-        ].join('\n');
+        ]
+            .join('\n');
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([['left-pad', externalDep('left-pad')]]) },
+                { externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]) },
                 { ...baseMainPackageJson, dependencies: { 'left-pad': '^1.0.0' } },
-                ['old-vendored-pkg']
+                [ 'old-vendored-pkg' ]
             );
             assert.fail('Expected groupExternalDependencies() to throw but it did not');
         } catch (error: unknown) {
@@ -172,13 +177,18 @@ suite('external-dependency-classification', function () {
     test('groupExternalDependencies prefers a mutable error over an unused-allow-list error', function () {
         try {
             groupExternalDependencies(
-                { externalDependencies: new Map([['react', externalDep('react')]]) },
+                { externalDependencies: new Map([ [ 'react', externalDep('react') ] ]) },
                 { ...baseMainPackageJson, dependencies: { react: 'git+https://github.com/foo/bar#v1' } },
-                ['old-vendored-pkg']
+                [ 'old-vendored-pkg' ]
             );
             assert.fail('Expected groupExternalDependencies() to throw but it did not');
         } catch (error: unknown) {
             assert.match((error as Error).message, /uses a mutable specifier/u);
         }
     });
+}
+
+suite('external-dependency-classification', function () {
+    registerExternalDependencyGroupingTests();
+    registerExternalDependencyPolicyTests();
 });

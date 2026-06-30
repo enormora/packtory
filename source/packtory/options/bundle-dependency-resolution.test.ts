@@ -19,22 +19,25 @@ suite('bundle-dependency-resolution', function () {
         const bundleA = { name: 'pkg-b', payload: 'b' };
         const bundleB = { name: 'pkg-c', payload: 'c' };
 
-        const result = resolveBundleDependencies(pkg({ bundleDependencies: ['pkg-b', 'pkg-c'] }), [bundleA, bundleB]);
+        const result = resolveBundleDependencies(pkg({ bundleDependencies: [ 'pkg-b', 'pkg-c' ] }), [
+            bundleA,
+            bundleB
+        ]);
 
-        assert.deepStrictEqual(result.bundleDependencies, [bundleA, bundleB]);
+        assert.deepStrictEqual(result.bundleDependencies, [ bundleA, bundleB ]);
     });
 
     test('resolveBundleDependencies maps each declared peer dependency name to the matching bundle', function () {
         const peer = { name: 'pkg-peer', payload: 'p' };
 
-        const result = resolveBundleDependencies(pkg({ bundlePeerDependencies: ['pkg-peer'] }), [peer]);
+        const result = resolveBundleDependencies(pkg({ bundlePeerDependencies: [ 'pkg-peer' ] }), [ peer ]);
 
-        assert.deepStrictEqual(result.bundlePeerDependencies, [peer]);
+        assert.deepStrictEqual(result.bundlePeerDependencies, [ peer ]);
     });
 
     test('resolveBundleDependencies throws when a declared dependency has no matching bundle', function () {
         try {
-            resolveBundleDependencies(pkg({ bundleDependencies: ['missing'] }), []);
+            resolveBundleDependencies(pkg({ bundleDependencies: [ 'missing' ] }), []);
             assert.fail('Expected resolveBundleDependencies() to throw but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'Dependent bundle "missing" not found');

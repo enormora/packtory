@@ -1,9 +1,18 @@
-import { FormattedZodError, formatZodError, type SafeParseResult } from '@schema-hub/zod-error-formatter';
+import { FormattedZodError, formatZodError } from '@schema-hub/zod-error-formatter';
 import { z } from 'zod/v4-mini';
 import type { $ZodIssue, $ZodType, output as TypeOf } from 'zod/v4/core';
 
 type NonEmptyStringArray = readonly [string, ...(readonly string[])];
 type PathSegment = PropertyKey;
+type SchemaValidationSuccess<Output> = {
+    readonly success: true;
+    readonly data: Output;
+};
+type SchemaValidationFailure = {
+    readonly success: false;
+    readonly error: FormattedZodError;
+};
+export type SchemaValidationResult<Output> = SchemaValidationFailure | SchemaValidationSuccess<Output>;
 
 function normalizeValidationIssue(issue: string): string {
     return issue
@@ -14,7 +23,7 @@ function normalizeValidationIssue(issue: string): string {
 
 function formatPath(path: readonly PathSegment[]): string {
     return path
-        .map((segment) => {
+        .map(function (segment) {
             return typeof segment === 'number' ? `[${segment}]` : `.${String(segment)}`;
         })
         .join('')
@@ -55,7 +64,7 @@ function shouldUseGenericUnionIssue(issue: $ZodIssue, normalizedFallbackIssue: s
     return (
         normalizedFallbackIssue === 'Invalid input' ||
         normalizedFallbackIssue.includes('invalid value doesn’t match expected union') ||
-        (issue.path.length === 0 && normalizedFallbackIssue.startsWith('at '))
+        issue.path.length === 0 && normalizedFallbackIssue.startsWith('at ')
     );
 }
 
@@ -69,7 +78,7 @@ function formatUnionIssue(issue: $ZodIssue, fallbackIssue: string): string {
 }
 
 function formatInvalidValueIssue(
-    issue: Extract<$ZodIssue, { readonly code: 'invalid_value' }>,
+    issue: Extract<$ZodIssue, { readonly code: 'invalid_value'; }>,
     input: unknown
 ): string {
     const actualValue = valueAtPath(input, issue.path);
@@ -77,7 +86,7 @@ function formatInvalidValueIssue(
         return `${formatPathPrefix(issue.path)}missing property`;
     }
 
-    const [expectedValue] = issue.values;
+    const [ expectedValue ] = issue.values;
     const expectedValueMessage = formatExpectedValue(expectedValue);
     const actualTypeMessage = formatActualType(actualValue);
     const issuePath = formatPathPrefix(issue.path);
@@ -101,15 +110,18 @@ function normalizeIssues(
     fallbackIssues: NonEmptyStringArray,
     value: unknown
 ): NonEmptyStringArray {
-    const normalizedIssues = issues.map((issue, index) => {
+    const normalizedIssues = issues.map(function (issue, index) {
         const fallbackIssue = String(fallbackIssues[index]);
         return formatStableIssue(issue, value, fallbackIssue) ?? normalizeValidationIssue(fallbackIssue);
     });
 
-    return [String(normalizedIssues[0]), ...normalizedIssues.slice(1)];
+    return [ String(normalizedIssues[0]), ...normalizedIssues.slice(1) ];
 }
 
-export function safeParse<Schema extends $ZodType>(schema: Schema, value: unknown): SafeParseResult<TypeOf<Schema>> {
+export function safeParse<Schema extends $ZodType>(
+    schema: Schema,
+    value: unknown
+): SchemaValidationResult<TypeOf<Schema>> {
     const result = z.safeParse(schema, value);
     if (result.success) {
         return result;

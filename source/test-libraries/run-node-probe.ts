@@ -7,16 +7,16 @@ type RunNodeProbeOptions = {
 const defaultTimeoutMs = 3000;
 
 export async function runNodeProbe(script: string, options: RunNodeProbeOptions = {}): Promise<unknown> {
-    return new Promise<unknown>((resolve, reject) => {
+    return new Promise<unknown>(function (resolve, reject) {
         execFile(
             process.execPath,
-            ['--experimental-strip-types', '--enable-source-maps', '--input-type=module', '-e', script],
+            [ '--experimental-strip-types', '--enable-source-maps', '--input-type=module', '-e', script ],
             {
                 cwd: process.cwd(),
                 encoding: 'utf8',
                 timeout: options.timeoutMs ?? defaultTimeoutMs
             },
-            (error, standardOutput) => {
+            function (error, standardOutput) {
                 if (error instanceof Error) {
                     reject(error);
                     return;

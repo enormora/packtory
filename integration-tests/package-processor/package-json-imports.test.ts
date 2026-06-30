@@ -3,6 +3,49 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 
+type BuiltPackage = Awaited<ReturnType<typeof packageProcessor.build>>;
+
+type ImportsPackageJson = {
+    readonly type: 'module';
+    readonly imports: Readonly<Record<string, string>>;
+};
+
+type BuildPackageParams = {
+    readonly sourcesFolder: string;
+    readonly mainPackageJson: ImportsPackageJson;
+    readonly name: string;
+    readonly version: string;
+    readonly entryFileName: string;
+    readonly bundleDependencies: readonly BuiltPackage[];
+};
+
+async function buildPackage(params: BuildPackageParams): Promise<BuiltPackage> {
+    return packageProcessor.build({
+        name: params.name,
+        version: params.version,
+        sourcesFolder: params.sourcesFolder,
+        roots: { main: { js: path.join(params.sourcesFolder, params.entryFileName) } },
+        mainPackageJson: params.mainPackageJson,
+        includeSourceMapFiles: false,
+        additionalFiles: [],
+        bundleDependencies: params.bundleDependencies,
+        bundlePeerDependencies: [],
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
+    });
+}
+
+function findEntry(bundle: BuiltPackage, targetFilePath: string): BuiltPackage['contents'][number] {
+    const entry = bundle.contents.find(function (resource) {
+        return resource.fileDescription.targetFilePath === targetFilePath;
+    });
+    if (entry === undefined) {
+        assert.fail(`Expected ${targetFilePath} to be present in the bundle`);
+    }
+    return entry;
+}
+
 suite('package-json-imports', function () {
     test('resolves package.json#imports from mainPackageJson and emits only surviving non-substituted entries', async function () {
         const fixture = path.join(process.cwd(), 'integration-tests/fixtures/package-json-imports');
@@ -15,34 +58,21 @@ suite('package-json-imports', function () {
             }
         };
 
-        const firstBundle = await packageProcessor.build({
+        const firstBundle = await buildPackage({
+            sourcesFolder,
+            mainPackageJson,
             name: 'first',
             version: '1.2.3',
-            sourcesFolder,
-            roots: { main: { js: path.join(sourcesFolder, 'entry-first.js') } },
-            mainPackageJson,
-            includeSourceMapFiles: false,
-            additionalFiles: [],
-            bundleDependencies: [],
-            bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
-            allowMutableSpecifiers: [],
-            deadCodeElimination: { enabled: false }
+            entryFileName: 'entry-first.js',
+            bundleDependencies: []
         });
-
-        const secondBundle = await packageProcessor.build({
+        const secondBundle = await buildPackage({
+            sourcesFolder,
+            mainPackageJson,
             name: 'second',
             version: '2.3.4',
-            sourcesFolder,
-            roots: { main: { js: path.join(sourcesFolder, 'entry-second.js') } },
-            mainPackageJson,
-            includeSourceMapFiles: false,
-            additionalFiles: [],
-            bundleDependencies: [firstBundle],
-            bundlePeerDependencies: [],
-            additionalPackageJsonAttributes: {},
-            allowMutableSpecifiers: [],
-            deadCodeElimination: { enabled: false }
+            entryFileName: 'entry-second.js',
+            bundleDependencies: [ firstBundle ]
         });
 
         assert.deepStrictEqual(firstBundle.packageJson.imports, {
@@ -55,12 +85,7 @@ suite('package-json-imports', function () {
             first: '1.2.3'
         });
 
-        const rewrittenEntry = secondBundle.contents.find((resource) => {
-            return resource.fileDescription.targetFilePath === 'entry-second.js';
-        });
-        if (rewrittenEntry === undefined) {
-            assert.fail('Expected entry-second.js to be present in the second bundle');
-        }
+        const rewrittenEntry = findEntry(secondBundle, 'entry-second.js');
 
         assert.strictEqual(
             rewrittenEntry.fileDescription.content,

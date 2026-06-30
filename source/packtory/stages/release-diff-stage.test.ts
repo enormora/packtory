@@ -4,20 +4,23 @@ import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
 import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
-import type { ArtifactsBuilder } from '../../artifacts/artifacts-builder.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import { createIteratingScheduler, type IteratingSchedulerCapture } from '../../test-libraries/iterating-scheduler.ts';
 import { buildSbomFixtureContent } from '../../test-libraries/sbom-fixtures.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { Scheduler as PackageScheduler } from '../scheduler.ts';
-import type { FileSetDiff } from '../../report/release-diff/file-set-diff.ts';
-import { runReleaseDiffStage } from './release-diff-stage.ts';
+import type { FileSetDiff, PackageReleaseDiff } from '../../report/release-diff/file-set-diff.ts';
+import { runReleaseDiffStage, type ReleaseDiffStageResult } from './release-diff-stage.ts';
+
+type ArtifactsBuilderStub = {
+    readonly collectContents: SinonSpy;
+};
 
 function configFor(packageNames: readonly string[]): ValidConfigResult {
     return {
         packtoryConfig: {
-            packages: packageNames.map((name) => {
+            packages: packageNames.map(function (name) {
                 return { name };
             })
         }
@@ -39,7 +42,7 @@ function buildResultFor(name: string, overrides: Partial<BuildAndPublishResult> 
     };
 }
 
-function artifactsBuilderReturning(files: readonly FileDescription[]): { collectContents: SinonSpy } {
+function artifactsBuilderReturning(files: readonly FileDescription[]): ArtifactsBuilderStub {
     return { collectContents: fake.returns(files) };
 }
 
@@ -49,12 +52,27 @@ async function runPkgAStage(
 ): ReturnType<typeof runReleaseDiffStage> {
     return runReleaseDiffStage(
         {
-            artifactsBuilder: artifactsBuilderReturning(files) as unknown as ArtifactsBuilder,
-            scheduler: createIteratingScheduler(['pkg-a'])
+            artifactsBuilder: artifactsBuilderReturning(files),
+            scheduler: createIteratingScheduler([ 'pkg-a' ])
         },
-        configFor(['pkg-a']),
-        [buildResultFor('pkg-a', buildResultOverrides)]
+        configFor([ 'pkg-a' ]),
+        [ buildResultFor('pkg-a', buildResultOverrides) ]
     );
+}
+
+function expectOk(result: ReleaseDiffStageResult): readonly PackageReleaseDiff[] {
+    if (result.isErr) {
+        assert.fail('expected ok result');
+    }
+    return result.value;
+}
+
+function expectFirstEntry(result: ReleaseDiffStageResult): PackageReleaseDiff {
+    const [ first ] = expectOk(result);
+    if (first === undefined) {
+        assert.fail('expected first result');
+    }
+    return first;
 }
 
 async function runSbomDiff(previousSbom: string, currentSbom: string): Promise<FileSetDiff> {
@@ -66,10 +84,10 @@ async function runSbomDiff(previousSbom: string, currentSbom: string): Promise<F
     ];
     const result = await runReleaseDiffStage(
         {
-            artifactsBuilder: artifactsBuilderReturning(newFiles) as unknown as ArtifactsBuilder,
-            scheduler: createIteratingScheduler(['pkg-a'])
+            artifactsBuilder: artifactsBuilderReturning(newFiles),
+            scheduler: createIteratingScheduler([ 'pkg-a' ])
         },
-        configFor(['pkg-a']),
+        configFor([ 'pkg-a' ]),
         [
             buildResultFor('pkg-a', {
                 previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: previousFiles })
@@ -79,20 +97,19 @@ async function runSbomDiff(previousSbom: string, currentSbom: string): Promise<F
     if (result.isErr) {
         assert.fail('expected ok result');
     }
-    const [entry] = result.value;
-    assert.ok(entry);
+    const entry = expectFirstEntry(result);
     return entry.files;
 }
 
-async function runAlreadyPublishedPkgAStage(artifactsBuilder: {
-    collectContents: SinonSpy;
-}): ReturnType<typeof runReleaseDiffStage> {
+async function runAlreadyPublishedPkgAStage(
+    artifactsBuilder: ArtifactsBuilderStub
+): ReturnType<typeof runReleaseDiffStage> {
     return runReleaseDiffStage(
         {
-            artifactsBuilder: artifactsBuilder as unknown as ArtifactsBuilder,
-            scheduler: createIteratingScheduler(['pkg-a'])
+            artifactsBuilder,
+            scheduler: createIteratingScheduler([ 'pkg-a' ])
         },
-        configFor(['pkg-a']),
+        configFor([ 'pkg-a' ]),
         [
             buildResultFor('pkg-a', {
                 status: 'already-published',
@@ -102,34 +119,27 @@ async function runAlreadyPublishedPkgAStage(artifactsBuilder: {
     );
 }
 
-suite('release-diff-stage', function () {
+function registerBasicDiffTests(): void {
     test('skips packages whose BuildAndPublishResult is missing (publish-stage failed earlier)', async function () {
         const result = await runReleaseDiffStage(
             {
-                artifactsBuilder: artifactsBuilderReturning([]) as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a', 'pkg-broken'])
+                artifactsBuilder: artifactsBuilderReturning([]),
+                scheduler: createIteratingScheduler([ 'pkg-a', 'pkg-broken' ])
             },
-            configFor(['pkg-a', 'pkg-broken']),
-            [buildResultFor('pkg-a')]
+            configFor([ 'pkg-a', 'pkg-broken' ]),
+            [ buildResultFor('pkg-a') ]
         );
 
-        if (result.isErr) {
-            assert.fail('expected ok result');
-        }
-        const names = result.value.map((entry) => {
+        const names = expectOk(result).map(function (entry) {
             return entry.name;
         });
-        assert.deepStrictEqual(names, ['pkg-a']);
+        assert.deepStrictEqual(names, [ 'pkg-a' ]);
     });
 
     test('produces an unchanged entry with all four file buckets empty when the BuildAndPublishResult is already-published', async function () {
         const result = await runAlreadyPublishedPkgAStage(artifactsBuilderReturning([]));
 
-        if (result.isErr) {
-            assert.fail('expected ok result');
-        }
-        const [first] = result.value;
-        assert.ok(first);
+        const first = expectFirstEntry(result);
         assert.strictEqual(first.state, 'unchanged');
         assert.strictEqual(first.previousVersionLabel, '1.0.0');
         assert.deepStrictEqual(first.files, { added: [], removed: [], modified: [], unchanged: [] });
@@ -141,11 +151,7 @@ suite('release-diff-stage', function () {
             { filePath: 'bin/cli.js', content: '#!/usr/bin/env node\n', isExecutable: true }
         ]);
 
-        if (result.isErr) {
-            assert.fail('expected ok result');
-        }
-        const [first] = result.value;
-        assert.ok(first);
+        const first = expectFirstEntry(result);
         assert.strictEqual(first.state, 'first-publish');
         assert.deepStrictEqual(first.files.added, [
             { path: 'package.json', sizeBytes: 2, isExecutable: false },
@@ -158,15 +164,13 @@ suite('release-diff-stage', function () {
     });
 
     test('measures added-file sizes in UTF-8 bytes', async function () {
-        const result = await runPkgAStage([{ filePath: 'r.md', content: 'á', isExecutable: false }]);
+        const result = await runPkgAStage([ { filePath: 'r.md', content: 'á', isExecutable: false } ]);
 
-        if (result.isErr) {
-            assert.fail('expected ok result');
+        const first = expectFirstEntry(result);
+        const [ added ] = first.files.added;
+        if (added === undefined) {
+            assert.fail('expected added file');
         }
-        const [first] = result.value;
-        assert.ok(first);
-        const [added] = first.files.added;
-        assert.ok(added);
         assert.strictEqual(added.sizeBytes, Buffer.byteLength('á', 'utf8'));
     });
 
@@ -180,23 +184,23 @@ suite('release-diff-stage', function () {
 
         await runReleaseDiffStage(
             {
-                artifactsBuilder: { collectContents } as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a'])
+                artifactsBuilder: { collectContents },
+                scheduler: createIteratingScheduler([ 'pkg-a' ])
             },
-            configFor(['pkg-a']),
+            configFor([ 'pkg-a' ]),
             [
                 {
                     status: 'new-version',
                     publication: noPublication,
                     bundle,
-                    extraFiles: [extraFile],
+                    extraFiles: [ extraFile ],
                     previousReleaseArtifacts: Maybe.nothing()
-                } as BuildAndPublishResult
+                }
             ]
         );
 
         assert.strictEqual(collectContents.callCount, 1);
-        assert.deepStrictEqual(collectContents.firstCall.args, [bundle, 'package', [extraFile]]);
+        assert.deepStrictEqual(collectContents.firstCall.args, [ bundle, 'package', [ extraFile ] ]);
     });
 
     test('does not call artifactsBuilder.collectContents for an already-published package', async function () {
@@ -204,60 +208,68 @@ suite('release-diff-stage', function () {
         await runAlreadyPublishedPkgAStage({ collectContents });
         assert.strictEqual(collectContents.callCount, 0);
     });
+}
 
+function registerSchedulerTests(): void {
     test('forwards a scheduler partial failure as a release-diff partial failure with diff successes', async function () {
         const failingError = new Error('something exploded');
         const failingScheduler = {
             async runForEachScheduledPackage() {
                 return Result.err({
-                    succeeded: [undefined],
-                    failures: [failingError]
+                    succeeded: [ undefined ],
+                    failures: [ failingError ]
                 });
             }
         } as unknown as PackageScheduler;
 
         const result = await runReleaseDiffStage(
             {
-                artifactsBuilder: artifactsBuilderReturning([]) as unknown as ArtifactsBuilder,
+                artifactsBuilder: artifactsBuilderReturning([]),
                 scheduler: failingScheduler
             },
-            configFor(['pkg-a']),
-            [buildResultFor('pkg-a')]
+            configFor([ 'pkg-a' ]),
+            [ buildResultFor('pkg-a') ]
         );
 
         if (result.isOk) {
             assert.fail('expected Err');
         }
-        assert.deepStrictEqual(result.error.failures, [failingError]);
+        assert.deepStrictEqual(result.error.failures, [ failingError ]);
         assert.deepStrictEqual(result.error.succeeded, []);
     });
 
     test('passes emitScheduledEvents=false to the scheduler so it does not re-emit `scheduled` events the publish-stage already emitted', async function () {
-        const capture: IteratingSchedulerCapture = { events: [], selected: [] };
+        const events: unknown[] = [];
+        const selected: unknown[] = [];
+        const capture: IteratingSchedulerCapture = { events, selected };
         await runReleaseDiffStage(
             {
-                artifactsBuilder: artifactsBuilderReturning([]) as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a'], capture)
+                artifactsBuilder: artifactsBuilderReturning([]),
+                scheduler: createIteratingScheduler([ 'pkg-a' ], capture)
             },
-            configFor(['pkg-a']),
-            [buildResultFor('pkg-a')]
+            configFor([ 'pkg-a' ]),
+            [ buildResultFor('pkg-a') ]
         );
         assert.strictEqual(capture.emitScheduledEvents, false);
     });
 
     test("selectNext yields each package's name so the scheduler can thread package identity into later generations", async function () {
-        const capture: IteratingSchedulerCapture = { events: [], selected: [] };
+        const events: unknown[] = [];
+        const selected: unknown[] = [];
+        const capture: IteratingSchedulerCapture = { events, selected };
         await runReleaseDiffStage(
             {
-                artifactsBuilder: artifactsBuilderReturning([]) as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a', 'pkg-b'], capture)
+                artifactsBuilder: artifactsBuilderReturning([]),
+                scheduler: createIteratingScheduler([ 'pkg-a', 'pkg-b' ], capture)
             },
-            configFor(['pkg-a', 'pkg-b']),
-            [buildResultFor('pkg-a'), buildResultFor('pkg-b')]
+            configFor([ 'pkg-a', 'pkg-b' ]),
+            [ buildResultFor('pkg-a'), buildResultFor('pkg-b') ]
         );
-        assert.deepStrictEqual(capture.selected, ['pkg-a', 'pkg-b']);
+        assert.deepStrictEqual(capture.selected, [ 'pkg-a', 'pkg-b' ]);
     });
+}
 
+function registerChangedDiffTests(): void {
     test('produces a changed state with a file-set diff when there is a previous release', async function () {
         const newFiles: readonly FileDescription[] = [
             { filePath: 'package.json', content: '{"version":"1.0.1"}\n', isExecutable: false },
@@ -271,10 +283,10 @@ suite('release-diff-stage', function () {
 
         const result = await runReleaseDiffStage(
             {
-                artifactsBuilder: artifactsBuilderReturning(newFiles) as unknown as ArtifactsBuilder,
-                scheduler: createIteratingScheduler(['pkg-a'])
+                artifactsBuilder: artifactsBuilderReturning(newFiles),
+                scheduler: createIteratingScheduler([ 'pkg-a' ])
             },
-            configFor(['pkg-a']),
+            configFor([ 'pkg-a' ]),
             [
                 buildResultFor('pkg-a', {
                     bundle: {
@@ -287,11 +299,7 @@ suite('release-diff-stage', function () {
             ]
         );
 
-        if (result.isErr) {
-            assert.fail('expected ok result');
-        }
-        const entry = result.value[0];
-        assert.ok(entry);
+        const entry = expectFirstEntry(result);
         assert.strictEqual(entry.state, 'changed');
         assert.strictEqual(entry.files.modified.length, 2);
         assert.strictEqual(entry.files.removed.length, 1);
@@ -311,14 +319,20 @@ suite('release-diff-stage', function () {
     test('still flags an SBOM as modified when it has changes beyond the packtory tool version', async function () {
         const previousSbom = buildSbomFixtureContent({
             packtoryVersion: '1.2.3',
-            dependencyComponents: [{ name: 'old-dependency', version: '1.0.0' }]
+            dependencyComponents: [ { name: 'old-dependency', version: '1.0.0' } ]
         });
         const currentSbom = buildSbomFixtureContent({
             packtoryVersion: '9.9.9',
-            dependencyComponents: [{ name: 'new-dependency', version: '2.0.0' }]
+            dependencyComponents: [ { name: 'new-dependency', version: '2.0.0' } ]
         });
         const files = await runSbomDiff(previousSbom, currentSbom);
         assert.strictEqual(files.modified.length, 1);
         assert.strictEqual(files.modified[0]?.path, 'sbom.cdx.json');
     });
+}
+
+suite('release-diff-stage', function () {
+    registerBasicDiffTests();
+    registerSchedulerTests();
+    registerChangedDiffTests();
 });

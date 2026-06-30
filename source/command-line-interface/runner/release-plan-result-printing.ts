@@ -1,6 +1,11 @@
 import { partialFailureMessages } from '../../packtory/partial-result.ts';
 import type { ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
-import { checksErrorType, configErrorType, type ReleasePlanFailure } from '../../packtory/packtory-results.ts';
+import {
+    checksErrorType,
+    configErrorType,
+    partialFailureType,
+    type ReleasePlanFailure
+} from '../../packtory/packtory-results.ts';
 
 type Logger = (message: string) => void;
 
@@ -24,7 +29,7 @@ export function collectReleasePlanPackages(result: ReleasePlanResult): readonly 
     if (result.isOk) {
         return result.value.packages;
     }
-    if ('succeeded' in result.error) {
+    if (result.error.type === partialFailureType) {
         return result.error.succeeded;
     }
     return [];

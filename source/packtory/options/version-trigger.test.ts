@@ -29,14 +29,14 @@ function providerOptions(provideVersion: ManualVersionProvider): BuildAndPublish
 
 function providerContext(): VersionProviderContext {
     return {
-        ignoredAttributionPaths: ['CHANGELOG.md'],
+        ignoredAttributionPaths: [ 'CHANGELOG.md' ],
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         stage: false,
-        targetSourceFiles: ['source/index.ts']
+        targetSourceFiles: [ 'source/index.ts' ]
     };
 }
 
-suite('version-trigger', function () {
+function registerDetermineBuildVersionTests(): void {
     test('determineBuildVersion returns the current version when the registry already has one', async function () {
         assert.strictEqual(
             await determineBuildVersion(Maybe.just('1.0.0'), automaticOptions(), providerContext()),
@@ -69,7 +69,7 @@ suite('version-trigger', function () {
         const providerInput: unknown[] = [];
         const version = await determineBuildVersion(
             Maybe.just('1.0.0'),
-            providerOptions(async (input) => {
+            providerOptions(async function (input) {
                 providerInput.push(input);
                 return '1.0.1';
             }),
@@ -81,27 +81,31 @@ suite('version-trigger', function () {
             {
                 packageName: 'pkg-a',
                 currentVersion: '1.0.0',
-                ignoredAttributionPaths: ['CHANGELOG.md'],
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 stage: false,
-                targetSourceFiles: ['source/index.ts']
+                targetSourceFiles: [ 'source/index.ts' ]
             }
         ]);
     });
 
     test('determineBuildVersion rejects empty provider versions', async function () {
         await assert.rejects(
-            async () => {
+            async function () {
                 await determineBuildVersion(
                     Maybe.just('1.0.0'),
-                    providerOptions(() => ''),
+                    providerOptions(function () {
+                        return '';
+                    }),
                     providerContext()
                 );
             },
             { message: 'Manual version provider must return a non-empty string' }
         );
     });
+}
 
+function registerVersionTriggerTests(): void {
     test('shouldIncreaseVersion returns false when automatic versioning is disabled', function () {
         assert.strictEqual(shouldIncreaseVersion(Maybe.just('1.0.0'), pinnedOptions('2.0.0')), false);
     });
@@ -137,4 +141,9 @@ suite('version-trigger', function () {
     test('inferVersionTrigger returns initial when automatic and no current version and no minimum is configured', function () {
         assert.strictEqual(inferVersionTrigger(Maybe.nothing<string>(), automaticOptions(), false), 'initial');
     });
+}
+
+suite('version-trigger', function () {
+    registerDetermineBuildVersionTests();
+    registerVersionTriggerTests();
 });

@@ -2,7 +2,7 @@ import type { ReleaseAnalysis } from '../packages/packtory/packtory.entry-point.
 import { releaseAnalysisClassification } from '../packtory/packtory-results.ts';
 import type { GitHubReleaseGateDecision } from './release-gate.ts';
 
-type OpenGitHubReleaseGateDecision = GitHubReleaseGateDecision & { readonly shouldPublish: true };
+type OpenGitHubReleaseGateDecision = GitHubReleaseGateDecision & { readonly shouldPublish: true; };
 
 type PacktoryReleasePolicyInput = {
     readonly baseDecision: OpenGitHubReleaseGateDecision;
@@ -11,13 +11,12 @@ type PacktoryReleasePolicyInput = {
     readonly releaseAnalysis: ReleaseAnalysis;
 };
 
-type PolicyDecisionReason = Extract<
-    GitHubReleaseGateDecision['reason'],
-    | 'dependency_only_min_age_elapsed'
-    | 'dependency_only_min_age_not_elapsed'
-    | 'dependency_only_published_at_unknown'
-    | 'release_unchanged'
->;
+type DependencyAgePolicyDecisionReason = keyof {
+    readonly dependency_only_min_age_elapsed: true;
+    readonly dependency_only_min_age_not_elapsed: true;
+    readonly dependency_only_published_at_unknown: true;
+};
+type PolicyDecisionReason = DependencyAgePolicyDecisionReason | 'release_unchanged';
 
 const millisecondsPerDay = 86_400_000;
 
@@ -32,8 +31,7 @@ function buildReleaseAnalysisLogs(releaseAnalysis: ReleaseAnalysis): readonly st
     ];
 
     for (const analysis of releaseAnalysis.packageAnalyses) {
-        const packageLog =
-            `package ${analysis.name}: ${analysis.classification}` +
+        const packageLog = `package ${analysis.name}: ${analysis.classification}` +
             ` latest=${analysis.latestPublishedVersion ?? '(unpublished)'}` +
             ` publishedAt=${formatPublishedAt(analysis.latestPublishedAt)}`;
         logs.push(packageLog);
@@ -65,12 +63,12 @@ function createPolicyDecision(
     return {
         shouldPublish,
         reason,
-        logs: [...logs, policyLog]
+        logs: [ ...logs, policyLog ]
     };
 }
 
 export function applyPacktoryReleasePolicy(input: PacktoryReleasePolicyInput): GitHubReleaseGateDecision {
-    const logs = [...input.baseDecision.logs, ...buildReleaseAnalysisLogs(input.releaseAnalysis)];
+    const logs = [ ...input.baseDecision.logs, ...buildReleaseAnalysisLogs(input.releaseAnalysis) ];
 
     if (input.releaseAnalysis.classification === releaseAnalysisClassification.unchanged) {
         return createPolicyDecision(
@@ -84,7 +82,7 @@ export function applyPacktoryReleasePolicy(input: PacktoryReleasePolicyInput): G
     if (input.releaseAnalysis.classification !== releaseAnalysisClassification.dependencyOnly) {
         return {
             ...input.baseDecision,
-            logs: [...logs, 'Publishing is allowed by the Packtory release policy.']
+            logs: [ ...logs, 'Publishing is allowed by the Packtory release policy.' ]
         };
     }
 

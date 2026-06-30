@@ -9,24 +9,26 @@ export type ReportFlags = {
     readonly reportJson: boolean;
     readonly reportHtml: boolean;
 };
+type WriteReportsInput = {
+    readonly dryRun: boolean;
+    readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
+    readonly flags: ReportFlags;
+    readonly report: BuildReport | undefined;
+    readonly result: Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result'];
+};
 
 export function createEmptyReport(): BuildReport {
+    const generatedAt = new Date();
     return {
         schemaVersion: 1,
-        generatedAt: new Date().toISOString(),
+        generatedAt: generatedAt.toISOString(),
         packages: {},
         aggregate: { crossBundleLinks: [] }
     };
 }
 
-// eslint-disable-next-line @typescript-eslint/max-params -- report persistence needs shared flags plus build outcome/report data
-export async function writeReports(
-    fileManager: Pick<FileManager, 'readFile' | 'writeFile'>,
-    report: BuildReport | undefined,
-    result: Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result'],
-    flags: ReportFlags,
-    dryRun: boolean
-): Promise<void> {
+export async function writeReports(input: WriteReportsInput): Promise<void> {
+    const { dryRun, fileManager, flags, report, result } = input;
     if (report === undefined) {
         return;
     }

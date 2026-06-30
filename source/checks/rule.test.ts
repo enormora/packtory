@@ -7,12 +7,17 @@ import {
     pathAllowListPerPackageSchema
 } from './rule.ts';
 
-function parseOrFail<T>(schema: { safeParse: (input: unknown) => { success: boolean; data?: T } }, input: unknown): T {
+type ParseResult<T> = { readonly success: false; } | { readonly success: true; readonly data: T; };
+type Schema<T> = {
+    readonly safeParse: (input: unknown) => ParseResult<T>;
+};
+
+function parseOrFail<T>(schema: Schema<T>, input: unknown): T {
     const result = schema.safeParse(input);
     if (!result.success) {
         assert.fail('expected schema to accept the input');
     }
-    return result.data!;
+    return result.data;
 }
 
 suite('rule', function () {
@@ -33,14 +38,14 @@ suite('rule', function () {
     });
 
     test('pathAllowListGlobalSchema accepts enabled with an allow list of non-empty strings', function () {
-        assert.deepStrictEqual(parseOrFail(pathAllowListGlobalSchema, { enabled: true, allowList: ['a', 'b'] }), {
+        assert.deepStrictEqual(parseOrFail(pathAllowListGlobalSchema, { enabled: true, allowList: [ 'a', 'b' ] }), {
             enabled: true,
-            allowList: ['a', 'b']
+            allowList: [ 'a', 'b' ]
         });
     });
 
     test('pathAllowListGlobalSchema rejects an allow list with empty strings', function () {
-        assert.strictEqual(pathAllowListGlobalSchema.safeParse({ enabled: true, allowList: [''] }).success, false);
+        assert.strictEqual(pathAllowListGlobalSchema.safeParse({ enabled: true, allowList: [ '' ] }).success, false);
     });
 
     test('pathAllowListPerPackageSchema accepts an empty object', function () {
@@ -48,6 +53,8 @@ suite('rule', function () {
     });
 
     test('pathAllowListPerPackageSchema accepts a per-package allow list of non-empty strings', function () {
-        assert.deepStrictEqual(parseOrFail(pathAllowListPerPackageSchema, { allowList: ['a'] }), { allowList: ['a'] });
+        assert.deepStrictEqual(parseOrFail(pathAllowListPerPackageSchema, { allowList: [ 'a' ] }), {
+            allowList: [ 'a' ]
+        });
     });
 });

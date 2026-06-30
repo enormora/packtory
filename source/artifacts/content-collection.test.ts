@@ -5,20 +5,21 @@ import { collectArtifactContents, describeArtifactsForReport } from './content-c
 
 type Content = ArtifactSourcePackage['contents'][number];
 
+type ContentEntryOptions = {
+    readonly isGeneratedManifest?: boolean;
+    readonly isSubstituted?: boolean;
+    readonly isExecutable?: boolean;
+};
+
 function contentEntry(
     targetFilePath: string,
     content: string,
-    options: {
-        readonly isGeneratedManifest?: boolean;
-        readonly isSubstituted?: boolean;
-        readonly isExecutable?: boolean;
-    } = {}
+    options: ContentEntryOptions = {}
 ): Content {
-    return {
+    const entry = {
         isSubstituted: options.isSubstituted ?? false,
         isExplicitlyIncluded: false,
         directDependencies: new Set<string>(),
-        ...(options.isGeneratedManifest ? { isGeneratedManifest: true } : {}),
         fileDescription: {
             content,
             isExecutable: options.isExecutable ?? false,
@@ -26,6 +27,10 @@ function contentEntry(
             targetFilePath
         }
     };
+
+    return options.isGeneratedManifest === true
+        ? { ...entry, isGeneratedManifest: true }
+        : entry;
 }
 
 function bundle(overrides: Partial<ArtifactSourcePackage> = {}): ArtifactSourcePackage {
@@ -40,172 +45,176 @@ function bundle(overrides: Partial<ArtifactSourcePackage> = {}): ArtifactSourceP
 
 function generatedManifestPlaceholderBundle(): ArtifactSourcePackage {
     return bundle({
-        contents: [contentEntry('package.json', '{"name":"source"}', { isGeneratedManifest: true })]
+        contents: [ contentEntry('package.json', '{"name":"source"}', { isGeneratedManifest: true }) ]
     });
 }
 
 suite('content-collection', function () {
-    test('collectArtifactContents emits just the manifest when the bundle has no contents and no extras', function () {
-        assert.deepStrictEqual(collectArtifactContents(bundle(), undefined, []), [
-            { filePath: 'package.json', content: '{}', isExecutable: false }
-        ]);
+    suite('artifact contents', function () {
+        test('collectArtifactContents emits just the manifest when the bundle has no contents and no extras', function () {
+            assert.deepStrictEqual(collectArtifactContents(bundle(), undefined, []), [
+                { filePath: 'package.json', content: '{}', isExecutable: false }
+            ]);
+        });
+
+        test('collectArtifactContents applies the prefix to the manifest file path', function () {
+            assert.deepStrictEqual(collectArtifactContents(bundle(), 'package', []), [
+                { filePath: 'package/package.json', content: '{}', isExecutable: false }
+            ]);
+        });
+
+        test('collectArtifactContents emits bundle contents after the manifest', function () {
+            assert.deepStrictEqual(
+                collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), undefined, []),
+                [
+                    { filePath: 'package.json', content: '{}', isExecutable: false },
+                    { filePath: 'a.txt', content: 'a', isExecutable: false }
+                ]
+            );
+        });
+
+        test('collectArtifactContents skips generated-manifest placeholder contents', function () {
+            assert.deepStrictEqual(collectArtifactContents(generatedManifestPlaceholderBundle(), undefined, []), [
+                { filePath: 'package.json', content: '{}', isExecutable: false }
+            ]);
+        });
+
+        test('collectArtifactContents appends extra files after the bundle contents', function () {
+            assert.deepStrictEqual(
+                collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), undefined, [
+                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                ]),
+                [
+                    { filePath: 'package.json', content: '{}', isExecutable: false },
+                    { filePath: 'a.txt', content: 'a', isExecutable: false },
+                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                ]
+            );
+        });
+
+        test('collectArtifactContents applies the prefix to bundle contents and extra files', function () {
+            assert.deepStrictEqual(
+                collectArtifactContents(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), 'package', [
+                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                ]),
+                [
+                    { filePath: 'package/package.json', content: '{}', isExecutable: false },
+                    { filePath: 'package/a.txt', content: 'a', isExecutable: false },
+                    { filePath: 'package/sbom.cdx.json', content: '{}', isExecutable: false }
+                ]
+            );
+        });
+
+        test('collectArtifactContents forces explicit bin targets to executable', function () {
+            assert.deepStrictEqual(
+                collectArtifactContents(
+                    bundle({
+                        contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
+                        binField: { 'pkg-a': './cli.js' }
+                    }),
+                    undefined,
+                    []
+                ),
+                [
+                    { filePath: 'package.json', content: '{}', isExecutable: false },
+                    { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
+                ]
+            );
+        });
+
+        test('collectArtifactContents forces a string bin target to executable', function () {
+            assert.deepStrictEqual(
+                collectArtifactContents(
+                    bundle({ contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ], binField: './cli.js' }),
+                    undefined,
+                    []
+                ),
+                [
+                    { filePath: 'package.json', content: '{}', isExecutable: false },
+                    { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
+                ]
+            );
+        });
+
+        test('collectArtifactContents ignores non-string bin entries and applies valid ones', function () {
+            assert.deepStrictEqual(
+                collectArtifactContents(
+                    bundle({
+                        contents: [ contentEntry('cli.js', '#!/usr/bin/env node') ],
+                        binField: { 'pkg-a': './cli.js', broken: 123 as never }
+                    }),
+                    undefined,
+                    []
+                ),
+                [
+                    { filePath: 'package.json', content: '{}', isExecutable: false },
+                    { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
+                ]
+            );
+        });
+
+        test('collectArtifactContents only strips a leading dot-slash from explicit bin targets', function () {
+            assert.deepStrictEqual(
+                collectArtifactContents(
+                    bundle({
+                        contents: [ contentEntry('nested/./cli.js', '#!/usr/bin/env node') ],
+                        binField: 'nested/./cli.js'
+                    }),
+                    undefined,
+                    []
+                ),
+                [
+                    { filePath: 'package.json', content: '{}', isExecutable: false },
+                    { filePath: 'nested/./cli.js', content: '#!/usr/bin/env node', isExecutable: true }
+                ]
+            );
+        });
     });
 
-    test('collectArtifactContents applies the prefix to the manifest file path', function () {
-        assert.deepStrictEqual(collectArtifactContents(bundle(), 'package', []), [
-            { filePath: 'package/package.json', content: '{}', isExecutable: false }
-        ]);
-    });
+    suite('reporting', function () {
+        test('describeArtifactsForReport carries sourceFilePath and isSubstituted for bundle entries', function () {
+            assert.deepStrictEqual(
+                describeArtifactsForReport(
+                    bundle({ contents: [ contentEntry('a.txt', 'a', { isSubstituted: true }) ] }),
+                    undefined,
+                    []
+                ),
+                [
+                    { filePath: 'package.json', content: '{}', isExecutable: false },
+                    {
+                        filePath: 'a.txt',
+                        content: 'a',
+                        isExecutable: false,
+                        sourceFilePath: '/src/a.txt',
+                        isSubstituted: true
+                    }
+                ]
+            );
+        });
 
-    test('collectArtifactContents emits bundle contents after the manifest', function () {
-        assert.deepStrictEqual(
-            collectArtifactContents(bundle({ contents: [contentEntry('a.txt', 'a')] }), undefined, []),
-            [
-                { filePath: 'package.json', content: '{}', isExecutable: false },
-                { filePath: 'a.txt', content: 'a', isExecutable: false }
-            ]
-        );
-    });
+        test('describeArtifactsForReport skips generated-manifest placeholder contents', function () {
+            assert.deepStrictEqual(describeArtifactsForReport(generatedManifestPlaceholderBundle(), undefined, []), [
+                { filePath: 'package.json', content: '{}', isExecutable: false }
+            ]);
+        });
 
-    test('collectArtifactContents skips generated-manifest placeholder contents', function () {
-        assert.deepStrictEqual(collectArtifactContents(generatedManifestPlaceholderBundle(), undefined, []), [
-            { filePath: 'package.json', content: '{}', isExecutable: false }
-        ]);
-    });
-
-    test('collectArtifactContents appends extra files after the bundle contents', function () {
-        assert.deepStrictEqual(
-            collectArtifactContents(bundle({ contents: [contentEntry('a.txt', 'a')] }), undefined, [
-                { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
-            ]),
-            [
-                { filePath: 'package.json', content: '{}', isExecutable: false },
-                { filePath: 'a.txt', content: 'a', isExecutable: false },
-                { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
-            ]
-        );
-    });
-
-    test('collectArtifactContents applies the prefix to bundle contents and extra files', function () {
-        assert.deepStrictEqual(
-            collectArtifactContents(bundle({ contents: [contentEntry('a.txt', 'a')] }), 'package', [
-                { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
-            ]),
-            [
-                { filePath: 'package/package.json', content: '{}', isExecutable: false },
-                { filePath: 'package/a.txt', content: 'a', isExecutable: false },
-                { filePath: 'package/sbom.cdx.json', content: '{}', isExecutable: false }
-            ]
-        );
-    });
-
-    test('collectArtifactContents forces explicit bin targets to executable', function () {
-        assert.deepStrictEqual(
-            collectArtifactContents(
-                bundle({
-                    contents: [contentEntry('cli.js', '#!/usr/bin/env node')],
-                    binField: { 'pkg-a': './cli.js' }
-                }),
-                undefined,
-                []
-            ),
-            [
-                { filePath: 'package.json', content: '{}', isExecutable: false },
-                { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
-            ]
-        );
-    });
-
-    test('collectArtifactContents forces a string bin target to executable', function () {
-        assert.deepStrictEqual(
-            collectArtifactContents(
-                bundle({ contents: [contentEntry('cli.js', '#!/usr/bin/env node')], binField: './cli.js' }),
-                undefined,
-                []
-            ),
-            [
-                { filePath: 'package.json', content: '{}', isExecutable: false },
-                { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
-            ]
-        );
-    });
-
-    test('collectArtifactContents ignores non-string bin entries and applies valid ones', function () {
-        assert.deepStrictEqual(
-            collectArtifactContents(
-                bundle({
-                    contents: [contentEntry('cli.js', '#!/usr/bin/env node')],
-                    binField: { 'pkg-a': './cli.js', broken: 123 as never }
-                }),
-                undefined,
-                []
-            ),
-            [
-                { filePath: 'package.json', content: '{}', isExecutable: false },
-                { filePath: 'cli.js', content: '#!/usr/bin/env node', isExecutable: true }
-            ]
-        );
-    });
-
-    test('collectArtifactContents only strips a leading dot-slash from explicit bin targets', function () {
-        assert.deepStrictEqual(
-            collectArtifactContents(
-                bundle({
-                    contents: [contentEntry('nested/./cli.js', '#!/usr/bin/env node')],
-                    binField: 'nested/./cli.js'
-                }),
-                undefined,
-                []
-            ),
-            [
-                { filePath: 'package.json', content: '{}', isExecutable: false },
-                { filePath: 'nested/./cli.js', content: '#!/usr/bin/env node', isExecutable: true }
-            ]
-        );
-    });
-
-    test('describeArtifactsForReport carries sourceFilePath and isSubstituted for bundle entries', function () {
-        assert.deepStrictEqual(
-            describeArtifactsForReport(
-                bundle({ contents: [contentEntry('a.txt', 'a', { isSubstituted: true })] }),
-                undefined,
-                []
-            ),
-            [
-                { filePath: 'package.json', content: '{}', isExecutable: false },
-                {
-                    filePath: 'a.txt',
-                    content: 'a',
-                    isExecutable: false,
-                    sourceFilePath: '/src/a.txt',
-                    isSubstituted: true
-                }
-            ]
-        );
-    });
-
-    test('describeArtifactsForReport skips generated-manifest placeholder contents', function () {
-        assert.deepStrictEqual(describeArtifactsForReport(generatedManifestPlaceholderBundle(), undefined, []), [
-            { filePath: 'package.json', content: '{}', isExecutable: false }
-        ]);
-    });
-
-    test('describeArtifactsForReport applies the prefix to manifest, contents, and extra files', function () {
-        assert.deepStrictEqual(
-            describeArtifactsForReport(bundle({ contents: [contentEntry('a.txt', 'a')] }), 'package', [
-                { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
-            ]),
-            [
-                { filePath: 'package/package.json', content: '{}', isExecutable: false },
-                {
-                    filePath: 'package/a.txt',
-                    content: 'a',
-                    isExecutable: false,
-                    sourceFilePath: '/src/a.txt',
-                    isSubstituted: false
-                },
-                { filePath: 'package/sbom.cdx.json', content: '{}', isExecutable: false }
-            ]
-        );
+        test('describeArtifactsForReport applies the prefix to manifest, contents, and extra files', function () {
+            assert.deepStrictEqual(
+                describeArtifactsForReport(bundle({ contents: [ contentEntry('a.txt', 'a') ] }), 'package', [
+                    { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false }
+                ]),
+                [
+                    { filePath: 'package/package.json', content: '{}', isExecutable: false },
+                    {
+                        filePath: 'package/a.txt',
+                        content: 'a',
+                        isExecutable: false,
+                        sourceFilePath: '/src/a.txt',
+                        isSubstituted: false
+                    },
+                    { filePath: 'package/sbom.cdx.json', content: '{}', isExecutable: false }
+                ]
+            );
+        });
     });
 });

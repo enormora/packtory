@@ -26,7 +26,7 @@ import { withStageTimings } from '../report/decorators.ts';
 import { createResourceResolver, type ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createZipBuilder } from '../zip/zip-builder.ts';
-import { createVersionManager } from '../version-manager/manager.ts';
+import { createVersionManager, type VersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
 import { createCurrentGitHeadReader, type CurrentGitHeadReader } from '../git/current-git-head.ts';
 import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
@@ -46,8 +46,8 @@ async function runGitCommand(
     readonly stdout: string;
     readonly stderr: string;
 }> {
-    return new Promise((resolve, reject) => {
-        execFile(command, Array.from(args), (error, stdout, stderr) => {
+    return new Promise(function (resolve, reject) {
+        execFile(command, Array.from(args), function (error, stdout, stderr) {
             if (error !== null) {
                 reject(error instanceof Error ? error : new Error('Git command failed'));
                 return;
@@ -63,7 +63,7 @@ export type PackageProcessorComposition = {
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly artifactsBuilder: ArtifactsBuilder;
-    readonly versionManager: ReturnType<typeof createVersionManager>;
+    readonly versionManager: VersionManager;
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;
     readonly readCurrentGitHead: CurrentGitHeadReader;
@@ -97,10 +97,10 @@ function buildRegistryClient(options: PackageProcessorCompositionOptions, clock:
     return createRegistryClient({
         npmFetch,
         publish,
-        fetch: globalThis.fetch,
+        fetch,
         clock,
         resolveIdToken: createNpmOidcIdTokenResolver({
-            fetch: globalThis.fetch,
+            fetch,
             getEnvironmentVariable
         }),
         promptForOneTimePassword: options.promptForOneTimePassword
@@ -133,7 +133,7 @@ function buildBundleEmitter(
 function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): DeadCodeEliminator {
     return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
-        createProject: () => {
+        createProject() {
             return new Project({
                 compilerOptions: {
                     allowJs: true,

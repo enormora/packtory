@@ -13,7 +13,7 @@ export type SerializeStableJsonOptions = {
 function assertNoCircularStructures(value: unknown): void {
     const visitedObjects = new Set<unknown>();
 
-    JSON.stringify(value, (_key, currentValue: unknown) => {
+    JSON.stringify(value, function (_key, currentValue: unknown) {
         if (typeof currentValue === 'object' && currentValue !== null) {
             if (visitedObjects.has(currentValue)) {
                 throw new Error('Circular structures are not supported');
@@ -32,8 +32,8 @@ function deepSortValue(
     path: readonly string[]
 ): unknown {
     if (isArray(value)) {
-        const mapped = value.map((entry, index) => {
-            return deepSortValue(entry, shouldPreserveArrayOrder, [...path, String(index)]);
+        const mapped = value.map(function (entry, index) {
+            return deepSortValue(entry, shouldPreserveArrayOrder, [ ...path, String(index) ]);
         });
         if (shouldPreserveArrayOrder?.(path) === true) {
             return mapped;
@@ -43,11 +43,12 @@ function deepSortValue(
 
     if (isPlainObject(value)) {
         return Object.fromEntries(
-            Object.entries(value)
-                .map<RecordEntry>(([key, nestedValue]) => {
-                    return [key, deepSortValue(nestedValue, shouldPreserveArrayOrder, [...path, key])];
+            Object
+                .entries(value)
+                .map<RecordEntry>(function ([ key, nestedValue ]) {
+                    return [ key, deepSortValue(nestedValue, shouldPreserveArrayOrder, [ ...path, key ]) ];
                 })
-                .toSorted(([leftKey]: RecordEntry, [rightKey]: RecordEntry) => {
+                .toSorted(function ([ leftKey ]: RecordEntry, [ rightKey ]: RecordEntry) {
                     return compareValues(leftKey, rightKey);
                 })
         );

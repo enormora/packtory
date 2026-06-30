@@ -6,6 +6,14 @@ function applyPrefix(filePath: string, prefix: string | undefined): string {
     return prefix === undefined ? filePath : path.join(prefix, filePath);
 }
 
+type ArtifactReportFileDescription = {
+    readonly filePath: string;
+    readonly content: string;
+    readonly isExecutable: boolean;
+    readonly sourceFilePath?: string;
+    readonly isSubstituted?: boolean;
+};
+
 export function collectArtifactContents(
     bundle: ArtifactSourcePackage,
     prefix: string | undefined,
@@ -19,14 +27,14 @@ export function collectArtifactContents(
         }
     ];
 
-    for (const entry of bundle.contents.filter((content) => {
-        return !content.isGeneratedManifest;
-    })) {
-        artifactContents.push({
-            filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
-            content: entry.fileDescription.content,
-            isExecutable: entry.fileDescription.isExecutable || binTargets.has(entry.fileDescription.targetFilePath)
-        });
+    for (const entry of bundle.contents) {
+        if (!entry.isGeneratedManifest) {
+            artifactContents.push({
+                filePath: applyPrefix(entry.fileDescription.targetFilePath, prefix),
+                content: entry.fileDescription.content,
+                isExecutable: entry.fileDescription.isExecutable || binTargets.has(entry.fileDescription.targetFilePath)
+            });
+        }
     }
 
     for (const extraFile of extraFiles) {
@@ -44,19 +52,13 @@ export function describeArtifactsForReport(
     bundle: ArtifactSourcePackage,
     prefix: string | undefined,
     extraFiles: readonly FileDescription[]
-): readonly {
-    readonly filePath: string;
-    readonly content: string;
-    readonly isExecutable: boolean;
-    readonly sourceFilePath?: string;
-    readonly isSubstituted?: boolean;
-}[] {
+): readonly ArtifactReportFileDescription[] {
     return [
         {
             ...bundle.manifestFile,
             filePath: applyPrefix(bundle.manifestFile.filePath, prefix)
         },
-        ...bundle.contents.flatMap((entry) => {
+        ...bundle.contents.flatMap(function (entry) {
             if (entry.isGeneratedManifest) {
                 return [];
             }
@@ -70,7 +72,7 @@ export function describeArtifactsForReport(
                 }
             ];
         }),
-        ...extraFiles.map((entry) => {
+        ...extraFiles.map(function (entry) {
             return {
                 ...entry,
                 filePath: applyPrefix(entry.filePath, prefix)

@@ -17,13 +17,13 @@ async function extractTarball(tarball: Buffer): Promise<readonly ExtractedEntry[
     const extracted: ExtractedEntry[] = [];
     const extract = tar.extract();
     const gunzip = zlib.createGunzip();
-    const collection = new Promise<readonly ExtractedEntry[]>((resolve, reject) => {
-        extract.on('entry', (header, stream, next) => {
+    const collection = new Promise<readonly ExtractedEntry[]>(function (resolve, reject) {
+        extract.on('entry', function (header, stream, next) {
             const chunks: Buffer[] = [];
-            stream.on('data', (chunk: Buffer) => {
+            stream.on('data', function (chunk: Buffer) {
                 chunks.push(Buffer.from(chunk));
             });
-            stream.on('end', () => {
+            stream.on('end', function () {
                 extracted.push({
                     name: header.name,
                     content: Buffer.concat(chunks).toString('utf8'),
@@ -34,7 +34,7 @@ async function extractTarball(tarball: Buffer): Promise<readonly ExtractedEntry[
             stream.on('error', reject);
             stream.resume();
         });
-        extract.on('finish', () => {
+        extract.on('finish', function () {
             resolve(extracted);
         });
         extract.on('error', reject);
@@ -64,10 +64,10 @@ suite('placeholder-tarball', function () {
         const tarball = await builder.build(buildInput());
         const entries = await extractTarball(tarball);
 
-        const entryNames = entries.map((entry) => {
+        const entryNames = entries.map(function (entry) {
             return entry.name;
         });
-        assert.deepStrictEqual(entryNames, ['package/package.json', 'package/readme.md']);
+        assert.deepStrictEqual(entryNames, [ 'package/package.json', 'package/readme.md' ]);
     });
 
     test('serializes the manifest as JSON with a trailing newline', async function () {
@@ -85,7 +85,7 @@ suite('placeholder-tarball', function () {
             })
         );
         const entries = await extractTarball(tarball);
-        const manifestEntry = entries.find((entry) => {
+        const manifestEntry = entries.find(function (entry) {
             return entry.name === 'package/package.json';
         });
 
@@ -106,7 +106,7 @@ suite('placeholder-tarball', function () {
 
         const tarball = await builder.build(buildInput({ readmeContent }));
         const entries = await extractTarball(tarball);
-        const readmeEntry = entries.find((entry) => {
+        const readmeEntry = entries.find(function (entry) {
             return entry.name === 'package/readme.md';
         });
 

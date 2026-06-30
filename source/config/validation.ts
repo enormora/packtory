@@ -9,15 +9,20 @@ import { packtoryConfigSchema } from './packtory-config-schema.ts';
 import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 import { collectPreGraphIssues, packageListToRecord } from './pre-graph-validation.ts';
 
-type GraphGenerationPossibleResult<TConfig extends { packages: readonly PackageConfig[] }> = {
+type PackagedConfig = {
+    readonly packages: readonly PackageConfig[];
+};
+
+type GraphGenerationPossibleResult<TConfig extends PackagedConfig> = {
     readonly packtoryConfig: TConfig;
     readonly packageConfigs: PackageConfigsByName;
 };
 
-type ConfigWithGraphInternal<TConfig extends { packages: readonly PackageConfig[] }> =
-    GraphGenerationPossibleResult<TConfig> & {
-        readonly packageGraph: DirectedGraph<string, undefined>;
-    };
+type ConfigWithGraphInternal<TConfig extends PackagedConfig> = {
+    readonly packtoryConfig: TConfig;
+    readonly packageConfigs: PackageConfigsByName;
+    readonly packageGraph: DirectedGraph<string, undefined>;
+};
 
 function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWithoutRegistry>(
     schema: ZodMiniType,
@@ -34,13 +39,13 @@ function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWith
 
     const preGraphIssues = collectPreGraphIssues(packtoryConfig);
     if (preGraphIssues.length > 0) {
-        return Result.err([...validateDuplicatePackages(packtoryConfig.packages), ...preGraphIssues]);
+        return Result.err([ ...validateDuplicatePackages(packtoryConfig.packages), ...preGraphIssues ]);
     }
 
     return Result.ok({ packtoryConfig, packageConfigs });
 }
 
-function finalizeValidation<TConfig extends { packages: readonly PackageConfig[] }>(
+function finalizeValidation<TConfig extends { readonly packages: readonly PackageConfig[]; }>(
     result: Result<GraphGenerationPossibleResult<TConfig>, readonly string[]>
 ): Result<ConfigWithGraphInternal<TConfig>, readonly string[]> {
     if (result.isErr) {
@@ -50,7 +55,10 @@ function finalizeValidation<TConfig extends { packages: readonly PackageConfig[]
     const { packageConfigs, packtoryConfig } = result.value;
     const packageGraph = buildPackageGraph(packageConfigs);
 
-    const issues = [...validateDuplicatePackages(packtoryConfig.packages), ...validateCyclicDependencies(packageGraph)];
+    const issues = [
+        ...validateDuplicatePackages(packtoryConfig.packages),
+        ...validateCyclicDependencies(packageGraph)
+    ];
     if (issues.length > 0) {
         return Result.err(issues);
     }
@@ -58,7 +66,9 @@ function finalizeValidation<TConfig extends { packages: readonly PackageConfig[]
     return Result.ok({ packtoryConfig, packageConfigs, packageGraph });
 }
 
-export type ConfigWithGraph<TConfig extends { packages: readonly PackageConfig[] }> = ConfigWithGraphInternal<TConfig>;
+export type ConfigWithGraph<TConfig extends { readonly packages: readonly PackageConfig[]; }> = ConfigWithGraphInternal<
+    TConfig
+>;
 export type ValidConfigResult = ConfigWithGraph<PacktoryConfig>;
 export type ValidConfigWithoutRegistryResult = ConfigWithGraph<PacktoryConfigWithoutRegistry>;
 

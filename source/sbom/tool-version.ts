@@ -1,6 +1,6 @@
 import { isObjectType, isPlainObject } from 'remeda';
 
-const candidatePackageNames = ['@packtory/cli', 'packtory'] as const;
+const candidatePackageNames = [ '@packtory/cli', 'packtory' ] as const;
 
 type ToolVersionResolverDependencies = {
     readonly importPackageJson: (specifier: string) => Promise<unknown>;
@@ -18,16 +18,16 @@ function isCandidatePackageName(value: unknown): value is CandidatePackageName {
 }
 
 function isImportResolutionError(error: unknown): boolean {
-    if (!isObjectType(error) || !('code' in error)) {
+    if (!isObjectType(error) || !Object.hasOwn(error, 'code')) {
         return false;
     }
 
-    const { code } = error;
+    const code: unknown = Reflect.get(error, 'code');
     return code === 'ERR_MODULE_NOT_FOUND' || code === 'ERR_PACKAGE_PATH_NOT_EXPORTED';
 }
 
 function unwrapJsonModule(importedModule: unknown): unknown {
-    if (!isPlainObject(importedModule) || !('default' in importedModule)) {
+    if (!isPlainObject(importedModule) || !Object.hasOwn(importedModule, 'default')) {
         return importedModule;
     }
 

@@ -110,8 +110,8 @@ export async function runReleaseDiffStage(
     succeededResults: readonly BuildAndPublishResult[]
 ): Promise<ReleaseDiffStageResult> {
     const successByName = new Map(
-        succeededResults.map((result) => {
-            return [result.bundle.name, result] as const;
+        succeededResults.map(function (result) {
+            return [ result.bundle.name, result ] as const;
         })
     );
 
@@ -122,19 +122,19 @@ export async function runReleaseDiffStage(
         typeof config.packtoryConfig
     >({
         config,
-        createOptions: (context) => {
+        createOptions(context) {
             return {
                 packageName: context.packageName,
                 buildResult: successByName.get(context.packageName)
             };
         },
-        execute: async (options) => {
+        async execute(options) {
             if (options.buildResult === undefined) {
                 return undefined;
             }
             return classifyDiff(dependencies.artifactsBuilder, options.packageName, options.buildResult);
         },
-        selectNext: (params) => {
+        selectNext(params) {
             return params.options.packageName;
         },
         emitScheduledEvents: false

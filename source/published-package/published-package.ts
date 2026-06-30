@@ -24,8 +24,8 @@ export type PublishedPackage = {
     readonly sideEffectsField: PublishedSideEffectsField;
     readonly surface: PackageSurface;
     readonly version: string;
-    readonly dependencies: Record<string, string>;
-    readonly peerDependencies: Record<string, string>;
+    readonly dependencies: Readonly<Record<string, string>>;
+    readonly peerDependencies: Readonly<Record<string, string>>;
     readonly importsField?: PublishedImportsField | undefined;
     readonly exportsField: PublishedPackageExportsField;
     readonly binField?: PackageJson['bin'] | undefined;
@@ -57,9 +57,9 @@ export function explicitBinTargetPaths(pkg: Pick<ArtifactSourcePackage, 'binFiel
         return new Set<string>();
     }
 
-    const targets = isString(pkg.binField) ? [pkg.binField] : Object.values(pkg.binField).filter(isString);
+    const targets = isString(pkg.binField) ? [ pkg.binField ] : Object.values(pkg.binField).filter(isString);
     return new Set(
-        targets.map((target) => {
+        targets.map(function (target) {
             return target.replace(/^\.\//u, '');
         })
     );

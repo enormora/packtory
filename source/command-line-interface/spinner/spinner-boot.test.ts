@@ -4,12 +4,16 @@ import { fake } from 'sinon';
 import { bootSpinnerRuntime } from './spinner-boot.ts';
 import type { WorkerSpawnRequest } from './spinner-runtime.ts';
 
+function noop(): void {
+    return undefined;
+}
+
 suite('spinner-boot', function () {
     test('bootSpinnerRuntime spawns the worker via the supplied spawn function', function () {
         const spawnWorker = fake();
 
         bootSpinnerRuntime({
-            spawnWorker: (request) => {
+            spawnWorker(request) {
                 spawnWorker(request);
             },
             stdoutFileDescriptor: 1,
@@ -26,9 +30,7 @@ suite('spinner-boot', function () {
 
     test('bootSpinnerRuntime writes the initial label and message to slot zero', function () {
         const runtime = bootSpinnerRuntime({
-            spawnWorker: () => {
-                // noop
-            },
+            spawnWorker: noop,
             stdoutFileDescriptor: 1,
             stdoutColumns: 80,
             initialLabel: 'packtory',
@@ -45,16 +47,14 @@ suite('spinner-boot', function () {
     test('bootSpinnerRuntime leaves all other slots empty', function () {
         const runtime = bootSpinnerRuntime({
             slotCount: 4,
-            spawnWorker: () => {
-                // noop
-            },
+            spawnWorker: noop,
             stdoutFileDescriptor: 1,
             stdoutColumns: 80,
             initialLabel: 'lbl',
             initialMessage: 'msg'
         });
 
-        for (const slotIndex of [1, 2, 3]) {
+        for (const slotIndex of [ 1, 2, 3 ]) {
             assert.deepStrictEqual(runtime.accessors.readSlot(slotIndex), {
                 state: 'empty',
                 label: '',
@@ -68,9 +68,7 @@ suite('spinner-boot', function () {
             intervalMs: 25,
             stdoutFileDescriptor: 1,
             stdoutColumns: 132,
-            spawnWorker: () => {
-                // noop
-            },
+            spawnWorker: noop,
             initialLabel: 'lbl',
             initialMessage: 'msg'
         });

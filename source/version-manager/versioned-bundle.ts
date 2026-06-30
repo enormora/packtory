@@ -17,8 +17,8 @@ export type BundlePackageJson = PublishedPackageJson;
 type VersionedDependency = Pick<PublishedPackage, 'name' | 'version'>;
 
 export type VersionedBundle = Except<PublishedPackage, 'contents'> & Pick<AnalyzedBundle, 'contents'>;
-export type VersionedBundleWithManifest = Pick<PublishedPackageWithManifest, 'manifestFile' | 'packageJson'> &
-    VersionedBundle;
+type VersionedBundleManifestFields = Pick<PublishedPackageWithManifest, 'manifestFile' | 'packageJson'>;
+export type VersionedBundleWithManifest = VersionedBundle & VersionedBundleManifestFields;
 
 export type BuildVersionedBundleOptions = {
     readonly bundle: AnalyzedBundle;

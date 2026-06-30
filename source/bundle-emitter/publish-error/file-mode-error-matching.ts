@@ -11,7 +11,7 @@ const provenanceBundleMarkers = [
     'Invalid bundle',
     'subject does not match'
 ] as const;
-const provenanceDigestMismatchMarkers = ['subject', 'digest'] as const;
+const provenanceDigestMismatchMarkers = [ 'subject', 'digest' ] as const;
 
 function includesOneOf(message: string, markers: readonly string[]): boolean {
     for (const marker of markers) {

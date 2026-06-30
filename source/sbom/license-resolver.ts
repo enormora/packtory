@@ -15,6 +15,10 @@ export type LicenseResolver = {
     resolveLicense: (options: LicenseResolveOptions) => Promise<string | undefined>;
 };
 
+function parseJsonString(content: string): unknown {
+    return JSON.parse(content) as unknown;
+}
+
 export function createLicenseResolver(dependencies: LicenseResolverDependencies): LicenseResolver {
     const { fileManager } = dependencies;
 
@@ -31,8 +35,7 @@ export function createLicenseResolver(dependencies: LicenseResolverDependencies)
                 throw new Error(buildMissingDependencyMessage(dependencyName));
             }
 
-            const content = await fileManager.readFile(packageJsonPath);
-            const parsed = JSON.parse(content) as unknown;
+            const parsed = parseJsonString(await fileManager.readFile(packageJsonPath));
             return extractLicenseFromManifest(parsed);
         }
     };

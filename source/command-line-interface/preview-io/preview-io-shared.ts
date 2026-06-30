@@ -32,14 +32,14 @@ export function createPreviewIo(dependencies: PreviewIoDependencies): PreviewIo 
                 const didPage = await spawnForCompletion(
                     dependencies.spawnProcess,
                     shell,
-                    ['-lc', dependencies.pager],
+                    [ '-lc', dependencies.pager ],
                     content
                 );
                 if (didPage) {
                     return true;
                 }
             }
-            return spawnForCompletion(dependencies.spawnProcess, shell, ['-lc', 'less -R'], content);
+            return spawnForCompletion(dependencies.spawnProcess, shell, [ '-lc', 'less -R' ], content);
         },
         async openPreviewFile(filePath) {
             try {

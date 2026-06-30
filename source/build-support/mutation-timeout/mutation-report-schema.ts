@@ -77,8 +77,8 @@ export function parseMutationReport(value: unknown): MutationReport {
 
     return {
         files: Object.fromEntries(
-            Object.entries(value.files).map(([filePath, fileReport]) => {
-                return [filePath, parseMutationReportFile(fileReport)];
+            Object.entries(value.files).map(function ([ filePath, fileReport ]) {
+                return [ filePath, parseMutationReportFile(fileReport) ];
             })
         )
     };

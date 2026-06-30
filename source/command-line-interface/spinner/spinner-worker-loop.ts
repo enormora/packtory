@@ -20,7 +20,7 @@ export function startSpinnerWorker<Handle>(
 ): void {
     const layout = createSpinnerSharedLayout(input.slotCount);
     const accessors = createSpinnerSharedAccessors(input.buffer, layout);
-    const state: RenderState = {
+    let state: RenderState = {
         snapshots: readAllSnapshots(accessors),
         renderedLineCount: 0,
         frameIndex: 0
@@ -28,17 +28,21 @@ export function startSpinnerWorker<Handle>(
 
     function renderTick(): void {
         const output = buildRenderTickOutput(accessors, state);
-        state.snapshots = output.snapshots;
-        if (output.sequence !== undefined) {
+        if (output.sequence === undefined) {
+            state = { ...state, snapshots: output.snapshots };
+        } else {
             dependencies.write(input.stdoutFileDescriptor, output.sequence);
-            state.renderedLineCount = output.expectedLineCount;
-            state.frameIndex += 1;
+            state = {
+                snapshots: output.snapshots,
+                renderedLineCount: output.expectedLineCount,
+                frameIndex: state.frameIndex + 1
+            };
         }
         accessors.acknowledgeRender(output.targetMutation);
     }
 
     const intervalMs = accessors.getIntervalMs();
-    const ticker = dependencies.setInterval(() => {
+    const ticker = dependencies.setInterval(function () {
         renderTick();
         if (accessors.isShutdownRequested()) {
             renderTick();

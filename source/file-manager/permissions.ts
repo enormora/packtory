@@ -6,7 +6,7 @@ type PermissionDependencies = {
     readonly convertObject: PermissionReader;
 };
 
-function hasExecutePermission(permission: { execute?: boolean | undefined } | undefined): boolean {
+function hasExecutePermission(permission: { readonly execute?: boolean | undefined; } | undefined): boolean {
     if (permission === undefined) {
         return false;
     }

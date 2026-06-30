@@ -7,7 +7,7 @@ import { buildDeclarationNodeIndex } from './binding-id.ts';
 import { gatherLocalSeeds, type FileBindings } from './local-seed-gathering.ts';
 
 function sourceFileFor(content: string): SourceFile {
-    const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
     return project.getSourceFileOrThrow('index.ts');
 }
 
@@ -39,9 +39,14 @@ suite('local-seed-gathering', function () {
         const sourceFile = sourceFileFor('export const foo = 1;');
         const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
         const binding = exportedBinding('foo', declaration);
-        const file = fileBindings('/index.ts', sourceFile, [binding]);
+        const file = fileBindings('/index.ts', sourceFile, [ binding ]);
 
-        const seeds = gatherLocalSeeds([file], new Set(['/index.ts']), buildDeclarationNodeIndex([file]), undefined);
+        const seeds = gatherLocalSeeds(
+            [ file ],
+            new Set([ '/index.ts' ]),
+            buildDeclarationNodeIndex([ file ]),
+            undefined
+        );
 
         assert.strictEqual(seeds.has('/index.ts::foo'), true);
     });
@@ -50,9 +55,14 @@ suite('local-seed-gathering', function () {
         const sourceFile = sourceFileFor('export const foo = 1;');
         const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
         const binding = exportedBinding('foo', declaration);
-        const file = fileBindings('/lib.ts', sourceFile, [binding]);
+        const file = fileBindings('/lib.ts', sourceFile, [ binding ]);
 
-        const seeds = gatherLocalSeeds([file], new Set(['/index.ts']), buildDeclarationNodeIndex([file]), undefined);
+        const seeds = gatherLocalSeeds(
+            [ file ],
+            new Set([ '/index.ts' ]),
+            buildDeclarationNodeIndex([ file ]),
+            undefined
+        );
 
         assert.strictEqual(seeds.has('/lib.ts::foo'), false);
     });
@@ -69,9 +79,9 @@ suite('local-seed-gathering', function () {
 
             referenceNode: referenceStub as unknown as TsMorphNode
         };
-        const file = fileBindings('/index.ts', sourceFile, [binding]);
+        const file = fileBindings('/index.ts', sourceFile, [ binding ]);
 
-        const seeds = gatherLocalSeeds([file], new Set<string>(), buildDeclarationNodeIndex([file]), undefined);
+        const seeds = gatherLocalSeeds([ file ], new Set<string>(), buildDeclarationNodeIndex([ file ]), undefined);
 
         assert.deepStrictEqual(seeds, new Set<string>());
     });

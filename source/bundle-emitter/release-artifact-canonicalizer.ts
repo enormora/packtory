@@ -4,22 +4,31 @@ import { serializeStableJson } from '../common/stable-json.ts';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { canonicalizeSbomInFileSet } from '../sbom/sbom-canonicalizer.ts';
 
-function canonicalizeManifestContent(content: string): string {
+type FailedJsonParseResult = { readonly success: false; };
+type SuccessfulJsonParseResult = { readonly success: true; readonly value: unknown; };
+type JsonParseResult = FailedJsonParseResult | SuccessfulJsonParseResult;
+
+function parseJson(content: string): JsonParseResult {
     try {
-        const parsed: unknown = JSON.parse(content);
-        if (!isPlainObject(parsed)) {
-            return content;
-        }
-        const withoutGitHead = { ...parsed };
-        delete withoutGitHead.gitHead;
-        return serializeStableJson(withoutGitHead);
+        return { success: true, value: JSON.parse(content) as unknown };
     } catch {
-        return content;
+        return { success: false };
     }
 }
 
+function canonicalizeManifestContent(content: string): string {
+    const parsed = parseJson(content);
+    if (!parsed.success || !isPlainObject(parsed.value)) {
+        return content;
+    }
+
+    const withoutGitHead = { ...parsed.value };
+    delete withoutGitHead.gitHead;
+    return serializeStableJson(withoutGitHead);
+}
+
 function canonicalizePackageManifestInFileSet(files: readonly FileDescription[]): readonly FileDescription[] {
-    return files.map((file) => {
+    return files.map(function (file) {
         if (bundleRelativePath(file.filePath) !== packageManifestFilePath) {
             return file;
         }

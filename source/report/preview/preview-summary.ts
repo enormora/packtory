@@ -13,18 +13,14 @@ export type PreviewSummary = {
 type PackageForSummary = {
     readonly hasChanges: boolean;
     readonly failure?: PackageReport['failure'];
-    readonly eliminatedSourceFiles: readonly { readonly path: string }[];
+    readonly eliminatedSourceFiles: readonly { readonly path: string; }[];
     readonly artifactCounts: {
         readonly emitted: number;
         readonly changed: number;
     };
 };
 
-type MutablePreviewSummary = {
-    -readonly [Key in keyof PreviewSummary]: PreviewSummary[Key];
-};
-
-function createPreviewSummary(totalPackages: number): MutablePreviewSummary {
+function createPreviewSummary(totalPackages: number): PreviewSummary {
     return {
         totalPackages,
         changedPackages: 0,
@@ -37,14 +33,18 @@ function createPreviewSummary(totalPackages: number): MutablePreviewSummary {
 }
 
 export function summarizePackages(packages: readonly PackageForSummary[]): PreviewSummary {
-    const summary = createPreviewSummary(packages.length);
-    for (const pkg of packages) {
-        summary.changedPackages += pkg.hasChanges ? 1 : 0;
-        summary.unchangedPackages += !pkg.hasChanges && pkg.failure === undefined ? 1 : 0;
-        summary.failedPackages += pkg.failure === undefined ? 0 : 1;
-        summary.emittedArtifacts += pkg.artifactCounts.emitted;
-        summary.changedArtifacts += pkg.artifactCounts.changed;
-        summary.eliminatedSourceFiles += pkg.eliminatedSourceFiles.length;
-    }
-    return summary;
+    return packages.reduce(
+        function (summary, pkg) {
+            return {
+                totalPackages: summary.totalPackages,
+                changedPackages: summary.changedPackages + (pkg.hasChanges ? 1 : 0),
+                unchangedPackages: summary.unchangedPackages + (!pkg.hasChanges && pkg.failure === undefined ? 1 : 0),
+                failedPackages: summary.failedPackages + (pkg.failure === undefined ? 0 : 1),
+                emittedArtifacts: summary.emittedArtifacts + pkg.artifactCounts.emitted,
+                changedArtifacts: summary.changedArtifacts + pkg.artifactCounts.changed,
+                eliminatedSourceFiles: summary.eliminatedSourceFiles + pkg.eliminatedSourceFiles.length
+            };
+        },
+        createPreviewSummary(packages.length)
+    );
 }

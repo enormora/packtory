@@ -1,6 +1,6 @@
 import assert from 'node:assert';
+import { safeParse } from '@schema-hub/zod-error-formatter';
 import { suite, test } from 'mocha';
-import { safeParse } from '../common/schema-validation.ts';
 import {
     checkValidationFailure,
     checkValidationSuccess,
@@ -9,8 +9,7 @@ import {
 import { optionalPackageSettingsSchema } from './optional-package-settings-schema.ts';
 
 const validOptionalPackageSettings = {
-    additionalChangelogSourceFiles: ['package-lock.json'],
-    additionalFiles: [{ sourceFilePath: 'README.md', targetFilePath: 'README.md' }],
+    additionalFiles: [ { sourceFilePath: 'README.md', targetFilePath: 'README.md' } ],
     includeSourceMapFiles: true,
     additionalPackageJsonAttributes: { license: 'MIT' }
 };
@@ -22,13 +21,6 @@ suite('optional-package-settings-schema', function () {
 
     test('optional package settings schema rejects an invalid includeSourceMapFiles value', function () {
         assert.strictEqual(safeParse(optionalPackageSettingsSchema, { includeSourceMapFiles: 'yes' }).success, false);
-    });
-
-    createTestCasesForOptionalField({
-        schema: optionalPackageSettingsSchema,
-        data: validOptionalPackageSettings,
-        path: 'additionalChangelogSourceFiles',
-        expectedFieldType: 'array'
     });
 
     createTestCasesForOptionalField({
@@ -75,7 +67,7 @@ suite('optional-package-settings-schema', function () {
         checkValidationFailure({
             schema: optionalPackageSettingsSchema,
             data: { includeSourceMapFiles: 'yes' },
-            expectedMessages: ['at includeSourceMapFiles: expected boolean, but got string']
+            expectedMessages: [ 'at includeSourceMapFiles: expected boolean, but got string' ]
         })
     );
 
@@ -84,7 +76,7 @@ suite('optional-package-settings-schema', function () {
         checkValidationFailure({
             schema: optionalPackageSettingsSchema,
             data: { extra: true },
-            expectedMessages: ['unexpected additional property: "extra"']
+            expectedMessages: [ 'unexpected additional property: "extra"' ]
         })
     );
 });

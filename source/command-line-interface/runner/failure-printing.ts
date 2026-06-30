@@ -14,24 +14,34 @@ import { getErrorSymbol, getSuccessSymbol, getWarningSymbol } from './runner-sym
 
 type PublishPartialError = PartialError<BuildAndPublishResult>;
 type StagedResult = BuildAndPublishResult & {
-    readonly publication: Extract<PublicationOutcome, { type: 'staged' }>;
+    readonly publication: Extract<PublicationOutcome, { readonly type: 'staged'; }>;
 };
 type Logger = (message: string) => void;
+type DryRunFlags = {
+    readonly noDryRun: boolean;
+};
+type PublishSuccessFlags = {
+    readonly stage: boolean;
+};
 const issueTitleByType = {
     [configErrorType]: 'The provided config is invalid',
     [checksErrorType]: 'Checks failed'
 } as const;
 
-export function printDryRunNote(log: Logger, flags: { readonly noDryRun: boolean }): void {
+export function printDryRunNote(log: Logger, flags: DryRunFlags): void {
     if (flags.noDryRun) {
         return;
     }
     log(
-        `${getWarningSymbol()} ${dim(
-            ` Note: dry-run mode was enabled, so there was nothing really published; add the ${bold(
-                '--no-dry-run'
-            )} flag to disable dry-run mode`
-        )}`
+        `${getWarningSymbol()} ${
+            dim(
+                ` Note: dry-run mode was enabled, so there was nothing really published; add the ${
+                    bold(
+                        '--no-dry-run'
+                    )
+                } flag to disable dry-run mode`
+            )
+        }`
     );
 }
 
@@ -52,7 +62,7 @@ function printStagedPackageList(log: Logger, results: readonly BuildAndPublishRe
     if (stagedResults.length === 0) {
         return;
     }
-    log(['Staged packages:', ...stagedResults.map(formatStageReceipt)].join('\n'));
+    log([ 'Staged packages:', ...stagedResults.map(formatStageReceipt) ].join('\n'));
 }
 
 function printIssueSummary(log: Logger, title: string, issues: readonly string[]): void {
@@ -78,13 +88,12 @@ function printPartialErrorSummary(log: Logger, error: PublishPartialError, stage
     const total = error.succeeded.length + error.failures.length;
     const failureCount = red(String(error.failures.length));
     const successCount = green(String(error.succeeded.length));
-    const summary =
-        `${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ` +
+    const summary = `${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ` +
         `${successCount} succeeded`;
-    const details = partialFailureMessages(error).map((message) => {
+    const details = partialFailureMessages(error).map(function (message) {
         return `- ${message}`;
     });
-    log([summary, ...details].join('\n'));
+    log([ summary, ...details ].join('\n'));
     if (stage) {
         printStagedPackageList(log, error.succeeded);
     }
@@ -92,10 +101,10 @@ function printPartialErrorSummary(log: Logger, error: PublishPartialError, stage
 
 export function printPublishFailure(log: Logger, error: PublishFailure, stage: boolean): void {
     match(error)
-        .with({ type: partialFailureType }, (partialError) => {
+        .with({ type: partialFailureType }, function (partialError) {
             printPartialErrorSummary(log, partialError, stage);
         })
-        .otherwise((issueError) => {
+        .otherwise(function (issueError) {
             printIssueSummary(log, issueTitleByType[issueError.type], issueError.issues);
         });
 }
@@ -103,7 +112,7 @@ export function printPublishFailure(log: Logger, error: PublishFailure, stage: b
 export function printSuccessSummary(
     log: Logger,
     results: readonly BuildAndPublishResult[],
-    flags: { readonly stage: boolean }
+    flags: PublishSuccessFlags
 ): void {
     if (!flags.stage) {
         log(`${getSuccessSymbol()} Success: all ${results.length} package(s) have been published`);

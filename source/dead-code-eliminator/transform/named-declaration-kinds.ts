@@ -9,7 +9,7 @@ const namedDeclarationKinds: ReadonlySet<SyntaxKind> = new Set([
     SyntaxKind.ModuleDeclaration
 ]);
 
-export type NamedStatement = Statement & { getName: () => string | undefined };
+export type NamedStatement = Statement & { readonly getName: () => string | undefined; };
 
 export function isNamedDeclaration(statement: Statement): statement is NamedStatement {
     return namedDeclarationKinds.has(statement.getKind());

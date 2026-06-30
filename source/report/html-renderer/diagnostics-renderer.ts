@@ -1,4 +1,4 @@
-/* eslint-disable @stylistic/max-len, complexity -- HTML template literals and diagnostic section dispatch are intentionally inline */
+/* eslint-disable complexity -- HTML template literals and diagnostic section dispatch are intentionally inline */
 import type { PreviewPackage } from '../preview/preview-document.ts';
 import { escapeHtml } from './html-escaping.ts';
 import { renderCollapsibleSection } from './html-primitives.ts';
@@ -17,7 +17,8 @@ export function renderDiagnostics(pkg: PreviewPackage): string {
             ? ''
             : renderCollapsibleSection('Timings (ms)', pkg.diagnostics.timings),
         pkg.diagnostics.failure === undefined ? '' : renderCollapsibleSection('Failure', pkg.diagnostics.failure)
-    ].join('');
+    ]
+        .join('');
     if (sections === '') {
         return '';
     }
@@ -28,5 +29,7 @@ export function renderFailureBanner(pkg: PreviewPackage): string {
     if (pkg.failure === undefined) {
         return '';
     }
-    return `<p class="failure">Failed in stage <strong>${escapeHtml(pkg.failure.stage)}</strong>: ${escapeHtml(pkg.failure.message)}</p>`;
+    return `<p class="failure">Failed in stage <strong>${escapeHtml(pkg.failure.stage)}</strong>: ${
+        escapeHtml(pkg.failure.message)
+    }</p>`;
 }

@@ -17,7 +17,8 @@ suite('package-schemas', function () {
                 mainPackageJson: { type: 'module' },
                 name: 'pkg',
                 roots: { main: { js: 'index.js' } }
-            }).success,
+            })
+                .success,
             true
         );
     });
@@ -28,7 +29,8 @@ suite('package-schemas', function () {
                 sourcesFolder: 'src',
                 mainPackageJson: { type: 'module' },
                 name: 'pkg'
-            }).success,
+            })
+                .success,
             false
         );
     });
@@ -38,7 +40,8 @@ suite('package-schemas', function () {
             safeParse(packageSchemaWithPartialCommonSettings, {
                 name: 'pkg',
                 roots: { main: { js: 'index.js' } }
-            }).success,
+            })
+                .success,
             true
         );
     });
@@ -49,7 +52,8 @@ suite('package-schemas', function () {
                 mainPackageJson: { type: 'module' },
                 name: 'pkg',
                 roots: { main: { js: 'index.js' } }
-            }).success,
+            })
+                .success,
             false
         );
     });
@@ -60,7 +64,8 @@ suite('package-schemas', function () {
                 sourcesFolder: 'src',
                 name: 'pkg',
                 roots: { main: { js: 'index.js' } }
-            }).success,
+            })
+                .success,
             false
         );
     });
@@ -93,7 +98,7 @@ suite('package-schemas', function () {
                 mainPackageJson: { type: 'module' },
                 name: 'pkg'
             },
-            expectedMessages: ['at roots: missing property']
+            expectedMessages: [ 'at roots: missing property' ]
         })
     );
 
@@ -121,7 +126,7 @@ suite('package-schemas', function () {
                 name: 'pkg',
                 roots: { main: { js: 'index.js' } }
             },
-            expectedMessages: ['at sourcesFolder: missing property']
+            expectedMessages: [ 'at sourcesFolder: missing property' ]
         })
     );
 
@@ -134,7 +139,7 @@ suite('package-schemas', function () {
                 name: 'pkg',
                 roots: { main: { js: 'index.js' } }
             },
-            expectedMessages: ['at mainPackageJson: missing property']
+            expectedMessages: [ 'at mainPackageJson: missing property' ]
         })
     );
 });

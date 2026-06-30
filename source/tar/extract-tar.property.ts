@@ -3,8 +3,8 @@ import fc from 'fast-check';
 import { suite, test } from 'mocha';
 import { extractTarEntries } from './extract-tar.ts';
 
-const nonGzipBufferArbitrary = fc.uint8Array({ maxLength: 256 }).filter((data) => {
-    return data.length < 2 || data[0] !== 0x1f || data[1] !== 0x8b;
+const nonGzipBufferArbitrary = fc.uint8Array({ maxLength: 256 }).filter(function (data) {
+    return data.length < 2 || data[0] !== 0x1F || data[1] !== 0x8B;
 });
 
 async function expectFailure(action: () => Promise<unknown>): Promise<void> {
@@ -19,8 +19,8 @@ async function expectFailure(action: () => Promise<unknown>): Promise<void> {
 suite('extract-tar', function () {
     test('extractTarEntries() rejects malformed non-gzip buffers explicitly', async function () {
         await fc.assert(
-            fc.asyncProperty(nonGzipBufferArbitrary, async (data) => {
-                await expectFailure(async () => {
+            fc.asyncProperty(nonGzipBufferArbitrary, async function (data) {
+                await expectFailure(async function () {
                     await extractTarEntries(Buffer.from(data));
                 });
             }),
@@ -30,7 +30,7 @@ suite('extract-tar', function () {
 
     test('extractTarEntries() rejects malformed non-gzip buffers without needing exact error text', async function () {
         await fc.assert(
-            fc.asyncProperty(nonGzipBufferArbitrary, async (data) => {
+            fc.asyncProperty(nonGzipBufferArbitrary, async function (data) {
                 try {
                     const result = await extractTarEntries(Buffer.from(data));
                     assert.fail(`Expected extractTarEntries() to reject, but it returned ${result.length} entries`);

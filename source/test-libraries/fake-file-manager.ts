@@ -14,7 +14,7 @@ type SimulatedError = {
 
 type SimulatedResponse<TValue> = SimulatedError | SimulatedSuccess<TValue>;
 
-type SimulatedVoidResponse = SimulatedError | { readonly error?: undefined };
+type SimulatedVoidResponse = SimulatedError | { readonly error?: undefined; };
 
 type ReadabilityResult = {
     readonly isReadable: boolean;
@@ -84,6 +84,37 @@ type FakeFileManagerOptions = {
     readonly simulatedRealPathResponses?: readonly SimulatedResponse<string>[];
 };
 
+type ResolvedFakeFileManagerOptions = {
+    readonly simulatedReadFileResponses: readonly SimulatedResponse<string>[];
+    readonly simulatedReadFileBytesResponses: readonly SimulatedResponse<Buffer>[];
+    readonly simulatedCheckReadabilityResponses: readonly SimulatedResponse<ReadabilityResult>[];
+    readonly simulatedTransferableFileDescriptionResponses: readonly SimulatedResponse<TransferableFileDescription>[];
+    readonly transferableFileDescriptionResponder: TransferableFileDescriptionResponder | undefined;
+    readonly simulatedWriteFileResponses: readonly SimulatedVoidResponse[];
+    readonly simulatedWriteBinaryFileResponses: readonly SimulatedVoidResponse[];
+    readonly simulatedCopyFileResponses: readonly SimulatedVoidResponse[];
+    readonly simulatedCopyFileBytesResponses: readonly SimulatedVoidResponse[];
+    readonly simulatedListDirectoryResponses: readonly SimulatedResponse<readonly DirectoryEntry[]>[];
+    readonly simulatedRealPathResponses: readonly SimulatedResponse<string>[];
+};
+
+type CallList<TCall> = readonly TCall[] & {
+    readonly push: (call: TCall) => unknown;
+};
+
+type FileManagerCallLog = {
+    readonly readFile: CallList<ReadFileCall>;
+    readonly readFileBytes: CallList<ReadFileBytesCall>;
+    readonly writeFile: CallList<WriteFileCall>;
+    readonly writeBinaryFile: CallList<WriteBinaryFileCall>;
+    readonly copyFile: CallList<CopyFileCall>;
+    readonly copyFileBytes: CallList<CopyFileBytesCall>;
+    readonly listDirectory: CallList<ListDirectoryCall>;
+    readonly realPath: CallList<RealPathCall>;
+    readonly checkReadability: CallList<CheckReadabilityCall>;
+    readonly transferableFileDescription: CallList<TransferableFileDescriptionCall>;
+};
+
 export type FakeFileManager = FileManager & {
     readonly getReadFileCallCount: () => number;
     readonly getReadFileCall: (index: number) => ReadFileCall;
@@ -130,6 +161,19 @@ const defaultReadFileResponse: SimulatedResponse<string> = { value: '' };
 const defaultReadFileBytesResponse: SimulatedResponse<Buffer> = { value: Buffer.alloc(0) };
 const defaultCheckReadabilityResponse: SimulatedResponse<ReadabilityResult> = { value: { isReadable: true } };
 const defaultVoidResponse: SimulatedVoidResponse = {};
+const defaultFakeFileManagerOptions: ResolvedFakeFileManagerOptions = {
+    simulatedReadFileResponses: [],
+    simulatedReadFileBytesResponses: [],
+    simulatedCheckReadabilityResponses: [],
+    simulatedTransferableFileDescriptionResponses: [],
+    transferableFileDescriptionResponder: undefined,
+    simulatedWriteFileResponses: [],
+    simulatedWriteBinaryFileResponses: [],
+    simulatedCopyFileResponses: [],
+    simulatedCopyFileBytesResponses: [],
+    simulatedListDirectoryResponses: [],
+    simulatedRealPathResponses: []
+};
 
 function resolveValueResponse<TValue>(response: SimulatedResponse<TValue>): TValue {
     if (response.error !== undefined) {
@@ -154,54 +198,57 @@ function getCallAtIndex<TCall>(calls: readonly TCall[], methodName: string, inde
     return call;
 }
 
-export function createFakeFileManager(options: FakeFileManagerOptions = {}): FakeFileManager {
-    const {
-        simulatedReadFileResponses = [],
-        simulatedReadFileBytesResponses = [],
-        simulatedCheckReadabilityResponses = [],
-        simulatedTransferableFileDescriptionResponses = [],
-        transferableFileDescriptionResponder,
-        simulatedWriteFileResponses = [],
-        simulatedWriteBinaryFileResponses = [],
-        simulatedCopyFileResponses = [],
-        simulatedCopyFileBytesResponses = [],
-        simulatedListDirectoryResponses = [],
-        simulatedRealPathResponses = []
-    } = options;
+function resolveFakeFileManagerOptions(options: FakeFileManagerOptions): ResolvedFakeFileManagerOptions {
+    return {
+        ...defaultFakeFileManagerOptions,
+        ...options
+    };
+}
 
-    const readFileCalls: ReadFileCall[] = [];
-    const readFileBytesCalls: ReadFileBytesCall[] = [];
-    const writeFileCalls: WriteFileCall[] = [];
-    const writeBinaryFileCalls: WriteBinaryFileCall[] = [];
-    const copyFileCalls: CopyFileCall[] = [];
-    const copyFileBytesCalls: CopyFileBytesCall[] = [];
-    const listDirectoryCalls: ListDirectoryCall[] = [];
-    const realPathCalls: RealPathCall[] = [];
-    const checkReadabilityCalls: CheckReadabilityCall[] = [];
-    const transferableFileDescriptionCalls: TransferableFileDescriptionCall[] = [];
+function createFileManagerCallLog(): FileManagerCallLog {
+    return {
+        readFile: [] as ReadFileCall[],
+        readFileBytes: [] as ReadFileBytesCall[],
+        writeFile: [] as WriteFileCall[],
+        writeBinaryFile: [] as WriteBinaryFileCall[],
+        copyFile: [] as CopyFileCall[],
+        copyFileBytes: [] as CopyFileBytesCall[],
+        listDirectory: [] as ListDirectoryCall[],
+        realPath: [] as RealPathCall[],
+        checkReadability: [] as CheckReadabilityCall[],
+        transferableFileDescription: [] as TransferableFileDescriptionCall[]
+    };
+}
+
+export function createFakeFileManager(options: FakeFileManagerOptions = {}): FakeFileManager {
+    const resolvedOptions = resolveFakeFileManagerOptions(options);
+    const calls = createFileManagerCallLog();
 
     return {
         async readFile(filePath) {
-            const response = simulatedReadFileResponses[readFileCalls.length] ?? defaultReadFileResponse;
-            readFileCalls.push({ filePath });
+            const response = resolvedOptions.simulatedReadFileResponses[calls.readFile.length] ??
+                defaultReadFileResponse;
+            calls.readFile.push({ filePath });
             return resolveValueResponse(response);
         },
 
         async readFileBytes(filePath) {
-            const response = simulatedReadFileBytesResponses[readFileBytesCalls.length] ?? defaultReadFileBytesResponse;
-            readFileBytesCalls.push({ filePath });
+            const response = resolvedOptions.simulatedReadFileBytesResponses[calls.readFileBytes.length] ??
+                defaultReadFileBytesResponse;
+            calls.readFileBytes.push({ filePath });
             return resolveValueResponse(response);
         },
 
         async writeFile(filePath, content) {
-            const response = simulatedWriteFileResponses[writeFileCalls.length] ?? defaultVoidResponse;
-            writeFileCalls.push({ filePath, content });
+            const response = resolvedOptions.simulatedWriteFileResponses[calls.writeFile.length] ?? defaultVoidResponse;
+            calls.writeFile.push({ filePath, content });
             resolveVoidResponse(response);
         },
 
         async writeBinaryFile(filePath, content) {
-            const response = simulatedWriteBinaryFileResponses[writeBinaryFileCalls.length] ?? defaultVoidResponse;
-            writeBinaryFileCalls.push({ filePath, content });
+            const response = resolvedOptions.simulatedWriteBinaryFileResponses[calls.writeBinaryFile.length] ??
+                defaultVoidResponse;
+            calls.writeBinaryFile.push({ filePath, content });
             resolveVoidResponse(response);
         },
 
@@ -210,33 +257,35 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
         },
 
         async copyFile(from, to) {
-            const response = simulatedCopyFileResponses[copyFileCalls.length] ?? defaultVoidResponse;
-            copyFileCalls.push({ from, to });
+            const response = resolvedOptions.simulatedCopyFileResponses[calls.copyFile.length] ?? defaultVoidResponse;
+            calls.copyFile.push({ from, to });
             resolveVoidResponse(response);
         },
 
         async copyFileBytes(from, to) {
-            const response = simulatedCopyFileBytesResponses[copyFileBytesCalls.length] ?? defaultVoidResponse;
-            copyFileBytesCalls.push({ from, to });
+            const response = resolvedOptions.simulatedCopyFileBytesResponses[calls.copyFileBytes.length] ??
+                defaultVoidResponse;
+            calls.copyFileBytes.push({ from, to });
             resolveVoidResponse(response);
         },
 
         async listDirectoryEntries(directoryPath) {
-            const response = simulatedListDirectoryResponses[listDirectoryCalls.length] ?? { value: [] };
-            listDirectoryCalls.push({ directoryPath });
+            const response = resolvedOptions.simulatedListDirectoryResponses[calls.listDirectory.length] ??
+                { value: [] };
+            calls.listDirectory.push({ directoryPath });
             return resolveValueResponse(response);
         },
 
         async getRealPath(filePath) {
-            const response = simulatedRealPathResponses[realPathCalls.length] ?? { value: filePath };
-            realPathCalls.push({ filePath });
+            const response = resolvedOptions.simulatedRealPathResponses[calls.realPath.length] ?? { value: filePath };
+            calls.realPath.push({ filePath });
             return resolveValueResponse(response);
         },
 
         async checkReadability(fileOrFolderPath) {
-            const response =
-                simulatedCheckReadabilityResponses[checkReadabilityCalls.length] ?? defaultCheckReadabilityResponse;
-            checkReadabilityCalls.push({ fileOrFolderPath });
+            const response = resolvedOptions.simulatedCheckReadabilityResponses[calls.checkReadability.length] ??
+                defaultCheckReadabilityResponse;
+            calls.checkReadability.push({ fileOrFolderPath });
             return resolveValueResponse(response);
         },
 
@@ -244,113 +293,121 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             const fallbackResponse: SimulatedResponse<TransferableFileDescription> = {
                 value: { sourceFilePath, targetFilePath, content: '', isExecutable: false }
             };
-            const responderResponse = transferableFileDescriptionResponder?.(sourceFilePath, targetFilePath);
-            const response =
-                responderResponse ??
-                simulatedTransferableFileDescriptionResponses[transferableFileDescriptionCalls.length] ??
+            const responderResponse = resolvedOptions.transferableFileDescriptionResponder?.(
+                sourceFilePath,
+                targetFilePath
+            );
+            const response = responderResponse ??
+                resolvedOptions.simulatedTransferableFileDescriptionResponses[
+                    calls.transferableFileDescription.length
+                ] ??
                 fallbackResponse;
-            transferableFileDescriptionCalls.push({ sourceFilePath, targetFilePath });
+            calls.transferableFileDescription.push({ sourceFilePath, targetFilePath });
             return resolveValueResponse(response);
         },
 
         getReadFileCallCount() {
-            return readFileCalls.length;
+            return calls.readFile.length;
         },
         getReadFileCall(index) {
-            return getCallAtIndex(readFileCalls, 'readFile', index);
+            return getCallAtIndex(calls.readFile, 'readFile', index);
         },
         getAllReadFileCalls() {
-            return readFileCalls;
+            return calls.readFile;
         },
 
         getReadFileBytesCallCount() {
-            return readFileBytesCalls.length;
+            return calls.readFileBytes.length;
         },
         getReadFileBytesCall(index) {
-            return getCallAtIndex(readFileBytesCalls, 'readFileBytes', index);
+            return getCallAtIndex(calls.readFileBytes, 'readFileBytes', index);
         },
         getAllReadFileBytesCalls() {
-            return readFileBytesCalls;
+            return calls.readFileBytes;
         },
 
         getWriteFileCallCount() {
-            return writeFileCalls.length;
+            return calls.writeFile.length;
         },
         getWriteFileCall(index) {
-            return getCallAtIndex(writeFileCalls, 'writeFile', index);
+            return getCallAtIndex(calls.writeFile, 'writeFile', index);
         },
         getAllWriteFileCalls() {
-            return writeFileCalls;
+            return calls.writeFile;
         },
 
         getWriteBinaryFileCallCount() {
-            return writeBinaryFileCalls.length;
+            return calls.writeBinaryFile.length;
         },
         getWriteBinaryFileCall(index) {
-            return getCallAtIndex(writeBinaryFileCalls, 'writeBinaryFile', index);
+            return getCallAtIndex(calls.writeBinaryFile, 'writeBinaryFile', index);
         },
         getAllWriteBinaryFileCalls() {
-            return writeBinaryFileCalls;
+            return calls.writeBinaryFile;
         },
 
         getCopyFileCallCount() {
-            return copyFileCalls.length;
+            return calls.copyFile.length;
         },
         getCopyFileCall(index) {
-            return getCallAtIndex(copyFileCalls, 'copyFile', index);
+            return getCallAtIndex(calls.copyFile, 'copyFile', index);
         },
         getAllCopyFileCalls() {
-            return copyFileCalls;
+            return calls.copyFile;
         },
 
         getCopyFileBytesCallCount() {
-            return copyFileBytesCalls.length;
+            return calls.copyFileBytes.length;
         },
         getCopyFileBytesCall(index) {
-            return getCallAtIndex(copyFileBytesCalls, 'copyFileBytes', index);
+            return getCallAtIndex(calls.copyFileBytes, 'copyFileBytes', index);
         },
         getAllCopyFileBytesCalls() {
-            return copyFileBytesCalls;
+            return calls.copyFileBytes;
         },
 
         getListDirectoryCallCount() {
-            return listDirectoryCalls.length;
+            return calls.listDirectory.length;
         },
         getListDirectoryCall(index) {
-            return getCallAtIndex(listDirectoryCalls, 'listDirectoryEntries', index);
+            return getCallAtIndex(calls.listDirectory, 'listDirectoryEntries', index);
         },
         getAllListDirectoryCalls() {
-            return listDirectoryCalls;
+            return calls.listDirectory;
         },
 
         getRealPathCallCount() {
-            return realPathCalls.length;
+            return calls.realPath.length;
         },
         getRealPathCall(index) {
-            return getCallAtIndex(realPathCalls, 'getRealPath', index);
+            return getCallAtIndex(calls.realPath, 'getRealPath', index);
         },
         getAllRealPathCalls() {
-            return realPathCalls;
+            return calls.realPath;
         },
 
         getCheckReadabilityCallCount() {
-            return checkReadabilityCalls.length;
+            return calls.checkReadability.length;
         },
         getCheckReadabilityCall(index) {
-            return getCallAtIndex(checkReadabilityCalls, 'checkReadability', index);
+            return getCallAtIndex(calls.checkReadability, 'checkReadability', index);
         },
         getAllCheckReadabilityCalls() {
-            return checkReadabilityCalls;
+            return calls.checkReadability;
         },
 
         getTransferableFileDescriptionCallCount() {
-            return transferableFileDescriptionCalls.length;
+            return calls.transferableFileDescription.length;
         },
         getTransferableFileDescriptionCall(index) {
-            return getCallAtIndex(transferableFileDescriptionCalls, 'getTransferableFileDescriptionFromPath', index);
+            return getCallAtIndex(
+                calls.transferableFileDescription,
+                'getTransferableFileDescriptionFromPath',
+                index
+            );
         },
         getAllTransferableFileDescriptionCalls() {
-            return transferableFileDescriptionCalls;
+            return calls.transferableFileDescription;
         }
     };
 }

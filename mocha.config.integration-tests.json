@@ -1,0 +1,14 @@
+{
+    "diff": true,
+    "forbid-pending": true,
+    "extension": ["ts"],
+    "spec": ["./integration-tests/**/*.test.ts"],
+    "exclude": [],
+    "jobs": 1,
+    "parallel": false,
+    "reporter": "dot",
+    "slow": 75,
+    "timeout": 15000,
+    "ui": "tdd",
+    "node-option": ["experimental-strip-types", "enable-source-maps"]
+}

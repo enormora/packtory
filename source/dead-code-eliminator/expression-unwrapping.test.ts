@@ -1,14 +1,20 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { SyntaxKind, type Expression } from 'ts-morph';
+import { SyntaxKind, type Expression, type VariableDeclaration } from 'ts-morph';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 
+function firstDeclaration(declarations: readonly VariableDeclaration[]): VariableDeclaration {
+    const [ declaration ] = declarations;
+    assert.ok(declaration !== undefined);
+    return declaration;
+}
+
 function firstInitializer(content: string): Expression {
-    const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
     const sourceFile = project.getSourceFileOrThrow('index.ts');
     const variableStatement = sourceFile.getFirstChildByKindOrThrow(SyntaxKind.VariableStatement);
-    return variableStatement.getDeclarations()[0]!.getInitializerOrThrow();
+    return firstDeclaration(variableStatement.getDeclarations()).getInitializerOrThrow();
 }
 
 suite('expression-unwrapping', function () {

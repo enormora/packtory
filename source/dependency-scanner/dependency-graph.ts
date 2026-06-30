@@ -33,82 +33,50 @@ export type DependencyFiles = {
     readonly externalDependencies: ExternalDependencies;
 };
 
-function recordSourceMapFile(
-    localFiles: Map<string, LocalFile>,
-    sourceMapFilePath: Maybe<string>,
-    project: TypescriptProject | undefined,
-    directDependencies: Set<string>
-): void {
-    if (!sourceMapFilePath.isJust) {
-        return;
-    }
-
-    directDependencies.add(sourceMapFilePath.value);
-    localFiles.set(sourceMapFilePath.value, {
-        filePath: sourceMapFilePath.value,
-        directDependencies: new Set(),
-        project: project?.getProject()
-    });
-}
-
-function recordLocalFile(
-    localFiles: Map<string, LocalFile>,
-    node: {
-        readonly filePath: string;
-        readonly project?: TypescriptProject | undefined;
-        readonly isGeneratedManifest?: true | undefined;
-    },
-    directDependencies: Set<string>
-): void {
-    localFiles.set(node.filePath, {
-        filePath: node.filePath,
-        directDependencies,
-        project: node.project?.getProject(),
-        ...(node.isGeneratedManifest ? { isGeneratedManifest: true } : {})
-    });
-}
-
-function addOrUpdateExternalDependency(
-    externalDependencies: Map<string, ExternalDependency>,
-    externalDependencyName: string,
-    reference: string
-): void {
-    const externalDependency = externalDependencies.get(externalDependencyName);
-    if (externalDependency === undefined) {
-        externalDependencies.set(externalDependencyName, {
-            name: externalDependencyName,
-            referencedFrom: [reference]
-        });
-        return;
-    }
-
-    externalDependencies.set(externalDependencyName, {
-        name: externalDependencyName,
-        referencedFrom: unique([...externalDependency.referencedFrom, reference])
-    });
-}
-
-function recordExternalDependencies(
-    externalDependencies: Map<string, ExternalDependency>,
-    externalDependencyNames: readonly string[],
-    reference: string
-): void {
-    for (const externalDependencyName of externalDependencyNames) {
-        addOrUpdateExternalDependency(externalDependencies, externalDependencyName, reference);
-    }
-}
-
 export function mergeDependencyFiles(
     first: Readonly<DependencyFiles>,
     second: Readonly<DependencyFiles>
 ): Readonly<DependencyFiles> {
     return {
         localFiles: values(
-            indexBy([...first.localFiles, ...second.localFiles], (localFile) => {
+            indexBy([ ...first.localFiles, ...second.localFiles ], function (localFile) {
                 return localFile.filePath;
             })
         ),
         externalDependencies: mergeExternalDependencies(first.externalDependencies, second.externalDependencies)
+    };
+}
+
+function sourceMapLocalFile(
+    sourceMapFilePath: Maybe<string>,
+    project: TypescriptProject | undefined
+): LocalFile | undefined {
+    if (!sourceMapFilePath.isJust) {
+        return undefined;
+    }
+
+    return {
+        filePath: sourceMapFilePath.value,
+        directDependencies: new Set(),
+        project: project?.getProject()
+    };
+}
+
+function mergedExternalDependency(
+    externalDependency: ExternalDependency | undefined,
+    externalDependencyName: string,
+    reference: string
+): ExternalDependency {
+    if (externalDependency === undefined) {
+        return {
+            name: externalDependencyName,
+            referencedFrom: [ reference ]
+        };
+    }
+
+    return {
+        name: externalDependency.name,
+        referencedFrom: unique([ ...externalDependency.referencedFrom, reference ])
     };
 }
 
@@ -142,14 +110,14 @@ export function createDependencyGraph(): DependencyGraph {
         },
 
         walk(startFilePath, visitor) {
-            graph.visitBreadthFirstSearch(startFilePath, (node) => {
+            graph.visitBreadthFirstSearch(startFilePath, function (node) {
                 visitor({
                     filePath: node.id,
                     sourceMapFilePath: node.data.sourceMapFilePath,
                     externalDependencies: node.data.externalDependencies,
                     localFiles: Array.from(node.adjacentNodeIds),
                     project: node.data.project,
-                    ...(node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {})
+                    ...node.data.isGeneratedManifest && { isGeneratedManifest: true }
                 });
             });
         },
@@ -158,19 +126,26 @@ export function createDependencyGraph(): DependencyGraph {
             const localFiles = new Map<string, LocalFile>();
             const externalDependencies = new Map<string, ExternalDependency>();
 
-            graph.visitBreadthFirstSearch(startFilePath, (node) => {
+            graph.visitBreadthFirstSearch(startFilePath, function (node) {
                 const directDependencies = new Set(graph.getAdjacentIds(node.id));
-                recordSourceMapFile(localFiles, node.data.sourceMapFilePath, node.data.project, directDependencies);
-                recordLocalFile(
-                    localFiles,
-                    {
-                        filePath: node.id,
-                        project: node.data.project,
-                        isGeneratedManifest: node.data.isGeneratedManifest
-                    },
-                    directDependencies
-                );
-                recordExternalDependencies(externalDependencies, node.data.externalDependencies, node.id);
+                const sourceMapFile = sourceMapLocalFile(node.data.sourceMapFilePath, node.data.project);
+                if (sourceMapFile !== undefined) {
+                    directDependencies.add(sourceMapFile.filePath);
+                    localFiles.set(sourceMapFile.filePath, sourceMapFile);
+                }
+                localFiles.set(node.id, {
+                    filePath: node.id,
+                    directDependencies,
+                    project: node.data.project?.getProject(),
+                    ...node.data.isGeneratedManifest && { isGeneratedManifest: true }
+                });
+                for (const externalDependencyName of node.data.externalDependencies) {
+                    const externalDependency = externalDependencies.get(externalDependencyName);
+                    externalDependencies.set(
+                        externalDependencyName,
+                        mergedExternalDependency(externalDependency, externalDependencyName, node.id)
+                    );
+                }
             });
 
             return {

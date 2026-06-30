@@ -41,12 +41,25 @@ type VendorInvalidDependencyNameFailure = {
     readonly invalidDependencyName: string;
 };
 
-export type PackPackageFailure =
-    | PeerDependenciesUnsatisfiedFailure
-    | VendorInvalidDependencyNameFailure
-    | VendorSymlinkOutsidePackageFailure
-    | { readonly type: typeof packPackageFailureType.bundleDependenciesUnsupported; readonly packageName: string }
-    | { readonly type: typeof packPackageFailureType.packageNotFound; readonly packageName: string };
+type BundleDependenciesUnsupportedFailure = {
+    readonly type: typeof packPackageFailureType.bundleDependenciesUnsupported;
+    readonly packageName: string;
+};
+
+type PackageNotFoundFailure = {
+    readonly type: typeof packPackageFailureType.packageNotFound;
+    readonly packageName: string;
+};
+
+type PackPackageFailures = readonly [
+    PeerDependenciesUnsatisfiedFailure,
+    VendorInvalidDependencyNameFailure,
+    VendorSymlinkOutsidePackageFailure,
+    BundleDependenciesUnsupportedFailure,
+    PackageNotFoundFailure
+];
+
+export type PackPackageFailure = PackPackageFailures[number];
 
 export type BuildAndPublishAllOptions = {
     readonly dryRun: boolean;
@@ -105,14 +118,19 @@ export function createResolveAndLinkAllOutcome(
 }
 
 export type ConfigError = {
-    type: typeof configErrorType;
-    issues: readonly string[];
+    readonly type: typeof configErrorType;
+    readonly issues: readonly string[];
 };
 
-export type PublishFailure =
-    | CheckError
-    | ConfigError
-    | (PartialError<BuildAndPublishResult> & { type: typeof partialFailureType });
+type PublishPartialFailure = PartialError<BuildAndPublishResult> & { readonly type: typeof partialFailureType; };
+
+type PublishFailures = readonly [
+    CheckError,
+    ConfigError,
+    PublishPartialFailure
+];
+
+export type PublishFailure = PublishFailures[number];
 
 export type PublishAllResult = Result<readonly BuildAndPublishResult[], PublishFailure>;
 
@@ -121,8 +139,8 @@ export function publishPartialFailure(error: PartialError<BuildAndPublishResult>
 }
 
 export type PartialErrorResult = {
-    type: typeof partialFailureType;
-    error: PartialError<ResolvedPackage>;
+    readonly type: typeof partialFailureType;
+    readonly error: PartialError<ResolvedPackage>;
 };
 
 export function resolvePartialFailure(error: PartialError<ResolvedPackage>): PartialErrorResult {
@@ -132,10 +150,15 @@ export function resolvePartialFailure(error: PartialError<ResolvedPackage>): Par
 export type ResolveAndLinkFailure = CheckError | ConfigError | PartialErrorResult;
 export type ResolveAndLinkAllResult = Result<readonly ResolvedPackage[], ResolveAndLinkFailure>;
 
-export type ReleaseDiffFailure =
-    | CheckError
-    | ConfigError
-    | (PartialError<PackageReleaseDiff> & { type: typeof partialFailureType });
+type ReleaseDiffPartialFailure = PartialError<PackageReleaseDiff> & { readonly type: typeof partialFailureType; };
+
+type ReleaseDiffFailures = readonly [
+    CheckError,
+    ConfigError,
+    ReleaseDiffPartialFailure
+];
+
+export type ReleaseDiffFailure = ReleaseDiffFailures[number];
 export type ReleaseDiffAllResult = Result<readonly PackageReleaseDiff[], ReleaseDiffFailure>;
 
 export type ReleaseDiffAllOutcome = {
@@ -166,10 +189,17 @@ export type ReleaseAnalysis = {
     readonly packageAnalyses: readonly PackageReleaseAnalysis[];
 };
 
-export type ReleaseAnalysisFailure =
-    | CheckError
-    | ConfigError
-    | (PartialError<PackageReleaseAnalysis> & { type: typeof partialFailureType });
+type ReleaseAnalysisPartialFailure = PartialError<PackageReleaseAnalysis> & {
+    readonly type: typeof partialFailureType;
+};
+
+type ReleaseAnalysisFailures = readonly [
+    CheckError,
+    ConfigError,
+    ReleaseAnalysisPartialFailure
+];
+
+export type ReleaseAnalysisFailure = ReleaseAnalysisFailures[number];
 export type ReleaseAnalysisResult = Result<ReleaseAnalysis, ReleaseAnalysisFailure>;
 
 export type ReleaseAnalysisOutcome = {
@@ -211,10 +241,15 @@ export type ReleasePlan = {
     readonly packages: readonly ReleasePlanPackage[];
 };
 
-export type ReleasePlanFailure =
-    | CheckError
-    | ConfigError
-    | (PartialError<ReleasePlanPackage> & { type: typeof partialFailureType });
+type ReleasePlanPartialFailure = PartialError<ReleasePlanPackage> & { readonly type: typeof partialFailureType; };
+
+type ReleasePlanFailures = readonly [
+    CheckError,
+    ConfigError,
+    ReleasePlanPartialFailure
+];
+
+export type ReleasePlanFailure = ReleasePlanFailures[number];
 export type ReleasePlanResult = Result<ReleasePlan, ReleasePlanFailure>;
 
 export type ReleasePlanOutcome = {

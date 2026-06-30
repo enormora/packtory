@@ -19,6 +19,11 @@ type OidcExchangeToken = {
     readonly expiresAt: number;
 };
 
+type ParsedOidcExchangeToken = {
+    readonly token: string;
+    readonly expiresAt: number;
+};
+
 type OidcExchangerDependencies = {
     readonly fetch: typeof globalThis.fetch;
     readonly clock: Clock;
@@ -58,7 +63,7 @@ export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies
         return undefined;
     }
 
-    function parseExchangedToken(body: unknown): { readonly token: string; readonly expiresAt: number } {
+    function parseExchangedToken(body: unknown): ParsedOidcExchangeToken {
         const parsed = parseOidcExchangeResponse(body);
         if (!parsed.success) {
             throw new TypeError(`OIDC token exchange returned an invalid response: ${parsed.issues.join('; ')}`);
@@ -69,14 +74,15 @@ export function createOidcTokenExchanger(dependencies: OidcExchangerDependencies
     async function requestExchange(
         packageName: string,
         auth: NpmOidcPublishAuth
-    ): Promise<{ readonly token: string; readonly expiresAt: number }> {
+    ): Promise<ParsedOidcExchangeToken> {
         const idToken = await resolveIdToken(auth);
+        const requestInit: RequestInit = {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${idToken}` }
+        };
         const exchangeResponse = await fetchImplementation(
             `${npmRegistryUrl}-/npm/v1/oidc/token/exchange/package/${toRegistryPackagePath(packageName)}`,
-            {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${idToken}` }
-            } satisfies RequestInit
+            requestInit
         );
         if (!exchangeResponse.ok) {
             throw new Error(`OIDC token exchange failed with status ${exchangeResponse.status}`);

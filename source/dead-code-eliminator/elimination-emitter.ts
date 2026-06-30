@@ -4,11 +4,11 @@ import type { AnalyzedBundle } from './analyzed-bundle.ts';
 
 function buildFileDecisions(original: LinkedBundle, analyzed: AnalyzedBundle): readonly FileDecision[] {
     const analyzedBySourcePath = new Map(
-        analyzed.contents.map((entry) => {
-            return [entry.fileDescription.sourceFilePath, entry] as const;
+        analyzed.contents.map(function (entry) {
+            return [ entry.fileDescription.sourceFilePath, entry ] as const;
         })
     );
-    return original.contents.map((entry): FileDecision => {
+    return original.contents.map(function (entry): FileDecision {
         const emitted = analyzedBySourcePath.get(entry.fileDescription.sourceFilePath);
         const sourceBytes = Buffer.byteLength(entry.fileDescription.content);
         if (emitted === undefined) {
@@ -47,7 +47,7 @@ export function maybeEmitElimination(
         return;
     }
     broadcaster.emit('eliminationCompleted', {
-        perBundle: analyzed.map((bundle, index) => {
+        perBundle: analyzed.map(function (bundle, index) {
             const originalBundle = originalBundles[index];
             if (originalBundle === undefined) {
                 throw new Error(`Original bundle missing for analyzed bundle "${bundle.name}"`);

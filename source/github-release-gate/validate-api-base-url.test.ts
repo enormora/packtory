@@ -21,31 +21,33 @@ suite('validate-api-base-url', function () {
 
     test('rejects an arbitrary public host with the full mismatch message', function () {
         assert.throws(
-            () => {
+            function () {
                 assertGitHubApiBaseUrl('https://attacker.example/api');
             },
             {
-                message:
-                    'GITHUB_API_BASE_URL hostname must be "api.github.com", got "attacker.example". ' +
+                message: 'GITHUB_API_BASE_URL hostname must be "api.github.com", got "attacker.example". ' +
                     'A non-GitHub host would receive the GITHUB_TOKEN.'
             }
         );
     });
 
     test('rejects a lookalike host', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             assertGitHubApiBaseUrl('https://api.github.com.attacker.example');
         }, /hostname must be "api\.github\.com", got "api\.github\.com\.attacker\.example"/u);
     });
 
     test('rejects an http public host', function () {
-        assert.throws(() => {
-            assertGitHubApiBaseUrl('http://api.github.com');
+        const apiBaseUrl = new URL('https://api.github.com');
+        apiBaseUrl.protocol = 'http:';
+
+        assert.throws(function () {
+            assertGitHubApiBaseUrl(apiBaseUrl.href);
         }, /must use https/u);
     });
 
     test('rejects a malformed URL', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             assertGitHubApiBaseUrl('not-a-url');
         }, /is not a valid URL/u);
     });

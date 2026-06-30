@@ -1,19 +1,26 @@
 const configFiles = [
     '^dependency-cruiser\\.config\\.js$',
     '^eslint\\.config\\.js$',
-    '^mocha\\.config\\..*\\.cjs$',
+    '^mocha\\.config\\..*\\.js$',
     '^packtory\\.config\\.js$'
 ];
 
-const entryPointFiles = ['^source/packages/.+\\.entry-point\\.ts$'];
-const buildSupportFiles = ['^source/build-support/'];
+const entryPointFiles = [ '^source/packages/.+\\.entry-point\\.ts$' ];
+const buildSupportFiles = [ '^source/build-support/' ];
 
-const testFiles = ['\\.(test|property|type-test)\\.ts$', '^integration-tests/'];
-const testSupportFiles = ['^source/.+/test-support\\.ts$'];
-const testLibraryFiles = ['^source/test-libraries/'];
-const excludedFiles = ['^(\\./)?integration-tests/fixtures/', '^(\\./)?target/'];
+const testFiles = [ '\\.(test|property|type-test)\\.ts$', '^integration-tests/' ];
+const testSupportFiles = [ '^source/.+test-support\\.ts$' ];
+const testLibraryFiles = [ '^source/test-libraries/' ];
+const excludedFiles = [ '^(\\./)?integration-tests/fixtures/', '^(\\./)?target/' ];
 
-const ignoreFromOrphans = [...configFiles, ...entryPointFiles, ...buildSupportFiles, ...testFiles, ...testSupportFiles];
+const ignoreFromOrphans = [
+    ...configFiles,
+    ...entryPointFiles,
+    ...buildSupportFiles,
+    ...testFiles,
+    ...testSupportFiles,
+    ...testLibraryFiles
+];
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 export default {
@@ -50,7 +57,7 @@ export default {
             name: 'no-internal-but-tested-orphans',
             severity: 'error',
             from: {
-                pathNot: [...testFiles, ...testLibraryFiles]
+                pathNot: [ ...testFiles, ...testLibraryFiles ]
             },
             module: {
                 numberOfDependentsLessThan: 1,
@@ -69,7 +76,7 @@ export default {
             severity: 'error',
             from: {},
             to: {
-                dependencyTypes: ['deprecated']
+                dependencyTypes: [ 'deprecated' ]
             }
         },
         {
@@ -77,8 +84,8 @@ export default {
             severity: 'error',
             from: {},
             to: {
-                dependencyTypes: ['npm'],
-                dependencyTypesNot: ['type-only'],
+                dependencyTypes: [ 'npm' ],
+                dependencyTypesNot: [ 'type-only' ],
                 moreThanOneDependencyType: true
             }
         },
@@ -87,12 +94,12 @@ export default {
             severity: 'error',
             from: {
                 path: '^source/',
-                pathNot: [...testFiles, ...testLibraryFiles]
+                pathNot: [ ...testFiles, ...testSupportFiles, ...testLibraryFiles ]
             },
             to: {
-                dependencyTypes: ['npm-dev'],
+                dependencyTypes: [ 'npm-dev' ],
                 moreThanOneDependencyType: false,
-                pathNot: ['^node_modules/@types/', '\\.d\\.ts$']
+                pathNot: [ '^node_modules/@types/', '\\.d\\.ts$' ]
             }
         },
         {
@@ -100,7 +107,7 @@ export default {
             severity: 'error',
             from: {},
             to: {
-                dependencyTypes: ['npm-no-pkg', 'npm-unknown']
+                dependencyTypes: [ 'npm-no-pkg', 'npm-unknown' ]
             }
         },
         {
@@ -117,12 +124,12 @@ export default {
     options: {
         doNotFollow: {
             path: 'node_modules|target/',
-            dependencyTypes: ['npm', 'npm-dev', 'npm-optional', 'npm-peer', 'npm-bundled', 'npm-no-pkg']
+            dependencyTypes: [ 'npm', 'npm-dev', 'npm-optional', 'npm-peer', 'npm-bundled', 'npm-no-pkg' ]
         },
         exclude: {
             path: excludedFiles
         },
-        moduleSystems: ['cjs', 'es6', 'tsd'],
+        moduleSystems: [ 'cjs', 'es6', 'tsd' ],
         tsPreCompilationDeps: true,
         tsConfig: {
             fileName: 'tsconfig.json'

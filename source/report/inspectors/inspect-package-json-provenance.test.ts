@@ -32,9 +32,9 @@ suite('inspect-package-json-provenance', function () {
 
     test('inspectPackageJsonProvenance prefers additionalAttributes over mainPackageJson when both contain the field', function () {
         const provenance = inspectPackageJsonProvenance(
-            { keywords: ['a', 'b'] },
-            { keywords: ['x'] },
-            { keywords: ['a', 'b'] }
+            { keywords: [ 'a', 'b' ] },
+            { keywords: [ 'x' ] },
+            { keywords: [ 'a', 'b' ] }
         );
 
         assert.deepStrictEqual(provenance.keywords, { source: 'additionalAttributes' });

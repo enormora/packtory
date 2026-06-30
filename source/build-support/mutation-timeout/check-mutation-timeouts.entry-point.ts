@@ -4,7 +4,7 @@ import { runMutationTimeoutCheck } from './mutation-timeout-cli-runner.ts';
 
 process.exitCode = await runMutationTimeoutCheck(process.argv, {
     fileManager: createFileManager({ hostFileSystem: fs.promises }),
-    stderrWrite: (message) => {
+    stderrWrite(message) {
         process.stderr.write(message);
     }
 });

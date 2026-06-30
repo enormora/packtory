@@ -23,8 +23,8 @@ function identity(value: string): string {
 }
 
 function withAnsi(openCode: number, closeCode: number): (value: string) => string {
-    return (value) => {
-        return `\u001B[${openCode}m${value}\u001B[${closeCode}m`;
+    return function (value) {
+        return `\u{1B}[${openCode}m${value}\u{1B}[${closeCode}m`;
     };
 }
 
@@ -73,12 +73,12 @@ const resultTypeHeadings = {
 
 export function renderFailureDocumentHeader(document: FailureDocumentHeader, colors: Colors): readonly string[] {
     const chip = `[${document.modeLabel}]`;
-    const lines = [`${colors.bold(document.title)} ${colors.yellow(chip)}`];
+    const lines = [ `${colors.bold(document.title)} ${colors.yellow(chip)}` ];
     if (document.resultType !== previewResultType.success) {
         lines.push(colors.red(resultTypeHeadings[document.resultType]));
     }
     lines.push(
-        ...document.issues.map((issue) => {
+        ...document.issues.map(function (issue) {
             return `- ${issue}`;
         })
     );

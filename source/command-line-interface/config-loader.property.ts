@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
 import { suite, test } from 'mocha';
-import { createConfigLoader } from './config-loader.ts';
+import { createConfigLoader, type ConfigLoader } from './config-loader.ts';
 
 async function expectFailure(action: () => Promise<unknown>): Promise<void> {
     try {
@@ -12,10 +12,10 @@ async function expectFailure(action: () => Promise<unknown>): Promise<void> {
     }
 }
 
-function createLoader(moduleValue: unknown) {
+function createLoader(moduleValue: unknown): ConfigLoader {
     return createConfigLoader({
         currentWorkingDirectory: '/workspace',
-        importModule: async () => {
+        async importModule() {
             return moduleValue;
         }
     });
@@ -33,8 +33,8 @@ suite('config-loader', function () {
                     fc.constant(undefined),
                     fc.array(fc.anything())
                 ),
-                async (moduleValue) => {
-                    await expectFailure(async () => {
+                async function (moduleValue) {
+                    await expectFailure(async function () {
                         await createLoader(moduleValue).load();
                     });
                 }
@@ -44,12 +44,12 @@ suite('config-loader', function () {
 
     test('load() rejects objects without config and buildConfig exports', async function () {
         await fc.assert(
-            fc.asyncProperty(fc.dictionary(fc.string(), fc.anything(), { maxKeys: 4 }), async (moduleValue) => {
-                if ('config' in moduleValue || 'buildConfig' in moduleValue) {
+            fc.asyncProperty(fc.dictionary(fc.string(), fc.anything(), { maxKeys: 4 }), async function (moduleValue) {
+                if (Object.hasOwn(moduleValue, 'config') || Object.hasOwn(moduleValue, 'buildConfig')) {
                     return;
                 }
 
-                await expectFailure(async () => {
+                await expectFailure(async function () {
                     await createLoader(moduleValue).load();
                 });
             })
@@ -59,11 +59,11 @@ suite('config-loader', function () {
     test('load() rejects non-function buildConfig exports when config is absent', async function () {
         await fc.assert(
             fc.asyncProperty(
-                fc.anything().filter((value) => {
+                fc.anything().filter(function (value) {
                     return typeof value !== 'function';
                 }),
-                async (buildConfig) => {
-                    await expectFailure(async () => {
+                async function (buildConfig) {
+                    await expectFailure(async function () {
                         await createLoader({ buildConfig }).load();
                     });
                 }

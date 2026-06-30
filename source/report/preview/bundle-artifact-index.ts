@@ -10,9 +10,9 @@ export type BundleArtifactIndex = ReadonlyMap<string, ReadonlyMap<string, FinalA
 
 export function buildBundleArtifactIndex(results: readonly BuildAndPublishResult[]): BundleArtifactIndex {
     return new Map(
-        results.map((result) => {
+        results.map(function (result) {
             const entries = new Map<string, FinalArtifactContent>([
-                [packageManifestFilePath, { content: result.bundle.manifestFile.content }]
+                [ packageManifestFilePath, { content: result.bundle.manifestFile.content } ]
             ]);
             for (const entry of result.bundle.contents) {
                 entries.set(entry.fileDescription.targetFilePath, {
@@ -20,7 +20,7 @@ export function buildBundleArtifactIndex(results: readonly BuildAndPublishResult
                     sourcePath: entry.fileDescription.sourceFilePath
                 });
             }
-            return [result.bundle.name, entries] as const;
+            return [ result.bundle.name, entries ] as const;
         })
     );
 }

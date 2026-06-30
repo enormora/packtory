@@ -10,14 +10,30 @@ type GraphShape = {
     readonly edges: readonly GraphEdge<string>[];
 };
 
+function nodeIdAt(nodeIds: readonly string[], index: number): string {
+    const nodeId = nodeIds[index];
+    if (nodeId === undefined) {
+        throw new Error(`Missing generated node id at index ${index}`);
+    }
+    return nodeId;
+}
+
+function positionOf(positions: ReadonlyMap<string, number>, nodeId: string): number {
+    const position = positions.get(nodeId);
+    if (position === undefined) {
+        throw new Error(`Missing generated node position for "${nodeId}"`);
+    }
+    return position;
+}
+
 function createGraph(shape: GraphShape): DirectedGraph<string, undefined> {
     const graph = createDirectedGraph<string, undefined>();
 
-    shape.nodeIds.forEach((nodeId) => {
+    shape.nodeIds.forEach(function (nodeId) {
         graph.addNode(nodeId, undefined);
     });
 
-    shape.edges.forEach((edge) => {
+    shape.edges.forEach(function (edge) {
         graph.connect(edge);
     });
 
@@ -26,61 +42,66 @@ function createGraph(shape: GraphShape): DirectedGraph<string, undefined> {
 
 function getSortedEdges(graph: DirectedGraph<string, undefined>, nodeIds: readonly string[]): readonly string[] {
     return nodeIds
-        .flatMap((nodeId) => {
-            return Array.from(graph.getAdjacentIds(nodeId), (adjacentId) => {
+        .flatMap(function (nodeId) {
+            return Array.from(graph.getAdjacentIds(nodeId), function (adjacentId) {
                 return `${nodeId}->${adjacentId}`;
             });
         })
-        .toSorted();
+        .toSorted(function (left, right) {
+            return left.localeCompare(right);
+        });
 }
 
 function createDagArbitrary(): fc.Arbitrary<GraphShape> {
-    return fc.integer({ min: 1, max: 4 }).chain((nodeCount) => {
-        const nodeIds = Array.from({ length: nodeCount }, (_, index) => {
+    return fc.integer({ min: 1, max: 4 }).chain(function (nodeCount) {
+        const nodeIds = Array.from({ length: nodeCount }, function (_unused, index) {
             return `node-${index}`;
         });
-        const possibleEdges = nodeIds.flatMap((_, fromIndex) => {
-            return nodeIds.flatMap((__, toIndex) => {
+        const nodeIndexes = Array.from(nodeIds.keys());
+        const possibleEdges = nodeIndexes.flatMap(function (fromIndex) {
+            return nodeIndexes.flatMap(function (toIndex) {
                 if (fromIndex < toIndex && toIndex !== fromIndex + 1) {
-                    return [[fromIndex, toIndex] as const];
+                    return [ [ fromIndex, toIndex ] as const ];
                 }
 
                 return [];
             });
         });
 
-        return fc.shuffledSubarray(possibleEdges).map((edges) => {
-            return {
+        return fc.shuffledSubarray(possibleEdges).map(function (edges) {
+            const graphShape: GraphShape = {
                 nodeIds,
-                edges: edges.map(([fromIndex, toIndex]) => {
-                    return { from: nodeIds[fromIndex]!, to: nodeIds[toIndex]! };
+                edges: edges.map(function ([ fromIndex, toIndex ]) {
+                    return { from: nodeIdAt(nodeIds, fromIndex), to: nodeIdAt(nodeIds, toIndex) };
                 })
-            } satisfies GraphShape;
+            };
+            return graphShape;
         });
     });
 }
 
 function createCyclicGraphArbitrary(): fc.Arbitrary<GraphShape> {
-    return fc.integer({ min: 2, max: 4 }).map((nodeCount) => {
-        const nodeIds = Array.from({ length: nodeCount }, (_, index) => {
+    return fc.integer({ min: 2, max: 4 }).map(function (nodeCount) {
+        const nodeIds = Array.from({ length: nodeCount }, function (_unused, index) {
             return `cycle-${index}`;
         });
-        return {
+        const graphShape: GraphShape = {
             nodeIds,
-            edges: nodeIds.map((nodeId, index) => {
+            edges: nodeIds.map(function (nodeId, index) {
                 return {
                     from: nodeId,
-                    to: nodeIds[(index + 1) % nodeIds.length]!
+                    to: nodeIdAt(nodeIds, (index + 1) % nodeIds.length)
                 };
             })
-        } satisfies GraphShape;
+        };
+        return graphShape;
     });
 }
 
 suite('graph', function () {
     test('reverse() preserves the edge set when applied twice and reverses all original edges', function () {
         fc.assert(
-            fc.property(createDagArbitrary(), (shape) => {
+            fc.property(createDagArbitrary(), function (shape) {
                 const graph = createGraph(shape);
                 const reversedGraph = graph.reverse();
                 const reversedTwice = reversedGraph.reverse();
@@ -90,7 +111,7 @@ suite('graph', function () {
                     getSortedEdges(graph, shape.nodeIds)
                 );
 
-                shape.edges.forEach((edge) => {
+                shape.edges.forEach(function (edge) {
                     assert.strictEqual(reversedGraph.hasConnection({ from: edge.to, to: edge.from }), true);
                 });
             }),
@@ -100,20 +121,27 @@ suite('graph', function () {
 
     test('getTopologicalGenerations() contains every node exactly once and respects edge order for DAGs', function () {
         fc.assert(
-            fc.property(createDagArbitrary(), (shape) => {
+            fc.property(createDagArbitrary(), function (shape) {
                 const graph = createGraph(shape);
                 const generations = graph.getTopologicalGenerations();
                 const flattened = generations.flat();
 
-                assert.deepStrictEqual(Array.from(flattened).toSorted(), Array.from(shape.nodeIds).toSorted());
-
-                const positions = new Map(
-                    flattened.map((nodeId, index) => {
-                        return [nodeId, index];
+                assert.deepStrictEqual(
+                    Array.from(flattened).toSorted(function (left, right) {
+                        return left.localeCompare(right);
+                    }),
+                    Array.from(shape.nodeIds).toSorted(function (left, right) {
+                        return left.localeCompare(right);
                     })
                 );
-                shape.edges.forEach((edge) => {
-                    assert.ok(positions.get(edge.from)! < positions.get(edge.to)!);
+
+                const positions = new Map(
+                    flattened.map(function (nodeId, index) {
+                        return [ nodeId, index ];
+                    })
+                );
+                shape.edges.forEach(function (edge) {
+                    assert.ok(positionOf(positions, edge.from) < positionOf(positions, edge.to));
                 });
             }),
             { numRuns: 8 }
@@ -122,7 +150,7 @@ suite('graph', function () {
 
     test('detectCycles() reports no cycles for generated DAGs', function () {
         fc.assert(
-            fc.property(createDagArbitrary(), (shape) => {
+            fc.property(createDagArbitrary(), function (shape) {
                 const graph = createGraph(shape);
 
                 assert.deepStrictEqual(graph.detectCycles(), []);
@@ -134,12 +162,12 @@ suite('graph', function () {
 
     test('detectCycles() reports at least one cycle for generated cyclic graphs', function () {
         fc.assert(
-            fc.property(createCyclicGraphArbitrary(), (shape) => {
+            fc.property(createCyclicGraphArbitrary(), function (shape) {
                 const graph = createGraph(shape);
                 const cycles = graph.detectCycles();
 
                 assert.ok(cycles.length > 0);
-                cycles.flat().forEach((nodeId) => {
+                cycles.flat().forEach(function (nodeId) {
                     assert.ok(shape.nodeIds.includes(nodeId));
                 });
                 assert.strictEqual(graph.isCyclic(), true);

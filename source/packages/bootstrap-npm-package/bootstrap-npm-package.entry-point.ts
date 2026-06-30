@@ -18,13 +18,22 @@ import { createPackagePublication, type WebOtpUrls } from '../../bootstrap-npm-p
 import { createPlaceholderTarballBuilder } from '../../bootstrap-npm-package/placeholder-tarball.ts';
 import { createWebLogin } from '../../bootstrap-npm-package/web-login.ts';
 
+type WebAuthOpenerOptions = {
+    readonly registry: string;
+};
+
+type WebAuthOpenerResult = {
+    readonly token: string;
+};
+
 declare module 'npm-profile' {
+    // eslint-disable-next-line unicorn/no-exports-in-scripts -- module augmentation must live beside the script import it patches
     export function webAuthOpener(
         opener: (url: string) => Promise<void>,
         authUrl: string,
         doneUrl: string,
-        opts: { readonly registry: string }
-    ): Promise<{ readonly token: string }>;
+        opts: WebAuthOpenerOptions
+    ): Promise<WebAuthOpenerResult>;
 }
 
 const npmRegistryUrl = 'https://registry.npmjs.org/';
@@ -33,21 +42,28 @@ async function openInBrowser(loginUrl: string): Promise<void> {
     await open(loginUrl, { wait: false });
 }
 
+function requireOneTimePassword(answer: string): string {
+    const trimmed = answer.trim();
+    if (trimmed.length === 0) {
+        throw new Error('One-time password input was empty');
+    }
+    return trimmed;
+}
+
+async function askOneTimePassword(prompt: readline.Interface): Promise<string> {
+    try {
+        return await prompt.question('Registry one-time password: ');
+    } finally {
+        prompt.close();
+    }
+}
+
 async function promptForOneTimePasswordViaTerminal(): Promise<string> {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
         throw new Error('The npm registry requested a one-time password, but stdin is not an interactive terminal');
     }
     const prompt = readline.createInterface({ input: process.stdin, output: process.stdout });
-    try {
-        const answer = await prompt.question('Registry one-time password: ');
-        const trimmed = answer.trim();
-        if (trimmed.length === 0) {
-            throw new Error('One-time password input was empty');
-        }
-        return trimmed;
-    } finally {
-        prompt.close();
-    }
+    return requireOneTimePassword(await askOneTimePassword(prompt));
 }
 
 async function promptForOneTimePasswordViaBrowser(urls: WebOtpUrls): Promise<string> {
@@ -72,7 +88,7 @@ function createDependencies(): BootstrapRunnerDependencies {
         webLogin: createWebLogin({ loginWeb, openInBrowser }),
         packagePublication: createPackagePublication({ publish: libnpmpublishPublish }),
         promptForOneTimePassword,
-        log: (message) => {
+        log(message) {
             process.stdout.write(`${message}\n`);
         }
     };
@@ -84,8 +100,7 @@ function createComposedRunner(): BootstrapRunner {
 
 const bootstrapCommand = command({
     name: 'bootstrap-npm-package',
-    description:
-        'Publishes a deprecated placeholder version 0.0.1 of a brand-new npm package so ' +
+    description: 'Publishes a deprecated placeholder version 0.0.1 of a brand-new npm package so ' +
         'a Trusted Publisher can subsequently be configured for the name.',
     args: {
         packageName: positional({ type: string, displayName: 'package-name' })

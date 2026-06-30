@@ -20,20 +20,23 @@ import { resolveSurface } from './surface-resolution.ts';
 
 export type VersioningSettings = NonNullable<PackageConfig['versioning']>;
 
-type ManifestOptionsSubset = {
+export type SharedPackageOptions<TBundle extends { readonly name: string; }> = {
     readonly additionalPackageJsonAttributes: AdditionalPackageJsonAttributes;
     readonly allowMutableSpecifiers: readonly string[];
     readonly mainPackageJson: MainPackageJson;
+    readonly sourcesFolder: ResourceResolveOptions['sourcesFolder'];
+    readonly name: ResourceResolveOptions['name'];
+    readonly exportPackageJson?: ResourceResolveOptions['exportPackageJson'];
+    readonly includeSourceMapFiles: ResourceResolveOptions['includeSourceMapFiles'];
+    readonly additionalFiles: ResourceResolveOptions['additionalFiles'];
+    readonly roots: ResourceResolveOptions['roots'];
+    readonly surface?: ResourceResolveOptions['surface'];
+    readonly bundleDependencies: readonly TBundle[];
+    readonly bundlePeerDependencies: readonly TBundle[];
+    readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
-export type SharedPackageOptions<TBundle extends { name: string }> = ManifestOptionsSubset &
-    ResourceResolveOptions & {
-        readonly bundleDependencies: readonly TBundle[];
-        readonly bundlePeerDependencies: readonly TBundle[];
-        readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
-    };
-
-export type PreparedPackageOptions<TBundle extends { name: string }> = {
+export type PreparedPackageOptions<TBundle extends { readonly name: string; }> = {
     readonly additionalChangelogSourceFiles: AdditionalChangelogSourceFiles;
     readonly packageConfig: PackageConfig;
     readonly sharedOptions: SharedPackageOptions<TBundle>;
@@ -48,7 +51,7 @@ function getPackageConfig(packageName: string, packageConfigs: PackageConfigsByN
     return packageConfig;
 }
 
-function buildSharedOptions<TBundle extends { name: string }>(
+function buildSharedOptions<TBundle extends { readonly name: string; }>(
     packageConfig: PackageConfig,
     packtoryConfig: PacktoryConfigWithoutRegistry,
     existingBundles: readonly TBundle[]
@@ -57,14 +60,14 @@ function buildSharedOptions<TBundle extends { name: string }>(
     const mainPackageJson = resolveMainPackageJson(packageConfig, packtoryConfig);
     const bundleDependencies = resolveBundleDependencies(packageConfig, existingBundles);
     const normalizedRootEntries = getRequiredArrayValue(
-        Object.entries(packageConfig.roots).map(([rootId, root]) => {
-            return [rootId, normalizeRoot(root, sourcesFolder)] as const;
+        Object.entries(packageConfig.roots).map(function ([ rootId, root ]) {
+            return [ rootId, normalizeRoot(root, sourcesFolder) ] as const;
         }),
         `Package "${packageConfig.name}" must define at least one root`
     );
 
     const roots = Object.fromEntries(normalizedRootEntries) as ResourceResolveOptions['roots'];
-    const rootIds = mapRequiredArrayValue(normalizedRootEntries, ([rootId]) => {
+    const rootIds = mapRequiredArrayValue(normalizedRootEntries, function ([ rootId ]) {
         return rootId;
     });
     const surface = resolveSurface(rootIds, packageConfig);
@@ -85,7 +88,7 @@ function buildSharedOptions<TBundle extends { name: string }>(
     };
 }
 
-export function preparePackageOptions<TBundle extends { name: string }>(
+export function preparePackageOptions<TBundle extends { readonly name: string; }>(
     packageName: string,
     packageConfigs: PackageConfigsByName,
     packtoryConfig: PacktoryConfigWithoutRegistry,

@@ -10,19 +10,21 @@ export type ReportAggregator = {
 
 function materialize(state: AggregatorState): BuildReport {
     const packageReports: Record<string, PackageReport> = {};
-    for (const [name, entry] of state.packages.entries()) {
+    for (const [ name, entry ] of state.packages) {
         packageReports[name] = toPackageReport(entry);
     }
+    const generatedAt = new Date();
     return {
         schemaVersion: 1,
-        generatedAt: new Date().toISOString(),
+        generatedAt: generatedAt.toISOString(),
         packages: packageReports,
         aggregate: { crossBundleLinks: [] }
     };
 }
 
 export function createReportAggregator(consumer: ProgressBroadcastConsumer): ReportAggregator {
-    const state: AggregatorState = { packages: new Map(), disposers: [] };
+    const disposers: (() => void)[] = [];
+    const state: AggregatorState = { packages: new Map(), disposers };
     registerSubscribers(state, consumer);
     const memo: BuildReport[] = [];
     return {
@@ -32,7 +34,7 @@ export function createReportAggregator(consumer: ProgressBroadcastConsumer): Rep
             }
         },
         build() {
-            const [cached] = memo;
+            const [ cached ] = memo;
             if (cached !== undefined) {
                 return cached;
             }

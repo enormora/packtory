@@ -13,7 +13,7 @@ export type CheckRunnerParams = {
 
 export async function runChecks(params: CheckRunnerParams): Promise<readonly string[]> {
     const issues = await Promise.all(
-        allRules.map(async (rule) => {
+        allRules.map(async function (rule) {
             return await rule.run(params);
         })
     );

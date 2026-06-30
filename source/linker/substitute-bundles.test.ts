@@ -4,7 +4,7 @@ import type { Project } from 'ts-morph';
 import { bundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import { createGraphFromResolvedBundle } from './resource-graph.ts';
+import { createGraphFromResolvedBundle, type ResourceGraph } from './resource-graph.ts';
 import { substituteDependencies } from './substitute-bundles.ts';
 
 type ResolvedContentDescription = {
@@ -18,20 +18,20 @@ type ResolvedContentDescription = {
 function buildInputGraph(
     contents: readonly ResolvedContentDescription[],
     entryPath = '/entry.js'
-): ReturnType<typeof createGraphFromResolvedBundle> {
+): ResourceGraph {
     const root = {
         js: { content: '', isExecutable: false, sourceFilePath: entryPath, targetFilePath: 'entry.js' },
         declarationFile: undefined
     } as const;
     return createGraphFromResolvedBundle({
-        contents: contents.map((entry) => {
+        contents: contents.map(function (entry) {
             return {
                 ...bundleResource(entry.source, {
                     content: entry.content,
                     directDependencies: new Set(entry.directDependencies)
                 }),
                 project: entry.project,
-                ...(entry.isGeneratedManifest === true ? { isGeneratedManifest: true } : {})
+                ...entry.isGeneratedManifest === true && { isGeneratedManifest: true }
             };
         }),
         roots: { main: root },
@@ -67,7 +67,7 @@ function bundleSource(packageName: string, sourceFilePath: string, isSubstituted
 }
 
 const entryWithFooImport = {
-    directDependencies: new Set(['/foo.js']),
+    directDependencies: new Set([ '/foo.js' ]),
     fileDescription: {
         content: 'import "./foo.js";',
         isExecutable: false,
@@ -91,7 +91,7 @@ const fooFileResult = {
 } as const;
 
 const entryFooSetup = [
-    { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'] },
+    { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ] },
     { source: '/foo.js', content: 'true' }
 ] as const;
 
@@ -111,7 +111,7 @@ function substitutedEntryResult(packageName: string): unknown {
             }
         ],
         externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([[packageName, { name: packageName, referencedFrom: ['/entry.js'] }]])
+        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ])
     };
 }
 
@@ -125,7 +125,7 @@ function buildEntryFooProject(): Project {
 }
 
 const passthroughResult = {
-    contents: [entryWithFooImport, fooFileResult],
+    contents: [ entryWithFooImport, fooFileResult ],
     externalDependencies: new Map(),
     linkedBundleDependencies: new Map()
 } as const;
@@ -134,15 +134,15 @@ suite('substitute-bundles', function () {
     test('doesn’t substitute anything when the given dependencies are empty', function () {
         const inputGraph = buildInputGraph(entryFooSetup);
         const substitutedGraph = substituteDependencies(inputGraph, []);
-        const result = substitutedGraph.flatten(['/entry.js']);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, passthroughResult);
     });
 
     test('doesn’t substitute anything when the given dependencies has only files that don’t match', function () {
         const inputGraph = buildInputGraph(entryFooSetup);
-        const substitutedGraph = substituteDependencies(inputGraph, [bundleSource('first-package', '/bar.js')]);
-        const result = substitutedGraph.flatten(['/entry.js']);
+        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('first-package', '/bar.js') ]);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, passthroughResult);
     });
@@ -150,7 +150,7 @@ suite('substitute-bundles', function () {
     test('throws when a dependency owns a referenced file but does not expose it publicly', function () {
         const inputGraph = buildInputGraph(entryFooSetup);
 
-        assert.throws(() => {
+        assert.throws(function () {
             substituteDependencies(inputGraph, [
                 versionedBundleWithManifest({
                     name: 'hidden-package',
@@ -168,7 +168,7 @@ suite('substitute-bundles', function () {
                     surface: {
                         mode: 'explicit',
                         packageInterface: {
-                            modules: [{ root: 'main', export: '.' }]
+                            modules: [ { root: 'main', export: '.' } ]
                         }
                     },
                     contents: [
@@ -203,11 +203,11 @@ suite('substitute-bundles', function () {
     test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', function () {
         const project = buildEntryFooProject();
         const inputGraph = buildInputGraph([
-            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'], project },
+            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
             { source: '/foo.js', content: 'true', project }
         ]);
-        const substitutedGraph = substituteDependencies(inputGraph, [bundleSource('the-package', '/foo.js')]);
-        const result = substitutedGraph.flatten(['/entry.js']);
+        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('the-package', '/foo.js') ]);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, substitutedEntryResult('the-package'));
     });
@@ -215,11 +215,11 @@ suite('substitute-bundles', function () {
     test('substitutes a file which matches an already substituted file from a dependency', function () {
         const project = buildEntryFooProject();
         const inputGraph = buildInputGraph([
-            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'], project },
+            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
             { source: '/foo.js', content: 'true', project }
         ]);
-        const substitutedGraph = substituteDependencies(inputGraph, [bundleSource('first-package', '/foo.js', true)]);
-        const result = substitutedGraph.flatten(['/entry.js']);
+        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('first-package', '/foo.js', true) ]);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, substitutedEntryResult('first-package'));
     });
@@ -234,11 +234,11 @@ suite('substitute-bundles', function () {
             ]
         });
         const inputGraph = buildInputGraph([
-            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: ['/foo.js'], project },
+            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
             {
                 source: '/foo.js',
                 content: 'import "./bar.js"; import "./baz.js";',
-                directDependencies: ['/bar.js', '/baz.js'],
+                directDependencies: [ '/bar.js', '/baz.js' ],
                 project
             },
             { source: '/bar.js', content: 'true;', project },
@@ -248,12 +248,12 @@ suite('substitute-bundles', function () {
             bundleSource('first-package', '/bar.js'),
             bundleSource('second-package', '/baz.js')
         ]);
-        const result = substitutedGraph.flatten(['/entry.js']);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, {
             contents: [
                 {
-                    directDependencies: new Set(['/foo.js']),
+                    directDependencies: new Set([ '/foo.js' ]),
                     fileDescription: {
                         content: 'import "./foo.js";',
                         isExecutable: false,
@@ -277,31 +277,33 @@ suite('substitute-bundles', function () {
             ],
             externalDependencies: new Map(),
             linkedBundleDependencies: new Map([
-                ['first-package', { name: 'first-package', referencedFrom: ['/foo.js'] }],
-                ['second-package', { name: 'second-package', referencedFrom: ['/foo.js'] }]
+                [ 'first-package', { name: 'first-package', referencedFrom: [ '/foo.js' ] } ],
+                [ 'second-package', { name: 'second-package', referencedFrom: [ '/foo.js' ] } ]
             ])
         });
     });
 
     test('preserves generated manifest markers while substituting dependencies', function () {
         const project = createProject({
-            withFiles: [{ filePath: '/entry.js', content: 'import "./package.json" with { type: "json" };' }]
+            withFiles: [ { filePath: '/entry.js', content: 'import "./package.json" with { type: "json" };' } ]
         });
         const inputGraph = buildInputGraph([
             {
                 source: '/entry.js',
                 content: 'import "./package.json" with { type: "json" };',
-                directDependencies: ['/package.json'],
+                directDependencies: [ '/package.json' ],
                 project
             },
             { source: '/package.json', content: '{"name":"test"}', isGeneratedManifest: true }
         ]);
 
         const substitutedGraph = substituteDependencies(inputGraph, []);
-        const result = substitutedGraph.flatten(['/entry.js']);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(
-            result.contents.find((content) => content.fileDescription.sourceFilePath === '/package.json'),
+            result.contents.find(function (content) {
+                return content.fileDescription.sourceFilePath === '/package.json';
+            }),
             {
                 directDependencies: new Set(),
                 fileDescription: {

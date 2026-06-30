@@ -16,7 +16,7 @@ suite('eliminated-files-renderer', function () {
 
     test('renderEliminatedFiles renders a single eliminated source file with formatted bytes', function () {
         const html = renderEliminatedFiles(
-            previewPackage([{ path: '/src/dead.js', sourceBytes: 42, reason: 'no-uses' }]) as PreviewPackage
+            previewPackage([ { path: '/src/dead.js', sourceBytes: 42, reason: 'no-uses' } ]) as PreviewPackage
         );
 
         assert.ok(html.includes('<h3>Eliminated source files</h3>'));

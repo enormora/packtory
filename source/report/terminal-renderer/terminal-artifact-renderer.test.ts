@@ -2,9 +2,9 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PreviewArtifactNode } from '../preview/artifact-tree-builder.ts';
 import { renderArtifactNode } from './terminal-artifact-renderer.ts';
-import { createColors } from './terminal-preview-renderer-shared.ts';
+import { createColors, type Colors } from './terminal-preview-renderer-shared.ts';
 
-function colors() {
+function colors(): Colors {
     return createColors(false);
 }
 
@@ -26,7 +26,7 @@ suite('terminal-artifact-renderer', function () {
                 sizeBytes: 42,
                 kind: 'source',
                 status: 'changed',
-                badges: ['import-path-rewrite']
+                badges: [ 'import-path-rewrite' ]
             }
         };
 

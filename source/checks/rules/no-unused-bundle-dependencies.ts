@@ -11,14 +11,15 @@ import {
 
 const ruleName = 'noUnusedBundleDependencies';
 
-type GlobalConfig = z.infer<typeof enabledOnlyGlobalSchema>;
-type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
+type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
+type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
     const issues: string[] = [];
 
     for (const group of bundledDependencyGroups()) {
-        for (const dependencyName of packageConfig?.[group.propertyName] ?? []) {
+        const declaredDependencies = packageConfig?.[group.propertyName] ?? [];
+        for (const dependencyName of declaredDependencies) {
             if (!bundle.linkedBundleDependencies.has(dependencyName)) {
                 issues.push(
                     `Unused ${group.unusedLabel} dependency "${dependencyName}" declared by package "${bundle.name}"`
@@ -36,7 +37,7 @@ async function run(params: RunParams): Promise<readonly string[]> {
         return [];
     }
 
-    return params.bundles.flatMap((bundle) => {
+    return params.bundles.flatMap(function (bundle) {
         return checkBundle(bundle, params.packageConfigs?.[bundle.name]);
     });
 }

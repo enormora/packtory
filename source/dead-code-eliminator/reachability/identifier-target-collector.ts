@@ -3,40 +3,43 @@ import { SyntaxKind, type Identifier, type Node as TsMorphNode, type ShorthandPr
 export type DeclarationNodeIndex = ReadonlyMap<TsMorphNode, string>;
 type SymbolReference = NonNullable<ReturnType<Identifier['getSymbol']>>;
 
-function addDeclarationTargets(
+function declarationTargets(
     declarations: readonly TsMorphNode[],
-    declarationIndex: DeclarationNodeIndex,
-    targets: Set<string>
-): void {
-    for (const declaration of declarations) {
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
+    return declarations.flatMap(function (declaration) {
         const candidate = declarationIndex.get(declaration);
-        if (candidate !== undefined) {
-            targets.add(candidate);
-        }
-    }
+        return candidate === undefined ? [] : [ candidate ];
+    });
 }
 
-function addSymbolTargets(symbol: SymbolReference, declarationIndex: DeclarationNodeIndex, targets: Set<string>): void {
-    addDeclarationTargets(symbol.getDeclarations(), declarationIndex, targets);
+function symbolTargets(
+    symbol: SymbolReference,
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
     const aliased = symbol.getAliasedSymbol();
-    if (aliased !== undefined) {
-        addDeclarationTargets(aliased.getDeclarations(), declarationIndex, targets);
-    }
+    return [
+        ...declarationTargets(symbol.getDeclarations(), declarationIndex),
+        ...aliased === undefined ? [] : declarationTargets(aliased.getDeclarations(), declarationIndex)
+    ];
 }
 
-function addShorthandPropertyTargets(
+function shorthandPropertyTargets(
     rootNode: TsMorphNode,
-    declarationIndex: DeclarationNodeIndex,
-    targets: Set<string>
-): void {
-    for (const shorthand of rootNode.getDescendantsOfKind(
-        SyntaxKind.ShorthandPropertyAssignment
-    ) as readonly ShorthandPropertyAssignment[]) {
+    declarationIndex: DeclarationNodeIndex
+): readonly string[] {
+    const targets: string[] = [];
+    for (
+        const shorthand of rootNode.getDescendantsOfKind(
+            SyntaxKind.ShorthandPropertyAssignment
+        ) as readonly ShorthandPropertyAssignment[]
+    ) {
         const valueSymbol = shorthand.getValueSymbol();
         if (valueSymbol !== undefined) {
-            addSymbolTargets(valueSymbol, declarationIndex, targets);
+            targets.push(...symbolTargets(valueSymbol, declarationIndex));
         }
     }
+    return targets;
 }
 
 export function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex: DeclarationNodeIndex): Set<string> {
@@ -44,9 +47,13 @@ export function collectIdentifierTargets(rootNode: TsMorphNode, declarationIndex
     for (const identifier of rootNode.getDescendantsOfKind(SyntaxKind.Identifier)) {
         const symbol = identifier.getSymbol();
         if (symbol !== undefined) {
-            addSymbolTargets(symbol, declarationIndex, targets);
+            for (const target of symbolTargets(symbol, declarationIndex)) {
+                targets.add(target);
+            }
         }
     }
-    addShorthandPropertyTargets(rootNode, declarationIndex, targets);
+    for (const target of shorthandPropertyTargets(rootNode, declarationIndex)) {
+        targets.add(target);
+    }
     return targets;
 }

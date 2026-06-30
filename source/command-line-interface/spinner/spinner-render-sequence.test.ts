@@ -1,9 +1,13 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { buildRenderTickOutput } from './spinner-render-sequence.ts';
-import { createSpinnerSharedAccessors, createSpinnerSharedLayout } from './spinner-shared-state.ts';
+import {
+    createSpinnerSharedAccessors,
+    createSpinnerSharedLayout,
+    type SpinnerSharedAccessors
+} from './spinner-shared-state.ts';
 
-function createAccessors(slotCount: number) {
+function createAccessors(slotCount: number): SpinnerSharedAccessors {
     const layout = createSpinnerSharedLayout(slotCount);
     const buffer = new SharedArrayBuffer(layout.bufferByteLength);
     return createSpinnerSharedAccessors(buffer, layout);
@@ -26,8 +30,10 @@ suite('spinner-render-sequence', function () {
         const output = buildRenderTickOutput(accessors, { snapshots: [], renderedLineCount: 0, frameIndex: 0 });
 
         assert.strictEqual(output.expectedLineCount, 2);
-        assert.ok(output.sequence?.endsWith('\n'));
-        const lineCount = output.sequence?.split('\n').length;
+        assert.notStrictEqual(output.sequence, undefined);
+        const sequence = output.sequence ?? '';
+        assert.strictEqual(sequence.endsWith('\n'), true);
+        const lineCount = sequence.split('\n').length;
         assert.strictEqual(lineCount, 3);
     });
 
@@ -37,7 +43,7 @@ suite('spinner-render-sequence', function () {
 
         const output = buildRenderTickOutput(accessors, { snapshots: [], renderedLineCount: 2, frameIndex: 0 });
 
-        assert.ok(output.sequence?.includes('[2A'));
+        assert.strictEqual(output.sequence?.includes('[2A'), true);
     });
 
     test('buildRenderTickOutput surfaces the latest mutation counter from the shared accessors', function () {

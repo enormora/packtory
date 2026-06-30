@@ -2,59 +2,87 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import type { PackageProcessor } from '../packtory/package-processor.ts';
-import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
+import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
 import { withFailureCapture, withStageTimings } from './decorators.ts';
 
+type StageCollector = {
+    readonly broadcaster: ProgressBroadcaster;
+    readonly stages: readonly string[];
+};
+
+type StagePayload = {
+    readonly durationMs: number;
+    readonly packageName: string;
+    readonly stage: string;
+};
+
+type StagePayloadCollector = {
+    readonly broadcaster: ProgressBroadcaster;
+    readonly received: readonly StagePayload[];
+};
+
+type FailureInput = {
+    readonly name: string;
+};
+
+type PackageFailedPayload = {
+    readonly message: string;
+    readonly packageName: string;
+    readonly stage: string;
+};
+
 function createPlainProcessor(overrides: Partial<PackageProcessor> = {}): PackageProcessor {
     return {
-        resolveAndLink:
-            overrides.resolveAndLink ?? (fake.resolves({}) as unknown as PackageProcessor['resolveAndLink']),
-        build: overrides.build ?? (fake.resolves({}) as unknown as PackageProcessor['build']),
-        buildAndPublish:
-            overrides.buildAndPublish ?? (fake.resolves({}) as unknown as PackageProcessor['buildAndPublish']),
-        tryBuildAndPublish:
-            overrides.tryBuildAndPublish ?? (fake.resolves({}) as unknown as PackageProcessor['tryBuildAndPublish'])
+        resolveAndLink: overrides.resolveAndLink ??
+            fake.resolves({} as never),
+        build: overrides.build ?? fake.resolves({} as never),
+        buildAndPublish: overrides.buildAndPublish ??
+            fake.resolves({} as never),
+        tryBuildAndPublish: overrides.tryBuildAndPublish ??
+            fake.resolves({} as never)
     };
 }
 
-function createStageCollector(): { broadcaster: ReturnType<typeof createProgressBroadcaster>; stages: string[] } {
+function createStageCollector(): StageCollector {
     const broadcaster = createProgressBroadcaster();
     const stages: string[] = [];
-    broadcaster.consumer.on('stageTimed', (payload) => {
+    broadcaster.consumer.on('stageTimed', function (payload) {
         stages.push(payload.stage);
     });
     return { broadcaster, stages };
 }
 
-function createStagePayloadCollector(): {
-    broadcaster: ReturnType<typeof createProgressBroadcaster>;
-    received: { stage: string; packageName: string }[];
-} {
+function createStagePayloadCollector(): StagePayloadCollector {
     const broadcaster = createProgressBroadcaster();
-    const received: { stage: string; packageName: string }[] = [];
-    broadcaster.consumer.on('stageTimed', (payload) => {
-        received.push({ stage: payload.stage, packageName: payload.packageName });
+    const received: StagePayload[] = [];
+    broadcaster.consumer.on('stageTimed', function (payload) {
+        received.push({
+            durationMs: payload.durationMs,
+            stage: payload.stage,
+            packageName: payload.packageName
+        });
     });
     return { broadcaster, received };
 }
 
-suite('decorators', function () {
+function expectPayload(received: readonly StagePayload[]): StagePayload {
+    const [ payload ] = received;
+    if (payload === undefined) {
+        assert.fail('expected one payload');
+    }
+    return payload;
+}
+
+function registerStageTimingTests(): void {
     test('withStageTimings emits a stageTimed event on resolveAndLink', async function () {
-        const broadcaster = createProgressBroadcaster();
-        const received: unknown[] = [];
-        broadcaster.consumer.on('stageTimed', (payload) => {
-            received.push(payload);
-        });
+        const { broadcaster, received } = createStagePayloadCollector();
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
         await wrapped.resolveAndLink({ name: 'pkg-a' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]);
 
         assert.strictEqual(received.length, 1);
-        const [payload] = received as readonly { packageName: string; stage: string; durationMs: number }[];
-        if (payload === undefined) {
-            assert.fail('expected one payload');
-        }
+        const payload = expectPayload(received);
         assert.strictEqual(payload.packageName, 'pkg-a');
         assert.strictEqual(payload.stage, 'resolveAndLink');
         assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
@@ -64,11 +92,17 @@ suite('decorators', function () {
         const { broadcaster, received } = createStagePayloadCollector();
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
-        await wrapped.buildAndPublish({ buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
-            PackageProcessor['buildAndPublish']
-        >[0]);
+        await wrapped.buildAndPublish(
+            { buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
+                PackageProcessor['buildAndPublish']
+            >[0]
+        );
 
-        assert.deepStrictEqual(received, [{ stage: 'publish', packageName: 'pkg-b' }]);
+        assert.strictEqual(received.length, 1);
+        const payload = expectPayload(received);
+        assert.strictEqual(payload.packageName, 'pkg-b');
+        assert.strictEqual(payload.stage, 'publish');
+        assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
     });
 
     test('withStageTimings.buildAndPublish forwards the wrapped method result', async function () {
@@ -81,9 +115,11 @@ suite('decorators', function () {
             broadcaster.provider
         );
 
-        const result = await wrapped.buildAndPublish({ buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
-            PackageProcessor['buildAndPublish']
-        >[0]);
+        const result = await wrapped.buildAndPublish(
+            { buildOptions: { name: 'pkg-b' } } as unknown as Parameters<
+                PackageProcessor['buildAndPublish']
+            >[0]
+        );
 
         assert.strictEqual(result, sentinel);
     });
@@ -98,9 +134,11 @@ suite('decorators', function () {
             broadcaster.provider
         );
 
-        const result = await wrapped.tryBuildAndPublish({ buildOptions: { name: 'pkg-c' } } as unknown as Parameters<
-            PackageProcessor['tryBuildAndPublish']
-        >[0]);
+        const result = await wrapped.tryBuildAndPublish(
+            { buildOptions: { name: 'pkg-c' } } as unknown as Parameters<
+                PackageProcessor['tryBuildAndPublish']
+            >[0]
+        );
 
         assert.strictEqual(result, sentinel);
     });
@@ -109,11 +147,13 @@ suite('decorators', function () {
         const { broadcaster, stages } = createStageCollector();
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
-        await wrapped.tryBuildAndPublish({ buildOptions: { name: 'pkg-c' } } as unknown as Parameters<
-            PackageProcessor['tryBuildAndPublish']
-        >[0]);
+        await wrapped.tryBuildAndPublish(
+            { buildOptions: { name: 'pkg-c' } } as unknown as Parameters<
+                PackageProcessor['tryBuildAndPublish']
+            >[0]
+        );
 
-        assert.deepStrictEqual(stages, ['tryPublish']);
+        assert.deepStrictEqual(stages, [ 'tryPublish' ]);
     });
 
     test('withStageTimings still emits when the wrapped method rejects', async function () {
@@ -127,14 +167,16 @@ suite('decorators', function () {
         );
 
         try {
-            await wrapped.resolveAndLink({ name: 'pkg-d' } as unknown as Parameters<
-                PackageProcessor['resolveAndLink']
-            >[0]);
+            await wrapped.resolveAndLink(
+                { name: 'pkg-d' } as unknown as Parameters<
+                    PackageProcessor['resolveAndLink']
+                >[0]
+            );
             assert.fail('expected resolveAndLink to throw');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'boom');
         }
-        assert.deepStrictEqual(stages, ['resolveAndLink']);
+        assert.deepStrictEqual(stages, [ 'resolveAndLink' ]);
     });
 
     test('withStageTimings skips emit when no subscriber is registered', async function () {
@@ -166,34 +208,45 @@ suite('decorators', function () {
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
         await wrapped.build({ name: 'pkg-build' } as unknown as Parameters<PackageProcessor['build']>[0]);
 
-        assert.deepStrictEqual(received, [{ stage: 'build', packageName: 'pkg-build' }]);
+        assert.strictEqual(received.length, 1);
+        const payload = expectPayload(received);
+        assert.strictEqual(payload.packageName, 'pkg-build');
+        assert.strictEqual(payload.stage, 'build');
+        assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
     });
 
     test('withStageTimings emits a non-negative durationMs that reflects elapsed time, not wall-clock', async function () {
         const broadcaster = createProgressBroadcaster();
         const received: number[] = [];
-        broadcaster.consumer.on('stageTimed', (payload) => {
+        broadcaster.consumer.on('stageTimed', function (payload) {
             received.push(payload.durationMs);
         });
 
         const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
         await wrapped.resolveAndLink({ name: 'pkg-a' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]);
 
-        const [durationMs] = received;
+        const [ durationMs ] = received;
         if (durationMs === undefined) {
             assert.fail('expected durationMs');
         }
         assert.ok(durationMs >= 0, 'durationMs must be non-negative');
         assert.ok(durationMs < 10_000, 'durationMs must reflect elapsed time, not wall clock or a sum');
     });
+}
 
+function registerFailureCaptureTests(): void {
     test('withFailureCapture forwards the wrapped success value when execute resolves', async function () {
         const broadcaster = createProgressBroadcaster();
         const sentinel = { ok: true };
 
-        const wrapped = withFailureCapture(broadcaster.provider, 'publish', async (_: { name: string }) => {
-            return sentinel;
-        });
+        const wrapped = withFailureCapture(
+            broadcaster.provider,
+            'publish',
+            async function (input: FailureInput) {
+                assert.strictEqual(input.name, 'pkg-a');
+                return sentinel;
+            }
+        );
 
         const result = await wrapped({ name: 'pkg-a' });
 
@@ -202,14 +255,19 @@ suite('decorators', function () {
 
     test('withFailureCapture emits packageFailed with the error message when execute throws an Error', async function () {
         const broadcaster = createProgressBroadcaster();
-        const received: { packageName: string; stage: string; message: string }[] = [];
-        broadcaster.consumer.on('packageFailed', (payload) => {
+        const received: PackageFailedPayload[] = [];
+        broadcaster.consumer.on('packageFailed', function (payload) {
             received.push({ packageName: payload.packageName, stage: payload.stage, message: payload.message });
         });
 
-        const wrapped = withFailureCapture(broadcaster.provider, 'publish', async (_: { name: string }) => {
-            throw new Error('kaboom');
-        });
+        const wrapped = withFailureCapture(
+            broadcaster.provider,
+            'publish',
+            async function (input: FailureInput) {
+                assert.strictEqual(input.name, 'pkg-a');
+                throw new Error('kaboom');
+            }
+        );
 
         try {
             await wrapped({ name: 'pkg-a' });
@@ -217,21 +275,26 @@ suite('decorators', function () {
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'kaboom');
         }
-        assert.deepStrictEqual(received, [{ packageName: 'pkg-a', stage: 'publish', message: 'kaboom' }]);
+        assert.deepStrictEqual(received, [ { packageName: 'pkg-a', stage: 'publish', message: 'kaboom' } ]);
     });
 
     test('withFailureCapture coerces a non-Error throwable into a string message', async function () {
         const broadcaster = createProgressBroadcaster();
         const received: string[] = [];
-        broadcaster.consumer.on('packageFailed', (payload) => {
+        broadcaster.consumer.on('packageFailed', function (payload) {
             received.push(payload.message);
         });
 
-        const wrapped = withFailureCapture(broadcaster.provider, 'publish', async (_: { name: string }) => {
-            const stringThrowable: unknown = 'plain string';
+        const wrapped = withFailureCapture(
+            broadcaster.provider,
+            'publish',
+            async function (input: FailureInput) {
+                assert.strictEqual(input.name, 'pkg-a');
+                const stringThrowable: unknown = 'plain string';
 
-            throw stringThrowable;
-        });
+                throw stringThrowable;
+            }
+        );
 
         try {
             await wrapped({ name: 'pkg-a' });
@@ -239,19 +302,24 @@ suite('decorators', function () {
         } catch (error: unknown) {
             assert.strictEqual(error, 'plain string');
         }
-        assert.deepStrictEqual(received, ['plain string']);
+        assert.deepStrictEqual(received, [ 'plain string' ]);
     });
 
     test('withFailureCapture re-throws the original error', async function () {
         const broadcaster = createProgressBroadcaster();
-        broadcaster.consumer.on('packageFailed', () => {
+        broadcaster.consumer.on('packageFailed', function () {
             return undefined;
         });
         const original = new Error('orig');
 
-        const wrapped = withFailureCapture(broadcaster.provider, 'publish', async (_: { name: string }) => {
-            throw original;
-        });
+        const wrapped = withFailureCapture(
+            broadcaster.provider,
+            'publish',
+            async function (input: FailureInput) {
+                assert.strictEqual(input.name, 'pkg-a');
+                throw original;
+            }
+        );
 
         try {
             await wrapped({ name: 'pkg-a' });
@@ -264,9 +332,14 @@ suite('decorators', function () {
     test('withFailureCapture skips the emit when no subscriber is registered for packageFailed', async function () {
         const wrappedBroadcaster = createSpyingBroadcaster();
 
-        const wrapped = withFailureCapture(wrappedBroadcaster.provider, 'publish', async (_: { name: string }) => {
-            throw new Error('boom');
-        });
+        const wrapped = withFailureCapture(
+            wrappedBroadcaster.provider,
+            'publish',
+            async function (input: FailureInput) {
+                assert.strictEqual(input.name, 'pkg-a');
+                throw new Error('boom');
+            }
+        );
 
         try {
             await wrapped({ name: 'pkg-a' });
@@ -280,16 +353,26 @@ suite('decorators', function () {
     test('withFailureCapture does NOT emit when execute resolves successfully', async function () {
         const broadcaster = createProgressBroadcaster();
         const received: unknown[] = [];
-        broadcaster.consumer.on('packageFailed', (payload) => {
+        broadcaster.consumer.on('packageFailed', function (payload) {
             received.push(payload);
         });
 
-        const wrapped = withFailureCapture(broadcaster.provider, 'publish', async (_: { name: string }) => {
-            return undefined;
-        });
+        const wrapped = withFailureCapture(
+            broadcaster.provider,
+            'publish',
+            async function (input: FailureInput) {
+                assert.strictEqual(input.name, 'pkg-a');
+                return undefined;
+            }
+        );
 
         await wrapped({ name: 'pkg-a' });
 
         assert.deepStrictEqual(received, []);
     });
+}
+
+suite('decorators', function () {
+    registerStageTimingTests();
+    registerFailureCaptureTests();
 });

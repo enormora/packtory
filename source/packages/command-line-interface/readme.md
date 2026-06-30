@@ -24,7 +24,7 @@ packtory <command> [options]
 - **release:** Prints the next release plan by default, or runs one explicit release workflow when action flags and `--no-dry-run` are set.
 - **release-pr:** Maintains, validates, and authorizes a reviewed release PR flow for generated changelog releases.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
-- **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection — `pack` never talks to a registry.
+- **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection. `pack` never talks to a registry.
 
 **Options:**
 
@@ -115,9 +115,9 @@ packtory <command> [options]
 
 - `packtory pack` runs the same validate → resolve → link → checks pipeline as the other commands, then emits the selected package's bundle to the path given by `--out`. It never reads from or writes to the configured registry.
 - Format choices:
-    - `zip` — single-file zip archive. The format AWS Lambda accepts directly. Uses static metadata (1980-01-01 entries, deterministic ordering) so byte-identical inputs yield byte-identical archives.
-    - `tar` — single-file gzipped tarball, the same shape `publish` would upload, but written to disk instead of the registry.
-    - `folder` — expanded directory; `--out` is treated as the directory path. Useful for inspecting the artifact, for `docker build` contexts, or for piping the contents through another tool.
+  - `zip`: single-file zip archive. The format AWS Lambda accepts directly. Uses static metadata (1980-01-01 entries, deterministic ordering) so byte-identical inputs yield byte-identical archives.
+  - `tar`: single-file gzipped tarball, the same shape `publish` would upload, but written to disk instead of the registry.
+  - `folder`: expanded directory; `--out` is treated as the directory path. Useful for inspecting the artifact, for `docker build` contexts, or for piping the contents through another tool.
 - `--vendor-dependencies` walks the local `node_modules` (resolving symlinks with `fs.realpath`, so npm, yarn-classic, and pnpm layouts all work) and copies every transitive runtime dependency into `node_modules/` inside the artifact. Files are streamed by path rather than read into memory, so binary assets and executables survive intact. Anything declared in `bundleDependencies` is materialized the same way without import-path rewriting, so cross-package imports keep their original form.
 - Strict peer-dependency check: when `--vendor-dependencies` is set, every `peerDependency` declared by a vendored package must be satisfied by another vendored package (or by the target package itself). An unsatisfied peer is reported as `peer-dependencies-unsatisfied` and pack exits with code 1.
 - Without `--vendor-dependencies`, packages that declare `bundleDependencies` are rejected with `bundle-dependencies-unsupported`. The flag is the only path that knows how to put a sibling package inside the artifact.

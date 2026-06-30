@@ -1,53 +1,60 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { PackageConfig, PacktoryConfig } from '../config/config.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
-import { fooPackageConfigFactory } from '../test-libraries/config-fixtures.ts';
+import { fooPackageConfigFactory, type FooPackageConfigShape } from '../test-libraries/config-fixtures.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import { configToBuildAndPublishOptions } from './map-config.ts';
+import {
+    configToBuildAndPublishOptions,
+    type BuildAndPublishOptions,
+    type VersionSourceResolver
+} from './map-config.ts';
 
-type ConfigArgs = Parameters<typeof configToBuildAndPublishOptions>;
-type PackageConfigInput = ConfigArgs[1] extends Readonly<Record<string, infer V>> ? V : never;
-type PacktoryConfigInput = ConfigArgs[2];
+type RunMapConfigOptions = {
+    readonly commonPackageSettings?: PacktoryConfig['commonPackageSettings'];
+    readonly bundleDependencies?: readonly VersionedBundleWithManifest[];
+    readonly packageName?: string;
+    readonly extraConfig?: Partial<PacktoryConfig>;
+    readonly extraPackages?: readonly PackageConfig[];
+    readonly resolveVersionSource?: VersionSourceResolver;
+};
 
 const placeholderPackage = fooPackageConfigFactory.build({ name: '', sourcesFolder: '' });
 
 function fooPackageWithAdditionalFiles(
-    additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string }[]
-): ReturnType<typeof fooPackageConfigFactory.build> & {
-    readonly additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string }[];
+    additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string; }[]
+): FooPackageConfigShape & {
+    readonly additionalFiles: readonly { readonly sourceFilePath: string; readonly targetFilePath: string; }[];
 } {
     return { ...fooPackageConfigFactory.build(), additionalFiles };
 }
 
-function runMapConfig(
-    packageConfig: PackageConfigInput,
-    options: {
-        readonly commonPackageSettings?: PacktoryConfigInput['commonPackageSettings'];
-        readonly bundleDependencies?: readonly VersionedBundleWithManifest[];
-        readonly packageName?: string;
-        readonly extraConfig?: Partial<PacktoryConfigInput>;
-        readonly extraPackages?: readonly PackageConfigInput[];
-        readonly resolveVersionSource?: ConfigArgs[3]['resolveVersionSource'];
-    } = {}
-): ReturnType<typeof configToBuildAndPublishOptions> {
-    const packageName = options.packageName ?? 'foo';
-    const additionalPackages = options.extraPackages ?? [placeholderPackage];
-    const commonProvidesPublishSettings = options.commonPackageSettings?.publishSettings !== undefined;
-    const packageProvidesPublishSettings = packageConfig.publishSettings !== undefined;
-    const needsPublishSettingsFallback = !commonProvidesPublishSettings && !packageProvidesPublishSettings;
-    const fallbackPackage: PackageConfigInput = {
+function packageWithPublishSettingsFallback(
+    packageConfig: PackageConfig,
+    commonPackageSettings: PacktoryConfig['commonPackageSettings']
+): PackageConfig {
+    if (packageConfig.publishSettings !== undefined || commonPackageSettings?.publishSettings !== undefined) {
+        return packageConfig;
+    }
+    return {
         publishSettings: { access: 'public' },
         ...packageConfig
     };
-    const packageWithFallback = needsPublishSettingsFallback ? fallbackPackage : packageConfig;
+}
+
+function runMapConfig(
+    packageConfig: PackageConfig,
+    options: RunMapConfigOptions = {}
+): BuildAndPublishOptions {
+    const packageName = options.packageName ?? 'foo';
+    const additionalPackages = options.extraPackages ?? [ placeholderPackage ];
+    const packageWithFallback = packageWithPublishSettingsFallback(packageConfig, options.commonPackageSettings);
     const baseConfig = {
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         ...options.extraConfig,
-        ...(options.commonPackageSettings === undefined
-            ? {}
-            : { commonPackageSettings: options.commonPackageSettings }),
-        packages: [packageWithFallback, ...additionalPackages]
-    } as unknown as PacktoryConfigInput;
+        ...options.commonPackageSettings !== undefined && { commonPackageSettings: options.commonPackageSettings },
+        packages: [ packageWithFallback, ...additionalPackages ]
+    } as unknown as PacktoryConfig;
     return configToBuildAndPublishOptions(packageName, { [packageName]: packageWithFallback }, baseConfig, {
         existingBundles: options.bundleDependencies ?? [],
         resolveVersionSource: options.resolveVersionSource
@@ -55,9 +62,9 @@ function runMapConfig(
 }
 
 function runMapConfigExpectingError(
-    packageConfig: PackageConfigInput,
+    packageConfig: PackageConfig,
     expectedMessage: string,
-    options: Parameters<typeof runMapConfig>[1] = {}
+    options: RunMapConfigOptions = {}
 ): void {
     try {
         runMapConfig(packageConfig, options);
@@ -67,7 +74,7 @@ function runMapConfigExpectingError(
     }
 }
 
-suite('map-config', function () {
+function registerValidationTests(): void {
     test('throws when the given packageName doesn’t exist in the configs', function () {
         try {
             configToBuildAndPublishOptions(
@@ -98,14 +105,14 @@ suite('map-config', function () {
                 name: 'foo',
                 roots: { main: { js: '' } },
                 mainPackageJson: { type: 'module' }
-            } as unknown as PackageConfigInput,
+            } as unknown as PackageConfig,
             'Config for package "foo" is missing the sources folder'
         );
     });
 
     test('throws when the main package.json settings are missing after config merging', function () {
         runMapConfigExpectingError(
-            { name: 'foo', sourcesFolder: '/src', roots: { main: { js: '' } } } as unknown as PackageConfigInput,
+            { name: 'foo', sourcesFolder: '/src', roots: { main: { js: '' } } },
             'Config for package "foo" is missing the main package.json settings'
         );
     });
@@ -121,20 +128,24 @@ suite('map-config', function () {
     test('merges deadCodeElimination settings into the prepared shared options', function () {
         const packageConfig = {
             ...fooPackageConfigFactory.build(),
-            deadCodeElimination: { enabled: false, pureConstructors: ['Map'] }
-        } as unknown as PackageConfigInput;
+            deadCodeElimination: { enabled: false, pureConstructors: [ 'Map' ] }
+        } as unknown as PackageConfig;
 
         const result = runMapConfig(packageConfig, {
             commonPackageSettings: {
                 publishSettings: { access: 'public' },
-                deadCodeElimination: { enabled: true, pureImports: [{ from: 'zod/mini' }], pureConstructors: ['Set'] }
+                deadCodeElimination: {
+                    enabled: true,
+                    pureImports: [ { from: 'zod/mini' } ],
+                    pureConstructors: [ 'Set' ]
+                }
             }
         });
 
         assert.deepStrictEqual(result.deadCodeElimination, {
             enabled: false,
-            pureImports: [{ from: 'zod/mini' }],
-            pureConstructors: ['Map']
+            pureImports: [ { from: 'zod/mini' } ],
+            pureConstructors: [ 'Map' ]
         });
     });
 
@@ -153,11 +164,13 @@ suite('map-config', function () {
                 sourcesFolder: 'the-source',
                 roots: {},
                 mainPackageJson: { type: 'module' }
-            } as unknown as PackageConfigInput,
+            } as unknown as PackageConfig,
             'Package "foo" must define at least one root'
         );
     });
+}
 
+function registerRootAndSurfaceTests(): void {
     test('normalizes every configured root', function () {
         const packageConfig = fooPackageConfigFactory.build({
             roots: {
@@ -216,7 +229,7 @@ suite('map-config', function () {
                     main: { js: 'index.js' }
                 },
                 mainPackageJson: { type: 'module' }
-            } as unknown as PackageConfigInput,
+            } as unknown as PackageConfig,
             { extraPackages: [] }
         );
 
@@ -237,18 +250,18 @@ suite('map-config', function () {
                 },
                 mainPackageJson: { type: 'module' },
                 packageInterface: {
-                    modules: [{ root: 'main', export: '.' }],
-                    bins: [{ root: 'cli', name: 'foo' }]
+                    modules: [ { root: 'main', export: '.' } ],
+                    bins: [ { root: 'cli', name: 'foo' } ]
                 }
-            } as unknown as PackageConfigInput,
+            } as unknown as PackageConfig,
             { extraPackages: [] }
         );
 
         assert.deepStrictEqual(result.surface, {
             mode: 'explicit',
             packageInterface: {
-                modules: [{ root: 'main', export: '.' }],
-                bins: [{ root: 'cli', name: 'foo' }]
+                modules: [ { root: 'main', export: '.' } ],
+                bins: [ { root: 'cli', name: 'foo' } ]
             }
         });
     });
@@ -276,24 +289,26 @@ suite('map-config', function () {
     });
 
     test('doesn’t change an additionalFile sourcePathFile when it is already an absolute path', function () {
-        const packageConfig = fooPackageWithAdditionalFiles([{ sourceFilePath: '/foo', targetFilePath: 'bar' }]);
+        const packageConfig = fooPackageWithAdditionalFiles([ { sourceFilePath: '/foo', targetFilePath: 'bar' } ]);
 
         const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-        assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: '/foo', targetFilePath: 'bar' }]);
+        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: '/foo', targetFilePath: 'bar' } ]);
     });
 
     test('adds the sourceFolder as prefix to an additionalFile sourcePathFile when it is a relative path', function () {
-        const packageConfig = fooPackageWithAdditionalFiles([{ sourceFilePath: 'foo', targetFilePath: 'bar' }]);
+        const packageConfig = fooPackageWithAdditionalFiles([ { sourceFilePath: 'foo', targetFilePath: 'bar' } ]);
 
         const result = runMapConfig(packageConfig, { extraPackages: [] });
 
-        assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
+        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/foo', targetFilePath: 'bar' } ]);
     });
+}
 
+function registerDependencyAndFileOptionTests(): void {
     test('throws an error when a bundle dependency does not exist', function () {
         runMapConfigExpectingError(
-            { ...fooPackageConfigFactory.build(), bundleDependencies: ['bar'] },
+            { ...fooPackageConfigFactory.build(), bundleDependencies: [ 'bar' ] },
             'Dependent bundle "bar" not found'
         );
     });
@@ -304,11 +319,11 @@ suite('map-config', function () {
             packageJson: { name: 'bar', version: '' }
         });
         const options = runMapConfig(
-            { ...fooPackageConfigFactory.build(), bundleDependencies: ['bar'] },
-            { bundleDependencies: [bundleDependency] }
+            { ...fooPackageConfigFactory.build(), bundleDependencies: [ 'bar' ] },
+            { bundleDependencies: [ bundleDependency ] }
         );
 
-        assert.deepStrictEqual(options.bundleDependencies, [bundleDependency]);
+        assert.deepStrictEqual(options.bundleDependencies, [ bundleDependency ]);
     });
 
     test('defaults the includeSourceMapFiles option to false when it is not in the package config nor in common settings', function () {
@@ -341,10 +356,13 @@ suite('map-config', function () {
     });
 
     test('merges the additional files if they are set both in common settings and per package settings', function () {
-        const result = runMapConfig(fooPackageWithAdditionalFiles([{ sourceFilePath: 'foo', targetFilePath: 'bar' }]), {
-            commonPackageSettings: { additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'qux' }] },
-            extraPackages: []
-        });
+        const result = runMapConfig(
+            fooPackageWithAdditionalFiles([ { sourceFilePath: 'foo', targetFilePath: 'bar' } ]),
+            {
+                commonPackageSettings: { additionalFiles: [ { sourceFilePath: 'baz', targetFilePath: 'qux' } ] },
+                extraPackages: []
+            }
+        );
 
         assert.deepStrictEqual(result.additionalFiles, [
             { sourceFilePath: 'the-source/baz', targetFilePath: 'qux' },
@@ -353,21 +371,24 @@ suite('map-config', function () {
     });
 
     test('overwrites the additional files from common settings when a per package setting defines a file with the same target', function () {
-        const result = runMapConfig(fooPackageWithAdditionalFiles([{ sourceFilePath: 'foo', targetFilePath: 'bar' }]), {
-            commonPackageSettings: { additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'bar' }] },
-            extraPackages: []
-        });
+        const result = runMapConfig(
+            fooPackageWithAdditionalFiles([ { sourceFilePath: 'foo', targetFilePath: 'bar' } ]),
+            {
+                commonPackageSettings: { additionalFiles: [ { sourceFilePath: 'baz', targetFilePath: 'bar' } ] },
+                extraPackages: []
+            }
+        );
 
-        assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/foo', targetFilePath: 'bar' }]);
+        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/foo', targetFilePath: 'bar' } ]);
     });
 
     test('uses only the additionalFiles from common settings when the per package settings don’t have additional files specified', function () {
         const result = runMapConfig(fooPackageConfigFactory.build(), {
-            commonPackageSettings: { additionalFiles: [{ sourceFilePath: 'baz', targetFilePath: 'bar' }] },
+            commonPackageSettings: { additionalFiles: [ { sourceFilePath: 'baz', targetFilePath: 'bar' } ] },
             extraPackages: []
         });
 
-        assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
+        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/baz', targetFilePath: 'bar' } ]);
     });
 
     test('removes additional files which are duplicated by picking the last one', function () {
@@ -379,9 +400,11 @@ suite('map-config', function () {
             { extraPackages: [] }
         );
 
-        assert.deepStrictEqual(result.additionalFiles, [{ sourceFilePath: 'the-source/baz', targetFilePath: 'bar' }]);
+        assert.deepStrictEqual(result.additionalFiles, [ { sourceFilePath: 'the-source/baz', targetFilePath: 'bar' } ]);
     });
+}
 
+function registerPackageJsonAndVersioningTests(): void {
     test('sets additionalPackageJsonAttributes to an empty object when they are not defined at all', function () {
         const result = runMapConfig(fooPackageConfigFactory.build(), { extraPackages: [] });
 
@@ -422,7 +445,7 @@ suite('map-config', function () {
     });
 
     test('resolves source package versioning settings', async function () {
-        const provideVersion = async () => {
+        const provideVersion = async function (): Promise<string> {
             return '2.3.4';
         };
         const result = runMapConfig(
@@ -482,7 +505,9 @@ suite('map-config', function () {
 
         assert.deepStrictEqual(result.additionalPackageJsonAttributes, { foo: 'qux' });
     });
+}
 
+function registerPublishAndDependencyPolicyTests(): void {
     test('uses the common publishSettings when the package config does not override it', function () {
         const result = runMapConfig(fooPackageConfigFactory.build(), {
             commonPackageSettings: { publishSettings: { access: 'public', provenance: { type: 'auto' } } },
@@ -512,120 +537,39 @@ suite('map-config', function () {
 
     test('uses the per-package dependencyPolicy.allowMutableSpecifiers when set', function () {
         const result = runMapConfig(
-            { ...fooPackageConfigFactory.build(), dependencyPolicy: { allowMutableSpecifiers: ['react'] } },
+            { ...fooPackageConfigFactory.build(), dependencyPolicy: { allowMutableSpecifiers: [ 'react' ] } },
             { extraPackages: [] }
         );
 
-        assert.deepStrictEqual(result.allowMutableSpecifiers, ['react']);
+        assert.deepStrictEqual(result.allowMutableSpecifiers, [ 'react' ]);
     });
 
     test('falls back to the common dependencyPolicy.allowMutableSpecifiers when the package does not set it', function () {
         const result = runMapConfig(fooPackageConfigFactory.build(), {
-            commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: ['shared-fork'] } },
+            commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: [ 'shared-fork' ] } },
             extraPackages: []
         });
 
-        assert.deepStrictEqual(result.allowMutableSpecifiers, ['shared-fork']);
+        assert.deepStrictEqual(result.allowMutableSpecifiers, [ 'shared-fork' ]);
     });
 
     test('per-package dependencyPolicy fully replaces the common dependencyPolicy', function () {
         const result = runMapConfig(
-            { ...fooPackageConfigFactory.build(), dependencyPolicy: { allowMutableSpecifiers: ['only-this'] } },
+            { ...fooPackageConfigFactory.build(), dependencyPolicy: { allowMutableSpecifiers: [ 'only-this' ] } },
             {
-                commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: ['common-only'] } },
+                commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: [ 'common-only' ] } },
                 extraPackages: []
             }
         );
 
-        assert.deepStrictEqual(result.allowMutableSpecifiers, ['only-this']);
+        assert.deepStrictEqual(result.allowMutableSpecifiers, [ 'only-this' ]);
     });
+}
 
-    test('preserves the configured registrySettings on the produced options', function () {
-        const result = runMapConfig(fooPackageConfigFactory.build(), {
-            extraConfig: {
-                registrySettings: {
-                    registryUrl: 'https://registry.example',
-                    auth: { type: 'bearer-token', token: 'tok' }
-                }
-            }
-        });
-
-        assert.deepStrictEqual(result.registrySettings, {
-            registryUrl: 'https://registry.example',
-            auth: { type: 'bearer-token', token: 'tok' }
-        });
-    });
-
-    test('defaults registrySettings to an empty object when the config omits them', function () {
-        const packageConfig = {
-            ...fooPackageConfigFactory.build(),
-            publishSettings: { access: 'public' }
-        } as unknown as PackageConfigInput;
-        const config = { packages: [packageConfig] } as unknown as PacktoryConfigInput;
-
-        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, {
-            existingBundles: []
-        });
-
-        assert.deepStrictEqual(result.registrySettings, {});
-    });
-
-    test('collects generated changelog outputs as ignored attribution paths', function () {
-        const packageConfig = {
-            ...fooPackageConfigFactory.build({ sourcesFolder: 'packages/foo' }),
-            publishSettings: { access: 'public' }
-        } as unknown as PackageConfigInput;
-        const config = {
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            changelog: {
-                outputs: [
-                    { kind: 'repository-file', path: 'CHANGELOG.md' },
-                    { kind: 'package-file', path: 'docs/CHANGELOG.md' }
-                ]
-            },
-            packages: [packageConfig]
-        } as const;
-
-        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, {
-            existingBundles: [],
-            repositoryFolder: '/repo'
-        });
-
-        assert.deepStrictEqual(result.ignoredAttributionPaths, ['CHANGELOG.md', 'packages/foo/docs/CHANGELOG.md']);
-    });
-
-    test('collects ignored attribution paths against the repository root by default', function () {
-        const packageConfig = {
-            ...fooPackageConfigFactory.build({ sourcesFolder: '/src/pkg-a' }),
-            publishSettings: { access: 'public' }
-        } as unknown as PackageConfigInput;
-        const config = {
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
-            packages: [packageConfig]
-        } as const;
-
-        const result = configToBuildAndPublishOptions('foo', { foo: packageConfig }, config, {
-            existingBundles: []
-        });
-
-        assert.deepStrictEqual(result.ignoredAttributionPaths, ['src/pkg-a/CHANGELOG.md']);
-    });
-
-    test('throws a "missing publish settings" error when neither commonPackageSettings nor the package supplies one', function () {
-        const packageWithoutPublishSettings = fooPackageConfigFactory.build();
-        const config = {
-            registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-            packages: [packageWithoutPublishSettings]
-        } as unknown as PacktoryConfigInput;
-
-        assert.throws(
-            () => {
-                configToBuildAndPublishOptions('foo', { foo: packageWithoutPublishSettings }, config, {
-                    existingBundles: []
-                });
-            },
-            { message: 'Config for package "foo" is missing publish settings' }
-        );
-    });
+suite('map-config', function () {
+    registerValidationTests();
+    registerRootAndSurfaceTests();
+    registerDependencyAndFileOptionTests();
+    registerPackageJsonAndVersioningTests();
+    registerPublishAndDependencyPolicyTests();
 });

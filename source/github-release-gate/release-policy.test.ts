@@ -4,11 +4,13 @@ import type { ReleaseAnalysis } from '../packages/packtory/packtory.entry-point.
 import { applyPacktoryReleasePolicy } from './release-policy.ts';
 import type { GitHubReleaseGateDecision } from './release-gate.ts';
 
-function baseDecision(overrides: Partial<GitHubReleaseGateDecision & { readonly shouldPublish: true }> = {}) {
+type OpenGitHubReleaseGateDecision = GitHubReleaseGateDecision & { readonly shouldPublish: true; };
+
+function baseDecision(overrides: Partial<OpenGitHubReleaseGateDecision> = {}): OpenGitHubReleaseGateDecision {
     return {
         shouldPublish: true as const,
         reason: 'quiet_period_elapsed' as const,
-        logs: ['Publishing is allowed by the release gate.'],
+        logs: [ 'Publishing is allowed by the release gate.' ],
         ...overrides
     };
 }

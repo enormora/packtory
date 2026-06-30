@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- tests narrow PackageConfig / PacktoryConfigWithoutRegistry to the fields each resolver actually reads */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../config/config.ts';
@@ -18,16 +17,16 @@ function pkg(overrides: Partial<PackageConfig>): PackageConfig {
 }
 
 function config(overrides: Partial<PacktoryConfigWithoutRegistry> = {}): PacktoryConfigWithoutRegistry {
-    return { packages: [], ...overrides } as unknown as PacktoryConfigWithoutRegistry;
+    return { packages: [], ...overrides };
 }
 
 const baseMain: MainPackageJson = { type: 'module' };
 
-suite('setting-resolvers', function () {
+function registerRequiredSettingTests(): void {
     test('resolveSourcesFolder prefers the package-level sourcesFolder over commonPackageSettings', function () {
         const result = resolveSourcesFolder(
             pkg({ sourcesFolder: 'pkg-src' }),
-            config({ commonPackageSettings: { sourcesFolder: 'common-src' } as never })
+            config({ commonPackageSettings: { sourcesFolder: 'common-src' } })
         );
         assert.strictEqual(result, 'pkg-src');
     });
@@ -35,7 +34,7 @@ suite('setting-resolvers', function () {
     test('resolveSourcesFolder falls back to commonPackageSettings when the package omits sourcesFolder', function () {
         const result = resolveSourcesFolder(
             pkg({}),
-            config({ commonPackageSettings: { sourcesFolder: 'common-src' } as never })
+            config({ commonPackageSettings: { sourcesFolder: 'common-src' } })
         );
         assert.strictEqual(result, 'common-src');
     });
@@ -74,27 +73,29 @@ suite('setting-resolvers', function () {
             assert.strictEqual((error as Error).message, 'Config for package "pkg-a" is missing publish settings');
         }
     });
+}
 
+function registerOptionalSettingTests(): void {
     test('resolveAllowMutableSpecifiers returns an empty array when no dependency policy is configured', function () {
         assert.deepStrictEqual(resolveAllowMutableSpecifiers(pkg({}), config()), []);
     });
 
     test('resolveAllowMutableSpecifiers prefers package-level dependency policy over commonPackageSettings', function () {
         const result = resolveAllowMutableSpecifiers(
-            pkg({ dependencyPolicy: { allowMutableSpecifiers: ['react'] } as never }),
-            config({ commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: ['lodash'] } } as never })
+            pkg({ dependencyPolicy: { allowMutableSpecifiers: [ 'react' ] } }),
+            config({ commonPackageSettings: { dependencyPolicy: { allowMutableSpecifiers: [ 'lodash' ] } } })
         );
-        assert.deepStrictEqual(result, ['react']);
+        assert.deepStrictEqual(result, [ 'react' ]);
     });
 
     test('resolveAdditionalChangelogSourceFiles keeps common and package paths separate', function () {
         const result = resolveAdditionalChangelogSourceFiles(
-            pkg({ additionalChangelogSourceFiles: ['packages/pkg/package.json'] }),
-            config({ commonPackageSettings: { additionalChangelogSourceFiles: ['package-lock.json'] } as never })
+            pkg({ additionalChangelogSourceFiles: [ 'packages/pkg/package.json' ] }),
+            config({ commonPackageSettings: { additionalChangelogSourceFiles: [ 'package-lock.json' ] } })
         );
         assert.deepStrictEqual(result, {
-            packageFiles: ['packages/pkg/package.json'],
-            sharedFiles: ['package-lock.json']
+            packageFiles: [ 'packages/pkg/package.json' ],
+            sharedFiles: [ 'package-lock.json' ]
         });
     });
 
@@ -109,11 +110,11 @@ suite('setting-resolvers', function () {
 
     test('buildAdditionalPackageJsonAttributes merges common attributes with package-level overrides', function () {
         const result = buildAdditionalPackageJsonAttributes(
-            pkg({ additionalPackageJsonAttributes: { keywords: ['custom'], scripts: { build: 'tsc' } } as never }),
-            config({ commonPackageSettings: { additionalPackageJsonAttributes: { keywords: ['shared'] } } as never })
+            pkg({ additionalPackageJsonAttributes: { keywords: [ 'custom' ], scripts: { build: 'tsc' } } }),
+            config({ commonPackageSettings: { additionalPackageJsonAttributes: { keywords: [ 'shared' ] } } })
         );
 
-        assert.deepStrictEqual(result, { keywords: ['custom'], scripts: { build: 'tsc' } });
+        assert.deepStrictEqual(result, { keywords: [ 'custom' ], scripts: { build: 'tsc' } });
     });
 
     test('resolveIncludeSourceMapFiles defaults to false when neither level configures it', function () {
@@ -123,8 +124,13 @@ suite('setting-resolvers', function () {
     test('resolveIncludeSourceMapFiles prefers the package-level setting over commonPackageSettings', function () {
         const result = resolveIncludeSourceMapFiles(
             pkg({ includeSourceMapFiles: true }),
-            config({ commonPackageSettings: { includeSourceMapFiles: false } as never })
+            config({ commonPackageSettings: { includeSourceMapFiles: false } })
         );
         assert.strictEqual(result, true);
     });
+}
+
+suite('setting-resolvers', function () {
+    registerRequiredSettingTests();
+    registerOptionalSettingTests();
 });

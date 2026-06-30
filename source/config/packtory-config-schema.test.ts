@@ -34,7 +34,8 @@ suite('packtory-config-schema', function () {
                         publishSettings: { access: 'public' }
                     }
                 ]
-            }).success,
+            })
+                .success,
             true
         );
     });
@@ -96,7 +97,7 @@ suite('packtory-config-schema', function () {
                     mainPackageJson: { type: 'module' },
                     publishSettings: { access: 'public', provenance: { type: 'auto' } }
                 },
-                packages: [{ name: 'foo', roots: { main: { js: 'foo' } } }]
+                packages: [ { name: 'foo', roots: { main: { js: 'foo' } } } ]
             }
         })
     );

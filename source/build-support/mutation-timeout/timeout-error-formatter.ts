@@ -5,12 +5,13 @@ export function formatMutationTimeoutError(timeouts: readonly TimeoutMutant[]): 
         return undefined;
     }
 
-    const summary = timeouts.map((timeout) => {
+    const summary = timeouts.map(function (timeout) {
         return `- ${timeout.filePath}:${timeout.line}:${timeout.column}`;
     });
 
     return [
         `Mutation report contains ${timeouts.length} timeout mutant${timeouts.length === 1 ? '' : 's'}.`,
         ...summary
-    ].join('\n');
+    ]
+        .join('\n');
 }

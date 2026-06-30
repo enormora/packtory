@@ -3,15 +3,17 @@ import { suite, test } from 'mocha';
 import type { PublishAllResult } from '../../packtory/packtory.ts';
 import { getIssues, getResultType, getSucceededResults, isPreviewableResult } from './preview-result-inspectors.ts';
 
-function okResult(value: PublishAllResult extends { value: infer T } ? T : never = [] as never): PublishAllResult {
+function okResult(
+    value: PublishAllResult extends { readonly value: infer T; } ? T : never = [] as never
+): PublishAllResult {
     return { isOk: true, isErr: false, value } as unknown as PublishAllResult;
 }
 
-function errResult(error: PublishAllResult extends { error: infer T } ? T : never): PublishAllResult {
+function errResult(error: PublishAllResult extends { readonly error: infer T; } ? T : never): PublishAllResult {
     return { isOk: false, isErr: true, error } as unknown as PublishAllResult;
 }
 
-suite('preview-result-inspectors', function () {
+function registerPreviewableResultTests(): void {
     test('isPreviewableResult returns true for an ok result', function () {
         assert.strictEqual(isPreviewableResult(okResult()), true);
     });
@@ -21,7 +23,7 @@ suite('preview-result-inspectors', function () {
             isPreviewableResult(
                 errResult({
                     type: 'partial',
-                    succeeded: [{ name: 'pkg-a' }],
+                    succeeded: [ { name: 'pkg-a' } ],
                     failures: []
                 } as never)
             ),
@@ -39,7 +41,7 @@ suite('preview-result-inspectors', function () {
                 errResult({
                     type: 'partial',
                     succeeded: [],
-                    failures: [{ message: 'boom' }]
+                    failures: [ { message: 'boom' } ]
                 } as never)
             ),
             false
@@ -47,7 +49,7 @@ suite('preview-result-inspectors', function () {
     });
 
     test('getSucceededResults returns the value when the result is ok', function () {
-        assert.deepStrictEqual(getSucceededResults(okResult([{ name: 'pkg-a' }] as never)), [{ name: 'pkg-a' }]);
+        assert.deepStrictEqual(getSucceededResults(okResult([ { name: 'pkg-a' } ] as never)), [ { name: 'pkg-a' } ]);
     });
 
     test('getSucceededResults returns the succeeded list when the error is partial', function () {
@@ -55,11 +57,11 @@ suite('preview-result-inspectors', function () {
             getSucceededResults(
                 errResult({
                     type: 'partial',
-                    succeeded: [{ name: 'pkg-a' }],
+                    succeeded: [ { name: 'pkg-a' } ],
                     failures: []
                 } as never)
             ),
-            [{ name: 'pkg-a' }]
+            [ { name: 'pkg-a' } ]
         );
     });
 
@@ -68,9 +70,11 @@ suite('preview-result-inspectors', function () {
     });
 
     test('getSucceededResults returns an empty array for checks errors', function () {
-        assert.deepStrictEqual(getSucceededResults(errResult({ type: 'checks', issues: ['failed'] } as never)), []);
+        assert.deepStrictEqual(getSucceededResults(errResult({ type: 'checks', issues: [ 'failed' ] } as never)), []);
     });
+}
 
+function registerIssueAndTypeTests(): void {
     test('getIssues returns an empty array for an ok result', function () {
         assert.deepStrictEqual(getIssues(okResult()), []);
     });
@@ -81,19 +85,19 @@ suite('preview-result-inspectors', function () {
                 errResult({
                     type: 'partial',
                     succeeded: [],
-                    failures: [{ message: 'boom' }, { message: 'bang' }]
+                    failures: [ { message: 'boom' }, { message: 'bang' } ]
                 } as never)
             ),
-            ['boom', 'bang']
+            [ 'boom', 'bang' ]
         );
     });
 
     test('getIssues returns the config issues for a config error', function () {
-        assert.deepStrictEqual(getIssues(errResult({ type: 'config', issues: ['missing'] } as never)), ['missing']);
+        assert.deepStrictEqual(getIssues(errResult({ type: 'config', issues: [ 'missing' ] } as never)), [ 'missing' ]);
     });
 
     test('getIssues returns the checks issues for a checks error', function () {
-        assert.deepStrictEqual(getIssues(errResult({ type: 'checks', issues: ['failed'] } as never)), ['failed']);
+        assert.deepStrictEqual(getIssues(errResult({ type: 'checks', issues: [ 'failed' ] } as never)), [ 'failed' ]);
     });
 
     test('getResultType returns "success" for an ok result', function () {
@@ -108,10 +112,15 @@ suite('preview-result-inspectors', function () {
     });
 
     test('getResultType returns "checks" for checks errors', function () {
-        assert.strictEqual(getResultType(errResult({ type: 'checks', issues: ['failed'] } as never)), 'checks');
+        assert.strictEqual(getResultType(errResult({ type: 'checks', issues: [ 'failed' ] } as never)), 'checks');
     });
 
     test('getResultType returns "config" for config errors', function () {
-        assert.strictEqual(getResultType(errResult({ type: 'config', issues: ['missing'] } as never)), 'config');
+        assert.strictEqual(getResultType(errResult({ type: 'config', issues: [ 'missing' ] } as never)), 'config');
     });
+}
+
+suite('preview-result-inspectors', function () {
+    registerPreviewableResultTests();
+    registerIssueAndTypeTests();
 });

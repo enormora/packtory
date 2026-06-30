@@ -8,7 +8,7 @@ import {
 import type { ReleasePullRequestPolicyConfig } from './release-pull-request-policy.ts';
 
 const policyConfig: ReleasePullRequestPolicyConfig = {
-    allowedFiles: new Set(['CHANGELOG.md']),
+    allowedFiles: new Set([ 'CHANGELOG.md' ]),
     automationAuthor: 'github-actions[bot]',
     branch: 'release/packtory',
     commitSubject: 'Release packages',
@@ -20,10 +20,10 @@ const policyConfig: ReleasePullRequestPolicyConfig = {
 const releasePullRequest: PullRequestDetails = {
     author: 'github-actions[bot]',
     baseRef: 'main',
-    changedFiles: ['CHANGELOG.md'],
+    changedFiles: [ 'CHANGELOG.md' ],
     headRef: 'release/packtory',
     headRepository: 'owner/repo',
-    labels: ['release'],
+    labels: [ 'release' ],
     mergeCommitSha: 'merge-sha',
     merged: true,
     number: 12,
@@ -40,7 +40,7 @@ suite('release-publish-authorization', function () {
                 pullRequests: [
                     {
                         ...releasePullRequest,
-                        labels: ['bug'],
+                        labels: [ 'bug' ],
                         mergeCommitSha: 'commit-sha'
                     }
                 ],
@@ -55,7 +55,7 @@ suite('release-publish-authorization', function () {
             authorizeReleasePublishFromCommit({
                 commitSha: 'merge-sha',
                 config: policyConfig,
-                pullRequests: [releasePullRequest],
+                pullRequests: [ releasePullRequest ],
                 repository: 'owner/repo'
             }),
             {
@@ -69,11 +69,11 @@ suite('release-publish-authorization', function () {
 
     test('rejects commits associated with multiple release PRs', function () {
         assert.throws(
-            () => {
+            function () {
                 authorizeReleasePublishFromCommit({
                     commitSha: 'merge-sha',
                     config: policyConfig,
-                    pullRequests: [releasePullRequest, { ...releasePullRequest, number: 13 }],
+                    pullRequests: [ releasePullRequest, { ...releasePullRequest, number: 13 } ],
                     repository: 'owner/repo'
                 });
             },
@@ -83,7 +83,7 @@ suite('release-publish-authorization', function () {
 
     test('rejects manual retries for unmerged release PRs', function () {
         assert.throws(
-            () => {
+            function () {
                 authorizeReleasePublishFromPullRequest({
                     config: policyConfig,
                     pullRequest: {

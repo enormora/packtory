@@ -6,7 +6,7 @@ import { writeArtifactsToFolder } from './folder-writer.ts';
 suite('folder-writer', function () {
     test('writeArtifactsToFolder throws when the target folder is already readable', async function () {
         const fileManager = createFakeFileManager({
-            simulatedCheckReadabilityResponses: [{ value: { isReadable: true } }]
+            simulatedCheckReadabilityResponses: [ { value: { isReadable: true } } ]
         });
 
         try {
@@ -19,7 +19,7 @@ suite('folder-writer', function () {
 
     test('writeArtifactsToFolder writes each entry to the joined target path', async function () {
         const fileManager = createFakeFileManager({
-            simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }]
+            simulatedCheckReadabilityResponses: [ { value: { isReadable: false } } ]
         });
 
         await writeArtifactsToFolder(fileManager, '/target', [
@@ -34,7 +34,7 @@ suite('folder-writer', function () {
 
     test('writeArtifactsToFolder records each entry on the file manager in order', async function () {
         const fileManager = createFakeFileManager({
-            simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }]
+            simulatedCheckReadabilityResponses: [ { value: { isReadable: false } } ]
         });
 
         await writeArtifactsToFolder(fileManager, '/target', [
@@ -51,13 +51,13 @@ suite('folder-writer', function () {
 
     test('writeArtifactsToFolder copies vendor entries byte-for-byte after writing inline contents', async function () {
         const fileManager = createFakeFileManager({
-            simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }]
+            simulatedCheckReadabilityResponses: [ { value: { isReadable: false } } ]
         });
 
         await writeArtifactsToFolder(
             fileManager,
             '/target',
-            [{ filePath: 'inline.txt', content: 'inline', isExecutable: false }],
+            [ { filePath: 'inline.txt', content: 'inline', isExecutable: false } ],
             [
                 {
                     sourceAbsolutePath: '/repo/node_modules/pkg/index.js',
@@ -77,8 +77,8 @@ suite('folder-writer', function () {
 
     test('writeArtifactsToFolder revalidates vendor source paths before copying', async function () {
         const fileManager = createFakeFileManager({
-            simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }],
-            simulatedRealPathResponses: [{ value: '/repo/secret.js' }]
+            simulatedCheckReadabilityResponses: [ { value: { isReadable: false } } ],
+            simulatedRealPathResponses: [ { value: '/repo/secret.js' } ]
         });
 
         await assert.rejects(
@@ -96,8 +96,7 @@ suite('folder-writer', function () {
                 ]
             ),
             {
-                message:
-                    'Vendored file "/repo/node_modules/pkg/index.js" resolved outside package root ' +
+                message: 'Vendored file "/repo/node_modules/pkg/index.js" resolved outside package root ' +
                     '"/repo/node_modules/pkg"'
             }
         );

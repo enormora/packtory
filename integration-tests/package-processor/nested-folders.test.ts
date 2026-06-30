@@ -41,7 +41,7 @@ suite('nested-folders', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/nested/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/nested/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './nested/foo.js';\n",
                             isExecutable: false,
@@ -53,7 +53,7 @@ suite('nested-folders', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/nested/deep/bar.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/nested/deep/bar.js') ]),
                         fileDescription: {
                             content: "import { bar } from './deep/bar.js';\n\nexport const foo = 'foo';\n",
                             isExecutable: false,
@@ -65,7 +65,7 @@ suite('nested-folders', function () {
                         analysis: bindingAnalysis('bar', 'foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/nested/deep/folder/baz.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/nested/deep/folder/baz.js') ]),
                         fileDescription: {
                             content: "import { baz } from './folder/baz.js';\n\nexport const bar = 'bar';\n",
                             isExecutable: false,

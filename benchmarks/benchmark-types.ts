@@ -1,5 +1,5 @@
-export const workloadSizes = ['small', 'medium', 'large'] as const;
-export const cliWorkloadSizes = ['medium', 'large'] as const;
+export const workloadSizes = [ 'small', 'medium', 'large' ] as const;
+export const cliWorkloadSizes = [ 'medium', 'large' ] as const;
 
 export type WorkloadSize = (typeof workloadSizes)[number];
 export type CliWorkloadSize = (typeof cliWorkloadSizes)[number];
@@ -23,8 +23,8 @@ export type CliWorkloadDefinition = {
 
 export type WorkloadsFile = {
     readonly seedFixture: string;
-    readonly workloads: Record<WorkloadSize, WorkloadDefinition>;
-    readonly cliWorkloads: Record<CliWorkloadSize, CliWorkloadDefinition>;
+    readonly workloads: Readonly<Record<WorkloadSize, WorkloadDefinition>>;
+    readonly cliWorkloads: Readonly<Record<CliWorkloadSize, CliWorkloadDefinition>>;
 };
 
 export type ThroughputThreshold = {
@@ -41,8 +41,8 @@ export type ThresholdsFile = {
         readonly baselineMilliseconds: number;
     };
     readonly throughput: {
-        readonly 'resolve-and-link': Record<WorkloadSize, ThroughputThreshold>;
-        readonly 'build-artifacts': Record<WorkloadSize, ThroughputThreshold>;
+        readonly 'resolve-and-link': Readonly<Record<WorkloadSize, ThroughputThreshold>>;
+        readonly 'build-artifacts': Readonly<Record<WorkloadSize, ThroughputThreshold>>;
     };
     readonly responsiveness: {
         readonly 'publish-cli': {
