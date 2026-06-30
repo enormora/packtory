@@ -136,10 +136,10 @@ function createFetch(records: RecordedRequest[]): typeof globalThis.fetch {
         if (url.pathname === '/repos/owner/repo/actions/runs' && url.searchParams.get('event') === 'pull_request') {
             return jsonResponse({
                 workflow_runs: [
-                    { conclusion: 'action_required', database_id: 10, event: 'pull_request', head_sha: 'release-head' },
+                    { conclusion: 'action_required', event: 'pull_request', head_sha: 'release-head', id: 10 },
                     { conclusion: 'action_required', event: 'pull_request', head_sha: 'release-head' },
-                    { conclusion: 'action_required', database_id: 12, event: 'pull_request', head_sha: 'other-head' },
-                    { conclusion: 'success', database_id: 13, event: 'pull_request', head_sha: 'release-head' }
+                    { conclusion: 'action_required', event: 'pull_request', head_sha: 'other-head', id: 12 },
+                    { conclusion: 'success', event: 'pull_request', head_sha: 'release-head', id: 13 }
                 ]
             });
         }
@@ -148,9 +148,7 @@ function createFetch(records: RecordedRequest[]): typeof globalThis.fetch {
             url.searchParams.get('event') === 'workflow_dispatch'
         ) {
             return jsonResponse({
-                workflow_runs: [
-                    { conclusion: 'success', database_id: 11, event: 'workflow_dispatch', head_sha: 'release-head' }
-                ]
+                workflow_runs: [{ conclusion: 'success', event: 'workflow_dispatch', head_sha: 'release-head', id: 11 }]
             });
         }
         if (url.pathname === '/repos/owner/repo/actions/runs/10' && method === 'DELETE') {
@@ -468,57 +466,57 @@ suite('release-pr-github-client', function () {
                 return jsonResponse({
                     workflow_runs: [
                         {
-                            database_id: 20,
                             event: 'workflow_dispatch',
                             head_sha: 'exact-head',
+                            id: 20,
                             name: 'Continuous Integration',
                             path: '.github/workflows/ci.yml',
                             workflow_id: 101
                         },
                         {
-                            database_id: 10,
                             event: 'workflow_dispatch',
                             head_sha: 'suffix-head',
+                            id: 10,
                             name: 'Continuous Integration',
                             path: '.github/workflows/ci.yml',
                             workflow_id: 999
                         },
                         {
-                            database_id: 11,
                             event: 'workflow_dispatch',
                             head_sha: 'suffix-head',
+                            id: 11,
                             name: 'Continuous Integration',
                             path: '.github/workflows/other.yml',
                             workflow_id: 101
                         },
                         {
-                            database_id: 12,
                             event: 'workflow_dispatch',
                             head_sha: 'suffix-head',
+                            id: 12,
                             name: 'Other CI',
                             path: '.github/workflows/ci.yml',
                             workflow_id: 101
                         },
                         {
-                            database_id: 13,
                             event: 'workflow_dispatch',
                             head_sha: 'suffix-head',
+                            id: 13,
                             name: 'Continuous Integration',
                             path: 'owner/repo/.github/workflows/ci.yml',
                             workflow_id: 101
                         },
                         {
-                            database_id: 14,
                             event: 'workflow_dispatch',
                             head_sha: 'null-head',
+                            id: 14,
                             name: null,
                             path: null,
                             workflow_id: null
                         },
                         {
-                            database_id: 15,
                             event: 'workflow_dispatch',
-                            head_sha: 'omitted-head'
+                            head_sha: 'omitted-head',
+                            id: 15
                         }
                     ]
                 });

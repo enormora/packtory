@@ -6,7 +6,7 @@ import { createGitHubJsonRequestHeaders } from './github-api-request.ts';
 import {
     findWorkflowRunIdInRuns,
     observedWorkflowRunIds,
-    runDatabaseId,
+    readWorkflowRunId,
     selectReleaseWorkflow,
     workflowMatchesIdentifier,
     type ReleaseWorkflow,
@@ -344,12 +344,12 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
             });
             const blockedRunIds = blockedRuns
                 .map((run) => {
-                    return runDatabaseId(run as RawWorkflowRun);
+                    return readWorkflowRunId(run as RawWorkflowRun);
                 })
                 .filter(isDefined);
-            for (const databaseId of blockedRunIds) {
+            for (const runId of blockedRunIds) {
                 await resolveGitHubResponse(
-                    octokit.rest.actions.deleteWorkflowRun({ ...requestContext, run_id: databaseId })
+                    octokit.rest.actions.deleteWorkflowRun({ ...requestContext, run_id: runId })
                 );
             }
         },

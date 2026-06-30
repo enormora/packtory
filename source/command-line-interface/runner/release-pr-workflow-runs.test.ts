@@ -53,9 +53,9 @@ suite('release-pr-workflow-runs', function () {
                         workflow_id: 101
                     },
                     {
-                        databaseId: 2,
                         event: 'workflow_dispatch',
                         head_sha: 'release-head',
+                        id: 2,
                         name: 'Continuous Integration',
                         path: 'enormora/packtory/.github/workflows/continuous-integration.yml',
                         workflow_id: 101
@@ -211,11 +211,12 @@ suite('release-pr-workflow-runs', function () {
     test('collects defined workflow run ids', function () {
         assert.deepStrictEqual(
             observedWorkflowRunIds([
-                { database_id: 1, event: 'workflow_dispatch', head_sha: 'release-head' },
+                { id: 1, event: 'workflow_dispatch', head_sha: 'release-head' },
                 { event: 'workflow_dispatch', head_sha: 'release-head' },
-                { databaseId: 2, event: 'workflow_dispatch', head_sha: 'release-head' }
+                { database_id: 2, event: 'workflow_dispatch', head_sha: 'release-head' },
+                { databaseId: 3, event: 'workflow_dispatch', head_sha: 'release-head' }
             ]),
-            [1, 2]
+            [1, 2, 3]
         );
     });
 });
