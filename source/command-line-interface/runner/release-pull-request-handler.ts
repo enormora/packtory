@@ -75,6 +75,10 @@ type LoadedReleasePullRequestConfig = {
     readonly config: ReleasePullRequestConfig;
     readonly policyConfig: ReleasePullRequestPolicyConfig;
 };
+type PreparedReleaseCommit = {
+    readonly baseHead: string;
+    readonly localHead: string;
+};
 
 type GitHubMergeGroupEvent = {
     readonly base_sha?: string | undefined;
@@ -224,23 +228,31 @@ async function closeReleaseState(
 
 async function prepareReleasePullRequest(
     dependencies: ReleasePullRequestHandlerDependencies
-): Promise<string | undefined> {
+): Promise<PreparedReleaseCommit | undefined> {
     const originalHead = await dependencies.gitClient.currentHead();
     const releaseExitCode = await runPrepareRelease(dependencies);
     if (releaseExitCode !== 0) {
         throw new Error('Release preparation failed');
     }
     const releaseHead = await dependencies.gitClient.currentHead();
-    return releaseHead === originalHead ? undefined : releaseHead;
+    return releaseHead === originalHead ? undefined : { baseHead: originalHead, localHead: releaseHead };
 }
 
 async function updateReleasePullRequest(
     dependencies: ReleasePullRequestHandlerDependencies,
     client: ReleasePullRequestGitHubClient,
     config: ReleasePullRequestConfig,
-    releaseHead: string
+    releaseCommit: PreparedReleaseCommit
 ): Promise<number> {
-    await dependencies.gitClient.pushHeadToBranch(config.branch);
+    const releaseFiles = await dependencies.gitClient.readChangedFiles(releaseCommit.baseHead, releaseCommit.localHead);
+    const releaseHead = await client.createCommitOnBranch({
+        additions: releaseFiles.map(function (file) {
+            return { contents: file.contentBase64, path: file.path };
+        }),
+        branch: config.branch,
+        expectedHeadOid: releaseCommit.baseHead,
+        message: config.commitSubject
+    });
     const pullRequestNumber = await client.createOrUpdateReleasePullRequest({
         baseBranch: config.defaultBranch,
         body: config.body,
@@ -262,14 +274,14 @@ async function finishReleasePullRequestMaintenance(
     dependencies: ReleasePullRequestHandlerDependencies,
     client: ReleasePullRequestGitHubClient,
     config: ReleasePullRequestConfig,
-    releaseHead: string | undefined
+    releaseCommit: PreparedReleaseCommit | undefined
 ): Promise<number> {
-    if (releaseHead === undefined) {
+    if (releaseCommit === undefined) {
         await closeReleaseState(dependencies, client, config);
         dependencies.log('No release content remains');
         return 0;
     }
-    return updateReleasePullRequest(dependencies, client, config, releaseHead);
+    return updateReleasePullRequest(dependencies, client, config, releaseCommit);
 }
 
 type MaintainReleasePullRequestHandlerDependencies = ReleasePullRequestHandlerDependencies & {
@@ -283,8 +295,8 @@ async function runMaintain(dependencies: MaintainReleasePullRequestHandlerDepend
     }
     const loadedConfig = await loadReleasePullRequestConfig(dependencies);
     const { client } = await createGitHubClient(dependencies);
-    const releaseHead = await prepareReleasePullRequest(dependencies);
-    return finishReleasePullRequestMaintenance(dependencies, client, loadedConfig.config, releaseHead);
+    const releaseCommit = await prepareReleasePullRequest(dependencies);
+    return finishReleasePullRequestMaintenance(dependencies, client, loadedConfig.config, releaseCommit);
 }
 
 function readRequiredEnvironmentVariable(dependencies: ReleasePullRequestHandlerDependencies, name: string): string {

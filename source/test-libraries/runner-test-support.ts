@@ -16,6 +16,7 @@ export const noPublicationOutcome = { type: 'none' } as const;
 type ReleasePullRequestGitHubClientFixture = ReturnType<
     CommandLineInterfaceRunnerDependencies['createReleasePullRequestGitHubClient']
 >;
+type ReleaseGitClientFixture = CommandLineInterfaceRunnerDependencies['releaseGitClient'];
 type RunPreviewOverrides = {
     readonly pageOutput?: SinonSpy;
     readonly log?: SinonSpy;
@@ -105,6 +106,7 @@ function createReleasePullRequestClientFixture(
 ): ReleasePullRequestGitHubClientFixture {
     return {
         closeOpenReleasePullRequests: fake.resolves(undefined),
+        createCommitOnBranch: fake.resolves('signed-release-head'),
         createOrUpdateReleasePullRequest: fake.resolves(1),
         createStatus: fake.resolves(undefined),
         deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
@@ -189,16 +191,24 @@ function readPackageInfo(overrides: Overrides): () => Promise<Readonly<Record<st
         };
 }
 
-function createReleaseGitClient(overrides: Overrides): CommandLineInterfaceRunnerDependencies['releaseGitClient'] {
-    return overrides.releaseGitClient ?? {
+export function createReleaseGitClientFixture(
+    overrides: Readonly<Partial<ReleaseGitClientFixture>> = {}
+): ReleaseGitClientFixture {
+    return {
         commit: fake.resolves(undefined),
         currentHead: fake.resolves('new-head'),
         deleteRemoteBranch: fake.resolves(undefined),
         ensureClean: fake.resolves(undefined),
         ensureTag: fake.resolves(undefined),
         pushHeadToBranch: fake.resolves(undefined),
-        pushFollowTags: fake.resolves(undefined)
+        pushFollowTags: fake.resolves(undefined),
+        readChangedFiles: fake.resolves([]),
+        ...overrides
     };
+}
+
+function createReleaseGitClient(overrides: Overrides): CommandLineInterfaceRunnerDependencies['releaseGitClient'] {
+    return overrides.releaseGitClient ?? createReleaseGitClientFixture();
 }
 
 function createRunnerDependencies(overrides: Overrides): CommandLineInterfaceRunnerDependencies {

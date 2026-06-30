@@ -118,7 +118,8 @@ suite('runner command routing', function () {
                     ensureClean: fake.resolves(undefined),
                     ensureTag,
                     pushHeadToBranch: fake.resolves(undefined),
-                    pushFollowTags
+                    pushFollowTags,
+                    readChangedFiles: fake.resolves([])
                 }
             });
 

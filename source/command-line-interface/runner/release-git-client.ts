@@ -5,6 +5,12 @@ type ReleaseGitCommandRunner = (
     args: readonly string[]
 ) => Promise<{ readonly stdout: string; readonly stderr: string; }>;
 
+type ReleaseGitFileChange = {
+    readonly contentBase64: string;
+    readonly kind: 'addition';
+    readonly path: string;
+};
+
 export type ReleaseGitClient = {
     readonly commit: (filePaths: readonly string[], message: string) => Promise<void>;
     readonly currentHead: () => Promise<string>;
@@ -13,6 +19,7 @@ export type ReleaseGitClient = {
     readonly ensureTag: (tagName: string, message: string, targetHead: string) => Promise<void>;
     readonly pushHeadToBranch: (branch: string) => Promise<void>;
     readonly pushFollowTags: () => Promise<void>;
+    readonly readChangedFiles: (baseHead: string, targetHead: string) => Promise<readonly ReleaseGitFileChange[]>;
 };
 
 type ReleaseGitClientDependencies = {
@@ -26,6 +33,11 @@ async function runGit(deps: ReleaseGitClientDependencies, args: readonly string[
     return result.stdout.trim();
 }
 
+async function runGitRaw(deps: ReleaseGitClientDependencies, args: readonly string[]): Promise<string> {
+    const result = await deps.runGitCommand('git', [ '-C', deps.repositoryFolder, ...args ]);
+    return result.stdout;
+}
+
 async function readGitOutputResult(
     deps: ReleaseGitClientDependencies,
     args: readonly string[]
@@ -35,6 +47,20 @@ async function readGitOutputResult(
     } catch {
         return { kind: 'missing' };
     }
+}
+
+function splitGitPathOutput(output: string): readonly string[] {
+    return output.split('\0').filter(function (path) {
+        return path.length > 0;
+    });
+}
+
+async function readFileAtRevision(
+    deps: ReleaseGitClientDependencies,
+    revision: string,
+    filePath: string
+): Promise<string> {
+    return runGitRaw(deps, [ 'show', `${revision}:${filePath}` ]);
 }
 
 export function createReleaseGitClient(deps: ReleaseGitClientDependencies): ReleaseGitClient {
@@ -98,6 +124,23 @@ export function createReleaseGitClient(deps: ReleaseGitClientDependencies): Rele
 
         async pushFollowTags() {
             await runGit(deps, [ 'push', '--follow-tags' ]);
+        },
+
+        async readChangedFiles(baseHead, targetHead) {
+            const changedPaths = splitGitPathOutput(
+                await runGit(deps, [ 'diff', '--name-only', '-z', '--diff-filter=AM', baseHead, targetHead, '--' ])
+            );
+            return Promise.all(
+                changedPaths.map(async function (filePath) {
+                    return {
+                        contentBase64: Buffer.from(await readFileAtRevision(deps, targetHead, filePath)).toString(
+                            'base64'
+                        ),
+                        kind: 'addition',
+                        path: filePath
+                    };
+                })
+            );
         }
     };
 }
