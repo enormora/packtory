@@ -17,18 +17,18 @@ suite('stable-json', function () {
         const result = serializeStableJson({ outer: { b: 2, a: 1 } });
         assert.strictEqual(
             result,
-            ['{', '    "outer": {', '        "a": 1,', '        "b": 2', '    }', '}'].join('\n')
+            [ '{', '    "outer": {', '        "a": 1,', '        "b": 2', '    }', '}' ].join('\n')
         );
     });
 
     test('sorts primitive arrays', function () {
-        const result = serializeStableJson({ values: ['b', 'a'] });
+        const result = serializeStableJson({ values: [ 'b', 'a' ] });
         assert.strictEqual(result, '{\n    "values": [\n        "a",\n        "b"\n    ]\n}');
     });
 
     test('preserves order of arrays whose path the predicate matches', function () {
         const result = serializeStableJson(
-            { keepOrdered: ['z', 'a'], reorder: ['z', 'a'] },
+            { keepOrdered: [ 'z', 'a' ], reorder: [ 'z', 'a' ] },
             {
                 shouldPreserveArrayOrder(path) {
                     return path[0] === 'keepOrdered';
@@ -48,7 +48,8 @@ suite('stable-json', function () {
                 '        "z"',
                 '    ]',
                 '}'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 

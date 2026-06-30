@@ -9,21 +9,23 @@ const leftModulus = 97;
 const leftOffset = 0.5;
 const rightModulus = 89;
 const rightOffset = 1.5;
-const leftScaleFactor = 1.000_000_1;
-const rightScaleFactor = 0.999_999_9;
+const leftScaleFactor = 1.0000001;
+const rightScaleFactor = 0.9999999;
 const normalizationRollover = 8192;
 const minimumFiniteAccumulator = 0;
 
-function createNormalizationArrays(): {
+type NormalizationArrays = {
     readonly left: Float64Array;
     readonly right: Float64Array;
-} {
+};
+
+function createNormalizationArrays(): NormalizationArrays {
     const left = new Float64Array(normalizationArrayLength);
     const right = new Float64Array(normalizationArrayLength);
 
     for (let index = 0; index < normalizationArrayLength; index += 1) {
-        left[index] = (index % leftModulus) + leftOffset;
-        right[index] = (index % rightModulus) + rightOffset;
+        left[index] = index % leftModulus + leftOffset;
+        right[index] = index % rightModulus + rightOffset;
     }
 
     return { left, right };
@@ -79,7 +81,7 @@ export async function measureNormalization(): Promise<number> {
     bench.add('normalization', runNormalizationWorkload);
     await bench.run();
 
-    const [task] = bench.tasks;
+    const [ task ] = bench.tasks;
     assert.ok(task !== undefined, 'Normalization benchmark task is missing');
     assert.ok(
         task.result.state === 'completed' || task.result.state === 'aborted-with-statistics',

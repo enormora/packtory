@@ -1,140 +1,151 @@
 import type { PackageConfig, PackageConfigsByName } from './config.ts';
 
-type ImplicitPackageConfig = Extract<PackageConfig, { readonly packageInterface?: undefined }>;
+type ImplicitPackageConfig = Extract<PackageConfig, { readonly packageInterface?: undefined; }>;
 type ExplicitPackageConfig = Extract<
     PackageConfig,
-    { readonly packageInterface: NonNullable<PackageConfig['packageInterface']> }
+    { readonly packageInterface: NonNullable<PackageConfig['packageInterface']>; }
 >;
 
-type ExplicitRootEntryValidation<TEntry extends { readonly root: string }> = {
+type ExplicitRootEntryResult = {
+    readonly issues: readonly string[];
+    readonly rootIds: ReadonlySet<string>;
+};
+
+type ExplicitRootEntryValidation<TEntry extends { readonly root: string; }> = {
     readonly duplicateLabel: string;
     readonly entries: readonly TEntry[];
     readonly entryNameFor: (entry: TEntry) => string;
     readonly referenceLabel: string;
-    readonly seenValues: Set<string>;
 };
 
-type ExplicitValidationState = {
-    readonly issues: string[];
-    readonly usedRootIds: Set<string>;
-    readonly publicRootIds: Set<string>;
-    readonly seenExportKeys: Set<string>;
-    readonly seenBinNames: Set<string>;
-    readonly seenPrivateRootIds: Set<string>;
-};
-
-function createExplicitValidationState(): ExplicitValidationState {
-    return {
-        issues: [],
-        usedRootIds: new Set<string>(),
-        publicRootIds: new Set<string>(),
-        seenExportKeys: new Set<string>(),
-        seenBinNames: new Set<string>(),
-        seenPrivateRootIds: new Set<string>()
-    };
-}
-
-function pushUnknownRootIssue(
-    packageConfig: PackageConfig,
-    state: Pick<ExplicitValidationState, 'issues'>,
-    referenceName: string,
-    rootId: string
-): void {
+function unknownRootIssue(packageConfig: PackageConfig, referenceName: string, rootId: string): string | undefined {
     if (packageConfig.roots[rootId] === undefined) {
-        state.issues.push(`Package "${packageConfig.name}" ${referenceName} references unknown root "${rootId}"`);
+        return `Package "${packageConfig.name}" ${referenceName} references unknown root "${rootId}"`;
     }
+    return undefined;
 }
 
-function pushDuplicateIssue(
-    state: Pick<ExplicitValidationState, 'issues'>,
-    seenValues: Set<string>,
-    value: string,
-    message: string
-): void {
-    if (seenValues.has(value)) {
-        state.issues.push(message);
-    }
-}
-
-function validateExplicitRootEntries<TEntry extends { readonly root: string }>(
+function duplicateEntryIssue(
     packageConfig: ExplicitPackageConfig,
-    state: ExplicitValidationState,
+    seenValues: ReadonlySet<string>,
+    value: string,
+    label: string
+): string | undefined {
+    if (seenValues.has(value)) {
+        return `Package "${packageConfig.name}" declares duplicate ${label} "${value}"`;
+    }
+    return undefined;
+}
+
+function definedIssues(...issues: readonly (string | undefined)[]): readonly string[] {
+    return issues.filter(function (issue) {
+        return issue !== undefined;
+    });
+}
+
+function validateExplicitRootEntries<TEntry extends { readonly root: string; }>(
+    packageConfig: ExplicitPackageConfig,
     validation: ExplicitRootEntryValidation<TEntry>
-): void {
+): ExplicitRootEntryResult {
+    const issues: string[] = [];
+    const seenValues = new Set<string>();
+    const rootIds = new Set<string>();
+
     for (const entry of validation.entries) {
         const entryName = validation.entryNameFor(entry);
-        pushUnknownRootIssue(packageConfig, state, `${validation.referenceLabel} "${entryName}"`, entry.root);
-        pushDuplicateIssue(
-            state,
-            validation.seenValues,
-            entryName,
-            `Package "${packageConfig.name}" declares duplicate ${validation.duplicateLabel} "${entryName}"`
+        issues.push(
+            ...definedIssues(
+                unknownRootIssue(packageConfig, `${validation.referenceLabel} "${entryName}"`, entry.root),
+                duplicateEntryIssue(packageConfig, seenValues, entryName, validation.duplicateLabel)
+            )
         );
-        validation.seenValues.add(entryName);
-        state.usedRootIds.add(entry.root);
-        state.publicRootIds.add(entry.root);
+        seenValues.add(entryName);
+        rootIds.add(entry.root);
     }
+
+    return { issues, rootIds };
 }
 
-function validateExplicitPublicEntries(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): void {
-    validateExplicitRootEntries(packageConfig, state, {
+function validateExplicitPublicEntries(packageConfig: ExplicitPackageConfig): ExplicitRootEntryResult {
+    const modules = validateExplicitRootEntries(packageConfig, {
         duplicateLabel: 'export key',
         entries: packageConfig.packageInterface.modules ?? [],
         entryNameFor(entry) {
             return entry.export;
         },
-        referenceLabel: 'module export',
-        seenValues: state.seenExportKeys
+        referenceLabel: 'module export'
     });
-    validateExplicitRootEntries(packageConfig, state, {
+    const bins = validateExplicitRootEntries(packageConfig, {
         duplicateLabel: 'bin name',
         entries: packageConfig.packageInterface.bins ?? [],
         entryNameFor(entry) {
             return entry.name;
         },
-        referenceLabel: 'bin',
-        seenValues: state.seenBinNames
+        referenceLabel: 'bin'
     });
+    return {
+        issues: [ ...modules.issues, ...bins.issues ],
+        rootIds: new Set([ ...modules.rootIds, ...bins.rootIds ])
+    };
 }
 
-function validateExplicitPrivateRoots(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): void {
-    for (const rootId of packageConfig.packageInterface.privateRoots ?? []) {
-        pushUnknownRootIssue(packageConfig, state, `private root "${rootId}"`, rootId);
-        pushDuplicateIssue(
-            state,
-            state.seenPrivateRootIds,
-            rootId,
-            `Package "${packageConfig.name}" declares duplicate private root "${rootId}"`
+function validateExplicitPrivateRoots(
+    packageConfig: ExplicitPackageConfig,
+    publicRootIds: ReadonlySet<string>
+): ExplicitRootEntryResult {
+    const issues: string[] = [];
+    const seenRootIds = new Set<string>();
+    const rootIds = new Set<string>();
+    const privateRoots = packageConfig.packageInterface.privateRoots ?? [];
+
+    for (const rootId of privateRoots) {
+        issues.push(
+            ...definedIssues(
+                unknownRootIssue(packageConfig, `private root "${rootId}"`, rootId),
+                duplicateEntryIssue(packageConfig, seenRootIds, rootId, 'private root'),
+                publicRootIds.has(rootId)
+                    ? `Package "${packageConfig.name}" root "${rootId}" cannot be both public and private`
+                    : undefined
+            )
         );
-        if (state.publicRootIds.has(rootId)) {
-            state.issues.push(`Package "${packageConfig.name}" root "${rootId}" cannot be both public and private`);
-        }
-        state.seenPrivateRootIds.add(rootId);
-        state.usedRootIds.add(rootId);
+        seenRootIds.add(rootId);
+        rootIds.add(rootId);
     }
+
+    return { issues, rootIds };
 }
 
-function pushExplicitUnusedRootIssues(packageConfig: ExplicitPackageConfig, state: ExplicitValidationState): void {
+function collectExplicitUnusedRootIssues(
+    packageConfig: ExplicitPackageConfig,
+    usedRootIds: ReadonlySet<string>
+): readonly string[] {
+    const issues: string[] = [];
+
     for (const rootId of Object.keys(packageConfig.roots)) {
-        if (!state.usedRootIds.has(rootId)) {
-            state.issues.push(`Package "${packageConfig.name}" defines unused root "${rootId}" in explicit mode`);
+        if (!usedRootIds.has(rootId)) {
+            issues.push(`Package "${packageConfig.name}" defines unused root "${rootId}" in explicit mode`);
         }
     }
+
+    return issues;
 }
 
 function validateExplicitRootConfiguration(packageConfig: ExplicitPackageConfig): readonly string[] {
-    const state = createExplicitValidationState();
-    validateExplicitPublicEntries(packageConfig, state);
-    validateExplicitPrivateRoots(packageConfig, state);
-    pushExplicitUnusedRootIssues(packageConfig, state);
-    return state.issues;
+    const publicEntries = validateExplicitPublicEntries(packageConfig);
+    const privateRoots = validateExplicitPrivateRoots(packageConfig, publicEntries.rootIds);
+    const usedRootIds = new Set([ ...publicEntries.rootIds, ...privateRoots.rootIds ]);
+    return [
+        ...publicEntries.issues,
+        ...privateRoots.issues,
+        ...collectExplicitUnusedRootIssues(packageConfig, usedRootIds)
+    ];
 }
 
 function validateDuplicateRootJavaScriptTargets(packageConfig: PackageConfig): readonly string[] {
     const issues: string[] = [];
     const jsPaths = new Map<string, string>();
 
-    for (const [rootId, root] of Object.entries(packageConfig.roots)) {
+    for (const [ rootId, root ] of Object.entries(packageConfig.roots)) {
         const previous = jsPaths.get(root.js);
         if (previous === undefined) {
             jsPaths.set(root.js, rootId);
@@ -174,8 +185,9 @@ function validateExplicitModeConfiguration(packageConfig: ExplicitPackageConfig)
         const message = [
             `Package "${packageConfig.name}" cannot combine defaultModuleRoot with packageInterface;`,
             'remove defaultModuleRoot in explicit mode'
-        ].join(' ');
-        return [message, ...issues];
+        ]
+            .join(' ');
+        return [ message, ...issues ];
     }
 
     return issues;
@@ -185,16 +197,17 @@ function validateRootConfiguration(packageConfig: PackageConfig): readonly strin
     const duplicateRootIssues = validateDuplicateRootJavaScriptTargets(packageConfig);
 
     if (packageConfig.packageInterface === undefined) {
-        return [...duplicateRootIssues, ...validateImplicitRootConfiguration(packageConfig)];
+        return [ ...duplicateRootIssues, ...validateImplicitRootConfiguration(packageConfig) ];
     }
 
-    return [...duplicateRootIssues, ...validateExplicitModeConfiguration(packageConfig)];
+    return [ ...duplicateRootIssues, ...validateExplicitModeConfiguration(packageConfig) ];
 }
 
 export function validatePackageSurfaceRules(packageConfigs: PackageConfigsByName): readonly string[] {
     const issues: string[] = [];
 
-    for (const packageConfig of Object.values(packageConfigs)) {
+    const packageList = Object.values(packageConfigs);
+    for (const packageConfig of packageList) {
         issues.push(...validateRootConfiguration(packageConfig));
     }
 

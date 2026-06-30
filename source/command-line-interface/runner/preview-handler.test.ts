@@ -14,7 +14,9 @@ function packtoryStub(outcome: BuildOutcome): Packtory {
 
 function emptyOutcome(overrides: Partial<BuildOutcome> = {}): BuildOutcome {
     return {
-        getReport: () => undefined,
+        getReport() {
+            return undefined;
+        },
         result: { isOk: true, isErr: false, value: [] },
         ...overrides
     } as unknown as BuildOutcome;
@@ -25,10 +27,14 @@ suite('preview-handler', function () {
         const pageSpy: SinonSpy = fake.resolves(undefined);
 
         const code = await runPreviewHandler({
-            log: () => undefined,
+            log() {
+                return undefined;
+            },
             pageOutput: pageSpy,
             openFile: fake.resolves(true),
-            createTemporaryFilePath: () => '/var/folders/preview.html',
+            createTemporaryFilePath() {
+                return '/var/folders/preview.html';
+            },
             packtory: packtoryStub(emptyOutcome()),
             spinnerRenderer: createSpinnerRendererStub(),
             configLoader: createConfigLoaderStub(),
@@ -42,10 +48,14 @@ suite('preview-handler', function () {
 
     test('runPreviewHandler returns 1 when the build fails', async function () {
         const code = await runPreviewHandler({
-            log: () => undefined,
+            log() {
+                return undefined;
+            },
             pageOutput: fake.resolves(undefined),
             openFile: fake.resolves(true),
-            createTemporaryFilePath: () => '/var/folders/preview.html',
+            createTemporaryFilePath() {
+                return '/var/folders/preview.html';
+            },
             packtory: packtoryStub(
                 emptyOutcome({
                     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the preview-handler only inspects isOk/isErr; full Result shape is irrelevant here
@@ -66,10 +76,14 @@ suite('preview-handler', function () {
         const openSpy: SinonSpy = fake.resolves(true);
 
         await runPreviewHandler({
-            log: () => undefined,
+            log() {
+                return undefined;
+            },
             pageOutput: fake.resolves(undefined),
             openFile: openSpy,
-            createTemporaryFilePath: () => '/var/folders/preview.html',
+            createTemporaryFilePath() {
+                return '/var/folders/preview.html';
+            },
             packtory: packtoryStub(emptyOutcome()),
             spinnerRenderer: createSpinnerRendererStub(),
             configLoader: createConfigLoaderStub(),
@@ -86,12 +100,14 @@ suite('preview-handler', function () {
         const messages: string[] = [];
 
         await runPreviewHandler({
-            log: (message) => {
+            log(message) {
                 messages.push(message);
             },
             pageOutput: fake.resolves(undefined),
             openFile: fake.resolves(false),
-            createTemporaryFilePath: () => '/var/folders/preview.html',
+            createTemporaryFilePath() {
+                return '/var/folders/preview.html';
+            },
             packtory: packtoryStub(emptyOutcome()),
             spinnerRenderer: createSpinnerRendererStub(),
             configLoader: createConfigLoaderStub(),
@@ -99,6 +115,6 @@ suite('preview-handler', function () {
             flags: { open: true }
         });
 
-        assert.deepStrictEqual(messages, ['/var/folders/preview.html']);
+        assert.deepStrictEqual(messages, [ '/var/folders/preview.html' ]);
     });
 });

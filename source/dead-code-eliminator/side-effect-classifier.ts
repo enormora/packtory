@@ -27,11 +27,11 @@ export function classifySideEffects(
     sourceFile: Readonly<SourceFile>,
     settings?: DeadCodeEliminationSettings
 ): readonly SideEffectStatement[] {
-    return sourceFile.getStatements().flatMap((statement) => {
+    return sourceFile.getStatements().flatMap(function (statement) {
         const kind = classifyTopLevelStatement(statement, settings);
         if (kind === undefined) {
             return [];
         }
-        return [{ line: statement.getStartLineNumber(), kind }];
+        return [ { line: statement.getStartLineNumber(), kind } ];
     });
 }

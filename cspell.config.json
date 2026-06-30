@@ -16,8 +16,12 @@
         "EUSAGE",
         "cyclonedx",
         "canonicalizer",
+        "AACA",
+        "AACX",
+        "CAAC",
         "fflate",
         "Flate",
+        "IAAI",
         "Zippable",
         "Materializer",
         "materializer",
@@ -27,6 +31,9 @@
         "materialized",
         "materializes",
         "packument",
+        "SAAS",
+        "SAASA",
+        "OAAO",
         "EOTP"
     ]
 }

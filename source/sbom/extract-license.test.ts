@@ -27,6 +27,6 @@ suite('extract-license', function () {
     });
 
     test('returns undefined when the input is an array', function () {
-        assert.strictEqual(extractLicenseFromManifest(['MIT']), undefined);
+        assert.strictEqual(extractLicenseFromManifest([ 'MIT' ]), undefined);
     });
 });

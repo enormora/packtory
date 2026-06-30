@@ -5,7 +5,7 @@ import { createProject } from '../test-libraries/typescript-project.ts';
 import { hasClassImpurity } from './class-purity.ts';
 
 function classDeclaration(content: string): ClassDeclaration {
-    const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
     return project.getSourceFileOrThrow('index.ts').getFirstChildByKindOrThrow(SyntaxKind.ClassDeclaration);
 }
 

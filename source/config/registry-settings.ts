@@ -20,7 +20,7 @@ const basicAuthSchema = z.readonly(
 const npmOidcAuthSchema = z.readonly(
     z.strictObject({
         type: z.literal('npm-oidc'),
-        provider: z.optional(z.enum(['auto', 'github-actions', 'env'])),
+        provider: z.optional(z.enum([ 'auto', 'github-actions', 'env' ])),
         idTokenEnvVar: z.optional(nonEmptyStringSchema)
     })
 );
@@ -31,7 +31,7 @@ const publishAuthStrategySchema = z.discriminatedUnion('type', [
     npmOidcAuthSchema
 ]);
 
-const metadataAuthStrategySchema = z.discriminatedUnion('type', [bearerTokenAuthSchema, basicAuthSchema]);
+const metadataAuthStrategySchema = z.discriminatedUnion('type', [ bearerTokenAuthSchema, basicAuthSchema ]);
 
 const metadataAuthModeSchema = z.union([
     z.literal('auto'),
@@ -58,7 +58,7 @@ export const registrySettingsSchema = z.readonly(
 );
 
 export type PublishAuthStrategy = z.infer<typeof publishAuthStrategySchema>;
-export type NpmOidcPublishAuth = Extract<PublishAuthStrategy, { type: 'npm-oidc' }>;
+export type NpmOidcPublishAuth = Extract<PublishAuthStrategy, { readonly type: 'npm-oidc'; }>;
 export type MetadataAuthStrategy = z.infer<typeof metadataAuthStrategySchema>;
 export type MetadataAuthMode = z.infer<typeof metadataAuthModeSchema>;
 export type RegistrySettings = z.infer<typeof registrySettingsSchema>;

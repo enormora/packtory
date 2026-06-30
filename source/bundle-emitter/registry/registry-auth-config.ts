@@ -8,7 +8,7 @@ import type {
 
 export const npmRegistryUrl = 'https://registry.npmjs.org/';
 
-export type NpmFetchOptions = Parameters<typeof _npmFetch>[1];
+export type NpmFetchOptions = Readonly<NonNullable<Parameters<typeof _npmFetch>[1]>>;
 
 export type AuthResolution = {
     readonly allowsAutomaticRetry: boolean;
@@ -16,12 +16,20 @@ export type AuthResolution = {
     readonly options: NpmFetchOptions;
 };
 
+type RegistryAuth = NonNullable<RegistrySettings['auth']>;
+type SplitRegistryAuth = Extract<RegistryAuth, { readonly publish: PublishAuthStrategy; }>;
+
+function isSplitRegistryAuth(auth: RegistryAuth): auth is SplitRegistryAuth {
+    return Object.hasOwn(auth, 'publish');
+}
+
 export function resolveRegistryUrl(registrySettings: Readonly<RegistrySettings>): string | undefined {
     return registrySettings.registryUrl;
 }
 
 export function isNpmRegistry(registry: string | undefined): boolean {
-    return new URL(registry ?? npmRegistryUrl).href === npmRegistryUrl;
+    const resolvedRegistryUrl = new URL(registry ?? npmRegistryUrl);
+    return resolvedRegistryUrl.href === npmRegistryUrl;
 }
 
 const publishAuthRequiredErrorMessage =
@@ -31,7 +39,7 @@ export function resolvePublishAuth(registrySettings: Readonly<RegistrySettings>)
     if (registrySettings.auth === undefined) {
         throw new Error(publishAuthRequiredErrorMessage);
     }
-    return 'type' in registrySettings.auth ? registrySettings.auth : registrySettings.auth.publish;
+    return isSplitRegistryAuth(registrySettings.auth) ? registrySettings.auth.publish : registrySettings.auth;
 }
 
 export function createBaseOptions(registrySettings: Readonly<RegistrySettings>): NpmFetchOptions {
@@ -69,7 +77,7 @@ export function buildAuthOptions(
             forceAuth: {
                 _auth: Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
             },
-            ...(auth.email === undefined ? undefined : { email: auth.email })
+            ...auth.email === undefined ? undefined : { email: auth.email }
         }
     };
 }
@@ -119,10 +127,14 @@ export function resolveMetadataAuthOptions(registrySettings: Readonly<RegistrySe
     if (registrySettings.auth === undefined) {
         return createAnonymousAuthResolution(registrySettings);
     }
-    if ('type' in registrySettings.auth) {
-        return resolveInheritedMetadataAuth(registrySettings.auth, registrySettings);
+    if (isSplitRegistryAuth(registrySettings.auth)) {
+        return resolveMetadataAuthFromMode(
+            registrySettings.auth.metadata,
+            registrySettings.auth.publish,
+            registrySettings
+        );
     }
-    return resolveMetadataAuthFromMode(registrySettings.auth.metadata, registrySettings.auth.publish, registrySettings);
+    return resolveInheritedMetadataAuth(registrySettings.auth, registrySettings);
 }
 
 const stagedVersionLookupRequiresTokenAuthMessage =
@@ -135,9 +147,9 @@ export function resolveStageListingAuthOptions(registrySettings: Readonly<Regist
         throw new Error(publishAuthRequiredErrorMessage);
     }
 
-    const publishAuth = 'type' in auth ? auth : auth.publish;
+    const publishAuth = isSplitRegistryAuth(auth) ? auth.publish : auth;
 
-    if (!('type' in auth) && typeof auth.metadata === 'object') {
+    if (isSplitRegistryAuth(auth) && typeof auth.metadata === 'object') {
         return buildAuthOptions(auth.metadata, registrySettings);
     }
 

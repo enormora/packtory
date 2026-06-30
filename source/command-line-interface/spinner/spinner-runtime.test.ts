@@ -1,16 +1,17 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { createSpinnerRuntime, type WorkerSpawnRequest } from './spinner-runtime.ts';
 
-function captureSpawn(): {
+type CapturedSpawn = {
     readonly spawn: (request: WorkerSpawnRequest) => void;
-    readonly calls: WorkerSpawnRequest[];
-} {
+    readonly calls: readonly WorkerSpawnRequest[];
+};
+
+function captureSpawn(): CapturedSpawn {
     const calls: WorkerSpawnRequest[] = [];
     return {
         calls,
-        spawn: (request) => {
+        spawn(request) {
             calls.push(request);
         }
     };
@@ -47,9 +48,13 @@ suite('spinner-runtime', function () {
         });
 
         assert.strictEqual(calls.length, 1);
-        assert.strictEqual(calls[0]?.buffer, runtime.accessors.buffer);
-        assert.strictEqual(calls[0]?.slotCount, 4);
-        assert.strictEqual(calls[0]?.stdoutFileDescriptor, 7);
+        const request = calls[0];
+        if (request === undefined) {
+            assert.fail('expected a worker spawn request');
+        }
+        assert.strictEqual(request.buffer, runtime.accessors.buffer);
+        assert.strictEqual(request.slotCount, 4);
+        assert.strictEqual(request.stdoutFileDescriptor, 7);
     });
 
     test('createSpinnerRuntime initializes the shared accessors with the requested interval and columns', function () {

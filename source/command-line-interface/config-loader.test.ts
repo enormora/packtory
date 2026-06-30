@@ -4,8 +4,8 @@ import { fake, type SinonSpy } from 'sinon';
 import { createConfigLoader, type ConfigLoader } from './config-loader.ts';
 
 type Overrides = {
-    currentWorkingDirectory?: string;
-    importModule?: SinonSpy;
+    readonly currentWorkingDirectory?: string;
+    readonly importModule?: SinonSpy;
 };
 
 function configLoaderFactory(overrides: Overrides = {}): ConfigLoader {
@@ -21,7 +21,7 @@ suite('config-loader', function () {
         await configLoader.load();
 
         assert.strictEqual(importModule.callCount, 1);
-        assert.deepStrictEqual(importModule.firstCall.args, ['the-folder/packtory.config.js']);
+        assert.deepStrictEqual(importModule.firstCall.args, [ 'the-folder/packtory.config.js' ]);
     });
 
     test('throws when the imported module is not an object', async function () {

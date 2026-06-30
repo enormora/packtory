@@ -14,10 +14,10 @@ export type CrossBundleInput = {
 
 export function buildCrossBundleSeeds(inputs: readonly CrossBundleInput[]): SeedMap {
     const indexed = indexBundles(inputs);
-    const seeds = createSeedStore();
+    let seeds = createSeedStore();
     for (const input of inputs) {
         for (const sourceFile of input.sourceFiles) {
-            walkCrossBundleStatements(sourceFile, {
+            seeds = walkCrossBundleStatements(sourceFile, {
                 indexed,
                 seeds,
                 sourceFilePath: sourceFile.getFilePath(),

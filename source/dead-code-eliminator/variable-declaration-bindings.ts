@@ -15,11 +15,11 @@ export function collectVariableDeclarationBindings(
         declarationNode: BindingElement | VariableDeclaration,
         referenceNode: VariableDeclaration
     ) => readonly VariableDeclarationBinding[];
-    const collectBindingsFromNameNode: BindingCollector = (nameNode, declarationNode, referenceNode) => {
+    const collectBindingsFromNameNode: BindingCollector = function (nameNode, declarationNode, referenceNode) {
         if (TsMorphNode.isIdentifier(nameNode)) {
-            return [{ name: nameNode.getText(), declarationNode, referenceNode }];
+            return [ { name: nameNode.getText(), declarationNode, referenceNode } ];
         }
-        return nameNode.getElements().flatMap((element) => {
+        return nameNode.getElements().flatMap(function (element) {
             if (!TsMorphNode.isBindingElement(element)) {
                 return [];
             }
@@ -35,7 +35,7 @@ export function collectVariableDeclarationBindings(
 }
 
 function namesBoundByVariableDeclaration(declarator: VariableDeclaration): readonly string[] {
-    return collectVariableDeclarationBindings(declarator).map((binding) => {
+    return collectVariableDeclarationBindings(declarator).map(function (binding) {
         return binding.name;
     });
 }
@@ -44,7 +44,7 @@ export function variableDeclarationSurvives(
     declarator: VariableDeclaration,
     survivingNames: ReadonlySet<string>
 ): boolean {
-    return namesBoundByVariableDeclaration(declarator).some((name) => {
+    return namesBoundByVariableDeclaration(declarator).some(function (name) {
         return survivingNames.has(name);
     });
 }

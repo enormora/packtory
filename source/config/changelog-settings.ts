@@ -20,7 +20,7 @@ const explicitPackageFileOutputSchema = z.readonly(
     z.strictObject({
         kind: z.literal('package-file'),
         paths: z.readonly(z.record(nonEmptyStringSchema, bundleRelativePathSchema)).check(
-            z.refine((value) => {
+            z.refine(function (value) {
                 return Object.keys(value).length > 0;
             })
         )
@@ -45,7 +45,7 @@ export const changelogSettingsSchema = z.readonly(
     z.strictObject({
         explicitBaseRef: z.optional(nonEmptyStringSchema),
         labels: z.optional(validLabelsSchema),
-        outputs: z.optional(z.readonly(z.tuple([changelogOutputSchema], changelogOutputSchema))),
+        outputs: z.optional(z.readonly(z.tuple([ changelogOutputSchema ], changelogOutputSchema))),
         packageTagFormat: z.optional(nonEmptyStringSchema),
         targetScopedLabelPattern: z.optional(nonEmptyStringSchema)
     })
@@ -59,17 +59,22 @@ type PackageChangelogValidationConfig = {
     readonly sourcesFolder?: string | undefined;
 };
 
+type CommonPackageChangelogValidationConfig = {
+    readonly [key: string]: unknown;
+    readonly sourcesFolder?: string | undefined;
+};
+
 type ChangelogValidationConfig = {
     readonly [key: string]: unknown;
     readonly changelog?: ChangelogSettings | undefined;
-    readonly commonPackageSettings?:
-        | { readonly [key: string]: unknown; readonly sourcesFolder?: string | undefined }
-        | undefined;
+    readonly commonPackageSettings?: CommonPackageChangelogValidationConfig | undefined;
     readonly packages: readonly PackageChangelogValidationConfig[];
 };
 
+type ExplicitPackageFileOutput = z.infer<typeof explicitPackageFileOutputSchema>;
+
 function normalizeRelativePath(filePath: string): string {
-    return filePath.split(/[/\\]/u).join('/');
+    return filePath.replaceAll(/[/\\]/gu, '/');
 }
 
 function normalizeFilePath(...filePathSegments: readonly string[]): string {
@@ -80,11 +85,11 @@ function normalizeChangelogOutputPath(filePath: string): string {
     return path.normalize(normalizeRelativePath(filePath));
 }
 
-function pushDuplicateValueIssues(
-    issues: string[],
+function collectDuplicateValueIssues(
     values: readonly string[],
     messageFor: (value: string) => string
-): void {
+): readonly string[] {
+    const issues: string[] = [];
     const seenValues = new Set<string>();
     const reportedValues = new Set<string>();
 
@@ -95,6 +100,12 @@ function pushDuplicateValueIssues(
         }
         seenValues.add(value);
     }
+
+    return issues;
+}
+
+function hasExplicitPackageFilePaths(output: ChangelogOutput): output is ExplicitPackageFileOutput {
+    return Object.hasOwn(output, 'paths');
 }
 
 function resolveSourcesFolder(
@@ -111,15 +122,15 @@ function collectPackageFileDestinationPaths(
     if (output.kind !== 'package-file') {
         return [];
     }
-    if ('paths' in output) {
+    if (hasExplicitPackageFilePaths(output)) {
         return Object.values(output.paths).map(normalizeChangelogOutputPath);
     }
-    return packtoryConfig.packages.flatMap((packageConfig) => {
+    return packtoryConfig.packages.flatMap(function (packageConfig) {
         const sourcesFolder = resolveSourcesFolder(packageConfig, packtoryConfig);
         if (sourcesFolder === undefined) {
             return [];
         }
-        return [normalizeFilePath(sourcesFolder, output.path)];
+        return [ normalizeFilePath(sourcesFolder, output.path) ];
     });
 }
 
@@ -128,7 +139,7 @@ function validateTargetScopedLabelPattern(pattern: string | undefined): readonly
         return [];
     }
     if (!pattern.includes('{targetName}') || !pattern.includes('{label}')) {
-        return ['changelog.targetScopedLabelPattern must contain {targetName} and {label}'];
+        return [ 'changelog.targetScopedLabelPattern must contain {targetName} and {label}' ];
     }
     return [];
 }
@@ -137,39 +148,36 @@ function collectChangelogOutputIssues(
     packtoryConfig: ChangelogValidationConfig,
     outputs: readonly ChangelogOutput[]
 ): readonly string[] {
-    const issues: string[] = [];
-    const githubReleaseCount = outputs.filter((output) => {
-        return output.kind === 'github-release';
-    }).length;
-
-    if (githubReleaseCount > 1) {
-        issues.push('changelog.outputs must not contain duplicate github-release outputs');
-    }
-
-    pushDuplicateValueIssues(
-        issues,
-        outputs.flatMap((output) => {
-            return output.kind === 'repository-file' ? [normalizeRelativePath(output.path)] : [];
+    const githubReleaseCount = outputs
+        .filter(function (output) {
+            return output.kind === 'github-release';
+        })
+        .length;
+    const githubReleaseIssues = githubReleaseCount > 1
+        ? [ 'changelog.outputs must not contain duplicate github-release outputs' ]
+        : [];
+    const repositoryFileIssues = collectDuplicateValueIssues(
+        outputs.flatMap(function (output) {
+            return output.kind === 'repository-file' ? [ normalizeRelativePath(output.path) ] : [];
         }),
-        (duplicatePath) => {
+        function (duplicatePath) {
             return `changelog.outputs must not contain duplicate repository-file path "${duplicatePath}"`;
         }
     );
-
-    pushDuplicateValueIssues(
-        issues,
-        outputs.flatMap((output) => {
+    const packageFileIssues = collectDuplicateValueIssues(
+        outputs.flatMap(function (output) {
             return collectPackageFileDestinationPaths(packtoryConfig, output);
         }),
-        (duplicatePath) => {
+        function (duplicatePath) {
             return [
                 'changelog.outputs package-file destinations must resolve to unique files;',
                 `"${duplicatePath}" is duplicated`
-            ].join(' ');
+            ]
+                .join(' ');
         }
     );
 
-    return issues;
+    return [ ...githubReleaseIssues, ...repositoryFileIssues, ...packageFileIssues ];
 }
 
 export function validateChangelogSettings(packtoryConfig: ChangelogValidationConfig): readonly string[] {
@@ -181,5 +189,5 @@ export function validateChangelogSettings(packtoryConfig: ChangelogValidationCon
     const { outputs } = packtoryConfig.changelog;
     return outputs === undefined
         ? patternIssues
-        : [...patternIssues, ...collectChangelogOutputIssues(packtoryConfig, outputs)];
+        : [ ...patternIssues, ...collectChangelogOutputIssues(packtoryConfig, outputs) ];
 }

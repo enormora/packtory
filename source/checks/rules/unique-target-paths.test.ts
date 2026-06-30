@@ -7,7 +7,7 @@ import { uniqueTargetPathsRule } from './unique-target-paths.ts';
 function bundleWithMappings(name: string, mappings: readonly (readonly [string, string])[]): AnalyzedBundle {
     return analyzedBundle({
         name,
-        contents: mappings.map(([sourceFilePath, targetFilePath]) => {
+        contents: mappings.map(function ([ sourceFilePath, targetFilePath ]) {
             return analyzedBundleResource(sourceFilePath, { targetFilePath });
         })
     });
@@ -25,8 +25,8 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    ['/src/a.js', 'collide.js'],
-                    ['/src/b.js', 'collide.js']
+                    [ '/src/a.js', 'collide.js' ],
+                    [ '/src/b.js', 'collide.js' ]
                 ])
             ],
             settings: undefined,
@@ -40,8 +40,8 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    ['/src/a.js', 'collide.js'],
-                    ['/src/b.js', 'collide.js']
+                    [ '/src/a.js', 'collide.js' ],
+                    [ '/src/b.js', 'collide.js' ]
                 ])
             ],
             settings: { uniqueTargetPaths: { enabled: false } },
@@ -55,8 +55,8 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    ['/src/a.js', 'a.js'],
-                    ['/src/b.js', 'b.js']
+                    [ '/src/a.js', 'a.js' ],
+                    [ '/src/b.js', 'b.js' ]
                 ])
             ],
             settings: enabled,
@@ -70,44 +70,46 @@ suite('unique-target-paths', function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    ['/src/b.js', 'collide.js'],
-                    ['/src/a.js', 'collide.js']
+                    [ '/src/b.js', 'collide.js' ],
+                    [ '/src/a.js', 'collide.js' ]
                 ])
             ],
             settings: enabled,
             perPackageSettings: new Map()
         });
 
-        assert.deepStrictEqual(result, ['Package "a" maps multiple sources to "collide.js": /src/a.js, /src/b.js']);
+        assert.deepStrictEqual(result, [ 'Package "a" maps multiple sources to "collide.js": /src/a.js, /src/b.js' ]);
     });
 
     test('reports collisions independently per bundle', async function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    ['/a-src/x.js', 'shared.js'],
-                    ['/a-src/y.js', 'shared.js']
+                    [ '/a-src/x.js', 'shared.js' ],
+                    [ '/a-src/y.js', 'shared.js' ]
                 ]),
                 bundleWithMappings('b', [
-                    ['/b-src/p.js', 'p.js'],
-                    ['/b-src/q.js', 'q.js']
+                    [ '/b-src/p.js', 'p.js' ],
+                    [ '/b-src/q.js', 'q.js' ]
                 ])
             ],
             settings: enabled,
             perPackageSettings: new Map()
         });
 
-        assert.deepStrictEqual(result, ['Package "a" maps multiple sources to "shared.js": /a-src/x.js, /a-src/y.js']);
+        assert.deepStrictEqual(result, [
+            'Package "a" maps multiple sources to "shared.js": /a-src/x.js, /a-src/y.js'
+        ]);
     });
 
     test('reports each colliding target path of a bundle', async function () {
         const result = await uniqueTargetPathsRule.run({
             bundles: [
                 bundleWithMappings('a', [
-                    ['/src/x1.js', 'one.js'],
-                    ['/src/x2.js', 'one.js'],
-                    ['/src/y1.js', 'two.js'],
-                    ['/src/y2.js', 'two.js']
+                    [ '/src/x1.js', 'one.js' ],
+                    [ '/src/x2.js', 'one.js' ],
+                    [ '/src/y1.js', 'two.js' ],
+                    [ '/src/y2.js', 'two.js' ]
                 ])
             ],
             settings: enabled,

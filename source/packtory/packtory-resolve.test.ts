@@ -7,9 +7,9 @@ import {
     stubPackageProcessor,
     stubProgressBroadcaster
 } from '../test-libraries/orchestrator-stub-fixtures.ts';
-import { createResolveAndLinkAllValidated } from './packtory-resolve.ts';
+import { createResolveAndLinkAllValidated, type CheckDependencies } from './packtory-resolve.ts';
 
-function happyDependencies() {
+function happyDependencies(): CheckDependencies {
     return {
         deadCodeEliminator: emptyDeadCodeEliminator,
         packageProcessor: stubPackageProcessor,
@@ -35,7 +35,7 @@ suite('packtory-resolve', function () {
     test('createResolveAndLinkAllValidated wraps scheduler failures into a resolve-partial failure', async function () {
         const dependencies = {
             ...happyDependencies(),
-            scheduler: failingScheduler({ succeeded: [], failures: [new Error('boom')] })
+            scheduler: failingScheduler({ succeeded: [], failures: [ new Error('boom') ] })
         };
         const resolve = createResolveAndLinkAllValidated(dependencies);
 

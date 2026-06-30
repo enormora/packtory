@@ -7,9 +7,9 @@ export function inspectPackageJsonProvenance(
 ): Readonly<Record<string, FieldProvenance>> {
     const result: Record<string, FieldProvenance> = {};
     for (const key of Object.keys(assembled)) {
-        if (additionalAttributes !== undefined && key in additionalAttributes) {
+        if (additionalAttributes !== undefined && Object.hasOwn(additionalAttributes, key)) {
             result[key] = { source: 'additionalAttributes' };
-        } else if (key in mainPackageJson) {
+        } else if (Object.hasOwn(mainPackageJson, key)) {
             result[key] = { source: 'mainPackageJson' };
         } else {
             result[key] = { source: 'derived' };

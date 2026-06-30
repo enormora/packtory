@@ -29,20 +29,24 @@ async function renderDocument(
     deps.log(renderFailureOnlyTerminalReleaseDiff(document).trimEnd());
 }
 
-export async function runReleaseDiffHandler(deps: ReleaseDiffHandlerDeps): Promise<number> {
+async function releaseDiff(deps: ReleaseDiffHandlerDeps): Promise<number> {
     const { packtory, spinnerRenderer, configLoader } = deps;
+    const config = await configLoader.load();
+    const outcome = await packtory.diffAgainstLatestPublished(config);
+    spinnerRenderer.stopAll();
+    const document = buildReleaseDiffDocument({
+        report: outcome.getReport(),
+        result: outcome.result,
+        packages: succeededResultsFrom(outcome.result)
+    });
+    await renderDocument(deps, document);
+    return outcome.result.isErr ? 1 : 0;
+}
+
+export async function runReleaseDiffHandler(deps: ReleaseDiffHandlerDeps): Promise<number> {
     try {
-        const config = await configLoader.load();
-        const outcome = await packtory.diffAgainstLatestPublished(config);
-        spinnerRenderer.stopAll();
-        const document = buildReleaseDiffDocument({
-            report: outcome.getReport(),
-            result: outcome.result,
-            packages: succeededResultsFrom(outcome.result)
-        });
-        await renderDocument(deps, document);
-        return outcome.result.isErr ? 1 : 0;
+        return await releaseDiff(deps);
     } finally {
-        spinnerRenderer.stopAll();
+        deps.spinnerRenderer.stopAll();
     }
 }

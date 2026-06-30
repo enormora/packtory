@@ -6,10 +6,15 @@ import type { PublishFailure } from '../../packtory/packtory-results.ts';
 import { printDryRunNote, printPublishFailure, printSuccessSummary } from './failure-printing.ts';
 import { getSuccessSymbol } from './runner-symbols.ts';
 
-function captureLogger(): { readonly log: (message: string) => void; readonly messages: string[] } {
+type CapturedLogger = {
+    readonly log: (message: string) => void;
+    readonly messages: readonly string[];
+};
+
+function captureLogger(): CapturedLogger {
     const messages: string[] = [];
     return {
-        log: (message) => {
+        log(message) {
             messages.push(message);
         },
         messages
@@ -34,7 +39,7 @@ suite('failure-printing', function () {
 
     test('printPublishFailure formats config issues with bullet list when type is config', function () {
         const sink = captureLogger();
-        const failure: PublishFailure = { type: 'config', issues: ['issue A', 'issue B'] };
+        const failure: PublishFailure = { type: 'config', issues: [ 'issue A', 'issue B' ] };
 
         printPublishFailure(sink.log, failure, false);
 
@@ -46,7 +51,7 @@ suite('failure-printing', function () {
 
     test('printPublishFailure formats check issues with bullet list when type is checks', function () {
         const sink = captureLogger();
-        const failure: PublishFailure = { type: 'checks', issues: ['check X'] };
+        const failure: PublishFailure = { type: 'checks', issues: [ 'check X' ] };
 
         printPublishFailure(sink.log, failure, false);
 
@@ -63,7 +68,7 @@ suite('failure-printing', function () {
                 { bundle: { name: 'pkg-a', version: '1.0.0' }, publication: stagedForApproval('stage-a') },
                 { bundle: { name: 'pkg-b', version: '1.0.0' }, publication: noPublication }
             ] as never,
-            failures: [{ message: 'pkg-c failed' }] as never
+            failures: [ { message: 'pkg-c failed' } ] as never
         };
 
         printPublishFailure(sink.log, failure, true);
@@ -77,8 +82,8 @@ suite('failure-printing', function () {
         const sink = captureLogger();
         const failure: PublishFailure = {
             type: 'partial',
-            succeeded: [{ bundle: { name: 'pkg-a', version: '1.0.0' }, publication: noPublication }] as never,
-            failures: [{ message: 'pkg-b failed' }] as never
+            succeeded: [ { bundle: { name: 'pkg-a', version: '1.0.0' }, publication: noPublication } ] as never,
+            failures: [ { message: 'pkg-b failed' } ] as never
         };
 
         printPublishFailure(sink.log, failure, true);
@@ -90,7 +95,7 @@ suite('failure-printing', function () {
     test('printSuccessSummary logs the count of published packages', function () {
         const sink = captureLogger();
 
-        printSuccessSummary(sink.log, [{ name: 'a' }, { name: 'b' }] as never, { stage: false });
+        printSuccessSummary(sink.log, [ { name: 'a' }, { name: 'b' } ] as never, { stage: false });
 
         assert.strictEqual(sink.messages[0], `${getSuccessSymbol()} Success: all 2 package(s) have been published`);
     });

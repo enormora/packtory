@@ -7,14 +7,16 @@ import { analyzeResolvedPackages } from './package-analysis-stage.ts';
 import type { LinkedPackage } from './package-resolution-stage.ts';
 
 function configWithPackages(
-    ...packages: readonly { readonly name: string; readonly enabled?: boolean }[]
+    ...packages: readonly { readonly name: string; readonly enabled?: boolean; }[]
 ): ValidConfigWithoutRegistryResult {
     return {
         packtoryConfig: {
-            packages: packages.map((pkg) => ({
-                name: pkg.name,
-                ...(pkg.enabled === undefined ? {} : { deadCodeElimination: { enabled: pkg.enabled } })
-            }))
+            packages: packages.map(function (pkg) {
+                return {
+                    name: pkg.name,
+                    ...pkg.enabled !== undefined && { deadCodeElimination: { enabled: pkg.enabled } }
+                };
+            })
         }
     } as unknown as ValidConfigWithoutRegistryResult;
 }
@@ -29,25 +31,30 @@ function linkedPackageNamed(name: string): LinkedPackage {
 
 function stubEliminator(
     behavior: (
-        inputs: readonly { readonly bundle: unknown; readonly transformationsEnabled: boolean }[]
+        inputs: readonly { readonly bundle: unknown; readonly transformationsEnabled: boolean; }[]
     ) => readonly unknown[]
 ): DeadCodeEliminator {
     return {
         async eliminate(inputs) {
-            return behavior(inputs as never) as never;
+            return behavior(inputs) as never;
         }
-    } as DeadCodeEliminator;
+    };
 }
 
-function captureTransformationsEnabled() {
+type CapturedTransformationsEnabled = {
+    readonly eliminator: DeadCodeEliminator;
+    readonly getObserved: () => unknown;
+};
+
+function captureTransformationsEnabled(): CapturedTransformationsEnabled {
     let observed: unknown = null;
-    const eliminator = stubEliminator((inputs) => {
+    const eliminator = stubEliminator(function (inputs) {
         observed = inputs[0]?.transformationsEnabled;
-        return [{ name: inputs[0]?.bundle as never }];
+        return [ { name: inputs[0]?.bundle as never } ];
     });
     return {
         eliminator,
-        getObserved: () => {
+        getObserved() {
             return observed;
         }
     };
@@ -56,7 +63,11 @@ function captureTransformationsEnabled() {
 suite('package-analysis-stage', function () {
     test('analyzeResolvedPackages returns an empty array when no linked packages are given', async function () {
         const result = await analyzeResolvedPackages(
-            { deadCodeEliminator: stubEliminator(() => []) },
+            {
+                deadCodeEliminator: stubEliminator(function () {
+                    return [];
+                })
+            },
             configWithPackages(),
             []
         );
@@ -66,8 +77,8 @@ suite('package-analysis-stage', function () {
 
     test('analyzeResolvedPackages passes each linked bundle into the dead-code eliminator', async function () {
         const linkedPackage = linkedPackageNamed('pkg-a');
-        const analyzed = [{ name: 'pkg-a' } as never];
-        const eliminator = stubEliminator((inputs) => {
+        const analyzed = [ { name: 'pkg-a' } as never ];
+        const eliminator = stubEliminator(function (inputs) {
             assert.strictEqual(inputs[0]?.bundle, linkedPackage.linkedBundle);
             return analyzed;
         });
@@ -75,7 +86,7 @@ suite('package-analysis-stage', function () {
         const result = await analyzeResolvedPackages(
             { deadCodeEliminator: eliminator },
             configWithPackages({ name: 'pkg-a' }),
-            [linkedPackage]
+            [ linkedPackage ]
         );
 
         assert.strictEqual(result.length, 1);
@@ -88,7 +99,7 @@ suite('package-analysis-stage', function () {
         await analyzeResolvedPackages(
             { deadCodeEliminator: eliminator },
             configWithPackages({ name: 'pkg-a', enabled: false }),
-            [linkedPackageNamed('pkg-a')]
+            [ linkedPackageNamed('pkg-a') ]
         );
 
         assert.strictEqual(getObserved(), false);
@@ -107,9 +118,13 @@ suite('package-analysis-stage', function () {
     test('analyzeResolvedPackages throws when the dead-code eliminator returns fewer bundles than packages', async function () {
         try {
             await analyzeResolvedPackages(
-                { deadCodeEliminator: stubEliminator(() => []) },
+                {
+                    deadCodeEliminator: stubEliminator(function () {
+                        return [];
+                    })
+                },
                 configWithPackages({ name: 'pkg-missing' }),
-                [linkedPackageNamed('pkg-missing')]
+                [ linkedPackageNamed('pkg-missing') ]
             );
             assert.fail('expected analyzeResolvedPackages to throw');
         } catch (error) {
@@ -120,9 +135,17 @@ suite('package-analysis-stage', function () {
 
     test('analyzeResolvedPackages throws when the package has no dead-code-elimination entry in the resolution map', async function () {
         try {
-            await analyzeResolvedPackages({ deadCodeEliminator: stubEliminator(() => []) }, configWithPackages(), [
-                linkedPackageNamed('pkg-unmapped')
-            ]);
+            await analyzeResolvedPackages(
+                {
+                    deadCodeEliminator: stubEliminator(function () {
+                        return [];
+                    })
+                },
+                configWithPackages(),
+                [
+                    linkedPackageNamed('pkg-unmapped')
+                ]
+            );
             assert.fail('expected analyzeResolvedPackages to throw');
         } catch (error) {
             assert.ok(error instanceof Error);

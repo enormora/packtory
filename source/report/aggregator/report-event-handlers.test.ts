@@ -3,31 +3,41 @@ import { suite, test } from 'mocha';
 import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import { registerSubscribers, type AggregatorState } from './report-event-handlers.ts';
+import type { MutablePackageReport } from './report-types.ts';
+
+type EliminationFileInput = {
+    readonly path: string;
+    readonly decision: 'eliminated' | 'kept' | 'transformed';
+    readonly reason: string;
+    readonly sourceBytes: number;
+    readonly outputBytes?: number;
+};
 
 function freshState(): AggregatorState {
-    return { packages: new Map(), disposers: [] };
+    const disposers: (() => void)[] = [];
+    return { packages: new Map(), disposers };
 }
 
-function emitEliminationForPkgA(
-    files: readonly {
-        readonly path: string;
-        readonly decision: 'eliminated' | 'kept' | 'transformed';
-        readonly reason: string;
-        readonly sourceBytes: number;
-        readonly outputBytes?: number;
-    }[]
-): AggregatorState {
+function emitEliminationForPkgA(files: readonly EliminationFileInput[]): AggregatorState {
     const state = freshState();
     const broadcaster = createProgressBroadcaster();
     registerSubscribers(state, broadcaster.consumer);
 
     broadcaster.provider.emit('eliminationCompleted', {
-        perBundle: [{ packageName: 'pkg-a', files, droppedSymbols: [], seeds: [] }]
+        perBundle: [ { packageName: 'pkg-a', files, droppedSymbols: [], seeds: [] } ]
     });
     return state;
 }
 
-suite('report-event-handlers', function () {
+function expectPackageEntry(state: AggregatorState, packageName: string): MutablePackageReport {
+    const entry = state.packages.get(packageName);
+    if (entry === undefined) {
+        assert.fail(`expected ${packageName} in report`);
+    }
+    return entry;
+}
+
+function registerPackageEventTests(): void {
     test('registerSubscribers records inputs when an inputsResolved event arrives', function () {
         const state = freshState();
         const broadcaster = createProgressBroadcaster();
@@ -40,11 +50,10 @@ suite('report-event-handlers', function () {
             sourceFileCount: 3
         });
 
-        const entry = state.packages.get('pkg-a');
-        assert.notStrictEqual(entry, undefined);
-        assert.deepStrictEqual(entry!.roots, { main: 'src/index.js' });
-        assert.deepStrictEqual(entry!.siblingVersions, { 'pkg-b': '1.0.0' });
-        assert.strictEqual(entry!.sourceFileCount, 3);
+        const entry = expectPackageEntry(state, 'pkg-a');
+        assert.deepStrictEqual(entry.roots, { main: 'src/index.js' });
+        assert.deepStrictEqual(entry.siblingVersions, { 'pkg-b': '1.0.0' });
+        assert.strictEqual(entry.sourceFileCount, 3);
     });
 
     test('registerSubscribers records the assembled package.json fields on the package entry', function () {
@@ -99,11 +108,11 @@ suite('report-event-handlers', function () {
 
         broadcaster.provider.emit('linkingCompleted', {
             packageName: 'pkg-a',
-            rewrites: [{ file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'pkg-b' }]
+            rewrites: [ { file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'pkg-b' } ]
         });
 
         assert.deepStrictEqual(state.packages.get('pkg-a')?.decisions.linker, {
-            rewrites: [{ file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'pkg-b' }]
+            rewrites: [ { file: 'a.js', fromSpecifier: 'old', toSpecifier: 'new', targetBundle: 'pkg-b' } ]
         });
     });
 
@@ -180,24 +189,25 @@ suite('report-event-handlers', function () {
 
         broadcaster.provider.emit('scanCompleted', {
             packageName: 'pkg-a',
-            included: [{ path: '/src/a.ts', reason: 'reachable-from-entry' }],
-            excluded: [{ specifier: 'lodash', reason: 'external-module' }]
+            included: [ { path: '/src/a.ts', reason: 'reachable-from-entry' } ],
+            excluded: [ { specifier: 'lodash', reason: 'external-module' } ]
         });
 
         assert.deepStrictEqual(state.packages.get('pkg-a')?.decisions.dependencyScan, {
-            included: [{ path: '/src/a.ts', reason: 'reachable-from-entry' }],
-            excluded: [{ specifier: 'lodash', reason: 'external-module' }]
+            included: [ { path: '/src/a.ts', reason: 'reachable-from-entry' } ],
+            excluded: [ { specifier: 'lodash', reason: 'external-module' } ]
         });
     });
+}
 
+function registerEliminationTests(): void {
     test('registerSubscribers omits eliminatedSourceFiles when no files were eliminated', function () {
         const state = emitEliminationForPkgA([
             { path: '/src/a.js', decision: 'kept', reason: 'reachable', sourceBytes: 1 }
         ]);
 
-        const entry = state.packages.get('pkg-a');
-        assert.notStrictEqual(entry, undefined);
-        assert.strictEqual('eliminatedSourceFiles' in entry!, false);
+        const entry = expectPackageEntry(state, 'pkg-a');
+        assert.strictEqual(Object.hasOwn(entry, 'eliminatedSourceFiles'), false);
     });
 
     test('registerSubscribers preserves outputBytes on eliminated files when it is provided', function () {
@@ -222,12 +232,13 @@ suite('report-event-handlers', function () {
             { path: 'b.js', decision: 'eliminated', reason: 'no-uses', sourceBytes: 5 }
         ]);
 
-        const entry = state.packages.get('pkg-a');
-        assert.notStrictEqual(entry, undefined);
-        assert.strictEqual(entry!.decisions.deadCodeElimination?.files.length, 1);
-        assert.deepStrictEqual(entry!.eliminatedSourceFiles, [{ path: 'b.js', sourceBytes: 5, reason: 'no-uses' }]);
+        const entry = expectPackageEntry(state, 'pkg-a');
+        assert.strictEqual(entry.decisions.deadCodeElimination?.files.length, 1);
+        assert.deepStrictEqual(entry.eliminatedSourceFiles, [ { path: 'b.js', sourceBytes: 5, reason: 'no-uses' } ]);
     });
+}
 
+function registerDisposerTests(): void {
     test('registerSubscribers exposes disposers that unsubscribe registered handlers', function () {
         const state = freshState();
         const broadcaster = createProgressBroadcaster();
@@ -246,4 +257,10 @@ suite('report-event-handlers', function () {
 
         assert.strictEqual(state.packages.has('pkg-a'), false);
     });
+}
+
+suite('report-event-handlers', function () {
+    registerPackageEventTests();
+    registerEliminationTests();
+    registerDisposerTests();
 });

@@ -11,7 +11,5 @@ export function decorateWithPackageJsonExport<TExports extends Record<string, Ex
     if (bundle.exportPackageJson !== true) {
         return exportsField;
     }
-
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- spread preserves the generic record shape
-    return { ...exportsField, [packageJsonExportPath()]: packageJsonExportPath() } as TExports;
+    return { ...exportsField, [packageJsonExportPath()]: packageJsonExportPath() };
 }

@@ -37,6 +37,13 @@ type ReleasePlanPackageInput = {
     readonly releaseClassification: ReleasePlanPackage['releaseClassification'];
     readonly releaseArtifactFiles: readonly FileDescription[];
 };
+type AttributedChangelogSourceFilesInput = {
+    readonly analyzedBundle: AnalyzedBundle;
+    readonly changelogSourceFiles: readonly string[];
+    readonly changedArtifactFiles: readonly string[];
+    readonly dependencies: ReleasePlanMapperDependencies;
+    readonly releaseClassification: ReleasePlanPackage['releaseClassification'];
+};
 
 export type ReleasePlanMapperDependencies = ChangelogSourceAttributionDependencies;
 
@@ -50,7 +57,7 @@ function collectReleasePlanChangelogSourceFiles(resolveOptions: ChangelogSourceI
 
 function packageRelativeFiles(files: readonly FileDescription[]): readonly string[] {
     return sortedUnique(
-        files.map((file) => {
+        files.map(function (file) {
             return bundleRelativePath(file.filePath);
         })
     );
@@ -58,8 +65,8 @@ function packageRelativeFiles(files: readonly FileDescription[]): readonly strin
 
 function sourceFilesFrom(analyzedBundle: AnalyzedBundle): readonly string[] {
     return sortedUnique(
-        analyzedBundle.contents.flatMap((entry) => {
-            return entry.isGeneratedManifest ? [] : [entry.fileDescription.sourceFilePath];
+        analyzedBundle.contents.flatMap(function (entry) {
+            return entry.isGeneratedManifest ? [] : [ entry.fileDescription.sourceFilePath ];
         })
     );
 }
@@ -100,20 +107,20 @@ function changedArtifactFilesFrom(
         canonicalizeReleaseArtifactFiles(newFiles)
     );
     return sortedUnique([
-        ...diff.added.map((file) => {
+        ...diff.added.map(function (file) {
             return bundleRelativePath(file.path);
         }),
-        ...diff.removed.map((file) => {
+        ...diff.removed.map(function (file) {
             return bundleRelativePath(file.path);
         }),
-        ...diff.modified.map((file) => {
+        ...diff.modified.map(function (file) {
             return bundleRelativePath(file.path);
         })
     ]);
 }
 
 function manifestArtifactContentFrom(files: readonly FileDescription[]): string | undefined {
-    const manifestFile = files.find((file) => {
+    const manifestFile = files.find(function (file) {
         return bundleRelativePath(file.filePath) === packageManifestFilePath;
     });
     return manifestFile === undefined ? undefined : manifestFile.content;
@@ -143,13 +150,7 @@ function shouldAttributeAllBundleSources(releaseClassification: ReleasePlanPacka
     );
 }
 
-async function attributedChangelogSourceFiles(input: {
-    readonly analyzedBundle: AnalyzedBundle;
-    readonly changelogSourceFiles: readonly string[];
-    readonly changedArtifactFiles: readonly string[];
-    readonly dependencies: ReleasePlanMapperDependencies;
-    readonly releaseClassification: ReleasePlanPackage['releaseClassification'];
-}): Promise<readonly string[]> {
+async function attributedChangelogSourceFiles(input: AttributedChangelogSourceFilesInput): Promise<readonly string[]> {
     if (shouldAttributeAllBundleSources(input.releaseClassification)) {
         return attributeChangelogSourceFiles(input.dependencies, input.analyzedBundle, input.changelogSourceFiles);
     }

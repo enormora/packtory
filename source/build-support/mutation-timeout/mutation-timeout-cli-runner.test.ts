@@ -16,7 +16,7 @@ const defaultReportFilePath = 'target/stryker/mutation-report.json';
 const defaultMissingReportPath = '/definitely/missing/mutation-report.json';
 
 function timeoutReportMessage(): string {
-    return ['Mutation report contains 1 timeout mutant.', '- source/a.ts:7:8'].join('\n');
+    return [ 'Mutation report contains 1 timeout mutant.', '- source/a.ts:7:8' ].join('\n');
 }
 
 async function withTemporaryReport<T>(
@@ -30,7 +30,7 @@ async function withDefaultReport<T>(report: unknown, action: (directory: string)
     return withTemporaryReportDirectory(
         defaultReportFilePath,
         JSON.stringify(report),
-        async (_reportPath, directory) => {
+        async function (_reportPath, directory) {
             return action(directory);
         }
     );
@@ -39,13 +39,13 @@ async function withDefaultReport<T>(report: unknown, action: (directory: string)
 async function runCheckerCli(
     args: readonly string[],
     cwd: string
-): Promise<{ readonly exitCode: number; readonly standardError: string }> {
-    return new Promise((resolve) => {
+): Promise<{ readonly exitCode: number; readonly standardError: string; }> {
+    return new Promise(function (resolve) {
         execFile(
             process.execPath,
-            ['--experimental-strip-types', '--enable-source-maps', checkerScriptPath, ...args],
+            [ '--experimental-strip-types', '--enable-source-maps', checkerScriptPath, ...args ],
             { cwd, encoding: 'utf8' },
-            (error, _standardOutput, standardError) => {
+            function (error, _standardOutput, standardError) {
                 resolve({
                     exitCode: typeof error?.code === 'number' ? error.code : 0,
                     standardError
@@ -66,22 +66,22 @@ function createArgvThrowingNonErrorOnReportPath(): readonly string[] {
     return argv;
 }
 
-function createReadFileError(code: string, message: string): Error & { readonly code: string } {
+function createReadFileError(code: string, message: string): Error & { readonly code: string; } {
     return Object.assign(new Error(message), { code });
 }
 
 async function runCheckWithCollectedErrors(
     argv: readonly string[],
-    fileManager = createFakeFileManager({ simulatedReadFileResponses: [{ value: '{}' }] }),
+    fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '{}' } ] }),
     writeError?: (message: string) => void
-): Promise<{ readonly exitCode: number; readonly errors: readonly string[] }> {
+): Promise<{ readonly exitCode: number; readonly errors: readonly string[]; }> {
     const errors: string[] = [];
     const exitCode = await runMutationTimeoutCheck(argv, {
         fileManager,
-        stderrWrite: (message) => {
+        stderrWrite(message) {
             errors.push(message);
         },
-        writeError: (message) => {
+        writeError(message) {
             errors.push(message);
             writeError?.(message);
         }
@@ -91,25 +91,25 @@ async function runCheckWithCollectedErrors(
 
 suite('mutation-timeout-cli-runner', function () {
     test('runMutationTimeoutCheck writes the failure message and returns exit code 1 when timeouts exist', async function () {
-        await withTemporaryReport(singleMutantReport(timeoutMutant), async (reportPath) => {
+        await withTemporaryReport(singleMutantReport(timeoutMutant), async function (reportPath) {
             const result = await runCheckWithCollectedErrors(
-                ['node', 'check', reportPath],
+                [ 'node', 'check', reportPath ],
                 createFakeFileManager({
-                    simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(timeoutMutant)) }]
+                    simulatedReadFileResponses: [ { value: JSON.stringify(singleMutantReport(timeoutMutant)) } ]
                 })
             );
 
             assert.strictEqual(result.exitCode, 1);
-            assert.deepStrictEqual(result.errors, [timeoutReportMessage()]);
+            assert.deepStrictEqual(result.errors, [ timeoutReportMessage() ]);
         });
     });
 
     test('runMutationTimeoutCheck returns exit code 0 and writes nothing when no timeouts exist', async function () {
-        await withTemporaryReport(singleMutantReport(killedMutant), async (reportPath) => {
+        await withTemporaryReport(singleMutantReport(killedMutant), async function (reportPath) {
             const result = await runCheckWithCollectedErrors(
-                ['node', 'check', reportPath],
+                [ 'node', 'check', reportPath ],
                 createFakeFileManager({
-                    simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(killedMutant)) }]
+                    simulatedReadFileResponses: [ { value: JSON.stringify(singleMutantReport(killedMutant)) } ]
                 })
             );
 
@@ -120,9 +120,9 @@ suite('mutation-timeout-cli-runner', function () {
 
     test('runMutationTimeoutCheck uses the default report path when argv omits an explicit report path', async function () {
         const fileManager = createFakeFileManager({
-            simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(killedMutant)) }]
+            simulatedReadFileResponses: [ { value: JSON.stringify(singleMutantReport(killedMutant)) } ]
         });
-        const result = await runCheckWithCollectedErrors(['node', 'check'], fileManager);
+        const result = await runCheckWithCollectedErrors([ 'node', 'check' ], fileManager);
 
         assert.strictEqual(result.exitCode, 0);
         assert.deepStrictEqual(result.errors, []);
@@ -131,7 +131,7 @@ suite('mutation-timeout-cli-runner', function () {
 
     test('runMutationTimeoutCheck writes missing-file errors and returns exit code 1', async function () {
         const result = await runCheckWithCollectedErrors(
-            ['node', 'check', defaultMissingReportPath],
+            [ 'node', 'check', defaultMissingReportPath ],
             createFakeFileManager({
                 simulatedReadFileResponses: [
                     {
@@ -145,37 +145,40 @@ suite('mutation-timeout-cli-runner', function () {
         );
 
         assert.strictEqual(result.exitCode, 1);
-        assert.deepStrictEqual(result.errors, [`Mutation report not found at "${defaultMissingReportPath}"`]);
+        assert.deepStrictEqual(result.errors, [ `Mutation report not found at "${defaultMissingReportPath}"` ]);
     });
 
     test('runMutationTimeoutCheck uses the default stderr writer when no custom writer is passed', async function () {
         const writes: string[] = [];
-        const exitCode = await runMutationTimeoutCheck(['node', 'check', '/definitely/missing/mutation-report.json'], {
-            fileManager: createFakeFileManager({
-                simulatedReadFileResponses: [
-                    {
-                        error: createReadFileError(
-                            'ENOENT',
-                            "ENOENT: no such file or directory, open '/definitely/missing/mutation-report.json'"
-                        )
-                    }
-                ]
-            }),
-            stderrWrite: (message) => {
-                writes.push(message);
+        const exitCode = await runMutationTimeoutCheck(
+            [ 'node', 'check', '/definitely/missing/mutation-report.json' ],
+            {
+                fileManager: createFakeFileManager({
+                    simulatedReadFileResponses: [
+                        {
+                            error: createReadFileError(
+                                'ENOENT',
+                                "ENOENT: no such file or directory, open '/definitely/missing/mutation-report.json'"
+                            )
+                        }
+                    ]
+                }),
+                stderrWrite(message) {
+                    writes.push(message);
+                }
             }
-        });
+        );
 
         assert.strictEqual(exitCode, 1);
-        assert.deepStrictEqual(writes, ['Mutation report not found at "/definitely/missing/mutation-report.json"\n']);
+        assert.deepStrictEqual(writes, [ 'Mutation report not found at "/definitely/missing/mutation-report.json"\n' ]);
     });
 
     test('runMutationTimeoutCheck writes invalid JSON errors and returns exit code 1', async function () {
-        await withTemporaryReportDirectory('mutation-report.json', '{', async (reportPath) => {
+        await withTemporaryReportDirectory('mutation-report.json', '{', async function (reportPath) {
             const result = await runCheckWithCollectedErrors(
-                ['node', 'check', reportPath],
+                [ 'node', 'check', reportPath ],
                 createFakeFileManager({
-                    simulatedReadFileResponses: [{ value: '{' }]
+                    simulatedReadFileResponses: [ { value: '{' } ]
                 })
             );
 
@@ -188,20 +191,20 @@ suite('mutation-timeout-cli-runner', function () {
         const errors: string[] = [];
         const exitCode = await runMutationTimeoutCheck(createArgvThrowingNonErrorOnReportPath(), {
             fileManager: createFakeFileManager(),
-            stderrWrite: () => {
+            stderrWrite() {
                 throw new Error('stderrWrite should not be used when writeError is injected');
             },
-            writeError: (message) => {
+            writeError(message) {
                 errors.push(message);
             }
         });
 
         assert.strictEqual(exitCode, 1);
-        assert.deepStrictEqual(errors, ['boom']);
+        assert.deepStrictEqual(errors, [ 'boom' ]);
     });
 
     test('CLI uses the default report path and exits with code 0 when there are no timeout mutants', async function () {
-        await withDefaultReport(singleMutantReport(killedMutant), async (directory) => {
+        await withDefaultReport(singleMutantReport(killedMutant), async function (directory) {
             const result = await runCheckerCli([], directory);
 
             assert.strictEqual(result.exitCode, 0);

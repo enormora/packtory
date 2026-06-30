@@ -17,7 +17,7 @@ import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
 
 const ruleName = 'areTheTypesWrong';
 const defaultProfile = 'esm-only';
-const profileValues = ['strict', 'node16', 'esm-only'] as const;
+const profileValues = [ 'strict', 'node16', 'esm-only' ] as const;
 
 const profileSchema = z.enum(profileValues);
 
@@ -31,9 +31,13 @@ const perPackageSchema = z.strictObject({
 });
 
 type AreTheTypesWrongProfile = z.infer<typeof profileSchema>;
-type GlobalConfig = z.infer<typeof globalSchema>;
-type PerPackageConfig = z.infer<typeof perPackageSchema>;
+type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
+type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type AreTheTypesWrongResult = Awaited<ReturnType<typeof checkPackage>>;
+type CheckedPackageResult = { readonly result: AreTheTypesWrongResult; };
+type FailedPackageResult = { readonly message: string; };
+type PackageCheckResult = CheckedPackageResult | FailedPackageResult;
 type ProblemSummaryInput = {
     readonly packageName: string;
     readonly kind: ProblemKind;
@@ -43,9 +47,9 @@ type ProblemSummaryInput = {
 };
 
 const requiredResolutionKindsByProfile: Readonly<Record<AreTheTypesWrongProfile, readonly ResolutionKind[]>> = {
-    strict: ['node10', 'node16-cjs', 'node16-esm', 'bundler'],
-    node16: ['node16-cjs', 'node16-esm', 'bundler'],
-    'esm-only': ['node16-esm', 'bundler']
+    strict: [ 'node10', 'node16-cjs', 'node16-esm', 'bundler' ],
+    node16: [ 'node16-cjs', 'node16-esm', 'bundler' ],
+    'esm-only': [ 'node16-esm', 'bundler' ]
 };
 
 function resolveProfile(
@@ -59,7 +63,7 @@ function toPackageFilePath(packageName: string, filePath: string): string {
     return `/node_modules/${packageName}/${filePath}`;
 }
 
-function createInMemoryPackage(publishedPackage: PublishedPackageWithManifest): Package {
+function createInMemoryPackage(publishedPackage: Readonly<PublishedPackageWithManifest>): Package {
     const files: Record<string, Uint8Array | string> = {
         [toPackageFilePath(publishedPackage.name, publishedPackage.manifestFile.filePath)]:
             publishedPackage.manifestFile.content
@@ -79,7 +83,7 @@ function groupProblemsByKind(problems: readonly Problem[]): ReadonlyMap<ProblemK
     for (const problem of problems) {
         const existing = grouped.get(problem.kind);
         if (existing === undefined) {
-            grouped.set(problem.kind, [problem]);
+            grouped.set(problem.kind, [ problem ]);
         } else {
             existing.push(problem);
         }
@@ -123,14 +127,14 @@ function listAffectedResolutionKinds(
         }
     }
 
-    return requiredResolutionKinds.filter((resolutionKind) => {
+    return requiredResolutionKinds.filter(function (resolutionKind) {
         return affectedResolutionKinds.has(resolutionKind);
     });
 }
 
 function formatQuotedList(prefix: string, values: readonly string[]): string {
     return values
-        .map((value, index) => {
+        .map(function (value, index) {
             const separator = index === 0 ? ` ${prefix} ` : ', ';
             return `${separator}"${value}"`;
         })
@@ -157,11 +161,12 @@ function summarizeProblems(
     activeProblems: readonly Problem[],
     requiredResolutionKinds: readonly ResolutionKind[]
 ): readonly string[] {
-    const summaries: string[] = [];
-
-    for (const [kind, problems] of groupProblemsByKind(activeProblems).entries()) {
-        summaries.push(formatProblemSummary({ packageName, kind, problems, analysis, requiredResolutionKinds }));
-    }
+    const summaries: string[] = Array.from(
+        groupProblemsByKind(activeProblems),
+        function ([ kind, problems ]) {
+            return formatProblemSummary({ packageName, kind, problems, analysis, requiredResolutionKinds });
+        }
+    );
 
     return summaries;
 }
@@ -174,11 +179,47 @@ function filterActiveProblems(
     analysis: Analysis,
     requiredResolutionKinds: readonly ResolutionKind[]
 ): readonly Problem[] {
-    return analysis.problems.filter((problem) => {
-        return requiredResolutionKinds.some((resolutionKind) => {
+    return analysis.problems.filter(function (problem) {
+        return requiredResolutionKinds.some(function (resolutionKind) {
             return problemAffectsResolutionKind(problem, resolutionKind, analysis);
         });
     });
+}
+
+function summarizeAnalysis(
+    packageName: string,
+    analysis: Analysis,
+    profile: AreTheTypesWrongProfile
+): readonly string[] {
+    const requiredResolutionKinds = requiredResolutionKindsForProfile(profile);
+    const activeProblems = filterActiveProblems(analysis, requiredResolutionKinds);
+    return summarizeProblems(packageName, analysis, activeProblems, requiredResolutionKinds);
+}
+
+async function checkPublishedPackage(publishedPackage: PublishedPackageWithManifest): Promise<PackageCheckResult> {
+    try {
+        return { result: await checkPackage(createInMemoryPackage(publishedPackage)) };
+    } catch (error) {
+        return { message: String(error) };
+    }
+}
+
+function isFailedPackageResult(checkResult: PackageCheckResult): checkResult is FailedPackageResult {
+    return Object.hasOwn(checkResult, 'message');
+}
+
+function summarizePackageCheckResult(
+    packageName: string,
+    profile: AreTheTypesWrongProfile,
+    checkResult: PackageCheckResult
+): readonly string[] {
+    if (isFailedPackageResult(checkResult)) {
+        return [ `Package "${packageName}" failed the Are the Types Wrong check: ${checkResult.message}` ];
+    }
+    if (checkResult.result.types === false) {
+        return [ `Package "${packageName}" does not expose TypeScript declarations` ];
+    }
+    return summarizeAnalysis(packageName, checkResult.result, profile);
 }
 
 async function runForPackage(
@@ -186,19 +227,7 @@ async function runForPackage(
     publishedPackage: PublishedPackageWithManifest,
     profile: AreTheTypesWrongProfile
 ): Promise<readonly string[]> {
-    try {
-        const analysis = await checkPackage(createInMemoryPackage(publishedPackage));
-        if (analysis.types === false) {
-            return [];
-        }
-
-        const requiredResolutionKinds = requiredResolutionKindsForProfile(profile);
-        const activeProblems = filterActiveProblems(analysis, requiredResolutionKinds);
-        return summarizeProblems(packageName, analysis, activeProblems, requiredResolutionKinds);
-    } catch (error) {
-        const message = String(error);
-        return [`Package "${packageName}" failed the Are the Types Wrong check: ${message}`];
-    }
+    return summarizePackageCheckResult(packageName, profile, await checkPublishedPackage(publishedPackage));
 }
 
 async function run(params: RunParams): Promise<readonly string[]> {
@@ -208,7 +237,7 @@ async function run(params: RunParams): Promise<readonly string[]> {
     }
 
     const issuesByBundle = await Promise.all(
-        params.bundles.map(async (bundle) => {
+        params.bundles.map(async function (bundle) {
             const publishedPackage = params.publishedPackages?.get(bundle.name);
             if (publishedPackage === undefined) {
                 throw new Error(`Published package missing for "${bundle.name}"`);

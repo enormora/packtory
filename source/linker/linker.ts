@@ -13,11 +13,11 @@ export type BundleLinker = {
 };
 
 function flattenRoots(roots: ResolvedBundle['roots']): string[] {
-    return Object.values(roots).flatMap((root) => {
+    return Object.values(roots).flatMap(function (root) {
         if (rootHasDeclarationFile(root)) {
-            return [root.js.sourceFilePath, root.declarationFile.sourceFilePath];
+            return [ root.js.sourceFilePath, root.declarationFile.sourceFilePath ];
         }
-        return [root.js.sourceFilePath];
+        return [ root.js.sourceFilePath ];
     });
 }
 

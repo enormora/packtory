@@ -5,7 +5,7 @@ import { replaceImportPaths } from './import-paths.ts';
 
 suite('import-paths', function () {
     test('returns source code unmodified when project is undefined', function () {
-        const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
+        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
         const result = replaceImportPaths(
             undefined,
@@ -19,9 +19,9 @@ suite('import-paths', function () {
 
     test('returns source code unmodified when there is no matching file in the given project', function () {
         const project = createProject({
-            withFiles: [{ filePath: '/folder/bar.ts', content: 'const bar = "baz";' }]
+            withFiles: [ { filePath: '/folder/bar.ts', content: 'const bar = "baz";' } ]
         });
-        const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
+        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
         const result = replaceImportPaths(
             project,
@@ -40,7 +40,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
+        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
         const result = replaceImportPaths(project, '/folder/foo.ts', 'const foo = "bar";', replacements);
 
@@ -73,7 +73,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
+        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
         const result = replaceImportPaths(
             project,
@@ -93,7 +93,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/baz.ts', content: 'const baz = "qux";' }
             ]
         });
-        const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
+        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
         const result = replaceImportPaths(project, '/folder/foo.ts', 'import "./baz"; import "./bar";', replacements);
 
@@ -107,7 +107,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.d.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([['/folder/bar.d.ts', 'replacement/bar.d.ts']]);
+        const replacements = new Map<string, string>([ [ '/folder/bar.d.ts', 'replacement/bar.d.ts' ] ]);
 
         const result = replaceImportPaths(project, '/folder/foo.d.ts', 'import "./bar.js"', replacements);
 
@@ -121,7 +121,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([['/folder/bar.ts', 'replacement']]);
+        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
         const result = replaceImportPaths(
             project,

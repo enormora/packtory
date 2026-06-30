@@ -44,7 +44,7 @@ suite('html-primitives', function () {
     });
 
     test('serializeJsonBlock returns a stable two-space indented JSON string', function () {
-        assert.strictEqual(serializeJsonBlock({ a: 1, b: [2, 3] }), '{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}');
+        assert.strictEqual(serializeJsonBlock({ a: 1, b: [ 2, 3 ] }), '{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}');
     });
 
     test('renderCollapsibleSection wraps the JSON-encoded value in an escaped <pre> inside <details>', function () {

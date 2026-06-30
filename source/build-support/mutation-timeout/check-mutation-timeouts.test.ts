@@ -14,9 +14,9 @@ suite('check-mutation-timeouts', function () {
         await withTemporaryReportDirectory(
             'mutation-report.json',
             JSON.stringify(singleMutantReport(killedMutant)),
-            async (reportPath) => {
+            async function (reportPath) {
                 const fileManager = createFakeFileManager({
-                    simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(killedMutant)) }]
+                    simulatedReadFileResponses: [ { value: JSON.stringify(singleMutantReport(killedMutant)) } ]
                 });
 
                 assert.strictEqual(await checkMutationTimeoutReport(reportPath, fileManager), undefined);
@@ -28,21 +28,21 @@ suite('check-mutation-timeouts', function () {
         await withTemporaryReportDirectory(
             'mutation-report.json',
             JSON.stringify(singleMutantReport(timeoutMutant)),
-            async (reportPath) => {
+            async function (reportPath) {
                 const fileManager = createFakeFileManager({
-                    simulatedReadFileResponses: [{ value: JSON.stringify(singleMutantReport(timeoutMutant)) }]
+                    simulatedReadFileResponses: [ { value: JSON.stringify(singleMutantReport(timeoutMutant)) } ]
                 });
 
                 assert.strictEqual(
                     await checkMutationTimeoutReport(reportPath, fileManager),
-                    ['Mutation report contains 1 timeout mutant.', '- source/a.ts:7:8'].join('\n')
+                    [ 'Mutation report contains 1 timeout mutant.', '- source/a.ts:7:8' ].join('\n')
                 );
             }
         );
     });
 
     test('checkMutationTimeoutReport passes the requested report path to the file manager', async function () {
-        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [{ value: '{}' }] });
+        const fileManager = createFakeFileManager({ simulatedReadFileResponses: [ { value: '{}' } ] });
 
         await checkMutationTimeoutReport('some/path.json', fileManager);
 

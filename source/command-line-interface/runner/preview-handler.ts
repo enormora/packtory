@@ -21,7 +21,7 @@ export type PreviewHandlerDeps = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
-    readonly flags: { readonly open: boolean };
+    readonly flags: { readonly open: boolean; };
 };
 
 async function renderOpenedReport(
@@ -48,25 +48,33 @@ async function renderInlinePreview(
 }
 
 async function renderDocument(deps: PreviewHandlerDeps, document: PreviewDocument): Promise<void> {
-    await (deps.flags.open ? renderOpenedReport(deps, document) : renderInlinePreview(deps, document));
+    if (deps.flags.open) {
+        await renderOpenedReport(deps, document);
+        return;
+    }
+    await renderInlinePreview(deps, document);
+}
+
+async function preview(deps: PreviewHandlerDeps): Promise<number> {
+    const { packtory, spinnerRenderer, configLoader, fileManager } = deps;
+    const config = await configLoader.load();
+    const outcome = await packtory.buildAndPublishAll(config, { dryRun: true, stage: false, collectReport: true });
+    spinnerRenderer.stopAll();
+    const report = outcome.getReport() ?? createEmptyReport();
+    const document = await buildPreviewDocument({
+        report,
+        result: outcome.result,
+        dryRun: true,
+        fileManager
+    });
+    await renderDocument(deps, document);
+    return outcome.result.isErr ? 1 : 0;
 }
 
 export async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<number> {
-    const { packtory, spinnerRenderer, configLoader, fileManager } = deps;
     try {
-        const config = await configLoader.load();
-        const outcome = await packtory.buildAndPublishAll(config, { dryRun: true, stage: false, collectReport: true });
-        spinnerRenderer.stopAll();
-        const report = outcome.getReport() ?? createEmptyReport();
-        const document = await buildPreviewDocument({
-            report,
-            result: outcome.result,
-            dryRun: true,
-            fileManager
-        });
-        await renderDocument(deps, document);
-        return outcome.result.isErr ? 1 : 0;
+        return await preview(deps);
     } finally {
-        spinnerRenderer.stopAll();
+        deps.spinnerRenderer.stopAll();
     }
 }

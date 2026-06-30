@@ -73,40 +73,57 @@ suite('registry-response-schemas', function () {
         );
     });
 
-    test('parseOidcExchangeResponse coerces an ISO-string expires to a Date and strips fields it does not consume', function () {
-        assert.deepStrictEqual(
-            parseOidcExchangeResponse({
-                token_type: 'Bearer',
-                token: 'abc',
-                created: '2026-01-01T00:00:00Z',
-                expires: '2026-01-01T01:00:00Z'
-            }),
-            {
+    suite('parseOidcExchangeResponse', function () {
+        test('coerces an ISO-string expires to a Date and strips fields it does not consume', function () {
+            assert.deepStrictEqual(
+                parseOidcExchangeResponse({
+                    token_type: 'Bearer',
+                    token: 'abc',
+                    created: '2026-01-01T00:00:00Z',
+                    expires: '2026-01-01T01:00:00Z'
+                }),
+                {
+                    success: true,
+                    data: { token: 'abc', expires: new Date('2026-01-01T01:00:00Z') }
+                }
+            );
+        });
+
+        test('coerces a numeric expires to a Date', function () {
+            assert.deepStrictEqual(parseOidcExchangeResponse({ token: 'abc', expires: 1_746_529_200_000 }), {
                 success: true,
-                data: { token: 'abc', expires: new Date('2026-01-01T01:00:00Z') }
-            }
-        );
-    });
-
-    test('parseOidcExchangeResponse coerces a numeric expires to a Date', function () {
-        assert.deepStrictEqual(parseOidcExchangeResponse({ token: 'abc', expires: 1_746_529_200_000 }), {
-            success: true,
-            data: { token: 'abc', expires: new Date(1_746_529_200_000) }
+                data: { token: 'abc', expires: new Date(1_746_529_200_000) }
+            });
         });
-    });
 
-    test('parseOidcExchangeResponse reports validation issues when expires is missing', function () {
-        assert.deepStrictEqual(parseOidcExchangeResponse({ token: 'abc' }), {
-            success: false,
-            issues: ['at expires: missing property']
+        test('reports validation issues when expires is missing', function () {
+            assert.deepStrictEqual(parseOidcExchangeResponse({ token: 'abc' }), {
+                success: false,
+                issues: [ 'at expires: missing property' ]
+            });
         });
-    });
 
-    test('parseOidcExchangeResponse reports validation issues when expires cannot be coerced to a Date', function () {
-        const result = parseOidcExchangeResponse({ token: 'abc', expires: 'not-a-date' });
-        if (result.success) {
-            assert.fail('expected validation to fail when expires is not a date');
+        for (
+            const [ testName, response ] of [
+                [ 'response is a string', 'invalid-response' ],
+                [ 'response is null', null ],
+                [ 'response is an array', [] ]
+            ] as const
+        ) {
+            test(`reports expected object when ${testName}`, function () {
+                assert.deepStrictEqual(parseOidcExchangeResponse(response), {
+                    success: false,
+                    issues: [ 'expected object' ]
+                });
+            });
         }
-        assert.match(result.issues.join('; '), /at expires/u);
+
+        test('reports validation issues when expires cannot be coerced to a Date', function () {
+            const result = parseOidcExchangeResponse({ token: 'abc', expires: 'not-a-date' });
+            if (result.success) {
+                assert.fail('expected validation to fail when expires is not a date');
+            }
+            assert.match(result.issues.join('; '), /at expires/u);
+        });
     });
 });

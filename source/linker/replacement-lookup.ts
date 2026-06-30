@@ -8,12 +8,12 @@ type Replacement = {
 };
 
 export type Replacements = {
-    readonly importPathReplacements: Map<string, string>;
+    readonly importPathReplacements: ReadonlyMap<string, string>;
     readonly bundleDependencies: readonly string[];
 };
 
 function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
-    return bundle.contents.some((content) => {
+    return bundle.contents.some(function (content) {
         return content.fileDescription.sourceFilePath === file;
     });
 }
@@ -39,22 +39,22 @@ export function findAllPathReplacements(
     files: readonly string[],
     bundleDependencies: readonly BundleSubstitutionSource[]
 ): Replacements {
-    const matched = files.flatMap((file) => {
+    const matched = files.flatMap(function (file) {
         const result = findReplacement(file, bundleDependencies);
         if (!result.isJust) {
             return [];
         }
         const { targetPath, packageName } = result.value;
-        return [{ file, targetPath, packageName }];
+        return [ { file, targetPath, packageName } ];
     });
 
     return {
         importPathReplacements: new Map(
-            matched.map((entry) => {
-                return [entry.file, entry.targetPath];
+            matched.map(function (entry) {
+                return [ entry.file, entry.targetPath ];
             })
         ),
-        bundleDependencies: matched.map((entry) => {
+        bundleDependencies: matched.map(function (entry) {
             return entry.packageName;
         })
     };

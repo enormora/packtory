@@ -3,7 +3,7 @@ import { matchAutoModeError } from '../publish-error/auto-mode-error-matching.ts
 import { ensureError } from '../publish-error/error-shape-helpers.ts';
 import { matchFileModeError } from '../publish-error/file-mode-error-matching.ts';
 
-type PublishProvenanceOptions = { readonly provenance: true } | { readonly provenanceFile: string };
+type PublishProvenanceOptions = { readonly provenance: true; } | { readonly provenanceFile: string; };
 
 type PublishOptionsForLibnpmpublish = Partial<PublishProvenanceOptions> & {
     readonly access: PublishSettings['access'];

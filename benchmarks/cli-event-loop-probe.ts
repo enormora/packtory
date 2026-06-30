@@ -18,9 +18,9 @@ if (outputPath !== undefined && outputPath !== '') {
     const histogram = monitorEventLoopDelay({ resolution: histogramResolutionMs });
     histogram.enable();
 
-    const blocks: { readonly atMs: number; readonly gapMs: number }[] = [];
+    const blocks: { readonly atMs: number; readonly gapMs: number; }[] = [];
     let lastTickAt = performanceTimer.now();
-    const fineSampler = scheduleInterval(() => {
+    const fineSampler = scheduleInterval(function () {
         const now = performanceTimer.now();
         const gap = now - lastTickAt;
         if (gap > minimumReportableBlockMs) {
@@ -30,11 +30,11 @@ if (outputPath !== undefined && outputPath !== '') {
     }, fineSamplerIntervalMs);
     fineSampler.unref();
 
-    process.on('exit', () => {
+    process.on('exit', function () {
         cancelInterval(fineSampler);
         histogram.disable();
 
-        const ms = (nanoseconds: number): number => {
+        const ms = function (nanoseconds: number): number {
             return Number((nanoseconds / nanosecondsPerMillisecond).toFixed(fixedDecimals));
         };
 

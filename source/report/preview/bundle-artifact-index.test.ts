@@ -16,7 +16,7 @@ function buildResult(
         bundle: {
             name,
             manifestFile: { filePath: 'package.json', content: manifestContent, isExecutable: false },
-            contents: contents.map((entry) => {
+            contents: contents.map(function (entry) {
                 return {
                     fileDescription: {
                         sourceFilePath: entry.sourceFilePath,
@@ -36,21 +36,25 @@ suite('bundle-artifact-index', function () {
     });
 
     test('buildBundleArtifactIndex always seeds an entry for package.json from the manifest content', function () {
-        const index = buildBundleArtifactIndex([buildResult('pkg-a', '{"name":"pkg-a"}')]);
+        const index = buildBundleArtifactIndex([ buildResult('pkg-a', '{"name":"pkg-a"}') ]);
 
         assert.deepStrictEqual(index.get('pkg-a')?.get('package.json'), { content: '{"name":"pkg-a"}' });
     });
 
     test('buildBundleArtifactIndex includes each bundle content entry keyed by target file path', function () {
         const index = buildBundleArtifactIndex([
-            buildResult('pkg-a', '{}', [{ sourceFilePath: '/src/a.ts', targetFilePath: 'a.js', content: 'content-a' }])
+            buildResult('pkg-a', '{}', [ {
+                sourceFilePath: '/src/a.ts',
+                targetFilePath: 'a.js',
+                content: 'content-a'
+            } ])
         ]);
 
         assert.deepStrictEqual(index.get('pkg-a')?.get('a.js'), { content: 'content-a', sourcePath: '/src/a.ts' });
     });
 
     test('buildBundleArtifactIndex maps each bundle to its own inner index by package name', function () {
-        const index = buildBundleArtifactIndex([buildResult('pkg-a', '{}'), buildResult('pkg-b', '{}')]);
+        const index = buildBundleArtifactIndex([ buildResult('pkg-a', '{}'), buildResult('pkg-b', '{}') ]);
 
         assert.strictEqual(index.get('pkg-a') === index.get('pkg-b'), false);
         assert.strictEqual(index.has('pkg-a'), true);

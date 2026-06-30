@@ -5,7 +5,7 @@ import { createProject } from '../test-libraries/typescript-project.ts';
 import { collectVariableDeclarationBindings, variableDeclarationSurvives } from './variable-declaration-bindings.ts';
 
 function declaratorFor(content: string): VariableDeclaration {
-    const project = createProject({ withFiles: [{ filePath: '/source.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: '/source.ts', content } ] });
     const sourceFile = project.getSourceFileOrThrow('/source.ts');
     return sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.VariableDeclaration);
 }
@@ -17,8 +17,10 @@ suite('variable-declaration-bindings', function () {
         const bindings = collectVariableDeclarationBindings(declarator);
 
         assert.deepStrictEqual(
-            bindings.map((binding) => binding.name),
-            ['x']
+            bindings.map(function (binding) {
+                return binding.name;
+            }),
+            [ 'x' ]
         );
     });
 
@@ -28,8 +30,10 @@ suite('variable-declaration-bindings', function () {
         const bindings = collectVariableDeclarationBindings(declarator);
 
         assert.deepStrictEqual(
-            bindings.map((binding) => binding.name),
-            ['a', 'b']
+            bindings.map(function (binding) {
+                return binding.name;
+            }),
+            [ 'a', 'b' ]
         );
     });
 
@@ -39,20 +43,22 @@ suite('variable-declaration-bindings', function () {
         const bindings = collectVariableDeclarationBindings(declarator);
 
         assert.deepStrictEqual(
-            bindings.map((binding) => binding.name),
-            ['a', 'renamed']
+            bindings.map(function (binding) {
+                return binding.name;
+            }),
+            [ 'a', 'renamed' ]
         );
     });
 
     test('variableDeclarationSurvives returns true when any declared name is in the surviving set', function () {
         const declarator = declaratorFor('const [a, b] = [1, 2];');
 
-        assert.strictEqual(variableDeclarationSurvives(declarator, new Set(['b'])), true);
+        assert.strictEqual(variableDeclarationSurvives(declarator, new Set([ 'b' ])), true);
     });
 
     test('variableDeclarationSurvives returns false when no declared name is in the surviving set', function () {
         const declarator = declaratorFor('const [a, b] = [1, 2];');
 
-        assert.strictEqual(variableDeclarationSurvives(declarator, new Set(['c'])), false);
+        assert.strictEqual(variableDeclarationSurvives(declarator, new Set([ 'c' ])), false);
     });
 });

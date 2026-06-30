@@ -2,9 +2,9 @@ import type { PackageJson } from 'type-fest';
 import { hasProp, isDefined, isEmpty, pickBy } from 'remeda';
 import type { VersionedBundle, BundlePackageJson } from '../versioned-bundle.ts';
 
-type SideEffectsValue = string[] | false;
+type SideEffectsValue = readonly string[] | false;
+type PackageJsonSideEffectsValue = NonNullable<PackageJson['sideEffects']>;
 
-// eslint-disable-next-line sonarjs/function-return-type -- distinct semantics for emit-false, emit-array, and omit
 function resolveSideEffectsValue(bundle: VersionedBundle): SideEffectsValue | undefined {
     if (hasProp(bundle.additionalAttributes, 'sideEffects')) {
         return undefined;
@@ -21,11 +21,18 @@ function resolveSideEffectsValue(bundle: VersionedBundle): SideEffectsValue | un
 
 type PackageJsonImports = NonNullable<PackageJson['imports']>;
 type PackageJsonBin = Readonly<Record<string, string>> | string;
+type VersionedBundleBinField = Readonly<Record<string, string | undefined>> | string | undefined;
 
 function buildSideEffectsEntry(
     sideEffects: SideEffectsValue | undefined
-): Record<PropertyKey, never> | { sideEffects: SideEffectsValue } {
-    return sideEffects === undefined ? {} : { sideEffects };
+): Record<PropertyKey, never> | { readonly sideEffects: PackageJsonSideEffectsValue; } {
+    if (sideEffects === undefined) {
+        return {};
+    }
+    if (sideEffects === false) {
+        return { sideEffects: false };
+    }
+    return { sideEffects: Array.from(sideEffects) };
 }
 
 function toPackageJsonImports(importsField: NonNullable<VersionedBundle['importsField']>): PackageJsonImports {
@@ -35,17 +42,19 @@ function toPackageJsonImports(importsField: NonNullable<VersionedBundle['imports
 
 function buildImportsEntry(
     importsField: VersionedBundle['importsField']
-): Record<PropertyKey, never> | { imports: PackageJsonImports } {
+): Record<PropertyKey, never> | { readonly imports: PackageJsonImports; } {
     return importsField === undefined ? {} : { imports: toPackageJsonImports(importsField) };
 }
 
 function toPackageJsonBinTargets(
-    binField: Exclude<NonNullable<VersionedBundle['binField']>, string>
+    binField: Exclude<NonNullable<VersionedBundleBinField>, string>
 ): Readonly<Record<string, string>> {
     return pickBy(binField, isDefined);
 }
 
-function buildBinEntry(binField: VersionedBundle['binField']): Record<PropertyKey, never> | { bin: PackageJsonBin } {
+function buildBinEntry(
+    binField: VersionedBundleBinField
+): Record<PropertyKey, never> | { readonly bin: PackageJsonBin; } {
     if (binField === undefined) {
         return {};
     }
@@ -72,8 +81,8 @@ export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson
         ...sideEffectsEntry,
         ...importsEntry,
         ...binEntry,
-        ...(isEmpty(bundle.dependencies) ? {} : { dependencies: bundle.dependencies }),
-        ...(isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies })
+        ...!isEmpty(bundle.dependencies) && { dependencies: bundle.dependencies },
+        ...!isEmpty(bundle.peerDependencies) && { peerDependencies: bundle.peerDependencies }
     };
 
     return packageJson;

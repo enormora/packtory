@@ -122,7 +122,7 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
 
         async listDirectoryEntries(directoryPath) {
             const entries = await hostFileSystem.readdir(directoryPath, { withFileTypes: true });
-            return entries.map((entry) => {
+            return entries.map(function (entry) {
                 return {
                     name: entry.name,
                     isDirectory: entry.isDirectory(),

@@ -3,10 +3,16 @@ import { match } from 'ts-pattern';
 
 export type MutableNpaType = 'directory' | 'file' | 'git' | 'remote';
 
-export type Classification =
-    | { readonly kind: 'malformed'; readonly reason: string }
-    | { readonly kind: 'mutable'; readonly npaType: MutableNpaType }
-    | { readonly kind: 'registry' };
+type MalformedClassification = { readonly kind: 'malformed'; readonly reason: string; };
+type MutableClassification = { readonly kind: 'mutable'; readonly npaType: MutableNpaType; };
+type RegistryClassification = { readonly kind: 'registry'; };
+type Classifications = readonly [
+    MalformedClassification,
+    MutableClassification,
+    RegistryClassification
+];
+
+export type Classification = Classifications[number];
 
 type NpaResultType = npa.Result['type'];
 
@@ -21,21 +27,21 @@ function portalMalformedReason(): string {
     return 'portal protocol is yarn-specific; resolved as a local symlink, not valid in a published manifest';
 }
 
-function classifyNpaResult(result: npa.Result): Classification {
+function classifyNpaResult(result: Readonly<npa.Result>): Classification {
     return match<NpaResultType, Classification>(result.type)
-        .with('alias', 'range', 'tag', 'version', () => {
+        .with('alias', 'range', 'tag', 'version', function () {
             return { kind: 'registry' };
         })
-        .with('git', () => {
+        .with('git', function () {
             return { kind: 'mutable', npaType: 'git' };
         })
-        .with('remote', () => {
+        .with('remote', function () {
             return { kind: 'mutable', npaType: 'remote' };
         })
-        .with('file', () => {
+        .with('file', function () {
             return { kind: 'mutable', npaType: 'file' };
         })
-        .otherwise(() => {
+        .otherwise(function () {
             return { kind: 'mutable', npaType: 'directory' };
         });
 }

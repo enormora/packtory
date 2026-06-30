@@ -10,6 +10,7 @@ type MutationLocation = {
 export type MutationReportFile = {
     readonly mutants?: readonly {
         readonly status: string;
+        readonly static?: boolean;
         readonly location: MutationLocation;
     }[];
 };
@@ -52,7 +53,7 @@ function parseMutant(value: unknown): ParsedMutant | undefined {
         throw new TypeError('Mutation report contains a mutant without a string status');
     }
 
-    return { status: value.status, location };
+    return { status: value.status, static: value.static === true, location };
 }
 
 function parseMutationReportFile(value: unknown): MutationReportFile | undefined {
@@ -77,8 +78,8 @@ export function parseMutationReport(value: unknown): MutationReport {
 
     return {
         files: Object.fromEntries(
-            Object.entries(value.files).map(([filePath, fileReport]) => {
-                return [filePath, parseMutationReportFile(fileReport)];
+            Object.entries(value.files).map(function ([ filePath, fileReport ]) {
+                return [ filePath, parseMutationReportFile(fileReport) ];
             })
         )
     };

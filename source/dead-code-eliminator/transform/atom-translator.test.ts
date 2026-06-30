@@ -5,22 +5,22 @@ import type { PositionAtom } from './declaration-remover.ts';
 
 suite('atom-translator', function () {
     test('translateGeneratedOffset shifts the offset by the atom delta when the offset is inside an atom', function () {
-        const atoms: readonly PositionAtom[] = [{ originalStart: 10, originalEnd: 20, newStart: 3 }];
+        const atoms: readonly PositionAtom[] = [ { originalStart: 10, originalEnd: 20, newStart: 3 } ];
         assert.strictEqual(translateGeneratedOffset(15, atoms), 8);
     });
 
     test('translateGeneratedOffset returns undefined when the offset is past every atom', function () {
-        const atoms: readonly PositionAtom[] = [{ originalStart: 0, originalEnd: 5, newStart: 0 }];
+        const atoms: readonly PositionAtom[] = [ { originalStart: 0, originalEnd: 5, newStart: 0 } ];
         assert.strictEqual(translateGeneratedOffset(20, atoms), undefined);
     });
 
     test('translateGeneratedOffset returns undefined for an offset equal to an atom originalEnd (exclusive upper bound)', function () {
-        const atoms: readonly PositionAtom[] = [{ originalStart: 0, originalEnd: 5, newStart: 0 }];
+        const atoms: readonly PositionAtom[] = [ { originalStart: 0, originalEnd: 5, newStart: 0 } ];
         assert.strictEqual(translateGeneratedOffset(5, atoms), undefined);
     });
 
     test('translateGeneratedOffset shifts an offset equal to an atom originalStart (inclusive lower bound)', function () {
-        const atoms: readonly PositionAtom[] = [{ originalStart: 5, originalEnd: 10, newStart: 2 }];
+        const atoms: readonly PositionAtom[] = [ { originalStart: 5, originalEnd: 10, newStart: 2 } ];
         assert.strictEqual(translateGeneratedOffset(5, atoms), 2);
     });
 

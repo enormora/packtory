@@ -19,7 +19,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const mediumIndex = 1;
 const largeIndex = 2;
 
-function readNumberField(record: Record<string, unknown>, fieldName: string): number {
+function readNumberField(record: Readonly<Record<string, unknown>>, fieldName: string): number {
     const value = record[fieldName];
     assert.ok(typeof value === 'number', `Expected "${fieldName}" to be a number`);
     return value;

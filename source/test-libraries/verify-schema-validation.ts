@@ -5,7 +5,7 @@ import type { $ZodType } from 'zod/v4/core';
 import { safeParse } from '../common/schema-validation.ts';
 
 const invalidNumberValue = 2;
-const objectLikeFieldTypes = new Set(['object', 'record', 'tuple', 'array']);
+const objectLikeFieldTypes = new Set([ 'object', 'record', 'tuple', 'array' ]);
 
 type ValidationSuccessTestCase = {
     readonly schema: $ZodType;
@@ -14,11 +14,11 @@ type ValidationSuccessTestCase = {
 };
 
 export function checkValidationSuccess(testCase: Readonly<ValidationSuccessTestCase>): Func {
-    return () => {
+    return function () {
         const result = safeParse(testCase.schema, testCase.data);
 
         if (result.success) {
-            if ('expectedData' in testCase) {
+            if (Object.hasOwn(testCase, 'expectedData')) {
                 assert.deepStrictEqual(result.data, testCase.expectedData);
             }
 
@@ -32,11 +32,11 @@ export function checkValidationSuccess(testCase: Readonly<ValidationSuccessTestC
 type ValidationFailureTestCase = {
     readonly schema: $ZodType;
     readonly data: unknown;
-    readonly expectedMessages: string[];
+    readonly expectedMessages: readonly string[];
 };
 
 export function checkValidationFailure(testCase: Readonly<ValidationFailureTestCase>): Func {
-    return () => {
+    return function () {
         const result = safeParse(testCase.schema, testCase.data);
 
         if (result.success) {
@@ -51,7 +51,7 @@ type PathSegment = number | string;
 
 type FieldTestOptions = {
     readonly schema: $ZodType;
-    readonly data: Record<string, unknown>;
+    readonly data: Readonly<Record<string, unknown>>;
     readonly path: string;
     readonly expectedFieldType: string;
 };
@@ -69,19 +69,19 @@ function parsePath(path: string): readonly PathSegment[] {
 }
 
 function removeArrayIndex(array: readonly unknown[], index: number): unknown[] {
-    return array.filter((entryToIgnore, arrayIndex) => {
+    return array.filter(function (entryToIgnore, arrayIndex) {
         return entryToIgnore !== undefined || arrayIndex !== index;
     });
 }
 
 function setArrayValue(array: readonly unknown[], index: number, value: unknown): unknown[] {
-    return array.map((entry, arrayIndex) => {
+    return array.map(function (entry, arrayIndex) {
         return arrayIndex === index ? value : entry;
     });
 }
 
 function removeRecordKey(record: Readonly<Record<string, unknown>>, key: string): Record<string, unknown> {
-    return omit(record, [key]);
+    return omit(record, [ key ]);
 }
 
 function setRecordValue(
@@ -140,7 +140,7 @@ function updateNestedValue(
     modification: 'delete' | 'set',
     value: unknown
 ): unknown {
-    const [pathSegment, ...remainingPathSegments] = pathSegments;
+    const [ pathSegment, ...remainingPathSegments ] = pathSegments;
 
     if (pathSegment === undefined) {
         return current;
@@ -150,27 +150,31 @@ function updateNestedValue(
         return updateLeafValue(current, pathSegment, modification, value);
     }
 
-    if (Array.isArray(current) && typeof pathSegment === 'number') {
-        return setArrayValue(
-            current,
-            pathSegment,
-            updateNestedValue(current[pathSegment], remainingPathSegments, modification, value)
-        );
+    function updateChild(): unknown {
+        if (Array.isArray(current) && typeof pathSegment === 'number') {
+            return setArrayValue(
+                current,
+                pathSegment,
+                updateNestedValue(current[pathSegment], remainingPathSegments, modification, value)
+            );
+        }
+
+        if (isPlainObject(current) && typeof pathSegment === 'string') {
+            return setRecordValue(
+                current,
+                pathSegment,
+                updateNestedValue(current[pathSegment], remainingPathSegments, modification, value)
+            );
+        }
+
+        return current;
     }
 
-    if (isPlainObject(current) && typeof pathSegment === 'string') {
-        return setRecordValue(
-            current,
-            pathSegment,
-            updateNestedValue(current[pathSegment], remainingPathSegments, modification, value)
-        );
-    }
-
-    return current;
+    return updateChild();
 }
 
 function cloneWithModification(
-    data: Record<string, unknown>,
+    data: Readonly<Record<string, unknown>>,
     path: string,
     modification: 'delete' | 'set',
     value?: unknown
@@ -178,25 +182,29 @@ function cloneWithModification(
     return updateNestedValue(structuredClone(data), parsePath(path), modification, value);
 }
 
-function getExpectedIssuesForFieldType(options: {
+type ExpectedFieldTypeIssueOptions = {
     readonly path: string;
     readonly expectedFieldType: string;
     readonly assertedType: 'null' | 'number' | 'object' | 'undefined';
-}): readonly [string, ...string[]] {
+};
+
+function getExpectedIssuesForFieldType(options: ExpectedFieldTypeIssueOptions): readonly [string, ...string[]] {
     const path = pathDotNotationToBracketNotation(options.path);
 
-    if (!['object', 'string', 'number', 'boolean', 'array', 'record', 'tuple'].includes(options.expectedFieldType)) {
-        return [`at ${path}: invalid literal: expected ${options.expectedFieldType}, but got ${options.assertedType}`];
+    if (![ 'object', 'string', 'number', 'boolean', 'array', 'record', 'tuple' ].includes(options.expectedFieldType)) {
+        return [
+            `at ${path}: invalid literal: expected ${options.expectedFieldType}, but got ${options.assertedType}`
+        ];
     }
 
-    return [`at ${path}: expected ${options.expectedFieldType}, but got ${options.assertedType}`];
+    return [ `at ${path}: expected ${options.expectedFieldType}, but got ${options.assertedType}` ];
 }
 
 function createRequiredMissingFieldValidation(options: FieldTestOptions, expectedPath: string): Func {
     return checkValidationFailure({
         schema: options.schema,
         data: cloneWithModification(options.data, options.path, 'delete'),
-        expectedMessages: [`at ${expectedPath}: missing property`]
+        expectedMessages: [ `at ${expectedPath}: missing property` ]
     });
 }
 
@@ -240,11 +248,12 @@ function createMissingFieldTest(options: FieldTestOptions, required: boolean): v
 }
 
 function createUndefinedFieldTest(options: FieldTestOptions, required: boolean): void {
-    const validation = required
-        ? createRequiredUndefinedFieldValidation(options)
-        : createOptionalUndefinedFieldValidation(options);
+    if (required) {
+        test(`validation fails when ${options.path} is undefined`, createRequiredUndefinedFieldValidation(options));
+        return;
+    }
 
-    test(`validation ${required ? 'fails' : 'succeeds'} when ${options.path} is undefined`, validation);
+    test(`validation succeeds when ${options.path} is undefined`, createOptionalUndefinedFieldValidation(options));
 }
 
 function createNullFieldTest(options: FieldTestOptions): void {

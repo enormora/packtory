@@ -9,12 +9,12 @@ import {
     versionedBundle
 } from '../test-libraries/bundle-fixtures.ts';
 import { createSpyingBroadcaster } from '../test-libraries/result-helpers.ts';
-import { createVersionManager } from './manager.ts';
+import { createVersionManager, type VersionManager, type VersionManagerDependencies } from './manager.ts';
 
 function createAnalyzedBundle(): AnalyzedBundle {
     return analyzedBundle({
-        linkedBundleDependencies: new Map([['bundle-dependency', externalDependency('bundle-dependency')]]),
-        externalDependencies: new Map([['left-pad', externalDependency('left-pad')]])
+        linkedBundleDependencies: new Map([ [ 'bundle-dependency', externalDependency('bundle-dependency') ] ]),
+        externalDependencies: new Map([ [ 'left-pad', externalDependency('left-pad') ] ])
     });
 }
 
@@ -22,8 +22,12 @@ suite('manager', function () {
     test('addVersion() creates the versioned bundle and manifest file', function () {
         const manager = createVersionManager({
             progressBroadcaster: {
-                emit: (): void => undefined,
-                hasSubscribers: (): boolean => false
+                emit(): void {
+                    return undefined;
+                },
+                hasSubscribers(): boolean {
+                    return false;
+                }
             }
         });
 
@@ -78,15 +82,20 @@ suite('manager', function () {
                 '    "type": "module",',
                 '    "version": "1.2.3"',
                 '}'
-            ].join('\n')
+            ]
+                .join('\n')
         });
     });
 
     test('increaseVersion() bumps the patch version and rebuilds the package manifest', function () {
         const manager = createVersionManager({
             progressBroadcaster: {
-                emit: (): void => undefined,
-                hasSubscribers: (): boolean => false
+                emit(): void {
+                    return undefined;
+                },
+                hasSubscribers(): boolean {
+                    return false;
+                }
             }
         });
 
@@ -132,15 +141,20 @@ suite('manager', function () {
                 '    "type": "module",',
                 '    "version": "1.2.4"',
                 '}'
-            ].join('\n')
+            ]
+                .join('\n')
         });
     });
 
     test('increaseVersion() throws when the given version is invalid', function () {
         const manager = createVersionManager({
             progressBroadcaster: {
-                emit: (): void => undefined,
-                hasSubscribers: (): boolean => false
+                emit(): void {
+                    return undefined;
+                },
+                hasSubscribers(): boolean {
+                    return false;
+                }
             }
         });
 
@@ -184,9 +198,9 @@ suite('manager', function () {
     });
 
     function callAddVersionWithProvider(
-        progressBroadcaster: Parameters<typeof createVersionManager>[0]['progressBroadcaster'],
+        progressBroadcaster: VersionManagerDependencies['progressBroadcaster'],
         additionalPackageJsonAttributes: Parameters<
-            ReturnType<typeof createVersionManager>['addVersion']
+            VersionManager['addVersion']
         >[0]['additionalPackageJsonAttributes'] = {}
     ): void {
         const manager = createVersionManager({ progressBroadcaster });
@@ -201,31 +215,38 @@ suite('manager', function () {
         });
     }
 
+    function expectAssembledFields(
+        received: readonly Readonly<Record<string, { readonly source: string; }>>[]
+    ): Readonly<Record<string, { readonly source: string; }>> {
+        const [ fields ] = received;
+        if (fields === undefined) {
+            assert.fail('expected packageJsonAssembled to fire once');
+        }
+        return fields;
+    }
+
     test('addVersion() emits a packageJsonAssembled event with the package name when subscribed', function () {
         const broadcaster = createProgressBroadcaster();
-        const received: { packageName: string }[] = [];
-        broadcaster.consumer.on('packageJsonAssembled', (payload) => {
+        const received: { readonly packageName: string; }[] = [];
+        broadcaster.consumer.on('packageJsonAssembled', function (payload) {
             received.push({ packageName: payload.packageName });
         });
 
         callAddVersionWithProvider(broadcaster.provider);
 
-        assert.deepStrictEqual(received, [{ packageName: 'package-a' }]);
+        assert.deepStrictEqual(received, [ { packageName: 'package-a' } ]);
     });
 
     test('addVersion() emits packageJsonAssembled fields with provenance classification', function () {
         const broadcaster = createProgressBroadcaster();
-        const received: Readonly<Record<string, { source: string }>>[] = [];
-        broadcaster.consumer.on('packageJsonAssembled', (payload) => {
-            received.push(payload.fields as Readonly<Record<string, { source: string }>>);
+        const received: Readonly<Record<string, { readonly source: string; }>>[] = [];
+        broadcaster.consumer.on('packageJsonAssembled', function (payload) {
+            received.push(payload.fields);
         });
 
         callAddVersionWithProvider(broadcaster.provider, { publishConfig: { access: 'public' } });
 
-        const [fields] = received;
-        if (fields === undefined) {
-            assert.fail('expected packageJsonAssembled to fire once');
-        }
+        const fields = expectAssembledFields(received);
         assert.deepStrictEqual(fields.type, { source: 'mainPackageJson' });
         assert.deepStrictEqual(fields.publishConfig, { source: 'additionalAttributes' });
         assert.deepStrictEqual(fields.name, { source: 'derived' });

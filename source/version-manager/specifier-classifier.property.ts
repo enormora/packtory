@@ -7,16 +7,16 @@ const packageNameArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,8}$/u);
 
 const versionArbitrary = fc
     .tuple(fc.integer({ min: 0, max: 99 }), fc.integer({ min: 0, max: 99 }), fc.integer({ min: 0, max: 99 }))
-    .map(([major, minor, patch]) => {
+    .map(function ([ major, minor, patch ]) {
         return `${major}.${minor}.${patch}`;
     });
 
 const registrySubSpecArbitrary = fc.oneof(
     versionArbitrary,
-    versionArbitrary.map((version) => {
+    versionArbitrary.map(function (version) {
         return `^${version}`;
     }),
-    versionArbitrary.map((version) => {
+    versionArbitrary.map(function (version) {
         return `~${version}`;
     }),
     fc.constantFrom('latest', 'next', 'beta')
@@ -29,7 +29,7 @@ suite('specifier-classifier', function () {
                 packageNameArbitrary,
                 packageNameArbitrary,
                 registrySubSpecArbitrary,
-                (alias, target, subSpec) => {
+                function (alias, target, subSpec) {
                     const aliasResult = classifySpecifier(alias, `npm:${target}@${subSpec}`);
                     const directResult = classifySpecifier(target, subSpec);
 

@@ -1,26 +1,31 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createDirectedGraph } from '../directed-graph/graph.ts';
+import { createDirectedGraph, type DirectedGraph } from '../directed-graph/graph.ts';
 import type { PackageConfig } from './config.ts';
 import { validateCyclicDependencies, validateDuplicatePackages } from './cross-package-validation.ts';
 
 function packageConfig(name: string): PackageConfig {
-    return { name, roots: { main: { js: 'index.js' } }, sourcesFolder: 'src' } as unknown as PackageConfig;
+    return { name, roots: { main: { js: 'index.js' } }, sourcesFolder: 'src' };
 }
 
 suite('cross-package-validation', function () {
     test('validateDuplicatePackages returns no issues when every package has a unique name', function () {
-        assert.deepStrictEqual(validateDuplicatePackages([packageConfig('a'), packageConfig('b')]), []);
+        assert.deepStrictEqual(validateDuplicatePackages([ packageConfig('a'), packageConfig('b') ]), []);
     });
 
     test('validateDuplicatePackages reports each duplicated package name once', function () {
         assert.deepStrictEqual(
-            validateDuplicatePackages([packageConfig('a'), packageConfig('a'), packageConfig('b')]),
-            ['Duplicate package definition with the name "a"']
+            validateDuplicatePackages([ packageConfig('a'), packageConfig('a'), packageConfig('b') ]),
+            [ 'Duplicate package definition with the name "a"' ]
         );
     });
 
-    function graphWithEdges(...edges: readonly { readonly from: string; readonly to: string }[]) {
+    type TestEdge = {
+        readonly from: string;
+        readonly to: string;
+    };
+
+    function graphWithEdges(...edges: readonly TestEdge[]): DirectedGraph<string, undefined> {
         const graph = createDirectedGraph<string, undefined>();
         const nodes = new Set<string>();
         for (const edge of edges) {
@@ -43,7 +48,7 @@ suite('cross-package-validation', function () {
     test('validateCyclicDependencies reports the cycle path joined with arrows', function () {
         assert.deepStrictEqual(
             validateCyclicDependencies(graphWithEdges({ from: 'a', to: 'b' }, { from: 'b', to: 'a' })),
-            ['Unexpected cyclic dependency path: [a→b→a]']
+            [ 'Unexpected cyclic dependency path: [a→b→a]' ]
         );
     });
 });

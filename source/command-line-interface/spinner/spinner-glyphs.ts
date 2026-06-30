@@ -9,6 +9,12 @@ const escapeSequence = '';
 export const cursorToColumnZero = '\r';
 export const clearEntireLine = `${escapeSequence}[2K`;
 
+type LineSnapshot = {
+    readonly state: SlotState;
+    readonly label: string;
+    readonly message: string;
+};
+
 export function cursorUp(lines: number): string {
     return `${escapeSequence}[${lines}A`;
 }
@@ -31,7 +37,7 @@ function truncateToColumns(line: string, columns: number): string {
 }
 
 export function formatLine(
-    snapshot: { readonly state: SlotState; readonly label: string; readonly message: string },
+    snapshot: LineSnapshot,
     frameIndex: number,
     columns: number
 ): string {

@@ -26,6 +26,7 @@ suite('html-renderer', function () {
         assert.match(html, /^<!doctype html>/);
         assert.ok(html.includes('<title>Packtory build report</title>'));
         assert.match(html, /<style>[\s\S]*color-scheme: light;[\s\S]*\.summary-card[\s\S]*<\/style>/u);
+        assert.ok(html.includes('<p class="meta">Schema version: 1 · Generated at: 2026-05-11T00:00:00.000Z</p>'));
     });
 
     test('renders summary cards, package sections, tree metadata, and diff hunks', function () {
@@ -50,7 +51,10 @@ suite('html-renderer', function () {
                 '<span class="tree-meta">source · 20 B</span>',
                 '<span class="badge status-changed">changed</span>',
                 '<span class="badge secondary">DCE</span>'
-            ].every((fragment) => html.includes(fragment))
+            ]
+                .every(function (fragment) {
+                    return html.includes(fragment);
+                })
         );
         assert.match(
             html,
@@ -67,7 +71,7 @@ suite('html-renderer', function () {
         const changedHtml = renderHtmlReport(createPreviewDocumentFixture());
         const unchangedHtml = renderHtmlReport(
             createPreviewDocumentFixture({
-                packages: [createPreviewPackageFixture({ hasChanges: false, openByDefault: false })]
+                packages: [ createPreviewPackageFixture({ hasChanges: false, openByDefault: false }) ]
             })
         );
 
@@ -78,7 +82,7 @@ suite('html-renderer', function () {
     test('renders issues and diagnostics sections', function () {
         const html = renderHtmlReport(
             createPreviewDocumentFixture({
-                issues: ['<bad>'],
+                issues: [ '<bad>' ],
                 packages: [
                     createPreviewPackageFixture({
                         diagnostics: {
@@ -107,7 +111,7 @@ suite('html-renderer', function () {
     test('renders a failure paragraph when the package failed', function () {
         const html = renderHtmlReport(
             createPreviewDocumentFixture({
-                packages: [createPreviewPackageFixture({ failure: { stage: 'publish', message: 'boom' } })]
+                packages: [ createPreviewPackageFixture({ failure: { stage: 'publish', message: 'boom' } }) ]
             })
         );
 
@@ -117,7 +121,7 @@ suite('html-renderer', function () {
     test('omits eliminated, diff, and diagnostics blocks when the package has none', function () {
         const html = renderHtmlReport(
             createPreviewDocumentFixture({
-                packages: [createManifestOnlyPreviewPackageFixture()]
+                packages: [ createManifestOnlyPreviewPackageFixture() ]
             })
         );
 
@@ -132,8 +136,8 @@ suite('html-renderer', function () {
         const document = createPreviewDocumentFixture();
         const html = renderHtmlReport(document);
 
-        const scriptMatch =
-            /<script type="application\/json" id="packtory-report-data">(?<encoded>[\s\S]*?)<\/script>/u.exec(html);
+        const scriptMatch = /<script type="application\/json" id="packtory-report-data">(?<encoded>[\s\S]*?)<\/script>/u
+            .exec(html);
         const encoded = scriptMatch?.groups?.encoded;
         if (encoded === undefined) {
             assert.fail('expected packtory-report-data script tag');

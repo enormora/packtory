@@ -16,14 +16,14 @@ const textDiffablePatterns: readonly RegExp[] = [
     /\.map$/
 ];
 
-const textDiffableBasenames: ReadonlySet<string> = new Set(['LICENSE', 'COPYING', 'NOTICE', 'CHANGELOG', 'readme']);
+const textDiffableBasenames: ReadonlySet<string> = new Set([ 'LICENSE', 'COPYING', 'NOTICE', 'CHANGELOG', 'readme' ]);
 
 function basenameOf(targetFilePath: string): string {
     return targetFilePath.slice(targetFilePath.lastIndexOf('/') + 1);
 }
 
 export function isTextDiffablePath(targetFilePath: string): boolean {
-    const matchesPattern = textDiffablePatterns.some((pattern) => {
+    const matchesPattern = textDiffablePatterns.some(function (pattern) {
         return pattern.test(targetFilePath);
     });
     if (matchesPattern) {

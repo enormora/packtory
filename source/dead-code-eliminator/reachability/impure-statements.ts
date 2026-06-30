@@ -10,7 +10,7 @@ export function collectImpureStatements(
     for (const statement of classifySideEffects(sourceFile, deadCodeElimination)) {
         impureLines.add(statement.line);
     }
-    return sourceFile.getStatements().filter((statement) => {
+    return sourceFile.getStatements().filter(function (statement) {
         return impureLines.has(statement.getStartLineNumber()) && !TsMorphNode.isImportDeclaration(statement);
     });
 }

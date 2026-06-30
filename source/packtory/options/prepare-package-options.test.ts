@@ -16,7 +16,7 @@ function minimalPackageConfigsByName(): PackageConfigsByName {
 }
 
 function minimalPacktoryConfig(): PacktoryConfigWithoutRegistry {
-    return { packages: [] } as unknown as PacktoryConfigWithoutRegistry;
+    return { packages: [] };
 }
 
 suite('prepare-package-options', function () {

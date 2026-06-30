@@ -6,9 +6,9 @@ export function buildMapPathTransformIndex(
     outputs: readonly AnalyzedResourceOutput[]
 ): ReadonlyMap<string, TransformRecord> {
     return new Map<string, TransformRecord>(
-        outputs.flatMap((output) => {
-            return output.transforms.map((transform) => {
-                return [`${output.resource.fileDescription.targetFilePath}.map`, transform] as const;
+        outputs.flatMap(function (output) {
+            return output.transforms.map(function (transform) {
+                return [ `${output.resource.fileDescription.targetFilePath}.map`, transform ] as const;
             });
         })
     );
@@ -18,7 +18,7 @@ export function recomposePairedSourceMaps(
     contents: readonly AnalyzedBundleResource[],
     transformsByMapPath: ReadonlyMap<string, TransformRecord>
 ): readonly AnalyzedBundleResource[] {
-    return contents.map((resource) => {
+    return contents.map(function (resource) {
         const transform = transformsByMapPath.get(resource.fileDescription.targetFilePath);
         if (transform === undefined) {
             return resource;

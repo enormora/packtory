@@ -14,7 +14,7 @@ export type SubstitutedResourceGraph = {
     add: (filePath: string, data: SubstitutedResourceGraphNodeData) => void;
     connect: (fromFilePath: string, toFilePath: string) => void;
     isKnown: (filePath: string) => boolean;
-    flatten: (rootFilePaths: string[]) => Except<LinkedBundle, 'name' | 'roots' | 'surface'>;
+    flatten: (rootFilePaths: readonly string[]) => Except<LinkedBundle, 'name' | 'roots' | 'surface'>;
 };
 
 function addOrCreateReference(
@@ -25,13 +25,13 @@ function addOrCreateReference(
     if (externalDependency === undefined) {
         return {
             name: externalDependencyName,
-            referencedFrom: [reference]
+            referencedFrom: [ reference ]
         };
     }
 
     return {
         name: externalDependencyName,
-        referencedFrom: unique([...externalDependency.referencedFrom, reference])
+        referencedFrom: unique([ ...externalDependency.referencedFrom, reference ])
     };
 }
 
@@ -41,9 +41,9 @@ type FlattenCollectors = {
         data: SubstitutedResourceGraphNodeData,
         directDependencies: ReadonlySet<string>
     ) => void;
-    readonly contents: LinkedBundleResource[];
-    readonly linkedBundleDependencies: Map<string, ExternalDependency>;
-    readonly externalDependencies: Map<string, ExternalDependency>;
+    readonly contents: readonly LinkedBundleResource[];
+    readonly linkedBundleDependencies: ReadonlyMap<string, ExternalDependency>;
+    readonly externalDependencies: ReadonlyMap<string, ExternalDependency>;
 };
 
 function createFlattenCollectors(): FlattenCollectors {
@@ -67,7 +67,7 @@ function createFlattenCollectors(): FlattenCollectors {
             directDependencies,
             isSubstituted: data.isSubstituted,
             isExplicitlyIncluded: data.isExplicitlyIncluded,
-            ...(data.isGeneratedManifest ? { isGeneratedManifest: true } : {})
+            ...data.isGeneratedManifest && { isGeneratedManifest: true }
         });
 
         for (const bundleDependencyName of data.bundleDependencies) {
@@ -110,12 +110,12 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
             const { collect, contents, linkedBundleDependencies, externalDependencies } = createFlattenCollectors();
 
             for (const rootFilePath of rootFilePaths) {
-                graph.visitBreadthFirstSearch(rootFilePath, (node) => {
+                graph.visitBreadthFirstSearch(rootFilePath, function (node) {
                     collect(node.id, node.data, node.adjacentNodeIds);
                 });
             }
 
-            for (const [filePath, data] of nodeDataByFilePath) {
+            for (const [ filePath, data ] of nodeDataByFilePath) {
                 if (data.isExplicitlyIncluded) {
                     const directDependencies = graph.getAdjacentIds(filePath);
                     collect(filePath, data, directDependencies);

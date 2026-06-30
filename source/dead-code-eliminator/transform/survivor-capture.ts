@@ -18,7 +18,7 @@ function captureNamedDeclarationSurvivor(
 ): readonly Survivor[] {
     const name = statement.getName();
     if (name === undefined || survivingNames.has(name)) {
-        return [captureSurvivor(statement)];
+        return [ captureSurvivor(statement) ];
     }
     return [];
 }
@@ -28,11 +28,11 @@ function captureVariableStatementSurvivors(
     survivingNames: ReadonlySet<string>
 ): readonly Survivor[] {
     const declarators = statement.getDeclarations();
-    const survivingDeclarators = declarators.filter((declarator) => {
+    const survivingDeclarators = declarators.filter(function (declarator) {
         return variableDeclarationSurvives(declarator, survivingNames);
     });
     if (survivingDeclarators.length === declarators.length) {
-        return [captureSurvivor(statement)];
+        return [ captureSurvivor(statement) ];
     }
     return survivingDeclarators.map(captureSurvivor);
 }
@@ -47,5 +47,5 @@ export function captureSurvivorsForStatement(
     if (TsMorphNode.isVariableStatement(statement)) {
         return captureVariableStatementSurvivors(statement, survivingNames);
     }
-    return [captureSurvivor(statement)];
+    return [ captureSurvivor(statement) ];
 }

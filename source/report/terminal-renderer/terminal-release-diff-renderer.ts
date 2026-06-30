@@ -7,14 +7,12 @@ type TerminalReleaseDiffRendererOptions = {
 };
 
 function renderDocumentSummary(document: ReleaseDiffDocument, colors: Colors): string {
-    const packageLine =
-        `${document.summary.totalPackages} package(s) · ` +
+    const packageLine = `${document.summary.totalPackages} package(s) · ` +
         `${document.summary.changedPackages} changed · ` +
         `${document.summary.firstPublishPackages} first-publish · ` +
         `${document.summary.unchangedPackages} unchanged · ` +
         `${document.summary.failedPackages} failed`;
-    const fileLine =
-        `${document.summary.addedFiles} files added · ` +
+    const fileLine = `${document.summary.addedFiles} files added · ` +
         `${document.summary.removedFiles} removed · ` +
         `${document.summary.modifiedFiles} modified`;
     const indentedFileLine = `            · ${fileLine}`;
@@ -31,11 +29,14 @@ function renderIssuesSection(document: ReleaseDiffDocument, colors: Colors): str
         return undefined;
     }
 
-    return `${colors.red('Issues')}\n${document.issues
-        .map((issue) => {
-            return `- ${issue}`;
-        })
-        .join('\n')}`;
+    return `${colors.red('Issues')}\n${
+        document
+            .issues
+            .map(function (issue) {
+                return `- ${issue}`;
+            })
+            .join('\n')
+    }`;
 }
 
 export function renderTerminalReleaseDiff(
@@ -43,7 +44,7 @@ export function renderTerminalReleaseDiff(
     options: TerminalReleaseDiffRendererOptions = {}
 ): string {
     const colors = createColors(options.color);
-    const sections = [renderDocumentHeader(document, colors), renderDocumentSummary(document, colors)];
+    const sections = [ renderDocumentHeader(document, colors), renderDocumentSummary(document, colors) ];
     const issuesSection = renderIssuesSection(document, colors);
 
     if (issuesSection !== undefined) {

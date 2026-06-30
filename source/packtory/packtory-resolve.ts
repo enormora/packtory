@@ -9,7 +9,7 @@ import { buildChecksResult, type CheckError, type ResolvedPackage } from './reso
 export type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
 
 type ResolveDependencies = PackageAnalysisDependencies & PackageResolutionDependencies;
-type CheckDependencies = ResolveDependencies & { readonly versionManager: Pick<VersionManager, 'addVersion'> };
+export type CheckDependencies = ResolveDependencies & { readonly versionManager: Pick<VersionManager, 'addVersion'>; };
 
 export function createResolveAndLinkAllValidated(
     dependencies: CheckDependencies

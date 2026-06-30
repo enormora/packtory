@@ -8,23 +8,23 @@ import { getReferencedModules } from './source-file-references.ts';
 const packageJsonPath = '/package.json';
 
 const builtinImportArbitrary = fc.constantFrom(
-    ...builtinModules.filter((moduleName) => {
+    ...builtinModules.filter(function (moduleName) {
         return !moduleName.startsWith('_');
     })
 );
-const unresolvedImportArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,10}$/).filter((moduleName) => {
+const unresolvedImportArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,10}$/).filter(function (moduleName) {
     return !builtinModules.includes(moduleName) && !builtinModules.includes(`node:${moduleName}`);
 });
 
 suite('source-file-references', function () {
     test('getReferencedModules() does not throw for builtin imports', function () {
         fc.assert(
-            fc.property(builtinImportArbitrary, (moduleName) => {
+            fc.property(builtinImportArbitrary, function (moduleName) {
                 const project = createProject({
-                    withFiles: [{ filePath: 'main.ts', content: `import value from "${moduleName}";` }]
+                    withFiles: [ { filePath: 'main.ts', content: `import value from "${moduleName}";` } ]
                 });
 
-                assert.doesNotThrow(() => {
+                assert.doesNotThrow(function () {
                     getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
                 });
             })
@@ -33,12 +33,12 @@ suite('source-file-references', function () {
 
     test('getReferencedModules() throws for unresolved non-builtin imports', function () {
         fc.assert(
-            fc.property(unresolvedImportArbitrary, (moduleName) => {
+            fc.property(unresolvedImportArbitrary, function (moduleName) {
                 const project = createProject({
-                    withFiles: [{ filePath: 'main.ts', content: `import value from "${moduleName}";` }]
+                    withFiles: [ { filePath: 'main.ts', content: `import value from "${moduleName}";` } ]
                 });
 
-                assert.throws(() => {
+                assert.throws(function () {
                     getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
                 }, Error);
             })

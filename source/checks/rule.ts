@@ -36,10 +36,10 @@ export type RulePackageConfig = {
 export type RuleRunParams<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
     readonly bundles: readonly AnalyzedBundle[];
     readonly publishedPackages?: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
-    readonly settings: Readonly<Partial<Record<TName, TGlobal | undefined>>> | undefined;
+    readonly settings: Readonly<Partial<Readonly<Record<TName, TGlobal | undefined>>>> | undefined;
     readonly perPackageSettings: ReadonlyMap<
         string,
-        Readonly<Partial<Record<TName, TPerPackage | undefined>>> | undefined
+        Readonly<Partial<Readonly<Record<TName, TPerPackage | undefined>>>> | undefined
     >;
     readonly packageConfigs?: Readonly<Record<string, RulePackageConfig>>;
 };

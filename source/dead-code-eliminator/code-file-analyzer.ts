@@ -23,6 +23,11 @@ export type AnalyzedResourceOutput = {
     readonly transforms: readonly TransformRecord[];
 };
 
+type TransformedSourceFile = {
+    readonly transformedCode: string;
+    readonly atoms: readonly PositionAtom[];
+};
+
 const noTransforms: readonly TransformRecord[] = [];
 
 function allBindingNamesFor(loaded: LoadedCodeResource): ReadonlySet<string> {
@@ -36,8 +41,8 @@ function allBindingNamesFor(loaded: LoadedCodeResource): ReadonlySet<string> {
 function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet<string>): ReadonlySet<string> {
     const { sourceFilePath } = loaded.resource.fileDescription;
     return new Set(
-        loaded.bindings.flatMap((binding) => {
-            return reachable.has(bindingId(sourceFilePath, binding.name)) ? [binding.name] : [];
+        loaded.bindings.flatMap(function (binding) {
+            return reachable.has(bindingId(sourceFilePath, binding.name)) ? [ binding.name ] : [];
         })
     );
 }
@@ -45,7 +50,7 @@ function reachableBindingsFor(loaded: LoadedCodeResource, reachable: ReadonlySet
 function transformSourceFile(
     sourceFile: SourceFile,
     surviving: ReadonlySet<string>
-): { readonly transformedCode: string; readonly atoms: readonly PositionAtom[] } {
+): TransformedSourceFile {
     const result = applyRemovalPlan(sourceFile, { survivingNames: surviving });
     return { transformedCode: sourceFile.getFullText(), atoms: result.atoms };
 }
@@ -87,6 +92,6 @@ export function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisC
             fileDescription: { ...loaded.resource.fileDescription, content: transformedCode },
             analysis
         },
-        transforms: [{ originalCode, transformedCode, atoms }]
+        transforms: [ { originalCode, transformedCode, atoms } ]
     };
 }

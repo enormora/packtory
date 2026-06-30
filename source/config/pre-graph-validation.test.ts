@@ -10,27 +10,27 @@ function pkg(overrides: Partial<PackageConfig>): PackageConfig {
         roots: { main: { js: 'index.js' } },
         sourcesFolder: 'src',
         ...overrides
-    } as unknown as PackageConfig;
+    };
 }
 
 suite('pre-graph-validation', function () {
     test('packageListToRecord indexes packages by name', function () {
-        const a = pkg({ name: 'a' });
-        const b = pkg({ name: 'b' });
+        const packageA = pkg({ name: 'a' });
+        const packageB = pkg({ name: 'b' });
 
-        assert.deepStrictEqual(packageListToRecord([a, b]), { a, b });
+        assert.deepStrictEqual(packageListToRecord([ packageA, packageB ]), { a: packageA, b: packageB });
     });
 
     test('collectPreGraphIssues returns no issues for a well-formed single-package config with publishSettings on the package', function () {
         const config = {
-            packages: [pkg({ publishSettings: { access: 'public' } as never })]
+            packages: [ pkg({ publishSettings: { access: 'public' } as never }) ]
         } as PacktoryConfigWithoutRegistry;
 
         assert.deepStrictEqual(collectPreGraphIssues(config), []);
     });
 
     test('collectPreGraphIssues reports a missing publishSettings placement', function () {
-        const config = { packages: [pkg({})] } as PacktoryConfigWithoutRegistry;
+        const config = { packages: [ pkg({}) ] } as PacktoryConfigWithoutRegistry;
 
         assert.ok(
             collectPreGraphIssues(config).includes(
@@ -44,7 +44,7 @@ suite('pre-graph-validation', function () {
             packages: [
                 pkg({
                     publishSettings: { access: 'public' } as never,
-                    bundleDependencies: ['missing']
+                    bundleDependencies: [ 'missing' ]
                 })
             ]
         } as PacktoryConfigWithoutRegistry;

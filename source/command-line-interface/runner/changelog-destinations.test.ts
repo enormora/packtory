@@ -14,7 +14,15 @@ import {
 
 const deps = { workingDirectory: '/repo' } as const;
 
-function createChangelogConfig(overrides: Partial<ChangelogConfig> = {}): ChangelogConfig {
+type GeneratedChangelogOverrides = {
+    readonly packageMarkdownByName?: ReadonlyMap<string, string>;
+};
+type ChangelogUpdateInput = {
+    readonly existingChangelogMarkdown: string;
+    readonly generatedChangelogMarkdown: string;
+};
+
+function createChangelogConfig(overrides: Readonly<Partial<ChangelogConfig>> = {}): ChangelogConfig {
     return {
         changelog: {
             outputs: [
@@ -32,25 +40,23 @@ function createChangelogConfig(overrides: Partial<ChangelogConfig> = {}): Change
     };
 }
 
-function createGeneratedChangelog(
-    overrides: { readonly packageMarkdownByName?: ReadonlyMap<string, string> } = {}
-): GeneratedChangelog {
+function createGeneratedChangelog(overrides: GeneratedChangelogOverrides = {}): GeneratedChangelog {
     return {
         groupedMarkdown: 'grouped',
         packageNamesWithoutChangelogEntries: [],
-        packageMarkdownByName: overrides.packageMarkdownByName ?? new Map([['pkg-a', 'package-a']])
+        packageMarkdownByName: overrides.packageMarkdownByName ?? new Map([ [ 'pkg-a', 'package-a' ] ])
     };
 }
 
 async function assertRepositoryReadFailureRethrown(error: Error, messagePattern: RegExp): Promise<void> {
     const fileManager = createFakeFileManager({
-        simulatedReadFileResponses: [{ error }]
+        simulatedReadFileResponses: [ { error } ]
     });
 
     await assert.rejects(
         writeConfiguredChangelogs(
             { ...deps, fileManager },
-            createChangelogConfig({ changelog: { outputs: [{ kind: 'repository-file', path: 'CHANGELOG.md' }] } }),
+            createChangelogConfig({ changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] } }),
             { updateChangelog: fake.returns('updated') },
             createGeneratedChangelog()
         ),
@@ -61,20 +67,6 @@ async function assertRepositoryReadFailureRethrown(error: Error, messagePattern:
 suite('changelog-destinations', function () {
     test('parseValidConfig returns undefined for invalid configs', function () {
         assert.strictEqual(parseValidConfig({ packages: [] }), undefined);
-    });
-
-    test('collectGeneratedAttributionPaths returns no paths when outputs are absent', function () {
-        assert.deepStrictEqual(
-            collectGeneratedAttributionPaths(deps, createChangelogConfig({ changelog: undefined })),
-            []
-        );
-        assert.deepStrictEqual(
-            collectGeneratedAttributionPaths(
-                deps,
-                createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } })
-            ),
-            []
-        );
     });
 
     test('createChangelogGenerationOptions combines defaults with configured settings', function () {
@@ -96,30 +88,230 @@ suite('changelog-destinations', function () {
         assert.strictEqual(options.validLabels.get('operations'), 'Operations');
     });
 
-    test('collectGeneratedAttributionPaths includes repository and in-repository package files', function () {
-        assert.deepStrictEqual(collectGeneratedAttributionPaths(deps, createChangelogConfig()), [
-            'CHANGELOG.md',
-            'src/pkg-a/docs/CHANGELOG.md'
-        ]);
+    suite('collectGeneratedAttributionPaths', function () {
+        test('returns no paths when outputs are absent', function () {
+            assert.deepStrictEqual(
+                collectGeneratedAttributionPaths(deps, createChangelogConfig({ changelog: undefined })),
+                []
+            );
+            assert.deepStrictEqual(
+                collectGeneratedAttributionPaths(
+                    deps,
+                    createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } })
+                ),
+                []
+            );
+        });
+
+        test('includes repository and in-repository package files', function () {
+            assert.deepStrictEqual(collectGeneratedAttributionPaths(deps, createChangelogConfig()), [
+                'CHANGELOG.md',
+                'src/pkg-a/docs/CHANGELOG.md'
+            ]);
+        });
+
+        test('uses common sourcesFolder for package files', function () {
+            assert.deepStrictEqual(
+                collectGeneratedAttributionPaths(
+                    deps,
+                    createChangelogConfig({
+                        changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+                        packages: [ { name: 'pkg-a' } ]
+                    })
+                ),
+                [ 'src/CHANGELOG.md' ]
+            );
+        });
+
+        test('includes explicit package file paths', function () {
+            assert.deepStrictEqual(
+                collectGeneratedAttributionPaths(
+                    deps,
+                    createChangelogConfig({
+                        changelog: {
+                            outputs: [
+                                {
+                                    kind: 'package-file',
+                                    paths: {
+                                        'pkg-a': 'packages/pkg-a/CHANGELOG.md',
+                                        'pkg-b': 'packages/pkg-b/CHANGELOG.md'
+                                    }
+                                }
+                            ]
+                        },
+                        commonPackageSettings: undefined,
+                        packages: [ { name: 'pkg-a' }, { name: 'pkg-b' } ]
+                    })
+                ),
+                [ 'packages/pkg-a/CHANGELOG.md', 'packages/pkg-b/CHANGELOG.md' ]
+            );
+        });
+
+        test('ignores github-release outputs', function () {
+            assert.deepStrictEqual(
+                collectGeneratedAttributionPaths(
+                    deps,
+                    createChangelogConfig({ changelog: { outputs: [ { kind: 'github-release' } ] } })
+                ),
+                []
+            );
+        });
+
+        test('reports package-file outputs without sourcesFolder', function () {
+            assert.throws(function () {
+                collectGeneratedAttributionPaths(
+                    deps,
+                    createChangelogConfig({
+                        changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+                        commonPackageSettings: undefined,
+                        packages: [ { name: 'pkg-a' } ]
+                    })
+                );
+            }, /Config for package "pkg-a" is missing the sources folder/u);
+        });
     });
 
-    test('collectGeneratedAttributionPaths uses common sourcesFolder for package files', function () {
-        assert.deepStrictEqual(
-            collectGeneratedAttributionPaths(
-                deps,
-                createChangelogConfig({
-                    changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
-                    packages: [{ name: 'pkg-a' }]
-                })
-            ),
-            ['src/CHANGELOG.md']
+    test('shouldPageGroupedChangelog follows default and github-release output behavior', function () {
+        assert.strictEqual(shouldPageGroupedChangelog(undefined), true);
+        assert.strictEqual(shouldPageGroupedChangelog([ { kind: 'repository-file', path: 'CHANGELOG.md' } ]), false);
+        assert.strictEqual(shouldPageGroupedChangelog([ { kind: 'github-release' } ]), true);
+        assert.strictEqual(
+            shouldPageGroupedChangelog([
+                { kind: 'repository-file', path: 'CHANGELOG.md' },
+                { kind: 'github-release' }
+            ]),
+            true
         );
     });
 
-    test('collectGeneratedAttributionPaths includes explicit package file paths', function () {
-        assert.deepStrictEqual(
-            collectGeneratedAttributionPaths(
-                deps,
+    suite('writeConfiguredChangelogs repository outputs', function () {
+        test('does nothing when outputs are absent', async function () {
+            const fileManager = createFakeFileManager();
+
+            const writtenPaths = await writeConfiguredChangelogs(
+                { ...deps, fileManager },
+                createChangelogConfig({ changelog: undefined }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog()
+            );
+
+            assert.deepStrictEqual(writtenPaths, []);
+            assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
+        });
+
+        test('does nothing when outputs are omitted from changelog config', async function () {
+            const fileManager = createFakeFileManager();
+
+            const writtenPaths = await writeConfiguredChangelogs(
+                { ...deps, fileManager },
+                createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog()
+            );
+
+            assert.deepStrictEqual(writtenPaths, []);
+            assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
+        });
+
+        test('passes empty existing markdown for missing files', async function () {
+            const missingFileError = Object.assign(new Error('missing'), { code: 'ENOENT' });
+            const fileManager = createFakeFileManager({
+                simulatedReadFileResponses: [ { error: missingFileError } ]
+            });
+            const updateChangelog = fake(
+                function (input: ChangelogUpdateInput) {
+                    assert.strictEqual(input.existingChangelogMarkdown, '');
+                    return input.generatedChangelogMarkdown;
+                }
+            );
+
+            const writtenPaths = await writeConfiguredChangelogs(
+                { ...deps, fileManager },
+                createChangelogConfig({
+                    changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
+                }),
+                { updateChangelog },
+                createGeneratedChangelog()
+            );
+
+            assert.deepStrictEqual(writtenPaths, [ '/repo/CHANGELOG.md' ]);
+            assert.strictEqual(updateChangelog.callCount, 1);
+        });
+
+        test('skips empty generated markdown', async function () {
+            const fileManager = createFakeFileManager();
+
+            const writtenPaths = await writeConfiguredChangelogs(
+                { ...deps, fileManager },
+                createChangelogConfig({
+                    changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
+                }),
+                { updateChangelog: fake.returns('updated') },
+                { groupedMarkdown: '', packageNamesWithoutChangelogEntries: [], packageMarkdownByName: new Map() }
+            );
+
+            assert.deepStrictEqual(writtenPaths, []);
+            assert.strictEqual(fileManager.getReadFileCallCount(), 0);
+            assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
+        });
+    });
+
+    suite('writeConfiguredChangelogs package outputs', function () {
+        test('reports package markdown without config', async function () {
+            const fileManager = createFakeFileManager();
+
+            await assert.rejects(
+                writeConfiguredChangelogs(
+                    { ...deps, fileManager },
+                    createChangelogConfig({
+                        changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] }
+                    }),
+                    { updateChangelog: fake.returns('updated') },
+                    createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'missing', 'markdown' ] ]) })
+                ),
+                /Config for package "missing" is missing/u
+            );
+        });
+
+        test('reports package-file outputs without sourcesFolder', async function () {
+            const fileManager = createFakeFileManager();
+
+            await assert.rejects(
+                writeConfiguredChangelogs(
+                    { ...deps, fileManager },
+                    createChangelogConfig({
+                        changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+                        commonPackageSettings: undefined,
+                        packages: [ { name: 'pkg-a' } ]
+                    }),
+                    { updateChangelog: fake.returns('updated') },
+                    createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'pkg-a', 'markdown' ] ]) })
+                ),
+                /Config for package "pkg-a" is missing the sources folder/u
+            );
+        });
+
+        test('uses common sourcesFolder for package-file outputs', async function () {
+            const fileManager = createFakeFileManager();
+
+            const writtenPaths = await writeConfiguredChangelogs(
+                { ...deps, fileManager },
+                createChangelogConfig({
+                    changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+                    packages: [ { name: 'pkg-a' } ]
+                }),
+                { updateChangelog: fake.returns('updated') },
+                createGeneratedChangelog({ packageMarkdownByName: new Map([ [ 'pkg-a', 'markdown' ] ]) })
+            );
+
+            assert.deepStrictEqual(writtenPaths, [ '/repo/src/CHANGELOG.md' ]);
+        });
+
+        test('writes explicit package-file changelog outputs', async function () {
+            const fileManager = createFakeFileManager();
+
+            const writtenPaths = await writeConfiguredChangelogs(
+                { ...deps, fileManager },
                 createChangelogConfig({
                     changelog: {
                         outputs: [
@@ -131,235 +323,70 @@ suite('changelog-destinations', function () {
                                 }
                             }
                         ]
-                    },
-                    commonPackageSettings: undefined,
-                    packages: [{ name: 'pkg-a' }, { name: 'pkg-b' }]
-                })
-            ),
-            ['packages/pkg-a/CHANGELOG.md', 'packages/pkg-b/CHANGELOG.md']
-        );
-    });
-
-    test('collectGeneratedAttributionPaths ignores github-release outputs', function () {
-        assert.deepStrictEqual(
-            collectGeneratedAttributionPaths(
-                deps,
-                createChangelogConfig({ changelog: { outputs: [{ kind: 'github-release' }] } })
-            ),
-            []
-        );
-    });
-
-    test('collectGeneratedAttributionPaths reports package-file outputs without sourcesFolder', function () {
-        assert.throws(() => {
-            collectGeneratedAttributionPaths(
-                deps,
-                createChangelogConfig({
-                    changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
-                    commonPackageSettings: undefined,
-                    packages: [{ name: 'pkg-a' }]
-                })
-            );
-        }, /Config for package "pkg-a" is missing the sources folder/u);
-    });
-
-    test('shouldPageGroupedChangelog follows default and github-release output behavior', function () {
-        assert.strictEqual(shouldPageGroupedChangelog(undefined), true);
-        assert.strictEqual(shouldPageGroupedChangelog([{ kind: 'repository-file', path: 'CHANGELOG.md' }]), false);
-        assert.strictEqual(shouldPageGroupedChangelog([{ kind: 'github-release' }]), true);
-    });
-
-    test('writeConfiguredChangelogs does nothing when outputs are absent', async function () {
-        const fileManager = createFakeFileManager();
-
-        const writtenPaths = await writeConfiguredChangelogs(
-            { ...deps, fileManager },
-            createChangelogConfig({ changelog: undefined }),
-            { updateChangelog: fake.returns('updated') },
-            createGeneratedChangelog()
-        );
-
-        assert.deepStrictEqual(writtenPaths, []);
-        assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
-    });
-
-    test('writeConfiguredChangelogs does nothing when outputs are omitted from changelog config', async function () {
-        const fileManager = createFakeFileManager();
-
-        const writtenPaths = await writeConfiguredChangelogs(
-            { ...deps, fileManager },
-            createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } }),
-            { updateChangelog: fake.returns('updated') },
-            createGeneratedChangelog()
-        );
-
-        assert.deepStrictEqual(writtenPaths, []);
-        assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
-    });
-
-    test('writeConfiguredChangelogs passes empty existing markdown for missing files', async function () {
-        const missingFileError = Object.assign(new Error('missing'), { code: 'ENOENT' });
-        const fileManager = createFakeFileManager({
-            simulatedReadFileResponses: [{ error: missingFileError }]
-        });
-        const updateChangelog = fake(
-            (input: { readonly existingChangelogMarkdown: string; readonly generatedChangelogMarkdown: string }) => {
-                assert.strictEqual(input.existingChangelogMarkdown, '');
-                return input.generatedChangelogMarkdown;
-            }
-        );
-
-        const writtenPaths = await writeConfiguredChangelogs(
-            { ...deps, fileManager },
-            createChangelogConfig({ changelog: { outputs: [{ kind: 'repository-file', path: 'CHANGELOG.md' }] } }),
-            { updateChangelog },
-            createGeneratedChangelog()
-        );
-
-        assert.deepStrictEqual(writtenPaths, ['/repo/CHANGELOG.md']);
-        assert.strictEqual(updateChangelog.callCount, 1);
-    });
-
-    test('writeConfiguredChangelogs skips empty generated markdown', async function () {
-        const fileManager = createFakeFileManager();
-
-        const writtenPaths = await writeConfiguredChangelogs(
-            { ...deps, fileManager },
-            createChangelogConfig({ changelog: { outputs: [{ kind: 'repository-file', path: 'CHANGELOG.md' }] } }),
-            { updateChangelog: fake.returns('updated') },
-            { groupedMarkdown: '', packageNamesWithoutChangelogEntries: [], packageMarkdownByName: new Map() }
-        );
-
-        assert.deepStrictEqual(writtenPaths, []);
-        assert.strictEqual(fileManager.getReadFileCallCount(), 0);
-        assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
-    });
-
-    test('writeConfiguredChangelogs reports package markdown without config', async function () {
-        const fileManager = createFakeFileManager();
-
-        await assert.rejects(
-            writeConfiguredChangelogs(
-                { ...deps, fileManager },
-                createChangelogConfig({ changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] } }),
-                { updateChangelog: fake.returns('updated') },
-                createGeneratedChangelog({ packageMarkdownByName: new Map([['missing', 'markdown']]) })
-            ),
-            /Config for package "missing" is missing/u
-        );
-    });
-
-    test('writeConfiguredChangelogs reports package-file outputs without sourcesFolder', async function () {
-        const fileManager = createFakeFileManager();
-
-        await assert.rejects(
-            writeConfiguredChangelogs(
-                { ...deps, fileManager },
-                createChangelogConfig({
-                    changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
-                    commonPackageSettings: undefined,
-                    packages: [{ name: 'pkg-a' }]
-                }),
-                { updateChangelog: fake.returns('updated') },
-                createGeneratedChangelog({ packageMarkdownByName: new Map([['pkg-a', 'markdown']]) })
-            ),
-            /Config for package "pkg-a" is missing the sources folder/u
-        );
-    });
-
-    test('writeConfiguredChangelogs uses common sourcesFolder for package-file outputs', async function () {
-        const fileManager = createFakeFileManager();
-
-        const writtenPaths = await writeConfiguredChangelogs(
-            { ...deps, fileManager },
-            createChangelogConfig({
-                changelog: { outputs: [{ kind: 'package-file', path: 'CHANGELOG.md' }] },
-                packages: [{ name: 'pkg-a' }]
-            }),
-            { updateChangelog: fake.returns('updated') },
-            createGeneratedChangelog({ packageMarkdownByName: new Map([['pkg-a', 'markdown']]) })
-        );
-
-        assert.deepStrictEqual(writtenPaths, ['/repo/src/CHANGELOG.md']);
-    });
-
-    test('writeConfiguredChangelogs writes explicit package-file changelog outputs', async function () {
-        const fileManager = createFakeFileManager();
-
-        const writtenPaths = await writeConfiguredChangelogs(
-            { ...deps, fileManager },
-            createChangelogConfig({
-                changelog: {
-                    outputs: [
-                        {
-                            kind: 'package-file',
-                            paths: {
-                                'pkg-a': 'packages/pkg-a/CHANGELOG.md',
-                                'pkg-b': 'packages/pkg-b/CHANGELOG.md'
-                            }
-                        }
-                    ]
-                }
-            }),
-            {
-                updateChangelog: fake(
-                    (input: { readonly generatedChangelogMarkdown: string }) => input.generatedChangelogMarkdown
-                )
-            },
-            createGeneratedChangelog({
-                packageMarkdownByName: new Map([
-                    ['pkg-a', 'package-a'],
-                    ['pkg-b', 'package-b']
-                ])
-            })
-        );
-
-        assert.deepStrictEqual(writtenPaths, [
-            '/repo/packages/pkg-a/CHANGELOG.md',
-            '/repo/packages/pkg-b/CHANGELOG.md'
-        ]);
-        assert.deepStrictEqual(fileManager.getAllWriteFileCalls(), [
-            { filePath: '/repo/packages/pkg-a/CHANGELOG.md', content: 'package-a' },
-            { filePath: '/repo/packages/pkg-b/CHANGELOG.md', content: 'package-b' }
-        ]);
-    });
-
-    test('writeConfiguredChangelogs reports package markdown without an explicit path', async function () {
-        const fileManager = createFakeFileManager();
-
-        await assert.rejects(
-            writeConfiguredChangelogs(
-                { ...deps, fileManager },
-                createChangelogConfig({
-                    changelog: {
-                        outputs: [
-                            {
-                                kind: 'package-file',
-                                paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' }
-                            }
-                        ]
                     }
                 }),
-                { updateChangelog: fake.returns('updated') },
+                {
+                    updateChangelog: fake(
+                        function (input: ChangelogUpdateInput) {
+                            return input.generatedChangelogMarkdown;
+                        }
+                    )
+                },
                 createGeneratedChangelog({
                     packageMarkdownByName: new Map([
-                        ['pkg-a', 'package-a'],
-                        ['pkg-b', 'package-b']
+                        [ 'pkg-a', 'package-a' ],
+                        [ 'pkg-b', 'package-b' ]
                     ])
                 })
-            ),
-            /Changelog output path for package "pkg-b" is missing/u
-        );
-    });
+            );
 
-    test('writeConfiguredChangelogs rethrows non-missing read failures', async function () {
-        await assertRepositoryReadFailureRethrown(new Error('read failed'), /read failed/u);
-    });
+            assert.deepStrictEqual(writtenPaths, [
+                '/repo/packages/pkg-a/CHANGELOG.md',
+                '/repo/packages/pkg-b/CHANGELOG.md'
+            ]);
+            assert.deepStrictEqual(fileManager.getAllWriteFileCalls(), [
+                { filePath: '/repo/packages/pkg-a/CHANGELOG.md', content: 'package-a' },
+                { filePath: '/repo/packages/pkg-b/CHANGELOG.md', content: 'package-b' }
+            ]);
+        });
 
-    test('writeConfiguredChangelogs rethrows non-missing file system failures', async function () {
-        await assertRepositoryReadFailureRethrown(
-            Object.assign(new Error('access denied'), { code: 'EACCES' }),
-            /access denied/u
-        );
+        test('reports package markdown without an explicit path', async function () {
+            const fileManager = createFakeFileManager();
+
+            await assert.rejects(
+                writeConfiguredChangelogs(
+                    { ...deps, fileManager },
+                    createChangelogConfig({
+                        changelog: {
+                            outputs: [
+                                {
+                                    kind: 'package-file',
+                                    paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' }
+                                }
+                            ]
+                        }
+                    }),
+                    { updateChangelog: fake.returns('updated') },
+                    createGeneratedChangelog({
+                        packageMarkdownByName: new Map([
+                            [ 'pkg-a', 'package-a' ],
+                            [ 'pkg-b', 'package-b' ]
+                        ])
+                    })
+                ),
+                /Changelog output path for package "pkg-b" is missing/u
+            );
+        });
+
+        test('rethrows non-missing read failures', async function () {
+            await assertRepositoryReadFailureRethrown(new Error('read failed'), /read failed/u);
+        });
+
+        test('rethrows non-missing file system failures', async function () {
+            await assertRepositoryReadFailureRethrown(
+                Object.assign(new Error('access denied'), { code: 'EACCES' }),
+                /access denied/u
+            );
+        });
     });
 });

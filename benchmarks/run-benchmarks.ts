@@ -4,7 +4,8 @@ import {
     workloadSizes,
     type CliResponsivenessMeasurement,
     type ThresholdsFile,
-    type ThroughputBenchmarkMeasurement
+    type ThroughputBenchmarkMeasurement,
+    type WorkloadsFile
 } from './benchmark-types.ts';
 import { formatMilliseconds, formatMultiplier } from './benchmark-formatting.ts';
 import { readJsonFile } from './benchmark-json.ts';
@@ -33,7 +34,8 @@ function formatThroughputRow(measurement: ThroughputBenchmarkMeasurement, effect
         `median ${formatMilliseconds(measurement.medianMs)}`,
         `threshold ${formatMilliseconds(effectiveThreshold)}`,
         `samples ${measurement.sampleCount}`
-    ].join(' ');
+    ]
+        .join(' ');
 }
 
 function formatCliRow(
@@ -53,7 +55,8 @@ function formatCliRow(
         `loop block ${formatMilliseconds(measurement.eventLoopSampledMaxBlockMs)}`,
         `frames ${measurement.frameCount}`,
         `samples ${measurement.sampleCount}`
-    ].join(' ');
+    ]
+        .join(' ');
 }
 
 function validateThroughputMeasurement(
@@ -88,14 +91,14 @@ function validateCliMeasurement(
 
 type BenchmarkFiles = {
     readonly thresholds: ThresholdsFile;
-    readonly workloads: ReturnType<typeof parseWorkloadsFile>;
+    readonly workloads: WorkloadsFile;
 };
 
 async function loadBenchmarkFiles(benchmarksDirectory: string): Promise<BenchmarkFiles> {
     const workloadsPath = path.join(benchmarksDirectory, 'workloads.json');
     const thresholdsPath = path.join(benchmarksDirectory, 'thresholds.json');
 
-    const [rawWorkloads, rawThresholds] = await Promise.all([
+    const [ rawWorkloads, rawThresholds ] = await Promise.all([
         readJsonFile(workloadsPath),
         readJsonFile(thresholdsPath)
     ]);
@@ -170,7 +173,7 @@ async function main(): Promise<void> {
     await runCliBenchmarks(thresholdMultiplier, benchmarkFiles);
 }
 
-await main().catch((error: unknown) => {
+await main().catch(function (error: unknown) {
     const message = error instanceof Error ? `${error.stack ?? error.message}\n` : `${String(error)}\n`;
     process.stderr.write(message);
     process.exitCode = 1;

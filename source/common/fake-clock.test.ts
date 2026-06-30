@@ -15,18 +15,18 @@ suite('fake-clock', function () {
         const clock = createFakeClock();
         const calls: string[] = [];
 
-        clock.setTimeout(() => {
+        clock.setTimeout(function () {
             calls.push('late');
         }, 10);
-        clock.setTimeout(() => {
+        clock.setTimeout(function () {
             calls.push('early');
         }, 5);
 
         clock.tick(5);
-        assert.deepStrictEqual(calls, ['early']);
+        assert.deepStrictEqual(calls, [ 'early' ]);
 
         clock.tick(5);
-        assert.deepStrictEqual(calls, ['early', 'late']);
+        assert.deepStrictEqual(calls, [ 'early', 'late' ]);
     });
 
     test('createFakeClock() runs zero-delay handlers immediately', function () {
@@ -34,20 +34,20 @@ suite('fake-clock', function () {
         const calls: string[] = [];
 
         clock.setTimeout(
-            (value: string) => {
+            function (value: string) {
                 calls.push(value);
             },
             0,
             'now'
         );
 
-        assert.deepStrictEqual(calls, ['now']);
+        assert.deepStrictEqual(calls, [ 'now' ]);
     });
 
     test('createFakeClock() can clear scheduled handlers', function () {
         const clock = createFakeClock();
         const calls: string[] = [];
-        const timeoutId = clock.setTimeout(() => {
+        const timeoutId = clock.setTimeout(function () {
             calls.push('should-not-run');
         }, 10);
 
@@ -60,10 +60,10 @@ suite('fake-clock', function () {
     test('createFakeClock() returns sequential timeout identifiers', function () {
         const clock = createFakeClock();
 
-        const firstTimeoutId = clock.setTimeout(() => {
+        const firstTimeoutId = clock.setTimeout(function () {
             return undefined;
         }, 10);
-        const secondTimeoutId = clock.setTimeout(() => {
+        const secondTimeoutId = clock.setTimeout(function () {
             return undefined;
         }, 10);
 
@@ -73,13 +73,13 @@ suite('fake-clock', function () {
 
     test('createFakeClock() keeps returning increasing timeout identifiers after clearing timers', function () {
         const clock = createFakeClock();
-        const firstTimeoutId = clock.setTimeout(() => {
+        const firstTimeoutId = clock.setTimeout(function () {
             return undefined;
         }, 10);
 
         clock.clearTimeout(firstTimeoutId);
 
-        const secondTimeoutId = clock.setTimeout(() => {
+        const secondTimeoutId = clock.setTimeout(function () {
             return undefined;
         }, 10);
 
@@ -90,8 +90,8 @@ suite('fake-clock', function () {
     test('createFakeClock() rejects negative delays', function () {
         const clock = createFakeClock();
 
-        assert.throws(() => {
-            clock.setTimeout(() => {
+        assert.throws(function () {
+            clock.setTimeout(function () {
                 return undefined;
             }, -1);
         }, /^Error: Invalid delay -1, must be greater than or equal to 0$/u);
@@ -100,10 +100,10 @@ suite('fake-clock', function () {
     test('createFakeClock() rejects non-finite delays', function () {
         const clock = createFakeClock();
 
-        assert.throws(() => {
-            clock.setTimeout(() => {
+        assert.throws(function () {
+            clock.setTimeout(function () {
                 return undefined;
-            }, Number.POSITIVE_INFINITY);
+            }, Infinity);
         }, /^TypeError: Invalid delay, must be a finite number$/u);
     });
 });

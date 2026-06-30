@@ -47,7 +47,7 @@ suite('additional-files', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/greeting.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/greeting.js') ]),
                         fileDescription: {
                             content:
                                 "import { greeting } from './greeting.js';\n\nexport function run() {\n    return greeting();\n}\n",

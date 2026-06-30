@@ -37,7 +37,7 @@ type BranchResponse = {
 
 type RawTimelineEvent = {
     readonly created_at?: string | null | undefined;
-    readonly committer?: { readonly date: string } | undefined;
+    readonly committer?: { readonly date: string; } | undefined;
     readonly event?: string | undefined;
 };
 
@@ -113,7 +113,7 @@ export function createGitHubReleaseGateApi(
 
     return {
         async getMainBranchHeadSha() {
-            const branch = await resolveGitHubResponse<{ readonly data: BranchResponse }>(
+            const branch = await resolveGitHubResponse<{ readonly data: BranchResponse; }>(
                 octokit.rest.repos.getBranch({
                     ...requestContext,
                     branch: context.defaultBranch
@@ -124,7 +124,7 @@ export function createGitHubReleaseGateApi(
         },
 
         async getMainCiRunStatus(ciWorkflowFile, headSha) {
-            const response = await resolveGitHubResponse<{ readonly data: WorkflowRunsResponse }>(
+            const response = await resolveGitHubResponse<{ readonly data: WorkflowRunsResponse; }>(
                 octokit.rest.actions.listWorkflowRuns({
                     ...requestContext,
                     workflow_id: ciWorkflowFile,
@@ -134,10 +134,10 @@ export function createGitHubReleaseGateApi(
                     per_page: 100
                 })
             );
-            const matchingRuns = response.data.workflow_runs.filter((run) => {
+            const matchingRuns = response.data.workflow_runs.filter(function (run) {
                 return run.head_sha === headSha && run.event === 'push';
             });
-            const successfulRun = matchingRuns.find((run) => {
+            const successfulRun = matchingRuns.find(function (run) {
                 return run.conclusion === 'success';
             });
 
@@ -151,7 +151,7 @@ export function createGitHubReleaseGateApi(
                 };
             }
 
-            const inProgressRun = matchingRuns.find((run) => {
+            const inProgressRun = matchingRuns.find(function (run) {
                 return run.status !== 'completed';
             });
 
@@ -173,7 +173,7 @@ export function createGitHubReleaseGateApi(
             );
 
             return Promise.all(
-                openPullRequests.map(async (pullRequest) => {
+                openPullRequests.map(async function (pullRequest) {
                     const timeline = await resolveGitHubResponse<readonly RawTimelineEvent[]>(
                         octokit.paginate(octokit.rest.issues.listEventsForTimeline, {
                             ...requestContext,
@@ -182,9 +182,10 @@ export function createGitHubReleaseGateApi(
                         })
                     );
                     const timelineEvents = timeline
-                        .map((event): PullRequestTimelineEvent | undefined => {
-                            const timestamp =
-                                event.event === 'committed' ? event.committer?.date : (event.created_at ?? undefined);
+                        .map(function (event): PullRequestTimelineEvent | undefined {
+                            const timestamp = event.event === 'committed'
+                                ? event.committer?.date
+                                : event.created_at ?? undefined;
                             if (timestamp === undefined) {
                                 return undefined;
                             }

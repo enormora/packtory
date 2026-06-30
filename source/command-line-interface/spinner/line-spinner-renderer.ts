@@ -15,13 +15,19 @@ function getSuccessSymbol(): string {
     return bold(green('✔'));
 }
 
+function getStatusSymbol(status: Status): string {
+    if (status === spinnerResultStatus.success) {
+        return getSuccessSymbol();
+    }
+    return getErrorSymbol();
+}
+
 function renderProgressLine(label: string, message: string): string {
     return `${label}: ${message}`;
 }
 
 function renderStopLine(status: Status, label: string, message: string): string {
-    const symbol = status === spinnerResultStatus.success ? getSuccessSymbol() : getErrorSymbol();
-    return `${symbol} ${renderProgressLine(label, message)}`;
+    return `${getStatusSymbol(status)} ${renderProgressLine(label, message)}`;
 }
 
 export function createLineSpinnerRenderer(dependencies: LineSpinnerRendererDependencies): TerminalSpinnerRenderer {

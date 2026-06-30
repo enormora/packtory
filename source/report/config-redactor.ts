@@ -11,7 +11,7 @@ export type RedactedPackageConfig = {
 };
 
 function findPackageConfig(config: PacktoryConfig, packageName: string): PackageConfig | undefined {
-    return config.packages.find((entry) => {
+    return config.packages.find(function (entry) {
         return entry.name === packageName;
     });
 }
@@ -33,8 +33,9 @@ export function redactConfigForPackage(config: PacktoryConfig, packageName: stri
     return pickBy(
         {
             name: packageName,
-            registrySettings:
-                config.registrySettings === undefined ? undefined : redactRegistrySettings(config.registrySettings),
+            registrySettings: config.registrySettings === undefined
+                ? undefined
+                : redactRegistrySettings(config.registrySettings),
             publishSettings,
             sourcesFolder
         },

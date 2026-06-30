@@ -62,7 +62,7 @@ export async function determineVersionAndPublishAll(
         PacktoryConfig
     >({
         config,
-        createOptions: (context) => {
+        createOptions(context) {
             const { packageName, existing, config: validatedConfig } = context;
             return configToBuildAndPublishOptions(
                 packageName,
@@ -75,29 +75,33 @@ export async function determineVersionAndPublishAll(
                 }
             );
         },
-        execute: withFailureCapture(dependencies.progressBroadcaster.provider, 'publish', async (buildOptions) => {
-            const analyzedBundle = analyzedBundlesByName[buildOptions.name];
-            if (analyzedBundle === undefined) {
-                throw new Error(`Analyzed bundle for package "${buildOptions.name}" is missing`);
-            }
+        execute: withFailureCapture(
+            dependencies.progressBroadcaster.provider,
+            'publish',
+            async function (buildOptions) {
+                const analyzedBundle = analyzedBundlesByName[buildOptions.name];
+                if (analyzedBundle === undefined) {
+                    throw new Error(`Analyzed bundle for package "${buildOptions.name}" is missing`);
+                }
 
-            const processorOptions: DetermineVersionAndPublishOptions = {
-                analyzedBundle,
-                buildOptions,
-                stage: options.stage,
-                substitutionPublicModuleSourcePaths: publicModuleUsageByName.get(buildOptions.name)
-            };
+                const processorOptions: DetermineVersionAndPublishOptions = {
+                    analyzedBundle,
+                    buildOptions,
+                    stage: options.stage,
+                    substitutionPublicModuleSourcePaths: publicModuleUsageByName.get(buildOptions.name)
+                };
 
-            if (options.dryRun) {
-                return dependencies.packageProcessor.tryBuildAndPublish(processorOptions);
+                if (options.dryRun) {
+                    return dependencies.packageProcessor.tryBuildAndPublish(processorOptions);
+                }
+                return dependencies.packageProcessor.buildAndPublish(processorOptions);
             }
-            return dependencies.packageProcessor.buildAndPublish(processorOptions);
-        }),
-        selectNext: (params) => {
+        ),
+        selectNext(params) {
             return params.result.bundle;
         },
         emitScheduledEvents: false,
-        createProgressEvent: (params) => {
+        createProgressEvent(params) {
             return {
                 version: params.result.bundle.packageJson.version,
                 status: params.result.status,

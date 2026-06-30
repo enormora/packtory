@@ -9,11 +9,13 @@ type OptionalFields = {
     readonly typesMainFile?: FileDescription | TransferableFileDescription;
 };
 
-export function buildOptionalVersionedBundleFields(params: {
+type OptionalVersionedBundleFieldsInput = {
     readonly importsField: ImportsField | undefined;
     readonly binField: PackageJson['bin'] | undefined;
     readonly typesMainFile: FileDescription | TransferableFileDescription | undefined;
-}): OptionalFields {
+};
+
+export function buildOptionalVersionedBundleFields(params: OptionalVersionedBundleFieldsInput): OptionalFields {
     const { importsField, binField, typesMainFile } = params;
 
     return pickBy({ importsField, binField, typesMainFile }, isDefined);

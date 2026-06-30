@@ -2,12 +2,14 @@ import type { RegistrySettings } from '../../config/registry-settings.ts';
 import { npmRegistryUrl } from './registry-auth-config.ts';
 
 function resolveConfiguredOrigin(registrySettings: Readonly<RegistrySettings>): string {
-    return new URL(registrySettings.registryUrl ?? npmRegistryUrl).origin;
+    const configuredUrl = new URL(registrySettings.registryUrl ?? npmRegistryUrl);
+    return configuredUrl.origin;
 }
 
 function parseTarballOrigin(tarballUrl: string): string {
     try {
-        return new URL(tarballUrl).origin;
+        const parsedUrl = new URL(tarballUrl);
+        return parsedUrl.origin;
     } catch {
         throw new TypeError(`Registry returned an invalid tarball URL: "${tarballUrl}"`);
     }

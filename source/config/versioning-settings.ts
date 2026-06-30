@@ -7,7 +7,7 @@ import {
 } from './manual-versioning-settings.ts';
 
 export const versioningSettingsSchema = z.readonly(
-    z.union([automaticVersioningSettingsSchema, manualVersioningSettingsSchema])
+    z.union([ automaticVersioningSettingsSchema, manualVersioningSettingsSchema ])
 );
 
 type AutomaticVersioningSettings = z.infer<typeof automaticVersioningSettingsSchema>;
@@ -16,10 +16,10 @@ export type VersioningSettings = AutomaticVersioningSettings | ManualVersioningS
 
 export function hasVersionProvider(
     versioning: VersioningSettings
-): versioning is Extract<VersioningSettings, { readonly provideVersion: unknown }> {
-    return 'provideVersion' in versioning;
+): versioning is Extract<VersioningSettings, { readonly provideVersion: unknown; }> {
+    return Object.hasOwn(versioning, 'provideVersion');
 }
 
 export function hasVersionSource(versioning: VersioningSettings): versioning is SourceManualVersioningSettings {
-    return 'source' in versioning;
+    return Object.hasOwn(versioning, 'source');
 }

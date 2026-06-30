@@ -1,6 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { execFile, type ExecFileException } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -26,22 +26,37 @@ export type RouteResponse = {
 };
 
 export type RouteMap = Readonly<Record<string, RouteResponse>>;
+type EnvironmentVariableReader = (variableName: string) => string | undefined;
+type EntryPointScriptExecFileOptions = {
+    readonly cwd: string;
+    readonly encoding: 'utf8';
+    readonly env: Readonly<Record<string, string | undefined>>;
+};
+type EntryPointScriptReadFileOptions = {
+    readonly encoding: 'utf8';
+};
+type EntryPointScriptExecFileError = {
+    readonly code?: number | string | null;
+};
 type EntryPointScriptExecFile = (
     file: string,
     args: readonly string[],
-    options: {
-        readonly cwd: string;
-        readonly encoding: 'utf8';
-        readonly env: Record<string, string | undefined>;
-    },
-    callback: (error: ExecFileException | null, stdout: string, stderr: string) => void
+    options: EntryPointScriptExecFileOptions,
+    callback: (error: EntryPointScriptExecFileError | null, stdout: string, stderr: string) => void
 ) => void;
 type EntryPointScriptReadFile = (
     filePath: string,
-    options: {
-        readonly encoding: 'utf8';
-    }
+    options: EntryPointScriptReadFileOptions
 ) => Promise<string>;
+type EntryPointScriptResult = {
+    readonly exitCode: number;
+    readonly output: string;
+};
+type EntryPointScriptExecutionResult = {
+    readonly exitCode: number;
+    readonly standardError: string;
+    readonly standardOutput: string;
+};
 export type EntryPointScriptDependencies = {
     readonly cwd: string;
     readonly execFile: EntryPointScriptExecFile;
@@ -53,8 +68,8 @@ export type EntryPointScriptDependencies = {
 
 export function createEnvironmentVariableReader(
     environmentVariables: FakeEnvironment
-): (variableName: string) => string | undefined {
-    return (variableName) => {
+): EnvironmentVariableReader {
+    return function (variableName) {
         return environmentVariables[variableName];
     };
 }
@@ -136,8 +151,8 @@ export function getServerPort(server: AddressableServer): number {
 }
 
 export async function closeServer(server: ClosableServer): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
+    await new Promise<void>(function (resolve, reject) {
+        server.close(function (error) {
             if (error === undefined) {
                 resolve();
                 return;
@@ -148,8 +163,19 @@ export async function closeServer(server: ClosableServer): Promise<void> {
     });
 }
 
+async function readEntryPointOutput(
+    dependencies: Readonly<EntryPointScriptDependencies>,
+    outputPath: string
+): Promise<string> {
+    try {
+        return await dependencies.readFile(outputPath, { encoding: 'utf8' });
+    } catch {
+        return '';
+    }
+}
+
 export async function withGitHubApiServer<T>(routes: RouteMap, action: (apiBaseUrl: string) => Promise<T>): Promise<T> {
-    const server = createServer((request: IncomingMessage, response: ServerResponse) => {
+    const server = createServer(function (request: IncomingMessage, response: ServerResponse) {
         const requestUrl = getRouteKey(request.url);
         const route = routes[requestUrl];
 
@@ -166,8 +192,8 @@ export async function withGitHubApiServer<T>(routes: RouteMap, action: (apiBaseU
         response.end(JSON.stringify(route.body));
     });
 
-    await new Promise<void>((resolve) => {
-        server.listen(0, localhostAddress, () => {
+    await new Promise<void>(function (resolve) {
+        server.listen(0, localhostAddress, function () {
             resolve();
         });
     });
@@ -196,19 +222,15 @@ export async function runEntryPointScript(
         },
         tmpdir
     }
-): Promise<{ readonly exitCode: number; readonly output: string }> {
+): Promise<EntryPointScriptResult> {
     const temporaryFolder = await dependencies.mkdtemp(
         path.join(dependencies.tmpdir(), githubReleaseGateTemporaryFolderPrefix)
     );
     const outputPath = path.join(temporaryFolder, 'github-output.txt');
-    const executionResult = await new Promise<{
-        readonly exitCode: number;
-        readonly standardError: string;
-        readonly standardOutput: string;
-    }>((resolve) => {
+    const executionResult = await new Promise<EntryPointScriptExecutionResult>(function (resolve) {
         dependencies.execFile(
             dependencies.processExecPath,
-            ['--experimental-strip-types', '--enable-source-maps', entryPointPath],
+            [ '--experimental-strip-types', '--enable-source-maps', entryPointPath ],
             {
                 cwd: dependencies.cwd,
                 encoding: 'utf8',
@@ -217,7 +239,7 @@ export async function runEntryPointScript(
                     GITHUB_OUTPUT: outputPath
                 }
             },
-            (error, standardOutput, standardError) => {
+            function (error, standardOutput, standardError) {
                 resolve({
                     exitCode: typeof error?.code === 'number' ? error.code : 0,
                     standardError,
@@ -226,9 +248,7 @@ export async function runEntryPointScript(
             }
         );
     });
-    const output = await dependencies.readFile(outputPath, { encoding: 'utf8' }).catch(() => {
-        return '';
-    });
+    const output = await readEntryPointOutput(dependencies, outputPath);
 
     return {
         exitCode: executionResult.exitCode,

@@ -19,7 +19,7 @@ export type RemovalResult = {
 
 export function applyRemovalPlan(sourceFile: SourceFile, plan: RemovalPlan): RemovalResult {
     const statements = sourceFile.getStatements();
-    const survivors = statements.flatMap((statement) => {
+    const survivors = statements.flatMap(function (statement) {
         return captureSurvivorsForStatement(statement, plan.survivingNames);
     });
     let mutated = false;
@@ -28,7 +28,7 @@ export function applyRemovalPlan(sourceFile: SourceFile, plan: RemovalPlan): Rem
             mutated = true;
         }
     }
-    const atoms = survivors.map((survivor) => {
+    const atoms = survivors.map(function (survivor) {
         return {
             originalStart: survivor.originalStart,
             originalEnd: survivor.originalEnd,

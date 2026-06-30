@@ -5,9 +5,9 @@ import {
     createPreviewPackageFixture
 } from '../../test-libraries/preview-fixtures.ts';
 import { renderPackage } from './terminal-package-renderer.ts';
-import { createColors } from './terminal-preview-renderer-shared.ts';
+import { createColors, type Colors } from './terminal-preview-renderer-shared.ts';
 
-function colors() {
+function colors(): Colors {
     return createColors(false);
 }
 
@@ -29,7 +29,8 @@ suite('terminal-package-renderer', function () {
                 '      @@ -1,1 +1,1 @@',
                 '      -export const removed = 1;',
                 '      +export const kept = 1;'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 

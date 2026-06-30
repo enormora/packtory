@@ -5,9 +5,9 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { collectImpureStatements } from './impure-statements.ts';
 
 function impureLinesFor(content: string): readonly number[] {
-    const project = createProject({ withFiles: [{ filePath: '/source.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: '/source.ts', content } ] });
     const sourceFile = project.getSourceFileOrThrow('/source.ts');
-    return collectImpureStatements(sourceFile, undefined).map((statement) => {
+    return collectImpureStatements(sourceFile, undefined).map(function (statement) {
         return statement.getStartLineNumber();
     });
 }
@@ -18,12 +18,12 @@ suite('impure-statements', function () {
     });
 
     test('collectImpureStatements flags top-level side-effecting expression statements', function () {
-        assert.deepStrictEqual(impureLinesFor('console.log("hi");'), [1]);
+        assert.deepStrictEqual(impureLinesFor('console.log("hi");'), [ 1 ]);
     });
 
     test('collectImpureStatements excludes import declarations even when classified as side-effecting', function () {
         const project = createProject({
-            withFiles: [{ filePath: '/source.ts', content: 'import "./side-effect.ts";\nconsole.log("hi");' }]
+            withFiles: [ { filePath: '/source.ts', content: 'import "./side-effect.ts";\nconsole.log("hi");' } ]
         });
         const sourceFile = project.getSourceFileOrThrow('/source.ts');
 

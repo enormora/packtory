@@ -38,14 +38,23 @@ type MutatingReleaseStateBase = {
     readonly changedTargets: readonly ReleaseTarget[];
     readonly planned: PlannedRelease;
 };
-type MutatingReleaseState = MutatingReleaseStateBase &
-    (
-        | { readonly changelog: ReleaseChangelog; readonly githubRelease: true }
-        | { readonly changelog: ReleaseChangelog | undefined; readonly githubRelease: false }
-    );
+type GitHubReleaseState = {
+    readonly changelog: ReleaseChangelog;
+    readonly githubRelease: true;
+};
+type GitlessReleaseState = {
+    readonly changelog: ReleaseChangelog | undefined;
+    readonly githubRelease: false;
+};
+type MutatingReleaseState = MutatingReleaseStateBase & (GitHubReleaseState | GitlessReleaseState);
 type FlagRule = {
     readonly failed: (flags: ReleaseFlags) => boolean;
     readonly message: string;
+};
+type GitHubReleaseClientContext = {
+    readonly owner: string;
+    readonly repo: string;
+    readonly token: string;
 };
 
 type ReleaseFlags = {
@@ -59,11 +68,7 @@ type ReleaseFlags = {
 };
 
 export type ReleaseHandlerDeps = {
-    readonly createGitHubReleaseClient: (context: {
-        readonly owner: string;
-        readonly repo: string;
-        readonly token: string;
-    }) => GitHubReleaseClient;
+    readonly createGitHubReleaseClient: (context: GitHubReleaseClientContext) => GitHubReleaseClient;
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
     readonly currentDate: () => Date;
     readonly fileManager: {
@@ -75,9 +80,9 @@ export type ReleaseHandlerDeps = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
-    readonly readPackageInfo: () => Promise<Record<string, unknown>>;
-    readonly spinnerRenderer: { readonly stopAll: () => void };
-    readonly configLoader: { readonly load: () => Promise<unknown> };
+    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
+    readonly spinnerRenderer: { readonly stopAll: () => void; };
+    readonly configLoader: { readonly load: () => Promise<unknown>; };
     readonly workingDirectory: string;
 };
 
@@ -120,8 +125,8 @@ const flagRules: readonly FlagRule[] = [
 ];
 
 function collectFlagIssues(flags: ReleaseFlags): readonly string[] {
-    return flagRules.flatMap((rule) => {
-        return rule.failed(flags) ? [rule.message] : [];
+    return flagRules.flatMap(function (rule) {
+        return rule.failed(flags) ? [ rule.message ] : [];
     });
 }
 
@@ -135,7 +140,7 @@ function createTargetFromPlanPackage(packagePlan: ReleasePlanPackage): ReleaseTa
 
 function selectChangedTargets(packages: readonly ReleasePlanPackage[]): readonly ReleaseTarget[] {
     return packages
-        .filter((packagePlan) => {
+        .filter(function (packagePlan) {
             return packagePlan.changed;
         })
         .map(createTargetFromPlanPackage);
@@ -143,7 +148,7 @@ function selectChangedTargets(packages: readonly ReleasePlanPackage[]): readonly
 
 function selectCurrentHeadPublishedTargets(packages: readonly ReleasePlanPackage[]): readonly ReleaseTarget[] {
     return packages
-        .filter((packagePlan) => {
+        .filter(function (packagePlan) {
             return (
                 packagePlan.currentGitHead !== undefined &&
                 packagePlan.latestRegistryMetadata?.gitHead === packagePlan.currentGitHead
@@ -154,22 +159,21 @@ function selectCurrentHeadPublishedTargets(packages: readonly ReleasePlanPackage
 
 function mapTargetsByName(targets: readonly ReleaseTarget[]): ReadonlyMap<string, ReleaseTarget> {
     return new Map(
-        targets.map((target) => {
-            return [target.name, target];
+        targets.map(function (target) {
+            return [ target.name, target ];
         })
     );
 }
 
 function mergeTargets(...targetGroups: readonly (readonly ReleaseTarget[])[]): readonly ReleaseTarget[] {
-    return Array.from(
-        new Map(
-            targetGroups.flatMap((targets) => {
-                return targets.map((target) => {
-                    return [target.name, target] as const;
-                });
-            })
-        ).values()
+    const targetsByName = new Map(
+        targetGroups.flatMap(function (targets) {
+            return targets.map(function (target) {
+                return [ target.name, target ] as const;
+            });
+        })
     );
+    return Array.from(targetsByName.values());
 }
 
 function assertTagRule(flags: ReleaseFlags, changedTargets: readonly ReleaseTarget[]): void {
@@ -191,14 +195,14 @@ function formatPlanPackage(packagePlan: ReleasePlanPackage): string {
 }
 
 function printReleasePlan(log: Logger, packages: readonly ReleasePlanPackage[]): void {
-    const changedPackages = packages.filter((packagePlan) => {
+    const changedPackages = packages.filter(function (packagePlan) {
         return packagePlan.changed;
     });
     if (changedPackages.length === 0) {
         log('No packages need release.');
         return;
     }
-    log(['Release plan:', ...changedPackages.map(formatPlanPackage)].join('\n'));
+    log([ 'Release plan:', ...changedPackages.map(formatPlanPackage) ].join('\n'));
 }
 
 function readGitHubToken(deps: Pick<ReleaseHandlerDeps, 'readEnvironmentVariable'>): string | undefined {
@@ -269,7 +273,7 @@ async function publishTargets(
         printPublishFailure(deps.log, outcome.result.error, false);
         return undefined;
     }
-    return outcome.result.value.flatMap((result) => {
+    return outcome.result.value.flatMap(function (result) {
         const plannedTarget = changedTargetsByName.get(result.bundle.name);
         if (plannedTarget === undefined) {
             return [];
@@ -379,7 +383,8 @@ function formatEmptyChangelogMessage(changelog: GeneratedChangelog): string {
         'No changelog files were written; changelog attribution found no pull requests for ',
         packageNames.join(', '),
         '.'
-    ].join('');
+    ]
+        .join('');
 }
 
 function reportUnwrittenChangelogs(
@@ -454,9 +459,8 @@ async function createMutatingReleaseState(
         return {
             ...base,
             githubRelease: true,
-            changelog:
-                changelogStep.changelog ??
-                (await generateRequiredChangelog(deps, changelogStep.planned.config, changelogStep.planned.packages))
+            changelog: changelogStep.changelog ??
+                await generateRequiredChangelog(deps, changelogStep.planned.config, changelogStep.planned.packages)
         };
     }
     return { ...base, githubRelease: false, changelog: changelogStep.changelog };

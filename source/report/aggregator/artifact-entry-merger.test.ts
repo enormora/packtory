@@ -15,41 +15,46 @@ const baseEntry: ArtifactEntry = {
 suite('artifact-entry-merger', function () {
     test('mergeArtifactEntry returns the entry unchanged when it has no sourcePath', function () {
         const entry: ArtifactEntry = { ...baseEntry, sourcePath: undefined };
-        assert.strictEqual(mergeArtifactEntry(entry, new Set(['anything']), new Set(['anything'])), entry);
+        assert.strictEqual(mergeArtifactEntry(entry, new Set([ 'anything' ]), new Set([ 'anything' ])), entry);
     });
 
     test('mergeArtifactEntry adds the import-path-rewrite badge and "changed" status for rewritten files', function () {
-        const merged = mergeArtifactEntry(baseEntry, new Set(['/workspace/src/index.js']), new Set());
+        const merged = mergeArtifactEntry(baseEntry, new Set([ '/workspace/src/index.js' ]), new Set());
 
         assert.strictEqual(merged.status, 'changed');
-        assert.deepStrictEqual(merged.badges, ['import-path-rewrite']);
+        assert.deepStrictEqual(merged.badges, [ 'import-path-rewrite' ]);
     });
 
     test('mergeArtifactEntry adds the dead-code-elimination badge and "changed" status for transformed files', function () {
-        const merged = mergeArtifactEntry(baseEntry, new Set(), new Set(['/workspace/src/index.js']));
+        const merged = mergeArtifactEntry(baseEntry, new Set(), new Set([ '/workspace/src/index.js' ]));
 
         assert.strictEqual(merged.status, 'changed');
-        assert.deepStrictEqual(merged.badges, ['dead-code-elimination']);
+        assert.deepStrictEqual(merged.badges, [ 'dead-code-elimination' ]);
     });
 
     test('mergeArtifactEntry combines both badges when both rewrite and transform apply', function () {
         const merged = mergeArtifactEntry(
             baseEntry,
-            new Set(['/workspace/src/index.js']),
-            new Set(['/workspace/src/index.js'])
+            new Set([ '/workspace/src/index.js' ]),
+            new Set([ '/workspace/src/index.js' ])
         );
 
         assert.strictEqual(merged.status, 'changed');
-        assert.deepStrictEqual(merged.badges.toSorted(), ['dead-code-elimination', 'import-path-rewrite']);
+        assert.deepStrictEqual(
+            merged.badges.toSorted(function (left, right) {
+                return left.localeCompare(right);
+            }),
+            [ 'dead-code-elimination', 'import-path-rewrite' ]
+        );
     });
 
     test('mergeArtifactEntry deduplicates badges that already appeared on the entry', function () {
         const merged = mergeArtifactEntry(
-            { ...baseEntry, badges: ['import-path-rewrite'] },
-            new Set(['/workspace/src/index.js']),
+            { ...baseEntry, badges: [ 'import-path-rewrite' ] },
+            new Set([ '/workspace/src/index.js' ]),
             new Set()
         );
 
-        assert.deepStrictEqual(merged.badges, ['import-path-rewrite']);
+        assert.deepStrictEqual(merged.badges, [ 'import-path-rewrite' ]);
     });
 });

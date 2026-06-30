@@ -5,7 +5,7 @@ export function validateDuplicatePackages(packages: readonly PackageConfig[]): r
     const knownPackageNames = new Set<string>();
     const issues: string[] = [];
 
-    packages.forEach((packageConfig) => {
+    packages.forEach(function (packageConfig) {
         if (knownPackageNames.has(packageConfig.name)) {
             issues.push(`Duplicate package definition with the name "${packageConfig.name}"`);
         }
@@ -17,7 +17,7 @@ export function validateDuplicatePackages(packages: readonly PackageConfig[]): r
 
 export function validateCyclicDependencies(packageGraph: DirectedGraph<string, undefined>): readonly string[] {
     const cycles = packageGraph.detectCycles();
-    return cycles.map((cycle) => {
+    return cycles.map(function (cycle) {
         return `Unexpected cyclic dependency path: [${cycle.join('→')}]`;
     });
 }

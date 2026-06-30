@@ -3,13 +3,13 @@ import { suite, test } from 'mocha';
 import { bundleRelativePathSchema, nonEmptyStringSchema } from './base-validations.ts';
 
 function expectAccepts(value: unknown): () => void {
-    return () => {
+    return function () {
         assert.strictEqual(bundleRelativePathSchema.safeParse(value).success, true);
     };
 }
 
 function expectRejects(value: unknown): () => void {
-    return () => {
+    return function () {
         assert.strictEqual(bundleRelativePathSchema.safeParse(value).success, false);
     };
 }
@@ -29,24 +29,26 @@ suite('base-validations', function () {
     });
 
     suite('bundleRelativePathSchema accepts safe paths', function () {
-        for (const value of ['good/path.txt', 'nested/folder/file.txt', 'just-a-file.txt', 'foo.bar.baz']) {
+        for (const value of [ 'good/path.txt', 'nested/folder/file.txt', 'just-a-file.txt', 'foo.bar.baz' ]) {
             test(`accepts "${value}"`, expectAccepts(value));
         }
     });
 
     suite('bundleRelativePathSchema rejects unsafe paths', function () {
-        for (const value of [
-            '',
-            '..',
-            '../escape.txt',
-            'foo/../bar.txt',
-            'foo/..',
-            '/etc/passwd',
-            'C:/Windows/System32',
-            'C:\\Windows\\System32',
-            '..\\escape.txt',
-            'foo\\..\\bar.txt'
-        ]) {
+        for (
+            const value of [
+                '',
+                '..',
+                '../escape.txt',
+                'foo/../bar.txt',
+                'foo/..',
+                '/etc/passwd',
+                'C:/Windows/System32',
+                'C:\\Windows\\System32',
+                '..\\escape.txt',
+                'foo\\..\\bar.txt'
+            ]
+        ) {
             test(`rejects "${value}"`, expectRejects(value));
         }
     });

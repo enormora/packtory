@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 
 suite('runtime-imports', function () {
     test('loads runtime modules that currently only export type shapes', async function () {
-        await Promise.all([
+        const modules = await Promise.all([
             import('./checks/rule.ts'),
             import('./file-manager/file-description.ts'),
             import('./linker/linked-bundle.ts'),
@@ -11,6 +11,6 @@ suite('runtime-imports', function () {
             import('./resource-resolver/resource-resolve-options.ts')
         ]);
 
-        assert.ok(true);
+        assert.strictEqual(modules.length, 5);
     });
 });

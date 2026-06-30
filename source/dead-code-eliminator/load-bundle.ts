@@ -87,7 +87,7 @@ function entryRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
 export function loadBundle(createProject: CreateProject, input: EliminationInput): LoadedBundle {
     const runtimeProject = createProject();
     const declarationProject = createProject();
-    const loaded = input.bundle.contents.map((resource) => {
+    const loaded = input.bundle.contents.map(function (resource) {
         return loadResource(runtimeProject, declarationProject, resource);
     });
     const fileBindings = buildFileBindings(loaded);
