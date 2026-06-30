@@ -30,15 +30,17 @@ export function getCiRepositoryUrl(env: CiEnvironment): string | undefined {
     return undefined;
 }
 
-const noRepositoryDeclaredMessage =
-    'Provenance is enabled but the package has no repository declared.\n' +
+const noRepositoryDeclaredMessage = 'Provenance is enabled but the package has no repository declared.\n' +
     'Add a "repository" entry to additionalPackageJsonAttributes\n' +
     "so consumers can verify the attestation's source claim.";
 
-const noCiDetectedMessage =
-    'Provenance auto mode is enabled but no CI repository was detected.\n' +
+const noCiDetectedMessage = 'Provenance auto mode is enabled but no CI repository was detected.\n' +
     'Provenance auto mode requires GitHub Actions or GitLab CI; expected\n' +
     'one of GITHUB_SERVER_URL+GITHUB_REPOSITORY or CI_PROJECT_URL.';
+
+type RepositoryManifest = {
+    readonly repository?: unknown;
+};
 
 function buildMismatchMessage(configuredUrl: string, ciUrl: string): string {
     return (
@@ -52,7 +54,7 @@ function buildMismatchMessage(configuredUrl: string, ciUrl: string): string {
 }
 
 export function assertRepositoryCoherence(
-    manifest: { readonly repository?: unknown },
+    manifest: RepositoryManifest,
     ciRepositoryUrl: string | undefined
 ): void {
     const normalizedManifestUrl = normalizeRepositoryUrl(manifest.repository);

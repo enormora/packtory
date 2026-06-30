@@ -3,8 +3,8 @@ import { suite, test } from 'mocha';
 import { withPromiseDeadline } from '../../test-libraries/promise-with-deadline.ts';
 import { createDefaultPreviewIo } from './preview-io.ts';
 
-async function ignoreOpenFile(_: string): Promise<void> {
-    await Promise.resolve();
+async function ignoreOpenFile(filePath: string): Promise<void> {
+    assert.strictEqual(typeof filePath, 'string');
 }
 
 suite('preview-io', function () {
@@ -28,8 +28,12 @@ suite('preview-io', function () {
             shell: 'sh',
             pager: 'cat >/dev/null',
             stdoutIsTTY: true,
-            randomUuid: () => 'uuid-123',
-            tmpdir: () => '/var/folders'
+            randomUuid() {
+                return 'uuid-123';
+            },
+            tmpdir() {
+                return '/var/folders';
+            }
         });
 
         assert.strictEqual(
@@ -53,6 +57,6 @@ suite('preview-io', function () {
             await withPromiseDeadline(previewIo.openPreviewFile('/var/folders/report.html'), 'default preview open'),
             true
         );
-        assert.deepStrictEqual(openedFiles, ['/var/folders/report.html']);
+        assert.deepStrictEqual(openedFiles, [ '/var/folders/report.html' ]);
     });
 });

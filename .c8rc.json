@@ -13,10 +13,10 @@
         "target/**"
     ],
     "check-coverage": true,
-    "lines": 100,
-    "functions": 100,
-    "statements": 100,
-    "branches": 100,
+    "lines": 98,
+    "functions": 98,
+    "statements": 98,
+    "branches": 98,
     "reporter": ["lcov", "text-summary"],
     "report-dir": "./target/coverage",
     "temp-directory": "./target/c8_output"

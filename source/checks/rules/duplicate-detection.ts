@@ -10,16 +10,16 @@ export function hasMultipleOwners(owners: readonly OwnerInfo[]): owners is Multi
 }
 
 export function duplicateMessage(filePath: string, owners: MultipleOwners): string | undefined {
-    const allOwnersHaveNoBindings = owners.every((owner) => {
+    const allOwnersHaveNoBindings = owners.every(function (owner) {
         return owner.survivingBindings.size === 0;
     });
     if (allOwnersHaveNoBindings) {
         return formatPathLevelMessage(filePath, owners);
     }
-    const [firstOwner, ...remainingOwners] = owners;
-    const sharedDeclarations = remainingOwners.reduce<Set<string>>((declarations, owner) => {
+    const [ firstOwner, ...remainingOwners ] = owners;
+    const sharedDeclarations = remainingOwners.reduce<Set<string>>(function (declarations, owner) {
         return new Set(
-            Array.from(declarations).filter((declaration) => {
+            Array.from(declarations).filter(function (declaration) {
                 return owner.survivingBindings.has(declaration);
             })
         );

@@ -2,8 +2,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 
-// cspell:ignore yoctocolors
-
 const projectFolder = process.cwd();
 const sourcesFolder = path.join(projectFolder, 'target/build/source');
 
@@ -36,9 +34,10 @@ const noSideEffectsAllowList = [
     'packages/command-line-interface/spinner-worker.entry-point.js',
     'packages/github-release-gate/github-release-gate.entry-point.js',
     'packages/bootstrap-npm-package/bootstrap-npm-package.entry-point.js'
-].map((filePath) => {
-    return path.join(sourcesFolder, filePath);
-});
+]
+    .map(function (filePath) {
+        return path.join(sourcesFolder, filePath);
+    });
 
 /** @returns {Promise<import('./source/packages/command-line-interface/command-line-interface.entry-point.ts').PacktoryConfig>} */
 export async function buildConfig() {
@@ -53,8 +52,8 @@ export async function buildConfig() {
             }
         },
         checks: {
-            noDuplicatedFiles: { enabled: true, allowList: [sharedLicensePath] },
-            requiredFiles: { enabled: true, files: ['LICENSE', 'readme.md'] },
+            noDuplicatedFiles: { enabled: true, allowList: [ sharedLicensePath ] },
+            requiredFiles: { enabled: true, files: [ 'LICENSE', 'readme.md' ] },
             maxBundleSize: { enabled: true, bytes: 1_000_000 },
             noUnusedBundleDependencies: { enabled: true },
             noDevDependencyImports: { enabled: true },
@@ -69,9 +68,9 @@ export async function buildConfig() {
                 enabled: true,
                 pureImports: [
                     { from: 'zod/mini' },
-                    { from: 'yoctocolors', imports: ['bold', 'dim', 'green', 'red', 'yellow'] }
+                    { from: 'yoctocolors', imports: [ 'bold', 'dim', 'green', 'red', 'yellow' ] }
                 ],
-                pureConstructors: ['Set', 'Map', 'TextEncoder', 'TextDecoder']
+                pureConstructors: [ 'Set', 'Map', 'TextEncoder', 'TextDecoder' ]
             },
             publishSettings: {
                 access: 'public',
@@ -121,11 +120,10 @@ export async function buildConfig() {
                     }
                 },
                 packageInterface: {
-                    bins: [{ root: 'main', name: 'github-release-gate' }]
+                    bins: [ { root: 'main', name: 'github-release-gate' } ]
                 },
                 additionalPackageJsonAttributes: {
-                    description:
-                        'GitHub Actions release gate that batches packtory publishes by waiting ' +
+                    description: 'GitHub Actions release gate that batches packtory publishes by waiting ' +
                         'for repository activity to settle.'
                 },
                 additionalFiles: [
@@ -134,7 +132,7 @@ export async function buildConfig() {
                         targetFilePath: 'readme.md'
                     }
                 ],
-                bundleDependencies: ['packtory']
+                bundleDependencies: [ 'packtory' ]
             },
             {
                 name: '@packtory/cli',
@@ -149,8 +147,8 @@ export async function buildConfig() {
                     }
                 },
                 packageInterface: {
-                    bins: [{ root: 'cli', name: 'packtory' }],
-                    privateRoots: ['spinnerWorker']
+                    bins: [ { root: 'cli', name: 'packtory' } ],
+                    privateRoots: [ 'spinnerWorker' ]
                 },
                 additionalPackageJsonAttributes: {
                     description:
@@ -162,7 +160,7 @@ export async function buildConfig() {
                         targetFilePath: 'readme.md'
                     }
                 ],
-                bundleDependencies: ['packtory']
+                bundleDependencies: [ 'packtory' ]
             },
             {
                 name: '@packtory/bootstrap-npm-package',
@@ -173,11 +171,10 @@ export async function buildConfig() {
                     }
                 },
                 packageInterface: {
-                    bins: [{ root: 'main', name: 'bootstrap-npm-package' }]
+                    bins: [ { root: 'main', name: 'bootstrap-npm-package' } ]
                 },
                 additionalPackageJsonAttributes: {
-                    description:
-                        'Claim a brand-new npm name so a Trusted Publisher can be configured for it ' +
+                    description: 'Claim a brand-new npm name so a Trusted Publisher can be configured for it ' +
                         '(workaround for npm/cli#8544).'
                 },
                 additionalFiles: [

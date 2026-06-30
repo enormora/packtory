@@ -11,6 +11,8 @@ import {
 } from './packtory-results.ts';
 import { publishedReleaseStatus } from './published-release-state.ts';
 
+type PackageReleaseAnalysisWithPublishedDate = PackageReleaseAnalysis & { readonly latestPublishedAt: Date; };
+
 function dependencyOnlyPackageJsonFields(): readonly string[] {
     return [
         'bundleDependencies',
@@ -31,13 +33,13 @@ function parseJsonFile(fileContent: string): unknown {
     try {
         return JSON.parse(fileContent) as unknown;
     } catch {
-        return Number.NEGATIVE_INFINITY;
+        return -Infinity;
     }
 }
 
 function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): unknown {
     const packageJsonFile = index.get(packageManifestFilePath);
-    return packageJsonFile === undefined ? Number.NEGATIVE_INFINITY : parseJsonFile(packageJsonFile.content);
+    return packageJsonFile === undefined ? -Infinity : parseJsonFile(packageJsonFile.content);
 }
 
 function includesClassification(
@@ -65,17 +67,17 @@ function moreSignificantClassification(
 
 function hasLatestPublishedAt(
     analysis: PackageReleaseAnalysis
-): analysis is PackageReleaseAnalysis & { readonly latestPublishedAt: Date } {
+): analysis is PackageReleaseAnalysisWithPublishedDate {
     return analysis.latestPublishedAt !== undefined;
 }
 
 function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
-    return previousValue === Number.NEGATIVE_INFINITY || newValue === Number.NEGATIVE_INFINITY;
+    return previousValue === -Infinity || newValue === -Infinity;
 }
 
 function normalizePackageJsonForDependencyComparison(value: unknown): unknown {
     return JSON.parse(
-        JSON.stringify(value, (key, entryValue: unknown) => {
+        JSON.stringify(value, function (key, entryValue: unknown) {
             return isDependencyOnlyPackageJsonField(key) ? undefined : entryValue;
         })
     ) as unknown;
@@ -89,7 +91,7 @@ function nonDependencyDerivedFilesMatch(
     previousIndex: ReadonlyMap<string, FileDescription>,
     newIndex: ReadonlyMap<string, FileDescription>
 ): boolean {
-    for (const [filePath, previousFile] of previousIndex.entries()) {
+    for (const [ filePath, previousFile ] of previousIndex) {
         const currentFile = newIndex.get(filePath);
         if (!isDependencyDerivedFilePath(filePath) && !isDeepStrictEqual(previousFile, currentFile)) {
             return false;
@@ -124,13 +126,15 @@ function fileDescriptionByBundleRelativePath(files: readonly FileDescription[]):
     return index;
 }
 
+type ComparisonIndexes = {
+    readonly previousIndex: ReadonlyMap<string, FileDescription>;
+    readonly newIndex: ReadonlyMap<string, FileDescription>;
+};
+
 function createComparisonIndexes(
     previousFiles: readonly FileDescription[],
     newFiles: readonly FileDescription[]
-): {
-    readonly previousIndex: ReadonlyMap<string, FileDescription>;
-    readonly newIndex: ReadonlyMap<string, FileDescription>;
-} {
+): ComparisonIndexes {
     return {
         previousIndex: fileDescriptionByBundleRelativePath(previousFiles),
         newIndex: fileDescriptionByBundleRelativePath(newFiles)
@@ -181,10 +185,11 @@ export function classifyPackageRelease(
         };
     }
 
-    const classification: PackageReleaseAnalysisClassification = isDependencyOnlyPublishedChange(
+    const isDependencyOnly = isDependencyOnlyPublishedChange(
         buildResult.previousReleaseArtifacts.value.files,
         newFiles
-    )
+    );
+    const classification: PackageReleaseAnalysisClassification = isDependencyOnly
         ? releaseAnalysisClassification.dependencyOnly
         : releaseAnalysisClassification.substantive;
 
@@ -206,7 +211,7 @@ export function summarizeReleaseAnalysis(packageAnalyses: readonly PackageReleas
             classification = moreSignificantClassification(classification, analysis.classification);
             if (hasLatestPublishedAt(analysis)) {
                 mostRecentPublishedAt = hasPublishedAt
-                    ? maxDate(mostRecentPublishedAt, [analysis.latestPublishedAt])
+                    ? maxDate(mostRecentPublishedAt, [ analysis.latestPublishedAt ])
                     : analysis.latestPublishedAt;
                 hasPublishedAt = true;
             }

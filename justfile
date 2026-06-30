@@ -11,13 +11,6 @@ eslint *OPTIONS:
 
 eslint-fix: (eslint '--fix')
 
-prettier *OPTIONS:
-    prettier './**/*.{yml,yaml,json,md}' {{OPTIONS}}
-
-prettier-check: (prettier '--check')
-
-prettier-fix: (prettier '--write')
-
 lint-dependencies:
     depcruise --config dependency-cruiser.config.js './source/**/*.ts' './integration-tests/*.ts' './integration-tests/**/*.test.ts' './*.js' './*.cjs'
 
@@ -31,20 +24,20 @@ lint-unused-code:
 lint-duplication *OPTIONS:
     jscpd source --config jscpd.json {{OPTIONS}}
 
-lint: eslint prettier-check lint-dependencies lint-filename lint-unused-code lint-duplication
+lint: eslint lint-dependencies lint-filename lint-unused-code lint-duplication
 
-lint-fix: eslint-fix prettier-fix
+lint-fix: eslint-fix
 
 test: test-unit-with-coverage test-unit-property test-types test-integration
 
 test-unit:
-    mocha --config mocha.config.unit-tests.cjs
+    mocha --config mocha.config.unit-tests.json
 
 test-unit-with-coverage:
-    c8 --config .c8rc.json mocha --config mocha.config.unit-tests.cjs
+    c8 --config .c8rc.json mocha --config mocha.config.unit-tests.json
 
 test-unit-property:
-    mocha --config mocha.config.property-tests.cjs
+    mocha --config mocha.config.property-tests.json
 
 test-types:
     tstyche
@@ -54,7 +47,7 @@ test-mutation:
     node --experimental-strip-types --enable-source-maps ./source/build-support/mutation-timeout/check-mutation-timeouts.entry-point.ts
 
 test-integration:
-    mocha --config mocha.config.integration-tests.cjs
+    mocha --config mocha.config.integration-tests.json
 
 benchmark:
     node --experimental-strip-types --enable-source-maps ./benchmarks/run-benchmarks.ts

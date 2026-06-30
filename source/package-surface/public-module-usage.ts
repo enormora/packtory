@@ -3,11 +3,10 @@ import { isCodeFile } from '../common/code-files.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { resolvePublicModuleSourceFilePath } from './public-specifiers.ts';
 
-function recordUsage(usages: Map<string, Set<string>>, bundleName: string, sourceFilePath: string): void {
-    const existing = usages.get(bundleName) ?? new Set<string>();
-    existing.add(sourceFilePath);
-    usages.set(bundleName, existing);
-}
+type UsageRecorder = {
+    readonly recordUsage: (bundleName: string, sourceFilePath: string) => void;
+    readonly usages: ReadonlyMap<string, ReadonlySet<string>>;
+};
 
 function* collectModuleSpecifiers(bundle: AnalyzedBundle): Generator<string, void, void> {
     for (const resource of bundle.contents) {
@@ -21,22 +20,43 @@ function* collectModuleSpecifiers(bundle: AnalyzedBundle): Generator<string, voi
     }
 }
 
-export function collectPublicModuleUsage(bundles: readonly AnalyzedBundle[]): ReadonlyMap<string, ReadonlySet<string>> {
+function createUsageRecorder(): UsageRecorder {
     const usages = new Map<string, Set<string>>();
 
-    for (const consumer of bundles) {
-        const specifiers = collectModuleSpecifiers(consumer);
-        for (const specifier of specifiers) {
-            for (const target of bundles) {
-                if (target.name !== consumer.name) {
-                    const sourceFilePath = resolvePublicModuleSourceFilePath(target, specifier);
-                    if (sourceFilePath !== undefined) {
-                        recordUsage(usages, target.name, sourceFilePath);
-                    }
+    return {
+        usages,
+        recordUsage(bundleName, sourceFilePath) {
+            const existing = usages.get(bundleName) ?? new Set<string>();
+            existing.add(sourceFilePath);
+            usages.set(bundleName, existing);
+        }
+    };
+}
+
+function recordConsumerPublicModuleUsage(
+    recorder: UsageRecorder,
+    bundles: readonly AnalyzedBundle[],
+    consumer: AnalyzedBundle
+): void {
+    const specifiers = collectModuleSpecifiers(consumer);
+    for (const specifier of specifiers) {
+        for (const target of bundles) {
+            if (target.name !== consumer.name) {
+                const sourceFilePath = resolvePublicModuleSourceFilePath(target, specifier);
+                if (sourceFilePath !== undefined) {
+                    recorder.recordUsage(target.name, sourceFilePath);
                 }
             }
         }
     }
+}
 
-    return usages;
+export function collectPublicModuleUsage(bundles: readonly AnalyzedBundle[]): ReadonlyMap<string, ReadonlySet<string>> {
+    const recorder = createUsageRecorder();
+
+    for (const consumer of bundles) {
+        recordConsumerPublicModuleUsage(recorder, bundles, consumer);
+    }
+
+    return recorder.usages;
 }

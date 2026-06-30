@@ -1,6 +1,6 @@
 import { isDefined } from 'remeda';
 
-export type ReleaseWorkflow = { readonly id: number; readonly name: string; readonly path: string };
+export type ReleaseWorkflow = { readonly id: number; readonly name: string; readonly path: string; };
 
 export type ReleaseWorkflowRun = {
     readonly databaseId?: number | undefined;
@@ -33,11 +33,11 @@ function workflowRunPathMatches(run: ReleaseWorkflowRun, workflow: ReleaseWorkfl
 }
 
 function workflowRunIdMatches(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): boolean {
-    return run.workflow_id === undefined || run.workflow_id === null || run.workflow_id === workflow.id;
+    return [ undefined, null, workflow.id ].includes(run.workflow_id);
 }
 
 function workflowRunNameMatches(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): boolean {
-    return run.name === undefined || run.name === null || run.name === workflow.name;
+    return [ undefined, null, workflow.name ].includes(run.name);
 }
 
 function workflowRunMatchesIdentity(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): boolean {
@@ -78,7 +78,7 @@ export function findWorkflowRunIdInRuns(
     headSha: string
 ): number | undefined {
     const matchingRunIds = runs
-        .filter((workflowRun) => {
+        .filter(function (workflowRun) {
             return workflowRunMatchesInput(workflowRun, workflow, headSha);
         })
         .map(readWorkflowRunId)

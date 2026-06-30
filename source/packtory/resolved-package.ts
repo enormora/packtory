@@ -38,7 +38,7 @@ function buildPublishedPackagesForChecks(
     resolvedPackages: readonly ResolvedPackage[]
 ): ReadonlyMap<string, PublishedPackageWithManifest> {
     return new Map(
-        resolvedPackages.map((resolvedPackage) => {
+        resolvedPackages.map(function (resolvedPackage) {
             const { analyzedBundle, resolveOptions } = resolvedPackage;
             return [
                 resolvedPackage.name,
@@ -46,10 +46,10 @@ function buildPublishedPackagesForChecks(
                     bundle: analyzedBundle,
                     version: checkManifestVersion,
                     mainPackageJson: resolveOptions.mainPackageJson,
-                    bundleDependencies: resolveOptions.bundleDependencies.map((bundleDependency) => {
+                    bundleDependencies: resolveOptions.bundleDependencies.map(function (bundleDependency) {
                         return { name: bundleDependency.name, version: checkManifestVersion };
                     }),
-                    bundlePeerDependencies: resolveOptions.bundlePeerDependencies.map((bundleDependency) => {
+                    bundlePeerDependencies: resolveOptions.bundlePeerDependencies.map(function (bundleDependency) {
                         return { name: bundleDependency.name, version: checkManifestVersion };
                     }),
                     additionalPackageJsonAttributes: resolveOptions.additionalPackageJsonAttributes,
@@ -78,7 +78,7 @@ export async function buildChecksResult(
     const { packtoryConfig: config } = validated;
     const perPackageSettings = new Map<string, (typeof config.packages)[number]['checks']>();
     const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
-    const effectivePackageConfigs = mapToObj(config.packages, (packageConfig) => {
+    const effectivePackageConfigs = mapToObj(config.packages, function (packageConfig) {
         perPackageSettings.set(packageConfig.name, packageConfig.checks);
 
         return [
@@ -89,7 +89,7 @@ export async function buildChecksResult(
             }
         ];
     });
-    const bundles = resolvedPackages.map((resolvedPackage) => {
+    const bundles = resolvedPackages.map(function (resolvedPackage) {
         return resolvedPackage.analyzedBundle;
     });
     const publishedPackages = maybeBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages);

@@ -45,7 +45,7 @@ suite('package-types', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
                             isExecutable: false,
@@ -57,7 +57,7 @@ suite('package-types', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/bar.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/bar.js') ]),
                         fileDescription: {
                             content:
                                 "import { bar } from './bar';\nimport path from 'node:path';\n\nexport const foo = 'foo';\n",

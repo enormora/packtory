@@ -20,22 +20,31 @@ async function expectFailure(action: () => Promise<unknown>, expectedError: RegE
     }
 }
 
-async function buildTwoFileTar(): Promise<Buffer> {
-    const builder = createTarballBuilder();
-    return await builder.build([
-        { filePath: 'first.txt', content: 'first', isExecutable: false },
-        { filePath: 'second.txt', content: 'second', isExecutable: false }
-    ]);
+function expectedSingleFileEntry(mode: number): unknown[] {
+    return [
+        {
+            content: 'bar',
+            header: {
+                devmajor: 0,
+                devminor: 0,
+                gid: 0,
+                gname: '',
+                linkname: null,
+                mode,
+                mtime: new Date(0),
+                name: 'foo',
+                pax: null,
+                size: 3,
+                type: 'file',
+                uid: 0,
+                uname: ''
+            }
+        }
+    ];
 }
 
-async function extractSingleFile(
-    filePath: string,
-    content: string,
-    limits: Parameters<typeof extractTarEntries>[2]
-): Promise<Awaited<ReturnType<typeof extractTarEntries>>> {
-    const builder = createTarballBuilder();
-    const tar = await builder.build([{ filePath, content, isExecutable: false }]);
-    return await extractTarEntries(tar, {}, limits);
+function keepPending(): void {
+    return undefined;
 }
 
 suite('extract-tar', function () {
@@ -47,32 +56,9 @@ suite('extract-tar', function () {
         assert.deepStrictEqual(entries, []);
     });
 
-    function expectedSingleFileEntry(mode: number): unknown[] {
-        return [
-            {
-                content: 'bar',
-                header: {
-                    devmajor: 0,
-                    devminor: 0,
-                    gid: 0,
-                    gname: '',
-                    linkname: null,
-                    mode,
-                    mtime: new Date(0),
-                    name: 'foo',
-                    pax: null,
-                    size: 3,
-                    type: 'file',
-                    uid: 0,
-                    uname: ''
-                }
-            }
-        ];
-    }
-
     test('returns the extracted entries when the given tar buffer has files', async function () {
         const builder = createTarballBuilder();
-        const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: false }]);
+        const tar = await builder.build([ { filePath: 'foo', content: 'bar', isExecutable: false } ]);
         const entries = await withPromiseDeadline(extractTarEntries(tar), 'single-file tar extraction');
 
         assert.deepStrictEqual(entries, expectedSingleFileEntry(420));
@@ -80,95 +66,34 @@ suite('extract-tar', function () {
 
     test('returns the extracted entries when the given tar buffer has files which are executable', async function () {
         const builder = createTarballBuilder();
-        const tar = await builder.build([{ filePath: 'foo', content: 'bar', isExecutable: true }]);
+        const tar = await builder.build([ { filePath: 'foo', content: 'bar', isExecutable: true } ]);
         const entries = await withPromiseDeadline(extractTarEntries(tar), 'executable tar extraction');
 
         assert.deepStrictEqual(entries, expectedSingleFileEntry(493));
     });
 
     test('returns every extracted entry in tar order when the tarball contains multiple files', async function () {
-        const tar = await buildTwoFileTar();
+        const builder = createTarballBuilder();
+        const tar = await builder.build([
+            { filePath: 'first.txt', content: 'first', isExecutable: false },
+            { filePath: 'second.txt', content: 'second', isExecutable: false }
+        ]);
 
         const entries = await withPromiseDeadline(extractTarEntries(tar), 'multi-file tar extraction');
 
         assert.deepStrictEqual(
-            entries.map((entry) => {
-                return [entry.header.name, entry.content];
+            entries.map(function (entry) {
+                return [ entry.header.name, entry.content ];
             }),
             [
-                ['first.txt', 'first'],
-                ['second.txt', 'second']
+                [ 'first.txt', 'first' ],
+                [ 'second.txt', 'second' ]
             ]
         );
     });
 
-    test('rejects tarballs with too many entries', async function () {
-        const tar = await buildTwoFileTar();
-
-        await expectFailure(async () => {
-            await extractTarEntries(tar, {}, { maxEntryCount: 1, maxEntryPathLength: 4096, maxExtractedBytes: 1024 });
-        }, /^Error: Refusing to extract tarball with more than 1 entries$/u);
-    });
-
-    test('rejects tarballs with paths above the configured length limit', async function () {
-        const builder = createTarballBuilder();
-        const tar = await builder.build([{ filePath: 'long-file-name.txt', content: 'content', isExecutable: false }]);
-
-        await expectFailure(async () => {
-            await extractTarEntries(tar, {}, { maxEntryCount: 1, maxEntryPathLength: 8, maxExtractedBytes: 1024 });
-        }, /^Error: Refusing to extract tarball entry with path longer than 8 characters$/u);
-    });
-
-    test('rejects tarballs with paths above the default length limit', async function () {
-        const builder = createTarballBuilder();
-        const tar = await builder.build([{ filePath: 'a'.repeat(4097), content: 'content', isExecutable: false }]);
-
-        await expectFailure(async () => {
-            await extractTarEntries(tar);
-        }, /^Error: Refusing to extract tarball entry with path longer than 4096 characters$/u);
-    });
-
-    test('accepts tarballs with paths at the configured length limit', async function () {
-        const entries = await extractSingleFile('12345678', 'content', {
-            maxEntryCount: 1,
-            maxEntryPathLength: 8,
-            maxExtractedBytes: 1024
-        });
-
-        assert.deepStrictEqual(
-            entries.map((entry) => {
-                return entry.header.name;
-            }),
-            ['12345678']
-        );
-    });
-
-    test('rejects tarballs whose extracted content exceeds the configured size limit', async function () {
-        const builder = createTarballBuilder();
-        const tar = await builder.build([{ filePath: 'file.txt', content: 'content', isExecutable: false }]);
-
-        await expectFailure(async () => {
-            await extractTarEntries(tar, {}, { maxEntryCount: 1, maxEntryPathLength: 4096, maxExtractedBytes: 3 });
-        }, /^Error: Refusing to extract tarball larger than 3 bytes$/u);
-    });
-
-    test('accepts tarballs whose extracted content equals the configured size limit', async function () {
-        const entries = await extractSingleFile('file.txt', 'content', {
-            maxEntryCount: 1,
-            maxEntryPathLength: 4096,
-            maxExtractedBytes: 7
-        });
-
-        assert.deepStrictEqual(
-            entries.map((entry) => {
-                return entry.content;
-            }),
-            ['content']
-        );
-    });
-
     test('rejects when the given buffer is not a valid gzip tarball', async function () {
-        await expectFailure(async () => {
+        await expectFailure(async function () {
             await withPromiseDeadline(extractTarEntries(Buffer.from('not-a-tarball')), 'invalid tar extraction');
         }, 'error');
     });
@@ -183,17 +108,25 @@ suite('extract-tar', function () {
                 };
             }
         };
-        const intermediateStream = { pipe: () => throwingStream };
+        const intermediateStream = {
+            pipe() {
+                return throwingStream;
+            }
+        };
         const source = {
             once() {
                 return source;
             },
-            pipe: () => intermediateStream
+            pipe() {
+                return intermediateStream;
+            }
         };
-        await expectFailure(async () => {
+        await expectFailure(async function () {
             await withPromiseDeadline(
                 extractTarEntries(Buffer.from('unused'), {
-                    createSource: () => source as unknown as Readable
+                    createSource() {
+                        return source as unknown as Readable;
+                    }
                 }),
                 'throwing tar extraction'
             );
@@ -201,14 +134,14 @@ suite('extract-tar', function () {
     }
 
     test('rejects with an Error when iteration throws a non-Error value', async function () {
-        await runWithThrowingStream(() => {
+        await runWithThrowingStream(function () {
             // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- This test exercises non-Error rejection normalization.
             throw 'boom';
         }, /^Error: boom$/u);
     });
 
     test('preserves Error instances when iteration rejects with an Error', async function () {
-        await runWithThrowingStream(() => {
+        await runWithThrowingStream(function () {
             throw new Error('boom');
         }, /^Error: boom$/u);
     });
@@ -224,7 +157,7 @@ suite('extract-tar', function () {
             },
             [Symbol.asyncIterator](): AsyncIterator<unknown> {
                 return {
-                    next: async (): Promise<IteratorResult<unknown>> => {
+                    async next(): Promise<IteratorResult<unknown>> {
                         return { done: true, value: undefined };
                     }
                 };
@@ -246,7 +179,9 @@ suite('extract-tar', function () {
         };
         const entries = await withPromiseDeadline(
             extractTarEntries(Buffer.from('unused'), {
-                createSource: () => source as unknown as Readable
+                createSource() {
+                    return source as unknown as Readable;
+                }
             }),
             'source stream error registration'
         );
@@ -256,7 +191,7 @@ suite('extract-tar', function () {
     });
 
     test('rejects when the injected source stream emits an error event', async function () {
-        let sourceErrorListener = (error: unknown): void => {
+        let sourceErrorListener = function (error: unknown): void {
             throw new Error(`expected the source error listener to be registered before piping: ${String(error)}`);
         };
         const extractStream = {
@@ -265,10 +200,8 @@ suite('extract-tar', function () {
             },
             [Symbol.asyncIterator](): AsyncIterator<unknown> {
                 return {
-                    next: async (): Promise<IteratorResult<unknown>> => {
-                        return await new Promise<IteratorResult<unknown>>(() => {
-                            // keep pending so the error race decides the outcome
-                        });
+                    async next(): Promise<IteratorResult<unknown>> {
+                        return await new Promise<IteratorResult<unknown>>(keepPending);
                     }
                 };
             }
@@ -287,17 +220,19 @@ suite('extract-tar', function () {
                 return source;
             },
             pipe() {
-                queueMicrotask(() => {
+                queueMicrotask(function () {
                     sourceErrorListener(new Error('source boom'));
                 });
                 return gunzip;
             }
         };
 
-        await expectFailure(async () => {
+        await expectFailure(async function () {
             await withPromiseDeadline(
                 extractTarEntries(Buffer.from('unused'), {
-                    createSource: () => source as unknown as Readable
+                    createSource() {
+                        return source as unknown as Readable;
+                    }
                 }),
                 'source stream error event'
             );

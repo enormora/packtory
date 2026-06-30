@@ -33,7 +33,8 @@ suite('terminal-preview-renderer', function () {
                 '      -export const removed = 1;',
                 '      +export const kept = 1;',
                 ''
-            ].join('\n')
+            ]
+                .join('\n')
         );
         assert.ok(!output.includes('Stryker was here'));
     });
@@ -43,8 +44,8 @@ suite('terminal-preview-renderer', function () {
             createPreviewDocumentFixture({
                 previewable: false,
                 resultType: 'checks',
-                issues: ['bundle is too large'],
-                packages: [createPreviewPackageFixture({ failure: { stage: 'resolveAndLink', message: 'boom' } })]
+                issues: [ 'bundle is too large' ],
+                packages: [ createPreviewPackageFixture({ failure: { stage: 'resolveAndLink', message: 'boom' } }) ]
             }),
             { color: false }
         );
@@ -57,15 +58,16 @@ suite('terminal-preview-renderer', function () {
                 '- bundle is too large',
                 'pkg-a resolveAndLink: boom',
                 ''
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
     test('renderTerminalPreview renders issues and package failures in the normal preview view', function () {
         const output = renderTerminalPreview(
             createPreviewDocumentFixture({
-                issues: ['warning'],
-                packages: [createPreviewPackageFixture({ failure: { stage: 'publish', message: 'boom' } })]
+                issues: [ 'warning' ],
+                packages: [ createPreviewPackageFixture({ failure: { stage: 'publish', message: 'boom' } }) ]
             }),
             { color: false }
         );
@@ -78,8 +80,8 @@ suite('terminal-preview-renderer', function () {
     test('renderTerminalPreview joins multiple issues with newlines and skips directory diff payloads', function () {
         const output = renderTerminalPreview(
             createPreviewDocumentFixture({
-                issues: ['first', 'second'],
-                packages: [createDirectoryDiffPreviewPackageFixture()]
+                issues: [ 'first', 'second' ],
+                packages: [ createDirectoryDiffPreviewPackageFixture() ]
             }),
             { color: false }
         );
@@ -138,7 +140,7 @@ suite('terminal-preview-renderer', function () {
                                     diff: [
                                         {
                                             header: '@@ -1,2 +1,2 @@',
-                                            lines: [{ type: 'context', text: ' unchanged();' }]
+                                            lines: [ { type: 'context', text: ' unchanged();' } ]
                                         }
                                     ]
                                 }
@@ -156,7 +158,7 @@ suite('terminal-preview-renderer', function () {
     test('renderTerminalPreview omits the version suffix when no version transition is present', function () {
         const output = renderTerminalPreview(
             createPreviewDocumentFixture({
-                packages: [createPreviewPackageFixture({ versionTransition: undefined })]
+                packages: [ createPreviewPackageFixture({ versionTransition: undefined }) ]
             }),
             { color: false }
         );
@@ -169,7 +171,7 @@ suite('terminal-preview-renderer', function () {
         const output = renderTerminalPreview(
             createPreviewDocumentFixture({
                 issues: [],
-                packages: [createManifestOnlyPreviewPackageFixture()]
+                packages: [ createManifestOnlyPreviewPackageFixture() ]
             }),
             { color: false }
         );
@@ -184,7 +186,8 @@ suite('terminal-preview-renderer', function () {
                 'pkg-a',
                 '  • package.json (manifest, 2 B) [generated]',
                 ''
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 });

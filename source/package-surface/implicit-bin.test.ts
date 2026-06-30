@@ -68,14 +68,17 @@ suite('implicit-bin', function () {
     });
 
     test('throws when more than one root qualifies as an implicit bin', function () {
-        assert.throws(() => {
-            buildImplicitBinField({
-                name: 'package-a',
-                roots: {
-                    cli: executableShebangRoot('cli.js'),
-                    worker: executableShebangRoot('worker.js')
-                }
-            });
-        }, /^Error: Package "package-a" has multiple executable shebang roots; declare packageInterface\.bins explicitly$/u);
+        assert.throws(
+            function () {
+                buildImplicitBinField({
+                    name: 'package-a',
+                    roots: {
+                        cli: executableShebangRoot('cli.js'),
+                        worker: executableShebangRoot('worker.js')
+                    }
+                });
+            },
+            /^Error: Package "package-a" has multiple executable shebang roots; declare packageInterface\.bins explicitly$/u
+        );
     });
 });

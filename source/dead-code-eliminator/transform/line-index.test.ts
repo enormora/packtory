@@ -4,7 +4,7 @@ import { buildLineIndex, lineColumnToOffset, offsetToLineColumn } from './line-i
 
 suite('line-index', function () {
     test('buildLineIndex returns a single entry for an empty string', function () {
-        assert.deepStrictEqual(buildLineIndex(''), [{ lineNumber: 1, lineStart: 0 }]);
+        assert.deepStrictEqual(buildLineIndex(''), [ { lineNumber: 1, lineStart: 0 } ]);
     });
 
     test('buildLineIndex returns one entry per newline-terminated line plus the first line', function () {

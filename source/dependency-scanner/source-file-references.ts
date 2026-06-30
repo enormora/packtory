@@ -18,31 +18,27 @@ export const moduleReferenceKind = {
     localCode: 'local-code'
 } as const;
 
-type ExternalPackageReference = {
+type ExternalReference = {
     readonly kind: typeof moduleReferenceKind.externalPackage;
     readonly packageName: string;
 };
 
-type GeneratedManifestReference = {
+type ManifestReference = {
     readonly kind: typeof moduleReferenceKind.generatedManifest;
     readonly filePath: string;
 };
 
-type LocalAssetReference = {
+type AssetReference = {
     readonly kind: typeof moduleReferenceKind.localAsset;
     readonly filePath: string;
 };
 
-type LocalCodeReference = {
+type CodeReference = {
     readonly kind: typeof moduleReferenceKind.localCode;
     readonly filePath: string;
 };
 
-export type ModuleReference =
-    | ExternalPackageReference
-    | GeneratedManifestReference
-    | LocalAssetReference
-    | LocalCodeReference;
+export type ModuleReference = AssetReference | CodeReference | ExternalReference | ManifestReference;
 
 function hashImportPrefix(): string {
     return '#';
@@ -62,7 +58,7 @@ function isHashSpecifier(specifier: string): boolean {
 
 function packageNameFromSpecifier(specifier: string): string {
     if (specifier.startsWith('@')) {
-        const [scope, name] = specifier.split('/');
+        const [ scope, name ] = specifier.split('/');
         if (name === undefined) {
             throw new Error(`Invalid package specifier "${specifier}"`);
         }
@@ -82,7 +78,7 @@ function typesPackageNameFromResolvedPath(resolvedFilePath: string): string | un
     }
 
     const relativePath = normalizedPath.slice(folderIndex + folderPath.length);
-    const [packageName] = relativePath.split(path.sep);
+    const [ packageName ] = relativePath.split(path.sep);
     return `@types/${packageName}`;
 }
 
@@ -120,12 +116,14 @@ function resolvedModuleForImport(
     containingSourceFile: Readonly<SourceFile>
 ): Readonly<ts.ResolvedModule | undefined> {
     const project = containingSourceFile.getProject();
-    return ts.resolveModuleName(
-        importValue,
-        containingSourceFile.getFilePath(),
-        project.getCompilerOptions(),
-        project.getModuleResolutionHost()
-    ).resolvedModule;
+    return ts
+        .resolveModuleName(
+            importValue,
+            containingSourceFile.getFilePath(),
+            project.getCompilerOptions(),
+            project.getModuleResolutionHost()
+        )
+        .resolvedModule;
 }
 
 export function resolveSourceFileForLiteral(
@@ -161,7 +159,7 @@ function resolveWasmReference(
     const resolvedFilePath = findPackageOwnedAssetFilePath(
         importValue,
         path.dirname(containingSourceFile.getFilePath()),
-        (candidatePath) => {
+        function (candidatePath) {
             return moduleResolutionHost.fileExists(candidatePath);
         }
     );
@@ -221,7 +219,7 @@ function collectImportMetaResolveLiteral(
     if (callee === undefined || !isImportMetaResolveCallee(callee)) {
         return undefined;
     }
-    const [first, second] = callExpression.getArguments();
+    const [ first, second ] = callExpression.getArguments();
     if (first === undefined || second !== undefined) {
         throw invalidImportMetaResolveUsage(sourceFile);
     }
@@ -248,7 +246,7 @@ export function getReferencedModules(
     packageJsonPath: string
 ): readonly Readonly<ModuleReference>[] {
     const referencedModules: ModuleReference[] = [];
-    const allLiterals = [...sourceFile.getImportStringLiterals(), ...getImportMetaResolveLiterals(sourceFile)];
+    const allLiterals = [ ...sourceFile.getImportStringLiterals(), ...getImportMetaResolveLiterals(sourceFile) ];
 
     for (const literal of allLiterals) {
         const importValue = literal.getLiteralValue();

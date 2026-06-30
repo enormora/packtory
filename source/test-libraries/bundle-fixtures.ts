@@ -8,7 +8,10 @@ import { implicitPackageSurface, type PackageSurface } from '../package-surface/
 import type { BundleResource, RootFileDescription } from '../resource-resolver/resolved-bundle.ts';
 import type { VersionedBundle, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 
-const transferableFileDescriptionFactory = createFactory<TransferableFileDescription>(() => {
+export type BundleFixtureLinkedBundle = LinkedBundle;
+export type BundleFixtureVersionedBundleWithManifest = VersionedBundleWithManifest;
+
+const transferableFileDescriptionFactory = createFactory<TransferableFileDescription>(function () {
     return {
         content: '',
         isExecutable: false,
@@ -17,7 +20,7 @@ const transferableFileDescriptionFactory = createFactory<TransferableFileDescrip
     };
 });
 
-const fileDescriptionFactory = createFactory<FileDescription>(() => {
+const fileDescriptionFactory = createFactory<FileDescription>(function () {
     return {
         content: '',
         isExecutable: false,
@@ -28,10 +31,10 @@ const fileDescriptionFactory = createFactory<FileDescription>(() => {
 type BundlePackageJsonFixture = {
     readonly name: string;
     readonly version: string;
-    readonly repository?: string | { readonly type: string; readonly url: string; readonly directory?: string };
+    readonly repository?: string | { readonly type: string; readonly url: string; readonly directory?: string; };
 };
 
-const bundlePackageJsonFactory = createFactory<BundlePackageJsonFixture>(() => {
+const bundlePackageJsonFactory = createFactory<BundlePackageJsonFixture>(function () {
     return {
         name: '',
         version: ''
@@ -61,19 +64,21 @@ function createDefaultSurface(): PackageSurface {
 
 export function externalDependency(
     name: string,
-    referencedFrom: readonly [string, ...(readonly string[])] = ['/src/index.js']
+    referencedFrom: readonly [string, ...(readonly string[])] = [ '/src/index.js' ]
 ): ExternalDependency {
     return { name, referencedFrom };
 }
 
+type BundleResourceOverrides = {
+    readonly content?: string;
+    readonly targetFilePath?: string;
+    readonly directDependencies?: ReadonlySet<string>;
+    readonly isExplicitlyIncluded?: boolean;
+};
+
 export function bundleResource(
     sourceFilePath: string,
-    overrides: {
-        readonly content?: string;
-        readonly targetFilePath?: string;
-        readonly directDependencies?: ReadonlySet<string>;
-        readonly isExplicitlyIncluded?: boolean;
-    } = {}
+    overrides: BundleResourceOverrides = {}
 ): BundleResource {
     return {
         fileDescription: transferableFileDescriptionFactory.build({
@@ -108,18 +113,20 @@ type AnalyzedBundleResourceOverrides = {
     readonly analysis?: Partial<FileAnalysis>;
 };
 
+function toBundleResourceOverrides(overrides: AnalyzedBundleResourceOverrides): BundleResourceOverrides {
+    return {
+        ...overrides.content !== undefined && { content: overrides.content },
+        ...overrides.targetFilePath !== undefined && { targetFilePath: overrides.targetFilePath },
+        ...overrides.directDependencies !== undefined && { directDependencies: overrides.directDependencies },
+        ...overrides.isExplicitlyIncluded !== undefined && { isExplicitlyIncluded: overrides.isExplicitlyIncluded }
+    };
+}
+
 export function analyzedBundleResource(
     sourceFilePath: string,
     overrides: AnalyzedBundleResourceOverrides = {}
 ): AnalyzedBundleResource {
-    const base = bundleResource(sourceFilePath, {
-        ...(overrides.content === undefined ? {} : { content: overrides.content }),
-        ...(overrides.targetFilePath === undefined ? {} : { targetFilePath: overrides.targetFilePath }),
-        ...(overrides.directDependencies === undefined ? {} : { directDependencies: overrides.directDependencies }),
-        ...(overrides.isExplicitlyIncluded === undefined
-            ? {}
-            : { isExplicitlyIncluded: overrides.isExplicitlyIncluded })
-    });
+    const base = bundleResource(sourceFilePath, toBundleResourceOverrides(overrides));
     return {
         ...base,
         isSubstituted: overrides.isSubstituted ?? false,
@@ -145,7 +152,7 @@ export function analyzedBundle(overrides: AnalyzedBundleOverrides = {}): Analyze
     };
 }
 
-type VersionedBundleOverrides = Except<Partial<VersionedBundle>, 'mainFile' | 'typesMainFile'> & {
+export type VersionedBundleOverrides = Except<Partial<VersionedBundle>, 'mainFile' | 'typesMainFile'> & {
     readonly mainFile?: Partial<TransferableFileDescription>;
     readonly typesMainFile?: Partial<TransferableFileDescription>;
 };
@@ -167,9 +174,7 @@ export function versionedBundle(overrides: VersionedBundleOverrides = {}): Versi
         packageType: 'module',
         sideEffectsField: undefined,
         mainFile: transferableFileDescriptionFactory.build(mainFile),
-        ...(typesMainFile === undefined
-            ? {}
-            : { typesMainFile: transferableFileDescriptionFactory.build(typesMainFile) }),
+        ...typesMainFile !== undefined && { typesMainFile: transferableFileDescriptionFactory.build(typesMainFile) },
         ...rest
     };
 }

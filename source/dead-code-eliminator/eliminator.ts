@@ -31,11 +31,11 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
         transformationsEnabled: loaded.input.transformationsEnabled,
         deadCodeElimination: loaded.input.deadCodeElimination
     };
-    const outputs = loaded.loaded.map((entry) => {
+    const outputs = loaded.loaded.map(function (entry) {
         return buildAnalyzedResource(entry, context);
     });
     const transformsByMapPath = buildMapPathTransformIndex(outputs);
-    const contents = outputs.map((output) => {
+    const contents = outputs.map(function (output) {
         return output.resource;
     });
     const finalContents = recomposePairedSourceMaps(contents, transformsByMapPath);
@@ -55,16 +55,16 @@ export function createDeadCodeEliminator(dependencies: DeadCodeEliminatorDepende
     const { createProject, progressBroadcaster } = dependencies;
     return {
         async eliminate(inputs) {
-            const loadedBundles = inputs.map((input) => {
+            const loadedBundles = inputs.map(function (input) {
                 return loadBundle(createProject, input);
             });
             const seedMap = buildCrossBundleSeeds(loadedBundles.map(crossBundleInputFrom));
-            const analyzed = loadedBundles.map((loaded) => {
+            const analyzed = loadedBundles.map(function (loaded) {
                 return analyzeBundleWithSeeds(loaded, seedMap.get(loaded.input.bundle.name));
             });
             maybeEmitElimination(
                 progressBroadcaster,
-                inputs.map((input) => {
+                inputs.map(function (input) {
                     return input.bundle;
                 }),
                 analyzed

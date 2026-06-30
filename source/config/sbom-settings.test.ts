@@ -35,7 +35,7 @@ suite('sbom-settings', function () {
         checkValidationFailure({
             schema: sbomSettingsSchema,
             data: { enabled: 'yes' },
-            expectedMessages: ['at enabled: expected boolean, but got string']
+            expectedMessages: [ 'at enabled: expected boolean, but got string' ]
         })
     );
 
@@ -44,7 +44,7 @@ suite('sbom-settings', function () {
         checkValidationFailure({
             schema: sbomSettingsSchema,
             data: { enabled: true, extra: 'no' },
-            expectedMessages: ['unexpected additional property: "extra"']
+            expectedMessages: [ 'unexpected additional property: "extra"' ]
         })
     );
 });

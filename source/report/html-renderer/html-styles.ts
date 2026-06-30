@@ -1,4 +1,3 @@
-/* cspell:words Palatino Menlo */
 /* eslint-disable @stylistic/max-len -- CSS literals are intentionally long */
 
 export function htmlReportStyles(): string {
@@ -27,7 +26,7 @@ export function htmlReportStyles(): string {
             radial-gradient(circle at top left, rgba(193, 143, 71, 0.15), transparent 28rem),
             linear-gradient(180deg, #f6f2e8 0%, var(--bg) 100%);
         color: var(--text);
-        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        font-family: Georgia, serif;
     }
     main { max-width: 72rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
     h1 { margin: 0 0 0.25rem; font-size: 2rem; }
@@ -153,12 +152,12 @@ export function htmlReportStyles(): string {
         padding: 0.45rem 0.75rem;
         background: var(--diff-header);
         color: var(--muted);
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: ui-monospace, monospace;
         font-size: 0.8rem;
     }
     .diff-line {
         white-space: pre-wrap;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: ui-monospace, monospace;
         font-size: 0.83rem;
         padding: 0.08rem 0.75rem;
     }

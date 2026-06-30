@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { classifySpecifier } from './specifier-classifier.ts';
 
-suite('specifier-classifier', function () {
+function registerRegistryAndMutableTests(): void {
     test('classifies an exact version as registry', function () {
         assert.deepStrictEqual(classifySpecifier('left-pad', '1.2.3'), { kind: 'registry' });
     });
@@ -60,7 +60,9 @@ suite('specifier-classifier', function () {
     test('classifies an alias of a registry version as registry', function () {
         assert.deepStrictEqual(classifySpecifier('aliased', 'npm:other-pkg@^2.0.0'), { kind: 'registry' });
     });
+}
 
+function registerMalformedSpecifierTests(): void {
     test('classifies a non-registry alias as malformed because npa rejects it', function () {
         const result = classifySpecifier('aliased', 'npm:other-pkg@git+https://github.com/foo/bar#main');
 
@@ -77,7 +79,8 @@ suite('specifier-classifier', function () {
     test('classifies workspace: protocol as malformed with the workspace reason', function () {
         assert.deepStrictEqual(classifySpecifier('shared-utils', 'workspace:*'), {
             kind: 'malformed',
-            reason: 'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace, not valid in a published manifest'
+            reason:
+                'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace, not valid in a published manifest'
         });
     });
 
@@ -96,4 +99,9 @@ suite('specifier-classifier', function () {
         }
         assert.match(result.reason, /Unsupported URL Type/u);
     });
+}
+
+suite('specifier-classifier', function () {
+    registerRegistryAndMutableTests();
+    registerMalformedSpecifierTests();
 });

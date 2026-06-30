@@ -100,24 +100,35 @@ async function collectTarEntries(stream: AsyncIterable<TarStreamEntry>, limits: 
 }
 
 async function waitForStreamError(stream: ErrorEmitter): Promise<never> {
-    return await new Promise<never>((_resolve, reject) => {
-        stream.once('error', (error: unknown) => {
+    return await new Promise<never>(function (_resolve, reject) {
+        stream.once('error', function (error: unknown) {
             reject(toError(error));
         });
     });
 }
 
-function appendOutcome(outcomes: Set<Promise<TarEntry[]>>, outcome: Promise<TarEntry[]>): Set<Promise<TarEntry[]>> {
+type ExtractionOutcomeCollection = {
+    readonly add: (outcome: Promise<readonly TarEntry[]>) => ExtractionOutcomeCollection;
+    readonly [Symbol.iterator]: () => IterableIterator<Promise<readonly TarEntry[]>>;
+};
+
+function appendOutcome(
+    outcomes: ExtractionOutcomeCollection,
+    outcome: Promise<readonly TarEntry[]>
+): ExtractionOutcomeCollection {
     outcomes.add(outcome);
     return outcomes;
 }
 
 async function raceExtractionOutcomes(streams: ExtractionStreams, limits: ExtractTarLimits): Promise<TarEntry[]> {
-    return await Promise.race(
+    const entries = await Promise.race(
         appendOutcome(
             appendOutcome(
                 appendOutcome(
-                    appendOutcome(new Set<Promise<TarEntry[]>>(), collectTarEntries(streams.tarEntries, limits)),
+                    appendOutcome(
+                        new Set<Promise<readonly TarEntry[]>>(),
+                        collectTarEntries(streams.tarEntries, limits)
+                    ),
                     waitForStreamError(streams.source)
                 ),
                 waitForStreamError(streams.gunzip)
@@ -125,6 +136,7 @@ async function raceExtractionOutcomes(streams: ExtractionStreams, limits: Extrac
             waitForStreamError(streams.extractStream)
         )
     );
+    return Array.from(entries);
 }
 
 export async function extractTarEntries(

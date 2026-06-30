@@ -25,7 +25,7 @@ export type PackageProcessorDependencies = {
     readonly sbomFileBuilder: SbomFileBuilder;
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly fileManager: {
-        readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean }>;
+        readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean; }>;
         readonly readFile: (filePath: string) => Promise<string>;
     };
     readonly repositoryFolder: string;

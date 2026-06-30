@@ -64,7 +64,7 @@ suite('module-types', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
                             isExecutable: false,
@@ -139,7 +139,7 @@ suite('module-types', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "export * from './foo';\n",
                             isExecutable: false,
@@ -203,7 +203,7 @@ suite('module-types', function () {
                 additionalAttributes: {},
                 packageJson: {
                     name: 'the-package-name',
-                    sideEffects: ['./foo.js'],
+                    sideEffects: [ './foo.js' ],
                     version: '42.0.0',
                     type: 'module'
                 },
@@ -214,7 +214,7 @@ suite('module-types', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import './foo';\n",
                             isExecutable: false,
@@ -237,7 +237,7 @@ suite('module-types', function () {
                         isSubstituted: false,
                         analysis: {
                             survivingBindings: new Set<string>(),
-                            sideEffectStatements: [{ line: 1, kind: 'expression statement' }],
+                            sideEffectStatements: [ { line: 1, kind: 'expression statement' } ],
                             sideEffectImports: new Set<string>()
                         }
                     }
@@ -252,7 +252,7 @@ suite('module-types', function () {
                 name: 'the-package-name',
                 packageType: 'module',
                 peerDependencies: {},
-                sideEffectsField: ['./foo.js'],
+                sideEffectsField: [ './foo.js' ],
                 typesMainFile: undefined,
                 version: '42.0.0'
             })

@@ -42,7 +42,7 @@ function succeededFromPublish(publishResult: PublishStageResult): readonly Build
 }
 
 function buildPartialFromPublish(
-    publishResult: Extract<PublishStageResult, { isErr: true }>,
+    publishResult: Extract<PublishStageResult, { readonly isErr: true; }>,
     stageResult: ReleaseDiffStageResult
 ): ReleaseDiffFailure {
     return {

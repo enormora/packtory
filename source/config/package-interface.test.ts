@@ -11,8 +11,9 @@ suite('package-interface', function () {
                     { root: 'main', export: '.' },
                     { root: 'feature', export: './feature' }
                 ],
-                privateRoots: ['worker']
-            }).success,
+                privateRoots: [ 'worker' ]
+            })
+                .success,
             true
         );
     });
@@ -20,8 +21,9 @@ suite('package-interface', function () {
     test('packageInterfaceSchema accepts interfaces that expose only bins', function () {
         assert.strictEqual(
             safeParse(packageInterfaceSchema, {
-                bins: [{ root: 'cli', name: 'packtory' }]
-            }).success,
+                bins: [ { root: 'cli', name: 'packtory' } ]
+            })
+                .success,
             true
         );
     });
@@ -29,8 +31,9 @@ suite('package-interface', function () {
     test('packageInterfaceSchema rejects module export keys without a package-relative prefix', function () {
         assert.strictEqual(
             safeParse(packageInterfaceSchema, {
-                modules: [{ root: 'main', export: 'feature' }]
-            }).success,
+                modules: [ { root: 'main', export: 'feature' } ]
+            })
+                .success,
             false
         );
     });
@@ -39,26 +42,30 @@ suite('package-interface', function () {
         assert.strictEqual(
             safeParse(packageInterfaceSchema, {
                 modules: []
-            }).success,
+            })
+                .success,
             false
         );
         assert.strictEqual(
             safeParse(packageInterfaceSchema, {
                 bins: []
-            }).success,
+            })
+                .success,
             false
         );
         assert.strictEqual(
             safeParse(packageInterfaceSchema, {
-                modules: [{ root: 'main', export: '.' }],
+                modules: [ { root: 'main', export: '.' } ],
                 privateRoots: []
-            }).success,
+            })
+                .success,
             false
         );
         assert.strictEqual(
             safeParse(packageInterfaceSchema, {
-                privateRoots: ['worker']
-            }).success,
+                privateRoots: [ 'worker' ]
+            })
+                .success,
             false
         );
     });

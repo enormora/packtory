@@ -12,13 +12,12 @@ function unscopedPackageName(packageName: string): string {
 }
 
 function findExecutableShebangRoot(bundle: ImplicitBinBundle): RootFileDescription | undefined {
-    const executableShebangRoots = Object.values(bundle.roots).filter((root) => {
+    const executableShebangRoots = Object.values(bundle.roots).filter(function (root) {
         return root.js.isExecutable && isShebangContent(root.js.content);
     });
 
     if (executableShebangRoots.length > 1) {
-        const duplicateShebangRootsMessage =
-            `Package "${bundle.name}" has multiple executable shebang roots; ` +
+        const duplicateShebangRootsMessage = `Package "${bundle.name}" has multiple executable shebang roots; ` +
             'declare packageInterface.bins explicitly';
         throw new Error(duplicateShebangRootsMessage);
     }

@@ -12,12 +12,12 @@ type ChangelogSettingsConfig = {
 
 export type GeneratedAttributionPathConfig = {
     readonly changelog?: ChangelogSettingsConfig | undefined;
-    readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined } | undefined;
+    readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined; } | undefined;
     readonly packages: readonly PackagePathConfig[];
 };
 
-type FileChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' | 'repository-file' }>;
-type PackageChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' }>;
+type FileChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' | 'repository-file'; }>;
+type PackageChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file'; }>;
 type PackageChangelogOutputWithExplicitPaths = PackageChangelogOutput & {
     readonly paths: Readonly<Record<string, string>>;
 };
@@ -52,7 +52,7 @@ function resolvePackageFilePath(
 }
 
 function hasExplicitPackagePaths(output: PackageChangelogOutput): output is PackageChangelogOutputWithExplicitPaths {
-    return 'paths' in output;
+    return Object.hasOwn(output, 'paths');
 }
 
 function resolveRepositoryRelativePath(repositoryFolder: string, filePath: string): string | undefined {
@@ -71,28 +71,30 @@ export function collectGeneratedAttributionPaths(
         return [];
     }
 
-    const paths = config.changelog.outputs
-        .filter((output): output is FileChangelogOutput => {
+    const paths = config
+        .changelog
+        .outputs
+        .filter(function (output): output is FileChangelogOutput {
             return output.kind !== 'github-release';
         })
-        .flatMap((output) => {
+        .flatMap(function (output) {
             if (output.kind === 'repository-file') {
-                return [resolveRepositoryPath(repositoryFolder, output.path)];
+                return [ resolveRepositoryPath(repositoryFolder, output.path) ];
             }
             if (hasExplicitPackagePaths(output)) {
-                return Object.values(output.paths).map((outputPath) => {
+                return Object.values(output.paths).map(function (outputPath) {
                     return resolveRepositoryPath(repositoryFolder, outputPath);
                 });
             }
-            return config.packages.map((packageConfig) => {
+            return config.packages.map(function (packageConfig) {
                 return resolvePackageFilePath(repositoryFolder, config, packageConfig, output.path);
             });
         });
     return Array.from(
         new Set(
-            paths.flatMap((filePath) => {
+            paths.flatMap(function (filePath) {
                 const relativePath = resolveRepositoryRelativePath(repositoryFolder, filePath);
-                return relativePath === undefined ? [] : [relativePath];
+                return relativePath === undefined ? [] : [ relativePath ];
             })
         )
     );

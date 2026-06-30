@@ -52,7 +52,7 @@ suite('public-module-usage', function () {
                     }
                 }
             },
-            contents: [analyzedBundleResource('/extra/index.js', { targetFilePath: 'index.js' })],
+            contents: [ analyzedBundleResource('/extra/index.js', { targetFilePath: 'index.js' }) ],
             surface: { mode: 'implicit', defaultModuleRoot: 'main' }
         });
         const consumer = analyzedBundle({
@@ -64,7 +64,8 @@ suite('public-module-usage', function () {
                         'export { feature } from "package-a/feature.js";',
                         'const requiredFeature = require("package-a/feature.js");',
                         'import "./local.js";'
-                    ].join('\n')
+                    ]
+                        .join('\n')
                 }),
                 analyzedBundleResource('/consumer/extra.js', {
                     content: 'import "package-a";\nexport * from "package-a/feature.js";\n'
@@ -76,9 +77,9 @@ suite('public-module-usage', function () {
             ]
         });
 
-        const result = collectPublicModuleUsage([consumer, packageBundle, extraBundle]);
+        const result = collectPublicModuleUsage([ consumer, packageBundle, extraBundle ]);
 
-        assert.deepStrictEqual(result.get('package-a'), new Set(['/pkg/index.js', '/pkg/feature.js']));
+        assert.deepStrictEqual(result.get('package-a'), new Set([ '/pkg/index.js', '/pkg/feature.js' ]));
         assert.strictEqual(result.has('Stryker was here'), false);
     });
 
@@ -104,7 +105,7 @@ suite('public-module-usage', function () {
             surface: { mode: 'implicit', defaultModuleRoot: 'main' }
         });
 
-        const result = collectPublicModuleUsage([selfBundle]);
+        const result = collectPublicModuleUsage([ selfBundle ]);
 
         assert.deepStrictEqual(result, new Map());
     });

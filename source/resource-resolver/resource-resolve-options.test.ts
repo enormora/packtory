@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { resolveRootsAndSurface, type ResourceResolveOptions } from './resource-resolve-options.ts';
+import { resolveRootsAndSurface } from './resource-resolve-options.ts';
 
 const mainRoot = { js: '/src/index.js', declarationFile: '/src/index.d.ts' } as const;
 const helperRoot = { js: '/src/helper.js' } as const;
@@ -10,7 +10,7 @@ type BaseOptions = {
     readonly sourcesFolder: string;
     readonly includeSourceMapFiles: boolean;
     readonly additionalFiles: readonly [];
-    readonly mainPackageJson: { readonly type: 'module' };
+    readonly mainPackageJson: { readonly type: 'module'; };
 };
 
 function baseOptions(): BaseOptions {
@@ -43,7 +43,7 @@ suite('resource-resolve-options', function () {
             surface: {
                 mode: 'explicit',
                 packageInterface: {
-                    modules: [{ root: 'main', export: '.' }]
+                    modules: [ { root: 'main', export: '.' } ]
                 }
             }
         });
@@ -53,18 +53,18 @@ suite('resource-resolve-options', function () {
             surface: {
                 mode: 'explicit',
                 packageInterface: {
-                    modules: [{ root: 'main', export: '.' }]
+                    modules: [ { root: 'main', export: '.' } ]
                 }
             }
         });
     });
 
     test('resolveRootsAndSurface() throws when roots are empty', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             resolveRootsAndSurface({
                 ...baseOptions(),
                 roots: {}
-            } as ResourceResolveOptions);
+            });
         }, /^Error: Package "package-a" must define at least one root$/u);
     });
 });

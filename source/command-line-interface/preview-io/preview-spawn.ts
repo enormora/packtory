@@ -29,19 +29,19 @@ export async function spawnForCompletion(
     args: readonly string[],
     content: string
 ): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-        const child = spawnProcess(command, args, { stdio: ['pipe', 'inherit', 'inherit'] });
+    return new Promise<boolean>(function (resolve) {
+        const child = spawnProcess(command, args, { stdio: [ 'pipe', 'inherit', 'inherit' ] });
         if (child.stdin === null) {
             resolve(false);
             return;
         }
-        child.on('error', () => {
+        child.on('error', function () {
             resolve(false);
         });
-        child.on('close', (code) => {
+        child.on('close', function (code) {
             resolve(code === 0);
         });
-        child.stdin.on('error', () => {
+        child.stdin.on('error', function () {
             resolve(false);
         });
         child.stdin.end(content);

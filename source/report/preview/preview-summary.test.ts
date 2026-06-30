@@ -48,7 +48,7 @@ suite('preview-summary', function () {
         const summary = summarizePackages([
             {
                 hasChanges: true,
-                eliminatedSourceFiles: [{ path: '/a.js' }],
+                eliminatedSourceFiles: [ { path: '/a.js' } ],
                 artifactCounts: { emitted: 2, changed: 1 }
             }
         ]);

@@ -84,7 +84,7 @@ export function createSourceMapFileLocator(
                 return Maybe.nothing();
             }
 
-            return (await isReadableSourceMap(sourcesFolder, sourceMapFile.value))
+            return await isReadableSourceMap(sourcesFolder, sourceMapFile.value)
                 ? Maybe.just(sourceMapFile.value)
                 : Maybe.nothing();
         }

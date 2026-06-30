@@ -10,11 +10,11 @@ function pkg(overrides: Partial<PackageConfig>): PackageConfig {
         roots: { main: { js: 'index.js' } },
         sourcesFolder: 'src',
         ...overrides
-    } as unknown as PackageConfig;
+    };
 }
 
 function config(overrides: Partial<PacktoryConfigWithoutRegistry>): PacktoryConfigWithoutRegistry {
-    return { packages: [], ...overrides } as unknown as PacktoryConfigWithoutRegistry;
+    return { packages: [], ...overrides };
 }
 
 suite('settings-validation', function () {
@@ -22,7 +22,7 @@ suite('settings-validation', function () {
         const result = validatePublishSettingsArePlaced(
             config({
                 commonPackageSettings: { publishSettings: { access: 'public' } } as never,
-                packages: [pkg({})]
+                packages: [ pkg({}) ]
             })
         );
 
@@ -45,15 +45,15 @@ suite('settings-validation', function () {
     test('validatePublishSettingsArePlaced reports when publishSettings is missing from a package and from commonPackageSettings', function () {
         const result = validatePublishSettingsArePlaced(
             config({
-                packages: [pkg({ publishSettings: { access: 'public' } as never }), pkg({ name: 'pkg-b' })]
+                packages: [ pkg({ publishSettings: { access: 'public' } as never }), pkg({ name: 'pkg-b' }) ]
             })
         );
 
-        assert.deepStrictEqual(result, ['publishSettings must be set in commonPackageSettings or in every package']);
+        assert.deepStrictEqual(result, [ 'publishSettings must be set in commonPackageSettings or in every package' ]);
     });
 
     test('validateAllowScriptsConsistency returns no issues when no package contributes a scripts attribute', function () {
-        const result = validateAllowScriptsConsistency(config({ packages: [pkg({})] }));
+        const result = validateAllowScriptsConsistency(config({ packages: [ pkg({}) ] }));
 
         assert.deepStrictEqual(result, []);
     });
@@ -63,7 +63,7 @@ suite('settings-validation', function () {
             config({
                 packages: [
                     pkg({
-                        additionalPackageJsonAttributes: { scripts: { build: 'tsc' } } as never,
+                        additionalPackageJsonAttributes: { scripts: { build: 'tsc' } },
                         publishSettings: { access: 'public' } as never
                     })
                 ]
@@ -80,7 +80,7 @@ suite('settings-validation', function () {
             config({
                 packages: [
                     pkg({
-                        additionalPackageJsonAttributes: { scripts: { build: 'tsc' } } as never,
+                        additionalPackageJsonAttributes: { scripts: { build: 'tsc' } },
                         publishSettings: { access: 'public', allowScripts: true } as never
                     })
                 ]
@@ -96,7 +96,7 @@ suite('settings-validation', function () {
                 commonPackageSettings: {
                     publishSettings: { access: 'public', allowScripts: true }
                 } as never,
-                packages: [pkg({ additionalPackageJsonAttributes: { scripts: { build: 'tsc' } } as never })]
+                packages: [ pkg({ additionalPackageJsonAttributes: { scripts: { build: 'tsc' } } }) ]
             })
         );
 

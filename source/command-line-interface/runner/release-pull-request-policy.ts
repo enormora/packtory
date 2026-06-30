@@ -15,6 +15,10 @@ type ReleasePullRequestShape = Pick<
     ReleasePullRequestPolicyInput,
     'author' | 'changedFiles' | 'headRef' | 'labels' | 'subject' | 'title'
 >;
+type ReleasePullRequestPolicyConfigShape = Pick<
+    ReleasePullRequestConfig,
+    'automationAuthor' | 'branch' | 'commitSubject' | 'defaultBranch' | 'label' | 'title'
+>;
 
 export type ReleasePullRequestPublishInput = ReleasePullRequestShape & {
     readonly baseRef: string;
@@ -24,10 +28,7 @@ export type ReleasePullRequestPublishInput = ReleasePullRequestShape & {
     readonly repository: string;
 };
 
-export type ReleasePullRequestPolicyConfig = Pick<
-    ReleasePullRequestConfig,
-    'automationAuthor' | 'branch' | 'commitSubject' | 'defaultBranch' | 'label' | 'title'
-> & {
+export type ReleasePullRequestPolicyConfig = ReleasePullRequestPolicyConfigShape & {
     readonly allowedFiles: ReadonlySet<string>;
 };
 
@@ -100,7 +101,7 @@ export function validateReleaseMergeGroupPolicy(
     input: MergeGroupPolicyInput,
     config: ReleasePullRequestPolicyConfig
 ): void {
-    const releasePullRequests = input.pullRequests.filter((pullRequest) => {
+    const releasePullRequests = input.pullRequests.filter(function (pullRequest) {
         return pullRequest.labels.includes(config.label);
     });
 

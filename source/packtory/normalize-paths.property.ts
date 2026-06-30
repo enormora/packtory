@@ -11,13 +11,15 @@ const relativePathArbitrary = fc
         minLength: 1,
         maxLength: 4
     })
-    .map((segments) => {
+    .map(function (segments) {
         return segments.join('/');
     });
 
-const absolutePathArbitrary = fc.tuple(relativePathArbitrary, relativePathArbitrary).map(([folder, filePath]) => {
-    return path.join(path.sep, folder, filePath);
-});
+const absolutePathArbitrary = fc.tuple(relativePathArbitrary, relativePathArbitrary).map(
+    function ([ folder, filePath ]) {
+        return path.join(path.sep, folder, filePath);
+    }
+);
 
 suite('normalize-paths', function () {
     test('normalizeRoot() keeps absolute paths unchanged and resolves relative paths against the source folder', function () {
@@ -26,7 +28,7 @@ suite('normalize-paths', function () {
                 relativePathArbitrary,
                 relativePathArbitrary,
                 fc.option(relativePathArbitrary, { nil: undefined }),
-                (sourceFolder, js, declarationFile) => {
+                function (sourceFolder, js, declarationFile) {
                     const relativeRoot = declarationFile === undefined ? { js } : { js, declarationFile };
                     const normalizedRelativeRoot = normalizeRoot(relativeRoot, sourceFolder);
 
@@ -44,7 +46,7 @@ suite('normalize-paths', function () {
                 absolutePathArbitrary,
                 relativePathArbitrary,
                 fc.option(absolutePathArbitrary, { nil: undefined }),
-                (js, sourceFolder, declarationFile) => {
+                function (js, sourceFolder, declarationFile) {
                     const absoluteRoot = declarationFile === undefined ? { js } : { js, declarationFile };
                     const normalizedAbsoluteRoot = normalizeRoot(absoluteRoot, sourceFolder);
 
@@ -61,7 +63,7 @@ suite('normalize-paths', function () {
                 relativePathArbitrary,
                 relativePathArbitrary,
                 relativePathArbitrary,
-                (sourceFolder, sourceFilePath, targetFilePath) => {
+                function (sourceFolder, sourceFilePath, targetFilePath) {
                     const normalized = normalizeAdditionalFile({ sourceFilePath, targetFilePath }, sourceFolder);
 
                     assert.deepStrictEqual(normalized, {
@@ -77,7 +79,7 @@ suite('normalize-paths', function () {
                 relativePathArbitrary,
                 absolutePathArbitrary,
                 relativePathArbitrary,
-                (sourceFolder, sourceFilePath, targetFilePath) => {
+                function (sourceFolder, sourceFilePath, targetFilePath) {
                     const normalized = normalizeAdditionalFile({ sourceFilePath, targetFilePath }, sourceFolder);
 
                     assert.deepStrictEqual(normalized, {
@@ -95,7 +97,7 @@ suite('normalize-paths', function () {
                 absolutePathArbitrary,
                 relativePathArbitrary,
                 fc.option(relativePathArbitrary, { nil: undefined }),
-                (sourceFolder, js, declarationFile) => {
+                function (sourceFolder, js, declarationFile) {
                     const root = declarationFile === undefined ? { js } : { js, declarationFile };
                     const normalizedOnce = normalizeRoot(root, sourceFolder);
                     const normalizedTwice = normalizeRoot(normalizedOnce, sourceFolder);
@@ -112,7 +114,7 @@ suite('normalize-paths', function () {
                 absolutePathArbitrary,
                 relativePathArbitrary,
                 relativePathArbitrary,
-                (sourceFolder, sourceFilePath, targetFilePath) => {
+                function (sourceFolder, sourceFilePath, targetFilePath) {
                     const normalizedOnce = normalizeAdditionalFile({ sourceFilePath, targetFilePath }, sourceFolder);
                     const normalizedTwice = normalizeAdditionalFile(normalizedOnce, sourceFolder);
 

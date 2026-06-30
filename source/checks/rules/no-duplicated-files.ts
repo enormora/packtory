@@ -14,8 +14,8 @@ const ruleName = 'noDuplicatedFiles';
 const globalSchema = pathAllowListGlobalSchema;
 const perPackageSchema = pathAllowListPerPackageSchema;
 
-type GlobalConfig = z.infer<typeof globalSchema>;
-type PerPackageConfig = z.infer<typeof perPackageSchema>;
+type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
+type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function everyOwnerConsents(
@@ -23,7 +23,7 @@ function everyOwnerConsents(
     owners: readonly OwnerInfo[],
     perPackageSettings: RunParams['perPackageSettings']
 ): boolean {
-    return owners.every((owner) => {
+    return owners.every(function (owner) {
         const allowList = perPackageSettings.get(owner.bundleName)?.noDuplicatedFiles?.allowList;
         return allowList?.includes(filePath) ?? false;
     });
@@ -35,7 +35,7 @@ function findDuplicateIssues(
     globalConfig: GlobalConfig
 ): readonly string[] {
     const globallyAllowed = new Set(globalConfig.allowList);
-    return Array.from(collectFileOwnership(bundles).entries()).flatMap(([filePath, owners]) => {
+    return Array.from(collectFileOwnership(bundles)).flatMap(function ([ filePath, owners ]) {
         if (!hasMultipleOwners(owners)) {
             return [];
         }
@@ -46,7 +46,7 @@ function findDuplicateIssues(
         if (globallyAllowed.has(filePath) || everyOwnerConsents(filePath, owners, perPackageSettings)) {
             return [];
         }
-        return [message];
+        return [ message ];
     });
 }
 

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Result } from 'true-myth';
-import type { ReleaseAnalysisResult } from '../packages/packtory/packtory.entry-point.ts';
+import type { ReleaseAnalysisOutcome, ReleaseAnalysisResult } from '../packages/packtory/packtory.entry-point.ts';
 import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     ciRunsPath,
@@ -25,44 +25,49 @@ const entryPointPath = fileURLToPath(
 );
 const testDeadlineMilliseconds = 2000;
 
-function successfulReleaseAnalysis(
-    overrides: Partial<{
-        readonly classification: 'dependency-only' | 'first-publish' | 'substantive' | 'unchanged';
-    }> = {}
-) {
-    return {
-        getReport: fake(),
-        result: {
-            isOk: true as const,
-            isErr: false as const,
-            value: {
-                classification: overrides.classification ?? 'substantive',
-                mostRecentPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                packageAnalyses: [
-                    {
-                        classification: overrides.classification ?? 'substantive',
-                        latestPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                        latestPublishedVersion: '1.0.0',
-                        name: 'pkg-a'
-                    }
-                ]
-            }
-        }
-    };
-}
+type SuccessfulReleaseAnalysisOverrides = {
+    readonly classification: 'dependency-only' | 'first-publish' | 'substantive' | 'unchanged';
+};
 
-async function expectReleaseAnalysisFailure(spec: {
+type ReleaseAnalysisFailureExpectation = {
     readonly apiBaseUrl: string;
     readonly expectedError: RegExp;
     readonly result: ReleaseAnalysisResult;
-}): Promise<void> {
-    await assert.rejects(async () => {
+};
+
+function successfulReleaseAnalysis(
+    overrides: Partial<SuccessfulReleaseAnalysisOverrides> = {}
+): ReleaseAnalysisOutcome {
+    return {
+        getReport: fake(),
+        result: Result.ok({
+            classification: overrides.classification ?? 'substantive',
+            mostRecentPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
+            packageAnalyses: [
+                {
+                    classification: overrides.classification ?? 'substantive',
+                    latestPublishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                    latestPublishedVersion: '1.0.0',
+                    name: 'pkg-a'
+                }
+            ]
+        })
+    };
+}
+
+function minutesBefore(timestamp: number, minutes: number): string {
+    const date = new Date(timestamp - minutes * 60 * 1000);
+    return date.toISOString();
+}
+
+async function expectReleaseAnalysisFailure(spec: ReleaseAnalysisFailureExpectation): Promise<void> {
+    await assert.rejects(async function () {
         await runGitHubReleaseGate({
             analyzeReleaseAgainstLatestPublished: fake.resolves({
                 getReport: fake(),
                 result: spec.result
             }),
-            fetch: globalThis.fetch,
+            fetch,
             fileManager: createFakeFileManager(),
             getEnvironmentVariable: createEnvironmentVariableReader(
                 createBaseEnvironment({
@@ -71,10 +76,12 @@ async function expectReleaseAnalysisFailure(spec: {
                 })
             ),
             loadPacktoryConfig: fake.resolves({}),
-            now: () => {
+            now() {
                 return new Date('2026-05-20T12:00:00.000Z');
             },
-            stdoutWrite: () => undefined
+            stdoutWrite() {
+                return undefined;
+            }
         });
     }, spec.expectedError);
 }
@@ -82,7 +89,7 @@ async function expectReleaseAnalysisFailure(spec: {
 suite('github-release-gate-cli-runner', function () {
     test('runGitHubReleaseGate writes a closed-gate result when recent PR activity is inside the quiet period', async function () {
         await withDeadline(
-            withGitHubApiServer(createBaseRoutes(), async (apiBaseUrl) => {
+            withGitHubApiServer(createBaseRoutes(), async function (apiBaseUrl) {
                 const fileManager = createFakeFileManager();
                 const logs: string[] = [];
                 const analyzeReleaseAgainstLatestPublished = fake.resolves(successfulReleaseAnalysis());
@@ -90,7 +97,7 @@ suite('github-release-gate-cli-runner', function () {
 
                 await runGitHubReleaseGate({
                     analyzeReleaseAgainstLatestPublished,
-                    fetch: globalThis.fetch,
+                    fetch,
                     fileManager,
                     getEnvironmentVariable: createEnvironmentVariableReader(
                         createBaseEnvironment({
@@ -98,10 +105,10 @@ suite('github-release-gate-cli-runner', function () {
                         })
                     ),
                     loadPacktoryConfig,
-                    now: () => {
+                    now() {
                         return new Date('2026-05-19T11:00:00.000Z');
                     },
-                    stdoutWrite: (message) => {
+                    stdoutWrite(message) {
                         logs.push(message);
                     }
                 });
@@ -141,13 +148,13 @@ suite('github-release-gate-cli-runner', function () {
         };
 
         await withDeadline(
-            withGitHubApiServer(routes, async (apiBaseUrl) => {
+            withGitHubApiServer(routes, async function (apiBaseUrl) {
                 const fileManager = createFakeFileManager();
                 const analyzeReleaseAgainstLatestPublished = fake.resolves(successfulReleaseAnalysis());
 
                 await runGitHubReleaseGate({
                     analyzeReleaseAgainstLatestPublished,
-                    fetch: globalThis.fetch,
+                    fetch,
                     fileManager,
                     getEnvironmentVariable: createEnvironmentVariableReader(
                         createBaseEnvironment({
@@ -155,10 +162,12 @@ suite('github-release-gate-cli-runner', function () {
                         })
                     ),
                     loadPacktoryConfig: fake.resolves({}),
-                    now: () => {
+                    now() {
                         return new Date('2026-05-20T12:00:00.000Z');
                     },
-                    stdoutWrite: () => undefined
+                    stdoutWrite() {
+                        return undefined;
+                    }
                 });
 
                 assert.deepStrictEqual(fileManager.getWriteFileCall(0), {
@@ -184,7 +193,7 @@ suite('github-release-gate-cli-runner', function () {
                         head_sha: 'abc123',
                         html_url: 'https://github.com/enormora/packtory/actions/runs/1',
                         status: 'completed',
-                        updated_at: new Date(now - 10 * 60 * 1000).toISOString()
+                        updated_at: minutesBefore(now, 10)
                     }
                 ]
             }
@@ -192,7 +201,7 @@ suite('github-release-gate-cli-runner', function () {
         routes[pullsPath] = {
             body: [
                 {
-                    created_at: new Date(now - 8 * 60 * 1000).toISOString(),
+                    created_at: minutesBefore(now, 8),
                     html_url: 'https://github.com/enormora/packtory/pull/1',
                     number: 1
                 }
@@ -201,7 +210,7 @@ suite('github-release-gate-cli-runner', function () {
         routes[timelinePath] = {
             body: [
                 {
-                    committer: { date: new Date(now - 5 * 60 * 1000).toISOString() },
+                    committer: { date: minutesBefore(now, 5) },
                     created_at: null,
                     event: 'committed'
                 }
@@ -209,7 +218,7 @@ suite('github-release-gate-cli-runner', function () {
         };
 
         await withDeadline(
-            withGitHubApiServer(routes, async (apiBaseUrl) => {
+            withGitHubApiServer(routes, async function (apiBaseUrl) {
                 const result = await withDeadline(
                     runEntryPointScript(
                         entryPointPath,
@@ -245,14 +254,14 @@ suite('github-release-gate-cli-runner', function () {
 
     test('runGitHubReleaseGate surfaces partial release-analysis failures as joined error messages', async function () {
         await withDeadline(
-            withGitHubApiServer(createBaseRoutes(), async (apiBaseUrl) => {
+            withGitHubApiServer(createBaseRoutes(), async function (apiBaseUrl) {
                 await expectReleaseAnalysisFailure({
                     apiBaseUrl,
                     expectedError: /boom-a\nboom-b/u,
                     result: Result.err({
                         type: 'partial' as const,
                         succeeded: [],
-                        failures: [new Error('boom-a'), new Error('boom-b')]
+                        failures: [ new Error('boom-a'), new Error('boom-b') ]
                     })
                 });
             }),
@@ -263,13 +272,13 @@ suite('github-release-gate-cli-runner', function () {
 
     test('runGitHubReleaseGate surfaces config release-analysis failures as joined issues', async function () {
         await withDeadline(
-            withGitHubApiServer(createBaseRoutes(), async (apiBaseUrl) => {
+            withGitHubApiServer(createBaseRoutes(), async function (apiBaseUrl) {
                 await expectReleaseAnalysisFailure({
                     apiBaseUrl,
                     expectedError: /issue-a\nissue-b/u,
                     result: Result.err({
                         type: 'config' as const,
-                        issues: ['issue-a', 'issue-b']
+                        issues: [ 'issue-a', 'issue-b' ]
                     })
                 });
             }),

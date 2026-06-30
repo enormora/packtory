@@ -6,8 +6,8 @@ on:
         # GitHub Actions throttles scheduled workflows hard at the top of the hour.
         # Spreading entries across off-peak minutes gives the cron a better shot at firing
         # as a fallback for the self-rechain below.
-        - cron: '17 * * * *'
-        - cron: '47 * * * *'
+        - cron: "17 * * * *"
+        - cron: "47 * * * *"
     workflow_dispatch:
 
 permissions: {}

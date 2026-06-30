@@ -9,7 +9,7 @@ suite('file-description-by-path', function () {
             { filePath: 'bin/cli.js', content: '#!/usr/bin/env node\n', isExecutable: true }
         ]);
 
-        assert.deepStrictEqual(Array.from(indexed.keys()), ['package.json', 'bin/cli.js']);
+        assert.deepStrictEqual(Array.from(indexed.keys()), [ 'package.json', 'bin/cli.js' ]);
         assert.deepStrictEqual(indexed.get('bin/cli.js'), {
             filePath: 'bin/cli.js',
             content: '#!/usr/bin/env node\n',

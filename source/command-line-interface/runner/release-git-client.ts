@@ -3,7 +3,7 @@ import assert from 'node:assert';
 type ReleaseGitCommandRunner = (
     command: string,
     args: readonly string[]
-) => Promise<{ readonly stdout: string; readonly stderr: string }>;
+) => Promise<{ readonly stdout: string; readonly stderr: string; }>;
 
 export type ReleaseGitClient = {
     readonly commit: (filePaths: readonly string[], message: string) => Promise<void>;
@@ -19,10 +19,10 @@ type ReleaseGitClientDependencies = {
     readonly repositoryFolder: string;
     readonly runGitCommand: ReleaseGitCommandRunner;
 };
-type GitOutputResult = { readonly kind: 'found'; readonly value: string } | { readonly kind: 'missing' };
+type GitOutputResult = { readonly kind: 'found'; readonly value: string; } | { readonly kind: 'missing'; };
 
 async function runGit(deps: ReleaseGitClientDependencies, args: readonly string[]): Promise<string> {
-    const result = await deps.runGitCommand('git', ['-C', deps.repositoryFolder, ...args]);
+    const result = await deps.runGitCommand('git', [ '-C', deps.repositoryFolder, ...args ]);
     return result.stdout.trim();
 }
 
@@ -43,12 +43,12 @@ export function createReleaseGitClient(deps: ReleaseGitClientDependencies): Rele
             if (filePaths.length === 0) {
                 throw new Error('No changelog files were written; cannot create a release commit');
             }
-            await runGit(deps, ['add', '--', ...filePaths]);
-            await runGit(deps, ['commit', '-m', message]);
+            await runGit(deps, [ 'add', '--', ...filePaths ]);
+            await runGit(deps, [ 'commit', '-m', message ]);
         },
 
         async currentHead() {
-            const head = await runGit(deps, ['rev-parse', '--verify', 'HEAD']);
+            const head = await runGit(deps, [ 'rev-parse', '--verify', 'HEAD' ]);
             if (head.length === 0) {
                 throw new Error('Unable to read the current Git head');
             }
@@ -56,20 +56,20 @@ export function createReleaseGitClient(deps: ReleaseGitClientDependencies): Rele
         },
 
         async deleteRemoteBranch(branch) {
-            await readGitOutputResult(deps, ['push', 'origin', '--delete', branch]);
+            await readGitOutputResult(deps, [ 'push', 'origin', '--delete', branch ]);
         },
 
         async ensureClean() {
-            const status = await runGit(deps, ['status', '--porcelain=v1']);
+            const status = await runGit(deps, [ 'status', '--porcelain=v1' ]);
             if (status.length > 0) {
                 throw new Error('Git index and worktree must be clean before release writes');
             }
         },
 
         async ensureTag(tagName, message, targetHead) {
-            const existingTag = await readGitOutputResult(deps, ['rev-parse', '--verify', `refs/tags/${tagName}^{}`]);
+            const existingTag = await readGitOutputResult(deps, [ 'rev-parse', '--verify', `refs/tags/${tagName}^{}` ]);
             if (existingTag.kind === 'missing') {
-                await runGit(deps, ['tag', '-a', tagName, '-m', message, targetHead]);
+                await runGit(deps, [ 'tag', '-a', tagName, '-m', message, targetHead ]);
                 return;
             }
             assert.strictEqual(existingTag.kind, 'found');
@@ -80,21 +80,24 @@ export function createReleaseGitClient(deps: ReleaseGitClientDependencies): Rele
         },
 
         async pushHeadToBranch(branch) {
-            await readGitOutputResult(deps, ['fetch', 'origin', `refs/heads/${branch}:refs/remotes/origin/${branch}`]);
+            await readGitOutputResult(deps, [
+                'fetch',
+                'origin',
+                `refs/heads/${branch}:refs/remotes/origin/${branch}`
+            ]);
             const remoteBranch = await readGitOutputResult(deps, [
                 'rev-parse',
                 '--verify',
                 `refs/remotes/origin/${branch}`
             ]);
-            const lease =
-                remoteBranch.kind === 'found'
-                    ? `--force-with-lease=refs/heads/${branch}:${remoteBranch.value}`
-                    : `--force-with-lease=refs/heads/${branch}:`;
-            await runGit(deps, ['push', lease, 'origin', `HEAD:refs/heads/${branch}`]);
+            const lease = remoteBranch.kind === 'found'
+                ? `--force-with-lease=refs/heads/${branch}:${remoteBranch.value}`
+                : `--force-with-lease=refs/heads/${branch}:`;
+            await runGit(deps, [ 'push', lease, 'origin', `HEAD:refs/heads/${branch}` ]);
         },
 
         async pushFollowTags() {
-            await runGit(deps, ['push', '--follow-tags']);
+            await runGit(deps, [ 'push', '--follow-tags' ]);
         }
     };
 }

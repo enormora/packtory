@@ -1,7 +1,7 @@
 import type { PositionAtom } from './declaration-remover.ts';
 
 function findAtomFor(atoms: readonly PositionAtom[], offset: number): PositionAtom | undefined {
-    return atoms.find((atom) => {
+    return atoms.find(function (atom) {
         return offset >= atom.originalStart && offset < atom.originalEnd;
     });
 }

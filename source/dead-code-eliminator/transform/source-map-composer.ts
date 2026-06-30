@@ -87,7 +87,7 @@ export function recomposeSourceMap(input: RecomposeInput): string {
     const originalIndex = buildLineIndex(input.originalCode);
     const transformedIndex = buildLineIndex(input.transformedCode);
     const mappingsBuilder = new GenMapping();
-    eachMapping(traceMap, (mapping) => {
+    eachMapping(traceMap, function (mapping) {
         const translated = translateMapping(mapping, originalIndex, transformedIndex, input.atoms);
         if (translated !== undefined) {
             appendMapping(mappingsBuilder, translated);

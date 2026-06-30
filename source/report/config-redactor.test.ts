@@ -14,7 +14,7 @@ function baseConfig(overrides: Partial<PacktoryConfig> = {}): PacktoryConfig {
     } as unknown as PacktoryConfig;
 }
 
-suite('config-redactor', function () {
+function registerPublishSettingTests(): void {
     test('redactConfigForPackage() returns the package name', function () {
         const redacted = redactConfigForPackage(baseConfig(), 'pkg-a');
 
@@ -39,11 +39,11 @@ suite('config-redactor', function () {
                         roots: { main: { js: 'pkg-a/index.js' } }
                     }
                 ]
-            } as unknown as Partial<PacktoryConfig>),
+            }),
             'pkg-a'
         );
 
-        assert.strictEqual('publishSettings' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'publishSettings'), false);
     });
 
     test('redactConfigForPackage() uses package publishSettings when present', function () {
@@ -67,7 +67,7 @@ suite('config-redactor', function () {
         const redacted = redactConfigForPackage(
             baseConfig({
                 commonPackageSettings: { publishSettings: { access: 'public' } },
-                packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }]
+                packages: [ { name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } } ]
             } as unknown as Partial<PacktoryConfig>),
             'pkg-a'
         );
@@ -92,24 +92,26 @@ suite('config-redactor', function () {
 
         assert.deepStrictEqual(redacted.publishSettings, { access: 'restricted' });
     });
+}
 
+function registerSourceAndRegistryTests(): void {
     test('redactConfigForPackage() omits sourcesFolder when neither package nor common defines it', function () {
         const redacted = redactConfigForPackage(
             baseConfig({
-                packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }]
-            } as unknown as Partial<PacktoryConfig>),
+                packages: [ { name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } } ]
+            }),
             'pkg-a'
         );
 
-        assert.strictEqual('sourcesFolder' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'sourcesFolder'), false);
     });
 
     test('redactConfigForPackage() prefers package sourcesFolder over commonPackageSettings', function () {
         const redacted = redactConfigForPackage(
             baseConfig({
                 commonPackageSettings: { sourcesFolder: '/common/src' },
-                packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } }, sourcesFolder: '/pkg-a/src' }]
-            } as unknown as Partial<PacktoryConfig>),
+                packages: [ { name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } }, sourcesFolder: '/pkg-a/src' } ]
+            }),
             'pkg-a'
         );
 
@@ -120,8 +122,8 @@ suite('config-redactor', function () {
         const redacted = redactConfigForPackage(
             baseConfig({
                 commonPackageSettings: { sourcesFolder: '/common/src' },
-                packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }]
-            } as unknown as Partial<PacktoryConfig>),
+                packages: [ { name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } } ]
+            }),
             'pkg-a'
         );
 
@@ -143,18 +145,18 @@ suite('config-redactor', function () {
             'pkg-missing'
         );
 
-        assert.strictEqual('publishSettings' in redacted, false);
-        assert.strictEqual('sourcesFolder' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'publishSettings'), false);
+        assert.strictEqual(Object.hasOwn(redacted, 'sourcesFolder'), false);
         assert.strictEqual(redacted.name, 'pkg-missing');
     });
 
     test('redactConfigForPackage() omits registrySettings when the config does not define them', function () {
         const redacted = redactConfigForPackage(
-            { packages: [{ name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } }] } as unknown as PacktoryConfig,
+            { packages: [ { name: 'pkg-a', roots: { main: { js: 'pkg-a/index.js' } } } ] },
             'pkg-a'
         );
 
-        assert.strictEqual('registrySettings' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'registrySettings'), false);
     });
 
     test('redactConfigForPackage() falls back to common settings when the package name does not match but common settings exist', function () {
@@ -172,4 +174,9 @@ suite('config-redactor', function () {
         assert.deepStrictEqual(redacted.publishSettings, { access: 'public' });
         assert.strictEqual(redacted.sourcesFolder, '/common/src');
     });
+}
+
+suite('config-redactor', function () {
+    registerPublishSettingTests();
+    registerSourceAndRegistryTests();
 });

@@ -8,7 +8,7 @@ suite('current-git-head', function () {
             repositoryFolder: '/repo',
             async runGitCommand(command, args) {
                 assert.strictEqual(command, 'git');
-                assert.deepStrictEqual(args, ['-C', '/repo', 'rev-parse', '--verify', 'HEAD']);
+                assert.deepStrictEqual(args, [ '-C', '/repo', 'rev-parse', '--verify', 'HEAD' ]);
                 return { stdout: 'abcdef123456\n', stderr: '' };
             }
         });

@@ -8,15 +8,16 @@ type OpenInBrowser = WebLoginDependencies['openInBrowser'];
 type WebLoginResult = Awaited<ReturnType<WebLogin['login']>>;
 
 function createSuccessfulLoginWeb(token: WebLoginResult): LoginWebFunction {
-    return async () => {
+    return async function () {
         return token;
     };
 }
 
 suite('web-login', function () {
     test('forwards the registry URL, hostname and the web auth-type marker to loginWeb', async function () {
-        const recordedOptions: { registry: string; hostname: string; authType: 'web' }[] = [];
-        const loginWeb: LoginWebFunction = async (_opener, options) => {
+        const recordedOptions: { readonly registry: string; readonly hostname: string; readonly authType: 'web'; }[] =
+            [];
+        const loginWeb: LoginWebFunction = async function (_opener, options) {
             recordedOptions.push({
                 registry: options.registry,
                 hostname: options.hostname,
@@ -37,7 +38,7 @@ suite('web-login', function () {
     test('passes the supplied openInBrowser callback to loginWeb as the opener', async function () {
         const openInBrowser: OpenInBrowser = fake.resolves(undefined);
         const recordedOpeners: OpenInBrowser[] = [];
-        const loginWeb: LoginWebFunction = async (opener) => {
+        const loginWeb: LoginWebFunction = async function (opener) {
             recordedOpeners.push(opener);
             return { token: 'tk', username: 'alice' };
         };
@@ -65,7 +66,7 @@ suite('web-login', function () {
     });
 
     test('propagates errors thrown by loginWeb', async function () {
-        const loginWeb: LoginWebFunction = async () => {
+        const loginWeb: LoginWebFunction = async function () {
             throw new Error('npm login web flow timed out');
         };
         const webLogin = createWebLogin({ loginWeb, openInBrowser: fake.resolves(undefined) });

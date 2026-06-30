@@ -4,7 +4,7 @@ import type { ExternalDependency } from '../../dependency-scanner/external-depen
 import { distributeDependencies } from './versioned-bundle-dependencies.ts';
 
 function externalDep(name: string): ExternalDependency {
-    return { name, referencedFrom: ['/src/a.ts'] };
+    return { name, referencedFrom: [ '/src/a.ts' ] };
 }
 
 suite('versioned-bundle-dependencies', function () {
@@ -25,11 +25,11 @@ suite('versioned-bundle-dependencies', function () {
         assert.deepStrictEqual(
             distributeDependencies({
                 bundle: {
-                    externalDependencies: new Map([['left-pad', externalDep('left-pad')]]),
-                    linkedBundleDependencies: new Map([['my-bundle-dep', externalDep('my-bundle-dep')]])
+                    externalDependencies: new Map([ [ 'left-pad', externalDep('left-pad') ] ]),
+                    linkedBundleDependencies: new Map([ [ 'my-bundle-dep', externalDep('my-bundle-dep') ] ])
                 },
                 mainPackageJson: { type: 'module', dependencies: { 'left-pad': '^1.0.0' } },
-                bundleDependencies: [{ name: 'my-bundle-dep', version: '2.0.0' }],
+                bundleDependencies: [ { name: 'my-bundle-dep', version: '2.0.0' } ],
                 bundlePeerDependencies: [],
                 allowMutableSpecifiers: []
             }),

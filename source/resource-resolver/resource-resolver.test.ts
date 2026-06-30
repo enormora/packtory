@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, stub, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
-import { createDependencyGraph } from '../dependency-scanner/dependency-graph.ts';
-import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
+import { createDependencyGraph, type DependencyGraph } from '../dependency-scanner/dependency-graph.ts';
+import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     createResourceResolver,
     type ResourceResolver,
@@ -16,6 +16,26 @@ type TransferableFile = {
     readonly content: string;
     readonly isExecutable: boolean;
 };
+type GraphParams = {
+    readonly rootFile: string;
+    readonly additionalLocalFiles?: readonly string[];
+    readonly externalDependencyName?: string;
+};
+type ResolverFixture = {
+    readonly resolver: ResourceResolver;
+    readonly scan: SinonSpy;
+};
+type FileDescriptionCall = {
+    readonly sourceFilePath: string;
+    readonly targetFilePath: string;
+};
+type GeneratedManifestFixture = {
+    readonly resolver: ResourceResolver;
+    readonly fileManager: FakeFileManager;
+    readonly fileDescriptionCalls: readonly FileDescriptionCall[];
+};
+type ResolvedBundle = Awaited<ReturnType<ResourceResolver['resolve']>>;
+type ResolvedContent = ResolvedBundle['contents'][number];
 
 function createTransferableFile(sourceFilePath: string, targetFilePath = sourceFilePath.slice(1)): TransferableFile {
     return {
@@ -26,22 +46,18 @@ function createTransferableFile(sourceFilePath: string, targetFilePath = sourceF
     };
 }
 
-function createGraph(params: {
-    readonly rootFile: string;
-    readonly additionalLocalFiles?: readonly string[];
-    readonly externalDependencyName?: string;
-}): ReturnType<typeof createDependencyGraph> {
+function createGraph(params: GraphParams): DependencyGraph {
     const { rootFile, additionalLocalFiles = [], externalDependencyName } = params;
     const graph = createDependencyGraph();
     const project = {
-        getProject: () => {
+        getProject() {
             return 'project';
         }
     };
 
     graph.addDependency(rootFile, {
         sourceMapFilePath: Maybe.nothing(),
-        externalDependencies: externalDependencyName === undefined ? [] : [externalDependencyName],
+        externalDependencies: externalDependencyName === undefined ? [] : [ externalDependencyName ],
         project: project as never
     });
 
@@ -65,20 +81,17 @@ type Overrides = {
     ) => TransferableFile;
 };
 
-function createResolver(overrides: Overrides = {}): {
-    readonly resolver: ResourceResolver;
-    readonly scan: SinonSpy;
-} {
+function createResolver(overrides: Overrides = {}): ResolverFixture {
     const scan = overrides.scan ?? fake();
     const responder = overrides.transferableFileDescriptionResponder ?? createTransferableFile;
     const fileManager = createFakeFileManager({
-        transferableFileDescriptionResponder: (sourceFilePath, targetFilePath) => {
+        transferableFileDescriptionResponder(sourceFilePath, targetFilePath) {
             return { value: responder(sourceFilePath, targetFilePath) };
         }
     });
 
     const dependencies: ResourceResolverDependencies = {
-        dependencyScanner: { scan } as unknown as ResourceResolverDependencies['dependencyScanner'],
+        dependencyScanner: { scan },
         fileManager
     };
 
@@ -98,8 +111,8 @@ const baseResolveOptions = {
 };
 
 function configureScanForJsAndDeclarationGraphs(
-    jsGraph: ReturnType<typeof createDependencyGraph>,
-    declarationGraph: ReturnType<typeof createDependencyGraph>
+    jsGraph: DependencyGraph,
+    declarationGraph: DependencyGraph
 ): SinonSpy {
     const scan = stub();
     scan.onFirstCall().resolves(jsGraph);
@@ -107,16 +120,63 @@ function configureScanForJsAndDeclarationGraphs(
     return scan;
 }
 
+function generatedManifestFixture(graph: DependencyGraph): GeneratedManifestFixture {
+    const scan = fake.resolves(graph);
+    const fileDescriptionCalls: FileDescriptionCall[] = [];
+    const dependencyScanner: ResourceResolverDependencies['dependencyScanner'] = { scan };
+    const fileManager = createFakeFileManager({
+        transferableFileDescriptionResponder(sourceFilePath, targetFilePath) {
+            if (targetFilePath === 'package.json') {
+                throw new Error('should not read generated manifest');
+            }
+
+            fileDescriptionCalls.push({ sourceFilePath, targetFilePath });
+            return { value: createTransferableFile(sourceFilePath, targetFilePath) };
+        }
+    });
+
+    return {
+        resolver: createResourceResolver({ dependencyScanner, fileManager }),
+        fileManager,
+        fileDescriptionCalls
+    };
+}
+
+function findGeneratedManifestResource(result: ResolvedBundle): ResolvedContent {
+    const manifestResource = result.contents.find(function (entry) {
+        return entry.fileDescription.targetFilePath === 'package.json';
+    });
+    if (manifestResource === undefined) {
+        assert.fail('expected generated manifest resource');
+    }
+    return manifestResource;
+}
+
+function addGeneratedManifestDependency(graph: DependencyGraph): void {
+    graph.addDependency('/src/package.json', {
+        sourceMapFilePath: Maybe.nothing(),
+        externalDependencies: [],
+        isGeneratedManifest: true
+    });
+    graph.connect('/src/index.js', '/src/package.json');
+}
+
+function assertGeneratedManifestResource(manifestResource: ResolvedContent): void {
+    assert.strictEqual(manifestResource.isGeneratedManifest, true);
+    assert.strictEqual(manifestResource.fileDescription.content, '{\n    "type": "module"\n}\n');
+    assert.strictEqual(manifestResource.fileDescription.isExecutable, false);
+}
+
 suite('resource-resolver', function () {
     test('resolve() scans js roots and additional files and returns their file descriptions', async function () {
-        const jsGraph = createGraph({ rootFile: '/src/index.js', additionalLocalFiles: ['/src/internal.js'] });
+        const jsGraph = createGraph({ rootFile: '/src/index.js', additionalLocalFiles: [ '/src/internal.js' ] });
         const scan = fake.resolves(jsGraph);
         const { resolver } = createResolver({ scan });
 
         const result = await resolver.resolve({
             ...baseResolveOptions,
             includeSourceMapFiles: true,
-            additionalFiles: ['readme.md']
+            additionalFiles: [ 'readme.md' ]
         });
 
         assert.deepStrictEqual(scan.firstCall.args, [
@@ -147,42 +207,16 @@ suite('resource-resolver', function () {
 
     test('resolve() synthesizes generated manifest resources instead of reading them from disk', async function () {
         const graph = createGraph({ rootFile: '/src/index.js' });
-        graph.addDependency('/src/package.json', {
-            sourceMapFilePath: Maybe.nothing(),
-            externalDependencies: [],
-            isGeneratedManifest: true
-        });
-        graph.connect('/src/index.js', '/src/package.json');
-        const scan = fake.resolves(graph);
-        const fileDescriptionCalls: { readonly sourceFilePath: string; readonly targetFilePath: string }[] = [];
-        const dependencyScanner: ResourceResolverDependencies['dependencyScanner'] = { scan };
-        const fileManager = createFakeFileManager({
-            transferableFileDescriptionResponder: (sourceFilePath, targetFilePath) => {
-                if (targetFilePath === 'package.json') {
-                    throw new Error('should not read generated manifest');
-                }
+        addGeneratedManifestDependency(graph);
+        const { fileDescriptionCalls, fileManager, resolver } = generatedManifestFixture(graph);
 
-                fileDescriptionCalls.push({ sourceFilePath, targetFilePath });
-                return { value: createTransferableFile(sourceFilePath, targetFilePath) };
-            }
-        });
-        const dependencies: ResourceResolverDependencies = {
-            dependencyScanner,
-            fileManager
-        };
-
-        const result = await createResourceResolver(dependencies).resolve({
+        const result = await resolver.resolve({
             ...baseResolveOptions,
             mainPackageJson: { type: 'module' }
         });
-        const manifestResource = result.contents.find((entry) => {
-            return entry.fileDescription.targetFilePath === 'package.json';
-        });
+        const manifestResource = findGeneratedManifestResource(result);
 
-        assert.ok(manifestResource !== undefined);
-        assert.strictEqual(manifestResource.isGeneratedManifest, true);
-        assert.strictEqual(manifestResource.fileDescription.content, '{\n    "type": "module"\n}\n');
-        assert.strictEqual(manifestResource.fileDescription.isExecutable, false);
+        assertGeneratedManifestResource(manifestResource);
         assert.strictEqual(fileManager.getTransferableFileDescriptionCallCount(), 1);
         assert.deepStrictEqual(fileDescriptionCalls, [
             {
@@ -199,12 +233,12 @@ suite('resource-resolver', function () {
     test('resolve() scans declaration roots separately and merges local and external dependencies', async function () {
         const jsGraph = createGraph({
             rootFile: '/src/index.js',
-            additionalLocalFiles: ['/src/shared.js'],
+            additionalLocalFiles: [ '/src/shared.js' ],
             externalDependencyName: 'left-pad'
         });
         const declarationGraph = createGraph({
             rootFile: '/src/index.d.ts',
-            additionalLocalFiles: ['/src/shared.js'],
+            additionalLocalFiles: [ '/src/shared.js' ],
             externalDependencyName: 'typescript'
         });
         const scan = configureScanForJsAndDeclarationGraphs(jsGraph, declarationGraph);
@@ -230,10 +264,10 @@ suite('resource-resolver', function () {
             }
         ]);
         assert.deepStrictEqual(
-            Array.from(result.externalDependencies.keys()).toSorted((left, right) => {
+            Array.from(result.externalDependencies.keys()).toSorted(function (left, right) {
                 return left.localeCompare(right);
             }),
-            ['left-pad', 'typescript']
+            [ 'left-pad', 'typescript' ]
         );
         assert.deepStrictEqual(result.roots, {
             main: {
@@ -270,7 +304,7 @@ suite('resource-resolver', function () {
         const scan = fake.resolves(graph);
         const { resolver } = createResolver({
             scan,
-            transferableFileDescriptionResponder: () => {
+            transferableFileDescriptionResponder() {
                 return createTransferableFile('/src/not-the-entry.js');
             }
         });
@@ -295,7 +329,7 @@ suite('resource-resolver', function () {
         const scan = fake.resolves(graph);
         const { resolver } = createResolver({
             scan,
-            transferableFileDescriptionResponder: () => {
+            transferableFileDescriptionResponder() {
                 return createTransferableFile('/src/index.js');
             }
         });

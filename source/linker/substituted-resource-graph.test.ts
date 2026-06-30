@@ -20,15 +20,15 @@ suite('substituted-resource-graph', function () {
         const graph = createSubstitutedResourceGraph();
         graph.add('/entry.js', {
             fileDescription: createFileDescription('/entry.js', 'entry.js'),
-            externalDependencies: ['left-pad'],
-            bundleDependencies: ['bundle-dependency'],
+            externalDependencies: [ 'left-pad' ],
+            bundleDependencies: [ 'bundle-dependency' ],
             isSubstituted: true,
             isExplicitlyIncluded: false
         });
         graph.add('/shared.js', {
             fileDescription: createFileDescription('/shared.js', 'shared.js'),
-            externalDependencies: ['left-pad'],
-            bundleDependencies: ['bundle-dependency'],
+            externalDependencies: [ 'left-pad' ],
+            bundleDependencies: [ 'bundle-dependency' ],
             isSubstituted: false,
             isExplicitlyIncluded: false
         });
@@ -42,25 +42,29 @@ suite('substituted-resource-graph', function () {
         graph.connect('/entry.js', '/shared.js');
         graph.connect('/shared.js', '/entry.js');
 
-        const result = graph.flatten(['/entry.js', '/shared.js']);
+        const result = graph.flatten([ '/entry.js', '/shared.js' ]);
 
         assert.deepStrictEqual(
-            result.contents
-                .map((resource) => {
+            result
+                .contents
+                .map(function (resource) {
                     return resource.fileDescription.sourceFilePath;
                 })
-                .toSorted((left, right) => {
+                .toSorted(function (left, right) {
                     return left.localeCompare(right);
                 }),
-            ['/entry.js', '/extra.txt', '/shared.js']
+            [ '/entry.js', '/extra.txt', '/shared.js' ]
         );
         assert.deepStrictEqual(
             result.linkedBundleDependencies,
-            new Map([['bundle-dependency', { name: 'bundle-dependency', referencedFrom: ['/entry.js', '/shared.js'] }]])
+            new Map([ [ 'bundle-dependency', {
+                name: 'bundle-dependency',
+                referencedFrom: [ '/entry.js', '/shared.js' ]
+            } ] ])
         );
         assert.deepStrictEqual(
             result.externalDependencies,
-            new Map([['left-pad', { name: 'left-pad', referencedFrom: ['/entry.js', '/shared.js'] }]])
+            new Map([ [ 'left-pad', { name: 'left-pad', referencedFrom: [ '/entry.js', '/shared.js' ] } ] ])
         );
     });
 
@@ -75,7 +79,7 @@ suite('substituted-resource-graph', function () {
             isGeneratedManifest: true
         });
 
-        const result = graph.flatten(['/package.json']);
+        const result = graph.flatten([ '/package.json' ]);
 
         assert.strictEqual(result.contents[0]?.isGeneratedManifest, true);
     });

@@ -1,4 +1,3 @@
-import type { Except } from 'type-fest';
 import { serializePackageJson } from '../source/version-manager/manifest/serialize.ts';
 
 type TransferableFile = {
@@ -16,14 +15,14 @@ type ManifestFile = {
 
 type LegacyImplicitBundleExpectation = {
     readonly name: string;
-    readonly packageJson: Record<string, unknown>;
+    readonly packageJson: Readonly<Record<string, unknown>>;
     readonly manifestFile: ManifestFile;
     readonly mainFile: TransferableFile;
     readonly typesMainFile?: TransferableFile | undefined;
 };
 
 type ModernImplicitBundleExpectation = {
-    readonly packageJson: Record<string, unknown>;
+    readonly packageJson: Readonly<Record<string, unknown>>;
     readonly manifestFile: ManifestFile;
     readonly mainFile: TransferableFile;
     readonly roots: {
@@ -36,13 +35,24 @@ type ModernImplicitBundleExpectation = {
         readonly mode: 'implicit';
         readonly defaultModuleRoot: 'main';
     };
-    readonly exportsField: Record<string, Record<string, string>>;
+    readonly exportsField: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly typesMainFile?: TransferableFile | undefined;
 };
 
-function omitLegacyPackageFields(packageJson: Record<string, unknown>): Record<string, unknown> {
+type ModernBundleExpectation<TExpected extends LegacyImplicitBundleExpectation> = {
+    readonly name: TExpected['name'];
+    readonly mainFile: TExpected['mainFile'];
+    readonly packageJson: ModernImplicitBundleExpectation['packageJson'];
+    readonly manifestFile: ModernImplicitBundleExpectation['manifestFile'];
+    readonly roots: ModernImplicitBundleExpectation['roots'];
+    readonly surface: ModernImplicitBundleExpectation['surface'];
+    readonly exportsField: ModernImplicitBundleExpectation['exportsField'];
+    readonly typesMainFile?: ModernImplicitBundleExpectation['typesMainFile'];
+};
+
+function omitLegacyPackageFields(packageJson: Readonly<Record<string, unknown>>): Record<string, unknown> {
     return Object.fromEntries(
-        Object.entries(packageJson).filter(([key]) => {
+        Object.entries(packageJson).filter(function ([ key ]) {
             return key !== 'main' && key !== 'types';
         })
     );
@@ -50,12 +60,12 @@ function omitLegacyPackageFields(packageJson: Record<string, unknown>): Record<s
 
 export function asImplicitExportsBundle<TExpected extends LegacyImplicitBundleExpectation>(
     expected: TExpected
-): Except<TExpected, 'manifestFile' | 'packageJson' | 'typesMainFile'> & ModernImplicitBundleExpectation {
+): ModernBundleExpectation<TExpected> {
     const { packageJson, manifestFile, mainFile, typesMainFile, ...rest } = expected;
     const exportsField = {
         '.': {
             import: `./${mainFile.targetFilePath}`,
-            ...(typesMainFile === undefined ? {} : { types: `./${typesMainFile.targetFilePath}` })
+            ...typesMainFile !== undefined && { types: `./${typesMainFile.targetFilePath}` }
         }
     };
     const modernPackageJson = {
@@ -71,7 +81,7 @@ export function asImplicitExportsBundle<TExpected extends LegacyImplicitBundleEx
             content: serializePackageJson(modernPackageJson)
         },
         mainFile,
-        ...(typesMainFile === undefined ? {} : { typesMainFile }),
+        ...typesMainFile !== undefined && { typesMainFile },
         roots: {
             main: {
                 js: mainFile,
@@ -79,12 +89,11 @@ export function asImplicitExportsBundle<TExpected extends LegacyImplicitBundleEx
             }
         },
         surface: {
-            mode: 'implicit',
-            defaultModuleRoot: 'main'
+            mode: 'implicit' as const,
+            defaultModuleRoot: 'main' as const
         },
         exportsField
     };
 
-    return result as unknown as Except<TExpected, 'manifestFile' | 'packageJson' | 'typesMainFile'> &
-        ModernImplicitBundleExpectation;
+    return result;
 }

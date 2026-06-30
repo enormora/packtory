@@ -18,7 +18,7 @@ function packtoryStub(outcome: ReleaseDiffOutcome): Packtory {
 
 function emptyOutcome(overrides: Partial<ReleaseDiffOutcome> = {}): ReleaseDiffOutcome {
     return {
-        getReport: () => {
+        getReport() {
             return {
                 schemaVersion: 1,
                 generatedAt: '2026-05-19T00:00:00.000Z',
@@ -39,7 +39,7 @@ type Spies = {
 
 function depsWith(outcome: ReleaseDiffOutcome, spies: Spies): ReleaseDiffHandlerDeps {
     return {
-        log: (message) => {
+        log(message) {
             spies.log(message);
         },
         pageOutput: spies.pageOutput,
@@ -77,7 +77,7 @@ suite('release-diff-handler', function () {
 
         try {
             await runReleaseDiffHandler({
-                log: (message) => {
+                log(message) {
                     spies.log(message);
                 },
                 pageOutput: spies.pageOutput,
@@ -99,7 +99,7 @@ suite('release-diff-handler', function () {
             result: {
                 isOk: false,
                 isErr: true,
-                error: { type: 'config', issues: ['invalid config'] }
+                error: { type: 'config', issues: [ 'invalid config' ] }
             } as unknown as ReleaseDiffOutcome['result']
         });
 
@@ -130,7 +130,7 @@ suite('release-diff-handler', function () {
                             files: { added: [], removed: [], modified: [], unchanged: [] }
                         }
                     ],
-                    failures: [new Error('failed package')]
+                    failures: [ new Error('failed package') ]
                 }
             } as unknown as ReleaseDiffOutcome['result']
         });

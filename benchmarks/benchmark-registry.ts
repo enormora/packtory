@@ -6,27 +6,39 @@ import { runServer } from 'verdaccio';
 import type { RegistrySettings } from '../source/config/registry-settings.ts';
 import { createTemporaryDirectory, removeDirectory } from './benchmark-filesystem.ts';
 
-const userName = 'foo';
+const username = 'foo';
 const password = 'top-secret';
+const registryKeepAliveTimeoutMilliseconds = 120_000;
+const registryHeadersTimeoutMilliseconds = 125_000;
 
 function isServerNotRunningError(error: Error): boolean {
-    return 'code' in error && error.code === 'ERR_SERVER_NOT_RUNNING';
+    return Object.hasOwn(error, 'code') && Reflect.get(error, 'code') === 'ERR_SERVER_NOT_RUNNING';
 }
 
-function isServer(value: unknown): value is Server {
-    return typeof value === 'object' && value !== null && 'listen' in value && 'close' in value;
+type ListenableServer = {
+    listen: (port: number, callback: () => void) => Server;
+};
+
+function isListenableServer(value: unknown): value is ListenableServer {
+    return typeof value === 'object' &&
+        value !== null &&
+        typeof Reflect.get(value, 'listen') === 'function';
 }
 
-async function startServer(server: Server, port: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(port, resolve);
+async function startServer(server: ListenableServer, port: number): Promise<Server> {
+    return new Promise(function (resolve, reject) {
+        const httpServer = server.listen(port, function () {
+            resolve(httpServer);
+        });
+        httpServer.keepAliveTimeout = registryKeepAliveTimeoutMilliseconds;
+        httpServer.headersTimeout = registryHeadersTimeoutMilliseconds;
+        httpServer.once('error', reject);
     });
 }
 
 async function stopServer(server: Server): Promise<void> {
-    return new Promise((resolve, reject) => {
-        server.close((error) => {
+    return new Promise(function (resolve, reject) {
+        server.close(function (error) {
             if (error === undefined || isServerNotRunningError(error)) {
                 resolve();
             } else {
@@ -36,7 +48,7 @@ async function stopServer(server: Server): Promise<void> {
     });
 }
 
-async function createRegistryServer(storageDirectory: string): Promise<Server> {
+async function createRegistryServer(storageDirectory: string): Promise<ListenableServer> {
     const configuration = {
         self_path: storageDirectory,
         storage: storageDirectory,
@@ -73,7 +85,7 @@ async function createRegistryServer(storageDirectory: string): Promise<Server> {
     } as const;
 
     const server: unknown = await runServer(configuration);
-    assert.ok(isServer(server), 'Verdaccio did not return an HTTP server instance');
+    assert.ok(isListenableServer(server), 'Verdaccio did not return a listenable server');
     return server;
 }
 
@@ -85,13 +97,13 @@ function getRegistryToken(responseBody: unknown): string {
 }
 
 async function createToken(registryUrl: string): Promise<string> {
-    const credentials = `${userName}:${password}`;
+    const credentials = `${username}:${password}`;
     const response = await fetch(`${registryUrl}/-/npm/v1/tokens`, {
         method: 'POST',
         body: JSON.stringify({
             password,
             readonly: false,
-            cidr_whitelist: ['0.0.0.0/0']
+            cidr_whitelist: [ '0.0.0.0/0' ]
         }),
         headers: {
             'content-type': 'application/json',
@@ -114,7 +126,7 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
     const port = await getPort();
     const registryUrl = `http://localhost:${port}`;
 
-    await startServer(server, port);
+    const httpServer = await startServer(server, port);
     const token = await createToken(registryUrl);
 
     return {
@@ -127,7 +139,7 @@ export async function startBenchmarkRegistry(): Promise<RegistryHandle> {
         },
         async close() {
             try {
-                await stopServer(server);
+                await stopServer(httpServer);
             } finally {
                 await removeDirectory(storageDirectory);
             }

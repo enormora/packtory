@@ -33,11 +33,12 @@ function mergeArtifactEntries(
     rewrittenSourcePaths: ReadonlySet<string>,
     transformedSourcePaths: ReadonlySet<string>
 ): readonly ArtifactEntry[] {
-    const mergedEntries: ArtifactEntry[] = [];
-
-    for (const entry of entries) {
-        mergedEntries.push(mergeArtifactEntry(entry, rewrittenSourcePaths, transformedSourcePaths));
-    }
+    const mergedEntries: ArtifactEntry[] = Array.from(
+        entries,
+        function (entry) {
+            return mergeArtifactEntry(entry, rewrittenSourcePaths, transformedSourcePaths);
+        }
+    );
 
     return mergedEntries;
 }

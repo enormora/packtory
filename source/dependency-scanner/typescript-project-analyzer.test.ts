@@ -39,7 +39,22 @@ function createFakeTSMorphProject(overrides: TSMorphProjectOverrides = {}): Read
 type Overrides = {
     readonly getReferencedModules?: SinonSpy;
     readonly TSMorphProject?: Readonly<SinonStub>;
-    readonly fileSystemAdapters?: Record<string, unknown>;
+    readonly fileSystemAdapters?: Readonly<Record<string, unknown>>;
+};
+
+type ExpectedProjectConstructionArgs = {
+    readonly module: number;
+    readonly fileSystem: string;
+    readonly extra?: Readonly<Record<string, unknown>> | undefined;
+};
+
+type AnalyzeProjectExpectation = {
+    readonly resolveDeclarationFiles: boolean;
+    readonly fileSystemAdapters: Readonly<Record<string, unknown>>;
+    readonly expectedModule: number;
+    readonly expectedFileSystem: string;
+    readonly expectedFilesGlob: string;
+    readonly expectedExtra?: Readonly<Record<string, unknown>>;
 };
 
 function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): TypescriptProjectAnalyzer {
@@ -59,11 +74,7 @@ function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): Typescript
     return createTypescriptProjectAnalyzer(fakeDependencies);
 }
 
-function expectedProjectConstruction(args: {
-    readonly module: number;
-    readonly fileSystem: string;
-    readonly extra?: Record<string, unknown> | undefined;
-}): unknown[] {
+function expectedProjectConstruction(args: ExpectedProjectConstructionArgs): unknown[] {
     return [
         {
             compilerOptions: {
@@ -84,14 +95,7 @@ function expectedProjectConstruction(args: {
     ];
 }
 
-function runAnalyzeProjectExpectingArgs(testArgs: {
-    readonly resolveDeclarationFiles: boolean;
-    readonly fileSystemAdapters: Record<string, unknown>;
-    readonly expectedModule: number;
-    readonly expectedFileSystem: string;
-    readonly expectedFilesGlob: string;
-    readonly expectedExtra?: Record<string, unknown>;
-}): void {
+function runAnalyzeProjectExpectingArgs(testArgs: AnalyzeProjectExpectation): void {
     const addSourceFilesAtPaths = fake();
     const TSMorphProject = createFakeTSMorphProject({ addSourceFilesAtPaths });
     const analyzer = typescriptProjectAnalyzerFactory({
@@ -115,7 +119,7 @@ function runAnalyzeProjectExpectingArgs(testArgs: {
         })
     );
     assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
-    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [[testArgs.expectedFilesGlob]]);
+    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [ [ testArgs.expectedFilesGlob ] ]);
 }
 
 suite('typescript-project-analyzer', function () {
@@ -215,6 +219,10 @@ suite('typescript-project-analyzer', function () {
 
         analyzer.analyzeProject('/foo', { resolveDeclarationFiles: false, mainPackageJson });
 
-        assert.deepStrictEqual(withVirtualPackageJson.args, [['filtering-declaration-files', '/foo', mainPackageJson]]);
+        assert.deepStrictEqual(withVirtualPackageJson.args, [ [
+            'filtering-declaration-files',
+            '/foo',
+            mainPackageJson
+        ] ]);
     });
 });

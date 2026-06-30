@@ -21,11 +21,12 @@ function createPublishedPackage(
             content: manifestContent,
             isExecutable: false
         },
-        contents: Object.entries(files)
-            .filter(([filePath]) => {
+        contents: Object
+            .entries(files)
+            .filter(function ([ filePath ]) {
                 return filePath !== 'package.json';
             })
-            .map(([filePath, content]) => {
+            .map(function ([ filePath, content ]) {
                 return {
                     directDependencies: new Set<string>(),
                     fileDescription: {
@@ -144,190 +145,199 @@ function createUntypedPackage(packageName: string): PublishedPackageWithManifest
 async function runRule(
     packageName: string,
     publishedPackage: PublishedPackageWithManifest,
-    settings: {
-        readonly areTheTypesWrong: { readonly enabled: true; readonly profile?: 'esm-only' | 'node16' | 'strict' };
-    },
-    perPackageSettings: ReadonlyMap<
-        string,
-        { readonly areTheTypesWrong?: { readonly profile?: 'esm-only' | 'node16' | 'strict' } }
-    > = new Map()
+    settings: AreTheTypesWrongSettings,
+    perPackageSettings: ReadonlyMap<string, AreTheTypesWrongPackageSettings> = new Map()
 ): Promise<readonly string[]> {
     return await areTheTypesWrongRule.run({
-        bundles: [checkBundle(packageName, ['index.js', 'index.d.ts'])],
-        publishedPackages: new Map([[packageName, publishedPackage]]),
+        bundles: [ checkBundle(packageName, [ 'index.js', 'index.d.ts' ]) ],
+        publishedPackages: new Map([ [ packageName, publishedPackage ] ]),
         settings,
         perPackageSettings,
         packageConfigs: {}
     });
 }
 
+type AreTheTypesWrongProfile = 'esm-only' | 'node16' | 'strict';
+type AreTheTypesWrongSettings = {
+    readonly areTheTypesWrong: { readonly enabled: true; readonly profile?: AreTheTypesWrongProfile; };
+};
+type AreTheTypesWrongPackageSettings = {
+    readonly areTheTypesWrong?: { readonly profile?: AreTheTypesWrongProfile; };
+};
+
 suite('are-the-types-wrong', function () {
-    test('returns no issues when the rule is not configured', async function () {
-        const packageName = 'not-configured-package';
-        const issues = await areTheTypesWrongRule.run({
-            bundles: [checkBundle(packageName, ['index.js', 'index.d.ts'])],
-            settings: undefined,
-            perPackageSettings: new Map(),
-            packageConfigs: {}
-        });
-
-        assert.deepStrictEqual(issues, []);
-    });
-
-    test('returns no issues when the rule is disabled', async function () {
-        const packageName = 'disabled-package';
-        const issues = await areTheTypesWrongRule.run({
-            bundles: [checkBundle(packageName, ['index.js', 'index.d.ts'])],
-            settings: { areTheTypesWrong: { enabled: false } },
-            perPackageSettings: new Map(),
-            packageConfigs: {}
-        });
-
-        assert.deepStrictEqual(issues, []);
-    });
-
-    test('default esm-only profile ignores the expected CJS-only failure mode for a valid ESM package', async function () {
-        const packageName = 'esm-only-package';
-        const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
-            areTheTypesWrong: { enabled: true }
-        });
-
-        assert.deepStrictEqual(issues, []);
-    });
-
-    test('strict profile reports the ESM-only CommonJS resolution problem', async function () {
-        const packageName = 'strict-package';
-        const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
-            areTheTypesWrong: { enabled: true, profile: 'strict' }
-        });
-
-        assert.deepStrictEqual(issues, [
-            'Package "strict-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"'
-        ]);
-    });
-
-    test('node16 profile reports the CommonJS resolution problem for an ESM-only package', async function () {
-        const packageName = 'node16-package';
-        const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
-            areTheTypesWrong: { enabled: true, profile: 'node16' }
-        });
-
-        assert.deepStrictEqual(issues, [
-            'Package "node16-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"'
-        ]);
-    });
-
-    test('groups repeated ATTW problem kinds into one finding summary', async function () {
-        const packageName = 'strict-multi-entrypoint-package';
-        const issues = await runRule(packageName, createTwoEntrypointEsmPackage(packageName), {
-            areTheTypesWrong: { enabled: true, profile: 'strict' }
-        });
-
-        assert.deepStrictEqual(issues, [
-            'Package "strict-multi-entrypoint-package" failed the Are the Types Wrong check: ESM (dynamic import only) (2 findings) affecting entrypoints ".", "./feature" in resolutions "node16-cjs"'
-        ]);
-    });
-
-    test('per-package profile overrides the top-level profile', async function () {
-        const packageName = 'override-package';
-        const issues = await runRule(
-            packageName,
-            createEsmOnlyPackage(packageName),
-            { areTheTypesWrong: { enabled: true } },
-            new Map([[packageName, { areTheTypesWrong: { profile: 'strict' } }]])
-        );
-
-        assert.strictEqual(issues.length, 1);
-        assert.match(issues[0] ?? '', /ESM \(dynamic import only\)/u);
-    });
-
-    test('returns no issues when the emitted package has no types', async function () {
-        const packageName = 'untyped-package';
-        const issues = await runRule(packageName, createUntypedPackage(packageName), {
-            areTheTypesWrong: { enabled: true }
-        });
-
-        assert.deepStrictEqual(issues, []);
-    });
-
-    test('default esm-only profile still reports active ATTW problems for a broken package', async function () {
-        const packageName = 'broken-package';
-        const issues = await runRule(packageName, createBrokenPackage(packageName), {
-            areTheTypesWrong: { enabled: true }
-        });
-
-        assert.ok(
-            issues.some((issue) => {
-                return issue.includes('Missing `export =`');
-            })
-        );
-        assert.ok(
-            issues.some((issue) => {
-                return issue.includes('Unexpected module syntax');
-            })
-        );
-        assert.ok(
-            issues.every((issue) => {
-                return !issue.includes('ESM (dynamic import only)');
-            })
-        );
-    });
-
-    test('strict profile preserves all relevant resolution kinds for a broken package', async function () {
-        const packageName = 'strict-broken-package';
-        const issues = await runRule(packageName, createBrokenPackage(packageName), {
-            areTheTypesWrong: { enabled: true, profile: 'strict' }
-        });
-
-        assert.deepStrictEqual(issues, [
-            'Package "strict-broken-package" failed the Are the Types Wrong check: Missing `export =` affecting entrypoints "." in resolutions "node10", "bundler"',
-            'Package "strict-broken-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"',
-            'Package "strict-broken-package" failed the Are the Types Wrong check: Unexpected module syntax affecting entrypoints "." in resolutions "node16-esm"'
-        ]);
-    });
-
-    test('lists only the entrypoints affected by each ATTW problem kind', async function () {
-        const packageName = 'mixed-entrypoint-package';
-        const issues = await runRule(packageName, createMixedEntrypointPackage(packageName), {
-            areTheTypesWrong: { enabled: true, profile: 'strict' }
-        });
-
-        assert.deepStrictEqual(issues, [
-            'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Missing `export =` affecting entrypoints "." in resolutions "node10", "bundler"',
-            'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"',
-            'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Unexpected module syntax affecting entrypoints "." in resolutions "node16-esm"',
-            'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Used fallback condition affecting entrypoints "./feature" in resolutions "node16-cjs"',
-            'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Masquerading as ESM affecting entrypoints "./feature" in resolutions "node16-cjs"'
-        ]);
-    });
-
-    test('returns a check issue when ATTW cannot find the generated package manifest', async function () {
-        const packageName = 'throwing-package';
-        const publishedPackage = {
-            ...createEsmOnlyPackage(packageName),
-            manifestFile: {
-                filePath: 'manifest.json',
-                content: createManifest(packageName),
-                isExecutable: false
-            }
-        };
-        const issues = await runRule(packageName, publishedPackage, {
-            areTheTypesWrong: { enabled: true }
-        });
-
-        assert.deepStrictEqual(issues, [
-            'Package "throwing-package" failed the Are the Types Wrong check: Error: File not found: /node_modules/throwing-package/package.json'
-        ]);
-    });
-
-    test('throws when the rule is enabled but the emitted package is missing', async function () {
-        await assert.rejects(async () => {
-            await areTheTypesWrongRule.run({
-                bundles: [checkBundle('missing-package', ['index.js'])],
-                settings: { areTheTypesWrong: { enabled: true } },
+    suite('disabled states', function () {
+        test('returns no issues when the rule is not configured', async function () {
+            const packageName = 'not-configured-package';
+            const issues = await areTheTypesWrongRule.run({
+                bundles: [ checkBundle(packageName, [ 'index.js', 'index.d.ts' ]) ],
+                settings: undefined,
                 perPackageSettings: new Map(),
                 packageConfigs: {}
             });
-        }, /Published package missing/u);
+
+            assert.deepStrictEqual(issues, []);
+        });
+
+        test('returns no issues when the rule is disabled', async function () {
+            const packageName = 'disabled-package';
+            const issues = await areTheTypesWrongRule.run({
+                bundles: [ checkBundle(packageName, [ 'index.js', 'index.d.ts' ]) ],
+                settings: { areTheTypesWrong: { enabled: false } },
+                perPackageSettings: new Map(),
+                packageConfigs: {}
+            });
+
+            assert.deepStrictEqual(issues, []);
+        });
+    });
+
+    suite('profile checks', function () {
+        test('default esm-only profile ignores the expected CJS-only failure mode for a valid ESM package', async function () {
+            const packageName = 'esm-only-package';
+            const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
+                areTheTypesWrong: { enabled: true }
+            });
+
+            assert.deepStrictEqual(issues, []);
+        });
+
+        test('strict profile reports the ESM-only CommonJS resolution problem', async function () {
+            const packageName = 'strict-package';
+            const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
+                areTheTypesWrong: { enabled: true, profile: 'strict' }
+            });
+
+            assert.deepStrictEqual(issues, [
+                'Package "strict-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"'
+            ]);
+        });
+
+        test('node16 profile reports the CommonJS resolution problem for an ESM-only package', async function () {
+            const packageName = 'node16-package';
+            const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
+                areTheTypesWrong: { enabled: true, profile: 'node16' }
+            });
+
+            assert.deepStrictEqual(issues, [
+                'Package "node16-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"'
+            ]);
+        });
+
+        test('groups repeated ATTW problem kinds into one finding summary', async function () {
+            const packageName = 'strict-multi-entrypoint-package';
+            const issues = await runRule(packageName, createTwoEntrypointEsmPackage(packageName), {
+                areTheTypesWrong: { enabled: true, profile: 'strict' }
+            });
+
+            assert.deepStrictEqual(issues, [
+                'Package "strict-multi-entrypoint-package" failed the Are the Types Wrong check: ESM (dynamic import only) (2 findings) affecting entrypoints ".", "./feature" in resolutions "node16-cjs"'
+            ]);
+        });
+
+        test('per-package profile overrides the top-level profile', async function () {
+            const packageName = 'override-package';
+            const issues = await runRule(
+                packageName,
+                createEsmOnlyPackage(packageName),
+                { areTheTypesWrong: { enabled: true } },
+                new Map([ [ packageName, { areTheTypesWrong: { profile: 'strict' } } ] ])
+            );
+
+            assert.strictEqual(issues.length, 1);
+            assert.match(issues[0] ?? '', /ESM \(dynamic import only\)/u);
+        });
+
+        test('returns an issue when the emitted package has no types', async function () {
+            const packageName = 'untyped-package';
+            const issues = await runRule(packageName, createUntypedPackage(packageName), {
+                areTheTypesWrong: { enabled: true }
+            });
+
+            assert.deepStrictEqual(issues, [ 'Package "untyped-package" does not expose TypeScript declarations' ]);
+        });
+    });
+
+    suite('broken package reports', function () {
+        test('default esm-only profile still reports active ATTW problems for a broken package', async function () {
+            const packageName = 'broken-package';
+            const issues = await runRule(packageName, createBrokenPackage(packageName), {
+                areTheTypesWrong: { enabled: true }
+            });
+
+            assert.ok(
+                issues.some(function (issue) {
+                    return issue.includes('Missing `export =`');
+                })
+            );
+            assert.ok(
+                issues.some(function (issue) {
+                    return issue.includes('Unexpected module syntax');
+                })
+            );
+            assert.ok(
+                issues.every(function (issue) {
+                    return !issue.includes('ESM (dynamic import only)');
+                })
+            );
+        });
+
+        test('strict profile preserves all relevant resolution kinds for a broken package', async function () {
+            const packageName = 'strict-broken-package';
+            const issues = await runRule(packageName, createBrokenPackage(packageName), {
+                areTheTypesWrong: { enabled: true, profile: 'strict' }
+            });
+
+            assert.deepStrictEqual(issues, [
+                'Package "strict-broken-package" failed the Are the Types Wrong check: Missing `export =` affecting entrypoints "." in resolutions "node10", "bundler"',
+                'Package "strict-broken-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"',
+                'Package "strict-broken-package" failed the Are the Types Wrong check: Unexpected module syntax affecting entrypoints "." in resolutions "node16-esm"'
+            ]);
+        });
+
+        test('lists only the entrypoints affected by each ATTW problem kind', async function () {
+            const packageName = 'mixed-entrypoint-package';
+            const issues = await runRule(packageName, createMixedEntrypointPackage(packageName), {
+                areTheTypesWrong: { enabled: true, profile: 'strict' }
+            });
+
+            assert.deepStrictEqual(issues, [
+                'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Missing `export =` affecting entrypoints "." in resolutions "node10", "bundler"',
+                'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: ESM (dynamic import only) affecting entrypoints "." in resolutions "node16-cjs"',
+                'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Unexpected module syntax affecting entrypoints "." in resolutions "node16-esm"',
+                'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Used fallback condition affecting entrypoints "./feature" in resolutions "node16-cjs"',
+                'Package "mixed-entrypoint-package" failed the Are the Types Wrong check: Masquerading as ESM affecting entrypoints "./feature" in resolutions "node16-cjs"'
+            ]);
+        });
+
+        test('returns a check issue when ATTW cannot find the generated package manifest', async function () {
+            const packageName = 'throwing-package';
+            const publishedPackage = {
+                ...createEsmOnlyPackage(packageName),
+                manifestFile: {
+                    filePath: 'manifest.json',
+                    content: createManifest(packageName),
+                    isExecutable: false
+                }
+            };
+            const issues = await runRule(packageName, publishedPackage, {
+                areTheTypesWrong: { enabled: true }
+            });
+
+            assert.deepStrictEqual(issues, [
+                'Package "throwing-package" failed the Are the Types Wrong check: Error: File not found: /node_modules/throwing-package/package.json'
+            ]);
+        });
+
+        test('throws when the rule is enabled but the emitted package is missing', async function () {
+            await assert.rejects(async function () {
+                await areTheTypesWrongRule.run({
+                    bundles: [ checkBundle('missing-package', [ 'index.js' ]) ],
+                    settings: { areTheTypesWrong: { enabled: true } },
+                    perPackageSettings: new Map(),
+                    packageConfigs: {}
+                });
+            }, /Published package missing/u);
+        });
     });
 });

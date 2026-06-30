@@ -42,7 +42,7 @@ suite('publish-settings.report', function () {
 
         const redacted = redactPublishSettings(settings);
 
-        assert.strictEqual('allowScripts' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'allowScripts'), false);
     });
 
     test('emits sbom verbatim when present', function () {
@@ -59,7 +59,7 @@ suite('publish-settings.report', function () {
 
         const redacted = redactPublishSettings(settings);
 
-        assert.strictEqual('sbom' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'sbom'), false);
     });
 
     test('omits provenance when access is public but provenance is undefined', function () {
@@ -67,7 +67,7 @@ suite('publish-settings.report', function () {
 
         const redacted = redactPublishSettings(settings);
 
-        assert.strictEqual('provenance' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'provenance'), false);
     });
 
     test('does not emit provenance for restricted access even when carried alongside', function () {
@@ -78,7 +78,7 @@ suite('publish-settings.report', function () {
 
         const redacted = redactPublishSettings(settings);
 
-        assert.strictEqual('provenance' in redacted, false);
+        assert.strictEqual(Object.hasOwn(redacted, 'provenance'), false);
     });
 
     test('preserves access verbatim', function () {

@@ -8,13 +8,13 @@ export type SlotSnapshot = {
 };
 
 export function readAllSnapshots(accessors: SpinnerSharedAccessors): readonly SlotSnapshot[] {
-    return times(accessors.layout.slotCount, (slotIndex) => {
+    return times(accessors.layout.slotCount, function (slotIndex) {
         return accessors.readSlot(slotIndex);
     });
 }
 
 export function findHighestActiveSlotIndex(snapshots: readonly SlotSnapshot[]): number {
-    return snapshots.findLastIndex((snapshot) => {
+    return snapshots.findLastIndex(function (snapshot) {
         return snapshot.state !== 'empty';
     });
 }

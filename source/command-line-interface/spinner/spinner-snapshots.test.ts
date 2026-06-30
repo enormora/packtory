@@ -1,9 +1,13 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { findHighestActiveSlotIndex, readAllSnapshots, type SlotSnapshot } from './spinner-snapshots.ts';
-import { createSpinnerSharedAccessors, createSpinnerSharedLayout } from './spinner-shared-state.ts';
+import {
+    createSpinnerSharedAccessors,
+    createSpinnerSharedLayout,
+    type SpinnerSharedAccessors
+} from './spinner-shared-state.ts';
 
-function createAccessors(slotCount: number) {
+function createAccessors(slotCount: number): SpinnerSharedAccessors {
     const layout = createSpinnerSharedLayout(slotCount);
     const buffer = new SharedArrayBuffer(layout.bufferByteLength);
     return createSpinnerSharedAccessors(buffer, layout);

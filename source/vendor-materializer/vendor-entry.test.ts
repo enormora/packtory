@@ -20,27 +20,31 @@ suite('vendor-entry', function () {
     });
 
     test('accepts a vendored source path that resolves to the package root itself', async function () {
-        await validateVendorEntrySource(
-            {
-                getRealPath: async () => {
-                    return '/src';
-                }
-            },
-            {
-                sourceAbsolutePath: '/src',
-                sourcePackageRootPath: '/src',
-                targetRelativePath: 'node_modules/pkg',
-                isExecutable: true
+        await assert.doesNotReject(
+            async function () {
+                await validateVendorEntrySource(
+                    {
+                        async getRealPath() {
+                            return '/src';
+                        }
+                    },
+                    {
+                        sourceAbsolutePath: '/src',
+                        sourcePackageRootPath: '/src',
+                        targetRelativePath: 'node_modules/pkg',
+                        isExecutable: true
+                    }
+                );
             }
         );
     });
 
     test('rejects a vendored source path that resolves outside the package root', async function () {
         await assert.rejects(
-            async () => {
+            async function () {
                 await validateVendorEntrySource(
                     {
-                        getRealPath: async () => {
+                        async getRealPath() {
                             return '/src/pkg-other/index.js';
                         }
                     },

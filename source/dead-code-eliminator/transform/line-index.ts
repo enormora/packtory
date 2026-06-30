@@ -1,4 +1,4 @@
-export type LineColumn = { readonly line: number; readonly column: number };
+export type LineColumn = { readonly line: number; readonly column: number; };
 
 type LineIndexEntry = {
     readonly lineNumber: number;
@@ -8,7 +8,7 @@ type LineIndexEntry = {
 export type LineIndex = readonly LineIndexEntry[];
 
 export function buildLineIndex(text: string): LineIndex {
-    const entries: LineIndexEntry[] = [{ lineNumber: 1, lineStart: 0 }];
+    const entries: LineIndexEntry[] = [ { lineNumber: 1, lineStart: 0 } ];
     for (const match of text.matchAll(/\n/gu)) {
         entries.push({ lineNumber: entries.length + 1, lineStart: match.index + 1 });
     }
@@ -16,7 +16,7 @@ export function buildLineIndex(text: string): LineIndex {
 }
 
 export function lineColumnToOffset(lineIndex: LineIndex, oneBasedLine: number, column: number): number {
-    const entry = lineIndex.find((candidate) => {
+    const entry = lineIndex.find(function (candidate) {
         return candidate.lineNumber === oneBasedLine;
     });
     if (entry === undefined) {

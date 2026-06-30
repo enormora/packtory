@@ -6,31 +6,35 @@ const eliminationCompletedPayload = {
     perBundle: [
         {
             packageName: 'package-a',
-            files: [{ path: 'src/index.ts', decision: 'kept', reason: 'reachable', sourceBytes: 42 }],
-            droppedSymbols: [{ file: 'src/index.ts', symbolName: 'unused', kind: 'function', reason: 'unreachable' }],
+            files: [ { path: 'src/index.ts', decision: 'kept', reason: 'reachable', sourceBytes: 42 } ],
+            droppedSymbols: [ { file: 'src/index.ts', symbolName: 'unused', kind: 'function', reason: 'unreachable' } ],
             seeds: []
         }
     ]
 } as const;
+
+type ScheduledListenerPayload = {
+    readonly packageName: string;
+};
 
 suite('progress-broadcaster', function () {
     test('emits events to registered listeners', function () {
         const broadcaster = createProgressBroadcaster();
         const receivedPayloads: unknown[] = [];
 
-        broadcaster.consumer.on('scheduled', (payload) => {
+        broadcaster.consumer.on('scheduled', function (payload) {
             receivedPayloads.push(payload);
         });
 
         broadcaster.provider.emit('scheduled', { packageName: 'package-a' });
 
-        assert.deepStrictEqual(receivedPayloads, [{ packageName: 'package-a' }]);
+        assert.deepStrictEqual(receivedPayloads, [ { packageName: 'package-a' } ]);
     });
 
     test('off() removes a registered listener', function () {
         const broadcaster = createProgressBroadcaster();
         const receivedPayloads: unknown[] = [];
-        const listener = (payload: { packageName: string }): void => {
+        const listener = function (payload: ScheduledListenerPayload): void {
             receivedPayloads.push(payload);
         };
 
@@ -47,7 +51,7 @@ suite('progress-broadcaster', function () {
         assert.strictEqual(broadcaster.provider.hasSubscribers('eliminationCompleted'), false);
     });
 
-    const noop = (): void => {
+    const noop = function (): void {
         return undefined;
     };
 
@@ -80,11 +84,13 @@ suite('progress-broadcaster', function () {
     test('decision events with no subscribers emit without error', function () {
         const broadcaster = createProgressBroadcaster();
 
-        broadcaster.provider.emit('versionDetermined', {
-            packageName: 'package-a',
-            previousVersion: '1.0.0',
-            chosenVersion: '1.0.1',
-            trigger: 'auto-patch-bump'
+        assert.doesNotThrow(function () {
+            broadcaster.provider.emit('versionDetermined', {
+                packageName: 'package-a',
+                previousVersion: '1.0.0',
+                chosenVersion: '1.0.1',
+                trigger: 'auto-patch-bump'
+            });
         });
     });
 
@@ -92,12 +98,12 @@ suite('progress-broadcaster', function () {
         const broadcaster = createProgressBroadcaster();
         const receivedPayloads: unknown[] = [];
 
-        broadcaster.consumer.on('eliminationCompleted', (payload) => {
+        broadcaster.consumer.on('eliminationCompleted', function (payload) {
             receivedPayloads.push(payload);
         });
 
         broadcaster.provider.emit('eliminationCompleted', eliminationCompletedPayload);
 
-        assert.deepStrictEqual(receivedPayloads, [eliminationCompletedPayload]);
+        assert.deepStrictEqual(receivedPayloads, [ eliminationCompletedPayload ]);
     });
 });

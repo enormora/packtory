@@ -27,7 +27,7 @@ suite('release-diff-document', function () {
         const document = buildReleaseDiffDocument({
             report: buildReport(),
             result: successResult,
-            packages: [releaseDiffPackage()]
+            packages: [ releaseDiffPackage() ]
         });
         assert.strictEqual(document.title, 'Packtory release diff');
         assert.strictEqual(document.modeLabel, 'vs registry latest');
@@ -46,7 +46,7 @@ suite('release-diff-document', function () {
         const document = buildReleaseDiffDocument({
             report,
             result: successResult,
-            packages: [releaseDiffPackage()]
+            packages: [ releaseDiffPackage() ]
         });
         assert.strictEqual(document.summary.failedPackages, 1);
     });
@@ -56,7 +56,7 @@ suite('release-diff-document', function () {
         const document = buildReleaseDiffDocument({
             report: buildReport(),
             result: successResult,
-            packages: [pkg]
+            packages: [ pkg ]
         });
         assert.strictEqual(document.packages.length, 1);
         assert.strictEqual(document.packages[0], pkg);

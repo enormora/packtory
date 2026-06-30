@@ -2,10 +2,10 @@ import assert from 'node:assert';
 import { Maybe } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
 import { validateConfig, type ValidConfigResult } from '../config/validation.ts';
-import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import type { ProgressBroadcaster } from '../packtory/packtory-results.ts';
 import type { BuildAndPublishResult, PackageProcessor } from '../packtory/package-processor.ts';
 import type { ResolvedPackage } from '../packtory/resolved-package.ts';
+import type { Scheduler as PackageScheduler } from '../packtory/scheduler.ts';
 import { analyzedBundle, versionedBundleWithManifest } from './bundle-fixtures.ts';
 import { createIteratingScheduler } from './iterating-scheduler.ts';
 
@@ -18,18 +18,34 @@ type ReleaseArtifactFile = {
 };
 
 type ReleasePlanFileReader = {
-    readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean }>;
+    readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean; }>;
     readonly readFile: (filePath: string) => Promise<string>;
 };
 
+type ReleaseCurrentGitHeadReader = () => Promise<string | undefined>;
+
+type PreviousReleaseArtifactsSpec = {
+    readonly version: string;
+    readonly publishedAt: Date;
+    readonly gitHead?: string | undefined;
+    readonly files: readonly ReleaseArtifactFile[];
+};
+
+type ResolvedPackagesOptions = {
+    readonly bundleContents?: Readonly<Record<string, ResolvedPackage['analyzedBundle']['contents']>>;
+    readonly defaultContents?: (packageName: string) => ResolvedPackage['analyzedBundle']['contents'];
+};
+
+type ReleasePackageConfig = ValidConfigResult['packtoryConfig']['packages'][number];
+
 export type ReleaseTestDependencies = {
-    readonly artifactsBuilder: { readonly collectContents: ReleaseFileCollection };
+    readonly artifactsBuilder: { readonly collectContents: ReleaseFileCollection; };
     readonly fileManager: ReleasePlanFileReader;
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
-    readonly readCurrentGitHead: CurrentGitHeadReader;
+    readonly readCurrentGitHead: ReleaseCurrentGitHeadReader;
     readonly repositoryFolder: string;
-    readonly scheduler: ReturnType<typeof createIteratingScheduler>;
+    readonly scheduler: PackageScheduler;
 };
 
 type ReleaseTestDependencySpec = {
@@ -80,7 +96,7 @@ const defaultReleasePlanFileReader: ReleasePlanFileReader = {
 export function validatedReleaseConfigFor(packageNames: readonly string[]): ValidConfigResult {
     const result = validateConfig({
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
-        packages: packageNames.map((name) => {
+        packages: packageNames.map(function (name) {
             return {
                 mainPackageJson: { type: 'module' },
                 name,
@@ -95,14 +111,6 @@ export function validatedReleaseConfigFor(packageNames: readonly string[]): Vali
         assert.fail(`Expected config to validate: ${result.error.join(', ')}`);
     }
 
-    return result.value;
-}
-
-export function validatedReleaseConfig(config: Parameters<typeof validateConfig>[0]): ValidConfigResult {
-    const result = validateConfig(config);
-    if (result.isErr) {
-        assert.fail(`Expected config to validate: ${result.error.join(', ')}`);
-    }
     return result.value;
 }
 
@@ -135,7 +143,7 @@ function packageProcessorFor(
 }
 
 function packageProcessorWith(buildResults: readonly BuildAndPublishResult[]): PackageProcessor {
-    return packageProcessorFor(buildResults, () => {
+    return packageProcessorFor(buildResults, function () {
         throw new Error('Missing build result fixture');
     });
 }
@@ -144,7 +152,7 @@ export function packageProcessorWithFailure(
     buildResults: readonly BuildAndPublishResult[],
     failure: Error
 ): PackageProcessor {
-    return packageProcessorFor(buildResults, () => {
+    return packageProcessorFor(buildResults, function () {
         throw failure;
     });
 }
@@ -185,12 +193,9 @@ export function packageProcessorCheckingStage(expectedStage: boolean): PackagePr
     };
 }
 
-export function previousReleaseArtifactsFor(spec: {
-    readonly version: string;
-    readonly publishedAt: Date;
-    readonly gitHead?: string | undefined;
-    readonly files: readonly ReleaseArtifactFile[];
-}): BuildAndPublishResult['previousReleaseArtifacts'] {
+export function previousReleaseArtifactsFor(
+    spec: PreviousReleaseArtifactsSpec
+): BuildAndPublishResult['previousReleaseArtifacts'] {
     return Maybe.just({
         version: spec.version,
         publishedAt: spec.publishedAt,
@@ -202,11 +207,10 @@ export function previousReleaseArtifactsFor(spec: {
 export function createReleaseTestDependencies(spec: ReleaseTestDependencySpec): ReleaseTestDependencies {
     return {
         artifactsBuilder: {
-            collectContents:
-                spec.collectContents ??
-                (() => {
+            collectContents: spec.collectContents ??
+                function () {
                     return [];
-                })
+                }
         },
         fileManager: spec.fileManager ?? defaultReleasePlanFileReader,
         packageProcessor: spec.packageProcessor ?? packageProcessorWith(spec.buildResults ?? []),
@@ -219,39 +223,70 @@ export function createReleaseTestDependencies(spec: ReleaseTestDependencySpec): 
     };
 }
 
+function resolvePackageContents(
+    packageName: string,
+    options: ResolvedPackagesOptions
+): ResolvedPackage['analyzedBundle']['contents'] {
+    return options.bundleContents?.[packageName] ?? options.defaultContents?.(packageName) ?? [];
+}
+
+function releasePackageSourcesFolder(packageConfig: ReleasePackageConfig): string {
+    return packageConfig.sourcesFolder ?? 'source';
+}
+
+function releasePackageMainPackageJson(
+    validated: ValidConfigResult,
+    packageConfig: ReleasePackageConfig
+): ResolvedPackage['resolveOptions']['mainPackageJson'] {
+    return packageConfig.mainPackageJson ??
+        validated.packtoryConfig.commonPackageSettings?.mainPackageJson ?? { type: 'module' };
+}
+
+function releasePackageAdditionalChangelogSourceFiles(
+    validated: ValidConfigResult,
+    packageConfig: ReleasePackageConfig
+): readonly string[] {
+    return [
+        ...validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? [],
+        ...packageConfig.additionalChangelogSourceFiles ?? []
+    ];
+}
+
+function releasePackageResolveOptions(
+    validated: ValidConfigResult,
+    packageConfig: ReleasePackageConfig
+): ResolvedPackage['resolveOptions'] {
+    return {
+        name: packageConfig.name,
+        exportPackageJson: packageConfig.exportPackageJson,
+        roots: packageConfig.roots,
+        surface: undefined,
+        sourcesFolder: releasePackageSourcesFolder(packageConfig),
+        includeSourceMapFiles: packageConfig.includeSourceMapFiles ?? false,
+        additionalFiles: packageConfig.additionalFiles ?? [],
+        mainPackageJson: releasePackageMainPackageJson(validated, packageConfig),
+        additionalChangelogSourceFiles: {
+            packageFiles: releasePackageAdditionalChangelogSourceFiles(validated, packageConfig),
+            sharedFiles: []
+        },
+        additionalPackageJsonAttributes: packageConfig.additionalPackageJsonAttributes ?? {},
+        allowMutableSpecifiers: [],
+        deadCodeElimination: packageConfig.deadCodeElimination,
+        bundleDependencies: [],
+        bundlePeerDependencies: []
+    };
+}
+
 export function resolvedPackagesFor(
     validated: ValidConfigResult,
-    options: {
-        readonly bundleContents?: Readonly<Record<string, ReturnType<typeof analyzedBundle>['contents']>>;
-        readonly defaultContents?: (packageName: string) => ReturnType<typeof analyzedBundle>['contents'];
-    } = {}
+    options: ResolvedPackagesOptions = {}
 ): readonly ResolvedPackage[] {
-    return validated.packtoryConfig.packages.map((packageConfig) => {
-        const contents =
-            options.bundleContents?.[packageConfig.name] ?? options.defaultContents?.(packageConfig.name) ?? [];
+    return validated.packtoryConfig.packages.map(function (packageConfig) {
+        const contents = resolvePackageContents(packageConfig.name, options);
         return {
             name: packageConfig.name,
             analyzedBundle: analyzedBundle({ name: packageConfig.name, contents }),
-            resolveOptions: {
-                name: packageConfig.name,
-                exportPackageJson: packageConfig.exportPackageJson,
-                roots: packageConfig.roots,
-                surface: undefined,
-                sourcesFolder: packageConfig.sourcesFolder ?? 'source',
-                includeSourceMapFiles: packageConfig.includeSourceMapFiles ?? false,
-                additionalFiles: packageConfig.additionalFiles ?? [],
-                mainPackageJson: packageConfig.mainPackageJson ??
-                    validated.packtoryConfig.commonPackageSettings?.mainPackageJson ?? { type: 'module' },
-                additionalChangelogSourceFiles: {
-                    packageFiles: packageConfig.additionalChangelogSourceFiles ?? [],
-                    sharedFiles: validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []
-                },
-                additionalPackageJsonAttributes: packageConfig.additionalPackageJsonAttributes ?? {},
-                allowMutableSpecifiers: [],
-                deadCodeElimination: packageConfig.deadCodeElimination,
-                bundleDependencies: [],
-                bundlePeerDependencies: []
-            }
+            resolveOptions: releasePackageResolveOptions(validated, packageConfig)
         };
     });
 }

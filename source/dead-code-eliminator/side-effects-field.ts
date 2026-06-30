@@ -5,11 +5,10 @@ function fileHasSideEffects(resource: AnalyzedBundleResource): boolean {
     return resource.analysis.sideEffectStatements.length > 0;
 }
 
-// eslint-disable-next-line sonarjs/function-return-type -- the three distinct values (false / string[] / undefined) carry different semantics
 export function computeSideEffectsField(
     contents: readonly AnalyzedBundleResource[]
 ): readonly string[] | false | undefined {
-    const codeFiles = contents.filter((resource) => {
+    const codeFiles = contents.filter(function (resource) {
         return isCodeFile(resource.fileDescription.targetFilePath);
     });
     const impureFiles = codeFiles.filter(fileHasSideEffects);
@@ -20,10 +19,10 @@ export function computeSideEffectsField(
         return undefined;
     }
     return impureFiles
-        .map((resource) => {
+        .map(function (resource) {
             return `./${resource.fileDescription.targetFilePath}`;
         })
-        .toSorted((left, right) => {
+        .toSorted(function (left, right) {
             return left.localeCompare(right);
         });
 }

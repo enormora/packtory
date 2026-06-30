@@ -15,8 +15,8 @@ export type ResolvedContent = BundleResource & {
 };
 
 export type RootFileDescription = {
-    js: TransferableFileDescription;
-    declarationFile?: TransferableFileDescription | undefined;
+    readonly js: TransferableFileDescription;
+    readonly declarationFile?: TransferableFileDescription | undefined;
 };
 
 export type ResolvedBundle = {
@@ -30,6 +30,6 @@ export type ResolvedBundle = {
 
 export function rootHasDeclarationFile(
     root: RootFileDescription
-): root is RootFileDescription & { readonly declarationFile: TransferableFileDescription } {
+): root is RootFileDescription & { readonly declarationFile: TransferableFileDescription; } {
     return root.declarationFile !== undefined;
 }

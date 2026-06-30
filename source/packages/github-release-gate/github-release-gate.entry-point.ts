@@ -15,7 +15,7 @@ function getEnvironmentVariable(variableName: string): string | undefined {
     return value === undefined || value.length === 0 ? undefined : value;
 }
 
-function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
+function isFunction(value: unknown): value is (...args: readonly unknown[]) => unknown {
     return typeof value === 'function';
 }
 
@@ -49,24 +49,24 @@ async function loadPacktoryConfigFromCwd(): Promise<unknown> {
 
 function createDependencies(): GitHubReleaseGateRunnerDependencies {
     return {
-        analyzeReleaseAgainstLatestPublished: async (config) => {
+        async analyzeReleaseAgainstLatestPublished(config) {
             const packtory: typeof packtoryEntryPoint = await import('../packtory/packtory.entry-point.ts');
             return packtory.analyzeReleaseAgainstLatestPublished(config);
         },
-        fetch: globalThis.fetch,
+        fetch,
         fileManager: createFileManager({ hostFileSystem: fs.promises }),
         getEnvironmentVariable,
         loadPacktoryConfig: loadPacktoryConfigFromCwd,
-        now: () => {
+        now() {
             return new Date();
         },
-        stdoutWrite: (message) => {
+        stdoutWrite(message) {
             process.stdout.write(`${message}\n`);
         }
     };
 }
 
-process.exitCode = await (async () => {
+process.exitCode = await (async function () {
     try {
         await runGitHubReleaseGate(createDependencies());
 

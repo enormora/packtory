@@ -24,6 +24,34 @@ type PackFlags = {
     readonly version: string;
     readonly vendorDependencies: boolean;
 };
+type PartialPackFailure = Extract<PackFailure, { readonly type: typeof partialFailureType; }>;
+type PeerDependenciesUnsatisfiedPackFailure = Extract<
+    PackFailure,
+    { readonly type: typeof packPackageFailureType.peerDependenciesUnsatisfied; }
+>;
+type VendorSymlinkOutsidePackagePackFailure = Extract<
+    PackFailure,
+    { readonly type: typeof packPackageFailureType.vendorSymlinkTargetOutsidePackage; }
+>;
+type VendorInvalidDependencyNamePackFailure = Extract<
+    PackFailure,
+    { readonly type: typeof packPackageFailureType.vendorInvalidDependencyName; }
+>;
+type BundleDependenciesUnsupportedPackFailure = Extract<
+    PackFailure,
+    { readonly type: typeof packPackageFailureType.bundleDependenciesUnsupported; }
+>;
+type PackageNotFoundPackFailure = Extract<
+    PackFailure,
+    { readonly type: typeof packPackageFailureType.packageNotFound; }
+>;
+type PackageNamePackFailure = BundleDependenciesUnsupportedPackFailure | PackageNotFoundPackFailure;
+type IssuePackFailure = Extract<
+    PackFailure,
+    {
+        readonly type: typeof checksErrorType | typeof configErrorType;
+    }
+>;
 
 export type PackHandlerDeps = {
     readonly log: Logger;
@@ -39,24 +67,22 @@ function formatIssueList(prefix: string, issues: readonly string[]): string {
 }
 
 function formatBulletedLines(header: string, details: readonly string[]): string {
-    return [header, ...details].join('\n');
+    return [ header, ...details ].join('\n');
 }
 
-function formatPartialResolveFailure(error: PackFailure & { readonly type: 'partial' }): string {
+function formatPartialResolveFailure(error: PartialPackFailure): string {
     return formatBulletedLines(
         `${getErrorSymbol()} ${error.error.failures.length} package(s) failed to resolve`,
-        partialFailureMessages(error.error).map((message) => {
+        partialFailureMessages(error.error).map(function (message) {
             return `- ${message}`;
         })
     );
 }
 
-function formatPeerFailure(
-    error: PackFailure & { readonly type: typeof packPackageFailureType.peerDependenciesUnsatisfied }
-): string {
+function formatPeerFailure(error: PeerDependenciesUnsatisfiedPackFailure): string {
     return formatBulletedLines(
         `${getErrorSymbol()} Pack of "${error.packageName}" is missing ${error.items.length} peer dependency(ies)`,
-        error.items.map((item) => {
+        error.items.map(function (item) {
             return `- "${item.packageName}" needs peer "${item.peer}"`;
         })
     );
@@ -69,7 +95,7 @@ const packageFailureSuffixByType = {
 } as const;
 
 function formatVendorSymlinkOutsidePackageFailure(
-    error: PackFailure & { readonly type: typeof packPackageFailureType.vendorSymlinkTargetOutsidePackage }
+    error: VendorSymlinkOutsidePackagePackFailure
 ): string {
     const reason = 'rejected a vendored dependency with a symlink that escapes its package directory';
     const header = `${getErrorSymbol()} Pack of "${error.packageName}" ${reason}`;
@@ -79,39 +105,27 @@ function formatVendorSymlinkOutsidePackageFailure(
 }
 
 function formatVendorInvalidDependencyNameFailure(
-    error: PackFailure & { readonly type: typeof packPackageFailureType.vendorInvalidDependencyName }
+    error: VendorInvalidDependencyNamePackFailure
 ): string {
     const reason = 'rejected a vendored package.json with an invalid dependency name';
     const header = `${getErrorSymbol()} Pack of "${error.packageName}" ${reason}`;
-    const sourceLabel =
-        error.sourcePackageName === undefined ? 'the configured external set' : `"${error.sourcePackageName}"`;
+    const sourceLabel = error.sourcePackageName === undefined
+        ? 'the configured external set'
+        : `"${error.sourcePackageName}"`;
     const tail = 'which is not a valid npm package name';
     const details = `- ${sourceLabel} declares dependency "${error.invalidDependencyName}" ${tail}`;
     return `${header}\n${details}`;
 }
 
-function formatPackageNameFailure(
-    error: PackFailure & {
-        readonly type:
-            | typeof packPackageFailureType.bundleDependenciesUnsupported
-            | typeof packPackageFailureType.packageNotFound;
-    }
-): string {
+function formatPackageNameFailure(error: PackageNamePackFailure): string {
     return `${getErrorSymbol()} Package "${error.packageName}" ${packageFailureSuffixByType[error.type]}`;
 }
 
-function isIssueFailure(error: PackFailure): error is PackFailure & {
-    readonly type: typeof checksErrorType | typeof configErrorType;
-    readonly issues: readonly string[];
-} {
+function isIssueFailure(error: PackFailure): error is IssuePackFailure {
     return error.type === configErrorType || error.type === checksErrorType;
 }
 
-function isPackageNameFailure(error: PackFailure): error is PackFailure & {
-    readonly type:
-        | typeof packPackageFailureType.bundleDependenciesUnsupported
-        | typeof packPackageFailureType.packageNotFound;
-} {
+function isPackageNameFailure(error: PackFailure): error is PackageNamePackFailure {
     return (
         error.type === packPackageFailureType.bundleDependenciesUnsupported ||
         error.type === packPackageFailureType.packageNotFound
@@ -119,7 +133,7 @@ function isPackageNameFailure(error: PackFailure): error is PackFailure & {
 }
 
 function formatNonIssuePackFailure(
-    error: Exclude<PackFailure, { readonly type: typeof checksErrorType | typeof configErrorType }>
+    error: Exclude<PackFailure, { readonly type: typeof checksErrorType | typeof configErrorType; }>
 ): string {
     if (error.type === partialFailureType) {
         return formatPartialResolveFailure(error);

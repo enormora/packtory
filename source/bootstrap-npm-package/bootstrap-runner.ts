@@ -56,7 +56,8 @@ function buildReadme(packageName: string): string {
         '',
         `Workaround context: ${workaroundUrl}`,
         ''
-    ].join('\n');
+    ]
+        .join('\n');
 }
 
 function buildTrustedPublisherUrl(packageName: string): string {

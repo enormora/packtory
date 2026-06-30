@@ -15,7 +15,7 @@ function authResolution(overrides: Partial<AuthResolution> = {}): AuthResolution
     };
 }
 
-function authFailure(statusCode: number): Error & { readonly statusCode: number } {
+function authFailure(statusCode: number): Error & { readonly statusCode: number; } {
     return Object.assign(new Error(`HTTP ${statusCode}`), { statusCode });
 }
 
@@ -25,12 +25,12 @@ async function expectRethrown(
     statusCode: number
 ): Promise<void> {
     try {
-        await retryWithFallbackAuth(settings, resolution, async () => {
+        await retryWithFallbackAuth(settings, resolution, async function () {
             throw authFailure(statusCode);
         });
         assert.fail('Expected retryWithFallbackAuth() to throw but it did not');
     } catch (error: unknown) {
-        assert.strictEqual((error as { statusCode: number }).statusCode, statusCode);
+        assert.strictEqual((error as { readonly statusCode: number; }).statusCode, statusCode);
     }
 }
 
@@ -38,7 +38,7 @@ suite('metadata-auth-retry', function () {
     test('retryWithFallbackAuth returns the run() result when it succeeds on the first attempt', async function () {
         const callOptions: NpmFetchOptions[] = [];
 
-        const result = await retryWithFallbackAuth({ auth: tokenAuth }, authResolution(), async (options) => {
+        const result = await retryWithFallbackAuth({ auth: tokenAuth }, authResolution(), async function (options) {
             callOptions.push(options);
             return 'ok' as const;
         });
@@ -74,7 +74,7 @@ suite('metadata-auth-retry', function () {
             await retryWithFallbackAuth(
                 { auth: tokenAuth },
                 authResolution({ allowsAutomaticRetry: true }),
-                async () => {
+                async function () {
                     throw proxiedError;
                 }
             );
@@ -92,7 +92,7 @@ suite('metadata-auth-retry', function () {
         const result = await retryWithFallbackAuth(
             settings,
             authResolution({ allowsAutomaticRetry: true }),
-            async (options) => {
+            async function (options) {
                 callOptions.push(options);
                 attempts += 1;
                 if (attempts === 1) {
@@ -104,7 +104,9 @@ suite('metadata-auth-retry', function () {
 
         assert.strictEqual(result, 'fallback');
         assert.strictEqual(attempts, 2);
-        assert.deepStrictEqual((callOptions[1] as { forceAuth?: { token?: string } }).forceAuth, { token: 'abc' });
+        assert.deepStrictEqual((callOptions[1] as { readonly forceAuth?: { readonly token?: string; }; }).forceAuth, {
+            token: 'abc'
+        });
     });
 
     test('retryWithFallbackAuth rethrows when retry is allowed but publish auth is npm-oidc', async function () {

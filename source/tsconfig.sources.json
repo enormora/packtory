@@ -6,5 +6,11 @@
         "types": ["node"]
     },
     "include": ["./**/*.ts"],
-    "exclude": ["./**/*.test.ts", "./**/*.property.ts", "./**/*.type-test.ts", "./test-libraries/**/*.ts"]
+    "exclude": [
+        "./**/*.test.ts",
+        "./**/*.property.ts",
+        "./**/*.type-test.ts",
+        "./**/*test-support.ts",
+        "./test-libraries/**/*.ts"
+    ]
 }

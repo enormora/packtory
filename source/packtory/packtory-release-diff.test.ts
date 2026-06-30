@@ -16,12 +16,41 @@ import type { ReleaseDiffAllResult } from './packtory-results.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
 import type { PartialError, Scheduler as PackageScheduler } from './scheduler.ts';
 
-const artifactsBuilder = { collectContents: () => [] } as unknown as Pick<ArtifactsBuilder, 'collectContents'>;
+const artifactsBuilder = {
+    collectContents() {
+        return [];
+    }
+} as unknown as Pick<ArtifactsBuilder, 'collectContents'>;
+
+type ResolveResult = Result<readonly ResolvedPackage[], never>;
+
+type ScheduledPackageConfig = {
+    readonly packtoryConfig: { readonly packages: readonly { readonly name: string; }[]; };
+};
+
+type ScheduledPackageContext = {
+    readonly packageName: string;
+    readonly existing: readonly unknown[];
+    readonly config: unknown;
+};
+
+type ScheduledPackageParams = {
+    readonly config: ScheduledPackageConfig;
+    readonly createOptions: (context: ScheduledPackageContext) => unknown;
+    readonly execute: (options: unknown) => Promise<unknown>;
+};
+
+type DerivedTransitionSpec = {
+    readonly buildResult: BuildAndPublishResult;
+    readonly expectedState: 'changed' | 'first-publish' | 'unchanged';
+    readonly expectedVersionTransition: string;
+    readonly expectedPreviousVersionLabel: string;
+};
 
 function configFor(packageNames: readonly string[]): ValidConfigResult {
     return {
         packageConfigs: Object.fromEntries(
-            packageNames.map((name) => {
+            packageNames.map(function (name) {
                 return [
                     name,
                     {
@@ -36,14 +65,14 @@ function configFor(packageNames: readonly string[]): ValidConfigResult {
             })
         ),
         packtoryConfig: {
-            packages: packageNames.map((name) => {
+            packages: packageNames.map(function (name) {
                 return { name };
             })
         }
     } as unknown as ValidConfigResult;
 }
 
-const okResolve = async () => {
+const okResolve = async function (): Promise<ResolveResult> {
     return Result.ok([] as readonly ResolvedPackage[]);
 };
 
@@ -80,15 +109,7 @@ function staged<TFirst, TSecond>(
 function publishThenRunStage(succeededPublish: readonly BuildAndPublishResult[]): PackageScheduler {
     let invocations = 0;
     return {
-        async runForEachScheduledPackage(params: {
-            readonly config: { readonly packtoryConfig: { readonly packages: readonly { readonly name: string }[] } };
-            readonly createOptions: (context: {
-                readonly packageName: string;
-                readonly existing: readonly unknown[];
-                readonly config: unknown;
-            }) => unknown;
-            readonly execute: (options: unknown) => Promise<unknown>;
-        }) {
+        async runForEachScheduledPackage(params: ScheduledPackageParams) {
             invocations += 1;
             if (invocations === 1) {
                 return Result.ok(succeededPublish);
@@ -110,27 +131,24 @@ function publishThenRunStage(succeededPublish: readonly BuildAndPublishResult[])
     } as unknown as PackageScheduler;
 }
 
-async function assertDerivedTransition(spec: {
-    readonly buildResult: BuildAndPublishResult;
-    readonly expectedState: 'changed' | 'first-publish' | 'unchanged';
-    readonly expectedVersionTransition: string;
-    readonly expectedPreviousVersionLabel: string;
-}): Promise<void> {
-    const diff = createDiff(publishThenRunStage([spec.buildResult]));
+async function assertDerivedTransition(spec: DerivedTransitionSpec): Promise<void> {
+    const diff = createDiff(publishThenRunStage([ spec.buildResult ]));
 
-    const result = await diff(configFor(['pkg-a']), okResolve);
+    const result = await diff(configFor([ 'pkg-a' ]), okResolve);
 
     if (result.isErr) {
         assert.fail(`expected Ok, got ${result.error.type}`);
     }
-    const [entry] = result.value;
-    assert.ok(entry);
+    const [ entry ] = result.value;
+    if (entry === undefined) {
+        assert.fail('expected a release diff entry');
+    }
     assert.strictEqual(entry.state, spec.expectedState);
     assert.strictEqual(entry.versionTransition, spec.expectedVersionTransition);
     assert.strictEqual(entry.previousVersionLabel, spec.expectedPreviousVersionLabel);
 }
 
-function expectPartialErr(result: ReleaseDiffAllResult): PartialError<unknown> & { readonly type: 'partial' } {
+function expectPartialErr(result: ReleaseDiffAllResult): PartialError<unknown> & { readonly type: 'partial'; } {
     if (result.isOk) {
         assert.fail('expected Err');
     }
@@ -143,7 +161,7 @@ function expectPartialErr(result: ReleaseDiffAllResult): PartialError<unknown> &
 suite('packtory-release-diff', function () {
     test('runs dry-run publish preparation with staged publishing disabled', async function () {
         let sawDryRunStageFlag = false;
-        const diff = createDiff(createIteratingScheduler(['pkg-a']), {
+        const diff = createDiff(createIteratingScheduler([ 'pkg-a' ]), {
             ...stubPackageProcessor,
             async tryBuildAndPublish(options) {
                 sawDryRunStageFlag = true;
@@ -161,19 +179,21 @@ suite('packtory-release-diff', function () {
             }
         });
 
-        const result = await diff(configFor(['pkg-a']), async () => {
-            return Result.ok([
-                {
-                    name: 'pkg-a',
-                    analyzedBundle: {
+        const result = await diff(configFor([ 'pkg-a' ]), async function () {
+            return Result.ok(
+                [
+                    {
                         name: 'pkg-a',
-                        contents: [],
-                        roots: {},
-                        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
-                    },
-                    resolveOptions: {}
-                }
-            ] as unknown as readonly ResolvedPackage[]);
+                        analyzedBundle: {
+                            name: 'pkg-a',
+                            contents: [],
+                            roots: {},
+                            surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+                        },
+                        resolveOptions: {}
+                    }
+                ] as unknown as readonly ResolvedPackage[]
+            );
         });
 
         assert.strictEqual(result.isOk, true);
@@ -183,8 +203,8 @@ suite('packtory-release-diff', function () {
     test('returns a config Err when resolve-and-link returns a non-partial failure (unchanged passthrough)', async function () {
         const diff = createDiff(createIteratingScheduler([]));
 
-        const result = await diff(configFor([]), async () => {
-            return Result.err({ type: 'config', issues: ['bad'] });
+        const result = await diff(configFor([]), async function () {
+            return Result.err({ type: 'config', issues: [ 'bad' ] });
         });
 
         if (result.isOk) {
@@ -195,9 +215,9 @@ suite('packtory-release-diff', function () {
 
     test('returns a partial Err with empty succeeded and the resolve-stage failures when resolve-and-link returns a partial failure', async function () {
         const diff = createDiff(createIteratingScheduler([]));
-        const resolveFailures = [new Error('resolve a'), new Error('resolve b')];
+        const resolveFailures = [ new Error('resolve a'), new Error('resolve b') ];
 
-        const result = await diff(configFor([]), async () => {
+        const result = await diff(configFor([]), async function () {
             return Result.err({ type: 'partial', error: { succeeded: [], failures: resolveFailures } });
         });
 
@@ -221,17 +241,17 @@ suite('packtory-release-diff', function () {
         const publishError = new Error('publish failed');
         const diff = createDiff(
             staged(
-                () => {
-                    return Result.err({ succeeded: [], failures: [publishError] });
+                function () {
+                    return Result.err({ succeeded: [], failures: [ publishError ] });
                 },
-                () => {
+                function () {
                     return Result.ok([]);
                 }
             )
         );
 
-        const partial = expectPartialErr(await diff(configFor(['pkg-a']), okResolve));
-        assert.deepStrictEqual(partial.failures, [publishError]);
+        const partial = expectPartialErr(await diff(configFor([ 'pkg-a' ]), okResolve));
+        assert.deepStrictEqual(partial.failures, [ publishError ]);
         assert.deepStrictEqual(partial.succeeded, []);
     });
 
@@ -247,35 +267,35 @@ suite('packtory-release-diff', function () {
         };
         const diff = createDiff(
             staged(
-                () => {
-                    return Result.err({ succeeded: [], failures: [publishError] });
+                function () {
+                    return Result.err({ succeeded: [], failures: [ publishError ] });
                 },
-                () => {
-                    return Result.err({ succeeded: [partialStageSuccess], failures: [stageError] });
+                function () {
+                    return Result.err({ succeeded: [ partialStageSuccess ], failures: [ stageError ] });
                 }
             )
         );
 
-        const partial = expectPartialErr(await diff(configFor(['pkg-a']), okResolve));
-        assert.deepStrictEqual(partial.failures, [publishError]);
-        assert.deepStrictEqual(partial.succeeded, [partialStageSuccess]);
+        const partial = expectPartialErr(await diff(configFor([ 'pkg-a' ]), okResolve));
+        assert.deepStrictEqual(partial.failures, [ publishError ]);
+        assert.deepStrictEqual(partial.succeeded, [ partialStageSuccess ]);
     });
 
     test('returns a partial Err carrying the release-diff stage failures when only the stage returns Err', async function () {
         const stageError = new Error('stage failed');
         const diff = createDiff(
             staged(
-                () => {
+                function () {
                     return Result.ok([]);
                 },
-                () => {
-                    return Result.err({ succeeded: [], failures: [stageError] });
+                function () {
+                    return Result.err({ succeeded: [], failures: [ stageError ] });
                 }
             )
         );
 
-        const partial = expectPartialErr(await diff(configFor(['pkg-a']), okResolve));
-        assert.deepStrictEqual(partial.failures, [stageError]);
+        const partial = expectPartialErr(await diff(configFor([ 'pkg-a' ]), okResolve));
+        assert.deepStrictEqual(partial.failures, [ stageError ]);
     });
 
     test('derives a first-publish entry with versionTransition "(unpublished) -> X.Y.Z" from the build result when previousReleaseArtifacts is Nothing', async function () {

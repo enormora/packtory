@@ -15,8 +15,8 @@ const perPackageSchema = z.strictObject({
     bytes: z.optional(byteLimitSchema)
 });
 
-type GlobalConfig = z.infer<typeof globalSchema>;
-type PerPackageConfig = z.infer<typeof perPackageSchema>;
+type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
+type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function bundleSizeBytes(bundle: AnalyzedBundle): number {
@@ -35,7 +35,7 @@ function checkBundle(bundle: AnalyzedBundle, threshold: number | undefined): rea
     if (size <= threshold) {
         return [];
     }
-    return [`Package "${bundle.name}" exceeds the maximum bundle size: ${size} bytes (limit: ${threshold} bytes)`];
+    return [ `Package "${bundle.name}" exceeds the maximum bundle size: ${size} bytes (limit: ${threshold} bytes)` ];
 }
 
 async function run(params: RunParams): Promise<readonly string[]> {
@@ -44,7 +44,7 @@ async function run(params: RunParams): Promise<readonly string[]> {
         return [];
     }
 
-    return params.bundles.flatMap((bundle) => {
+    return params.bundles.flatMap(function (bundle) {
         const override = params.perPackageSettings.get(bundle.name)?.maxBundleSize?.bytes;
         return checkBundle(bundle, override ?? globalConfig.bytes);
     });

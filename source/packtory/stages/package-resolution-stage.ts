@@ -40,7 +40,7 @@ function emitInputsResolved(
     const normalizedInputs = resolveRootsAndSurface(options);
     dependencies.progressBroadcaster.provider.emit('inputsResolved', {
         packageName: options.name,
-        roots: mapValues(normalizedInputs.roots, (root) => {
+        roots: mapValues(normalizedInputs.roots, function (root) {
             return root.js;
         }),
         sourceFileCount: 0,
@@ -59,7 +59,7 @@ export async function resolvePackages(
         ValidConfigWithoutRegistryResult['packtoryConfig']
     >({
         config,
-        createOptions: (context) => {
+        createOptions(context) {
             const options = createResolveOptions(context.packageName, context.existing, context.config);
             emitInputsResolved(dependencies, options);
             return options;
@@ -67,16 +67,16 @@ export async function resolvePackages(
         execute: withFailureCapture(
             dependencies.progressBroadcaster.provider,
             'resolveAndLink',
-            async (resolveOptions) => {
+            async function (resolveOptions) {
                 const linkedBundle = await dependencies.packageProcessor.resolveAndLink(resolveOptions);
                 return {
                     name: resolveOptions.name,
                     linkedBundle,
                     resolveOptions
-                } satisfies LinkedPackage;
+                };
             }
         ),
-        selectNext: (params) => {
+        selectNext(params) {
             return params.result.linkedBundle;
         },
         emitScheduledEvents: true

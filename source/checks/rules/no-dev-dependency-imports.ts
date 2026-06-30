@@ -10,8 +10,8 @@ import {
 
 const ruleName = 'noDevDependencyImports';
 
-type GlobalConfig = z.infer<typeof enabledOnlyGlobalSchema>;
-type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
+type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
+type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function findLeakedDevDependencies(
@@ -28,11 +28,12 @@ function findLeakedDevDependencies(
     ]);
     const devDependencyNames = new Set(Object.keys(mainPackageJson.devDependencies ?? {}));
 
-    return Array.from(bundle.externalDependencies.keys())
-        .filter((name) => {
+    return Array
+        .from(bundle.externalDependencies.keys())
+        .filter(function (name) {
             return devDependencyNames.has(name) && !runtimeDependencyNames.has(name);
         })
-        .map((name) => {
+        .map(function (name) {
             const reason = 'is only declared in devDependencies of the main package.json';
             return `Package "${bundle.name}" imports "${name}" which ${reason}`;
         });
@@ -44,7 +45,7 @@ async function run(params: RunParams): Promise<readonly string[]> {
         return [];
     }
 
-    return params.bundles.flatMap((bundle) => {
+    return params.bundles.flatMap(function (bundle) {
         return findLeakedDevDependencies(bundle, params.packageConfigs?.[bundle.name]);
     });
 }

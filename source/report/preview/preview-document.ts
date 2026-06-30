@@ -55,10 +55,12 @@ type PreviewDocumentParams = {
     readonly fileManager: Pick<FileManager, 'readFile'>;
 };
 
-function collectPackageArtifactData(artifacts: readonly PreviewArtifact[]): {
+type PackageArtifactData = {
     readonly changedArtifacts: readonly ChangedPreviewArtifact[];
     readonly artifactCounts: PreviewArtifactCounts;
-} {
+};
+
+function collectPackageArtifactData(artifacts: readonly PreviewArtifact[]): PackageArtifactData {
     const changedArtifacts: ChangedPreviewArtifact[] = [];
     const emittedArtifacts = artifacts.length;
     let changedArtifactCount = 0;
@@ -105,7 +107,7 @@ async function buildPreviewPackage(
 ): Promise<PreviewPackage> {
     const emittedArtifacts = packageReport.outputs?.tarball.entries ?? [];
     const artifacts = await Promise.all(
-        emittedArtifacts.map(async (artifact) => {
+        emittedArtifacts.map(async function (artifact) {
             return buildPreviewArtifactWithDiff(packageName, artifact, bundleArtifactIndex, readWorkspaceFile);
         })
     );
@@ -131,7 +133,7 @@ export async function buildPreviewDocument(params: PreviewDocumentParams): Promi
     const readWorkspaceFile = params.fileManager.readFile;
     const bundleArtifactIndex = buildBundleArtifactIndex(getSucceededResults(params.result));
     const packages = await Promise.all(
-        Object.entries(params.report.packages).map(async ([packageName, packageReport]) => {
+        Object.entries(params.report.packages).map(async function ([ packageName, packageReport ]) {
             return buildPreviewPackage(packageName, packageReport, bundleArtifactIndex, readWorkspaceFile);
         })
     );

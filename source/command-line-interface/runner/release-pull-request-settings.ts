@@ -5,7 +5,7 @@ const githubActionsWorkflowDispatchSchema = z.readonly(
     z.strictObject({
         trigger: z.literal('workflow-dispatch'),
         workflowFile: nonEmptyStringSchema,
-        requiredStatusContexts: z.readonly(z.tuple([nonEmptyStringSchema], nonEmptyStringSchema)),
+        requiredStatusContexts: z.readonly(z.tuple([ nonEmptyStringSchema ], nonEmptyStringSchema)),
         deleteActionRequiredPullRequestRuns: z.optional(z.boolean())
     })
 );

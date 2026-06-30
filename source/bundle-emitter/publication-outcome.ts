@@ -1,7 +1,8 @@
-export type PublicationOutcome =
-    | { readonly type: 'none' }
-    | { readonly type: 'published' }
-    | { readonly type: 'staged'; readonly stageId: string };
+type NoPublication = { readonly type: 'none'; };
+type PublishedToRegistry = { readonly type: 'published'; };
+type StagedForApproval = { readonly type: 'staged'; readonly stageId: string; };
+
+export type PublicationOutcome = NoPublication | PublishedToRegistry | StagedForApproval;
 
 export const noPublication: PublicationOutcome = { type: 'none' };
 export const publishedToRegistry: PublicationOutcome = { type: 'published' };

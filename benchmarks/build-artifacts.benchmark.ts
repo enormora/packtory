@@ -15,7 +15,7 @@ export async function runBuildArtifactsBenchmark(
     try {
         const workload = await generateWorkload({ rootDirectory, size, workloads });
         const config = workload.createConfig(registry.settings);
-        const result = await measureAsyncTask(`build-artifacts:${size}`, async () => {
+        const result = await measureAsyncTask(`build-artifacts:${size}`, async function () {
             const { result: runResult } = await buildAndPublishAll(config, { dryRun: true, stage: false });
 
             if (runResult.isErr) {

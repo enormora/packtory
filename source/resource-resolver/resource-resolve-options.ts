@@ -23,12 +23,12 @@ export type ResolvedRootsAndSurface = {
 
 export function resolveRootsAndSurface(options: ResourceResolveOptions): ResolvedRootsAndSurface {
     const rootEntries = Object.entries(options.roots);
-    const [firstRootEntry] = rootEntries;
+    const [ firstRootEntry ] = rootEntries;
     if (firstRootEntry === undefined) {
         throw new Error(`Package "${options.name}" must define at least one root`);
     }
 
-    const [firstRootId] = firstRootEntry;
+    const [ firstRootId ] = firstRootEntry;
     return {
         roots: options.roots,
         surface: options.surface ?? implicitPackageSurface(firstRootId)

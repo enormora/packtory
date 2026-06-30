@@ -45,7 +45,7 @@ export function createBuildResultFixture(
             version,
             manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false },
             packageJson: { name: packageName, version },
-            contents: overrides.contents ?? [createAnalyzedResource()]
+            contents: overrides.contents ?? [ createAnalyzedResource() ]
         }),
         extraFiles: [],
         previousReleaseArtifacts: Maybe.nothing(),
@@ -53,16 +53,41 @@ export function createBuildResultFixture(
     };
 }
 
+function defaultArtifactPath(kind: ArtifactEntry['kind']): string {
+    return kind === 'manifest' ? 'package.json' : 'src/index.js';
+}
+
+function defaultArtifactSize(kind: ArtifactEntry['kind']): number {
+    return kind === 'manifest' ? 2 : 20;
+}
+
+function defaultArtifactStatus(kind: ArtifactEntry['kind']): ArtifactEntry['status'] {
+    return kind === 'manifest' ? 'generated' : 'changed';
+}
+
+function artifactSourcePathEntry(
+    kind: ArtifactEntry['kind'],
+    sourcePath: string | undefined
+): Record<PropertyKey, never> | { readonly sourcePath: string; } {
+    if (kind === 'source') {
+        return { sourcePath: sourcePath ?? '/workspace/src/index.js' };
+    }
+    return sourcePath === undefined ? {} : { sourcePath };
+}
+
+function artifactBadges(overrides: Partial<ArtifactEntry>): ArtifactEntry['badges'] {
+    return overrides.badges ?? [];
+}
+
 export function createArtifactEntryFixture(overrides: Partial<ArtifactEntry> = {}): ArtifactEntry {
     const kind = overrides.kind ?? 'source';
     return {
-        path: overrides.path ?? (kind === 'manifest' ? 'package.json' : 'src/index.js'),
-        sizeBytes: overrides.sizeBytes ?? (kind === 'manifest' ? 2 : 20),
+        path: overrides.path ?? defaultArtifactPath(kind),
+        sizeBytes: overrides.sizeBytes ?? defaultArtifactSize(kind),
         kind,
-        status: overrides.status ?? (kind === 'manifest' ? 'generated' : 'changed'),
-        badges: overrides.badges ?? [],
-        ...(kind === 'source' ? { sourcePath: overrides.sourcePath ?? '/workspace/src/index.js' } : {}),
-        ...(overrides.sourcePath === undefined || kind === 'source' ? {} : { sourcePath: overrides.sourcePath })
+        status: overrides.status ?? defaultArtifactStatus(kind),
+        badges: artifactBadges(overrides),
+        ...artifactSourcePathEntry(kind, overrides.sourcePath)
     };
 }
 
@@ -82,7 +107,7 @@ export function createPackageReportFixture(overrides: Partial<PackageReport> = {
                     createArtifactEntryFixture({
                         path: 'src/index.js',
                         sourcePath: '/workspace/src/index.js',
-                        badges: ['dead-code-elimination']
+                        badges: [ 'dead-code-elimination' ]
                     }),
                     createArtifactEntryFixture({ kind: 'manifest', path: 'package.json', badges: [] })
                 ]
@@ -113,7 +138,7 @@ export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> =
         ...createArtifactEntryFixture({
             path: 'src/index.js',
             sourcePath: '/workspace/src/index.js',
-            badges: ['dead-code-elimination']
+            badges: [ 'dead-code-elimination' ]
         }),
         diff: [
             {
@@ -153,18 +178,16 @@ export function createPreviewPackageFixture(overrides: Partial<PreviewPackage> =
             artifact: changedArtifact
         }
     ];
-    const changedArtifacts =
-        overrideChangedArtifacts ??
-        tree.flatMap((node) => {
+    const changedArtifacts = overrideChangedArtifacts ??
+        tree.flatMap(function (node) {
             if (node.type !== 'file' || node.artifact.diff === undefined) {
                 return [];
             }
-            return [{ ...node.artifact, diff: node.artifact.diff }];
+            return [ { ...node.artifact, diff: node.artifact.diff } ];
         });
-    const artifactCounts =
-        overrideArtifactCounts ??
+    const artifactCounts = overrideArtifactCounts ??
         tree.reduce(
-            (counts, node) => {
+            function (counts, node) {
                 if (node.type !== 'file') {
                     return counts;
                 }
@@ -247,7 +270,7 @@ export function createPreviewDocumentFixture(overrides: Partial<PreviewDocument>
             eliminatedSourceFiles: 1
         },
         issues: [],
-        packages: [createPreviewPackageFixture()],
+        packages: [ createPreviewPackageFixture() ],
         report: createBuildReportFixture({
             packages: {
                 'pkg-a': createPackageReportFixture({

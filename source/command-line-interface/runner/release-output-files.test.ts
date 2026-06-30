@@ -7,7 +7,7 @@ suite('release-output-files', function () {
         assert.deepStrictEqual(
             collectReleaseOutputFiles({
                 workingDirectory: '/repo',
-                config: { packages: [{ name: 'pkg-a' }] }
+                config: { packages: [ { name: 'pkg-a' } ] }
             }),
             []
         );
@@ -26,10 +26,10 @@ suite('release-output-files', function () {
                         ]
                     },
                     commonPackageSettings: { sourcesFolder: 'packages' },
-                    packages: [{ name: 'pkg-a' }, { name: 'pkg-b', sourcesFolder: 'other/pkg-b' }]
+                    packages: [ { name: 'pkg-a' }, { name: 'pkg-b', sourcesFolder: 'other/pkg-b' } ]
                 }
             }),
-            ['CHANGELOG.md', 'packages/docs/CHANGELOG.md', 'other/pkg-b/docs/CHANGELOG.md']
+            [ 'CHANGELOG.md', 'packages/docs/CHANGELOG.md', 'other/pkg-b/docs/CHANGELOG.md' ]
         );
     });
 
@@ -49,10 +49,10 @@ suite('release-output-files', function () {
                             }
                         ]
                     },
-                    packages: [{ name: 'pkg-a' }, { name: 'pkg-b' }]
+                    packages: [ { name: 'pkg-a' }, { name: 'pkg-b' } ]
                 }
             }),
-            ['source/pkg-a/CHANGELOG.md', 'source/pkg-b/CHANGELOG.md']
+            [ 'source/pkg-a/CHANGELOG.md', 'source/pkg-b/CHANGELOG.md' ]
         );
     });
 });

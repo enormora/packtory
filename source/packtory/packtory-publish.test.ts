@@ -7,9 +7,10 @@ import {
     stubPackageProcessor,
     stubProgressBroadcaster
 } from '../test-libraries/orchestrator-stub-fixtures.ts';
+import type { PublishStageDependencies } from './stages/publish-stage.ts';
 import { createRunBuildAndPublishValidated } from './packtory-publish.ts';
 
-function happyDependencies() {
+function happyDependencies(): PublishStageDependencies {
     return {
         packageProcessor: stubPackageProcessor,
         scheduler: emptyScheduler,
@@ -25,7 +26,9 @@ suite('packtory-publish', function () {
         const result = await run(
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
             { dryRun: false, stage: false },
-            async () => Result.ok([])
+            async function () {
+                return Result.ok([]);
+            }
         );
 
         assert.strictEqual(result.isOk, true);
@@ -37,19 +40,21 @@ suite('packtory-publish', function () {
         const result = await run(
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
             { dryRun: false, stage: false },
-            async () => Result.err({ type: 'config', issues: ['bad'] })
+            async function () {
+                return Result.err({ type: 'config', issues: [ 'bad' ] });
+            }
         );
 
         if (!result.isErr) {
             assert.fail('expected the result to be an error');
         }
-        assert.deepStrictEqual(result.error, { type: 'config', issues: ['bad'] });
+        assert.deepStrictEqual(result.error, { type: 'config', issues: [ 'bad' ] });
     });
 
     test('createRunBuildAndPublishValidated wraps publish-stage partial failures into the publish-partial variant', async function () {
         const dependencies = {
             ...happyDependencies(),
-            scheduler: failingScheduler({ succeeded: [], failures: [new Error('boom')] })
+            scheduler: failingScheduler({ succeeded: [], failures: [ new Error('boom') ] })
         };
 
         const run = createRunBuildAndPublishValidated(dependencies);
@@ -57,7 +62,9 @@ suite('packtory-publish', function () {
         const result = await run(
             { packageConfigs: {}, packtoryConfig: { packages: [] } } as never,
             { dryRun: false, stage: false },
-            async () => Result.ok([])
+            async function () {
+                return Result.ok([]);
+            }
         );
 
         if (!result.isErr) {

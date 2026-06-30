@@ -29,7 +29,7 @@ suite('package-layout', function () {
     });
 
     test('bundledInstalledDependencyPath() keeps bundle paths posix-normalized', function () {
-        const relativePath = ['dist', 'index.js'].join(path.sep);
+        const relativePath = [ 'dist', 'index.js' ].join(path.sep);
         assert.strictEqual(bundledInstalledDependencyPath('shared', relativePath), 'node_modules/shared/dist/index.js');
     });
 

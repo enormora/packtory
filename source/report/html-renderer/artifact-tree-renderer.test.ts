@@ -53,7 +53,7 @@ suite('artifact-tree-renderer', function () {
                 kind: 'source',
                 sourcePath: '/src/index.js',
                 status: 'generated',
-                badges: ['import-path-rewrite']
+                badges: [ 'import-path-rewrite' ]
             }
         };
         const html = renderArtifactNode(file);

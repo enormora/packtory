@@ -60,8 +60,8 @@ async function runGitCommand(
     readonly stdout: string;
     readonly stderr: string;
 }> {
-    return new Promise((resolve, reject) => {
-        execFile(command, Array.from(args), (error, stdout, stderr) => {
+    return new Promise(function (resolve, reject) {
+        execFile(command, Array.from(args), function (error, stdout, stderr) {
             if (error !== null) {
                 reject(error instanceof Error ? error : new Error('Git command failed'));
                 return;
@@ -87,13 +87,13 @@ const previewIo = createDefaultPreviewIo({
 
 const promptForOneTimePassword = createOneTimePasswordPrompt({
     clock,
-    isInteractiveTerminal: () => {
+    isInteractiveTerminal() {
         return process.stdin.isTTY && process.stdout.isTTY;
     },
-    stopSpinner: () => {
+    stopSpinner() {
         spinnerRenderer.stopAll();
     },
-    createInterface: () => {
+    createInterface() {
         return readline.createInterface({
             input: process.stdin,
             output: process.stdout
@@ -120,11 +120,11 @@ const { packtory, progressBroadcaster } = buildPacktoryComposition({
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     createPrLogEngine,
-    createGitHubReleaseClient: (context) => {
-        return createGitHubReleaseClient({ ...context, fetch: globalThis.fetch });
+    createGitHubReleaseClient(context) {
+        return createGitHubReleaseClient({ ...context, fetch });
     },
-    createReleasePullRequestGitHubClient: (context) => {
-        return createReleasePullRequestGitHubClient({ ...context, fetch: globalThis.fetch });
+    createReleasePullRequestGitHubClient(context) {
+        return createReleasePullRequestGitHubClient({ ...context, fetch });
     },
     currentDate() {
         return new Date(clock.getCurrentTimeInMilliseconds());
@@ -134,7 +134,7 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     spinnerRenderer,
     configLoader: createConfigLoader({ currentWorkingDirectory: workingDirectory, importModule }),
     fileManager,
-    pageOutput: async (content) => {
+    async pageOutput(content) {
         const didPage = await previewIo.pagePreviewOutput(content);
         if (!didPage) {
             console.log(content);
@@ -174,4 +174,5 @@ async function crash(error: unknown): Promise<void> {
 
 main().catch(crash);
 
+// eslint-disable-next-line unicorn/no-exports-in-scripts -- public CLI package types are re-exported from this entry point
 export type PacktoryConfig = PublicPacktoryConfig;

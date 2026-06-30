@@ -1,8 +1,12 @@
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import { type MutationReport, parseMutationReport } from './mutation-report-schema.ts';
 
-function isErrorWithCode(error: unknown, code: string): error is Error & { readonly code: string } {
+function isErrorWithCode(error: unknown, code: string): error is Error & { readonly code: string; } {
     return error instanceof Error && Reflect.get(error, 'code') === code;
+}
+
+function parseJsonString(content: string): unknown {
+    return JSON.parse(content) as unknown;
 }
 
 export async function readMutationReport(
@@ -10,7 +14,7 @@ export async function readMutationReport(
     fileManager: Pick<FileManager, 'readFile'>
 ): Promise<MutationReport> {
     try {
-        return parseMutationReport(JSON.parse(await fileManager.readFile(reportPath)) as unknown);
+        return parseMutationReport(parseJsonString(await fileManager.readFile(reportPath)));
     } catch (error) {
         if (isErrorWithCode(error, 'ENOENT')) {
             throw new Error(`Mutation report not found at "${reportPath}"`, { cause: error });

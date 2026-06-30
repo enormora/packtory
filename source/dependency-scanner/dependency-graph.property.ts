@@ -12,16 +12,25 @@ import {
 
 const filePathArbitrary = fc.stringMatching(/^[a-z][\da-z-]{0,7}\.js$/);
 
+function filePathAt(filePaths: readonly string[], index: number): string {
+    const filePath = filePaths[index];
+    if (filePath === undefined) {
+        throw new Error(`Missing generated file path at index ${index}`);
+    }
+    return filePath;
+}
+
 const dependencyFilesArbitrary: fc.Arbitrary<DependencyFiles> = fc
     .uniqueArray(filePathArbitrary, {
         minLength: 1,
         maxLength: 3
     })
-    .chain((filePaths) => {
-        const possibleConnections = filePaths.flatMap((_, fromIndex) => {
-            return filePaths.flatMap((__, toIndex) => {
+    .chain(function (filePaths) {
+        const fileIndexes = Array.from(filePaths.keys());
+        const possibleConnections = fileIndexes.flatMap(function (fromIndex) {
+            return fileIndexes.flatMap(function (toIndex) {
                 if (fromIndex < toIndex) {
-                    return [[fromIndex, toIndex] as const];
+                    return [ [ fromIndex, toIndex ] as const ];
                 }
 
                 return [];
@@ -34,17 +43,22 @@ const dependencyFilesArbitrary: fc.Arbitrary<DependencyFiles> = fc
                 externalDependencyNames: fc.array(fc.stringMatching(/^[a-z][\da-z-]{0,7}$/), { maxLength: 3 }),
                 connections: fc.shuffledSubarray(possibleConnections)
             })
-            .map((options) => {
+            .map(function (options) {
                 const graph = createDependencyGraph();
                 const projectObject = {};
 
-                filePaths.forEach((filePath, index) => {
+                filePaths.forEach(function (filePath, index) {
                     graph.addDependency(filePath, {
-                        sourceMapFilePath: options.sourceMapFlags[index]
+                        sourceMapFilePath: options.sourceMapFlags[index] === true
                             ? Maybe.just(`${filePath}.map`)
                             : Maybe.nothing(),
-                        externalDependencies: options.externalDependencyNames.filter((_, dependencyIndex) => {
-                            return dependencyIndex % filePaths.length === index % filePaths.length;
+                        externalDependencies: options.externalDependencyNames.flatMap(function (
+                            dependencyName,
+                            dependencyIndex
+                        ) {
+                            return dependencyIndex % filePaths.length === index % filePaths.length
+                                ? [ dependencyName ]
+                                : [];
                         }),
                         project: {
                             getProject() {
@@ -54,11 +68,11 @@ const dependencyFilesArbitrary: fc.Arbitrary<DependencyFiles> = fc
                     } as never);
                 });
 
-                options.connections.forEach(([fromIndex, toIndex]) => {
-                    graph.connect(filePaths[fromIndex]!, filePaths[toIndex]!);
+                options.connections.forEach(function ([ fromIndex, toIndex ]) {
+                    graph.connect(filePathAt(filePaths, fromIndex), filePathAt(filePaths, toIndex));
                 });
 
-                return graph.flatten(filePaths[0]!);
+                return graph.flatten(filePathAt(filePaths, 0));
             });
     });
 
@@ -67,21 +81,22 @@ const localFilesArbitrary: fc.Arbitrary<readonly LocalFile[]> = fc
         minLength: 1,
         maxLength: 3
     })
-    .map((filePaths) => {
-        return filePaths.map((filePath) => {
-            return {
+    .map(function (filePaths) {
+        return filePaths.map(function (filePath) {
+            const localFile: LocalFile = {
                 filePath,
                 directDependencies: new Set<string>()
-            } satisfies LocalFile;
+            };
+            return localFile;
         });
     });
 
 suite('dependency-graph', function () {
     test('flatten() only references known file paths or generated source-map files', function () {
         fc.assert(
-            fc.property(dependencyFilesArbitrary, (dependencyFiles) => {
+            fc.property(dependencyFilesArbitrary, function (dependencyFiles) {
                 const filePaths = new Set(
-                    dependencyFiles.localFiles.map((file) => {
+                    dependencyFiles.localFiles.map(function (file) {
                         return file.filePath;
                     })
                 );
@@ -104,7 +119,7 @@ suite('dependency-graph', function () {
 
     test('mergeDependencyFiles() preserves uniqueness by file path', function () {
         fc.assert(
-            fc.property(localFilesArbitrary, localFilesArbitrary, (firstLocalFiles, secondLocalFiles) => {
+            fc.property(localFilesArbitrary, localFilesArbitrary, function (firstLocalFiles, secondLocalFiles) {
                 const first: DependencyFiles = {
                     localFiles: firstLocalFiles,
                     externalDependencies: new Map()
@@ -115,7 +130,7 @@ suite('dependency-graph', function () {
                 };
 
                 const merged = mergeDependencyFiles(first, second);
-                const mergedPaths = merged.localFiles.map((file) => {
+                const mergedPaths = merged.localFiles.map(function (file) {
                     return file.filePath;
                 });
 

@@ -20,19 +20,19 @@ type EventLoopAggregate = {
     readonly sampledMaxBlockMs: number;
 };
 
-function createPerPackageGapAccumulator(packageNames: readonly string[]): Map<string, number[]> {
+function createPerPackageGapAccumulator(packageNames: readonly string[]): ReadonlyMap<string, number[]> {
     return new Map(
-        packageNames.map((packageName) => {
-            return [packageName, [] as number[]] as const;
+        packageNames.map(function (packageName) {
+            return [ packageName, [] as number[] ] as const;
         })
     );
 }
 
 function appendPerPackageGaps(
-    accumulator: Map<string, number[]>,
+    accumulator: ReadonlyMap<string, number[]>,
     perRunGaps: ReadonlyMap<string, readonly number[]>
 ): void {
-    perRunGaps.forEach((gaps, packageName) => {
+    perRunGaps.forEach(function (gaps, packageName) {
         const target = accumulator.get(packageName);
 
         if (target !== undefined) {
@@ -41,11 +41,15 @@ function appendPerPackageGaps(
     });
 }
 
-function recordEventLoopReport(reports: EventLoopProbeReport[], report: EventLoopProbeReport | undefined): void {
+function appendEventLoopReport(
+    reports: readonly EventLoopProbeReport[],
+    report: EventLoopProbeReport | undefined
+): readonly EventLoopProbeReport[] {
     if (report === undefined) {
-        return;
+        return reports;
     }
-    reports.push(report);
+
+    return [ ...reports, report ];
 }
 
 function aggregateEventLoopReports(reports: readonly EventLoopProbeReport[]): EventLoopAggregate {
@@ -91,11 +95,11 @@ async function measureCliResponsiveness(
     readonly result: Awaited<ReturnType<typeof measureAsyncTask>>;
 }> {
     const perPackageFrameGaps = createPerPackageGapAccumulator(packageNames);
-    const eventLoopReports: EventLoopProbeReport[] = [];
+    let eventLoopReports: readonly EventLoopProbeReport[] = [];
     let totalFrameCount = 0;
     let observedAnyGap = false;
 
-    const result = await measureAsyncTask(`publish-cli:${size}`, async () => {
+    const result = await measureAsyncTask(`publish-cli:${size}`, async function () {
         const measurement: CliPublishMeasurement = await runCliPublish(rootDirectory, packageNames);
 
         if (measurement.allFrameGaps.length > 0) {
@@ -103,7 +107,7 @@ async function measureCliResponsiveness(
         }
         appendPerPackageGaps(perPackageFrameGaps, measurement.perPackageFrameGaps);
         totalFrameCount += measurement.frameCount;
-        recordEventLoopReport(eventLoopReports, measurement.eventLoopReport);
+        eventLoopReports = appendEventLoopReport(eventLoopReports, measurement.eventLoopReport);
     });
 
     assert.ok(observedAnyGap, `CLI benchmark for "${size}" did not record any frame gaps`);

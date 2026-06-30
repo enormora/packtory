@@ -8,6 +8,18 @@ import {
 } from '../progress/progress-broadcaster.ts';
 import type { BuildReport } from '../report/aggregator/report-types.ts';
 
+type Outcome<TResult> = {
+    readonly result: TResult;
+    readonly getReport: () => undefined;
+};
+
+type BuildReportOutcome<TResult> = {
+    readonly result: TResult;
+    readonly getReport: () => BuildReport;
+};
+
+type ReleaseOutcomeAdapter = <TResult>(result: TResult) => BuildReportOutcome<TResult>;
+
 export function getErrResult<TValue, TError>(result: Result<TValue, TError>, message: string): TError {
     if (result.isErr) {
         return result.error;
@@ -26,22 +38,19 @@ export function getOkResult<TValue, TError>(result: Result<TValue, TError>, mess
     throw new Error(message);
 }
 
-export function toOutcome<TResult>(result: TResult): { readonly result: TResult; readonly getReport: () => undefined } {
+export function toOutcome<TResult>(result: TResult): Outcome<TResult> {
     return {
         result,
-        getReport: () => {
+        getReport() {
             return undefined;
         }
     };
 }
 
-function toOutcomeWithBuildReport<TResult>(result: TResult): {
-    readonly result: TResult;
-    readonly getReport: () => BuildReport;
-} {
+function toOutcomeWithBuildReport<TResult>(result: TResult): BuildReportOutcome<TResult> {
     return {
         result,
-        getReport: () => {
+        getReport() {
             return {
                 schemaVersion: 1,
                 generatedAt: '2026-05-19T00:00:00.000Z',
@@ -52,7 +61,7 @@ function toOutcomeWithBuildReport<TResult>(result: TResult): {
     };
 }
 
-function createReleaseOutcomeAdapter() {
+function createReleaseOutcomeAdapter(): ReleaseOutcomeAdapter {
     return toOutcomeWithBuildReport;
 }
 
@@ -60,10 +69,11 @@ export const toReleaseDiffOutcome = createReleaseOutcomeAdapter();
 export const toReleaseAnalysisOutcome = createReleaseOutcomeAdapter();
 
 export const createTestProgressBroadcaster: () => ProgressBroadcaster = createProgressBroadcaster;
+export type TestProgressBroadcaster = ProgressBroadcaster;
 
 export type SpyingBroadcaster = {
     readonly provider: ProgressBroadcastProvider;
-    readonly consumer: ReturnType<typeof createProgressBroadcaster>['consumer'];
+    readonly consumer: ProgressBroadcaster['consumer'];
     readonly emitSpy: SinonSpy;
 };
 
@@ -71,7 +81,7 @@ export function createSpyingBroadcaster(): SpyingBroadcaster {
     const broadcaster = createProgressBroadcaster();
     const emitSpy = fake();
     const provider: ProgressBroadcastProvider = {
-        emit: (eventName, payload): void => {
+        emit(eventName, payload): void {
             emitSpy(eventName, payload);
             broadcaster.provider.emit(eventName, payload);
         },

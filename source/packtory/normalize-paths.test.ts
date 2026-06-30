@@ -20,7 +20,7 @@ suite('normalize-paths', function () {
 
     test('normalizeRoot omits the declaration file from the output when none is provided', function () {
         const result = normalizeRoot({ js: 'index.js' }, '/src');
-        assert.strictEqual('declarationFile' in result, false);
+        assert.strictEqual(Object.hasOwn(result, 'declarationFile'), false);
     });
 
     test('normalizeAdditionalFile resolves the sourceFilePath relative to the source folder', function () {

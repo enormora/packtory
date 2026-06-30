@@ -10,7 +10,7 @@ export type ConfigLoader = {
     load: () => Promise<unknown>;
 };
 
-type UnknownFunction = (...args: unknown[]) => unknown;
+type UnknownFunction = (...args: readonly unknown[]) => unknown;
 
 function isFunction(value: unknown): value is UnknownFunction {
     return typeof value === 'function';

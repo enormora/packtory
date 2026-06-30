@@ -5,10 +5,12 @@ import path from 'node:path';
 export const killedMutant = { status: 'Killed', location: { start: { line: 1, column: 2 } } };
 export const timeoutMutant = { status: 'Timeout', location: { start: { line: 7, column: 8 } } };
 
-export function singleMutantReport(mutant: unknown): {
-    readonly files: Readonly<Record<string, { readonly mutants: readonly unknown[] }>>;
-} {
-    return { files: { 'source/a.ts': { mutants: [mutant] } } };
+type SingleMutantReport = {
+    readonly files: Readonly<Record<string, { readonly mutants: readonly unknown[]; }>>;
+};
+
+export function singleMutantReport(mutant: unknown): SingleMutantReport {
+    return { files: { 'source/a.ts': { mutants: [ mutant ] } } };
 }
 
 export async function withTemporaryReportDirectory<T>(

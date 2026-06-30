@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { $ZodType } from 'zod/v4/core';
 import { z } from 'zod/mini';
 import { additionalFileDescriptionSchema } from '../config/additional-files.ts';
 import { mainPackageJsonSchema } from '../config/main-package-json-schema.ts';
@@ -7,7 +8,7 @@ import { packtoryConfigSchema } from '../config/packtory-config-schema.ts';
 import { versioningSettingsSchema } from '../config/versioning-settings.ts';
 import { safeParse } from './schema-validation.ts';
 
-function validationIssues(schema: Parameters<typeof safeParse>[0], data: unknown): readonly string[] {
+function validationIssues(schema: Readonly<$ZodType>, data: unknown): readonly string[] {
     const result = safeParse(schema, data);
     if (result.success) {
         assert.fail('Validation succeeded but a failure was expected');
@@ -30,9 +31,9 @@ suite('schema-validation', function () {
     });
 
     test('keeps numeric path segments stable', function () {
-        const schema = z.tuple([z.object({ type: z.literal('module') })]);
+        const schema = z.tuple([ z.object({ type: z.literal('module') }) ]);
 
-        assert.deepStrictEqual(validationIssues(schema, [{ type: 'commonjs' }]), [
+        assert.deepStrictEqual(validationIssues(schema, [ { type: 'commonjs' } ]), [
             'at [0].type: invalid literal: expected "module", but got string'
         ]);
     });
@@ -43,7 +44,7 @@ suite('schema-validation', function () {
                 sourceFilePath: 'source.txt',
                 targetFilePath: '..'
             }),
-            ['at targetFilePath: invalid input']
+            [ 'at targetFilePath: invalid input' ]
         );
     });
 
@@ -67,7 +68,7 @@ suite('schema-validation', function () {
                     }
                 ]
             }),
-            ['invalid value doesn’t match expected union']
+            [ 'invalid value doesn’t match expected union' ]
         );
     });
 });

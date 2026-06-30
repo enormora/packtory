@@ -12,23 +12,23 @@ suite('package-config', function () {
     });
 
     test('getBundledDependencies returns just the bundleDependencies when only it is present', function () {
-        const config = { name: 'pkg', roots: stubRoots, bundleDependencies: ['dep-a'] } as PackageConfig;
-        assert.deepStrictEqual(getBundledDependencies(config), ['dep-a']);
+        const config = { name: 'pkg', roots: stubRoots, bundleDependencies: [ 'dep-a' ] } as PackageConfig;
+        assert.deepStrictEqual(getBundledDependencies(config), [ 'dep-a' ]);
     });
 
     test('getBundledDependencies returns just the bundlePeerDependencies when only it is present', function () {
-        const config = { name: 'pkg', roots: stubRoots, bundlePeerDependencies: ['peer-a'] } as PackageConfig;
-        assert.deepStrictEqual(getBundledDependencies(config), ['peer-a']);
+        const config = { name: 'pkg', roots: stubRoots, bundlePeerDependencies: [ 'peer-a' ] } as PackageConfig;
+        assert.deepStrictEqual(getBundledDependencies(config), [ 'peer-a' ]);
     });
 
     test('getBundledDependencies concatenates bundleDependencies and bundlePeerDependencies in property order', function () {
         const config = {
             name: 'pkg',
             roots: stubRoots,
-            bundleDependencies: ['a'],
-            bundlePeerDependencies: ['b']
+            bundleDependencies: [ 'a' ],
+            bundlePeerDependencies: [ 'b' ]
         } as PackageConfig;
 
-        assert.deepStrictEqual(getBundledDependencies(config), ['a', 'b']);
+        assert.deepStrictEqual(getBundledDependencies(config), [ 'a', 'b' ]);
     });
 });

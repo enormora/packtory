@@ -4,7 +4,7 @@ import type { ExternalDependency } from '../../dependency-scanner/external-depen
 import { groupBundleDependencies } from './bundle-dependency-grouping.ts';
 
 function externalDep(name: string): ExternalDependency {
-    return { name, referencedFrom: ['/src/a.ts'] };
+    return { name, referencedFrom: [ '/src/a.ts' ] };
 }
 
 suite('bundle-dependency-grouping', function () {
@@ -18,9 +18,9 @@ suite('bundle-dependency-grouping', function () {
     test('groupBundleDependencies routes a linked dep to dependencies when it is in bundleDependencies', function () {
         assert.deepStrictEqual(
             groupBundleDependencies(
-                { linkedBundleDependencies: new Map([['my-dep', externalDep('my-dep')]]) },
+                { linkedBundleDependencies: new Map([ [ 'my-dep', externalDep('my-dep') ] ]) },
                 [],
-                [{ name: 'my-dep', version: '2.0.0' }]
+                [ { name: 'my-dep', version: '2.0.0' } ]
             ),
             { dependencies: { 'my-dep': '2.0.0' }, peerDependencies: {} }
         );
@@ -29,8 +29,8 @@ suite('bundle-dependency-grouping', function () {
     test('groupBundleDependencies routes a linked dep to peerDependencies when it is in bundlePeerDependencies', function () {
         assert.deepStrictEqual(
             groupBundleDependencies(
-                { linkedBundleDependencies: new Map([['my-peer', externalDep('my-peer')]]) },
-                [{ name: 'my-peer', version: '3.0.0' }],
+                { linkedBundleDependencies: new Map([ [ 'my-peer', externalDep('my-peer') ] ]) },
+                [ { name: 'my-peer', version: '3.0.0' } ],
                 []
             ),
             { dependencies: {}, peerDependencies: { 'my-peer': '3.0.0' } }
@@ -40,9 +40,9 @@ suite('bundle-dependency-grouping', function () {
     test('groupBundleDependencies prefers the peer entry when a name appears in both peers and deps', function () {
         assert.deepStrictEqual(
             groupBundleDependencies(
-                { linkedBundleDependencies: new Map([['shared', externalDep('shared')]]) },
-                [{ name: 'shared', version: '3.0.0' }],
-                [{ name: 'shared', version: '2.0.0' }]
+                { linkedBundleDependencies: new Map([ [ 'shared', externalDep('shared') ] ]) },
+                [ { name: 'shared', version: '3.0.0' } ],
+                [ { name: 'shared', version: '2.0.0' } ]
             ),
             { dependencies: {}, peerDependencies: { shared: '3.0.0' } }
         );
@@ -51,7 +51,7 @@ suite('bundle-dependency-grouping', function () {
     test('groupBundleDependencies throws when a linked dep is in neither peers nor deps', function () {
         try {
             groupBundleDependencies(
-                { linkedBundleDependencies: new Map([['unknown', externalDep('unknown')]]) },
+                { linkedBundleDependencies: new Map([ [ 'unknown', externalDep('unknown') ] ]) },
                 [],
                 []
             );

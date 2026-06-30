@@ -3,19 +3,22 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { BundleLinker } from '../linker/linker.ts';
-import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
-import { createResolveAndBuildOperations } from './package-processor-build.ts';
+import { createResolveAndBuildOperations, type ResolveAndBuildDependencies } from './package-processor-build.ts';
 
-function stubDependencies() {
+function stubDependencies(): ResolveAndBuildDependencies {
     return {
         deadCodeEliminator: {} as DeadCodeEliminator,
         linker: {} as BundleLinker,
         progressBroadcaster: {
-            emit: () => undefined,
-            hasSubscribers: () => false
-        } as unknown as ProgressBroadcastProvider,
+            emit() {
+                return undefined;
+            },
+            hasSubscribers() {
+                return false;
+            }
+        },
         resourceResolver: {} as ResourceResolver,
         versionManager: {} as VersionManager
     };

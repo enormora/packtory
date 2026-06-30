@@ -6,7 +6,7 @@ type FileDescription = {
 };
 
 type Options = {
-    readonly withFiles?: FileDescription[];
+    readonly withFiles?: readonly FileDescription[];
     readonly module?: ModuleKind;
 };
 

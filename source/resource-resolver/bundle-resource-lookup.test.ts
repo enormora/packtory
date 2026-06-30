@@ -15,9 +15,9 @@ suite('bundle-resource-lookup', function () {
             surface: undefined as never
         };
 
-        const result = buildResolvedRoots(normalized, [jsResource]);
+        const result = buildResolvedRoots(normalized, [ jsResource ]);
 
-        assert.deepStrictEqual(Object.keys(result), ['main']);
+        assert.deepStrictEqual(Object.keys(result), [ 'main' ]);
     });
 
     test('buildResolvedRoots attaches the matching declaration file when one is declared', function () {
@@ -28,7 +28,7 @@ suite('bundle-resource-lookup', function () {
             surface: undefined as never
         };
 
-        const result = buildResolvedRoots(normalized, [jsResource, dtsResource]);
+        const result = buildResolvedRoots(normalized, [ jsResource, dtsResource ]);
 
         assert.strictEqual(result.main?.declarationFile?.sourceFilePath, '/src/index.d.ts');
     });
@@ -41,7 +41,7 @@ suite('bundle-resource-lookup', function () {
             surface: undefined as never
         };
 
-        const result = buildResolvedRoots(normalized, [jsResource]);
+        const result = buildResolvedRoots(normalized, [ jsResource ]);
 
         assert.strictEqual(result.main?.declarationFile, undefined);
     });
@@ -55,7 +55,7 @@ suite('bundle-resource-lookup', function () {
         };
 
         try {
-            buildResolvedRoots(normalized, [jsResource]);
+            buildResolvedRoots(normalized, [ jsResource ]);
             assert.fail('expected buildResolvedRoots to throw');
         } catch (error) {
             assert.ok(error instanceof Error);
