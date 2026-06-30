@@ -76,6 +76,10 @@ type LoadedReleasePullRequestConfig = {
     readonly config: ReleasePullRequestConfig;
     readonly policyConfig: ReleasePullRequestPolicyConfig;
 };
+type PreparedReleaseCommit = {
+    readonly baseHead: string;
+    readonly localHead: string;
+};
 
 type GitHubEvent = {
     readonly merge_group?: { readonly base_sha?: string | undefined; readonly head_sha?: string | undefined };
@@ -215,24 +219,31 @@ async function closeReleaseState(
 
 async function prepareReleasePullRequest(
     dependencies: ReleasePullRequestHandlerDependencies
-): Promise<string | undefined> {
+): Promise<PreparedReleaseCommit | undefined> {
     const originalHead = await dependencies.gitClient.currentHead();
     const releaseExitCode = await runPrepareRelease(dependencies);
     if (releaseExitCode !== 0) {
         throw new Error('Release preparation failed');
     }
     const releaseHead = await dependencies.gitClient.currentHead();
-    return releaseHead === originalHead ? undefined : releaseHead;
+    return releaseHead === originalHead ? undefined : { baseHead: originalHead, localHead: releaseHead };
 }
 
-async function updateReleasePullRequest(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly dependencies: ReleasePullRequestHandlerDependencies;
-    readonly releaseHead: string;
-}): Promise<number> {
-    const { client, config, dependencies, releaseHead } = input;
-    await dependencies.gitClient.pushHeadToBranch(config.branch);
+async function updateReleasePullRequest(
+    dependencies: ReleasePullRequestHandlerDependencies,
+    client: ReleasePullRequestGitHubClient,
+    config: ReleasePullRequestConfig,
+    releaseCommit: PreparedReleaseCommit
+): Promise<number> {
+    const releaseFiles = await dependencies.gitClient.readChangedFiles(releaseCommit.baseHead, releaseCommit.localHead);
+    const releaseHead = await client.createCommitOnBranch({
+        additions: releaseFiles.map((file) => {
+            return { contents: file.contentBase64, path: file.path };
+        }),
+        branch: config.branch,
+        expectedHeadOid: releaseCommit.baseHead,
+        message: config.commitSubject
+    });
     const pullRequestNumber = await client.createOrUpdateReleasePullRequest({
         baseBranch: config.defaultBranch,
         body: config.body,
@@ -250,23 +261,18 @@ async function updateReleasePullRequest(input: {
     return ciSucceeded ? 0 : 1;
 }
 
-async function finishReleasePullRequestMaintenance(input: {
-    readonly client: ReleasePullRequestGitHubClient;
-    readonly config: ReleasePullRequestConfig;
-    readonly dependencies: ReleasePullRequestHandlerDependencies;
-    readonly releaseHead: string | undefined;
-}): Promise<number> {
-    if (input.releaseHead === undefined) {
-        await closeReleaseState(input.dependencies, input.client, input.config);
-        input.dependencies.log('No release content remains');
+async function finishReleasePullRequestMaintenance(
+    dependencies: ReleasePullRequestHandlerDependencies,
+    client: ReleasePullRequestGitHubClient,
+    config: ReleasePullRequestConfig,
+    releaseCommit: PreparedReleaseCommit | undefined
+): Promise<number> {
+    if (releaseCommit === undefined) {
+        await closeReleaseState(dependencies, client, config);
+        dependencies.log('No release content remains');
         return 0;
     }
-    return updateReleasePullRequest({
-        client: input.client,
-        config: input.config,
-        dependencies: input.dependencies,
-        releaseHead: input.releaseHead
-    });
+    return updateReleasePullRequest(dependencies, client, config, releaseCommit);
 }
 
 type MaintainReleasePullRequestHandlerDependencies = ReleasePullRequestHandlerDependencies & {
@@ -280,8 +286,8 @@ async function runMaintain(dependencies: MaintainReleasePullRequestHandlerDepend
     }
     const loadedConfig = await loadReleasePullRequestConfig(dependencies);
     const { client } = await createGitHubClient(dependencies);
-    const releaseHead = await prepareReleasePullRequest(dependencies);
-    return finishReleasePullRequestMaintenance({ client, config: loadedConfig.config, dependencies, releaseHead });
+    const releaseCommit = await prepareReleasePullRequest(dependencies);
+    return finishReleasePullRequestMaintenance(dependencies, client, loadedConfig.config, releaseCommit);
 }
 
 function readRequiredEnvironmentVariable(dependencies: ReleasePullRequestHandlerDependencies, name: string): string {

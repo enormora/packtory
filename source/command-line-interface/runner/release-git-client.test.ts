@@ -138,6 +138,60 @@ suite('release-git-client', function () {
         await assert.rejects(client.commit([], 'Release packages'), /No changelog files were written/u);
     });
 
+    test('readChangedFiles reads added and modified file content from the target head', async function () {
+        const changelogContent = Buffer.from('updated changelog\n', 'utf8').toString('base64');
+        const releaseNotesContent = Buffer.from('release notes\n', 'utf8').toString('base64');
+        const { calls, client } = createGitClientWithRunner(async (_command, args) => {
+            if (args.includes('diff')) {
+                return { stdout: 'CHANGELOG.md\0documentation/release.md\0', stderr: '' };
+            }
+            if (args.includes('release-head:CHANGELOG.md')) {
+                return { stdout: 'updated changelog\n', stderr: '' };
+            }
+            if (args.includes('release-head:documentation/release.md')) {
+                return { stdout: 'release notes\n', stderr: '' };
+            }
+            throw new Error('unexpected command');
+        });
+
+        assert.deepStrictEqual(await client.readChangedFiles('main-head', 'release-head'), [
+            {
+                contentBase64: changelogContent,
+                kind: 'addition',
+                path: 'CHANGELOG.md'
+            },
+            {
+                contentBase64: releaseNotesContent,
+                kind: 'addition',
+                path: 'documentation/release.md'
+            }
+        ]);
+        assert.deepStrictEqual(calls, [
+            {
+                command: 'git',
+                args: [
+                    '-C',
+                    '/repo',
+                    'diff',
+                    '--name-only',
+                    '-z',
+                    '--diff-filter=AM',
+                    'main-head',
+                    'release-head',
+                    '--'
+                ]
+            },
+            {
+                command: 'git',
+                args: ['-C', '/repo', 'show', 'release-head:CHANGELOG.md']
+            },
+            {
+                command: 'git',
+                args: ['-C', '/repo', 'show', 'release-head:documentation/release.md']
+            }
+        ]);
+    });
+
     test('currentHead returns a non-empty current Git head', async function () {
         const { calls, client } = createGitClientWithRunner(async () => {
             return { stdout: 'head-a\n', stderr: '' };

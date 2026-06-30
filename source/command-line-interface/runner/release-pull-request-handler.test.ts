@@ -73,6 +73,7 @@ function createReleasePullRequestClient(
 ): ReleasePullRequestGitHubClient {
     return {
         closeOpenReleasePullRequests: fake.resolves(undefined),
+        createCommitOnBranch: fake.resolves('signed-release-head'),
         createOrUpdateReleasePullRequest: fake.resolves(12),
         createStatus: fake.resolves(undefined),
         deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
@@ -147,7 +148,8 @@ function createDependencies(overrides: Partial<ReleasePullRequestHandlerDependen
             ensureClean: fake.resolves(undefined),
             ensureTag: fake.resolves(undefined),
             pushHeadToBranch: fake.resolves(undefined),
-            pushFollowTags: fake.resolves(undefined)
+            pushFollowTags: fake.resolves(undefined),
+            readChangedFiles: fake.resolves([])
         },
         log(message) {
             log(message);
@@ -247,6 +249,7 @@ function createChangingReleaseGitClient(
         ensureTag: fake.resolves(undefined),
         pushHeadToBranch: fake.resolves(undefined),
         pushFollowTags: fake.resolves(undefined),
+        readChangedFiles: fake.resolves([]),
         ...overrides
     };
 }
@@ -312,7 +315,8 @@ suite('release-pull-request-handler', function () {
                 ensureClean: fake.resolves(undefined),
                 ensureTag: fake.resolves(undefined),
                 pushHeadToBranch: fake.resolves(undefined),
-                pushFollowTags: fake.resolves(undefined)
+                pushFollowTags: fake.resolves(undefined),
+                readChangedFiles: fake.resolves([])
             }
         });
 
@@ -327,22 +331,43 @@ suite('release-pull-request-handler', function () {
 
     test('maintain updates the release PR when changelog content is committed', async function () {
         const commit = fake.resolves(undefined);
+        const createCommitOnBranch = fake.resolves('signed-release-head');
         const createOrUpdateReleasePullRequest = fake.resolves(12);
         const pushHeadToBranch = fake.resolves(undefined);
         const pushFollowTags = fake.resolves(undefined);
+        const readChangedFiles = fake.resolves([
+            {
+                contentBase64: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
+                kind: 'addition',
+                path: 'CHANGELOG.md'
+            }
+        ]);
         const { dependencies, log } = createReleaseContentDependencies({
             createReleasePullRequestGitHubClient: fake.returns(
                 createReleasePullRequestClient({
+                    createCommitOnBranch,
                     createOrUpdateReleasePullRequest
                 })
             ),
-            gitClient: createChangingReleaseGitClient({ commit, pushFollowTags, pushHeadToBranch })
+            gitClient: createChangingReleaseGitClient({ commit, pushFollowTags, pushHeadToBranch, readChangedFiles })
         });
 
         assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
         assert.strictEqual(commit.callCount, 1);
-        assert.deepStrictEqual(pushHeadToBranch.firstCall.args, ['release/packtory']);
+        assert.strictEqual(pushHeadToBranch.callCount, 0);
         assert.strictEqual(pushFollowTags.callCount, 0);
+        assert.deepStrictEqual(readChangedFiles.firstCall.args, ['main-head', 'release-head']);
+        assert.deepStrictEqual(createCommitOnBranch.firstCall.args[0], {
+            additions: [
+                {
+                    contents: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
+                    path: 'CHANGELOG.md'
+                }
+            ],
+            branch: 'release/packtory',
+            expectedHeadOid: 'main-head',
+            message: 'Release packages'
+        });
         assert.deepStrictEqual(createOrUpdateReleasePullRequest.firstCall.args[0], {
             baseBranch: 'main',
             body: 'Updates changelogs for the next release.',
@@ -350,7 +375,7 @@ suite('release-pull-request-handler', function () {
             releaseBranch: 'release/packtory',
             title: 'Prepare release'
         });
-        assert.strictEqual(log.lastCall.args[0], 'Release PR #12 points at release-head');
+        assert.strictEqual(log.lastCall.args[0], 'Release PR #12 points at signed-release-head');
     });
 
     test('maintain returns failure when configured release PR CI fails', async function () {
@@ -370,7 +395,7 @@ suite('release-pull-request-handler', function () {
         });
 
         assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
-        assert.strictEqual(log.lastCall.args[0], 'Release PR #12 points at release-head');
+        assert.strictEqual(log.lastCall.args[0], 'Release PR #12 points at signed-release-head');
     });
 
     test('maintain reports release preparation failures', async function () {
@@ -654,7 +679,7 @@ suite('release-pull-request-handler', function () {
 
     test('uses package repository metadata when GitHub repository environment is absent', async function () {
         const createReleasePullRequestGitHubClient = fake.returns(createReleasePullRequestClient());
-        const { dependencies } = createDependencies({
+        const { dependencies, log } = createDependencies({
             createReleasePullRequestGitHubClient,
             flags: { command: 'authorize-publish', releasePullRequestNumber: undefined },
             readEnvironmentVariable(name) {
@@ -668,6 +693,7 @@ suite('release-pull-request-handler', function () {
             repo: 'repo',
             token: 'token'
         });
+        assert.strictEqual(log.lastCall.args[0], 'should_publish=false');
     });
 
     test('requires a GitHub token', async function () {

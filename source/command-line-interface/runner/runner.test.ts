@@ -102,6 +102,7 @@ function createRunner(overrides: Overrides = {}): CommandLineInterfaceRunner {
         createReleasePullRequestGitHubClient: createSpy(overrides.createReleasePullRequestGitHubClient, () => {
             return fake.returns({
                 closeOpenReleasePullRequests: fake.resolves(undefined),
+                createCommitOnBranch: fake.resolves('signed-release-head'),
                 createOrUpdateReleasePullRequest: fake.resolves(1),
                 createStatus: fake.resolves(undefined),
                 deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
@@ -185,7 +186,8 @@ function createRunner(overrides: Overrides = {}): CommandLineInterfaceRunner {
             ensureClean: fake.resolves(undefined),
             ensureTag: fake.resolves(undefined),
             pushHeadToBranch: fake.resolves(undefined),
-            pushFollowTags: fake.resolves(undefined)
+            pushFollowTags: fake.resolves(undefined),
+            readChangedFiles: fake.resolves([])
         },
         sleep: fake.resolves(undefined),
         workingDirectory: '/workspace'
@@ -383,7 +385,8 @@ suite('runner', function () {
                 ensureClean: fake.resolves(undefined),
                 ensureTag,
                 pushHeadToBranch: fake.resolves(undefined),
-                pushFollowTags
+                pushFollowTags,
+                readChangedFiles: fake.resolves([])
             }
         });
 

@@ -1,22 +1,15 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import {
+    emptyResponse,
+    hasRequestWithBody,
+    jsonResponse,
+    readHeader,
+    recordRequest,
+    requestUrl,
+    type RecordedRequest
+} from '../../test-libraries/github-client-fetch-fixtures.ts';
 import { createReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
-
-type RecordedRequest = {
-    readonly body: string;
-    readonly headers: HeadersInit | undefined;
-    readonly method: string;
-    readonly path: string;
-    readonly search: string;
-};
-
-function jsonResponse(data: unknown, status = 200): Response {
-    return Response.json(data, { status });
-}
-
-function emptyResponse(status = 204): Response {
-    return new Response(null, { status });
-}
 
 function createPullRequest(number: number, overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -39,42 +32,6 @@ function createCommit(message = 'Release packages'): Record<string, unknown> {
     };
 }
 
-function requestUrl(input: Parameters<typeof globalThis.fetch>[0]): URL {
-    if (typeof input === 'string') {
-        return new URL(input);
-    }
-    if (input instanceof URL) {
-        return input;
-    }
-    return new URL(input.url);
-}
-
-function requestBody(init: Parameters<typeof globalThis.fetch>[1]): string {
-    return typeof init?.body === 'string' ? init.body : '';
-}
-
-function readHeader(headers: HeadersInit | undefined, name: string): string | undefined {
-    if (headers instanceof Headers) {
-        return headers.get(name) ?? undefined;
-    }
-    if (headers === undefined || Array.isArray(headers)) {
-        return undefined;
-    }
-    const value: unknown = Reflect.get(headers, name);
-    return typeof value === 'string' ? value : undefined;
-}
-
-function recordRequest(
-    records: RecordedRequest[],
-    input: Parameters<typeof globalThis.fetch>[0],
-    init: Parameters<typeof globalThis.fetch>[1]
-): { readonly method: string; readonly url: URL } {
-    const url = requestUrl(input);
-    const method = init?.method ?? 'GET';
-    records.push({ body: requestBody(init), headers: init?.headers, method, path: url.pathname, search: url.search });
-    return { method, url };
-}
-
 function requestHasSearchParameter(record: RecordedRequest, name: string, value: string): boolean {
     return new URLSearchParams(record.search).get(name) === value;
 }
@@ -85,17 +42,6 @@ function createClient(fetchImplementation: typeof globalThis.fetch) {
         owner: 'owner',
         repo: 'repo',
         token: 'token'
-    });
-}
-
-function hasRequestWithBody(
-    records: readonly RecordedRequest[],
-    method: string,
-    path: string,
-    bodyPart: string
-): boolean {
-    return records.some((record) => {
-        return record.method === method && record.path === path && record.body.includes(bodyPart);
     });
 }
 
