@@ -7,6 +7,7 @@ export type ReleaseWorkflowRun = {
     readonly database_id?: number | undefined;
     readonly event: string;
     readonly head_sha: string;
+    readonly id?: number | undefined;
     readonly name?: string | null | undefined;
     readonly path?: string | null | undefined;
     readonly workflow_id?: number | null | undefined;
@@ -18,8 +19,8 @@ export type WorkflowRunLookupResult = {
     readonly runId: number | undefined;
 };
 
-export function runDatabaseId(run: ReleaseWorkflowRun): number | undefined {
-    return run.database_id ?? run.databaseId;
+export function readWorkflowRunId(workflowRun: ReleaseWorkflowRun): number | undefined {
+    return workflowRun.id ?? workflowRun.database_id ?? workflowRun.databaseId;
 }
 
 function workflowRunPathMatches(run: ReleaseWorkflowRun, workflow: ReleaseWorkflow): boolean {
@@ -80,11 +81,11 @@ export function findWorkflowRunIdInRuns(
         .filter((workflowRun) => {
             return workflowRunMatchesInput(workflowRun, workflow, headSha);
         })
-        .map(runDatabaseId)
+        .map(readWorkflowRunId)
         .filter(isDefined);
     return matchingRunIds.length === 0 ? undefined : Math.max(...matchingRunIds);
 }
 
 export function observedWorkflowRunIds(runs: readonly ReleaseWorkflowRun[]): readonly number[] {
-    return runs.map(runDatabaseId).filter(isDefined);
+    return runs.map(readWorkflowRunId).filter(isDefined);
 }
