@@ -2,7 +2,8 @@ import { isDefined } from 'remeda';
 import { Octokit } from '@octokit/core';
 import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
-import { createGitHubJsonRequestHeaders } from './github-api-request.ts';
+import { createGitHubJsonRequestHeaders, resolveGitHubResponse } from './github-api-request.ts';
+import { createReleasePullRequestCommitClient, type CreateCommitOnBranchInput } from './release-pr-branch-commit.ts';
 import {
     findWorkflowRunIdInRuns,
     observedWorkflowRunIds,
@@ -55,6 +56,7 @@ export type ReleasePullRequestGitHubClient = {
         readonly baseBranch: string;
         readonly releaseBranch: string;
     }) => Promise<void>;
+    readonly createCommitOnBranch: (input: CreateCommitOnBranchInput) => Promise<string>;
     readonly createOrUpdateReleasePullRequest: (input: {
         readonly baseBranch: string;
         readonly body: string;
@@ -128,6 +130,10 @@ type RequestContext = {
     readonly owner: string;
     readonly repo: string;
 };
+type GitHubRestClientConstructor = ReturnType<
+    typeof Octokit.plugin<typeof Octokit, [typeof restEndpointMethods, typeof paginateRest]>
+>;
+type GitHubRestClientInstance = InstanceType<GitHubRestClientConstructor>;
 
 function labelNames(labels: readonly RawLabel[]): readonly string[] {
     return labels
@@ -149,39 +155,33 @@ function pullRequestIsMerged(pullRequest: RawPullRequest): boolean {
     return pullRequest.merged_at !== undefined && pullRequest.merged_at !== null;
 }
 
-function readReflectedProperty(value: unknown, property: string): unknown {
-    return Reflect.get(new Object(value), property) as unknown;
-}
-
-function createRequestError(error: unknown): Error {
-    const status = String(readReflectedProperty(error, 'status'));
-    const requestUrl = String(readReflectedProperty(readReflectedProperty(error, 'request'), 'url'));
-    const parsedUrl = new URL(requestUrl);
-    return new Error(`GitHub API request failed (${status}) for ${parsedUrl.pathname}${parsedUrl.search}`, {
-        cause: error
+function createGitHubRestClient(
+    context: GitHubClientContext,
+    requestContext: RequestContext
+): GitHubRestClientInstance {
+    const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
+    return new GitHubRestClient({
+        request: {
+            fetch: context.fetch,
+            headers: requestContext.headers
+        }
     });
 }
 
-async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
-    try {
-        return await request;
-    } catch (error) {
-        throw createRequestError(error);
-    }
-}
-
 export function createReleasePullRequestGitHubClient(context: GitHubClientContext): ReleasePullRequestGitHubClient {
-    const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
     const requestContext: RequestContext = {
         headers: createGitHubJsonRequestHeaders(context.token, 'packtory-release-pr'),
         owner: context.owner,
         repo: context.repo
     };
-    const octokit = new GitHubRestClient({
-        request: {
-            fetch: context.fetch,
-            headers: requestContext.headers
-        }
+    const octokit = createGitHubRestClient(context, requestContext);
+    const commitClient = createReleasePullRequestCommitClient({
+        git: octokit.rest.git,
+        graphql: octokit.graphql,
+        headers: requestContext.headers,
+        owner: context.owner,
+        repo: context.repo,
+        repositoryNameWithOwner: `${context.owner}/${context.repo}`
     });
 
     async function readPullRequestFiles(pullRequestNumber: number): Promise<readonly string[]> {
@@ -290,6 +290,10 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                     })
                 );
             }
+        },
+
+        async createCommitOnBranch(input) {
+            return commitClient.createCommitOnBranch(input);
         },
 
         async createOrUpdateReleasePullRequest(input) {

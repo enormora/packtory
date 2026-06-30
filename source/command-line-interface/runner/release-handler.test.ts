@@ -237,6 +237,9 @@ function createReleaseHandlerDeps(scenario: Scenario = {}): ReleaseHandlerDeps {
             },
             async pushFollowTags() {
                 order.push('push');
+            },
+            async readChangedFiles() {
+                return [];
             }
         },
         log: fake(),

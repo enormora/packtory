@@ -85,6 +85,7 @@ function createConfig(requiredStatusContexts: readonly string[] = ['Node.js']): 
 function createClient(overrides: Partial<ReleasePullRequestGitHubClient> = {}): ReleasePullRequestGitHubClient {
     return {
         closeOpenReleasePullRequests: fake.resolves(undefined),
+        createCommitOnBranch: fake.resolves('signed-release-head'),
         createOrUpdateReleasePullRequest: fake.resolves(1),
         createStatus: fake.resolves(undefined),
         deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
