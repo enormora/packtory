@@ -9,22 +9,26 @@ type TerminalPreviewRendererOptions = {
 
 export function renderTerminalPreview(document: PreviewDocument, options: TerminalPreviewRendererOptions = {}): string {
     const colors = createColors(options.color);
-    const summary = `${document.summary.totalPackages} package(s) · ${document.summary.changedPackages} changed · ${document.summary.failedPackages} failed`;
+    const summary =
+        `${document.summary.totalPackages} package(s) · ${document.summary.changedPackages} changed · ${document.summary.failedPackages} failed`;
     const sections = [
         `${colors.bold(document.title)} ${colors.yellow(`[${document.modeLabel}]`)}`,
         colors.dim(summary)
     ];
     if (document.issues.length > 0) {
         sections.push(
-            `${colors.red('Issues')}\n${document.issues
-                .map((issue) => {
-                    return `- ${issue}`;
-                })
-                .join('\n')}`
+            `${colors.red('Issues')}\n${
+                document
+                    .issues
+                    .map(function (issue) {
+                        return `- ${issue}`;
+                    })
+                    .join('\n')
+            }`
         );
     }
     sections.push(
-        ...document.packages.map((pkg) => {
+        ...document.packages.map(function (pkg) {
             return renderPackage(pkg, colors);
         })
     );

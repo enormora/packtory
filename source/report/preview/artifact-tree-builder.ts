@@ -37,7 +37,8 @@ function toPreviewArtifactNode(node: PathTreeNode<PreviewArtifact>): PreviewArti
 }
 
 export function buildArtifactTree(artifacts: readonly PreviewArtifact[]): readonly PreviewArtifactNode[] {
-    return buildPathTree(artifacts, (artifact) => {
+    return buildPathTree(artifacts, function (artifact) {
         return artifact.path;
-    }).map(toPreviewArtifactNode);
+    })
+        .map(toPreviewArtifactNode);
 }

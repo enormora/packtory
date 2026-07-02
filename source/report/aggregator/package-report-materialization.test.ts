@@ -50,7 +50,7 @@ suite('package-report-materialization', function () {
             status: 'generated' as const,
             badges: [] as const
         };
-        const result = toPackageReport(mutable({ outputs: { tarball: { entries: [entry], totalBytes: 10 } } }));
+        const result = toPackageReport(mutable({ outputs: { tarball: { entries: [ entry ], totalBytes: 10 } } }));
 
         if (result.outputs === undefined) {
             assert.fail('expected outputs to be present');
@@ -66,7 +66,7 @@ suite('package-report-materialization', function () {
     test('toPackageReport surfaces eliminatedSourceFiles when present on the mutable report', function () {
         const result = toPackageReport(
             mutable({
-                eliminatedSourceFiles: [{ path: '/src/dead.js', sourceBytes: 5, reason: 'no-uses' }]
+                eliminatedSourceFiles: [ { path: '/src/dead.js', sourceBytes: 5, reason: 'no-uses' } ]
             })
         );
 
@@ -98,7 +98,7 @@ suite('package-report-materialization', function () {
         };
         const result = toPackageReport(
             mutable({
-                outputs: { tarball: { entries: [entry], totalBytes: 10 } },
+                outputs: { tarball: { entries: [ entry ], totalBytes: 10 } },
                 decisions: {
                     linker: {
                         rewrites: [

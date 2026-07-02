@@ -11,7 +11,7 @@ export function mergeExternalDependencies(
     dependenciesA: ExternalDependencies,
     dependenciesB: ExternalDependencies
 ): ReadonlyMap<string, ExternalDependency> {
-    const mergedDependencies = new Map<string, ExternalDependency>(dependenciesA.entries());
+    const mergedDependencies = new Map<string, ExternalDependency>(dependenciesA);
 
     for (const dependencyB of dependenciesB.values()) {
         const dependencyA = mergedDependencies.get(dependencyB.name);
@@ -21,7 +21,7 @@ export function mergeExternalDependencies(
         } else {
             mergedDependencies.set(dependencyA.name, {
                 name: dependencyA.name,
-                referencedFrom: unique([...dependencyA.referencedFrom, ...dependencyB.referencedFrom])
+                referencedFrom: unique([ ...dependencyA.referencedFrom, ...dependencyB.referencedFrom ])
             });
         }
     }

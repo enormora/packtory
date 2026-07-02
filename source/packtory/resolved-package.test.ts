@@ -1,10 +1,11 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-unnecessary-condition -- test stubs cast partial mocks of complex orchestrator types */
+/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import { checkBundle } from '../test-libraries/check-bundle-fixture.ts';
 import { analyzedBundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { buildChecksResult, createResolvedPackage, type ResolvedPackage } from './resolved-package.ts';
 
 function validated(config: Partial<PacktoryConfigWithoutRegistry>): ConfigWithGraph<PacktoryConfigWithoutRegistry> {
@@ -23,7 +24,7 @@ function packageConfig(
     name: string,
     overrides: Readonly<Record<string, unknown>> = {}
 ): PacktoryConfigWithoutRegistry['packages'][number] {
-    return { name, roots: {}, ...overrides } as never;
+    return { name, roots: {}, ...overrides };
 }
 
 function resolvedPackage(name: string, analyzedBundle: ResolvedPackage['analyzedBundle']): ResolvedPackage {
@@ -32,28 +33,28 @@ function resolvedPackage(name: string, analyzedBundle: ResolvedPackage['analyzed
 
 function duplicateResolvedPackages(): readonly ResolvedPackage[] {
     return [
-        resolvedPackage('pkg-a', checkBundle('pkg-a', ['shared.ts'])),
-        resolvedPackage('pkg-b', checkBundle('pkg-b', ['shared.ts']))
+        resolvedPackage('pkg-a', checkBundle('pkg-a', [ 'shared.ts' ])),
+        resolvedPackage('pkg-b', checkBundle('pkg-b', [ 'shared.ts' ]))
     ];
 }
 
 function bundleWithExternal(packageName: string, dependencyName: string): ResolvedPackage['analyzedBundle'] {
     return {
-        ...checkBundle(packageName, ['shared.ts']),
-        externalDependencies: new Map([[dependencyName, { name: dependencyName, referencedFrom: ['/x'] }]])
+        ...checkBundle(packageName, [ 'shared.ts' ]),
+        externalDependencies: new Map([ [ dependencyName, { name: dependencyName, referencedFrom: [ '/x' ] } ] ])
     } as never;
 }
 
 async function runSinglePackageChecks(
     config: Partial<PacktoryConfigWithoutRegistry>,
     analyzedBundle: ResolvedPackage['analyzedBundle']
-) {
+): Promise<Awaited<ReturnType<typeof buildChecksResult>>> {
     return await buildChecksResult(unusedCheckDependencies, validated(config), [
         resolvedPackage('pkg-a', analyzedBundle)
     ]);
 }
 
-function createPublishedPackageWithManifest(packageName: string) {
+function createPublishedPackageWithManifest(packageName: string): VersionedBundleWithManifest {
     return versionedBundleWithManifest({
         name: packageName,
         version: '0.0.0',
@@ -61,6 +62,10 @@ function createPublishedPackageWithManifest(packageName: string) {
             analyzedBundleResource('index.js', {
                 targetFilePath: 'index.js',
                 content: 'export const value = 1;\n'
+            }),
+            analyzedBundleResource('index.d.ts', {
+                targetFilePath: 'index.d.ts',
+                content: 'export declare const value = 1;\n'
             })
         ],
         mainFile: {
@@ -68,9 +73,24 @@ function createPublishedPackageWithManifest(packageName: string) {
             targetFilePath: 'index.js',
             content: 'export const value = 1;\n'
         },
+        typesMainFile: {
+            sourceFilePath: 'index.d.ts',
+            targetFilePath: 'index.d.ts',
+            content: 'export declare const value = 1;\n'
+        },
         manifestFile: {
             filePath: 'package.json',
-            content: JSON.stringify({ name: packageName, version: '0.0.0', type: 'module' }),
+            content: JSON.stringify({
+                name: packageName,
+                version: '0.0.0',
+                type: 'module',
+                exports: {
+                    '.': {
+                        types: './index.d.ts',
+                        import: './index.js'
+                    }
+                }
+            }),
             isExecutable: false
         },
         packageJson: {
@@ -97,10 +117,10 @@ suite('resolved-package', function () {
 
         const result = await buildChecksResult(unusedCheckDependencies, validated({}), resolvedPackages);
 
-        assert.strictEqual(result.isOk, true);
-        if (result.isOk) {
-            assert.strictEqual(result.value, resolvedPackages);
+        if (!result.isOk) {
+            assert.fail('expected checks result to succeed');
         }
+        assert.strictEqual(result.value, resolvedPackages);
     });
 
     test('buildChecksResult returns a checks failure carrying every issue produced by a configured rule', async function () {
@@ -108,28 +128,28 @@ suite('resolved-package', function () {
             unusedCheckDependencies,
             validated({
                 checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [packageConfig('pkg-a'), packageConfig('pkg-b')]
+                packages: [ packageConfig('pkg-a'), packageConfig('pkg-b') ]
             }),
             duplicateResolvedPackages()
         );
 
-        assert.strictEqual(result.isErr, true);
-        if (result.isErr) {
-            assert.deepStrictEqual(result.error, {
-                type: 'checks',
-                issues: ['File "shared.ts" is included in multiple packages: pkg-a, pkg-b']
-            });
+        if (!result.isErr) {
+            assert.fail('expected checks result to fail');
         }
+        assert.deepStrictEqual(result.error, {
+            type: 'checks',
+            issues: [ 'File "shared.ts" is included in multiple packages: pkg-a, pkg-b' ]
+        });
     });
 
     test('buildChecksResult threads per-package check settings to the runner so cross-package consent suppresses issues', async function () {
-        const consent = { noDuplicatedFiles: { allowList: ['shared.ts'] } };
+        const consent = { noDuplicatedFiles: { allowList: [ 'shared.ts' ] } };
 
         const result = await buildChecksResult(
             unusedCheckDependencies,
             validated({
                 checks: { noDuplicatedFiles: { enabled: true } },
-                packages: [packageConfig('pkg-a', { checks: consent }), packageConfig('pkg-b', { checks: consent })]
+                packages: [ packageConfig('pkg-a', { checks: consent }), packageConfig('pkg-b', { checks: consent }) ]
             }),
             duplicateResolvedPackages()
         );
@@ -144,7 +164,7 @@ suite('resolved-package', function () {
                     mainPackageJson: { type: 'module', dependencies: { 'runtime-dep': '1.0.0' } }
                 },
                 checks: { noDevDependencyImports: { enabled: true } },
-                packages: [packageConfig('pkg-a')]
+                packages: [ packageConfig('pkg-a') ]
             },
             bundleWithExternal('pkg-a', 'runtime-dep')
         );
@@ -159,20 +179,20 @@ suite('resolved-package', function () {
                     mainPackageJson: { type: 'module', devDependencies: { 'dev-dep': '1.0.0' } }
                 },
                 checks: { noDevDependencyImports: { enabled: true } },
-                packages: [packageConfig('pkg-a')]
+                packages: [ packageConfig('pkg-a') ]
             },
             bundleWithExternal('pkg-a', 'dev-dep')
         );
 
-        assert.strictEqual(result.isErr, true);
-        if (result.isErr) {
-            assert.deepStrictEqual(result.error, {
-                type: 'checks',
-                issues: [
-                    'Package "pkg-a" imports "dev-dep" which is only declared in devDependencies of the main package.json'
-                ]
-            });
+        if (!result.isErr) {
+            assert.fail('expected checks result to fail');
         }
+        assert.deepStrictEqual(result.error, {
+            type: 'checks',
+            issues: [
+                'Package "pkg-a" imports "dev-dep" which is only declared in devDependencies of the main package.json'
+            ]
+        });
     });
 
     test('buildChecksResult prefers the package-level mainPackageJson over commonPackageSettings.mainPackageJson', async function () {
@@ -195,7 +215,7 @@ suite('resolved-package', function () {
     });
 
     test('buildChecksResult materializes generated packages when areTheTypesWrong is enabled', async function () {
-        const analyzedBundle = checkBundle('pkg-a', ['index.js']);
+        const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
         const addVersionCalls: unknown[] = [];
         const dependencies = {
             versionManager: {
@@ -209,7 +229,7 @@ suite('resolved-package', function () {
             dependencies,
             validated({
                 checks: { areTheTypesWrong: { enabled: true } },
-                packages: [packageConfig('pkg-a')]
+                packages: [ packageConfig('pkg-a') ]
             }),
             [
                 {
@@ -217,8 +237,8 @@ suite('resolved-package', function () {
                     analyzedBundle,
                     resolveOptions: {
                         mainPackageJson: { type: 'module' },
-                        bundleDependencies: [{ name: 'bundle-dependency' }],
-                        bundlePeerDependencies: [{ name: 'bundle-peer-dependency' }],
+                        bundleDependencies: [ { name: 'bundle-dependency' } ],
+                        bundlePeerDependencies: [ { name: 'bundle-peer-dependency' } ],
                         additionalPackageJsonAttributes: {},
                         allowMutableSpecifiers: []
                     } as never
@@ -232,8 +252,8 @@ suite('resolved-package', function () {
             bundle: analyzedBundle,
             version: '0.0.0',
             mainPackageJson: { type: 'module' },
-            bundleDependencies: [{ name: 'bundle-dependency', version: '0.0.0' }],
-            bundlePeerDependencies: [{ name: 'bundle-peer-dependency', version: '0.0.0' }],
+            bundleDependencies: [ { name: 'bundle-dependency', version: '0.0.0' } ],
+            bundlePeerDependencies: [ { name: 'bundle-peer-dependency', version: '0.0.0' } ],
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: []
         });

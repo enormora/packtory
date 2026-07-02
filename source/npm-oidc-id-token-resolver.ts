@@ -6,6 +6,11 @@ export type NpmOidcIdTokenResolverDependencies = {
     readonly fetch: typeof globalThis.fetch;
     readonly getEnvironmentVariable: (variableName: string) => string | undefined;
 };
+type GitHubActionsRequestConfig = {
+    readonly requestToken: string;
+    readonly requestUrl: URL;
+};
+type EnvironmentVariableReader = (variableName: string) => string | undefined;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return value instanceof Object && !Array.isArray(value);
@@ -19,7 +24,9 @@ function defaultOidcIdTokenEnvVariableName(): string {
     return 'NPM_ID_TOKEN';
 }
 
-const trustedOidcRequestSuffix = '.actions.githubusercontent.com';
+function trustedOidcRequestSuffix(): string {
+    return '.actions.githubusercontent.com';
+}
 
 function parseOidcRequestUrl(value: string): URL {
     try {
@@ -31,7 +38,7 @@ function parseOidcRequestUrl(value: string): URL {
 
 function buildOidcHostnameMismatchMessage(actualHostname: string): string {
     return (
-        `ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with "${trustedOidcRequestSuffix}", ` +
+        `ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with "${trustedOidcRequestSuffix()}", ` +
         `got "${actualHostname}". A non-GitHub host would receive the GitHub-issued OIDC bearer.`
     );
 }
@@ -41,16 +48,13 @@ function assertTrustedOidcRequestUrl(value: string): URL {
     if (parsed.protocol !== 'https:') {
         throw new Error(`ACTIONS_ID_TOKEN_REQUEST_URL must use https, got: "${value}"`);
     }
-    if (!parsed.hostname.endsWith(trustedOidcRequestSuffix)) {
+    if (!parsed.hostname.endsWith(trustedOidcRequestSuffix())) {
         throw new Error(buildOidcHostnameMismatchMessage(parsed.hostname));
     }
     return parsed;
 }
 
-function getGitHubActionsRequestConfig(getEnvironmentVariable: (variableName: string) => string | undefined): {
-    readonly requestUrl: URL;
-    readonly requestToken: string;
-} {
+function getGitHubActionsRequestConfig(getEnvironmentVariable: EnvironmentVariableReader): GitHubActionsRequestConfig {
     const requestUrl = getEnvironmentVariable('ACTIONS_ID_TOKEN_REQUEST_URL');
     const requestToken = getEnvironmentVariable('ACTIONS_ID_TOKEN_REQUEST_TOKEN');
 
@@ -76,11 +80,11 @@ function parseGitHubActionsIdTokenResponse(body: unknown): string {
 
 function usesGitHubActionsProvider(
     auth: NpmOidcPublishAuth,
-    getEnvironmentVariable: (variableName: string) => string | undefined
+    getEnvironmentVariable: EnvironmentVariableReader
 ): boolean {
     const provider = auth.provider ?? 'auto';
     const runsInGitHubActions = getEnvironmentVariable('GITHUB_ACTIONS') === 'true';
-    return provider === 'github-actions' || (provider === 'auto' && runsInGitHubActions);
+    return provider === 'github-actions' || provider === 'auto' && runsInGitHubActions;
 }
 
 export function createNpmOidcIdTokenResolver(
@@ -102,7 +106,7 @@ export function createNpmOidcIdTokenResolver(
         return parseGitHubActionsIdTokenResponse(await response.json());
     }
 
-    return async (auth) => {
+    return async function (auth) {
         if (usesGitHubActionsProvider(auth, getEnvironmentVariable)) {
             return fetchGitHubActionsIdToken();
         }

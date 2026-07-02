@@ -4,7 +4,7 @@ import type { BuildReport, Packtory } from '../../packtory/packtory.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { createEmptyReport, writeReports } from './report-persistence.ts';
 
-type PublishResult = Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result'];
+type PublishResult = Readonly<Awaited<ReturnType<Packtory['buildAndPublishAll']>>['result']>;
 
 const emptyResult = { isOk: false, isErr: true, error: { type: 'config', issues: [] } } as unknown as PublishResult;
 const emptyReport: BuildReport = {
@@ -26,7 +26,13 @@ suite('report-persistence', function () {
     test('writeReports writes nothing when the report is undefined', async function () {
         const fileManager = createFakeFileManager();
 
-        await writeReports(fileManager, undefined, emptyResult, { reportJson: true, reportHtml: true }, false);
+        await writeReports({
+            dryRun: false,
+            fileManager,
+            flags: { reportJson: true, reportHtml: true },
+            report: undefined,
+            result: emptyResult
+        });
 
         assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
     });
@@ -34,7 +40,13 @@ suite('report-persistence', function () {
     test('writeReports skips both formats when both flags are disabled', async function () {
         const fileManager = createFakeFileManager();
 
-        await writeReports(fileManager, emptyReport, emptyResult, { reportJson: false, reportHtml: false }, false);
+        await writeReports({
+            dryRun: false,
+            fileManager,
+            flags: { reportJson: false, reportHtml: false },
+            report: emptyReport,
+            result: emptyResult
+        });
 
         assert.strictEqual(fileManager.getWriteFileCallCount(), 0);
     });
@@ -42,7 +54,13 @@ suite('report-persistence', function () {
     test('writeReports writes a JSON report when reportJson is enabled', async function () {
         const fileManager = createFakeFileManager();
 
-        await writeReports(fileManager, emptyReport, emptyResult, { reportJson: true, reportHtml: false }, false);
+        await writeReports({
+            dryRun: false,
+            fileManager,
+            flags: { reportJson: true, reportHtml: false },
+            report: emptyReport,
+            result: emptyResult
+        });
 
         assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
         const call = fileManager.getWriteFileCall(0);

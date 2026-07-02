@@ -8,10 +8,12 @@ import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
 
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
 
-function registryClientWith(overrides: {
+type RegistryClientOverrides = {
     readonly fetchLatestReleaseMetadata?: RegistryClient['fetchLatestReleaseMetadata'];
     readonly fetchTarball?: RegistryClient['fetchTarball'];
-}): RegistryClient {
+};
+
+function registryClientWith(overrides: RegistryClientOverrides): RegistryClient {
     return {
         fetchLatestReleaseMetadata: overrides.fetchLatestReleaseMetadata ?? fake(),
         fetchLatestVersion: fake(),
@@ -19,6 +21,16 @@ function registryClientWith(overrides: {
         fetchTarball: overrides.fetchTarball ?? fake(),
         publishPackage: fake()
     };
+}
+
+function assertFetchedArtifacts(result: Awaited<ReturnType<typeof fetchPublishedArtifacts>>): void {
+    if (result.isNothing) {
+        assert.fail('expected fetched artifacts');
+    }
+    assert.strictEqual(result.value.version, '1.2.3');
+    assert.deepStrictEqual(result.value.publishedAt, new Date('2026-05-20T00:00:00.000Z'));
+    assert.strictEqual(result.value.gitHead, 'abcdef123456');
+    assert.deepStrictEqual(result.value.files, []);
 }
 
 suite('fetch-published-artifacts', function () {
@@ -31,7 +43,7 @@ suite('fetch-published-artifacts', function () {
 
         assert.strictEqual(result.isNothing, true);
         assert.strictEqual(fetchLatestReleaseMetadata.callCount, 1);
-        assert.deepStrictEqual(fetchLatestReleaseMetadata.firstCall.args, ['the-name', registrySettings]);
+        assert.deepStrictEqual(fetchLatestReleaseMetadata.firstCall.args, [ 'the-name', registrySettings ]);
         assert.strictEqual(fetchTarball.callCount, 0);
     });
 
@@ -49,13 +61,7 @@ suite('fetch-published-artifacts', function () {
 
         const result = await fetchPublishedArtifacts(client, 'the-name', registrySettings);
 
-        if (result.isNothing) {
-            assert.fail('expected fetched artifacts');
-        }
-        assert.strictEqual(result.value.version, '1.2.3');
-        assert.deepStrictEqual(result.value.publishedAt, new Date('2026-05-20T00:00:00.000Z'));
-        assert.strictEqual(result.value.gitHead, 'abcdef123456');
-        assert.deepStrictEqual(result.value.files, []);
+        assertFetchedArtifacts(result);
         assert.deepStrictEqual(fetchTarball.firstCall.args, [
             'https://registry.example.test/package.tgz',
             registrySettings

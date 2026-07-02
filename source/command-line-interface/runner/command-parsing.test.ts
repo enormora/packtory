@@ -5,7 +5,7 @@ import { getParseExitCode } from './command-parsing.ts';
 suite('command-parsing', function () {
     test('getParseExitCode returns undefined when the parse result has no error key', function () {
         const calls: string[] = [];
-        const logged = (message: string): void => {
+        const logged = function (message: string): void {
             calls.push(message);
         };
 
@@ -15,7 +15,7 @@ suite('command-parsing', function () {
 
     test('getParseExitCode logs the error message and returns its exit code when the parse failed', function () {
         const calls: string[] = [];
-        const logged = (message: string): void => {
+        const logged = function (message: string): void {
             calls.push(message);
         };
 
@@ -24,6 +24,6 @@ suite('command-parsing', function () {
         } as never);
 
         assert.strictEqual(exitCode, 2);
-        assert.deepStrictEqual(calls, ['bad usage']);
+        assert.deepStrictEqual(calls, [ 'bad usage' ]);
     });
 });

@@ -9,8 +9,8 @@ suite('timeout-error-formatter', function () {
 
     test('formatMutationTimeoutError formats a singular header for one timeout mutant', function () {
         assert.strictEqual(
-            formatMutationTimeoutError([{ filePath: 'source/a.ts', line: 3, column: 4 }]),
-            ['Mutation report contains 1 timeout mutant.', '- source/a.ts:3:4'].join('\n')
+            formatMutationTimeoutError([ { filePath: 'source/a.ts', line: 3, column: 4 } ]),
+            [ 'Mutation report contains 1 timeout mutant.', '- source/a.ts:3:4' ].join('\n')
         );
     });
 
@@ -20,7 +20,7 @@ suite('timeout-error-formatter', function () {
                 { filePath: 'source/a.ts', line: 3, column: 4 },
                 { filePath: 'source/b.ts', line: 5, column: 6 }
             ]),
-            ['Mutation report contains 2 timeout mutants.', '- source/a.ts:3:4', '- source/b.ts:5:6'].join('\n')
+            [ 'Mutation report contains 2 timeout mutants.', '- source/a.ts:3:4', '- source/b.ts:5:6' ].join('\n')
         );
     });
 });

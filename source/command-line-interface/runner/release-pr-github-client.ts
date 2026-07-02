@@ -50,35 +50,54 @@ type WorkflowRunResult = {
     readonly jobs: readonly WorkflowJobResult[];
     readonly url: string | undefined;
 };
+type CloseOpenReleasePullRequestsInput = {
+    readonly baseBranch: string;
+    readonly releaseBranch: string;
+};
+type CreateOrUpdateReleasePullRequestInput = {
+    readonly baseBranch: string;
+    readonly body: string;
+    readonly label: string;
+    readonly releaseBranch: string;
+    readonly title: string;
+};
+type CreateReleasePullRequestInput = {
+    readonly baseBranch: string;
+    readonly body: string;
+    readonly releaseBranch: string;
+    readonly title: string;
+};
+type CreateStatusInput = {
+    readonly commitSha: string;
+    readonly context: string;
+    readonly description: string;
+    readonly state: 'error' | 'failure' | 'pending' | 'success';
+    readonly targetUrl: string | undefined;
+};
+type DeleteActionRequiredPullRequestRunsInput = {
+    readonly branch: string;
+    readonly headSha: string;
+};
+type DispatchWorkflowInput = {
+    readonly ref: string;
+    readonly workflowFile: string;
+};
+type FindDispatchedWorkflowRunInput = {
+    readonly branch: string;
+    readonly headSha: string;
+    readonly workflowFile: string;
+};
+type ReleasePullRequestUpdateInput = {
+    readonly body: string;
+    readonly title: string;
+};
 export type ReleasePullRequestGitHubClient = {
-    readonly closeOpenReleasePullRequests: (input: {
-        readonly baseBranch: string;
-        readonly releaseBranch: string;
-    }) => Promise<void>;
-    readonly createOrUpdateReleasePullRequest: (input: {
-        readonly baseBranch: string;
-        readonly body: string;
-        readonly label: string;
-        readonly releaseBranch: string;
-        readonly title: string;
-    }) => Promise<number>;
-    readonly createStatus: (input: {
-        readonly commitSha: string;
-        readonly context: string;
-        readonly description: string;
-        readonly state: 'error' | 'failure' | 'pending' | 'success';
-        readonly targetUrl: string | undefined;
-    }) => Promise<void>;
-    readonly deleteActionRequiredPullRequestRuns: (input: {
-        readonly branch: string;
-        readonly headSha: string;
-    }) => Promise<void>;
-    readonly dispatchWorkflow: (input: { readonly ref: string; readonly workflowFile: string }) => Promise<void>;
-    readonly findDispatchedWorkflowRun: (input: {
-        readonly branch: string;
-        readonly headSha: string;
-        readonly workflowFile: string;
-    }) => Promise<WorkflowRunLookupResult>;
+    readonly closeOpenReleasePullRequests: (input: CloseOpenReleasePullRequestsInput) => Promise<void>;
+    readonly createOrUpdateReleasePullRequest: (input: CreateOrUpdateReleasePullRequestInput) => Promise<number>;
+    readonly createStatus: (input: CreateStatusInput) => Promise<void>;
+    readonly deleteActionRequiredPullRequestRuns: (input: DeleteActionRequiredPullRequestRunsInput) => Promise<void>;
+    readonly dispatchWorkflow: (input: DispatchWorkflowInput) => Promise<void>;
+    readonly findDispatchedWorkflowRun: (input: FindDispatchedWorkflowRunInput) => Promise<WorkflowRunLookupResult>;
     readonly getBranchHeadSha: (branch: string) => Promise<string>;
     readonly getPullRequest: (pullRequestNumber: number) => Promise<PullRequestDetails>;
     readonly getPullRequestHead: (pullRequestNumber: number) => Promise<PullRequestHeadDetails>;
@@ -93,12 +112,12 @@ type GitHubClientContext = {
     readonly token: string;
 };
 
-type RawLabel = { readonly name?: string | null | undefined };
+type RawLabel = { readonly name?: string | null | undefined; };
 type RawPullRequest = {
-    readonly base: { readonly ref: string };
+    readonly base: { readonly ref: string; };
     readonly head: {
         readonly ref: string;
-        readonly repo: { readonly full_name: string | null } | null;
+        readonly repo: { readonly full_name: string | null; } | null;
         readonly sha: string;
     };
     readonly labels: readonly RawLabel[];
@@ -106,11 +125,11 @@ type RawPullRequest = {
     readonly merged_at?: string | null | undefined;
     readonly number: number;
     readonly title: string;
-    readonly user: { readonly login: string } | null;
+    readonly user: { readonly login: string; } | null;
 };
 type RawCommit = {
-    readonly commit: { readonly message: string };
-    readonly parents: readonly { readonly sha: string }[];
+    readonly commit: { readonly message: string; };
+    readonly parents: readonly { readonly sha: string; }[];
 };
 type RawWorkflowRun = ReleaseWorkflowRun & {
     readonly conclusion: string | null;
@@ -131,7 +150,7 @@ type RequestContext = {
 
 function labelNames(labels: readonly RawLabel[]): readonly string[] {
     return labels
-        .map((label) => {
+        .map(function (label) {
             return label.name ?? undefined;
         })
         .filter(isDefined);
@@ -149,24 +168,21 @@ function pullRequestIsMerged(pullRequest: RawPullRequest): boolean {
     return pullRequest.merged_at !== undefined && pullRequest.merged_at !== null;
 }
 
-function readReflectedProperty(value: unknown, property: string): unknown {
-    return Reflect.get(new Object(value), property) as unknown;
-}
-
-function createRequestError(error: unknown): Error {
-    const status = String(readReflectedProperty(error, 'status'));
-    const requestUrl = String(readReflectedProperty(readReflectedProperty(error, 'request'), 'url'));
+function createGitHubRequestError(error: unknown): Error {
+    const request: unknown = Reflect.get(new Object(error), 'request') as unknown;
+    const requestUrl = String(Reflect.get(new Object(request), 'url') as unknown);
+    const status = String(Reflect.get(new Object(error), 'status') as unknown);
     const parsedUrl = new URL(requestUrl);
-    return new Error(`GitHub API request failed (${status}) for ${parsedUrl.pathname}${parsedUrl.search}`, {
-        cause: error
-    });
+    const requestPath = `${parsedUrl.pathname}${parsedUrl.search}`;
+    return new Error(`GitHub API request failed (${status}) for ${requestPath}`, { cause: error });
 }
 
 async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
     try {
-        return await request;
+        const response = await request;
+        return response;
     } catch (error) {
-        throw createRequestError(error);
+        throw createGitHubRequestError(error);
     }
 }
 
@@ -192,7 +208,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                 per_page: 100
             })
         );
-        return files.map((file) => {
+        return files.map(function (file) {
             return file.filename;
         });
     }
@@ -224,12 +240,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         };
     }
 
-    async function createReleasePullRequest(input: {
-        readonly baseBranch: string;
-        readonly body: string;
-        readonly releaseBranch: string;
-        readonly title: string;
-    }): Promise<number> {
+    async function createReleasePullRequest(input: CreateReleasePullRequestInput): Promise<number> {
         const response = await resolveGitHubResponse(
             octokit.rest.pulls.create({
                 ...requestContext,
@@ -243,7 +254,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
     }
 
     async function updateReleasePullRequest(
-        input: { readonly body: string; readonly title: string },
+        input: ReleasePullRequestUpdateInput,
         pullRequestNumber: number
     ): Promise<number> {
         const response = await resolveGitHubResponse(
@@ -265,7 +276,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
             })
         );
         const workflows = response.data.workflows as readonly ReleaseWorkflow[];
-        const matches = workflows.filter((workflow) => {
+        const matches = workflows.filter(function (workflow) {
             return workflowMatchesIdentifier(workflow, identifier);
         });
         return selectReleaseWorkflow(identifier, matches);
@@ -302,16 +313,15 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                 })
             );
             const existingPullRequest = existingPullRequests.data[0];
-            const pullRequestNumber =
-                existingPullRequest === undefined
-                    ? await createReleasePullRequest(input)
-                    : await updateReleasePullRequest(input, existingPullRequest.number);
+            const pullRequestNumber = existingPullRequest === undefined
+                ? await createReleasePullRequest(input)
+                : await updateReleasePullRequest(input, existingPullRequest.number);
 
             await resolveGitHubResponse(
                 octokit.rest.issues.setLabels({
                     ...requestContext,
                     issue_number: pullRequestNumber,
-                    labels: [input.label]
+                    labels: [ input.label ]
                 })
             );
             return pullRequestNumber;
@@ -339,13 +349,11 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                     per_page: 100
                 })
             );
-            const blockedRuns = response.data.workflow_runs.filter((run) => {
+            const blockedRuns = response.data.workflow_runs.filter(function (run) {
                 return run.head_sha === input.headSha && run.conclusion === 'action_required';
             });
             const blockedRunIds = blockedRuns
-                .map((run) => {
-                    return readWorkflowRunId(run as RawWorkflowRun);
-                })
+                .map(readWorkflowRunId)
                 .filter(isDefined);
             for (const runId of blockedRunIds) {
                 await resolveGitHubResponse(
@@ -397,7 +405,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
             const repoRuns = repoResponse.data.workflow_runs as readonly RawWorkflowRun[];
             return {
                 event: 'workflow_dispatch',
-                observedRunIds: [...observedWorkflowRunIds(workflowRuns), ...observedWorkflowRunIds(repoRuns)],
+                observedRunIds: [ ...observedWorkflowRunIds(workflowRuns), ...observedWorkflowRunIds(repoRuns) ],
                 runId: findWorkflowRunIdInRuns(repoRuns, workflow, input.headSha)
             };
         },
@@ -436,7 +444,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                 changedFiles: await readPullRequestFiles(pullRequest.number),
                 headRef: pullRequest.head.ref,
                 labels: labelNames(pullRequest.labels),
-                parentShas: commit.parents.map((parent) => {
+                parentShas: commit.parents.map(function (parent) {
                     return parent.sha;
                 }),
                 subject: commitSubject(commit),
@@ -456,7 +464,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         },
 
         async readWorkflowRunResult(runId) {
-            const [runResponse, jobResponse] = await Promise.all([
+            const [ runResponse, jobResponse ] = await Promise.all([
                 resolveGitHubResponse(octokit.rest.actions.getWorkflowRun({ ...requestContext, run_id: runId })),
                 resolveGitHubResponse(
                     octokit.rest.actions.listJobsForWorkflowRun({
@@ -469,7 +477,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
             return {
                 conclusion: runResponse.data.conclusion ?? undefined,
                 databaseId: runId,
-                jobs: jobResponse.data.jobs.map((job: RawWorkflowJob) => {
+                jobs: jobResponse.data.jobs.map(function (job: RawWorkflowJob) {
                     return {
                         conclusion: job.conclusion ?? undefined,
                         name: job.name,

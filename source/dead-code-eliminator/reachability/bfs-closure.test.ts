@@ -18,7 +18,9 @@ function runBfs(
 }
 
 function fromGraph(graph: Readonly<Record<string, readonly string[]>>): (id: string) => readonly string[] {
-    return (id) => graph[id] ?? [];
+    return function (id) {
+        return graph[id] ?? [];
+    };
 }
 
 function noNeighbors(): readonly string[] {
@@ -27,49 +29,68 @@ function noNeighbors(): readonly string[] {
 
 suite('bfs-closure', function () {
     test('bfsClosure returns just the seeds when the expand function yields no neighbors', function () {
-        assert.deepStrictEqual(runBfs(['a', 'b'], noNeighbors), new Set(['a', 'b']));
+        assert.deepStrictEqual(runBfs([ 'a', 'b' ], noNeighbors), new Set([ 'a', 'b' ]));
     });
 
     test('bfsClosure returns the initial visited set when no seeds are provided', function () {
-        assert.deepStrictEqual(runBfs([], noNeighbors, new Set(['pre-a'])), new Set(['pre-a']));
+        assert.deepStrictEqual(runBfs([], noNeighbors, new Set([ 'pre-a' ])), new Set([ 'pre-a' ]));
+    });
+
+    test('bfsClosure accepts an empty seed list without expanding', function () {
+        const expanded: string[] = [];
+
+        assert.deepStrictEqual(
+            runBfs([], function (id) {
+                expanded.push(id);
+                return [];
+            }),
+            new Set<string>()
+        );
+        assert.deepStrictEqual(expanded, []);
     });
 
     test('bfsClosure expands transitively through neighbors yielded by expand', function () {
-        assert.deepStrictEqual(runBfs(['a'], fromGraph({ a: ['b'], b: ['c'], c: [] })), new Set(['a', 'b', 'c']));
+        assert.deepStrictEqual(
+            runBfs([ 'a' ], fromGraph({ a: [ 'b' ], b: [ 'c' ], c: [] })),
+            new Set([ 'a', 'b', 'c' ])
+        );
     });
 
     test('bfsClosure does not re-add neighbors that are already in the initial visited set', function () {
         const expandedNeighbors = new Set<string>();
 
         const result = runBfs(
-            ['a'],
-            (id) => {
-                const neighbors = id === 'a' ? ['b'] : [];
+            [ 'a' ],
+            function (id) {
+                const neighbors = id === 'a' ? [ 'b' ] : [];
                 for (const neighbor of neighbors) {
                     expandedNeighbors.add(neighbor);
                 }
                 return neighbors;
             },
-            new Set(['b'])
+            new Set([ 'b' ])
         );
 
-        assert.deepStrictEqual(result, new Set(['a', 'b']));
-        assert.deepStrictEqual(expandedNeighbors, new Set(['b']));
+        assert.deepStrictEqual(result, new Set([ 'a', 'b' ]));
+        assert.deepStrictEqual(expandedNeighbors, new Set([ 'b' ]));
     });
 
     test('bfsClosure terminates on cycles without revisiting visited nodes', function () {
-        assert.deepStrictEqual(runBfs(['a'], fromGraph({ a: ['b'], b: ['a', 'c'], c: [] })), new Set(['a', 'b', 'c']));
+        assert.deepStrictEqual(
+            runBfs([ 'a' ], fromGraph({ a: [ 'b' ], b: [ 'a', 'c' ], c: [] })),
+            new Set([ 'a', 'b', 'c' ])
+        );
     });
 
     test('bfsClosure throws when the iteration budget is exhausted', function () {
         let nextId = 0;
         try {
             runBfs(
-                ['root'],
-                () => {
-                    const next = `${nextId}`;
+                [ 'root' ],
+                function () {
+                    const next = String(nextId);
                     nextId += 1;
-                    return [next];
+                    return [ next ];
                 },
                 new Set<string>(),
                 2
@@ -78,8 +99,14 @@ suite('bfs-closure', function () {
         } catch (error: unknown) {
             assert.strictEqual(
                 (error as Error).message,
-                'Reachability traversal exceeded the maximum iteration budget'
+                'Reachability traversal exceeded 5 attempts'
             );
         }
+    });
+
+    test('bfsClosure throws when one expansion would exceed the exact iteration budget', function () {
+        assert.throws(function () {
+            runBfs([ 'root' ], fromGraph({ root: [ 'leaf' ], leaf: [] }), new Set<string>(), 0);
+        }, { message: 'Reachability traversal exceeded 1 attempts' });
     });
 });

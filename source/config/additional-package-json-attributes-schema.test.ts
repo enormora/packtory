@@ -43,26 +43,28 @@ suite('additional-package-json-attributes-schema', function () {
                 checkValidationFailure({
                     schema: additionalPackageJsonAttributesSchema,
                     data: { [key]: 'value' },
-                    expectedMessages: [`at ${key}: invalid key`]
+                    expectedMessages: [ `at ${key}: invalid key` ]
                 })
             );
         }
     });
 
     test('additional package json attributes schema: every forbidden key is rejected', function () {
-        for (const key of [
-            'bin',
-            'dependencies',
-            'peerDependencies',
-            'devDependencies',
-            'exports',
-            'imports',
-            'main',
-            'name',
-            'types',
-            'type',
-            'version'
-        ]) {
+        for (
+            const key of [
+                'bin',
+                'dependencies',
+                'peerDependencies',
+                'devDependencies',
+                'exports',
+                'imports',
+                'main',
+                'name',
+                'types',
+                'type',
+                'version'
+            ]
+        ) {
             const result = safeParse(additionalPackageJsonAttributesSchema, { [key]: 'value' });
             assert.strictEqual(result.success, false);
         }

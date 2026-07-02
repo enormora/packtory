@@ -10,27 +10,27 @@ import {
 
 const ruleName = 'uniqueTargetPaths';
 
-type GlobalConfig = z.infer<typeof enabledOnlyGlobalSchema>;
-type PerPackageConfig = z.infer<typeof emptyPerPackageSchema>;
+type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
+type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
-    const sourcesByTarget = groupBy(bundle.contents, (resource) => {
+    const sourcesByTarget = groupBy(bundle.contents, function (resource) {
         return resource.fileDescription.targetFilePath;
     });
 
-    return Object.entries(sourcesByTarget).flatMap(([targetFilePath, resources]) => {
+    return Object.entries(sourcesByTarget).flatMap(function ([ targetFilePath, resources ]) {
         if (resources.length <= 1) {
             return [];
         }
         const sortedSources = resources
-            .map((resource) => {
+            .map(function (resource) {
                 return resource.fileDescription.sourceFilePath;
             })
-            .toSorted((left, right) => {
+            .toSorted(function (left, right) {
                 return left.localeCompare(right);
             });
-        return [`Package "${bundle.name}" maps multiple sources to "${targetFilePath}": ${sortedSources.join(', ')}`];
+        return [ `Package "${bundle.name}" maps multiple sources to "${targetFilePath}": ${sortedSources.join(', ')}` ];
     });
 }
 

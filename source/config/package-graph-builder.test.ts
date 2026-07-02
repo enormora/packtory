@@ -5,11 +5,13 @@ import type { PackageConfig, PackageConfigsByName } from './config.ts';
 import { buildPackageGraph } from './package-graph-builder.ts';
 
 function packageWith(name: string, bundleDependencies: readonly string[] = []): PackageConfig {
-    return validationPackageConfigFactory.build({ name, bundleDependencies }) as unknown as PackageConfig;
+    return validationPackageConfigFactory.build({ name, bundleDependencies });
 }
 
 function configs(...packages: readonly PackageConfig[]): PackageConfigsByName {
-    return Object.fromEntries(packages.map((packageConfig) => [packageConfig.name, packageConfig]));
+    return Object.fromEntries(packages.map(function (packageConfig) {
+        return [ packageConfig.name, packageConfig ];
+    }));
 }
 
 suite('package-graph-builder', function () {
@@ -27,7 +29,7 @@ suite('package-graph-builder', function () {
     });
 
     test('buildPackageGraph connects bundle dependencies between package nodes', function () {
-        const graph = buildPackageGraph(configs(packageWith('a', ['b']), packageWith('b')));
+        const graph = buildPackageGraph(configs(packageWith('a', [ 'b' ]), packageWith('b')));
 
         assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), true);
     });

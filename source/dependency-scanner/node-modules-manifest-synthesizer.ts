@@ -1,13 +1,10 @@
-import { isString } from 'remeda';
+import { isPlainObject, isString } from 'remeda';
+import { tryOr } from 'true-myth/result';
 import type { FileSystemHost } from 'ts-morph';
 import { isInstalledDependencyManifestPath } from '../common/package-layout.ts';
 import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 
 const packageJsonIndentationSpaces = 2;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-    return value !== null && !Array.isArray(value);
-}
 
 function injectTypesCondition(_key: string, value: unknown): unknown {
     if (!isPlainObject(value)) {
@@ -21,14 +18,19 @@ function injectTypesCondition(_key: string, value: unknown): unknown {
 }
 
 function rewriteManifestContent(content: string): string {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JSON.parse returns any; the catch handles structural mismatch at runtime
-        const parsed: Record<string, unknown> = JSON.parse(content);
-        const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed.exports, injectTypesCondition));
-        return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageJsonIndentationSpaces);
-    } catch {
+    const parsedResult = tryOr(undefined, function () {
+        return JSON.parse(content) as unknown;
+    });
+    if (parsedResult.isErr) {
         return content;
     }
+    const parsed = parsedResult.value;
+    if (!isPlainObject(parsed) || !Object.hasOwn(parsed, 'exports')) {
+        return content;
+    }
+    const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed.exports, injectTypesCondition));
+
+    return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageJsonIndentationSpaces);
 }
 
 export function createNodeModulesManifestSynthesizingHost(fileSystemHost: FileSystemHost): FileSystemHost {
@@ -36,14 +38,14 @@ export function createNodeModulesManifestSynthesizingHost(fileSystemHost: FileSy
 
     const synthesizingHost: FileSystemHost = {
         ...fileSystemHost,
-        readFile: async (filePath: string, encoding?: string): Promise<string> => {
+        async readFile(filePath: string, encoding?: string): Promise<string> {
             const content = await fileSystemHost.readFile(filePath, encoding);
             if (!isInstalledDependencyManifestPath(filePath)) {
                 return content;
             }
             return rewriteManifestContent(content);
         },
-        [syncMethodNames.readFile]: (filePath: string): string => {
+        [syncMethodNames.readFile](filePath: string): string {
             // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
             const content = readFileSync(filePath);
             if (!isInstalledDependencyManifestPath(filePath)) {

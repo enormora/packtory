@@ -31,4 +31,4 @@ export const publishSettingsSchema = z.readonly(
 );
 
 export type PublishSettings = z.infer<typeof publishSettingsSchema>;
-export type PublicPublishSettings = Extract<PublishSettings, { access: 'public' }>;
+export type PublicPublishSettings = Extract<PublishSettings, { readonly access: 'public'; }>;

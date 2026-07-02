@@ -41,7 +41,7 @@ suite('no-superfluous-files', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
                             sourceFilePath: path.join(fixture, 'src/entry.js'),

@@ -41,7 +41,7 @@ suite('implicit-root-exports', function () {
     });
 
     test('throws when the default root id does not exist', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             buildImplicitRootExports(
                 { name: 'package-a', roots: { main: plainRoot('index.js') } },
                 { mode: 'implicit', defaultModuleRoot: 'missing' }

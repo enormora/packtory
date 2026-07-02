@@ -11,7 +11,8 @@ import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 
 type LinkedBundle = Awaited<ReturnType<BundleLinker['linkBundle']>>;
 type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion']>>;
-type ResolveAndBuildDependencies = {
+type MainPackageTypeField = { readonly type?: string | undefined; };
+export type ResolveAndBuildDependencies = {
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly linker: BundleLinker;
     readonly progressBroadcaster: ProgressBroadcastProvider;
@@ -19,7 +20,7 @@ type ResolveAndBuildDependencies = {
     readonly versionManager: VersionManager;
 };
 
-function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | undefined }): void {
+function assertEsmMainPackageJson(mainPackageJson: MainPackageTypeField): void {
     if (mainPackageJson.type !== 'module') {
         throw new Error('mainPackageJson.type must be "module"');
     }
@@ -54,7 +55,7 @@ async function analyzeOne(
     transformationsEnabled: boolean,
     deadCodeElimination: DeadCodeEliminationSettings | undefined
 ): Promise<AnalyzedBundle> {
-    const [analyzedBundle] = await dependencies.deadCodeEliminator.eliminate([
+    const [ analyzedBundle ] = await dependencies.deadCodeEliminator.eliminate([
         { bundle: linkedBundle, transformationsEnabled, deadCodeElimination }
     ]);
     if (analyzedBundle === undefined) {
@@ -78,7 +79,7 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
         dependencies.progressBroadcaster.emit('linking', { packageName: options.name });
         const linkedBundle = await dependencies.linker.linkBundle({
             bundle: resolvedBundle,
-            bundleDependencies: [...options.bundleDependencies, ...options.bundlePeerDependencies]
+            bundleDependencies: [ ...options.bundleDependencies, ...options.bundlePeerDependencies ]
         });
         maybeEmitLinkingCompleted(dependencies, options.name, linkedBundle);
         return linkedBundle;

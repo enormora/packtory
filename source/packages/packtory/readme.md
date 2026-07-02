@@ -50,9 +50,9 @@ const config = {
 
 - **config:** The packtory configuration object. `registrySettings` is optional; it is only required to publish in non-dry-run mode. Pack, dry-run publish, release-diff and release analysis read registry metadata anonymously when `registrySettings` (or its `auth`) is omitted. Calling `buildAndPublishAll(config, { dryRun: false })` without `auth` fails fast with one `ConfigError` before any package is processed.
 - **options:** Per-function options object:
-    - `buildAndPublishAll`: `{ dryRun: boolean; stage: boolean; collectReport?: boolean }`.
-    - `resolveAndLinkAll`: optional `{ collectReport?: boolean }`.
-    - `packPackage`: `{ packageName, format, outputPath, version, vendorDependencies }`. `format` is `'zip' | 'tar' | 'folder'`. `version` stamps the generated manifest (no automatic versioning is performed). `vendorDependencies` toggles materializing the resolved `node_modules` tree (including any `bundleDependencies`) into the artifact for self-contained deployments.
+  - `buildAndPublishAll`: `{ dryRun: boolean; stage: boolean; collectReport?: boolean }`.
+  - `resolveAndLinkAll`: optional `{ collectReport?: boolean }`.
+  - `packPackage`: `{ packageName, format, outputPath, version, vendorDependencies }`. `format` is `'zip' | 'tar' | 'folder'`. `version` stamps the generated manifest (no automatic versioning is performed). `vendorDependencies` toggles materializing the resolved `node_modules` tree (including any `bundleDependencies`) into the artifact for self-contained deployments.
 
 **Return Values:**
 

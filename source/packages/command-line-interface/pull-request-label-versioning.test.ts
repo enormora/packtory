@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { PacktoryConfig } from '../../config/config.ts';
+import type { VersionProvider } from '../../config/manual-versioning-settings.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 
 type ResolveBaseRefInput = Parameters<PrLogEngine['resolveChangelogBaseRef']>[0];
@@ -9,6 +10,10 @@ type CollectPullRequestsInput = Parameters<PrLogEngine['collectMergedPullRequest
 type ReadChangedFilesInput = Parameters<PrLogEngine['readPullRequestChangedFiles']>[0];
 type FilterPullRequestsInput = Parameters<PrLogEngine['filterPullRequestsByTargetFiles']>[0];
 type ResolveLabelsInput = Parameters<PrLogEngine['resolvePullRequestLabels']>[0];
+type TokenSourceInput = {
+    readonly assertEngineOptions: (options: Readonly<PrLogEngineOptions>) => void;
+    readonly readEnvironmentVariable: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
+};
 
 const source = { automatic: false, source: 'pull-request-labels' } as const;
 const packtoryConfig: PacktoryConfig = {
@@ -37,20 +42,20 @@ function createEngine(overrides: Partial<PrLogEngine> = {}): PrLogEngine {
         },
         async readPullRequestChangedFiles(input: ReadChangedFilesInput) {
             assert.deepStrictEqual(
-                input.pullRequests.map((pullRequest) => {
+                input.pullRequests.map(function (pullRequest) {
                     return pullRequest.id;
                 }),
-                [1, 2]
+                [ 1, 2 ]
             );
             return new Map([
-                [1, ['source/index.ts']],
-                [2, ['source/index.ts']]
+                [ 1, [ 'source/index.ts' ] ],
+                [ 2, [ 'source/index.ts' ] ]
             ]);
         },
         filterPullRequestsByTargetFiles(input: FilterPullRequestsInput) {
             assert.strictEqual(input.targetName, 'pkg');
-            assert.deepStrictEqual(input.targetSourceFiles, ['source/index.ts']);
-            assert.deepStrictEqual(input.ignoredAttributionPaths, ['CHANGELOG.md']);
+            assert.deepStrictEqual(input.targetSourceFiles, [ 'source/index.ts' ]);
+            assert.deepStrictEqual(input.ignoredAttributionPaths, [ 'CHANGELOG.md' ]);
             return input.pullRequests;
         },
         async resolvePullRequestLabels(input: ResolveLabelsInput) {
@@ -67,7 +72,10 @@ function createEngine(overrides: Partial<PrLogEngine> = {}): PrLogEngine {
     } as unknown as PrLogEngine;
 }
 
-function createVersionProvider(engine: PrLogEngine = createEngine(), config: PacktoryConfig = packtoryConfig) {
+function createVersionProvider(
+    engine: PrLogEngine = createEngine(),
+    config: PacktoryConfig = packtoryConfig
+): VersionProvider {
     const resolver = createPullRequestLabelVersionSourceResolver({
         createPrLogEngine() {
             return engine;
@@ -83,10 +91,7 @@ function createVersionProvider(engine: PrLogEngine = createEngine(), config: Pac
     return resolver({ packageName: 'pkg', source, packtoryConfig: config });
 }
 
-async function resolveVersionWithTokenSource(input: {
-    readonly assertEngineOptions: (options: Readonly<PrLogEngineOptions>) => void;
-    readonly readEnvironmentVariable: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
-}): Promise<string> {
+async function resolveVersionWithTokenSource(input: TokenSourceInput): Promise<string> {
     const resolver = createPullRequestLabelVersionSourceResolver({
         createPrLogEngine(options) {
             input.assertEngineOptions(options);
@@ -103,8 +108,8 @@ async function resolveVersionWithTokenSource(input: {
     return provideVersion({
         packageName: 'pkg',
         currentVersion: '1.0.0',
-        targetSourceFiles: ['source/index.ts'],
-        ignoredAttributionPaths: ['CHANGELOG.md'],
+        targetSourceFiles: [ 'source/index.ts' ],
+        ignoredAttributionPaths: [ 'CHANGELOG.md' ],
         registrySettings: {},
         stage: false
     });
@@ -149,8 +154,8 @@ suite('pull-request-label-version-source', function () {
             await provideVersion({
                 packageName: 'pkg',
                 currentVersion: '1.0.0',
-                targetSourceFiles: ['source/index.ts'],
-                ignoredAttributionPaths: ['CHANGELOG.md'],
+                targetSourceFiles: [ 'source/index.ts' ],
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                 registrySettings: {},
                 stage: false
             }),
@@ -162,7 +167,7 @@ suite('pull-request-label-version-source', function () {
         const provideVersion = createVersionProvider(
             createEngine({
                 async resolvePullRequestLabels() {
-                    return [{ id: 1, title: 'Break API', label: 'breaking' }];
+                    return [ { id: 1, title: 'Break API', label: 'breaking' } ];
                 }
             })
         );
@@ -171,8 +176,8 @@ suite('pull-request-label-version-source', function () {
             await provideVersion({
                 packageName: 'pkg',
                 currentVersion: '1.0.0',
-                targetSourceFiles: ['source/index.ts'],
-                ignoredAttributionPaths: ['CHANGELOG.md'],
+                targetSourceFiles: [ 'source/index.ts' ],
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                 registrySettings: {},
                 stage: false
             }),
@@ -184,7 +189,7 @@ suite('pull-request-label-version-source', function () {
         const provideVersion = createVersionProvider(
             createEngine({
                 async resolvePullRequestLabels() {
-                    return [{ id: 1, title: 'Fix bug', label: 'bug' }];
+                    return [ { id: 1, title: 'Fix bug', label: 'bug' } ];
                 }
             }),
             { packages: [] }
@@ -194,8 +199,8 @@ suite('pull-request-label-version-source', function () {
             await provideVersion({
                 packageName: 'pkg',
                 currentVersion: '1.0.0',
-                targetSourceFiles: ['source/index.ts'],
-                ignoredAttributionPaths: ['CHANGELOG.md'],
+                targetSourceFiles: [ 'source/index.ts' ],
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                 registrySettings: {},
                 stage: false
             }),
@@ -216,8 +221,8 @@ suite('pull-request-label-version-source', function () {
             await provideVersion({
                 packageName: 'pkg',
                 currentVersion: '1.0.0',
-                targetSourceFiles: ['source/index.ts'],
-                ignoredAttributionPaths: ['CHANGELOG.md'],
+                targetSourceFiles: [ 'source/index.ts' ],
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                 registrySettings: {},
                 stage: false
             }),
@@ -232,27 +237,27 @@ suite('pull-request-label-version-source', function () {
                     return { ref: 'pkg@invalid' };
                 },
                 async collectMergedPullRequests() {
-                    return [{ id: 1, title: 'Fix bug' }];
+                    return [ { id: 1, title: 'Fix bug' } ];
                 },
                 async readPullRequestChangedFiles() {
-                    return new Map([[1, ['source/index.ts']]]);
+                    return new Map([ [ 1, [ 'source/index.ts' ] ] ]);
                 },
                 filterPullRequestsByTargetFiles(input) {
                     return input.pullRequests;
                 },
                 async resolvePullRequestLabels() {
-                    return [{ id: 1, title: 'Fix bug', label: 'bug' }];
+                    return [ { id: 1, title: 'Fix bug', label: 'bug' } ];
                 }
             })
         );
 
         await assert.rejects(
-            async () => {
+            async function () {
                 await provideVersion({
                     packageName: 'pkg',
                     currentVersion: 'invalid',
-                    targetSourceFiles: ['source/index.ts'],
-                    ignoredAttributionPaths: ['CHANGELOG.md'],
+                    targetSourceFiles: [ 'source/index.ts' ],
+                    ignoredAttributionPaths: [ 'CHANGELOG.md' ],
                     registrySettings: {},
                     stage: false
                 });
@@ -274,7 +279,7 @@ suite('pull-request-label-version-source', function () {
             await provideVersion({
                 packageName: 'pkg',
                 currentVersion: undefined,
-                targetSourceFiles: ['source/index.ts'],
+                targetSourceFiles: [ 'source/index.ts' ],
                 ignoredAttributionPaths: [],
                 registrySettings: {},
                 stage: false

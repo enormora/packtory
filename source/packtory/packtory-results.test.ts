@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
@@ -23,21 +22,21 @@ import {
     type ResolveAndLinkAllResult
 } from './packtory-results.ts';
 
+function createFailureStub(): readonly Error[] {
+    return [ new Error('boom') ];
+}
+
+function assertTaggedPartialFailure(failure: PublishFailure | ReleaseAnalysisFailure): void {
+    assert.strictEqual(failure.type, 'partial');
+    if (!Object.hasOwn(failure, 'failures')) {
+        assert.fail('Expected a partial failure with direct failures');
+    }
+    assert.deepStrictEqual(failure.failures, createFailureStub());
+}
+
 suite('packtory-results', function () {
-    function createFailureStub() {
-        return [{ message: 'boom' } as never];
-    }
-
-    function assertTaggedPartialFailure(failure: PublishFailure | ReleaseAnalysisFailure): void {
-        assert.strictEqual(failure.type, 'partial');
-        if (!('failures' in failure)) {
-            assert.fail('Expected a partial failure with direct failures');
-        }
-        assert.deepStrictEqual(failure.failures, [{ message: 'boom' }]);
-    }
-
     test('configError wraps the given issues in a discriminated config-failure variant', function () {
-        assert.deepStrictEqual(configError(['a', 'b']), { type: 'config', issues: ['a', 'b'] });
+        assert.deepStrictEqual(configError([ 'a', 'b' ]), { type: 'config', issues: [ 'a', 'b' ] });
     });
 
     test('publishPartialFailure tags a PartialError as a publish-partial failure', function () {
@@ -65,13 +64,14 @@ suite('packtory-results', function () {
     });
 
     test('releasePlanPartialFailure tags a PartialError as a release-plan partial failure', function () {
+        const failures = createFailureStub();
         const failure = releasePlanPartialFailure({
             succeeded: [] as readonly ReleasePlanPackage[],
-            failures: createFailureStub()
+            failures
         });
 
         assert.strictEqual(failure.type, 'partial');
-        assert.deepStrictEqual(failure.failures, [{ message: 'boom' }]);
+        assert.deepStrictEqual(failure.failures, failures);
     });
 
     test('createPublishAllOutcome captures the result and the report getter', function () {
@@ -82,7 +82,9 @@ suite('packtory-results', function () {
             packages: {},
             aggregate: { crossBundleLinks: [] }
         };
-        const outcome = createPublishAllOutcome(result, () => report);
+        const outcome = createPublishAllOutcome(result, function () {
+            return report;
+        });
 
         assert.strictEqual(outcome.result, result);
         assert.strictEqual(outcome.getReport(), report);
@@ -90,7 +92,9 @@ suite('packtory-results', function () {
 
     test('createResolveAndLinkAllOutcome captures the result and the report getter', function () {
         const result = Result.err({ type: 'config', issues: [] }) as ResolveAndLinkAllResult;
-        const outcome = createResolveAndLinkAllOutcome(result, () => undefined);
+        const outcome = createResolveAndLinkAllOutcome(result, function () {
+            return undefined;
+        });
 
         assert.strictEqual(outcome.result, result);
         assert.strictEqual(outcome.getReport(), undefined);
@@ -98,7 +102,9 @@ suite('packtory-results', function () {
 
     test('createReleaseAnalysisOutcome captures the result and the report getter', function () {
         const result = Result.err({ type: 'config', issues: [] }) as ReleaseAnalysisResult;
-        const outcome = createReleaseAnalysisOutcome(result, () => undefined as never);
+        const outcome = createReleaseAnalysisOutcome(result, function () {
+            return undefined as never;
+        });
 
         assert.strictEqual(outcome.result, result);
         assert.strictEqual(outcome.getReport(), undefined);
@@ -106,7 +112,9 @@ suite('packtory-results', function () {
 
     test('createReleasePlanOutcome captures the result and the report getter', function () {
         const result = Result.err({ type: 'config', issues: [] }) as ReleasePlanResult;
-        const outcome = createReleasePlanOutcome(result, () => undefined as never);
+        const outcome = createReleasePlanOutcome(result, function () {
+            return undefined as never;
+        });
 
         assert.strictEqual(outcome.result, result);
         assert.strictEqual(outcome.getReport(), undefined);

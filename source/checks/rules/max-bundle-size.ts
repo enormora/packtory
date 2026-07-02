@@ -2,22 +2,30 @@ import { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
 
-const ruleName = 'maxBundleSize';
+function ruleName(): 'maxBundleSize' {
+    return 'maxBundleSize';
+}
 
 const byteLimitSchema = z.number().check(z.int(), z.nonnegative());
 
-const globalSchema = z.strictObject({
-    enabled: z.boolean(),
-    bytes: z.optional(byteLimitSchema)
-});
+type RuleName = ReturnType<typeof ruleName>;
+type GlobalConfig = { readonly enabled: boolean; readonly bytes?: number | undefined; };
+type PerPackageConfig = { readonly bytes?: number | undefined; };
 
-const perPackageSchema = z.strictObject({
-    bytes: z.optional(byteLimitSchema)
-});
+function globalSchema(): z.ZodMiniType<GlobalConfig> {
+    return z.strictObject({
+        enabled: z.boolean(),
+        bytes: z.optional(byteLimitSchema)
+    });
+}
 
-type GlobalConfig = z.infer<typeof globalSchema>;
-type PerPackageConfig = z.infer<typeof perPackageSchema>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+function perPackageSchema(): z.ZodMiniType<PerPackageConfig> {
+    return z.strictObject({
+        bytes: z.optional(byteLimitSchema)
+    });
+}
+
+type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
 
 function bundleSizeBytes(bundle: AnalyzedBundle): number {
     let total = 0;
@@ -35,7 +43,7 @@ function checkBundle(bundle: AnalyzedBundle, threshold: number | undefined): rea
     if (size <= threshold) {
         return [];
     }
-    return [`Package "${bundle.name}" exceeds the maximum bundle size: ${size} bytes (limit: ${threshold} bytes)`];
+    return [ `Package "${bundle.name}" exceeds the maximum bundle size: ${size} bytes (limit: ${threshold} bytes)` ];
 }
 
 async function run(params: RunParams): Promise<readonly string[]> {
@@ -44,15 +52,21 @@ async function run(params: RunParams): Promise<readonly string[]> {
         return [];
     }
 
-    return params.bundles.flatMap((bundle) => {
+    return params.bundles.flatMap(function (bundle) {
         const override = params.perPackageSettings.get(bundle.name)?.maxBundleSize?.bytes;
         return checkBundle(bundle, override ?? globalConfig.bytes);
     });
 }
 
-export const maxBundleSizeRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
-    name: ruleName,
-    globalSchema,
-    perPackageSchema,
+export const maxBundleSizeRule: CheckRuleDefinition<RuleName, GlobalConfig, PerPackageConfig> = {
+    get name() {
+        return ruleName();
+    },
+    get globalSchema() {
+        return globalSchema();
+    },
+    get perPackageSchema() {
+        return perPackageSchema();
+    },
     run
 };

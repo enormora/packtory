@@ -1,71 +1,16 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
-import type { Except } from 'type-fest';
+import { createReleasePullRequestClient } from '../../test-libraries/runner-test-support.ts';
 import { runConfiguredGitHubActionsCi } from './release-pull-request-ci.ts';
 import type { ReleasePullRequestConfig } from './release-pull-request-config.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 
-type WorkflowRunLookup = Awaited<ReturnType<ReleasePullRequestGitHubClient['findDispatchedWorkflowRun']>>;
+type WorkflowRunLookup = ReleasePullRequestGitHubClient['findDispatchedWorkflowRun'];
+type FakeWorkflowRunLookup = ReturnType<typeof fake> & WorkflowRunLookup;
 type WorkflowRunResult = Awaited<ReturnType<ReleasePullRequestGitHubClient['readWorkflowRunResult']>>;
-type WorkflowRunLookupInput = Parameters<ReleasePullRequestGitHubClient['findDispatchedWorkflowRun']>[0];
-type StatusInput = Parameters<ReleasePullRequestGitHubClient['createStatus']>[0];
-type StatusSpy = { readonly getCall: (index: number) => { readonly args: readonly unknown[] } };
-type WorkflowJobResult = WorkflowRunResult['jobs'][number];
 
-const workflowRunUrl = 'https://run';
-const nodeJobUrl = 'https://run/job';
-
-function workflowRunFound(runId = 1, observedRunIds: readonly number[] = [runId]): WorkflowRunLookup {
-    return { event: 'workflow_dispatch', observedRunIds, runId };
-}
-
-function workflowRunMissing(observedRunIds: readonly number[] = []): WorkflowRunLookup {
-    return { event: 'workflow_dispatch', observedRunIds, runId: undefined };
-}
-
-function findWorkflowRunSequence(results: readonly [WorkflowRunLookup, ...WorkflowRunLookup[]]) {
-    let index = 0;
-    return fake(async (_: WorkflowRunLookupInput) => {
-        const result = results[Math.min(index, results.length - 1)];
-        index += 1;
-        if (result === undefined) {
-            throw new Error('Missing workflow run lookup fixture');
-        }
-        return result;
-    });
-}
-
-function readWorkflowRunResultSequence(results: readonly [WorkflowRunResult, ...WorkflowRunResult[]]) {
-    let index = 0;
-    return fake(async (_: number) => {
-        const result = results[Math.min(index, results.length - 1)];
-        index += 1;
-        if (result === undefined) {
-            throw new Error('Missing workflow run result fixture');
-        }
-        return result;
-    });
-}
-
-function workflowJob(conclusion: string | undefined, name: string, url: string | undefined): WorkflowJobResult {
-    return { conclusion, name, url };
-}
-
-function workflowRunResult(conclusion: string | undefined, jobs: readonly WorkflowJobResult[]): WorkflowRunResult {
-    return {
-        conclusion,
-        databaseId: 1,
-        jobs,
-        url: workflowRunUrl
-    };
-}
-
-function nodeJob(conclusion: string | undefined): WorkflowJobResult {
-    return workflowJob(conclusion, 'Node.js', nodeJobUrl);
-}
-
-function createConfig(requiredStatusContexts: readonly string[] = ['Node.js']): ReleasePullRequestConfig {
+function createConfig(requiredStatusContexts: readonly string[] = [ 'Node.js' ]): ReleasePullRequestConfig {
     return {
         automationAuthor: 'github-actions[bot]',
         body: 'Body',
@@ -82,36 +27,73 @@ function createConfig(requiredStatusContexts: readonly string[] = ['Node.js']): 
     };
 }
 
-function createClient(overrides: Partial<ReleasePullRequestGitHubClient> = {}): ReleasePullRequestGitHubClient {
+function createDispatchedWorkflowRunLookup(): FakeWorkflowRunLookup {
+    let callCount = 0;
+    return fake(async function (): ReturnType<WorkflowRunLookup> {
+        callCount += 1;
+        return callCount === 1
+            ? { event: 'workflow_dispatch' as const, observedRunIds: [], runId: undefined }
+            : { event: 'workflow_dispatch' as const, observedRunIds: [ 1 ], runId: 1 };
+    }) as FakeWorkflowRunLookup;
+}
+
+function workflowRunResultForJob(conclusion: string, jobUrl = 'https://run/job'): WorkflowRunResult {
     return {
-        closeOpenReleasePullRequests: fake.resolves(undefined),
-        createOrUpdateReleasePullRequest: fake.resolves(1),
-        createStatus: fake.resolves(undefined),
-        deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
-        dispatchWorkflow: fake.resolves(undefined),
-        findDispatchedWorkflowRun: fake.resolves(workflowRunFound()),
-        getBranchHeadSha: fake.resolves('main-head'),
-        getPullRequest: fake.resolves(undefined as never),
-        getPullRequestHead: fake.resolves(undefined as never),
-        listCommitPullRequests: fake.resolves([]),
-        readWorkflowRunResult: fake.resolves(workflowRunResult('success', [nodeJob('success')])),
-        ...overrides
+        conclusion,
+        databaseId: 1,
+        url: 'https://github.com/enormora/packtory/actions/runs/1',
+        jobs: [ { conclusion, name: 'Node.js', url: jobUrl } ]
     };
 }
 
-function releaseStatus(input: Except<StatusInput, 'commitSha'>): StatusInput {
-    return { commitSha: 'release-head', ...input };
+function createClient(overrides: Partial<ReleasePullRequestGitHubClient> = {}): ReleasePullRequestGitHubClient {
+    return createReleasePullRequestClient({
+        findDispatchedWorkflowRun: createDispatchedWorkflowRunLookup(),
+        readWorkflowRunResult: fake.resolves(workflowRunResultForJob('success')),
+        ...overrides
+    });
 }
 
-function assertStatusCall(createStatus: StatusSpy, callIndex: number, input: Except<StatusInput, 'commitSha'>): void {
-    assert.deepStrictEqual(createStatus.getCall(callIndex).args[0], releaseStatus(input));
+function assertSuccessfulWorkflowMirrored(
+    createStatus: ReturnType<typeof fake>,
+    dispatchWorkflow: ReturnType<typeof fake>,
+    findDispatchedWorkflowRun: ReturnType<typeof fake>,
+    deleteActionRequiredPullRequestRuns: ReturnType<typeof fake>
+): void {
+    assert.deepStrictEqual(createStatus.firstCall.args[0], {
+        commitSha: 'release-head',
+        context: 'Node.js',
+        description: 'Waiting for dispatched release CI.',
+        state: 'pending',
+        targetUrl: undefined
+    });
+    assert.deepStrictEqual(createStatus.secondCall.args[0], {
+        commitSha: 'release-head',
+        context: 'Node.js',
+        description: 'Dispatched release CI job success.',
+        state: 'success',
+        targetUrl: 'https://run/job'
+    });
+    assert.deepStrictEqual(dispatchWorkflow.firstCall.args[0], {
+        ref: 'release/packtory',
+        workflowFile: 'ci.yml'
+    });
+    assert.deepStrictEqual(findDispatchedWorkflowRun.firstCall.args[0], {
+        branch: 'release/packtory',
+        headSha: 'release-head',
+        workflowFile: 'ci.yml'
+    });
+    assert.deepStrictEqual(deleteActionRequiredPullRequestRuns.firstCall.args[0], {
+        branch: 'release/packtory',
+        headSha: 'release-head'
+    });
 }
 
-async function assertTerminalRequiredJobStatus(conclusion: string, state: StatusInput['state']): Promise<void> {
+async function assertUnsuccessfulJobIsMirrored(conclusion: string, expectedState: 'error' | 'failure'): Promise<void> {
     const createStatus = fake.resolves(undefined);
     const client = createClient({
         createStatus,
-        readWorkflowRunResult: fake.resolves(workflowRunResult(conclusion, [nodeJob(conclusion)]))
+        readWorkflowRunResult: fake.resolves(workflowRunResultForJob(conclusion))
     });
 
     assert.strictEqual(
@@ -124,10 +106,11 @@ async function assertTerminalRequiredJobStatus(conclusion: string, state: Status
         false
     );
 
-    assertStatusCall(createStatus, 0, {
+    assert.deepStrictEqual(createStatus.secondCall.args[0], {
+        commitSha: 'release-head',
         context: 'Node.js',
         description: `Dispatched release CI job ${conclusion}.`,
-        state,
+        state: expectedState,
         targetUrl: 'https://run/job'
     });
 }
@@ -145,399 +128,383 @@ suite('release-pull-request-ci', function () {
         );
     });
 
-    test('dispatches the configured workflow and mirrors successful statuses', async function () {
-        const createStatus = fake.resolves(undefined);
-        const deleteActionRequiredPullRequestRuns = fake.resolves(undefined);
-        const dispatchWorkflow = fake.resolves(undefined);
-        const findDispatchedWorkflowRun = findWorkflowRunSequence([workflowRunMissing(), workflowRunFound()]);
-        const client = createClient({
-            createStatus,
-            deleteActionRequiredPullRequestRuns,
-            dispatchWorkflow,
-            findDispatchedWorkflowRun
-        });
+    suite('successful workflow mirroring', function () {
+        test('dispatches the configured workflow and mirrors successful statuses', async function () {
+            const createStatus = fake.resolves(undefined);
+            const deleteActionRequiredPullRequestRuns = fake.resolves(undefined);
+            const dispatchWorkflow = fake.resolves(undefined);
+            const findDispatchedWorkflowRun = createDispatchedWorkflowRunLookup();
+            const client = createClient({
+                createStatus,
+                deleteActionRequiredPullRequestRuns,
+                dispatchWorkflow,
+                findDispatchedWorkflowRun
+            });
 
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client,
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            true
-        );
-
-        assertStatusCall(createStatus, 0, {
-            context: 'Node.js',
-            description: 'Waiting for dispatched release CI.',
-            state: 'pending',
-            targetUrl: undefined
-        });
-        assertStatusCall(createStatus, 1, {
-            context: 'Node.js',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/job'
-        });
-        assert.deepStrictEqual(dispatchWorkflow.firstCall.args[0], {
-            ref: 'release/packtory',
-            workflowFile: 'ci.yml'
-        });
-        assert.deepStrictEqual(findDispatchedWorkflowRun.secondCall.args[0], {
-            branch: 'release/packtory',
-            headSha: 'release-head',
-            workflowFile: 'ci.yml'
-        });
-        assert.deepStrictEqual(deleteActionRequiredPullRequestRuns.firstCall.args[0], {
-            branch: 'release/packtory',
-            headSha: 'release-head'
-        });
-    });
-
-    test('requires all mirrored statuses to pass', async function () {
-        const createStatus = fake.resolves(undefined);
-        const client = createClient({ createStatus });
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client,
-                config: createConfig(['Node.js', 'Missing job']),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            false
-        );
-
-        assertStatusCall(createStatus, 0, {
-            context: 'Node.js',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/job'
-        });
-        assertStatusCall(createStatus, 1, {
-            context: 'Missing job',
-            description: 'Missing dispatched release CI job: Missing job.',
-            state: 'failure',
-            targetUrl: 'https://run'
-        });
-    });
-
-    test('returns false and mirrors a failure when a required job is missing', async function () {
-        const createStatus = fake.resolves(undefined);
-        const client = createClient({ createStatus });
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client,
-                config: createConfig(['Missing job']),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            false
-        );
-
-        assertStatusCall(createStatus, 0, {
-            context: 'Missing job',
-            description: 'Missing dispatched release CI job: Missing job.',
-            state: 'failure',
-            targetUrl: 'https://run'
-        });
-    });
-
-    test('returns false and mirrors a failed required job', async function () {
-        await assertTerminalRequiredJobStatus('failure', 'failure');
-    });
-
-    test('returns false and mirrors a cancelled required job as an error', async function () {
-        await assertTerminalRequiredJobStatus('cancelled', 'error');
-    });
-
-    test('does not delete blocked pull request runs when cleanup is disabled', async function () {
-        const deleteActionRequiredPullRequestRuns = fake.resolves(undefined);
-        const client = createClient({ deleteActionRequiredPullRequestRuns });
-        const config = createConfig();
-        if (config.githubActionsCi === undefined) {
-            assert.fail('Expected test config to include GitHub Actions CI');
-        }
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client,
-                config: {
-                    ...config,
-                    githubActionsCi: {
-                        deleteActionRequiredPullRequestRuns: false,
-                        requiredStatusContexts: config.githubActionsCi.requiredStatusContexts,
-                        workflowFile: config.githubActionsCi.workflowFile
-                    }
-                },
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            true
-        );
-        assert.strictEqual(deleteActionRequiredPullRequestRuns.callCount, 0);
-    });
-
-    test('fails when the dispatched workflow run is not created', async function () {
-        const createStatus = fake.resolves(undefined);
-        const findDispatchedWorkflowRun = fake.resolves(workflowRunMissing([2, 3]));
-        const sleep = fake.resolves(undefined);
-        await assert.rejects(
-            runConfiguredGitHubActionsCi({
-                client: createClient({ createStatus, findDispatchedWorkflowRun }),
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep
-            }),
-            {
-                message:
-                    'Release workflow run was not created for release-head; workflow=ci.yml, ' +
-                    'branch=release/packtory, event=workflow_dispatch, observedRunIds=2, 3'
-            }
-        );
-        assert.strictEqual(findDispatchedWorkflowRun.callCount, 31);
-        assert.strictEqual(sleep.callCount, 29);
-        assertStatusCall(createStatus, 1, {
-            context: 'Node.js',
-            description: 'Dispatched release CI did not start.',
-            state: 'error',
-            targetUrl: undefined
-        });
-    });
-
-    test('reports none when a dispatched workflow lookup observes no runs', async function () {
-        await assert.rejects(
-            runConfiguredGitHubActionsCi({
-                client: createClient({ findDispatchedWorkflowRun: fake.resolves(workflowRunMissing()) }),
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            {
-                message:
-                    'Release workflow run was not created for release-head; workflow=ci.yml, ' +
-                    'branch=release/packtory, event=workflow_dispatch, observedRunIds=none'
-            }
-        );
-    });
-
-    test('reports run ids from the latest dispatched workflow lookup', async function () {
-        await assert.rejects(
-            runConfiguredGitHubActionsCi({
-                client: createClient({
-                    findDispatchedWorkflowRun: findWorkflowRunSequence([
-                        workflowRunMissing([1]),
-                        workflowRunMissing([2]),
-                        workflowRunMissing([3])
-                    ])
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: createConfig(),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
                 }),
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            {
-                message:
-                    'Release workflow run was not created for release-head; workflow=ci.yml, ' +
-                    'branch=release/packtory, event=workflow_dispatch, observedRunIds=3'
+                true
+            );
+
+            assertSuccessfulWorkflowMirrored(
+                createStatus,
+                dispatchWorkflow,
+                findDispatchedWorkflowRun,
+                deleteActionRequiredPullRequestRuns
+            );
+        });
+
+        test('requires all mirrored statuses to pass', async function () {
+            const createStatus = fake.resolves(undefined);
+            const client = createClient({ createStatus });
+
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: createConfig([ 'Node.js', 'Missing job' ]),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                false
+            );
+
+            assert.deepStrictEqual(createStatus.thirdCall.args[0], {
+                commitSha: 'release-head',
+                context: 'Node.js',
+                description: 'Dispatched release CI job success.',
+                state: 'success',
+                targetUrl: 'https://run/job'
+            });
+            assert.deepStrictEqual(createStatus.getCall(3).args[0], {
+                commitSha: 'release-head',
+                context: 'Missing job',
+                description: 'Missing dispatched release CI job: Missing job.',
+                state: 'failure',
+                targetUrl: 'https://github.com/enormora/packtory/actions/runs/1'
+            });
+        });
+
+        test('uses an existing dispatched workflow run without dispatching again', async function () {
+            const createStatus = fake.resolves(undefined);
+            const dispatchWorkflow = fake.resolves(undefined);
+            const client = createClient({
+                createStatus,
+                dispatchWorkflow,
+                findDispatchedWorkflowRun: fake.resolves({
+                    event: 'workflow_dispatch',
+                    observedRunIds: [ 7 ],
+                    runId: 7
+                })
+            });
+
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: createConfig(),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                true
+            );
+
+            assert.strictEqual(dispatchWorkflow.callCount, 0);
+            assert.strictEqual(createStatus.callCount, 1);
+            assert.deepStrictEqual(createStatus.firstCall.args[0], {
+                commitSha: 'release-head',
+                context: 'Node.js',
+                description: 'Dispatched release CI job success.',
+                state: 'success',
+                targetUrl: 'https://run/job'
+            });
+        });
+
+        test('mirrors a successful job from an incomplete workflow run as success', async function () {
+            const createStatus = fake.resolves(undefined);
+            const readWorkflowRunResult = fake.resolves({
+                conclusion: undefined,
+                databaseId: 1,
+                url: 'https://github.com/enormora/packtory/actions/runs/1',
+                jobs: [ { conclusion: 'success', name: 'Node.js', url: 'https://run/node' } ]
+            });
+            const client = createClient({ createStatus, readWorkflowRunResult });
+
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: createConfig(),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                true
+            );
+
+            assert.deepStrictEqual(createStatus.secondCall.args[0], {
+                commitSha: 'release-head',
+                context: 'Node.js',
+                description: 'Dispatched release CI job success.',
+                state: 'success',
+                targetUrl: 'https://run/node'
+            });
+        });
+    });
+
+    suite('failed workflow mirroring', function () {
+        test('returns false and mirrors a failure when a required job is missing', async function () {
+            const createStatus = fake.resolves(undefined);
+            const client = createClient({ createStatus });
+
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: createConfig([ 'Missing job' ]),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                false
+            );
+
+            assert.deepStrictEqual(createStatus.secondCall.args[0], {
+                commitSha: 'release-head',
+                context: 'Missing job',
+                description: 'Missing dispatched release CI job: Missing job.',
+                state: 'failure',
+                targetUrl: 'https://github.com/enormora/packtory/actions/runs/1'
+            });
+        });
+
+        test('returns false and mirrors a failed required job', async function () {
+            await assertUnsuccessfulJobIsMirrored('failure', 'failure');
+        });
+
+        test('mirrors non-failure unsuccessful conclusions as error statuses', async function () {
+            await assertUnsuccessfulJobIsMirrored('cancelled', 'error');
+        });
+
+        test('mirrors known workflow statuses while waiting for completion', async function () {
+            const createStatus = fake.resolves(undefined);
+            const runResults = [
+                {
+                    conclusion: undefined,
+                    databaseId: 1,
+                    url: 'https://github.com/enormora/packtory/actions/runs/1',
+                    jobs: [
+                        { conclusion: 'success', name: 'Successful job', url: 'https://run/success' },
+                        { conclusion: undefined, name: 'Pending job', url: 'https://run/pending' },
+                        { conclusion: 'failure', name: 'Failed job', url: 'https://run/failed' }
+                    ]
+                },
+                {
+                    conclusion: 'success',
+                    databaseId: 1,
+                    url: 'https://github.com/enormora/packtory/actions/runs/1',
+                    jobs: [
+                        { conclusion: 'success', name: 'Missing job', url: 'https://run/missing' },
+                        { conclusion: 'success', name: 'Successful job', url: 'https://run/success' },
+                        { conclusion: 'success', name: 'Pending job', url: 'https://run/pending' },
+                        { conclusion: 'success', name: 'Failed job', url: 'https://run/failed' }
+                    ]
+                }
+            ];
+            const readWorkflowRunResult = fake(async function () {
+                const result = runResults.shift();
+                if (result === undefined) {
+                    throw new Error('Unexpected workflow run result read');
+                }
+                return result;
+            });
+            const client = createClient({ createStatus, readWorkflowRunResult });
+
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: createConfig([ 'Missing job', 'Successful job', 'Pending job', 'Failed job' ]),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                true
+            );
+
+            assert.deepStrictEqual(createStatus.getCall(4).args[0], {
+                commitSha: 'release-head',
+                context: 'Missing job',
+                description: 'Dispatched release CI job running.',
+                state: 'pending',
+                targetUrl: 'https://github.com/enormora/packtory/actions/runs/1'
+            });
+            assert.deepStrictEqual(createStatus.getCall(5).args[0], {
+                commitSha: 'release-head',
+                context: 'Successful job',
+                description: 'Dispatched release CI job success.',
+                state: 'success',
+                targetUrl: 'https://run/success'
+            });
+            assert.deepStrictEqual(createStatus.getCall(6).args[0], {
+                commitSha: 'release-head',
+                context: 'Pending job',
+                description: 'Dispatched release CI job running.',
+                state: 'pending',
+                targetUrl: 'https://run/pending'
+            });
+            assert.deepStrictEqual(createStatus.getCall(7).args[0], {
+                commitSha: 'release-head',
+                context: 'Failed job',
+                description: 'Dispatched release CI job failure.',
+                state: 'failure',
+                targetUrl: 'https://run/failed'
+            });
+        });
+
+        test('treats runs as complete when every required job has a conclusion', async function () {
+            const createStatus = fake.resolves(undefined);
+            const readWorkflowRunResult = fake.resolves({
+                conclusion: undefined,
+                databaseId: 1,
+                url: 'https://github.com/enormora/packtory/actions/runs/1',
+                jobs: [
+                    { conclusion: 'success', name: 'Node.js', url: 'https://run/node' },
+                    { conclusion: 'success', name: 'Types', url: 'https://run/types' }
+                ]
+            });
+            const client = createClient({ createStatus, readWorkflowRunResult });
+
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: createConfig([ 'Node.js', 'Types' ]),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                true
+            );
+
+            assert.strictEqual(readWorkflowRunResult.callCount, 1);
+            assert.deepStrictEqual(createStatus.getCall(2).args[0], {
+                commitSha: 'release-head',
+                context: 'Node.js',
+                description: 'Dispatched release CI job success.',
+                state: 'success',
+                targetUrl: 'https://run/node'
+            });
+            assert.deepStrictEqual(createStatus.getCall(3).args[0], {
+                commitSha: 'release-head',
+                context: 'Types',
+                description: 'Dispatched release CI job success.',
+                state: 'success',
+                targetUrl: 'https://run/types'
+            });
+        });
+
+        test('does not delete blocked pull request runs when cleanup is disabled', async function () {
+            const deleteActionRequiredPullRequestRuns = fake.resolves(undefined);
+            const client = createClient({ deleteActionRequiredPullRequestRuns });
+            const config = createConfig();
+            if (config.githubActionsCi === undefined) {
+                assert.fail('Expected test config to include GitHub Actions CI');
             }
-        );
-    });
 
-    test('mirrors a running required job with its job URL while waiting', async function () {
-        const createStatus = fake.resolves(undefined);
-        const readWorkflowRunResult = readWorkflowRunResultSequence([
-            workflowRunResult(undefined, [
-                workflowJob(undefined, 'Other job', 'https://run/other-job'),
-                nodeJob(undefined)
-            ]),
-            workflowRunResult('success', [nodeJob('success')])
-        ]);
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client: createClient({ createStatus, readWorkflowRunResult }),
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            true
-        );
-
-        assertStatusCall(createStatus, 0, {
-            context: 'Node.js',
-            description: 'Dispatched release CI job running.',
-            state: 'pending',
-            targetUrl: 'https://run/job'
+            assert.strictEqual(
+                await runConfiguredGitHubActionsCi({
+                    client,
+                    config: {
+                        ...config,
+                        githubActionsCi: {
+                            deleteActionRequiredPullRequestRuns: false,
+                            requiredStatusContexts: config.githubActionsCi.requiredStatusContexts,
+                            workflowFile: config.githubActionsCi.workflowFile
+                        }
+                    },
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                true
+            );
+            assert.strictEqual(deleteActionRequiredPullRequestRuns.callCount, 0);
         });
-        assertStatusCall(createStatus, 1, {
-            context: 'Node.js',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/job'
+
+        test('fails when the dispatched workflow run is not created', async function () {
+            const findDispatchedWorkflowRun = fake.resolves({
+                event: 'workflow_dispatch',
+                observedRunIds: [],
+                runId: undefined
+            });
+            const sleep = fake.resolves(undefined);
+            await assert.rejects(
+                runConfiguredGitHubActionsCi({
+                    client: createClient({ findDispatchedWorkflowRun }),
+                    config: createConfig(),
+                    headSha: 'release-head',
+                    sleep
+                }),
+                {
+                    message:
+                        'Release workflow run was not created for release-head; workflow=ci.yml, branch=release/packtory, event=workflow_dispatch, observedRunIds=none'
+                }
+            );
+            assert.strictEqual(findDispatchedWorkflowRun.callCount, 31);
+            assert.strictEqual(sleep.callCount, 29);
         });
-    });
 
-    test('mirrors missing required jobs as running with the workflow run URL while waiting', async function () {
-        const createStatus = fake.resolves(undefined);
-        const readWorkflowRunResult = readWorkflowRunResultSequence([
-            workflowRunResult(undefined, []),
-            workflowRunResult('success', [nodeJob('success')])
-        ]);
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client: createClient({ createStatus, readWorkflowRunResult }),
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            true
-        );
-
-        assertStatusCall(createStatus, 0, {
-            context: 'Node.js',
-            description: 'Dispatched release CI job running.',
-            state: 'pending',
-            targetUrl: 'https://run'
+        test('reports observed workflow run IDs when dispatch lookup never finds the run', async function () {
+            const findDispatchedWorkflowRun = fake.resolves({
+                event: 'workflow_dispatch',
+                observedRunIds: [ 4, 9 ],
+                runId: undefined
+            });
+            await assert.rejects(
+                runConfiguredGitHubActionsCi({
+                    client: createClient({ findDispatchedWorkflowRun }),
+                    config: createConfig(),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                {
+                    message:
+                        'Release workflow run was not created for release-head; workflow=ci.yml, branch=release/packtory, event=workflow_dispatch, observedRunIds=4, 9'
+                }
+            );
         });
-        assertStatusCall(createStatus, 1, {
-            context: 'Node.js',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/job'
+
+        test('marks release CI statuses as error when dispatch fails', async function () {
+            const createStatus = fake.resolves(undefined);
+            const dispatchWorkflow = fake.rejects(new Error('dispatch failed'));
+            await assert.rejects(
+                runConfiguredGitHubActionsCi({
+                    client: createClient({ createStatus, dispatchWorkflow }),
+                    config: createConfig(),
+                    headSha: 'release-head',
+                    sleep: fake.resolves(undefined)
+                }),
+                { message: 'dispatch failed' }
+            );
+
+            assert.deepStrictEqual(createStatus.secondCall.args[0], {
+                commitSha: 'release-head',
+                context: 'Node.js',
+                description: 'Dispatched release CI did not start.',
+                state: 'error',
+                targetUrl: undefined
+            });
         });
-    });
 
-    test('does not mirror a running status for a completed job', async function () {
-        const createStatus = fake.resolves(undefined);
-        const readWorkflowRunResult = readWorkflowRunResultSequence([
-            workflowRunResult(undefined, [nodeJob('success')]),
-            workflowRunResult('success', [nodeJob('success')])
-        ]);
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client: createClient({ createStatus, readWorkflowRunResult }),
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            true
-        );
-
-        assert.strictEqual(createStatus.callCount, 1);
-        assertStatusCall(createStatus, 0, {
-            context: 'Node.js',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/job'
+        test('fails when the dispatched workflow run does not complete', async function () {
+            const readWorkflowRunResult = fake.resolves({ conclusion: undefined, databaseId: 1, jobs: [] });
+            const sleep = fake.resolves(undefined);
+            await assert.rejects(
+                runConfiguredGitHubActionsCi({
+                    client: createClient({ readWorkflowRunResult }),
+                    config: createConfig(),
+                    headSha: 'release-head',
+                    sleep
+                }),
+                { message: 'Release workflow run 1 did not complete' }
+            );
+            assert.strictEqual(readWorkflowRunResult.callCount, 120);
+            assert.strictEqual(sleep.callCount, 119);
         });
-    });
-
-    test('finishes when required jobs completed before the workflow conclusion is indexed', async function () {
-        const createStatus = fake.resolves(undefined);
-        const readWorkflowRunResult = fake.resolves(
-            workflowRunResult(undefined, [
-                workflowJob('success', 'Node v22', 'https://run/node-22'),
-                workflowJob('success', 'Node v24', 'https://run/node-24'),
-                workflowJob('success', 'Node v26', 'https://run/node-26')
-            ])
-        );
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client: createClient({ createStatus, readWorkflowRunResult }),
-                config: createConfig(['Node v22', 'Node v24', 'Node v26']),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            true
-        );
-
-        assert.strictEqual(readWorkflowRunResult.callCount, 1);
-        assertStatusCall(createStatus, 0, {
-            context: 'Node v22',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/node-22'
-        });
-        assertStatusCall(createStatus, 1, {
-            context: 'Node v24',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/node-24'
-        });
-        assertStatusCall(createStatus, 2, {
-            context: 'Node v26',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/node-26'
-        });
-    });
-
-    test('mirrors completed and running required jobs while waiting for remaining jobs', async function () {
-        const createStatus = fake.resolves(undefined);
-        const readWorkflowRunResult = readWorkflowRunResultSequence([
-            workflowRunResult(undefined, [
-                workflowJob('success', 'Node v22', 'https://run/node-22'),
-                workflowJob(undefined, 'Node v24', 'https://run/node-24')
-            ]),
-            workflowRunResult(undefined, [
-                workflowJob('success', 'Node v22', 'https://run/node-22'),
-                workflowJob('success', 'Node v24', 'https://run/node-24')
-            ])
-        ]);
-
-        assert.strictEqual(
-            await runConfiguredGitHubActionsCi({
-                client: createClient({ createStatus, readWorkflowRunResult }),
-                config: createConfig(['Node v22', 'Node v24']),
-                headSha: 'release-head',
-                sleep: fake.resolves(undefined)
-            }),
-            true
-        );
-
-        assertStatusCall(createStatus, 0, {
-            context: 'Node v22',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/node-22'
-        });
-        assertStatusCall(createStatus, 1, {
-            context: 'Node v24',
-            description: 'Dispatched release CI job running.',
-            state: 'pending',
-            targetUrl: 'https://run/node-24'
-        });
-        assertStatusCall(createStatus, 2, {
-            context: 'Node v22',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/node-22'
-        });
-        assertStatusCall(createStatus, 3, {
-            context: 'Node v24',
-            description: 'Dispatched release CI job success.',
-            state: 'success',
-            targetUrl: 'https://run/node-24'
-        });
-    });
-
-    test('fails when the dispatched workflow run does not complete', async function () {
-        const readWorkflowRunResult = fake.resolves(workflowRunResult(undefined, []));
-        const sleep = fake.resolves(undefined);
-        await assert.rejects(
-            runConfiguredGitHubActionsCi({
-                client: createClient({ readWorkflowRunResult }),
-                config: createConfig(),
-                headSha: 'release-head',
-                sleep
-            }),
-            { message: 'Release workflow run 1 did not complete' }
-        );
-        assert.strictEqual(readWorkflowRunResult.callCount, 120);
-        assert.strictEqual(sleep.callCount, 119);
     });
 });

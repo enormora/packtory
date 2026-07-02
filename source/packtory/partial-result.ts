@@ -2,11 +2,16 @@ import type { Result } from 'true-myth';
 import { partialFailureType, type PartialErrorResult } from './packtory-results.ts';
 import type { PartialError } from './scheduler.ts';
 
-type PartialFailure<T> = PartialError<T> & { readonly type: typeof partialFailureType };
-type PartialSuccessLike<T> = { readonly succeeded: readonly T[]; readonly failures: readonly Error[] };
+type PartialFailure<T> = PartialError<T> & { readonly type: typeof partialFailureType; };
+type PartialSuccessLike<T> = { readonly succeeded: readonly T[]; readonly failures: readonly Error[]; };
 
 function isPartialSuccessLike<T>(value: unknown): value is PartialSuccessLike<T> {
-    return typeof value === 'object' && value !== null && 'succeeded' in value && 'failures' in value;
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        Object.hasOwn(value, 'succeeded') &&
+        Object.hasOwn(value, 'failures')
+    );
 }
 
 export function succeededResultsFrom<T, TFailure>(result: Result<readonly T[], TFailure>): readonly T[] {
@@ -22,7 +27,7 @@ export function isSuccessOrPartialSuccess<T, TFailure>(result: Result<readonly T
 }
 
 export function partialFailureMessages<T>(error: PartialError<T>): readonly string[] {
-    return error.failures.map((failure) => {
+    return error.failures.map(function (failure) {
         return failure.message;
     });
 }

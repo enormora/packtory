@@ -41,7 +41,7 @@ suite('cyclic-dependencies', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo';\n",
                             isExecutable: false,
@@ -53,7 +53,7 @@ suite('cyclic-dependencies', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/bar.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/bar.js') ]),
                         fileDescription: {
                             content:
                                 "import { bar } from './bar';\n\nexport const foo = 'foo';\nexport const foo2 = bar;\n",
@@ -66,7 +66,7 @@ suite('cyclic-dependencies', function () {
                         analysis: bindingAnalysis('bar', 'foo', 'foo2')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content:
                                 "import { foo } from './foo';\n\nexport const bar = 'bar';\nexport const bar2 = foo;\n",

@@ -33,7 +33,7 @@ function getConfiguredImportsOrThrow(
         return mainPackageJson.imports;
     }
 
-    const [firstSpecifier] = referencedSpecifiers;
+    const [ firstSpecifier ] = referencedSpecifiers;
     throw new Error(buildMissingImportsFieldMessage(firstSpecifier));
 }
 

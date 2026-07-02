@@ -17,15 +17,15 @@ const timers = process.getBuiltinModule('node:timers');
 const registryClient = createRegistryClient({
     npmFetch,
     publish,
-    fetch: globalThis.fetch,
+    fetch,
     clock: {
-        getCurrentTimeInMilliseconds: () => {
+        getCurrentTimeInMilliseconds() {
             return Date.now();
         },
         setTimeout: timers.setTimeout,
         clearTimeout: timers.clearTimeout
     },
-    resolveIdToken: async () => {
+    async resolveIdToken() {
         throw new Error('OIDC id tokens are not used in this integration test');
     }
 });
@@ -35,7 +35,7 @@ export type PublishedFile = Awaited<ReturnType<typeof extractPackageTarball>>[nu
 export type PublishedPackage = {
     readonly version: string;
     readonly files: readonly PublishedFile[];
-    readonly manifest: Record<string, unknown>;
+    readonly manifest: Readonly<Record<string, unknown>>;
 };
 
 export type PackageConfig = PacktoryConfig['packages'][number];
@@ -111,13 +111,13 @@ export function createPackageConfigList<TFirst extends PackageConfig, TRest exte
     first: TFirst,
     ...rest: TRest
 ): readonly [TFirst, ...TRest] {
-    return [first, ...rest];
+    return [ first, ...rest ];
 }
 
 export function standardFixturePackages(fixturePath: string): PackageConfigList {
     return createPackageConfigList(
         createPackageConfig(fixturePath, 'first', 'entry1'),
-        createPackageConfig(fixturePath, 'second', 'entry2', { bundleDependencies: ['first'] })
+        createPackageConfig(fixturePath, 'second', 'entry2', { bundleDependencies: [ 'first' ] })
     );
 }
 
@@ -149,10 +149,10 @@ export async function publishFixturePackages(params: PublishFixturePackagesParam
         fixturePath: params.fixturePath,
         registryDetails: params.registryDetails,
         packages: params.packages ?? standardFixturePackages(params.fixturePath),
-        ...(params.commonPackageSettings === undefined ? {} : { commonPackageSettings: params.commonPackageSettings }),
-        ...(params.mainPackageJsonOverrides === undefined
-            ? {}
-            : { mainPackageJsonOverrides: params.mainPackageJsonOverrides })
+        ...params.commonPackageSettings !== undefined && { commonPackageSettings: params.commonPackageSettings },
+        ...params.mainPackageJsonOverrides !== undefined && {
+            mainPackageJsonOverrides: params.mainPackageJsonOverrides
+        }
     };
     const config = await createPublishConfig(configParams);
     const registrySettings = createRegistrySettings(params.registryDetails, params.authMode);
@@ -166,7 +166,7 @@ export function assertPublishSucceeded(result: PublishAllResult): void {
 }
 
 function findManifestFile(files: readonly PublishedFile[], packageName: string): PublishedFile {
-    const manifestFile = files.find((file) => {
+    const manifestFile = files.find(function (file) {
         return file.filePath === 'package/package.json';
     });
 
@@ -207,7 +207,7 @@ export async function assertPackageNotPublished(packageName: string, registryDet
 }
 
 export function getPublishedFile(publishedPackage: PublishedPackage, filePath: string): PublishedFile {
-    const file = publishedPackage.files.find((entry) => {
+    const file = publishedPackage.files.find(function (entry) {
         return entry.filePath === filePath;
     });
 

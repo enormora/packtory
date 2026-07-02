@@ -3,7 +3,12 @@ import { Maybe } from 'true-myth';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
 import { retryWithFallbackAuth } from './metadata-auth-retry.ts';
 import { toRegistryPackagePath } from './registry-package-path.ts';
-import { resolveMetadataAuthOptions, resolveStageListingAuthOptions } from './registry-auth-config.ts';
+import {
+    resolveMetadataAuthOptions,
+    resolveStageListingAuthOptions,
+    type AuthResolution,
+    type NpmFetchOptions
+} from './registry-auth-config.ts';
 import {
     parseAbbreviatedPackageResponse,
     parseFullPackageResponse,
@@ -36,7 +41,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 type BufferedRegistryResponse = {
     readonly buffer: () => Promise<Buffer>;
-    readonly headers: { readonly get: (name: string) => string | null } | undefined;
+    readonly headers: { readonly get: (name: string) => string | null; } | undefined;
 };
 
 function assertDownloadedTarballSize(size: number): void {
@@ -83,7 +88,7 @@ function parseStagedPackageListResponse(response: unknown): StagedPackageListRes
     }
 
     return {
-        items: items.map((item) => {
+        items: items.map(function (item) {
             if (!isRecord(item) || typeof item.version !== 'string') {
                 throw new Error('Got an invalid response from registry stage API');
             }
@@ -118,27 +123,53 @@ type StagedPackageListResponse = {
 };
 
 const stageListPageSize = 100;
+const maximumStageListPages = 1000;
+
+type NpmFetchResponse = Awaited<ReturnType<typeof _npmFetch>>;
+export type NpmFetch = {
+    (url: string, options?: NpmFetchOptions): Promise<NpmFetchResponse>;
+    readonly json: typeof _npmFetch.json;
+};
+
+async function fetchPackageMetadataResponse<TPackageResponse extends Record<string, unknown>>(
+    npmFetch: NpmFetch,
+    packageName: string,
+    registrySettings: Readonly<RegistrySettings>,
+    request: PackageMetadataRequest<TPackageResponse>
+): Promise<unknown> {
+    const auth = resolveMetadataAuthOptions(registrySettings);
+    return retryWithFallbackAuth(registrySettings, auth, async function (options) {
+        return npmFetch.json(`/${toRegistryPackagePath(packageName)}`, {
+            ...options,
+            headers: request.headers
+        });
+    });
+}
+
+function parsePackageMetadataResponse<TPackageResponse extends Record<string, unknown>>(
+    response: unknown,
+    request: PackageMetadataRequest<TPackageResponse>
+): TPackageResponse {
+    const result = request.parsePackageResponse(response);
+    if (result === undefined) {
+        throw new Error('Got an invalid response from registry API');
+    }
+    return result;
+}
 
 async function fetchAndParsePackageMetadata<TPackageResponse extends Record<string, unknown>>(
-    npmFetch: typeof _npmFetch,
+    npmFetch: NpmFetch,
     packageName: string,
-    registrySettings: RegistrySettings,
+    registrySettings: Readonly<RegistrySettings>,
     request: PackageMetadataRequest<TPackageResponse>
 ): Promise<Maybe<TPackageResponse>> {
-    const auth = resolveMetadataAuthOptions(registrySettings);
     try {
-        const response = await retryWithFallbackAuth(registrySettings, auth, async (options) => {
-            return npmFetch.json(`/${toRegistryPackagePath(packageName)}`, {
-                ...options,
-                headers: request.headers
-            });
-        });
-
-        const result = request.parsePackageResponse(response);
-        if (result === undefined) {
-            throw new Error('Got an invalid response from registry API');
-        }
-        return Maybe.just(result);
+        return Maybe.just(
+            parsePackageMetadataResponse(
+                await fetchPackageMetadataResponse(npmFetch, packageName, registrySettings, request),
+                request
+            )
+        );
     } catch (error: unknown) {
         if (isMissingPackageError(error)) {
             return Maybe.nothing<TPackageResponse>();
@@ -167,9 +198,9 @@ function extractLatestVersionDetails(
 }
 
 export async function fetchLatestPackageVersion(
-    npmFetch: typeof _npmFetch,
+    npmFetch: NpmFetch,
     packageName: string,
-    registrySettings: RegistrySettings
+    registrySettings: Readonly<RegistrySettings>
 ): Promise<Maybe<PackageVersionDetails>> {
     const packageResponse = await fetchAndParsePackageMetadata(
         npmFetch,
@@ -184,9 +215,9 @@ export async function fetchLatestPackageVersion(
 }
 
 export async function fetchLatestPackageReleaseMetadata(
-    npmFetch: typeof _npmFetch,
+    npmFetch: NpmFetch,
     packageName: string,
-    registrySettings: RegistrySettings
+    registrySettings: Readonly<RegistrySettings>
 ): Promise<Maybe<PackageReleaseMetadata>> {
     const packageResponse = await fetchAndParsePackageMetadata(
         npmFetch,
@@ -213,46 +244,54 @@ export async function fetchLatestPackageReleaseMetadata(
     });
 }
 
-export async function fetchStagedPackageVersions(
-    npmFetch: typeof _npmFetch,
+async function fetchStagedPackageVersionPage(
+    npmFetch: NpmFetch,
+    auth: AuthResolution,
     packageName: string,
-    registrySettings: RegistrySettings
+    page: number
+): Promise<StagedPackageListResponse> {
+    const searchParams = new URLSearchParams({
+        package: packageName,
+        page: String(page),
+        perPage: String(stageListPageSize)
+    });
+    return parseStagedPackageListResponse(await npmFetch.json(`/-/stage?${searchParams.toString()}`, auth.options));
+}
+
+export async function fetchStagedPackageVersions(
+    npmFetch: NpmFetch,
+    packageName: string,
+    registrySettings: Readonly<RegistrySettings>
 ): Promise<readonly string[]> {
     const auth = resolveStageListingAuthOptions(registrySettings);
+    const versions: string[] = [];
+    const pages = Array.from({ length: maximumStageListPages }, function (_value, index) {
+        return index;
+    });
 
-    async function fetchPage(page: number, versions: readonly string[]): Promise<readonly string[]> {
-        const searchParams = new URLSearchParams({
-            package: packageName,
-            page: String(page),
-            perPage: String(stageListPageSize)
-        });
-        const response = parseStagedPackageListResponse(
-            await npmFetch.json(`/-/stage?${searchParams.toString()}`, auth.options)
-        );
-        const nextVersions = versions.concat(
-            response.items.map((item) => {
-                return item.version;
-            })
-        );
+    for (const page of pages) {
+        const response = await fetchStagedPackageVersionPage(npmFetch, auth, packageName, page);
 
-        if (nextVersions.length >= response.total || response.items.length === 0) {
-            return nextVersions;
+        versions.push(...response.items.map(function (item) {
+            return item.version;
+        }));
+
+        if (versions.length >= response.total || response.items.length === 0) {
+            return versions;
         }
-
-        return fetchPage(page + 1, nextVersions);
     }
 
-    return fetchPage(0, []);
+    throw new Error(`Staged package listing exceeded ${maximumStageListPages} pages`);
 }
 
 export async function fetchPackageTarball(
-    npmFetch: typeof _npmFetch,
+    npmFetch: NpmFetch,
     tarballUrl: string,
-    registrySettings: RegistrySettings
+    registrySettings: Readonly<RegistrySettings>
 ): Promise<Buffer> {
     assertTarballOriginMatchesRegistry(tarballUrl, registrySettings);
     const auth = resolveMetadataAuthOptions(registrySettings);
-    const response = await retryWithFallbackAuth(registrySettings, auth, async (options) => {
+    const response = await retryWithFallbackAuth(registrySettings, auth, async function (options) {
         return npmFetch(tarballUrl, options);
     });
     assertContentLengthWithinDownloadLimit(response);

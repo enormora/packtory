@@ -5,7 +5,7 @@ import { createProject } from '../test-libraries/typescript-project.ts';
 import { statementClassifierFor } from './statement-classifiers.ts';
 
 function firstStatementOfKind(content: string, kind: SyntaxKind): Statement {
-    const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
     const sourceFile: SourceFile = project.getSourceFileOrThrow('index.ts');
 
     return sourceFile.getFirstChildByKindOrThrow(kind) as Statement;

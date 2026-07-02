@@ -48,7 +48,7 @@ export function createTypescriptProjectAnalyzer(
 
             const fileExtension = options.resolveDeclarationFiles ? '.d.ts' : '.js';
             const filesPattern = path.join(folder, `**/*${fileExtension}`);
-            project.addSourceFilesAtPaths([filesPattern]);
+            project.addSourceFilesAtPaths([ filesPattern ]);
 
             return {
                 getReferencedModules(containingSourceFilePath) {

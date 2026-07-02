@@ -39,13 +39,13 @@ suite('type-roots', function () {
                         '@types/foo': '42.0.0'
                     },
                     name: 'the-package-name',
-                    sideEffects: ['./foo.js'],
+                    sideEffects: [ './foo.js' ],
                     version: '42.0.0',
                     type: 'module'
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo.js';\n",
                             isExecutable: false,
@@ -67,13 +67,13 @@ suite('type-roots', function () {
                         isExplicitlyIncluded: false,
                         isSubstituted: false,
                         analysis: {
-                            survivingBindings: new Set(['bar', 'foo']),
-                            sideEffectStatements: [{ line: 2, kind: 'variable initializer' }],
+                            survivingBindings: new Set([ 'bar', 'foo' ]),
+                            sideEffectStatements: [ { line: 2, kind: 'variable initializer' } ],
                             sideEffectImports: new Set<string>()
                         }
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.d.ts')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.d.ts') ]),
                         fileDescription: {
                             content: "export declare const foo: import('./foo.js').Foo;\n",
                             isExecutable: false,
@@ -115,7 +115,7 @@ suite('type-roots', function () {
                 name: 'the-package-name',
                 packageType: 'module',
                 peerDependencies: {},
-                sideEffectsField: ['./foo.js'],
+                sideEffectsField: [ './foo.js' ],
                 typesMainFile: {
                     content: "export declare const foo: import('./foo.js').Foo;\n",
                     isExecutable: false,

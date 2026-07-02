@@ -22,7 +22,7 @@ type ChangelogSettingsConfig = {
 
 export type ChangelogConfig = {
     readonly changelog?: ChangelogSettingsConfig | undefined;
-    readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined } | undefined;
+    readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined; } | undefined;
     readonly packages: readonly PackagePathConfig[];
 };
 
@@ -40,8 +40,8 @@ type ChangelogOutputFilePath = {
     readonly packageName: string | undefined;
 };
 
-type PackageChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file' }>;
-type PackageChangelogOutputWithSharedPath = PackageChangelogOutput & { readonly path: string };
+type PackageChangelogOutput = Extract<ChangelogOutput, { readonly kind: 'package-file'; }>;
+type PackageChangelogOutputWithSharedPath = PackageChangelogOutput & { readonly path: string; };
 type PackageChangelogOutputWithExplicitPaths = PackageChangelogOutput & {
     readonly paths: Readonly<Record<string, string>>;
 };
@@ -62,7 +62,7 @@ export function createChangelogGenerationOptions(config: ChangelogConfig): Chang
         explicitBaseRef: config.changelog?.explicitBaseRef,
         packageTagFormat: config.changelog?.packageTagFormat,
         targetScopedLabelPattern: config.changelog?.targetScopedLabelPattern,
-        validLabels: new Map([...defaultValidLabels, ...Object.entries(config.changelog?.labels ?? {})])
+        validLabels: new Map([ ...defaultValidLabels, ...Object.entries(config.changelog?.labels ?? {}) ])
     };
 }
 
@@ -84,8 +84,8 @@ function resolvePackageSourcesFolder(packageConfig: PackagePathConfig, config: C
 
 function mapPackageConfigByName(config: ChangelogConfig): ReadonlyMap<string, PackagePathConfig> {
     return new Map(
-        config.packages.map((packageConfig) => {
-            return [packageConfig.name, packageConfig];
+        config.packages.map(function (packageConfig) {
+            return [ packageConfig.name, packageConfig ];
         })
     );
 }
@@ -116,7 +116,7 @@ function resolveExplicitPackageFilePath(
 }
 
 function hasSharedPackagePath(output: PackageChangelogOutput): output is PackageChangelogOutputWithSharedPath {
-    return 'path' in output;
+    return Object.hasOwn(output, 'path');
 }
 
 export function collectGeneratedAttributionPaths(
@@ -129,7 +129,7 @@ export function collectGeneratedAttributionPaths(
 export function shouldPageGroupedChangelog(outputs: readonly ChangelogOutput[] | undefined): boolean {
     return (
         outputs === undefined ||
-        outputs.some((output) => {
+        outputs.some(function (output) {
             return output.kind === 'github-release';
         })
     );
@@ -140,11 +140,11 @@ function collectRepositoryDestinations(
     outputs: readonly ChangelogOutput[],
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
-    return outputs.flatMap((output) => {
+    return outputs.flatMap(function (output) {
         if (output.kind !== 'repository-file') {
             return [];
         }
-        return [{ filePath: resolveRepositoryPath(deps, output.path), generatedMarkdown: changelog.groupedMarkdown }];
+        return [ { filePath: resolveRepositoryPath(deps, output.path), generatedMarkdown: changelog.groupedMarkdown } ];
     });
 }
 
@@ -152,11 +152,11 @@ function collectRepositoryOutputFilePaths(
     deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
     outputs: readonly ChangelogOutput[]
 ): readonly ChangelogOutputFilePath[] {
-    return outputs.flatMap((output) => {
+    return outputs.flatMap(function (output) {
         if (output.kind !== 'repository-file') {
             return [];
         }
-        return [{ filePath: resolveRepositoryPath(deps, output.path), packageName: undefined }];
+        return [ { filePath: resolveRepositoryPath(deps, output.path), packageName: undefined } ];
     });
 }
 
@@ -167,7 +167,7 @@ function collectPackageDestinationsWithSharedPath(
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
     const packageConfigsByName = mapPackageConfigByName(config);
-    return Array.from(changelog.packageMarkdownByName, ([packageName, generatedMarkdown]) => {
+    return Array.from(changelog.packageMarkdownByName, function ([ packageName, generatedMarkdown ]) {
         const packageConfig = packageConfigsByName.get(packageName);
         if (packageConfig === undefined) {
             throw new Error(`Config for package "${packageName}" is missing`);
@@ -181,7 +181,7 @@ function collectPackageOutputFilePathsWithSharedPath(
     config: ChangelogConfig,
     output: PackageChangelogOutputWithSharedPath
 ): readonly ChangelogOutputFilePath[] {
-    return config.packages.map((packageConfig) => {
+    return config.packages.map(function (packageConfig) {
         return {
             filePath: resolvePackageFilePath(deps, config, packageConfig, output.path),
             packageName: packageConfig.name
@@ -194,7 +194,7 @@ function collectPackageDestinationsWithExplicitPaths(
     output: PackageChangelogOutputWithExplicitPaths,
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
-    return Array.from(changelog.packageMarkdownByName, ([packageName, generatedMarkdown]) => {
+    return Array.from(changelog.packageMarkdownByName, function ([ packageName, generatedMarkdown ]) {
         return { filePath: resolveExplicitPackageFilePath(deps, output, packageName), generatedMarkdown };
     });
 }
@@ -203,7 +203,7 @@ function collectPackageOutputFilePathsWithExplicitPaths(
     deps: Pick<ChangelogDestinationDeps, 'workingDirectory'>,
     output: PackageChangelogOutputWithExplicitPaths
 ): readonly ChangelogOutputFilePath[] {
-    return Object.entries(output.paths).map(([packageName, outputPath]) => {
+    return Object.entries(output.paths).map(function ([ packageName, outputPath ]) {
         return { filePath: resolveRepositoryPath(deps, outputPath), packageName };
     });
 }
@@ -214,7 +214,7 @@ function collectPackageDestinations(
     outputs: readonly ChangelogOutput[],
     changelog: GeneratedChangelog
 ): readonly FileChangelogDestination[] {
-    return outputs.flatMap((output) => {
+    return outputs.flatMap(function (output) {
         if (output.kind !== 'package-file') {
             return [];
         }
@@ -230,7 +230,7 @@ function collectPackageOutputFilePaths(
     config: ChangelogConfig,
     outputs: readonly ChangelogOutput[]
 ): readonly ChangelogOutputFilePath[] {
-    return outputs.flatMap((output) => {
+    return outputs.flatMap(function (output) {
         if (output.kind !== 'package-file') {
             return [];
         }

@@ -10,9 +10,13 @@ type ZipEntryOptions = {
     readonly level: number;
 };
 
-type ZippableFileMap = Record<string, readonly [Uint8Array, ZipEntryOptions]>;
+type ZippableFileMap = Readonly<Record<string, readonly [Uint8Array, ZipEntryOptions]>>;
 type ZipCallback = (error: unknown, data: unknown) => void;
-type AsyncZipFunction = (data: ZippableFileMap, options: Record<string, never>, callback: ZipCallback) => void;
+type AsyncZipFunction = (
+    data: ZippableFileMap,
+    options: Readonly<Record<string, never>>,
+    callback: ZipCallback
+) => void;
 
 export type ZipBuilder = {
     build: (fileDescriptions: readonly FileDescription[], vendorEntries?: readonly VendorEntry[]) => Promise<Buffer>;
@@ -51,8 +55,8 @@ function createZipFunction(zip: AsyncZipFunction | undefined): AsyncZipFunction 
         throw new TypeError('fflate zip export is not callable');
     }
 
-    return (data, options, callback) => {
-        Reflect.apply(zipValue, undefined, [data, options, callback]);
+    return function (data, options, callback) {
+        Reflect.apply(zipValue, undefined, [ data, options, callback ]);
     };
 }
 
@@ -73,10 +77,12 @@ async function toFileMap(
     vendorEntries: readonly VendorEntry[],
     fileManager: Pick<FileManager, 'getRealPath' | 'readFileBytes'>
 ): Promise<ZippableFileMap> {
-    const fileMap: ZippableFileMap = {};
+    const fileMap: Record<string, readonly [Uint8Array, ZipEntryOptions]> = {};
+    const textEncoder = new TextEncoder();
     for (const fileDescription of fileDescriptions) {
+        const encodedContent = textEncoder.encode(fileDescription.content);
         fileMap[fileDescription.filePath] = buildFileEntry(
-            new TextEncoder().encode(fileDescription.content),
+            encodedContent,
             fileDescription.isExecutable
         );
     }
@@ -102,8 +108,8 @@ export function createZipBuilder(dependencies: ZipBuilderDependencies = {}): Zip
     return {
         async build(fileDescriptions, vendorEntries = []) {
             const fileMap = await toFileMap(fileDescriptions, vendorEntries, fileManager);
-            const data = await new Promise<Uint8Array>((resolve, reject) => {
-                zip(fileMap, {}, (error, zippedData) => {
+            const data = await new Promise<Uint8Array>(function (resolve, reject) {
+                zip(fileMap, {}, function (error, zippedData) {
                     if (error === null || error === undefined) {
                         if (!isUint8Array(zippedData)) {
                             reject(new Error('fflate zip returned a non-binary payload'));

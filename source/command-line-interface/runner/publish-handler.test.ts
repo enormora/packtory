@@ -14,19 +14,24 @@ import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-render
 import { runPublishHandler } from './publish-handler.ts';
 
 type BuildOutcome = Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
+type PublishFlags = {
+    readonly noDryRun: boolean;
+    readonly stage: boolean;
+    readonly reportJson: boolean;
+    readonly reportHtml: boolean;
+};
+type CapturedPublishMessages = {
+    readonly code: number;
+    readonly messages: readonly string[];
+};
 
 async function captureMessages(
-    flags: {
-        readonly noDryRun: boolean;
-        readonly stage: boolean;
-        readonly reportJson: boolean;
-        readonly reportHtml: boolean;
-    },
+    flags: PublishFlags,
     outcome: BuildOutcome
-): Promise<{ readonly code: number; readonly messages: readonly string[] }> {
+): Promise<CapturedPublishMessages> {
     const messages: string[] = [];
     const code = await runPublishHandler({
-        log: (message) => {
+        log(message) {
             messages.push(message);
         },
         packtory: packtoryStub(outcome),
@@ -44,12 +49,14 @@ suite('publish-handler', function () {
             { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
             buildOutcome({
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only isErr/value matter to the handler
-                result: { isOk: true, isErr: false, value: [{ name: 'pkg-a' }] } as never
+                result: { isOk: true, isErr: false, value: [ { name: 'pkg-a' } ] } as never
             })
         );
 
         assert.strictEqual(code, 0);
-        assert.ok(messages.some((message) => message.includes('all 1 package(s) have been published')));
+        assert.ok(messages.some(function (message) {
+            return message.includes('all 1 package(s) have been published');
+        }));
     });
 
     test('runPublishHandler passes stage mode through to the success summary', async function () {
@@ -72,8 +79,12 @@ suite('publish-handler', function () {
         );
 
         assert.strictEqual(code, 0);
-        assert.ok(messages.some((message) => message.includes('staged 1 package(s)')));
-        assert.ok(messages.some((message) => message.includes('stage-123')));
+        assert.ok(messages.some(function (message) {
+            return message.includes('staged 1 package(s)');
+        }));
+        assert.ok(messages.some(function (message) {
+            return message.includes('stage-123');
+        }));
     });
 
     test('runPublishHandler returns 1 and logs the publish failure when the build fails', async function () {
@@ -81,12 +92,14 @@ suite('publish-handler', function () {
             { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
             buildOutcome({
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only isErr/error.type matter to the handler
-                result: { isOk: false, isErr: true, error: { type: 'config', issues: ['missing field'] } } as never
+                result: { isOk: false, isErr: true, error: { type: 'config', issues: [ 'missing field' ] } } as never
             })
         );
 
         assert.strictEqual(code, 1);
-        assert.ok(messages.some((message) => message.includes('The provided config is invalid')));
+        assert.ok(messages.some(function (message) {
+            return message.includes('The provided config is invalid');
+        }));
     });
 
     test('runPublishHandler passes stage mode through to the publish failure summary', async function () {
@@ -105,15 +118,19 @@ suite('publish-handler', function () {
                                 publication: stagedForApproval('stage-123')
                             }
                         ],
-                        failures: [new Error('boom')]
+                        failures: [ new Error('boom') ]
                     }
                 } as never
             })
         );
 
         assert.strictEqual(code, 1);
-        assert.ok(messages.some((message) => message.includes('Staged packages')));
-        assert.ok(messages.some((message) => message.includes('stage-123')));
+        assert.ok(messages.some(function (message) {
+            return message.includes('Staged packages');
+        }));
+        assert.ok(messages.some(function (message) {
+            return message.includes('stage-123');
+        }));
     });
 
     test('runPublishHandler appends the dry-run reminder when noDryRun is false', async function () {
@@ -122,7 +139,9 @@ suite('publish-handler', function () {
             buildOutcome()
         );
 
-        assert.ok(messages.some((message) => message.includes('dry-run mode was enabled')));
+        assert.ok(messages.some(function (message) {
+            return message.includes('dry-run mode was enabled');
+        }));
     });
 
     test('runPublishHandler stops spinners exactly once when the build throws', async function () {
@@ -132,7 +151,9 @@ suite('publish-handler', function () {
 
         try {
             await runPublishHandler({
-                log: () => undefined,
+                log() {
+                    return undefined;
+                },
                 packtory,
                 spinnerRenderer: spinner,
                 configLoader: configLoaderStub(),

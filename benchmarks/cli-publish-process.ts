@@ -25,7 +25,7 @@ export type EventLoopProbeReport = {
         readonly p99: number;
         readonly max: number;
     };
-    readonly sampledBlocks: readonly { readonly atMs: number; readonly gapMs: number }[];
+    readonly sampledBlocks: readonly { readonly atMs: number; readonly gapMs: number; }[];
 };
 
 export type CliPublishMeasurement = FrameRecorderResult & {
@@ -46,7 +46,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
 }
 
-function readNumberField(record: Record<string, unknown>, fieldName: string): number {
+function readNumberField(record: Readonly<Record<string, unknown>>, fieldName: string): number {
     const value = record[fieldName];
     if (typeof value !== 'number') {
         throw new TypeError(`Expected event-loop probe field "${fieldName}" to be a number`);
@@ -74,7 +74,7 @@ function parseSampledBlocks(value: unknown): EventLoopProbeReport['sampledBlocks
         throw new TypeError('Event-loop probe sampledBlocks must be an array');
     }
 
-    return value.map((entry: unknown) => {
+    return value.map(function (entry: unknown) {
         if (!isRecord(entry)) {
             throw new TypeError('Event-loop probe sampled block must be an object');
         }
@@ -140,14 +140,14 @@ function spawnCliPublish(workingDirectory: string, probeOutputPath: string): nod
             cwd: workingDirectory,
             name: 'xterm-color',
             // eslint-disable-next-line node/no-process-env -- the spawned subprocess inherits environment variables and additionally needs the probe output path
-            env: { ...process.env, PACKTORY_BENCH_EVENT_LOOP_PROBE_OUTPUT: probeOutputPath }
+            env: { ...process.env, PACKTORY_BENCH_EVENT_LOOP_PROBE_OUTPUT: probeOutputPath } as const
         }
     );
 }
 
-async function waitForCliExit(pty: nodePty.IPty): Promise<CliExitEvent> {
-    return new Promise<CliExitEvent>((resolve) => {
-        pty.onExit((event) => {
+async function waitForCliExit(pty: Readonly<nodePty.IPty>): Promise<CliExitEvent> {
+    return new Promise<CliExitEvent>(function (resolve) {
+        pty.onExit(function (event) {
             resolve(event);
         });
     });
@@ -159,13 +159,14 @@ function buildFailureError(event: CliExitEvent, outputChunks: readonly string[])
         `CLI benchmark failed with exit code ${event.exitCode},`,
         `signal ${event.signal ?? 'none'}.`,
         outputTail
-    ].join(' ');
+    ]
+        .join(' ');
     return new Error(failureMessage);
 }
 
 type CliRunContext = {
     readonly probeOutputPath: string;
-    readonly outputChunks: string[];
+    readonly outputChunks: readonly string[];
     readonly frameRecorder: FrameRecorder;
     readonly startedAt: number;
     readonly pty: nodePty.IPty;
@@ -178,7 +179,7 @@ function startCliRun(workingDirectory: string, packageNames: readonly string[]):
     const startedAt = currentPerformance.now();
     const pty = spawnCliPublish(workingDirectory, probeOutputPath);
 
-    pty.onData((data) => {
+    pty.onData(function (data) {
         outputChunks.push(data);
         frameRecorder.recordWrite(data);
     });

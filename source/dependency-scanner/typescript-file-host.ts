@@ -7,13 +7,13 @@ import { createNodeModulesManifestSynthesizingHost } from './node-modules-manife
 import { createVirtualPackageJsonHost } from './virtual-package-json-host.ts';
 
 export type FileSystemAdaptersDependencies = {
-    fileSystemHost: FileSystemHost;
+    readonly fileSystemHost: FileSystemHost;
 };
 
 export type FileSystemAdapters = {
-    fileSystemHostWithoutFilter: FileSystemHost;
-    fileSystemHostFilteringDeclarationFiles: FileSystemHost;
-    withVirtualPackageJson: (
+    readonly fileSystemHostWithoutFilter: FileSystemHost;
+    readonly fileSystemHostFilteringDeclarationFiles: FileSystemHost;
+    readonly withVirtualPackageJson: (
         fileSystemHost: FileSystemHost,
         folder: string,
         mainPackageJson: MainPackageJson
@@ -31,14 +31,14 @@ function createDeclarationFilteringHost(fileSystemHost: FileSystemHost): FileSys
 
     const filteringHost: FileSystemHost = {
         ...fileSystemHost,
-        fileExists: async (filePath: string): Promise<boolean> => {
+        async fileExists(filePath: string): Promise<boolean> {
             if (isDeclarationFile(filePath)) {
                 return false;
             }
 
             return fileSystemHost.fileExists(filePath);
         },
-        [syncMethodNames.fileExists]: (filePath: string): boolean => {
+        [syncMethodNames.fileExists](filePath: string): boolean {
             if (isDeclarationFile(filePath)) {
                 return false;
             }
@@ -46,14 +46,14 @@ function createDeclarationFilteringHost(fileSystemHost: FileSystemHost): FileSys
             // eslint-disable-next-line node/no-sync -- the ts-morph host interface requires this synchronous method
             return fileExistsSync(filePath);
         },
-        directoryExists: async (directoryPath: string): Promise<boolean> => {
+        async directoryExists(directoryPath: string): Promise<boolean> {
             if (isTypesRootFolder(directoryPath)) {
                 return false;
             }
 
             return fileSystemHost.directoryExists(directoryPath);
         },
-        [syncMethodNames.directoryExists]: (directoryPath: string): boolean => {
+        [syncMethodNames.directoryExists](directoryPath: string): boolean {
             if (isTypesRootFolder(directoryPath)) {
                 return false;
             }

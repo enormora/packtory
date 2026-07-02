@@ -8,7 +8,7 @@ if (!isSpinnerWorkerInput(workerData)) {
 }
 
 startSpinnerWorker(workerData, {
-    write: (fileDescriptor, chunk) => {
+    write(fileDescriptor, chunk) {
         // eslint-disable-next-line node/no-sync -- the worker holds the only writer to fd 1 and synchronous writes are the simplest way to render
         writeSync(fileDescriptor, chunk);
     },

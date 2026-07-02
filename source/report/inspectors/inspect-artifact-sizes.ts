@@ -21,8 +21,8 @@ type ArtifactDescriptor = FileDescription & {
 };
 
 export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): readonly ArtifactEntry[] {
-    return contents.map((entry) => {
-        const sourcePath = 'sourceFilePath' in entry ? entry.sourceFilePath : undefined;
+    return contents.map(function (entry) {
+        const sourcePath = Object.hasOwn(entry, 'sourceFilePath') ? entry.sourceFilePath : undefined;
         const rewritten = entry.isSubstituted === true;
         let status: ArtifactEntry['status'] = 'unchanged';
         if (sourcePath === undefined) {
@@ -30,23 +30,13 @@ export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): r
         } else if (rewritten) {
             status = 'changed';
         }
-        const artifactEntry: {
-            path: string;
-            sizeBytes: number;
-            kind: ArtifactEntry['kind'];
-            status: ArtifactEntry['status'];
-            badges: ArtifactEntry['badges'];
-            sourcePath?: string;
-        } = {
+        return {
             path: entry.filePath,
             sizeBytes: Buffer.byteLength(entry.content),
             kind: inferArtifactKind(entry.filePath),
             status,
-            badges: rewritten ? ['import-path-rewrite'] : []
+            badges: rewritten ? [ 'import-path-rewrite' ] : [],
+            ...sourcePath !== undefined && { sourcePath }
         };
-        if (sourcePath !== undefined) {
-            artifactEntry.sourcePath = sourcePath;
-        }
-        return artifactEntry;
     });
 }

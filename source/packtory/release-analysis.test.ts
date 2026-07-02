@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { Maybe } from 'true-myth';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import { createBuildResultFixture } from '../test-libraries/preview-fixtures.ts';
+import type { BuildAndPublishResult } from './package-processor.ts';
 import { classifyPackageRelease, summarizeReleaseAnalysis } from './release-analysis.ts';
 
 function file(filePath: string, content: string): FileDescription {
@@ -22,7 +23,7 @@ const dependencyOnlyPackageJsonFields = [
 function buildResultWithPublishedFiles(
     previousFiles: readonly FileDescription[],
     status: 'already-published' | 'new-version' = 'new-version'
-) {
+): BuildAndPublishResult {
     return createBuildResultFixture({
         status,
         packageName: 'pkg-a',
@@ -43,7 +44,7 @@ function assertSubstantiveClassification(
     assert.strictEqual(result.classification, 'substantive');
 }
 
-suite('release-analysis', function () {
+function registerDependencyOnlyClassificationTests(): void {
     for (const packageJsonField of dependencyOnlyPackageJsonFields) {
         test(`classifyPackageRelease ignores ${packageJsonField} changes as the only published delta`, function () {
             const buildResult = buildResultWithPublishedFiles([
@@ -104,47 +105,59 @@ suite('release-analysis', function () {
 
         assert.strictEqual(result.classification, 'dependency-only');
     });
+}
 
+function registerSubstantiveInputTests(): void {
     test('classifyPackageRelease rejects non-dependency package.json field changes as substantive', function () {
         assertSubstantiveClassification(
-            [file('package.json', '{"name":"pkg-a","version":"1.0.0","exports":"./index.js"}')],
-            [file('package.json', '{"name":"pkg-a","version":"1.0.1","exports":"./dist/index.js"}')]
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.0","exports":"./index.js"}') ],
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.1","exports":"./dist/index.js"}') ]
         );
     });
 
     test('classifyPackageRelease treats invalid package.json contents as substantive', function () {
         assertSubstantiveClassification(
-            [file('package.json', 'not-json')],
-            [file('package.json', '{"name":"pkg-a","version":"1.0.1"}')]
+            [ file('package.json', 'not-json') ],
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.1"}') ]
         );
     });
 
     test('classifyPackageRelease treats invalid new package.json contents as substantive', function () {
         assertSubstantiveClassification(
-            [file('package.json', '{"name":"pkg-a","version":"1.0.0"}')],
-            [file('package.json', 'not-json')]
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
+            [ file('package.json', 'not-json') ]
         );
     });
 
     test('classifyPackageRelease treats invalid published package.json contents as substantive when the new package.json is null', function () {
-        assertSubstantiveClassification([file('package.json', 'not-json')], [file('package.json', 'null')]);
+        assertSubstantiveClassification([ file('package.json', 'not-json') ], [ file('package.json', 'null') ]);
     });
 
     test('classifyPackageRelease treats invalid new package.json contents as substantive when the published package.json is null', function () {
-        assertSubstantiveClassification([file('package.json', 'null')], [file('package.json', 'not-json')]);
+        assertSubstantiveClassification([ file('package.json', 'null') ], [ file('package.json', 'not-json') ]);
     });
 
     test('classifyPackageRelease treats pairs of invalid package.json contents as substantive', function () {
-        assertSubstantiveClassification([file('package.json', 'not-json')], [file('package.json', 'still-not-json')]);
+        assertSubstantiveClassification([ file('package.json', 'not-json') ], [
+            file('package.json', 'still-not-json')
+        ]);
     });
 
     test('classifyPackageRelease rejects non-package.json file changes as substantive', function () {
         assertSubstantiveClassification(
-            [file('package.json', '{"name":"pkg-a","version":"1.0.0"}'), file('index.js', 'export const value = 1;\n')],
-            [file('package.json', '{"name":"pkg-a","version":"1.0.1"}'), file('index.js', 'export const value = 2;\n')]
+            [
+                file('package.json', '{"name":"pkg-a","version":"1.0.0"}'),
+                file('index.js', 'export const value = 1;\n')
+            ],
+            [
+                file('package.json', '{"name":"pkg-a","version":"1.0.1"}'),
+                file('index.js', 'export const value = 2;\n')
+            ]
         );
     });
+}
 
+function registerArtifactClassificationTests(): void {
     test('classifyPackageRelease treats SBOM-only diffs alongside dependency-only package.json changes as dependency-only', function () {
         const buildResult = buildResultWithPublishedFiles([
             file('package.json', '{"name":"pkg-a","version":"1.0.0","dependencies":{"a":"1.0.0"}}'),
@@ -205,21 +218,24 @@ suite('release-analysis', function () {
 
     test('classifyPackageRelease treats packages without package.json in the published artifacts as substantive', function () {
         assertSubstantiveClassification(
-            [file('index.js', 'export const value = 1;\n')],
-            [file('index.js', 'export const value = 1;\n')]
+            [ file('index.js', 'export const value = 1;\n') ],
+            [ file('index.js', 'export const value = 1;\n') ]
         );
     });
 
     test('classifyPackageRelease treats differing file counts as substantive', function () {
         assertSubstantiveClassification(
-            [file('package.json', '{"name":"pkg-a","version":"1.0.0"}')],
-            [file('package.json', '{"name":"pkg-a","version":"1.0.1"}'), file('index.js', 'export const value = 1;\n')]
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
+            [
+                file('package.json', '{"name":"pkg-a","version":"1.0.1"}'),
+                file('index.js', 'export const value = 1;\n')
+            ]
         );
     });
 
     test('classifyPackageRelease treats duplicate published file paths as substantive when file counts differ', function () {
         assertSubstantiveClassification(
-            [file('package.json', '{"name":"pkg-a","version":"1.0.0"}')],
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
             [
                 file('package.json', '{"name":"pkg-a","version":"1.0.1"}'),
                 file('package.json', '{"name":"pkg-a","version":"1.0.1"}')
@@ -229,14 +245,14 @@ suite('release-analysis', function () {
 
     test('classifyPackageRelease treats changed file paths as substantive', function () {
         assertSubstantiveClassification(
-            [file('package.json', '{"name":"pkg-a","version":"1.0.0"}')],
-            [file('manifest.json', '{"name":"pkg-a","version":"1.0.1"}')]
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
+            [ file('manifest.json', '{"name":"pkg-a","version":"1.0.1"}') ]
         );
     });
 
     test('classifyPackageRelease marks already-published build results as unchanged', function () {
         const buildResult = buildResultWithPublishedFiles(
-            [file('package.json', '{"name":"pkg-a","version":"1.0.0"}')],
+            [ file('package.json', '{"name":"pkg-a","version":"1.0.0"}') ],
             'already-published'
         );
 
@@ -254,7 +270,9 @@ suite('release-analysis', function () {
 
         assert.strictEqual(result.classification, 'first-publish');
     });
+}
 
+function registerReleaseSummaryTests(): void {
     test('summarizeReleaseAnalysis uses the most conservative changed classification and latest publish time', function () {
         const result = summarizeReleaseAnalysis([
             {
@@ -389,4 +407,11 @@ suite('release-analysis', function () {
 
         assert.strictEqual(result.mostRecentPublishedAt, firstPublishedAt);
     });
+}
+
+suite('release-analysis', function () {
+    registerDependencyOnlyClassificationTests();
+    registerSubstantiveInputTests();
+    registerArtifactClassificationTests();
+    registerReleaseSummaryTests();
 });

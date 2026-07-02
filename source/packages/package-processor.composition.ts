@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { execFile } from 'node:child_process';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
@@ -26,9 +25,14 @@ import { withStageTimings } from '../report/decorators.ts';
 import { createResourceResolver, type ResourceResolver } from '../resource-resolver/resource-resolver.ts';
 import { createTarballBuilder } from '../tar/tarball-builder.ts';
 import { createZipBuilder } from '../zip/zip-builder.ts';
-import { createVersionManager } from '../version-manager/manager.ts';
+import { createVersionManager, type VersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
 import { createCurrentGitHeadReader, type CurrentGitHeadReader } from '../git/current-git-head.ts';
+import {
+    createChildProcessGitCommandExecutor,
+    createGitCommandRunner,
+    spawnChildProcessGitCommand
+} from '../git/git-command.ts';
 import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
 import { createLicenseResolver } from '../sbom/license-resolver.ts';
 import { createSbomFileBuilder, type SbomFileBuilder } from '../sbom/sbom-file.ts';
@@ -39,31 +43,13 @@ async function importPackageJson(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
 }
 
-async function runGitCommand(
-    command: string,
-    args: readonly string[]
-): Promise<{
-    readonly stdout: string;
-    readonly stderr: string;
-}> {
-    return new Promise((resolve, reject) => {
-        execFile(command, Array.from(args), (error, stdout, stderr) => {
-            if (error !== null) {
-                reject(error instanceof Error ? error : new Error('Git command failed'));
-                return;
-            }
-            resolve({ stdout, stderr });
-        });
-    });
-}
-
 export type PackageProcessorComposition = {
     readonly fileManager: FileManager;
     readonly packageProcessor: PackageProcessor;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly artifactsBuilder: ArtifactsBuilder;
-    readonly versionManager: ReturnType<typeof createVersionManager>;
+    readonly versionManager: VersionManager;
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;
     readonly readCurrentGitHead: CurrentGitHeadReader;
@@ -97,10 +83,10 @@ function buildRegistryClient(options: PackageProcessorCompositionOptions, clock:
     return createRegistryClient({
         npmFetch,
         publish,
-        fetch: globalThis.fetch,
+        fetch,
         clock,
         resolveIdToken: createNpmOidcIdTokenResolver({
-            fetch: globalThis.fetch,
+            fetch,
             getEnvironmentVariable
         }),
         promptForOneTimePassword: options.promptForOneTimePassword
@@ -133,7 +119,7 @@ function buildBundleEmitter(
 function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): DeadCodeEliminator {
     return createDeadCodeEliminator({
         progressBroadcaster: progressBroadcaster.provider,
-        createProject: () => {
+        createProject() {
             return new Project({
                 compilerOptions: {
                     allowJs: true,
@@ -165,6 +151,7 @@ type CompositionParts = {
 function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {
     const repositoryFolder = options.repositoryFolder ?? process.cwd();
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
+    const runGitCommand = createGitCommandRunner(createChildProcessGitCommandExecutor(spawnChildProcessGitCommand));
     const readCurrentGitHead = createCurrentGitHeadReader({
         repositoryFolder,
         runGitCommand

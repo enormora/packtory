@@ -30,12 +30,12 @@ suite('load-bundle', function () {
             surface: {
                 mode: 'explicit',
                 packageInterface: {
-                    modules: [{ root: 'missing', export: '.' }]
+                    modules: [ { root: 'missing', export: '.' } ]
                 }
             }
         });
 
-        assert.throws(() => {
+        assert.throws(function () {
             loadBundle(createProject, { bundle, transformationsEnabled: true });
         }, /^Error: Bundle "package-a" is missing root "missing" referenced by its entry surface$/u);
     });

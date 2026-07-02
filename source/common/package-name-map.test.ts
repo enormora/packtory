@@ -9,7 +9,7 @@ suite('package-name-map', function () {
             { name: 'beta', version: '2.0.0' }
         ]);
 
-        assert.deepStrictEqual(Array.from(indexed.keys()), ['alpha', 'beta']);
+        assert.deepStrictEqual(Array.from(indexed.keys()), [ 'alpha', 'beta' ]);
         assert.deepStrictEqual(indexed.get('beta'), { name: 'beta', version: '2.0.0' });
     });
 });

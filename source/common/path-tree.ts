@@ -51,88 +51,118 @@ export type PathTreeFileNode<T> = {
 export type PathTreeNode<T> = PathTreeDirectoryNode | PathTreeFileNode<T>;
 
 type MutableDirectory<T> = {
+    readonly entries: readonly PathEntry<T>[];
     readonly name: string;
+};
+
+type PathEntry<T> = {
+    readonly item: T;
     readonly path: string;
-    readonly depth: number;
-    readonly directories: Map<string, MutableDirectory<T>>;
-    readonly files: T[];
+    readonly parts: readonly [string, ...readonly string[]];
 };
 
-type RootDirectory<T> = {
-    readonly path: string;
-    readonly depth: number;
-    readonly directories: Map<string, MutableDirectory<T>>;
-    readonly files: T[];
+type DirectoryChild<T> = {
+    readonly node: PathTreeDirectoryNode;
+    readonly directory: MutableDirectory<T>;
 };
 
-type TreeChild<T> = {
-    readonly node: PathTreeNode<T>;
-    readonly directory?: MutableDirectory<T>;
+type FileChild<T> = {
+    readonly node: PathTreeFileNode<T>;
 };
 
-function createDirectory<T>(pathname: string, name: string, depth: number): MutableDirectory<T> {
-    return { name, path: pathname, depth, directories: new Map(), files: [] };
+type TreeChild<T> = DirectoryChild<T> | FileChild<T>;
+
+function isDirectoryChild<T>(child: TreeChild<T>): child is DirectoryChild<T> {
+    return child.node.type === pathTreeNodeType.directory;
 }
 
-function insertItem<T>(root: RootDirectory<T>, item: T, itemPath: string): void {
-    const parts = itemPath.split('/');
-    let current: MutableDirectory<T> | RootDirectory<T> = root;
-    for (const part of parts.slice(0, -1)) {
-        const nextPath = path.posix.join(current.path, part);
-        const next: MutableDirectory<T> =
-            current.directories.get(part) ?? createDirectory(nextPath, part, current.depth + 1);
-        current.directories.set(part, next);
-        current = next;
+function toPathEntries<T>(items: readonly T[], getPath: (item: T) => string): readonly PathEntry<T>[] {
+    return items.map(function (item) {
+        const itemPath = getPath(item);
+        const pathParts = itemPath.split('/');
+        return { item, path: itemPath, parts: [ pathParts.at(0) ?? itemPath, ...pathParts.slice(1) ] };
+    });
+}
+
+function toNestedDirectoryEntry<T>(entry: PathEntry<T>): readonly [string, PathEntry<T>] | undefined {
+    const [ name, nextPart, ...remainingParts ] = entry.parts;
+    if (nextPart === undefined) {
+        return undefined;
     }
-    current.files.push(item);
+    return [ name, { ...entry, parts: [ nextPart, ...remainingParts ] } ];
 }
 
-function toDirectoryChildren<T>(directory: RootDirectory<T>): readonly TreeChild<T>[] {
-    return Array.from(directory.directories.values(), (entry) => {
+function toDirectoryGroups<T>(entries: readonly PathEntry<T>[]): readonly MutableDirectory<T>[] {
+    const groups = new Map<string, PathEntry<T>[]>();
+
+    for (const entry of entries) {
+        const nestedEntry = toNestedDirectoryEntry(entry);
+        if (nestedEntry !== undefined) {
+            const [ name, groupedEntry ] = nestedEntry;
+            const groupedEntries = groups.get(name) ?? [];
+            groupedEntries.push(groupedEntry);
+            groups.set(name, groupedEntries);
+        }
+    }
+
+    return Array.from(groups, function ([ name, groupedEntries ]) {
+        return { name, entries: groupedEntries };
+    });
+}
+
+function toDirectoryChildren<T>(
+    entries: readonly PathEntry<T>[],
+    directoryPath: string,
+    depth: number
+): readonly TreeChild<T>[] {
+    return toDirectoryGroups(entries).map(function (entry) {
         const node: PathTreeDirectoryNode = {
             type: pathTreeNodeType.directory,
-            path: entry.path,
+            path: path.posix.join(directoryPath, entry.name),
             name: entry.name,
-            depth: entry.depth
+            depth: depth + 1
         };
         return { node, directory: entry };
     });
 }
 
-function toFileChildren<T>(directory: RootDirectory<T>, getPath: (item: T) => string): readonly TreeChild<T>[] {
-    return directory.files.map((item) => {
-        const itemPath = getPath(item);
+function toFileChildren<T>(entries: readonly PathEntry<T>[], depth: number): readonly TreeChild<T>[] {
+    return entries.flatMap(function (entry) {
+        if (entry.parts.length !== 1) {
+            return [];
+        }
         const node: PathTreeFileNode<T> = {
             type: pathTreeNodeType.file,
-            path: itemPath,
-            name: path.posix.basename(itemPath),
-            depth: directory.depth,
-            item
+            path: entry.path,
+            name: path.posix.basename(entry.path),
+            depth,
+            item: entry.item
         };
-        return { node };
+        return [ { node } ];
     });
 }
 
-function flattenTree<T>(directory: RootDirectory<T>, getPath: (item: T) => string): readonly PathTreeNode<T>[] {
+function flattenTree<T>(
+    entries: readonly PathEntry<T>[],
+    directoryPath: string,
+    depth: number
+): readonly PathTreeNode<T>[] {
     const nodes: PathTreeNode<T>[] = [];
-    const children = [...toDirectoryChildren(directory), ...toFileChildren(directory, getPath)].toSorted(
-        (left, right) => {
-            return comparePathNodes(left.node, right.node);
-        }
-    );
+    const children = [ ...toDirectoryChildren(entries, directoryPath, depth), ...toFileChildren(entries, depth) ]
+        .toSorted(
+            function (left, right) {
+                return comparePathNodes(left.node, right.node);
+            }
+        );
     for (const child of children) {
         nodes.push(child.node);
-        if (child.directory !== undefined) {
-            nodes.push(...flattenTree(child.directory, getPath));
+        if (isDirectoryChild(child)) {
+            nodes.push(...flattenTree(child.directory.entries, child.node.path, child.node.depth));
         }
     }
     return nodes;
 }
 
 export function buildPathTree<T>(items: readonly T[], getPath: (item: T) => string): readonly PathTreeNode<T>[] {
-    const root: RootDirectory<T> = { path: '', depth: 0, directories: new Map(), files: [] };
-    for (const item of items) {
-        insertItem(root, item, getPath(item));
-    }
-    return flattenTree(root, getPath);
+    return flattenTree(toPathEntries(items, getPath), '', 0);
 }

@@ -5,21 +5,34 @@ import type { DependencyScanner } from '../dependency-scanner/scanner.ts';
 import type { ResourceResolveOptions } from './resource-resolve-options.ts';
 import { resolveDependenciesForAllRoots } from './dependency-resolution-walker.ts';
 
-function emptyGraph() {
+type ScanCall = {
+    readonly entry: string;
+    readonly resolveDeclarationFiles: boolean;
+};
+
+type TrackingScanner = {
+    readonly scanner: DependencyScanner;
+    readonly calls: readonly ScanCall[];
+};
+
+type ScanOptions = {
+    readonly resolveDeclarationFiles: boolean;
+};
+
+function emptyGraph(): never {
     return {
-        flatten: () => ({ externalDependencies: new Map(), localFiles: [] })
+        flatten() {
+            return { externalDependencies: new Map(), localFiles: [] };
+        }
     } as never;
 }
 
-function trackingScanner(): {
-    readonly scanner: DependencyScanner;
-    readonly calls: { readonly entry: string; readonly resolveDeclarationFiles: boolean }[];
-} {
-    const calls: { readonly entry: string; readonly resolveDeclarationFiles: boolean }[] = [];
+function trackingScanner(): TrackingScanner {
+    const calls: ScanCall[] = [];
     return {
         calls,
         scanner: {
-            async scan(entry: string, _sourcesFolder: string, options: { readonly resolveDeclarationFiles: boolean }) {
+            async scan(entry: string, _sourcesFolder: string, options: ScanOptions) {
                 calls.push({ entry, resolveDeclarationFiles: options.resolveDeclarationFiles });
                 return emptyGraph();
             }
@@ -51,7 +64,16 @@ suite('dependency-resolution-walker', function () {
             })
         );
 
-        assert.deepStrictEqual(calls.map((call) => call.entry).toSorted(), ['/src/index.js', '/src/other.js']);
+        assert.deepStrictEqual(
+            calls
+                .map(function (call) {
+                    return call.entry;
+                })
+                .toSorted(function (left, right) {
+                    return left.localeCompare(right);
+                }),
+            [ '/src/index.js', '/src/other.js' ]
+        );
     });
 
     test('resolveDependenciesForAllRoots also scans the declaration entry with resolveDeclarationFiles=true when present', async function () {

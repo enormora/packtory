@@ -25,13 +25,13 @@ const transformRecord: TransformRecord = {
 
 suite('source-map-recomposition', function () {
     test('buildMapPathTransformIndex maps each transform to the matching .map file path', function () {
-        const index = buildMapPathTransformIndex([resourceOutput('a.js', [transformRecord])]);
+        const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ transformRecord ]) ]);
 
         assert.strictEqual(index.get('a.js.map'), transformRecord);
     });
 
     test('buildMapPathTransformIndex omits entries for resources without transforms', function () {
-        const index = buildMapPathTransformIndex([resourceOutput('a.js', [])]);
+        const index = buildMapPathTransformIndex([ resourceOutput('a.js', []) ]);
 
         assert.strictEqual(index.size, 0);
     });
@@ -39,17 +39,17 @@ suite('source-map-recomposition', function () {
     test('recomposePairedSourceMaps leaves unrelated resources unchanged when no transform matches', function () {
         const resource = mapResource('a.js.map', 'original-map');
 
-        assert.deepStrictEqual(recomposePairedSourceMaps([resource], new Map()), [resource]);
+        assert.deepStrictEqual(recomposePairedSourceMaps([ resource ], new Map()), [ resource ]);
     });
 
     test('recomposePairedSourceMaps replaces the content for a resource whose map path has a transform', function () {
         const resource = mapResource(
             'a.js.map',
-            JSON.stringify({ version: 3, file: 'a.js', sources: ['/src/x.ts'], sourcesContent: [], mappings: '' })
+            JSON.stringify({ version: 3, file: 'a.js', sources: [ '/src/x.ts' ], sourcesContent: [], mappings: '' })
         );
-        const index = new Map([['a.js.map', transformRecord]]);
+        const index = new Map([ [ 'a.js.map', transformRecord ] ]);
 
-        const recomposed = recomposePairedSourceMaps([resource], index);
+        const recomposed = recomposePairedSourceMaps([ resource ], index);
 
         assert.strictEqual(recomposed.length, 1);
         assert.notStrictEqual(recomposed[0]?.fileDescription.content, resource.fileDescription.content);

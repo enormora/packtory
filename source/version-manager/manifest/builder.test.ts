@@ -1,14 +1,14 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { VersionedBundle } from '../versioned-bundle.ts';
-import { standardVersionedBundle } from '../../test-libraries/bundle-fixtures.ts';
+import { standardVersionedBundle, type VersionedBundleOverrides } from '../../test-libraries/bundle-fixtures.ts';
 import { buildPackageManifest } from './builder.ts';
 
-function createBundle(overrides: Parameters<typeof standardVersionedBundle>[0] = {}): VersionedBundle {
+function createBundle(overrides: VersionedBundleOverrides = {}): VersionedBundle {
     return standardVersionedBundle(overrides);
 }
 
-suite('builder', function () {
+function registerManifestFieldTests(): void {
     test('buildPackageManifest() omits optional fields when they are empty or undefined', function () {
         const result = buildPackageManifest(createBundle());
 
@@ -60,7 +60,7 @@ suite('builder', function () {
             createBundle({
                 importsField: {
                     '#foo': './src/foo.js',
-                    '#bar/*': { default: ['./src/bar/*.js', './fallback/*.js'] }
+                    '#bar/*': { default: [ './src/bar/*.js', './fallback/*.js' ] }
                 }
             })
         );
@@ -70,7 +70,7 @@ suite('builder', function () {
             version: '1.2.3',
             imports: {
                 '#foo': './src/foo.js',
-                '#bar/*': { default: ['./src/bar/*.js', './fallback/*.js'] }
+                '#bar/*': { default: [ './src/bar/*.js', './fallback/*.js' ] }
             },
             exports: {
                 '.': {
@@ -171,11 +171,13 @@ suite('builder', function () {
             customField: true
         });
     });
+}
 
+function registerSideEffectsTests(): void {
     test('buildPackageManifest() omits sideEffects when the bundle has no auto-detected value', function () {
         const result = buildPackageManifest(createBundle());
 
-        assert.strictEqual('sideEffects' in result, false);
+        assert.strictEqual(Object.hasOwn(result, 'sideEffects'), false);
     });
 
     test('buildPackageManifest() emits "sideEffects": false when the auto-detected value is false', function () {
@@ -185,9 +187,11 @@ suite('builder', function () {
     });
 
     test('buildPackageManifest() emits the auto-detected file list as "sideEffects"', function () {
-        const result = buildPackageManifest(createBundle({ sideEffectsField: ['./impure.js'] }));
+        const sideEffectsField = [ './impure.js' ];
+        const result = buildPackageManifest(createBundle({ sideEffectsField }));
 
-        assert.deepStrictEqual(result.sideEffects, ['./impure.js']);
+        assert.deepStrictEqual(result.sideEffects, [ './impure.js' ]);
+        assert.notStrictEqual(result.sideEffects, sideEffectsField);
     });
 
     test('buildPackageManifest() prefers a user-provided sideEffects value in additionalAttributes over the auto-detected one', function () {
@@ -204,11 +208,16 @@ suite('builder', function () {
     test('buildPackageManifest() preserves a user-provided sideEffects array even when auto-detection would emit different values', function () {
         const result = buildPackageManifest(
             createBundle({
-                additionalAttributes: { sideEffects: ['./vendor/setup.js'] },
-                sideEffectsField: ['./other.js']
+                additionalAttributes: { sideEffects: [ './vendor/setup.js' ] },
+                sideEffectsField: [ './other.js' ]
             })
         );
 
-        assert.deepStrictEqual(result.sideEffects, ['./vendor/setup.js']);
+        assert.deepStrictEqual(result.sideEffects, [ './vendor/setup.js' ]);
     });
+}
+
+suite('builder', function () {
+    registerManifestFieldTests();
+    registerSideEffectsTests();
 });

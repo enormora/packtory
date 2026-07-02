@@ -22,13 +22,8 @@ export type BindingDescriptor = {
     readonly referenceNode: TsMorphNode;
 };
 
-type NamedDeclarationStatement =
-    | ClassDeclaration
-    | EnumDeclaration
-    | FunctionDeclaration
-    | InterfaceDeclaration
-    | ModuleDeclaration
-    | TypeAliasDeclaration;
+type ObjectDeclarationStatement = ClassDeclaration | InterfaceDeclaration | TypeAliasDeclaration;
+type NamedDeclarationStatement = EnumDeclaration | FunctionDeclaration | ModuleDeclaration | ObjectDeclarationStatement;
 
 function isNamedDeclaration(statement: Statement): statement is NamedDeclarationStatement {
     return (
@@ -47,13 +42,13 @@ function bindingsFromNamedDeclaration(statement: NamedDeclarationStatement): rea
         return [];
     }
     const isExported = statement.isExported() || statement.isDefaultExport();
-    return [{ name, isExported, statement, declarationNode: statement, referenceNode: statement }];
+    return [ { name, isExported, statement, declarationNode: statement, referenceNode: statement } ];
 }
 
 function bindingsFromVariableStatement(statement: VariableStatement): readonly BindingDescriptor[] {
     const isExported = statement.isExported();
-    return statement.getDeclarations().flatMap((declarator) => {
-        return collectVariableDeclarationBindings(declarator).map((binding) => {
+    return statement.getDeclarations().flatMap(function (declarator) {
+        return collectVariableDeclarationBindings(declarator).map(function (binding) {
             return {
                 name: binding.name,
                 isExported,

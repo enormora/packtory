@@ -10,18 +10,26 @@ const fileDescriptionArbitrary = fc.record<FileDescription>({
     isExecutable: fc.boolean()
 });
 
+function firstFileDescription(fileDescriptions: readonly FileDescription[]): FileDescription {
+    const first = fileDescriptions[0];
+    if (first === undefined) {
+        throw new Error('Expected at least one generated file description');
+    }
+    return first;
+}
+
 suite('compare', function () {
     test('compareFileDescriptions() is order-insensitive for equivalent file sets', function () {
         fc.assert(
             fc.property(
                 fc.uniqueArray(fileDescriptionArbitrary, {
-                    selector: (fileDescription) => {
+                    selector(fileDescription) {
                         return fileDescription.filePath;
                     },
                     maxLength: 20
                 }),
-                (fileDescriptions) => {
-                    const permutation = Array.from(fileDescriptions).reverse();
+                function (fileDescriptions) {
+                    const permutation = fileDescriptions.toReversed();
 
                     assert.deepStrictEqual(compareFileDescriptions(fileDescriptions, permutation), { status: 'equal' });
                 }
@@ -34,9 +42,9 @@ suite('compare', function () {
             fc.property(
                 fc.array(fileDescriptionArbitrary, { minLength: 1, maxLength: 20 }),
                 fc.string(),
-                (fileDescriptions, suffix) => {
+                function (fileDescriptions, suffix) {
                     const modified = Array.from(fileDescriptions);
-                    const first = modified[0]!;
+                    const first = firstFileDescription(modified);
                     modified[0] = {
                         ...first,
                         content: `${first.content}${suffix}x`

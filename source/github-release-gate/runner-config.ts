@@ -20,6 +20,12 @@ export type GitHubRepositoryContext = {
     readonly token: string;
 };
 
+type EnvironmentVariableReader = (variableName: string) => string | undefined;
+type RepositoryParts = {
+    readonly owner: string;
+    readonly repo: string;
+};
+
 const defaultDependencyOnlyMinAgeDays = 7;
 const defaultMaxLatencyHours = 24;
 const defaultQuietPeriodMinutes = 45;
@@ -41,7 +47,7 @@ function parseInteger(value: string | undefined, fallbackValue: number): number 
 }
 
 function getRequiredEnvironmentVariable(
-    getEnvironmentVariable: (variableName: string) => string | undefined,
+    getEnvironmentVariable: EnvironmentVariableReader,
     variableName: string
 ): string {
     const value = getEnvironmentVariable(variableName);
@@ -54,7 +60,7 @@ function getRequiredEnvironmentVariable(
 }
 
 export function readGitHubReleaseGateRunnerConfig(
-    getEnvironmentVariable: (variableName: string) => string | undefined
+    getEnvironmentVariable: EnvironmentVariableReader
 ): Readonly<GitHubReleaseGateRunnerConfig> {
     return {
         ciWorkflowFile: getEnvironmentVariable('CI_WORKFLOW_FILE') ?? defaultCiWorkflowFile(),
@@ -74,7 +80,7 @@ export function readGitHubReleaseGateRunnerConfig(
     };
 }
 
-function splitRepository(repository: string): { readonly owner: string; readonly repo: string } {
+function splitRepository(repository: string): RepositoryParts {
     const firstSlashIndex = repository.indexOf('/');
 
     if (

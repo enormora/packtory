@@ -1,115 +1,36 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
-    createVendorMaterializer,
-    type VendorMaterializer,
-    type VendorMaterializerFailure
-} from './vendor-materializer.ts';
+    expectOk,
+    runExpectingFailure,
+    runWith,
+    setupFileManager,
+    targetRelativePaths,
+    type FakeSetup,
+    type StringResponse
+} from '../test-libraries/vendor-materializer-test-support.ts';
+import { createVendorMaterializer, type VendorMaterializerFailure } from './vendor-materializer.ts';
 
-type ReadabilityResponse = { readonly value: { readonly isReadable: boolean } };
-type StringResponse = { readonly error: Error } | { readonly value: string };
-type DirectoryEntriesResponse = {
-    readonly value: readonly {
-        readonly name: string;
-        readonly isDirectory: boolean;
-        readonly isSymbolicLink: boolean;
-    }[];
+type SinglePackageSymlinkScenario = {
+    readonly initialName: string;
+    readonly packageRealPath: string;
+    readonly listings: FakeSetup['listings'];
+    readonly targetRealPath: StringResponse;
 };
 
-type FakeSetup = {
-    readonly readabilities: readonly ReadabilityResponse[];
-    readonly realPaths: readonly StringResponse[];
-    readonly listings: readonly DirectoryEntriesResponse[];
-    readonly fileReads: readonly StringResponse[];
-};
-
-function setupFileManager(setup: FakeSetup): ReturnType<typeof createFakeFileManager> {
-    return createFakeFileManager({
-        simulatedCheckReadabilityResponses: setup.readabilities,
-        simulatedRealPathResponses: setup.realPaths,
-        simulatedListDirectoryResponses: setup.listings,
-        simulatedReadFileResponses: setup.fileReads
-    });
-}
-
-type MaterializedSnapshot = {
-    readonly entries: readonly {
-        readonly targetRelativePath: string;
-        readonly sourceAbsolutePath: string;
-        readonly sourcePackageRootPath: string;
-        readonly isExecutable: boolean;
-    }[];
-    readonly packageNames: readonly string[];
-    readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
-};
-
-function expectOk(result: Awaited<ReturnType<VendorMaterializer['materializeExternals']>>): MaterializedSnapshot {
-    if (result.isErr) {
-        assert.fail(`expected materializeExternals to succeed but it returned ${JSON.stringify(result.error)}`);
-    }
-    return result.value;
-}
-
-function expectErr(result: Awaited<ReturnType<VendorMaterializer['materializeExternals']>>): VendorMaterializerFailure {
-    if (result.isOk) {
-        assert.fail('expected materializeExternals to fail but it returned Ok');
-    }
-    return result.error;
-}
-
-async function runWith(
-    setup: FakeSetup,
-    request: { readonly initialDependencyNames: readonly string[]; readonly projectFolder: string }
-): Promise<MaterializedSnapshot> {
-    const fileManager = setupFileManager(setup);
-    const materializer = createVendorMaterializer({ fileManager });
-    return expectOk(await materializer.materializeExternals(request));
-}
-
-async function runExpectingFailure(
-    setup: FakeSetup,
-    request: { readonly initialDependencyNames: readonly string[]; readonly projectFolder: string }
-): Promise<VendorMaterializerFailure> {
-    const fileManager = setupFileManager(setup);
-    const materializer = createVendorMaterializer({ fileManager });
-    return expectErr(await materializer.materializeExternals(request));
-}
-
-async function expectInvalidVendoredDependencyFailure(
-    dependencies: Readonly<Record<string, string>>,
-    invalidDependencyName: string
-): Promise<void> {
-    const failure = await runExpectingFailure(
-        {
-            readabilities: [{ value: { isReadable: true } }],
-            realPaths: [{ value: '/repo/node_modules/pkg' }],
-            listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
-            fileReads: [{ value: JSON.stringify({ dependencies }) }]
-        },
-        { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
-    );
-
-    assert.deepStrictEqual(failure, {
-        type: 'invalid-dependency-name',
-        sourcePackageName: 'pkg',
-        invalidDependencyName
-    });
-}
-
-suite('vendor-materializer', function () {
+function registerMaterializationTests(): void {
     test('treats a package.json with malformed dependency maps as having no transitive dependencies and no peer requirements', async function () {
         const result = await runWith(
             {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/broken' }],
-                listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
-                fileReads: [{ value: JSON.stringify({ dependencies: 'this should be an object' }) }]
+                readabilities: [ { value: { isReadable: true } } ],
+                realPaths: [ { value: '/repo/node_modules/broken' } ],
+                listings: [ { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] } ],
+                fileReads: [ { value: JSON.stringify({ dependencies: 'this should be an object' }) } ]
             },
-            { initialDependencyNames: ['broken'], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'broken' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(result.packageNames, ['broken']);
+        assert.deepStrictEqual(result.packageNames, [ 'broken' ]);
         assert.deepStrictEqual(result.entries, [
             {
                 sourceAbsolutePath: '/repo/node_modules/broken/index.js',
@@ -118,7 +39,7 @@ suite('vendor-materializer', function () {
                 isExecutable: false
             }
         ]);
-        assert.deepStrictEqual(Array.from(result.peerRequirements.entries()), [['broken', []]]);
+        assert.deepStrictEqual(Array.from(result.peerRequirements), [ [ 'broken', [] ] ]);
     });
 
     test('returns an empty result when no initial dependencies are requested', async function () {
@@ -138,8 +59,8 @@ suite('vendor-materializer', function () {
 
     test('collects files for a single dependency by probing the start folder first and reads its package.json by exact name', async function () {
         const fileManager = setupFileManager({
-            readabilities: [{ value: { isReadable: true } }],
-            realPaths: [{ value: '/repo/node_modules/leaf' }],
+            readabilities: [ { value: { isReadable: true } } ],
+            realPaths: [ { value: '/repo/node_modules/leaf' } ],
             listings: [
                 {
                     value: [
@@ -148,18 +69,18 @@ suite('vendor-materializer', function () {
                     ]
                 }
             ],
-            fileReads: [{ value: '{}' }]
+            fileReads: [ { value: '{}' } ]
         });
         const materializer = createVendorMaterializer({ fileManager });
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: ['leaf'],
+                initialDependencyNames: [ 'leaf' ],
                 projectFolder: '/repo'
             })
         );
 
-        assert.deepStrictEqual(result.packageNames, ['leaf']);
+        assert.deepStrictEqual(result.packageNames, [ 'leaf' ]);
         assert.deepStrictEqual(result.entries, [
             {
                 sourceAbsolutePath: '/repo/node_modules/leaf/index.js',
@@ -193,9 +114,9 @@ suite('vendor-materializer', function () {
                 { value: '/repo/node_modules/peer' }
             ],
             listings: [
-                { value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] },
-                { value: [{ name: 'lib.js', isDirectory: false, isSymbolicLink: false }] },
-                { value: [{ name: 'peer.js', isDirectory: false, isSymbolicLink: false }] }
+                { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                { value: [ { name: 'lib.js', isDirectory: false, isSymbolicLink: false } ] },
+                { value: [ { name: 'peer.js', isDirectory: false, isSymbolicLink: false } ] }
             ],
             fileReads: [
                 { value: JSON.stringify({ dependencies: { dep: '1.0.0' }, peerDependencies: { peer: '1.0.0' } }) },
@@ -207,20 +128,64 @@ suite('vendor-materializer', function () {
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: ['root'],
+                initialDependencyNames: [ 'root' ],
                 projectFolder: '/repo'
             })
         );
 
-        assert.deepStrictEqual(result.packageNames, ['root', 'dep', 'peer']);
-        const targetPaths = result.entries.map((entry) => {
-            return entry.targetRelativePath;
-        });
-        assert.deepStrictEqual(targetPaths, [
+        assert.deepStrictEqual(result.packageNames, [ 'root', 'dep', 'peer' ]);
+        assert.deepStrictEqual(targetRelativePaths(result), [
             'node_modules/root/index.js',
             'node_modules/dep/lib.js',
             'node_modules/peer/peer.js'
         ]);
+    });
+
+    test('accepts dependency package names whose package or scope starts with a digit', async function () {
+        const result = await runWith(
+            {
+                readabilities: [
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } }
+                ],
+                realPaths: [
+                    { value: '/repo/node_modules/root' },
+                    { value: '/repo/node_modules/1dep' },
+                    { value: '/repo/node_modules/a1dep' },
+                    { value: '/repo/node_modules/@a1scope/dep' },
+                    { value: '/repo/node_modules/@1scope/dep' }
+                ],
+                listings: [
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] }
+                ],
+                fileReads: [
+                    {
+                        value: JSON.stringify({
+                            dependencies: {
+                                '1dep': '1.0.0',
+                                a1dep: '1.0.0',
+                                '@a1scope/dep': '1.0.0',
+                                '@1scope/dep': '1.0.0'
+                            }
+                        })
+                    },
+                    { value: '{}' },
+                    { value: '{}' },
+                    { value: '{}' },
+                    { value: '{}' }
+                ]
+            },
+            { initialDependencyNames: [ 'root' ], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(result.packageNames, [ 'root', '1dep', 'a1dep', '@a1scope/dep', '@1scope/dep' ]);
     });
 
     test('skips nested node_modules when walking files (nested packages are visited as separate closure entries instead)', async function () {
@@ -228,8 +193,8 @@ suite('vendor-materializer', function () {
         // would be consumed and "should-never-be-included.js" would appear in the result.
         const result = await runWith(
             {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }],
+                readabilities: [ { value: { isReadable: true } } ],
+                realPaths: [ { value: '/repo/node_modules/pkg' } ],
                 listings: [
                     {
                         value: [
@@ -238,34 +203,29 @@ suite('vendor-materializer', function () {
                         ]
                     },
                     {
-                        value: [{ name: 'should-never-be-included.js', isDirectory: false, isSymbolicLink: false }]
+                        value: [ { name: 'should-never-be-included.js', isDirectory: false, isSymbolicLink: false } ]
                     }
                 ],
-                fileReads: [{ value: '{}' }]
+                fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(
-            result.entries.map((entry) => {
-                return entry.targetRelativePath;
-            }),
-            ['node_modules/pkg/index.js']
-        );
+        assert.deepStrictEqual(targetRelativePaths(result), [ 'node_modules/pkg/index.js' ]);
     });
 
     test('recurses into non-node_modules subdirectories and preserves the relative path under the package root', async function () {
         const result = await runWith(
             {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }],
+                readabilities: [ { value: { isReadable: true } } ],
+                realPaths: [ { value: '/repo/node_modules/pkg' } ],
                 listings: [
-                    { value: [{ name: 'src', isDirectory: true, isSymbolicLink: false }] },
-                    { value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }
+                    { value: [ { name: 'src', isDirectory: true, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] }
                 ],
-                fileReads: [{ value: '{}' }]
+                fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
         );
 
         assert.deepStrictEqual(result.entries, [
@@ -285,20 +245,20 @@ suite('vendor-materializer', function () {
                 { value: { isReadable: false } },
                 { value: { isReadable: true } }
             ],
-            realPaths: [{ value: '/workspace/node_modules/hoisted' }],
-            listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
-            fileReads: [{ value: '{}' }]
+            realPaths: [ { value: '/workspace/node_modules/hoisted' } ],
+            listings: [ { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] } ],
+            fileReads: [ { value: '{}' } ]
         });
         const materializer = createVendorMaterializer({ fileManager });
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: ['hoisted'],
+                initialDependencyNames: [ 'hoisted' ],
                 projectFolder: '/workspace/packages/inner'
             })
         );
 
-        assert.deepStrictEqual(result.packageNames, ['hoisted']);
+        assert.deepStrictEqual(result.packageNames, [ 'hoisted' ]);
         assert.deepStrictEqual(fileManager.getAllCheckReadabilityCalls(), [
             { fileOrFolderPath: '/workspace/packages/inner/node_modules/hoisted' },
             { fileOrFolderPath: '/workspace/packages/node_modules/hoisted' },
@@ -316,7 +276,7 @@ suite('vendor-materializer', function () {
 
     test('skips dependencies that cannot be located in any reachable node_modules ancestor, probing every ancestor up to the filesystem root', async function () {
         const fileManager = setupFileManager({
-            readabilities: Array.from({ length: 20 }, () => {
+            readabilities: Array.from({ length: 20 }, function () {
                 return { value: { isReadable: false } };
             }),
             realPaths: [],
@@ -327,7 +287,7 @@ suite('vendor-materializer', function () {
 
         const result = expectOk(
             await materializer.materializeExternals({
-                initialDependencyNames: ['missing'],
+                initialDependencyNames: [ 'missing' ],
                 projectFolder: '/some/deep/folder'
             })
         );
@@ -346,16 +306,16 @@ suite('vendor-materializer', function () {
         const truthyReadability = { value: { isReadable: true } } as const;
         const result = await runWith(
             {
-                readabilities: [truthyReadability, truthyReadability, truthyReadability],
+                readabilities: [ truthyReadability, truthyReadability, truthyReadability ],
                 realPaths: [
                     { value: '/repo/node_modules/a' },
                     { value: '/repo/node_modules/b' },
                     { value: '/repo/node_modules/shared' }
                 ],
                 listings: [
-                    { value: [{ name: 'a.js', isDirectory: false, isSymbolicLink: false }] },
-                    { value: [{ name: 'b.js', isDirectory: false, isSymbolicLink: false }] },
-                    { value: [{ name: 'shared.js', isDirectory: false, isSymbolicLink: false }] }
+                    { value: [ { name: 'a.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'b.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'shared.js', isDirectory: false, isSymbolicLink: false } ] }
                 ],
                 fileReads: [
                     { value: JSON.stringify({ dependencies: { shared: '1.0.0' } }) },
@@ -363,21 +323,26 @@ suite('vendor-materializer', function () {
                     { value: '{}' }
                 ]
             },
-            { initialDependencyNames: ['a', 'b'], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'a', 'b' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(result.packageNames, ['a', 'b', 'shared']);
-        const sharedCount = result.entries.filter((entry) => {
-            return entry.targetRelativePath.startsWith('node_modules/shared/');
-        }).length;
+        assert.deepStrictEqual(result.packageNames, [ 'a', 'b', 'shared' ]);
+        const sharedCount = result
+            .entries
+            .filter(function (entry) {
+                return entry.targetRelativePath.startsWith('node_modules/shared/');
+            })
+            .length;
         assert.strictEqual(sharedCount, 1);
     });
+}
 
+function registerSymlinkTests(): void {
     test('vendors a symlink whose resolved target stays inside the package directory', async function () {
         const result = await runWith(
             {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg/dist/index.js' }],
+                readabilities: [ { value: { isReadable: true } } ],
+                realPaths: [ { value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg/dist/index.js' } ],
                 listings: [
                     {
                         value: [
@@ -386,54 +351,51 @@ suite('vendor-materializer', function () {
                         ]
                     },
                     {
-                        value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }]
+                        value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ]
                     }
                 ],
-                fileReads: [{ value: '{}' }]
+                fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
         );
 
-        const targetPaths = result.entries.map((entry) => {
-            return entry.targetRelativePath;
-        });
-        assert.deepStrictEqual(targetPaths, ['node_modules/pkg/dist/index.js', 'node_modules/pkg/bin.js']);
+        assert.deepStrictEqual(targetRelativePaths(result), [
+            'node_modules/pkg/dist/index.js',
+            'node_modules/pkg/bin.js'
+        ]);
     });
 
     test('vendors a symlink whose resolved target is the package directory itself', async function () {
         const result = await runWith(
             {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg' }],
+                readabilities: [ { value: { isReadable: true } } ],
+                realPaths: [ { value: '/repo/node_modules/pkg' }, { value: '/repo/node_modules/pkg' } ],
                 listings: [
                     {
-                        value: [{ name: 'self-link', isDirectory: false, isSymbolicLink: true }]
+                        value: [ { name: 'self-link', isDirectory: false, isSymbolicLink: true } ]
                     }
                 ],
-                fileReads: [{ value: '{}' }]
+                fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: ['pkg'], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'pkg' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(
-            result.entries.map((entry) => entry.targetRelativePath),
-            ['node_modules/pkg/self-link']
-        );
+        assert.deepStrictEqual(targetRelativePaths(result), [ 'node_modules/pkg/self-link' ]);
     });
 
     test('rejects a symlink whose resolved target escapes the package directory', async function () {
         const failure = await runExpectingFailure(
             {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/evil' }, { value: '/Users/victim/.npmrc' }],
+                readabilities: [ { value: { isReadable: true } } ],
+                realPaths: [ { value: '/repo/node_modules/evil' }, { value: '/Users/victim/.npmrc' } ],
                 listings: [
                     {
-                        value: [{ name: 'leak.json', isDirectory: false, isSymbolicLink: true }]
+                        value: [ { name: 'leak.json', isDirectory: false, isSymbolicLink: true } ]
                     }
                 ],
-                fileReads: [{ value: '{}' }]
+                fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: ['evil'], projectFolder: '/repo' }
+            { initialDependencyNames: [ 'evil' ], projectFolder: '/repo' }
         );
 
         assert.deepStrictEqual(failure, {
@@ -444,20 +406,17 @@ suite('vendor-materializer', function () {
         });
     });
 
-    async function runSinglePackageSymlinkScenario(scenario: {
-        readonly initialName: string;
-        readonly packageRealPath: string;
-        readonly listings: FakeSetup['listings'];
-        readonly targetRealPath: { readonly error: Error } | { readonly value: string };
-    }): Promise<VendorMaterializerFailure> {
+    async function runSinglePackageSymlinkScenario(
+        scenario: SinglePackageSymlinkScenario
+    ): Promise<VendorMaterializerFailure> {
         return await runExpectingFailure(
             {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: scenario.packageRealPath }, scenario.targetRealPath],
+                readabilities: [ { value: { isReadable: true } } ],
+                realPaths: [ { value: scenario.packageRealPath }, scenario.targetRealPath ],
                 listings: scenario.listings,
-                fileReads: [{ value: '{}' }]
+                fileReads: [ { value: '{}' } ]
             },
-            { initialDependencyNames: [scenario.initialName], projectFolder: '/repo' }
+            { initialDependencyNames: [ scenario.initialName ], projectFolder: '/repo' }
         );
     }
 
@@ -465,7 +424,7 @@ suite('vendor-materializer', function () {
         const failure = await runSinglePackageSymlinkScenario({
             initialName: 'pkg',
             packageRealPath: '/repo/node_modules/pkg',
-            listings: [{ value: [{ name: 'parent-link', isDirectory: false, isSymbolicLink: true }] }],
+            listings: [ { value: [ { name: 'parent-link', isDirectory: false, isSymbolicLink: true } ] } ],
             targetRealPath: { value: '/repo/node_modules' }
         });
 
@@ -482,8 +441,8 @@ suite('vendor-materializer', function () {
             initialName: 'pkg',
             packageRealPath: '/repo/node_modules/pkg',
             listings: [
-                { value: [{ name: 'config', isDirectory: true, isSymbolicLink: false }] },
-                { value: [{ name: 'secret-link', isDirectory: false, isSymbolicLink: true }] }
+                { value: [ { name: 'config', isDirectory: true, isSymbolicLink: false } ] },
+                { value: [ { name: 'secret-link', isDirectory: false, isSymbolicLink: true } ] }
             ],
             targetRealPath: { value: '/Users/victim/.ssh/id_rsa' }
         });
@@ -500,7 +459,7 @@ suite('vendor-materializer', function () {
         const failure = await runSinglePackageSymlinkScenario({
             initialName: 'pkg',
             packageRealPath: '/repo/node_modules/pkg',
-            listings: [{ value: [{ name: 'broken.json', isDirectory: false, isSymbolicLink: true }] }],
+            listings: [ { value: [ { name: 'broken.json', isDirectory: false, isSymbolicLink: true } ] } ],
             targetRealPath: { error: new Error('ENOENT: no such file or directory') }
         });
 
@@ -511,66 +470,9 @@ suite('vendor-materializer', function () {
             resolvedTargetPath: '/repo/node_modules/pkg/broken.json'
         });
     });
+}
 
-    test('rejects a vendored manifest whose dependencies key uses path traversal syntax so the materializer never probes outside node_modules', async function () {
-        const failure = await runExpectingFailure(
-            {
-                readabilities: [{ value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/legit-utils' }],
-                listings: [{ value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] }],
-                fileReads: [{ value: JSON.stringify({ dependencies: { '../../legit-utils': '*' } }) }]
-            },
-            { initialDependencyNames: ['legit-utils'], projectFolder: '/repo' }
-        );
-
-        assert.deepStrictEqual(failure, {
-            type: 'invalid-dependency-name',
-            sourcePackageName: 'legit-utils',
-            invalidDependencyName: '../../legit-utils'
-        });
-    });
-
-    test('rejects an absolute-path dependency name in a vendored manifest', async function () {
-        await expectInvalidVendoredDependencyFailure({ '/etc/passwd': '*' }, '/etc/passwd');
-    });
-
-    test('rejects an initial dependency name that is not a valid npm package name without touching the filesystem', async function () {
-        const fileManager = setupFileManager({ readabilities: [], realPaths: [], listings: [], fileReads: [] });
-        const materializer = createVendorMaterializer({ fileManager });
-
-        const failure = expectErr(
-            await materializer.materializeExternals({
-                initialDependencyNames: ['../escape'],
-                projectFolder: '/repo'
-            })
-        );
-
-        assert.deepStrictEqual(failure, {
-            type: 'invalid-dependency-name',
-            sourcePackageName: undefined,
-            invalidDependencyName: '../escape'
-        });
-        assert.strictEqual(fileManager.getCheckReadabilityCallCount(), 0);
-    });
-
-    test('only flags the offending key when an earlier dependency key is valid and a later one is not parseable', async function () {
-        await expectInvalidVendoredDependencyFailure({ 'valid-one': '1.0.0', 'has space': '*' }, 'has space');
-    });
-
-    test('accepts a scoped package name in dependency keys', async function () {
-        const result = await runWith(
-            {
-                readabilities: [{ value: { isReadable: true } }, { value: { isReadable: true } }],
-                realPaths: [{ value: '/repo/node_modules/host' }, { value: '/repo/node_modules/@scope/sub' }],
-                listings: [
-                    { value: [{ name: 'index.js', isDirectory: false, isSymbolicLink: false }] },
-                    { value: [{ name: 'lib.js', isDirectory: false, isSymbolicLink: false }] }
-                ],
-                fileReads: [{ value: JSON.stringify({ dependencies: { '@scope/sub': '*' } }) }, { value: '{}' }]
-            },
-            { initialDependencyNames: ['host'], projectFolder: '/repo' }
-        );
-
-        assert.deepStrictEqual(result.packageNames, ['host', '@scope/sub']);
-    });
+suite('vendor-materializer', function () {
+    registerMaterializationTests();
+    registerSymlinkTests();
 });

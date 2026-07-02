@@ -21,7 +21,8 @@ function rejectCodeFile(targetFilePath: string): void {
             'dependency, side-effect and dead-code analyses can run on it.',
             'If you intend to ship code as a static asset (e.g. a template),',
             'use a non-code extension like .txt.'
-        ].join(' ');
+        ]
+            .join(' ');
         throw new Error(errorMessage);
     }
 }
@@ -49,7 +50,7 @@ export function combineAllBundleFiles(
     localDependencies: readonly LocalFile[],
     additionalFiles: readonly (AdditionalFileDescription | string)[]
 ): readonly ResolvedBundleFile[] {
-    const resolvedLocalFiles = localDependencies.map((localFile) => {
+    const resolvedLocalFiles = localDependencies.map(function (localFile) {
         const targetFilePath = localFile.isGeneratedManifest
             ? packageManifestFilePath
             : toSourceRelativeTargetPath(sourcesFolder, localFile.filePath);
@@ -57,14 +58,14 @@ export function combineAllBundleFiles(
             sourceFilePath: localFile.filePath,
             targetFilePath,
             directDependencies: localFile.directDependencies,
-            ...(localFile.project === undefined ? {} : { project: localFile.project }),
+            ...localFile.project !== undefined && { project: localFile.project },
             isExplicitlyIncluded: false,
-            ...(localFile.isGeneratedManifest ? { isGeneratedManifest: true } : {})
+            ...localFile.isGeneratedManifest && { isGeneratedManifest: true }
         };
         return resolvedBundleFile;
     });
 
-    const additionalContents = additionalFiles.map((additionalFile): ResolvedBundleFile => {
+    const additionalContents = additionalFiles.map(function (additionalFile): ResolvedBundleFile {
         if (typeof additionalFile === 'string') {
             rejectCodeFile(additionalFile);
             const sourceFilePath = path.join(sourcesFolder, additionalFile);
@@ -90,5 +91,5 @@ export function combineAllBundleFiles(
         };
     });
 
-    return [...resolvedLocalFiles, ...additionalContents];
+    return [ ...resolvedLocalFiles, ...additionalContents ];
 }

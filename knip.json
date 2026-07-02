@@ -11,10 +11,9 @@
         "source/build-support/mutation-timeout/check-mutation-timeouts.ts!",
         "integration-tests/**/*.ts",
         "dependency-cruiser.config.js",
-        "mocha.config.base.cjs",
-        "mocha.config.property-tests.cjs",
-        "mocha.config.unit-tests.cjs",
-        "mocha.config.integration-tests.cjs",
+        "mocha.config.property-tests.json",
+        "mocha.config.unit-tests.json",
+        "mocha.config.integration-tests.json",
         "packtory.config.js",
         "tstyche.json"
     ],
@@ -23,12 +22,12 @@
         "source/**/*.ts!",
         "integration-tests/**/*.ts",
         "*.js",
-        "*.cjs",
         "!integration-tests/fixtures/**/*",
         "!source/**/*.test.ts!",
+        "!source/**/*test-support.ts!",
         "!source/test-libraries/**/*.ts!"
     ],
     "tags": ["-@internal"],
-    "ignoreDependencies": ["@ls-lint/ls-lint", "c8", "eslint", "foo", "jscpd", "prettier"],
+    "ignoreDependencies": ["@ls-lint/ls-lint", "c8", "foo", "jscpd"],
     "ignoreBinaries": []
 }

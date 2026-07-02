@@ -4,9 +4,18 @@ import { setImmediate as scheduleImmediate } from 'node:timers';
 import { stripVTControlCharacters } from 'node:util';
 
 const spinnerFramePercentile = 0.99;
-const spinnerFrames = new Set(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']);
+const spinnerFrames = new Set([ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ]);
 const packageNameCaptureIndex = 2;
 const spinnerGlyphCaptureIndex = 1;
+
+type SpinnerGlyphState = {
+    readonly previousGlyphByPackage: ReadonlyMap<string, string>;
+    readonly pendingFramePackages: ReadonlySet<string>;
+};
+
+type SpinnerFrameCollection = SpinnerGlyphState & {
+    readonly matchedSpinnerLine: boolean;
+};
 
 export type FrameRecorderResult = {
     readonly allFrameGaps: readonly number[];
@@ -27,7 +36,7 @@ function calculatePercentile(values: readonly number[], percentile: number): num
     assert.ok(values.length > 0, 'Cannot calculate a percentile from an empty value list');
     assert.ok(percentile >= 0 && percentile <= 1, `Percentile must be between 0 and 1, received "${percentile}"`);
 
-    const sortedValues = Array.from(values).toSorted((left, right) => {
+    const sortedValues = Array.from(values).toSorted(function (left, right) {
         return left - right;
     });
     const index = Math.ceil(sortedValues.length * percentile) - 1;
@@ -47,58 +56,80 @@ function createSpinnerLinePattern(packageNames: readonly string[]): RegExp {
 function recordSpinnerGlyphChange(
     packageName: string,
     glyph: string,
-    previousGlyphByPackage: Map<string, string>,
-    pendingFramePackages: Set<string>
-): void {
+    previousGlyphByPackage: ReadonlyMap<string, string>,
+    pendingFramePackages: ReadonlySet<string>
+): SpinnerGlyphState {
     const previousGlyph = previousGlyphByPackage.get(packageName);
 
     if (!spinnerFrames.has(glyph) || previousGlyph === glyph) {
-        return;
+        return { previousGlyphByPackage, pendingFramePackages };
     }
 
-    previousGlyphByPackage.set(packageName, glyph);
-    pendingFramePackages.add(packageName);
+    return {
+        previousGlyphByPackage: new Map([ ...previousGlyphByPackage, [ packageName, glyph ] ]),
+        pendingFramePackages: new Set([ ...pendingFramePackages, packageName ])
+    };
+}
+
+function collectSpinnerFramePackage(match: RegExpMatchArray, state: SpinnerGlyphState): SpinnerGlyphState {
+    const glyph = match[spinnerGlyphCaptureIndex];
+    const packageName = match[packageNameCaptureIndex];
+
+    if (glyph === undefined || packageName === undefined) {
+        return state;
+    }
+
+    return recordSpinnerGlyphChange(
+        packageName,
+        glyph,
+        state.previousGlyphByPackage,
+        state.pendingFramePackages
+    );
 }
 
 function collectSpinnerFramePackages(
     visibleText: string,
     spinnerLinePattern: RegExp,
-    previousGlyphByPackage: Map<string, string>,
-    pendingFramePackages: Set<string>
-): boolean {
-    let matchedSpinnerLine = false;
+    glyphState: SpinnerGlyphState
+): SpinnerFrameCollection {
+    let collection: SpinnerFrameCollection = { ...glyphState, matchedSpinnerLine: false };
 
     for (const match of visibleText.matchAll(spinnerLinePattern)) {
-        matchedSpinnerLine = true;
         const glyph = match[spinnerGlyphCaptureIndex];
         const packageName = match[packageNameCaptureIndex];
 
-        if (glyph !== undefined && packageName !== undefined) {
-            recordSpinnerGlyphChange(packageName, glyph, previousGlyphByPackage, pendingFramePackages);
-        }
+        collection = {
+            ...collectSpinnerFramePackage(match, collection),
+            matchedSpinnerLine: glyph !== undefined && packageName !== undefined
+        };
     }
 
-    return matchedSpinnerLine;
+    return collection;
 }
 
 type FrameRecorderState = {
-    readonly allFrameGaps: number[];
-    readonly perPackageFrameGaps: Map<string, number[]>;
-    readonly lastTimestampByPackage: Map<string, number>;
-    readonly previousGlyphByPackage: Map<string, string>;
-    readonly pendingFramePackages: Set<string>;
+    readonly allFrameGaps: readonly number[];
+    readonly perPackageFrameGaps: ReadonlyMap<string, readonly number[]>;
+    readonly lastTimestampByPackage: ReadonlyMap<string, number>;
+    readonly previousGlyphByPackage: ReadonlyMap<string, string>;
+    readonly pendingFramePackages: ReadonlySet<string>;
     readonly spinnerLinePattern: RegExp;
-    lastFlushAtMs: number | undefined;
-    pendingFlush: boolean;
-    frameCount: number;
+    readonly lastFlushAtMs: number | undefined;
+    readonly pendingFlush: boolean;
+    readonly frameCount: number;
+};
+
+type PackageFrameGapState = {
+    readonly perPackageFrameGaps: ReadonlyMap<string, readonly number[]>;
+    readonly lastTimestampByPackage: ReadonlyMap<string, number>;
 };
 
 function createFrameRecorderState(packageNames: readonly string[]): FrameRecorderState {
     return {
         allFrameGaps: [],
-        perPackageFrameGaps: new Map(
-            packageNames.map((packageName) => {
-                return [packageName, [] as number[]] as const;
+        perPackageFrameGaps: new Map<string, readonly number[]>(
+            packageNames.map(function (packageName) {
+                return [ packageName, [] ] as const;
             })
         ),
         lastTimestampByPackage: new Map<string, number>(),
@@ -111,8 +142,29 @@ function createFrameRecorderState(packageNames: readonly string[]): FrameRecorde
     };
 }
 
+function updatePackageFrameGaps(state: FrameRecorderState, timestamp: number): PackageFrameGapState {
+    let { perPackageFrameGaps, lastTimestampByPackage } = state;
+
+    for (const packageName of state.pendingFramePackages) {
+        const [ gaps, previous ] = [
+            state.perPackageFrameGaps.get(packageName),
+            state.lastTimestampByPackage.get(packageName)
+        ];
+
+        if (gaps !== undefined && previous !== undefined) {
+            perPackageFrameGaps = new Map([
+                ...perPackageFrameGaps,
+                [ packageName, [ ...gaps, timestamp - previous ] ]
+            ]);
+        }
+        lastTimestampByPackage = new Map([ ...lastTimestampByPackage, [ packageName, timestamp ] ]);
+    }
+
+    return { perPackageFrameGaps, lastTimestampByPackage };
+}
+
 export function createFrameRecorder(packageNames: readonly string[]): FrameRecorder {
-    const state = createFrameRecorderState(packageNames);
+    let state = createFrameRecorderState(packageNames);
 
     function flushPending(): void {
         if (state.pendingFramePackages.size === 0) {
@@ -120,23 +172,18 @@ export function createFrameRecorder(packageNames: readonly string[]): FrameRecor
         }
 
         const timestamp = currentPerformance.now();
+        const frameGap = state.lastFlushAtMs === undefined ? [] : [ timestamp - state.lastFlushAtMs ];
+        const { perPackageFrameGaps, lastTimestampByPackage } = updatePackageFrameGaps(state, timestamp);
 
-        if (state.lastFlushAtMs !== undefined) {
-            state.allFrameGaps.push(timestamp - state.lastFlushAtMs);
-        }
-        state.lastFlushAtMs = timestamp;
-        state.frameCount += 1;
-
-        state.pendingFramePackages.forEach((packageName) => {
-            const gaps = state.perPackageFrameGaps.get(packageName);
-            const previous = state.lastTimestampByPackage.get(packageName);
-
-            if (gaps !== undefined && previous !== undefined) {
-                gaps.push(timestamp - previous);
-            }
-            state.lastTimestampByPackage.set(packageName, timestamp);
-        });
-        state.pendingFramePackages.clear();
+        state = {
+            ...state,
+            allFrameGaps: [ ...state.allFrameGaps, ...frameGap ],
+            perPackageFrameGaps,
+            lastTimestampByPackage,
+            pendingFramePackages: new Set<string>(),
+            lastFlushAtMs: timestamp,
+            frameCount: state.frameCount + 1
+        };
     }
 
     return {
@@ -146,26 +193,33 @@ export function createFrameRecorder(packageNames: readonly string[]): FrameRecor
                 return;
             }
 
-            const matchedSpinnerLine = collectSpinnerFramePackages(
+            const collectedFramePackages = collectSpinnerFramePackages(
                 visibleText,
                 state.spinnerLinePattern,
-                state.previousGlyphByPackage,
-                state.pendingFramePackages
+                {
+                    previousGlyphByPackage: state.previousGlyphByPackage,
+                    pendingFramePackages: state.pendingFramePackages
+                }
             );
+            state = {
+                ...state,
+                previousGlyphByPackage: collectedFramePackages.previousGlyphByPackage,
+                pendingFramePackages: collectedFramePackages.pendingFramePackages
+            };
 
-            if (!matchedSpinnerLine || state.pendingFlush) {
+            if (!collectedFramePackages.matchedSpinnerLine || state.pendingFlush) {
                 return;
             }
 
-            state.pendingFlush = true;
-            scheduleImmediate(() => {
+            state = { ...state, pendingFlush: true };
+            scheduleImmediate(function () {
                 flushPending();
-                state.pendingFlush = false;
+                state = { ...state, pendingFlush: false };
             });
         },
         async finish() {
             if (state.pendingFlush) {
-                await new Promise<void>((resolve) => {
+                await new Promise<void>(function (resolve) {
                     scheduleImmediate(resolve);
                 });
             }
@@ -190,7 +244,7 @@ export function summarizeWorstPerPackageGaps(
     let worstP99FrameGapMs = 0;
     let worstMaxFrameGapMs = 0;
 
-    perPackageFrameGaps.forEach((gaps) => {
+    perPackageFrameGaps.forEach(function (gaps) {
         if (gaps.length === 0) {
             return;
         }

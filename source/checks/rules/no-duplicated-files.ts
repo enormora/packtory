@@ -1,29 +1,37 @@
 import type { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
+    type CheckRuleDefinition,
     pathAllowListGlobalSchema,
     pathAllowListPerPackageSchema,
-    type CheckRuleDefinition,
     type RuleRunParams
 } from '../rule.ts';
 import { duplicateMessage, hasMultipleOwners } from './duplicate-detection.ts';
 import { collectFileOwnership, type OwnerInfo } from './file-ownership.ts';
 
-const ruleName = 'noDuplicatedFiles';
+function ruleName(): 'noDuplicatedFiles' {
+    return 'noDuplicatedFiles';
+}
 
-const globalSchema = pathAllowListGlobalSchema;
-const perPackageSchema = pathAllowListPerPackageSchema;
+function globalSchema(): typeof pathAllowListGlobalSchema {
+    return pathAllowListGlobalSchema;
+}
 
-type GlobalConfig = z.infer<typeof globalSchema>;
-type PerPackageConfig = z.infer<typeof perPackageSchema>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+function perPackageSchema(): typeof pathAllowListPerPackageSchema {
+    return pathAllowListPerPackageSchema;
+}
+
+type RuleName = ReturnType<typeof ruleName>;
+type GlobalConfig = Readonly<z.infer<ReturnType<typeof globalSchema>>>;
+type PerPackageConfig = Readonly<z.infer<ReturnType<typeof perPackageSchema>>>;
+type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
 
 function everyOwnerConsents(
     filePath: string,
     owners: readonly OwnerInfo[],
     perPackageSettings: RunParams['perPackageSettings']
 ): boolean {
-    return owners.every((owner) => {
+    return owners.every(function (owner) {
         const allowList = perPackageSettings.get(owner.bundleName)?.noDuplicatedFiles?.allowList;
         return allowList?.includes(filePath) ?? false;
     });
@@ -35,7 +43,7 @@ function findDuplicateIssues(
     globalConfig: GlobalConfig
 ): readonly string[] {
     const globallyAllowed = new Set(globalConfig.allowList);
-    return Array.from(collectFileOwnership(bundles).entries()).flatMap(([filePath, owners]) => {
+    return Array.from(collectFileOwnership(bundles)).flatMap(function ([ filePath, owners ]) {
         if (!hasMultipleOwners(owners)) {
             return [];
         }
@@ -46,7 +54,7 @@ function findDuplicateIssues(
         if (globallyAllowed.has(filePath) || everyOwnerConsents(filePath, owners, perPackageSettings)) {
             return [];
         }
-        return [message];
+        return [ message ];
     });
 }
 
@@ -58,9 +66,15 @@ async function run(params: RunParams): Promise<readonly string[]> {
     return findDuplicateIssues(params.bundles, params.perPackageSettings, globalConfig);
 }
 
-export const noDuplicatedFilesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
-    name: ruleName,
-    globalSchema,
-    perPackageSchema,
+export const noDuplicatedFilesRule: CheckRuleDefinition<RuleName, GlobalConfig, PerPackageConfig> = {
+    get name() {
+        return ruleName();
+    },
+    get globalSchema() {
+        return globalSchema();
+    },
+    get perPackageSchema() {
+        return perPackageSchema();
+    },
     run
 };

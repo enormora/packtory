@@ -14,12 +14,14 @@ function compareKeyRelevance(specifier: string, left: string, right: string): nu
 }
 
 export function findMatchingImportEntryKey(specifier: string, importsField: ImportsField): string | undefined {
-    const matchingKeys = Object.keys(importsField)
-        .filter((key) => {
+    const matchingKeys = Object
+        .keys(importsField)
+        .filter(function (key) {
             const wildcardPattern = `^${escapeRegExp(key).replaceAll('\\*', '.*')}$`;
-            return new RegExp(wildcardPattern).test(specifier);
+            const wildcardRegex = new RegExp(wildcardPattern);
+            return wildcardRegex.test(specifier);
         })
-        .toSorted((left, right) => {
+        .toSorted(function (left, right) {
             return compareKeyRelevance(specifier, left, right);
         });
 

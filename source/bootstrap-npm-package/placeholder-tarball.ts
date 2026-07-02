@@ -39,7 +39,7 @@ function serializeManifest(manifest: PlaceholderManifest): string {
     return `${JSON.stringify(manifest, null, manifestJsonIndent)}\n`;
 }
 
-function appendFile(pack: tar.Pack, name: string, content: string): void {
+function appendFile(pack: Readonly<tar.Pack>, name: string, content: string): void {
     pack.entry(
         {
             name,
@@ -55,7 +55,7 @@ function toBuffer(chunk: Buffer | string): Buffer {
     return Buffer.from(chunk);
 }
 
-async function collectGzippedTarball(pack: tar.Pack, createGzip: typeof zlib.createGzip): Promise<Buffer> {
+async function collectGzippedTarball(pack: Readonly<tar.Pack>, createGzip: typeof zlib.createGzip): Promise<Buffer> {
     const tarballStream = pack.pipe(createGzip());
     const chunks: Buffer[] = [];
     for await (const chunk of tarballStream as AsyncIterable<unknown>) {

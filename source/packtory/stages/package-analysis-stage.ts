@@ -15,7 +15,7 @@ export async function analyzeResolvedPackages(
 ): Promise<readonly ResolvedPackage[]> {
     const deadCodeEliminationByName = resolveDeadCodeEliminationByName(config);
     const analyzedBundles = await dependencies.deadCodeEliminator.eliminate(
-        linkedPackages.map((linkedPackage) => {
+        linkedPackages.map(function (linkedPackage) {
             const deadCodeElimination = deadCodeEliminationByName.get(linkedPackage.name);
             if (!deadCodeEliminationByName.has(linkedPackage.name)) {
                 throw new Error(`Missing dead-code elimination settings for package "${linkedPackage.name}"`);
@@ -28,7 +28,7 @@ export async function analyzeResolvedPackages(
         })
     );
 
-    return linkedPackages.map((linkedPackage, index) => {
+    return linkedPackages.map(function (linkedPackage, index) {
         const analyzedBundle = analyzedBundles[index];
         if (analyzedBundle === undefined) {
             throw new Error(`Analyzed bundle missing for package "${linkedPackage.name}"`);

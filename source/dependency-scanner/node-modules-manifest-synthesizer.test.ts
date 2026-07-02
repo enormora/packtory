@@ -11,9 +11,9 @@ function nodeModulesManifestPath(packageName: string): string {
 
 async function readBothWays(filePath: string, content: string): Promise<readonly [string, string]> {
     const host = createNodeModulesManifestSynthesizingHost(
-        createDelegatingFileSystemHost(new Map([[filePath, content]]))
+        createDelegatingFileSystemHost(new Map([ [ filePath, content ] ]))
     );
-    return [host.readFileSync(filePath), await host.readFile(filePath)];
+    return [ host.readFileSync(filePath), await host.readFile(filePath) ];
 }
 
 type RewriteCase = {
@@ -28,7 +28,7 @@ const rewriteCases: readonly RewriteCase[] = [
         title: 'injects a types condition mirroring import when the conditions object lacks one',
         inputExports: { '.': { import: './lib/index.js' } },
         expectedExports: { '.': { types: './lib/index.js', import: './lib/index.js' } },
-        expectedConditionKeyOrder: ['types', 'import']
+        expectedConditionKeyOrder: [ 'types', 'import' ]
     },
     {
         title: 'falls back to the default condition when no import condition exists',
@@ -98,7 +98,8 @@ const passthroughCases: readonly PassthroughCase[] = [
         content: 'export const example = "example";\n'
     },
     {
-        title: 'passes through reads for non-package.json JSON files inside node_modules even when they contain an exports field',
+        title:
+            'passes through reads for non-package.json JSON files inside node_modules even when they contain an exports field',
         filePath: path.join('/project', 'node_modules', 'something', 'data.json'),
         content: JSON.stringify({ exports: { '.': { import: './lib/index.js' } } })
     },
@@ -119,23 +120,34 @@ const passthroughCases: readonly PassthroughCase[] = [
     }
 ];
 
+function assertConditionKeyOrder(
+    parsedExports: unknown,
+    expectedConditionKeyOrder: readonly string[] | undefined
+): void {
+    if (expectedConditionKeyOrder === undefined) {
+        return;
+    }
+    const subpath = (parsedExports as Record<string, Record<string, unknown>>)['.'];
+    if (subpath === undefined) {
+        assert.fail('expected root export subpath');
+    }
+    assert.deepStrictEqual(Object.keys(subpath), expectedConditionKeyOrder);
+}
+
 suite('node-modules-manifest-synthesizer', function () {
     suite('rewrites', function () {
         for (const testCase of rewriteCases) {
             test(testCase.title, async function () {
                 const filePath = nodeModulesManifestPath('test-module');
                 const content = JSON.stringify({ exports: testCase.inputExports });
-                const [synchronous, asynchronous] = await readBothWays(filePath, content);
+                const [ synchronous, asynchronous ] = await readBothWays(filePath, content);
 
                 const parsedSync = JSON.parse(synchronous) as Record<string, unknown>;
                 const parsedAsync = JSON.parse(asynchronous) as Record<string, unknown>;
 
                 assert.deepStrictEqual(parsedSync.exports, testCase.expectedExports);
                 assert.deepStrictEqual(parsedAsync.exports, testCase.expectedExports);
-                if (testCase.expectedConditionKeyOrder !== undefined) {
-                    const subpath = (parsedSync.exports as Record<string, Record<string, unknown>>)['.']!;
-                    assert.deepStrictEqual(Object.keys(subpath), testCase.expectedConditionKeyOrder);
-                }
+                assertConditionKeyOrder(parsedSync.exports, testCase.expectedConditionKeyOrder);
             });
         }
     });
@@ -143,7 +155,7 @@ suite('node-modules-manifest-synthesizer', function () {
     suite('passthroughs', function () {
         for (const testCase of passthroughCases) {
             test(testCase.title, async function () {
-                const [synchronous, asynchronous] = await readBothWays(testCase.filePath, testCase.content);
+                const [ synchronous, asynchronous ] = await readBothWays(testCase.filePath, testCase.content);
                 assert.strictEqual(synchronous, testCase.content);
                 assert.strictEqual(asynchronous, testCase.content);
             });

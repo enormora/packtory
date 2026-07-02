@@ -10,15 +10,18 @@ type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 export type PullRequestLabelVersionSourceDeps = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
-    readonly readPackageInfo: () => Promise<Record<string, unknown>>;
+    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
     readonly workingDirectory: string;
 };
 
 type VersionBumpLevel = 'major' | 'minor' | 'patch';
 
-const orderedVersionBumpLevels: readonly VersionBumpLevel[] = ['major', 'minor', 'patch'];
 const labelLookupIntervalMilliseconds = 250;
 const maximumRateLimitRetryCount = 3;
+
+function orderedVersionBumpLevels(): readonly VersionBumpLevel[] {
+    return [ 'major', 'minor', 'patch' ];
+}
 
 function readGitHubToken(deps: Pick<PullRequestLabelVersionSourceDeps, 'readEnvironmentVariable'>): string | undefined {
     return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
@@ -34,7 +37,7 @@ function createEngine(deps: PullRequestLabelVersionSourceDeps): PrLogEngine {
 }
 
 function createValidLabels(config: PacktoryConfig): ReadonlyMap<string, string> {
-    return new Map([...defaultValidLabels, ...Object.entries(config.changelog?.labels ?? {})]);
+    return new Map([ ...defaultValidLabels, ...Object.entries(config.changelog?.labels ?? {}) ]);
 }
 
 function createVersionBumpLabels(
@@ -42,8 +45,8 @@ function createVersionBumpLabels(
 ): Readonly<Record<VersionBumpLevel, readonly string[]>> {
     const allLabels = Array.from(validLabels.keys());
     return {
-        major: ['breaking'],
-        minor: ['feature'],
+        major: [ 'breaking' ],
+        minor: [ 'feature' ],
         patch: allLabels
     };
 }
@@ -53,13 +56,13 @@ function selectVersionBumpLevel(
     validLabels: ReadonlyMap<string, string>
 ): VersionBumpLevel | undefined {
     const labels = new Set(
-        pullRequests.map((pullRequest) => {
+        pullRequests.map(function (pullRequest) {
             return pullRequest.label;
         })
     );
     const versionBumpLabels = createVersionBumpLabels(validLabels);
-    return orderedVersionBumpLevels.find((level) => {
-        return versionBumpLabels[level].some((label) => {
+    return orderedVersionBumpLevels().find(function (level) {
+        return versionBumpLabels[level].some(function (label) {
             return labels.has(label);
         });
     });
@@ -122,8 +125,8 @@ export function createPullRequestLabelVersionSourceResolver(
         });
     }
 
-    return (sourceInput): VersionProvider => {
-        return async (input) => {
+    return function (sourceInput): VersionProvider {
+        return async function (input) {
             if (input.currentVersion === undefined) {
                 return '0.0.1';
             }

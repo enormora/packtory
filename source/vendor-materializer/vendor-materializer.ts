@@ -1,6 +1,7 @@
 import path from 'node:path';
-import npa from 'npm-package-arg';
+import parsePackageArgument from 'npm-package-arg';
 import { Result } from 'true-myth';
+import { tryOr } from 'true-myth/result';
 import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
 import {
@@ -33,7 +34,7 @@ type InvalidDependencyNameFailure = {
 
 export type VendorMaterializerFailure = InvalidDependencyNameFailure | SymlinkTargetOutsidePackageFailure;
 
-type MaterializedExternals = {
+export type MaterializedExternals = {
     readonly entries: readonly VendorEntry[];
     readonly packageNames: readonly string[];
     readonly peerRequirements: ReadonlyMap<string, readonly string[]>;
@@ -70,11 +71,27 @@ type QueueItem = {
     readonly fromFolder: string;
 };
 
+type VisitedPackageRegistry = {
+    readonly add: (name: string) => unknown;
+    readonly has: (name: string) => boolean;
+    readonly [Symbol.iterator]: () => IterableIterator<string>;
+};
+
+type VendorEntryCollection = {
+    readonly push: (...entries: readonly VendorEntry[]) => unknown;
+    readonly [Symbol.iterator]: () => IterableIterator<VendorEntry>;
+};
+
+type PeerRequirementRegistry = {
+    readonly set: (packageName: string, peerDependencyNames: readonly string[]) => unknown;
+    readonly [Symbol.iterator]: () => IterableIterator<readonly [string, readonly string[]]>;
+};
+
 type Closure = {
-    readonly visited: Set<string>;
-    readonly entries: VendorEntry[];
+    readonly visited: VisitedPackageRegistry;
+    readonly entries: VendorEntryCollection;
     readonly pendingPackages: Worklist<QueueItem>;
-    readonly peerRequirements: Map<string, readonly string[]>;
+    readonly peerRequirements: PeerRequirementRegistry;
 };
 
 type ParsedManifestSummary = {
@@ -82,13 +99,16 @@ type ParsedManifestSummary = {
     readonly peerDependencyNames: readonly string[];
 };
 
+function getPackageArgumentName(name: string): string | undefined {
+    const parsed = tryOr(undefined, function () {
+        return parsePackageArgument(name).name ?? undefined;
+    });
+    return parsed.isOk ? parsed.value : undefined;
+}
+
 function findFirstInvalidDependencyName(names: readonly string[]): string | undefined {
     for (const name of names) {
-        try {
-            if (npa(name).name !== name) {
-                return name;
-            }
-        } catch {
+        if (getPackageArgumentName(name) !== name) {
             return name;
         }
     }
@@ -128,8 +148,25 @@ type PackageDirectoryWalk = {
 };
 type PackageDirectoryState = {
     readonly packageDirectory: PackageDirectoryWalk;
-    readonly collected: VendorEntry[];
+    readonly collected: VendorEntryCollection;
 };
+
+async function getResolvedTargetPath(
+    walker: FileWalkerDependencies,
+    absoluteEntryPath: string
+): Promise<Result<string, string>> {
+    try {
+        return Result.ok(await walker.getRealPath(absoluteEntryPath));
+    } catch {
+        return Result.err(absoluteEntryPath);
+    }
+}
+
+function isPathInsideRoot(rootDirectory: string, candidatePath: string): boolean {
+    const normalizedRoot = path.resolve(rootDirectory);
+    const normalizedCandidate = path.resolve(candidatePath);
+    return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}${path.sep}`);
+}
 
 async function checkSymlinkInsidePackage(
     walker: FileWalkerDependencies,
@@ -139,27 +176,26 @@ async function checkSymlinkInsidePackage(
 ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
     const absoluteEntryPath = path.join(rootDirectory, relativeEntryPath);
     const normalizedEntryRelativePath = relativeEntryPath.split(path.sep).join('/');
-    try {
-        const resolvedTargetPath = await walker.getRealPath(absoluteEntryPath);
-        const normalizedRoot = path.resolve(rootDirectory);
-        const normalizedCandidate = path.resolve(resolvedTargetPath);
-        if (normalizedCandidate !== normalizedRoot && !normalizedCandidate.startsWith(`${normalizedRoot}${path.sep}`)) {
-            return Result.err({
-                type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,
-                packageName,
-                entryRelativePath: normalizedEntryRelativePath,
-                resolvedTargetPath
-            });
-        }
-        return Result.ok(undefined);
-    } catch {
+    const resolvedTarget = await getResolvedTargetPath(walker, absoluteEntryPath);
+    const resolvedTargetPath = resolvedTarget.isOk ? resolvedTarget.value : resolvedTarget.error;
+    if (resolvedTarget.isErr) {
         return Result.err({
             type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,
             packageName,
             entryRelativePath: normalizedEntryRelativePath,
-            resolvedTargetPath: absoluteEntryPath
+            resolvedTargetPath
         });
     }
+    if (!isPathInsideRoot(rootDirectory, resolvedTargetPath)) {
+        return Result.err({
+            type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,
+            packageName,
+            entryRelativePath: normalizedEntryRelativePath,
+            resolvedTargetPath
+        });
+    }
+
+    return Result.ok(undefined);
 }
 
 async function validatePackageDirectoryEntry(
@@ -180,17 +216,17 @@ async function validatePackageDirectoryEntry(
     );
 }
 
-const walkPackageDirectory = async (
+const walkPackageDirectory = async function (
     walker: FileWalkerDependencies,
     state: PackageDirectoryState,
     relativeDirectory: string
-): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> => {
+): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
     const absoluteDirectory = path.join(state.packageDirectory.rootDirectory, relativeDirectory);
     const entries = await walker.listDirectoryEntries(absoluteDirectory);
 
-    const collectDirectoryEntry = async (
+    const collectDirectoryEntry = async function (
         entry: PackageDirectoryEntry
-    ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> => {
+    ): Promise<Result<undefined, SymlinkTargetOutsidePackageFailure>> {
         if (entry.name === installedDependenciesFolderName) {
             return Result.ok(undefined);
         }
@@ -238,7 +274,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         dependencyNames: readonly string[]
     ): void {
         closure.pendingPackages.scheduleAll(
-            dependencyNames.map((dependencyName) => {
+            dependencyNames.map(function (dependencyName) {
                 return { name: dependencyName, fromFolder };
             })
         );
@@ -258,7 +294,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
             return Result.err(walkResult.error);
         }
 
-        return Result.ok(collected);
+        return Result.ok(Array.from(collected));
     }
 
     async function readManifestSummary(
@@ -343,11 +379,12 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
                     invalidDependencyName: invalidInitialName
                 });
             }
+            const entries: VendorEntry[] = [];
             const closure: Closure = {
                 visited: new Set<string>(),
-                entries: [],
+                entries,
                 pendingPackages: createWorklist(
-                    options.initialDependencyNames.map((name) => {
+                    options.initialDependencyNames.map(function (name) {
                         return { name, fromFolder: options.projectFolder };
                     })
                 ),
@@ -358,9 +395,9 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
                 return Result.err(drained.error);
             }
             return Result.ok({
-                entries: closure.entries,
+                entries: Array.from(closure.entries),
                 packageNames: Array.from(closure.visited),
-                peerRequirements: closure.peerRequirements
+                peerRequirements: new Map(closure.peerRequirements)
             });
         }
     };

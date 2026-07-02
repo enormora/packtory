@@ -39,7 +39,7 @@ suite('main-package-json-schema', function () {
         checkValidationFailure({
             schema: mainPackageJsonSchema,
             data: {},
-            expectedMessages: ['at type: missing property']
+            expectedMessages: [ 'at type: missing property' ]
         })
     );
 
@@ -48,7 +48,7 @@ suite('main-package-json-schema', function () {
         checkValidationFailure({
             schema: mainPackageJsonSchema,
             data: { type: 'commonjs' },
-            expectedMessages: ['at type: invalid literal: expected "module", but got string']
+            expectedMessages: [ 'at type: invalid literal: expected "module", but got string' ]
         })
     );
 
@@ -57,7 +57,7 @@ suite('main-package-json-schema', function () {
         checkValidationFailure({
             schema: mainPackageJsonSchema,
             data: { type: 'module', dependencies: { foo: 123 } },
-            expectedMessages: ['at dependencies.foo: expected string, but got number']
+            expectedMessages: [ 'at dependencies.foo: expected string, but got number' ]
         })
     );
 
@@ -66,7 +66,7 @@ suite('main-package-json-schema', function () {
         checkValidationFailure({
             schema: mainPackageJsonSchema,
             data: { type: 'module', imports: true },
-            expectedMessages: ['at imports: expected record, but got boolean']
+            expectedMessages: [ 'at imports: expected record, but got boolean' ]
         })
     );
 });

@@ -1,4 +1,4 @@
-/* eslint-disable @stylistic/max-len, sonarjs/no-nested-template-literals, functional/prefer-tacit -- terminal rendering is intentionally linear and string-heavy */
+/* eslint-disable sonarjs/no-nested-template-literals, functional/prefer-tacit -- terminal rendering is intentionally linear and string-heavy */
 import { pathTreeNodeType } from '../../common/path-tree.ts';
 import type { PreviewArtifactNode } from '../preview/artifact-tree-builder.ts';
 import { artifactBadgeLabel, artifactStatusLabel } from '../preview/preview-document.ts';
@@ -16,13 +16,16 @@ export function renderArtifactNode(node: PreviewArtifactNode, colors: Colors): s
     const { artifact } = node;
     const badgeParts = [
         artifactStatusLabel(artifact.status),
-        ...artifact.badges.map((badge) => {
+        ...artifact.badges.map(function (badge) {
             return artifactBadgeLabel(badge);
         })
     ];
-    return `${indent}• ${artifact.path} ${colors.dim(`(${artifact.kind}, ${formatBytes(artifact.sizeBytes)})`)} ${colors.yellow(
-        `[${badgeParts.join(', ')}]`
-    )}`.trimEnd();
+    return `${indent}• ${artifact.path} ${colors.dim(`(${artifact.kind}, ${formatBytes(artifact.sizeBytes)})`)} ${
+        colors.yellow(
+            `[${badgeParts.join(', ')}]`
+        )
+    }`
+        .trimEnd();
 }
 
 export { formatBytes as formatTerminalBytes };

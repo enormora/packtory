@@ -46,7 +46,7 @@ suite('representative-root', function () {
                 roots: { main: indexRoot, feature: featureRoot },
                 surface: {
                     mode: 'explicit',
-                    packageInterface: { modules: [{ root: 'feature', export: '.' }] }
+                    packageInterface: { modules: [ { root: 'feature', export: '.' } ] }
                 }
             }),
             featureRoot
@@ -60,7 +60,7 @@ suite('representative-root', function () {
                 roots: { cli: cliRoot },
                 surface: {
                     mode: 'explicit',
-                    packageInterface: { bins: [{ root: 'cli', name: 'pkg-a' }] }
+                    packageInterface: { bins: [ { root: 'cli', name: 'pkg-a' } ] }
                 }
             }),
             cliRoot
@@ -70,7 +70,7 @@ suite('representative-root', function () {
     test('resolveRepresentativeRoot falls back to bins when the modules array is empty', function () {
         const packageInterface = {
             modules: [],
-            bins: [{ root: 'cli', name: 'pkg-a' }]
+            bins: [ { root: 'cli', name: 'pkg-a' } ]
         } as unknown as PackageInterface;
         assert.deepStrictEqual(
             resolveRepresentativeRoot({
@@ -89,8 +89,8 @@ suite('representative-root', function () {
                 roots: {},
                 surface: {
                     mode: 'explicit',
-                    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- intentionally malformed surface
-                    packageInterface: {} as never
+
+                    packageInterface: {}
                 }
             });
             assert.fail('Expected resolveRepresentativeRoot() to throw but it did not');
@@ -103,13 +103,13 @@ suite('representative-root', function () {
     });
 
     test('resolveRepresentativeRoot throws when the selected representative root is missing', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             resolveRepresentativeRoot({
                 name: 'pkg-a',
                 roots: {},
                 surface: {
                     mode: 'explicit',
-                    packageInterface: { modules: [{ root: 'missing', export: '.' }] }
+                    packageInterface: { modules: [ { root: 'missing', export: '.' } ] }
                 }
             });
         }, /^Error: Package "pkg-a" references unknown root "missing"$/u);

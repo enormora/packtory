@@ -32,12 +32,19 @@ function matchingGroupedDependency(
     return undefined;
 }
 
+function createDependencyRecord(): Record<string, string> {
+    return {};
+}
+
 export function groupBundleDependencies(
     bundle: Pick<AnalyzedBundle, 'linkedBundleDependencies'>,
     bundlePeerDependencies: readonly VersionedDependency[],
     bundleDependencies: readonly VersionedDependency[]
-): Readonly<GroupedDependencies> {
-    const grouped: GroupedDependencies = { dependencies: {}, peerDependencies: {} };
+): GroupedDependencies {
+    const grouped = {
+        dependencies: createDependencyRecord(),
+        peerDependencies: createDependencyRecord()
+    };
     const groupedDependenciesByName = {
         [bundledDependencyGroup.bundle.propertyName]: packageNameMap(bundleDependencies),
         [bundledDependencyGroup.peer.propertyName]: packageNameMap(bundlePeerDependencies)

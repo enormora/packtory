@@ -9,10 +9,10 @@ import { createVersionProviderContext } from './options/version-provider-context
 import { determineBuildVersion, inferVersionTrigger, shouldIncreaseVersion } from './options/version-trigger.ts';
 import { publishedReleaseStatus, type PublishedReleaseStatus, wasAlreadyPublished } from './published-release-state.ts';
 
-type PublishDependencies = {
+export type PublishDependencies = {
     readonly bundleEmitter: BundleEmitter;
     readonly fileManager: {
-        readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean }>;
+        readonly checkReadability: (fileOrFolderPath: string) => Promise<{ readonly isReadable: boolean; }>;
         readonly readFile: (filePath: string) => Promise<string>;
     };
     readonly progressBroadcaster: ProgressBroadcastProvider;
@@ -24,12 +24,27 @@ type PublishDependencies = {
 type VersionedBundleWithManifest = Awaited<ReturnType<PublishDependencies['versionManager']['addVersion']>>;
 type CurrentVersion = Awaited<ReturnType<PublishDependencies['bundleEmitter']['determineCurrentVersion']>>;
 type PublicationOutcome = Awaited<ReturnType<PublishDependencies['bundleEmitter']['publish']>>;
-type PreviousReleaseArtifacts = Awaited<
-    ReturnType<PublishDependencies['bundleEmitter']['checkBundleAlreadyPublished']>
->['previousReleaseArtifacts'];
+type PublishedCheckResult = Awaited<ReturnType<PublishDependencies['bundleEmitter']['checkBundleAlreadyPublished']>>;
+type PreviousReleaseArtifacts = Readonly<PublishedCheckResult['previousReleaseArtifacts']>;
 type ExtraFiles = Exclude<Awaited<ReturnType<PublishDependencies['sbomFileBuilder']['generate']>>, undefined>;
 type SiblingPackage = Parameters<PublishDependencies['sbomFileBuilder']['generate']>[1][number];
-type AnalyzedBundle = Parameters<typeof createVersionProviderContext>[1];
+type AnalyzedBundle = Parameters<VersionManager['addVersion']>[0]['bundle'];
+type MainPackageTypeField = { readonly type?: string | undefined; };
+type VersionedBundleBuildContext = {
+    readonly versionedBundle: VersionedBundleWithManifest;
+    readonly currentVersion: CurrentVersion;
+    readonly version: string;
+};
+type VersionDeterminedInput = {
+    readonly options: BuildAndPublishOptions;
+    readonly currentVersion: CurrentVersion;
+    readonly chosenVersion: string;
+    readonly didBump: boolean;
+};
+type FinalizeWithoutBumpExtras = {
+    readonly extraFiles: ExtraFiles;
+    readonly previousReleaseArtifacts: PreviousReleaseArtifacts;
+};
 
 export type BuildAndPublishResult = {
     readonly status: PublishedReleaseStatus;
@@ -46,14 +61,14 @@ export type DetermineVersionAndPublishOptions = {
     readonly substitutionPublicModuleSourcePaths?: ReadonlySet<string> | undefined;
 };
 
-function assertEsmMainPackageJson(mainPackageJson: { readonly type?: string | undefined }): void {
+function assertEsmMainPackageJson(mainPackageJson: MainPackageTypeField): void {
     if (mainPackageJson.type !== 'module') {
         throw new Error('mainPackageJson.type must be "module"');
     }
 }
 
 function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly SiblingPackage[] {
-    return [...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies];
+    return [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
 }
 
 export type PublishOperations = {
@@ -67,11 +82,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         options: BuildAndPublishOptions,
         stage: boolean,
         substitutionPublicModuleSourcePaths: ReadonlySet<string> | undefined
-    ): Promise<{
-        versionedBundle: VersionedBundleWithManifest;
-        currentVersion: CurrentVersion;
-        version: string;
-    }> {
+    ): Promise<VersionedBundleBuildContext> {
         assertEsmMainPackageJson(options.mainPackageJson);
         const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
             name: analyzedBundle.name,
@@ -94,12 +105,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         return { versionedBundle, currentVersion, version };
     }
 
-    function emitVersionDetermined(args: {
-        readonly options: BuildAndPublishOptions;
-        readonly currentVersion: CurrentVersion;
-        readonly chosenVersion: string;
-        readonly didBump: boolean;
-    }): void {
+    function emitVersionDetermined(args: VersionDeterminedInput): void {
         if (!dependencies.progressBroadcaster.hasSubscribers('versionDetermined')) {
             return;
         }
@@ -112,13 +118,10 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     }
 
     function finalizeWithoutBump(
-        buildContext: { versionedBundle: VersionedBundleWithManifest; currentVersion: CurrentVersion },
+        buildContext: VersionedBundleBuildContext,
         options: BuildAndPublishOptions,
         status: BuildAndPublishResult['status'],
-        extras: {
-            extraFiles: ExtraFiles;
-            previousReleaseArtifacts: PreviousReleaseArtifacts;
-        }
+        extras: FinalizeWithoutBumpExtras
     ): BuildAndPublishResult {
         emitVersionDetermined({
             options,
@@ -136,11 +139,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     }
 
     async function bumpVersion(
-        buildContext: {
-            readonly versionedBundle: VersionedBundleWithManifest;
-            readonly version: string;
-            readonly currentVersion: CurrentVersion;
-        },
+        buildContext: VersionedBundleBuildContext,
         options: BuildAndPublishOptions
     ): Promise<VersionedBundleWithManifest> {
         dependencies.progressBroadcaster.emit('rebuilding', {

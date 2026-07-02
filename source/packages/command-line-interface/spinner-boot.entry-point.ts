@@ -10,8 +10,9 @@ const bootModuleExtension = path.extname(bootModulePath);
 const workerModulePath = path.join(path.dirname(bootModulePath), `spinner-worker.entry-point${bootModuleExtension}`);
 const defaultStdoutColumns = 80;
 const workerTerminationGraceMs = 1000;
-const workerExecArgv =
-    bootModuleExtension === '.ts' ? ['--experimental-strip-types', '--enable-source-maps'] : ['--enable-source-maps'];
+const workerExecArgv = bootModuleExtension === '.ts'
+    ? [ '--experimental-strip-types', '--enable-source-maps' ]
+    : [ '--enable-source-maps' ];
 
 let pendingWorkerTermination: Promise<void> = Promise.resolve();
 
@@ -24,11 +25,12 @@ function spawnWorker(request: WorkerSpawnRequest): void {
         },
         execArgv: workerExecArgv
     });
-    worker.on('error', (error: Error) => {
+    worker.on('error', function (error: Error) {
         process.stderr.write(`spinner worker error: ${error.message}\n`);
     });
-    pendingWorkerTermination = new Promise<void>((resolve) => {
-        worker.once('exit', () => {
+    // eslint-disable-next-line unicorn/no-top-level-assignment-in-function -- the entry point tracks the latest worker so shutdown can await it
+    pendingWorkerTermination = new Promise<void>(function (resolve) {
+        worker.once('exit', function () {
             resolve();
         });
     });
@@ -46,8 +48,8 @@ export function createBootedSpinnerRuntime(): SpinnerRuntime {
 }
 
 export async function awaitSpinnerWorkerTermination(): Promise<void> {
-    const graceTimeout = new Promise<void>((resolve) => {
+    const graceTimeout = new Promise<void>(function (resolve) {
         scheduleTimeout(resolve, workerTerminationGraceMs).unref();
     });
-    await Promise.race([pendingWorkerTermination, graceTimeout]);
+    await Promise.race([ pendingWorkerTermination, graceTimeout ]);
 }

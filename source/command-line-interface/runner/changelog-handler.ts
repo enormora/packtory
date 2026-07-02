@@ -26,7 +26,7 @@ export type ChangelogHandlerDeps = {
     readonly pageOutput: (content: string) => Promise<void>;
     readonly packtory: Packtory;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
-    readonly readPackageInfo: () => Promise<Record<string, unknown>>;
+    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
     readonly workingDirectory: string;

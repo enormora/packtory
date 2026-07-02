@@ -10,10 +10,9 @@ const unauthorizedStatusCode = 401;
 const forbiddenStatusCode = 403;
 
 function isAuthFailure(error: unknown): boolean {
-    const statusCode =
-        error instanceof Object && 'statusCode' in error
-            ? (error as { readonly statusCode?: unknown }).statusCode
-            : undefined;
+    const statusCode = error instanceof Object && Object.hasOwn(error, 'statusCode')
+        ? (error as { readonly statusCode?: unknown; }).statusCode
+        : undefined;
     return statusCode === forbiddenStatusCode || statusCode === unauthorizedStatusCode;
 }
 

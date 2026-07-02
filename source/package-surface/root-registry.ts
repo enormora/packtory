@@ -10,10 +10,12 @@ export function getRoot(bundle: Pick<BundleLike, 'name' | 'roots'>, rootId: stri
 
 function collectExplicitPublicRootIds(surface: ExplicitSurface): ReadonlySet<string> {
     const publicRootIds = new Set<string>();
-    for (const entry of surface.packageInterface.modules ?? []) {
+    const moduleEntries = surface.packageInterface.modules ?? [];
+    const binEntries = surface.packageInterface.bins ?? [];
+    for (const entry of moduleEntries) {
         publicRootIds.add(entry.root);
     }
-    for (const entry of surface.packageInterface.bins ?? []) {
+    for (const entry of binEntries) {
         publicRootIds.add(entry.root);
     }
 
@@ -26,5 +28,5 @@ export function getEntryRootIds(bundle: Pick<BundleLike, 'roots' | 'surface'>): 
     }
 
     const publicRootIds = collectExplicitPublicRootIds(bundle.surface);
-    return new Set([...publicRootIds, ...(bundle.surface.packageInterface.privateRoots ?? [])]);
+    return new Set([ ...publicRootIds, ...bundle.surface.packageInterface.privateRoots ?? [] ]);
 }

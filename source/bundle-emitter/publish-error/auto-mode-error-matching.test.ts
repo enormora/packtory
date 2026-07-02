@@ -24,25 +24,25 @@ suite('auto-mode-error-matching', function () {
     test('matchAutoModeError falls back to "unknown" when no CI name follows the unsupported-provider marker', function () {
         const result = matchAutoModeError({ message: 'not supported for provider:' });
 
-        assert.ok(result?.message.includes('Detected CI: unknown.'));
+        assert.strictEqual(result?.message.includes('Detected CI: unknown.'), true);
     });
 
     test('matchAutoModeError falls back to "unknown" when the marker is only followed by whitespace', function () {
         const result = matchAutoModeError({ message: 'not supported for provider:   ' });
 
-        assert.ok(result?.message.includes('Detected CI: unknown.'));
+        assert.strictEqual(result?.message.includes('Detected CI: unknown.'), true);
     });
 
     test('matchAutoModeError preserves the CI name when it is the last token without trailing whitespace', function () {
         const result = matchAutoModeError({ message: 'not supported for provider: CircleCI' });
 
-        assert.ok(result?.message.includes('Detected CI: CircleCI.'));
+        assert.strictEqual(result?.message.includes('Detected CI: CircleCI.'), true);
     });
 
     test('matchAutoModeError only captures the first provider token after the marker', function () {
         const result = matchAutoModeError({ message: 'not supported for provider: CircleCI runner pool' });
 
-        assert.ok(result?.message.includes('Detected CI: CircleCI.'));
+        assert.strictEqual(result?.message.includes('Detected CI: CircleCI.'), true);
     });
 
     test('matchAutoModeError maps the GitHub Actions id-token error to a workflow-permissions hint', function () {
@@ -50,13 +50,13 @@ suite('auto-mode-error-matching', function () {
             message: 'token does not have "write" access to the "id-token" permission'
         });
 
-        assert.ok(result?.message.includes('permissions: id-token: write'));
+        assert.strictEqual(result?.message.includes('permissions: id-token: write'), true);
     });
 
     test('matchAutoModeError maps the GitLab sigstore id-token error to a sigstore-audience hint', function () {
         const result = matchAutoModeError({ message: 'SIGSTORE_ID_TOKEN environment variable is missing' });
 
-        assert.ok(result?.message.includes('sigstore'));
+        assert.strictEqual(result?.message.includes('sigstore'), true);
     });
 
     test('matchAutoModeError attaches the original error as the cause of the rewritten error', function () {

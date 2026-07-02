@@ -12,8 +12,8 @@ export async function withPromiseDeadline<T>(
     try {
         return await Promise.race([
             promise,
-            new Promise<never>((_resolve, reject) => {
-                timeout.id = setTimer(() => {
+            new Promise<never>(function (_resolve, reject) {
+                timeout.id = setTimer(function () {
                     reject(new Error(`Timed out waiting for ${description}`));
                 }, deadlineMs);
             })

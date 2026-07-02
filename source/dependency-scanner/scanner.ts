@@ -27,12 +27,15 @@ export type DependencyScanner = {
     scan: (entryPointFile: string, folder: string, options: ScanOptionsInput) => Promise<DependencyGraph>;
 };
 
-type ScannableLocalReference = Extract<
-    ModuleReference,
-    | { readonly kind: typeof moduleReferenceKind.generatedManifest }
-    | { readonly kind: typeof moduleReferenceKind.localAsset }
-    | { readonly kind: typeof moduleReferenceKind.localCode }
->;
+type ScannableLocalReferenceKinds = {
+    readonly generatedManifest: typeof moduleReferenceKind.generatedManifest;
+    readonly localAsset: typeof moduleReferenceKind.localAsset;
+    readonly localCode: typeof moduleReferenceKind.localCode;
+};
+
+type ScannableLocalReferenceKind = ScannableLocalReferenceKinds[keyof ScannableLocalReferenceKinds];
+
+type ScannableLocalReference = Extract<ModuleReference, { readonly kind: ScannableLocalReferenceKind; }>;
 
 type ReferenceLists = {
     readonly localReferences: readonly ScannableLocalReference[];
@@ -46,22 +49,23 @@ type ScanContext = {
     readonly project: TypescriptProject;
 };
 
+type DependencyNodeDataInput = {
+    readonly externalDependencies: readonly string[];
+    readonly options: Required<ScanOptions>;
+    readonly project: TypescriptProject | undefined;
+    readonly sourceFilePath: string;
+    readonly sourcesFolder: string;
+};
+
 export function createDependencyScanner(
     dependencyScannerDependencies: Readonly<DependencyScannerDependencies>
 ): DependencyScanner {
     const { sourceMapFileLocator, typescriptProjectAnalyzer } = dependencyScannerDependencies;
 
-    async function getDependencyNodeData(args: {
-        readonly externalDependencies: readonly string[];
-        readonly options: Required<ScanOptions>;
-        readonly project: TypescriptProject | undefined;
-        readonly sourceFilePath: string;
-        readonly sourcesFolder: string;
-    }): Promise<DependencyGraphNodeData> {
-        const sourceMapFilePath =
-            args.options.includeSourceMapFiles && isCodeFile(args.sourceFilePath)
-                ? await sourceMapFileLocator.locate(args.sourceFilePath, args.sourcesFolder)
-                : Maybe.nothing<string>();
+    async function getDependencyNodeData(args: DependencyNodeDataInput): Promise<DependencyGraphNodeData> {
+        const sourceMapFilePath = args.options.includeSourceMapFiles && isCodeFile(args.sourceFilePath)
+            ? await sourceMapFileLocator.locate(args.sourceFilePath, args.sourcesFolder)
+            : Maybe.nothing<string>();
 
         return {
             sourceMapFilePath,

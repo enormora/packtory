@@ -26,35 +26,44 @@ function redactPublishAuth(auth: PublishAuthStrategy): RedactedAuth {
             type: 'basic',
             username: auth.username,
             password: redactedValue,
-            ...(auth.email === undefined ? {} : { email: auth.email })
+            ...auth.email !== undefined && { email: auth.email }
         };
     }
     return {
         type: 'npm-oidc',
-        ...(auth.provider === undefined ? {} : { provider: auth.provider }),
-        ...(auth.idTokenEnvVar === undefined ? {} : { idTokenEnvVar: auth.idTokenEnvVar })
+        ...auth.provider !== undefined && { provider: auth.provider },
+        ...auth.idTokenEnvVar !== undefined && { idTokenEnvVar: auth.idTokenEnvVar }
     };
 }
 
-type RedactedMetadata = { readonly mode: string } | { readonly strategy: RedactedAuth };
+type RedactedMetadata = { readonly mode: string; } | { readonly strategy: RedactedAuth; };
+type ExpandedRegistryAuth = Extract<NonNullable<RegistrySettings['auth']>, { readonly publish: PublishAuthStrategy; }>;
+
+function isMetadataAuthStrategy(metadata: MetadataAuthMode): metadata is MetadataAuthStrategy {
+    return typeof metadata !== 'string';
+}
+
+function isExpandedRegistryAuth(auth: NonNullable<RegistrySettings['auth']>): auth is ExpandedRegistryAuth {
+    return Object.hasOwn(auth, 'publish');
+}
 
 function redactMetadata(metadata: MetadataAuthMode): RedactedMetadata {
-    if (typeof metadata === 'string') {
-        return { mode: metadata };
+    if (isMetadataAuthStrategy(metadata)) {
+        return { strategy: redactPublishAuth(metadata) };
     }
-    return { strategy: redactPublishAuth(metadata satisfies MetadataAuthStrategy) };
+    return { mode: metadata };
 }
 
 export type RedactedRegistrySettings = {
     readonly registryUrl?: string;
-    readonly auth?: RedactedAuth | { readonly publish: RedactedAuth; readonly metadata?: RedactedMetadata };
+    readonly auth?: RedactedAuth | { readonly publish: RedactedAuth; readonly metadata?: RedactedMetadata; };
 };
 
 function redactAuth(auth: NonNullable<RegistrySettings['auth']>): NonNullable<RedactedRegistrySettings['auth']> {
-    if ('publish' in auth) {
+    if (isExpandedRegistryAuth(auth)) {
         return {
             publish: redactPublishAuth(auth.publish),
-            ...(auth.metadata === undefined ? {} : { metadata: redactMetadata(auth.metadata) })
+            ...auth.metadata !== undefined && { metadata: redactMetadata(auth.metadata) }
         };
     }
     return redactPublishAuth(auth);
@@ -62,7 +71,7 @@ function redactAuth(auth: NonNullable<RegistrySettings['auth']>): NonNullable<Re
 
 export function redactRegistrySettings(settings: RegistrySettings): RedactedRegistrySettings {
     return {
-        ...(settings.registryUrl === undefined ? {} : { registryUrl: settings.registryUrl }),
-        ...(settings.auth === undefined ? {} : { auth: redactAuth(settings.auth) })
+        ...settings.registryUrl !== undefined && { registryUrl: settings.registryUrl },
+        ...settings.auth !== undefined && { auth: redactAuth(settings.auth) }
     };
 }

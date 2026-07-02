@@ -7,7 +7,7 @@ export type GitHubRepositoryParts = {
 
 const githubRepositoryPattern = /^https:\/\/github\.com\/(?<owner>[^/]+)\/(?<repo>[^/]+)$/u;
 
-export function parseGitHubRepositoryParts(packageInfo: Record<string, unknown>): GitHubRepositoryParts {
+export function parseGitHubRepositoryParts(packageInfo: Readonly<Record<string, unknown>>): GitHubRepositoryParts {
     const repositoryUrl = normalizeRepositoryUrl(packageInfo.repository);
     const match = githubRepositoryPattern.exec(String(repositoryUrl));
     if (match?.groups === undefined) {
@@ -16,7 +16,7 @@ export function parseGitHubRepositoryParts(packageInfo: Record<string, unknown>)
     return { owner: String(match.groups.owner), repo: String(match.groups.repo) };
 }
 
-export function formatGitHubRepositoryName(packageInfo: Record<string, unknown>): string {
+export function formatGitHubRepositoryName(packageInfo: Readonly<Record<string, unknown>>): string {
     const repository = parseGitHubRepositoryParts(packageInfo);
     return `${repository.owner}/${repository.repo}`;
 }

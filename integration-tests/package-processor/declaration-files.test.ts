@@ -46,7 +46,7 @@ suite('declaration-files', function () {
                 },
                 contents: [
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.js') ]),
                         fileDescription: {
                             content: "import { foo } from './foo.js';\n",
                             isExecutable: false,
@@ -58,7 +58,7 @@ suite('declaration-files', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/bar.js')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/bar.js') ]),
                         fileDescription: {
                             content: "import { bar } from './bar.js';\nexport const foo = 'foo';\n",
                             isExecutable: false,
@@ -82,7 +82,7 @@ suite('declaration-files', function () {
                         analysis: bindingAnalysis('bar')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/foo.d.ts')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/foo.d.ts') ]),
                         fileDescription: {
                             content: "export declare const foo: import('./foo.js').Foo;\n",
                             isExecutable: false,
@@ -94,7 +94,7 @@ suite('declaration-files', function () {
                         analysis: bindingAnalysis('foo')
                     },
                     {
-                        directDependencies: new Set([path.join(fixture, 'src/baz.d.ts')]),
+                        directDependencies: new Set([ path.join(fixture, 'src/baz.d.ts') ]),
                         fileDescription: {
                             content: "import { Baz } from './baz.js';\nexport type Foo = string;\n",
                             isExecutable: false,

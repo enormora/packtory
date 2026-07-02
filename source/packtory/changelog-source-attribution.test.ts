@@ -1,9 +1,11 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { AnalyzedBundle, AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
-import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
+import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     attributeChangelogSourceFiles,
+    attributeSelectedChangelogSourceFiles,
     changedPackageManifestDependencyNames,
     collectManifestChangelogSourceFiles,
     isPackageManifestInputPath
@@ -30,7 +32,7 @@ function sourceMapWithoutSourceRoot(sources: readonly string[]): string {
     });
 }
 
-function bundleWith(contents: readonly ReturnType<typeof analyzedBundleResource>[]): ReturnType<typeof analyzedBundle> {
+function bundleWith(contents: readonly AnalyzedBundleResource[]): AnalyzedBundle {
     return analyzedBundle({ contents });
 }
 
@@ -38,166 +40,101 @@ function sourceWithMap(mapFilePath: string, code = 'export const value = 1;'): s
     return `${code}\n//# sourceMappingURL=${mapFilePath}`;
 }
 
-function readableMapFileManager(sourceContent: string, mapContent: string): ReturnType<typeof createFakeFileManager> {
+function readableMapFileManager(sourceContent: string, mapContent: string): FakeFileManager {
     return createFakeFileManager({
-        simulatedReadFileResponses: [{ value: sourceContent }, { value: mapContent }],
-        simulatedCheckReadabilityResponses: [{ value: { isReadable: true } }]
+        simulatedReadFileResponses: [ { value: sourceContent }, { value: mapContent } ],
+        simulatedCheckReadabilityResponses: [ { value: { isReadable: true } } ]
     });
 }
 
-function missingMapFileManager(sourceContent: string): ReturnType<typeof createFakeFileManager> {
+function missingMapFileManager(sourceContent: string): FakeFileManager {
     return createFakeFileManager({
-        simulatedReadFileResponses: [{ value: sourceContent }],
-        simulatedCheckReadabilityResponses: [{ value: { isReadable: false } }]
+        simulatedReadFileResponses: [ { value: sourceContent } ],
+        simulatedCheckReadabilityResponses: [ { value: { isReadable: false } } ]
     });
 }
 
-async function attributeSingleFile(fileManager: ReturnType<typeof createFakeFileManager>, sourceFilePath: string) {
+async function attributeSingleFile(fileManager: FakeFileManager, sourceFilePath: string): Promise<readonly string[]> {
     return attributeChangelogSourceFiles(
         { fileManager, repositoryFolder: '/repo' },
-        bundleWith([analyzedBundleResource(sourceFilePath)]),
+        bundleWith([ analyzedBundleResource(sourceFilePath) ]),
         []
     );
 }
 
-suite('changelog-source-attribution', function () {
-    test('attributes package.json when generated manifest dependency fields are populated', function () {
-        assert.deepStrictEqual(
-            collectManifestChangelogSourceFiles(
-                {
-                    dependencies: {},
-                    peerDependencies: { peer: '^1.0.0' },
-                    imports: {}
-                },
-                ['package-lock.json']
-            ),
-            ['package.json', 'package-lock.json']
-        );
-    });
-
-    test('skips package.json attribution when generated manifest dependency fields are empty', function () {
-        assert.deepStrictEqual(
-            collectManifestChangelogSourceFiles(
-                {
-                    dependencies: {},
-                    peerDependencies: {},
-                    imports: {}
-                },
-                ['package-lock.json']
-            ),
-            ['package-lock.json']
-        );
-    });
-
-    test('skips package.json attribution when generated manifest dependency fields are omitted', function () {
-        assert.deepStrictEqual(collectManifestChangelogSourceFiles({}, ['package-lock.json']), ['package-lock.json']);
-    });
-
-    test('identifies root package manifest input paths', function () {
-        assert.deepStrictEqual(
-            [
-                'package.json',
-                'package-lock.json',
-                'npm-shrinkwrap.json',
-                'pnpm-lock.yaml',
-                'yarn.lock',
-                'packages/pkg-a/package.json'
-            ].map(isPackageManifestInputPath),
-            [true, true, true, true, true, false]
-        );
-    });
-
-    test('collects changed generated package manifest dependency names', function () {
-        assert.deepStrictEqual(
-            changedPackageManifestDependencyNames(
-                '{"dependencies":{"commander":"^13.0.0"},"optionalDependencies":{"left-pad":"^1.0.0"}}',
-                '{"dependencies":{"commander":"^14.0.0"},"peerDependencies":{"react":"^19.0.0"}}'
-            ),
-            ['commander', 'left-pad', 'react']
-        );
-    });
-
-    test('rejects malformed generated package manifests for dependency attribution', function () {
-        assert.throws(() => {
-            changedPackageManifestDependencyNames('not json', '{}');
-        });
-    });
-
-    test('ignores non-object generated package manifests for dependency attribution', function () {
-        assert.deepStrictEqual(changedPackageManifestDependencyNames('[]', '{}'), []);
-        assert.deepStrictEqual(changedPackageManifestDependencyNames('{}', 'null'), []);
-    });
-
+function registerJavaScriptAttributionTests(): void {
     test('attributes plain JavaScript without a source map to the JavaScript file', async function () {
         const fileManager = createFakeFileManager({
-            simulatedReadFileResponses: [{ value: 'export const value = 1;\n' }]
+            simulatedReadFileResponses: [ { value: 'export const value = 1;\n' } ]
         });
 
         const result = await attributeChangelogSourceFiles(
             { fileManager, repositoryFolder: '/repo' },
-            bundleWith([analyzedBundleResource('/repo/source/index.js')]),
+            bundleWith([ analyzedBundleResource('/repo/source/index.js') ]),
             []
         );
 
-        assert.deepStrictEqual(result, ['source/index.js']);
+        assert.deepStrictEqual(result, [ 'source/index.js' ]);
     });
 
     test('attributes JavaScript with an empty sourceMappingURL to the JavaScript file', async function () {
         const fileManager = createFakeFileManager({
-            simulatedReadFileResponses: [{ value: 'export const value = 1;\n//# sourceMappingURL=' }]
+            simulatedReadFileResponses: [ { value: 'export const value = 1;\n//# sourceMappingURL=' } ]
         });
 
         const result = await attributeChangelogSourceFiles(
             { fileManager, repositoryFolder: '/repo' },
-            bundleWith([analyzedBundleResource('/repo/source/index.js')]),
+            bundleWith([ analyzedBundleResource('/repo/source/index.js') ]),
             []
         );
 
-        assert.deepStrictEqual(result, ['source/index.js']);
+        assert.deepStrictEqual(result, [ 'source/index.js' ]);
     });
 
     test('attributes JavaScript with a source map to original TypeScript sources', async function () {
         const result = await attributeSingleFile(
             readableMapFileManager(
                 sourceWithMap('index.js.map'),
-                sourceMap(['../source/index.ts', '../source/shared.ts'])
+                sourceMap([ '../source/index.ts', '../source/shared.ts' ])
             ),
             '/repo/dist/index.js'
         );
 
-        assert.deepStrictEqual(result, ['source/index.ts', 'source/shared.ts']);
+        assert.deepStrictEqual(result, [ 'source/index.ts', 'source/shared.ts' ]);
     });
 
     test('attributes JavaScript with a source map that omits sourceRoot', async function () {
         const result = await attributeSingleFile(
-            readableMapFileManager(sourceWithMap('index.js.map'), sourceMapWithoutSourceRoot(['../source/index.ts'])),
+            readableMapFileManager(sourceWithMap('index.js.map'), sourceMapWithoutSourceRoot([ '../source/index.ts' ])),
             '/repo/dist/index.js'
         );
 
-        assert.deepStrictEqual(result, ['source/index.ts']);
+        assert.deepStrictEqual(result, [ 'source/index.ts' ]);
     });
 
     test('attributes CommonJS with a source map to original TypeScript sources', async function () {
         const result = await attributeSingleFile(
             readableMapFileManager(
                 sourceWithMap('index.cjs.map', 'exports.value = 1;'),
-                sourceMap(['../source/index.cts'])
+                sourceMap([ '../source/index.cts' ])
             ),
             '/repo/dist/index.cjs'
         );
 
-        assert.deepStrictEqual(result, ['source/index.cts']);
+        assert.deepStrictEqual(result, [ 'source/index.cts' ]);
     });
 
     test('resolves sourceRoot and relative source paths from the source map file', async function () {
         const result = await attributeSingleFile(
-            readableMapFileManager(sourceWithMap('maps/index.js.map'), sourceMap(['index.ts'], '../../source')),
+            readableMapFileManager(sourceWithMap('maps/index.js.map'), sourceMap([ 'index.ts' ], '../../source')),
             '/repo/dist/index.js'
         );
 
-        assert.deepStrictEqual(result, ['source/index.ts']);
+        assert.deepStrictEqual(result, [ 'source/index.ts' ]);
     });
+}
 
+function registerSourceMapFailureTests(): void {
     test('fails when a referenced source map is missing', async function () {
         await assert.rejects(
             attributeSingleFile(missingMapFileManager(sourceWithMap('index.js.map')), '/repo/dist/index.js'),
@@ -215,9 +152,9 @@ suite('changelog-source-attribution', function () {
     test('preserves the parse error cause for malformed source maps', async function () {
         await assert.rejects(
             attributeSingleFile(readableMapFileManager(sourceWithMap('index.js.map'), '{'), '/repo/dist/index.js'),
-            (error: unknown) => {
+            function (error: unknown) {
                 assert.strictEqual((error as Error).message, 'Failed to parse source map "/repo/dist/index.js.map"');
-                assert.ok((error as Error).cause);
+                assert.notStrictEqual((error as Error).cause, undefined);
                 return true;
             }
         );
@@ -226,7 +163,7 @@ suite('changelog-source-attribution', function () {
     test('fails when a referenced source map contains an empty source', async function () {
         await assert.rejects(
             attributeSingleFile(
-                readableMapFileManager(sourceWithMap('index.js.map'), sourceMap([null])),
+                readableMapFileManager(sourceWithMap('index.js.map'), sourceMap([ null ])),
                 '/repo/dist/index.js'
             ),
             /Source map "\/repo\/dist\/index\.js\.map" contains an empty source/u
@@ -243,7 +180,7 @@ suite('changelog-source-attribution', function () {
         await assert.rejects(
             attributeChangelogSourceFiles(
                 { fileManager, repositoryFolder: '/repo' },
-                bundleWith([analyzedBundleResource('/repo/dist/index.js')]),
+                bundleWith([ analyzedBundleResource('/repo/dist/index.js') ]),
                 []
             ),
             /Multiple sourceMappingURL references found in "\/repo\/dist\/index\.js"/u
@@ -253,18 +190,20 @@ suite('changelog-source-attribution', function () {
     test('fails when a source map source resolves outside the repository folder', async function () {
         await assert.rejects(
             attributeSingleFile(
-                readableMapFileManager(sourceWithMap('index.js.map'), sourceMap(['../../outside/index.ts'])),
+                readableMapFileManager(sourceWithMap('index.js.map'), sourceMap([ '../../outside/index.ts' ])),
                 '/repo/dist/index.js'
             ),
             /Changelog source file "\/outside\/index\.ts" is outside repository folder "\/repo"/u
         );
     });
+}
 
+function registerDirectSourceTests(): void {
     test('fails when an attributed source is the repository folder itself', async function () {
         await assert.rejects(
             attributeChangelogSourceFiles(
                 { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
-                bundleWith([analyzedBundleResource('/repo', { targetFilePath: 'repo' })]),
+                bundleWith([ analyzedBundleResource('/repo', { targetFilePath: 'repo' }) ]),
                 []
             ),
             /Changelog source file "\/repo" is outside repository folder "\/repo"/u
@@ -279,11 +218,11 @@ suite('changelog-source-attribution', function () {
 
         const result = await attributeChangelogSourceFiles(
             { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
-            bundleWith([generatedManifest, analyzedBundleResource('/repo/source/index.d.ts')]),
+            bundleWith([ generatedManifest, analyzedBundleResource('/repo/source/index.d.ts') ]),
             []
         );
 
-        assert.deepStrictEqual(result, ['source/index.d.ts']);
+        assert.deepStrictEqual(result, [ 'source/index.d.ts' ]);
     });
 
     test('includes additional non-code files directly', async function () {
@@ -298,14 +237,14 @@ suite('changelog-source-attribution', function () {
             []
         );
 
-        assert.deepStrictEqual(result, ['assets/readme.md']);
+        assert.deepStrictEqual(result, [ 'assets/readme.md' ]);
     });
 
     test('does not read declaration, source map, or non-code files', async function () {
         const result = await attributeChangelogSourceFiles(
             {
                 fileManager: createFakeFileManager({
-                    simulatedReadFileResponses: [{ error: new Error('read failed') }]
+                    simulatedReadFileResponses: [ { error: new Error('read failed') } ]
                 }),
                 repositoryFolder: '/repo'
             },
@@ -317,6 +256,119 @@ suite('changelog-source-attribution', function () {
             []
         );
 
-        assert.deepStrictEqual(result, ['assets/readme.md', 'source/index.d.ts', 'source/index.js.map']);
+        assert.deepStrictEqual(result, [ 'assets/readme.md', 'source/index.d.ts', 'source/index.js.map' ]);
     });
+}
+
+function registerManifestInputTests(): void {
+    test('collectManifestChangelogSourceFiles includes package.json when generated manifest inputs exist', function () {
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles({ dependencies: { left: '^1.0.0' } }, [ 'README.md' ]),
+            [ 'package.json', 'README.md' ]
+        );
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles({ peerDependencies: { react: '^19.0.0' } }, []),
+            [ 'package.json' ]
+        );
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles({ imports: { '#runtime': './runtime.js' } }, []),
+            [ 'package.json' ]
+        );
+    });
+
+    test('collectManifestChangelogSourceFiles omits package.json when generated manifest inputs are empty', function () {
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles(
+                { dependencies: {}, peerDependencies: {}, imports: {} },
+                [ 'README.md' ]
+            ),
+            [ 'README.md' ]
+        );
+    });
+
+    test('isPackageManifestInputPath recognizes manifest and lock files only', function () {
+        assert.strictEqual(isPackageManifestInputPath('package.json'), true);
+        assert.strictEqual(isPackageManifestInputPath('package-lock.json'), true);
+        assert.strictEqual(isPackageManifestInputPath('npm-shrinkwrap.json'), true);
+        assert.strictEqual(isPackageManifestInputPath('pnpm-lock.yaml'), true);
+        assert.strictEqual(isPackageManifestInputPath('yarn.lock'), true);
+        assert.strictEqual(isPackageManifestInputPath('packages/pkg/package.json'), false);
+        assert.strictEqual(isPackageManifestInputPath('README.md'), false);
+    });
+
+    test('changedPackageManifestDependencyNames returns sorted changes across dependency fields', function () {
+        const previousManifest = JSON.stringify({
+            dependencies: { left: '1.0.0', shared: '1.0.0' },
+            optionalDependencies: { optional: '1.0.0' },
+            peerDependencies: { react: '^18.0.0' }
+        });
+        const currentManifest = JSON.stringify({
+            dependencies: { right: '1.0.0', shared: '1.0.0' },
+            optionalDependencies: { optional: '1.0.1' },
+            peerDependencies: { react: '^19.0.0' }
+        });
+
+        assert.deepStrictEqual(changedPackageManifestDependencyNames(previousManifest, currentManifest), [
+            'left',
+            'optional',
+            'react',
+            'right'
+        ]);
+    });
+
+    test('changedPackageManifestDependencyNames ignores non-object manifests and fields', function () {
+        assert.deepStrictEqual(changedPackageManifestDependencyNames('[]', '{}'), []);
+        assert.deepStrictEqual(changedPackageManifestDependencyNames('{}', 'null'), []);
+        assert.deepStrictEqual(
+            changedPackageManifestDependencyNames(
+                JSON.stringify({ dependencies: [ 'left' ] }),
+                JSON.stringify({ dependencies: { left: '1.0.0' } })
+            ),
+            [ 'left' ]
+        );
+    });
+}
+
+function registerSelectedSourceTests(): void {
+    test('attributeSelectedChangelogSourceFiles attributes only selected artifact files', async function () {
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [ { value: 'export const value = 1;\n' } ]
+        });
+        const result = await attributeSelectedChangelogSourceFiles(
+            { fileManager, repositoryFolder: '/repo' },
+            bundleWith([
+                analyzedBundleResource('/repo/source/included.js', { targetFilePath: 'dist/included.js' }),
+                analyzedBundleResource('/repo/source/skipped.js', { targetFilePath: 'dist/skipped.js' })
+            ]),
+            [ 'README.md' ],
+            new Set([ 'dist/included.js' ])
+        );
+
+        assert.deepStrictEqual(result, [ 'README.md', 'source/included.js' ]);
+        assert.strictEqual(fileManager.getReadFileCallCount(), 1);
+        assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: '/repo/source/included.js' });
+    });
+
+    test('attributeSelectedChangelogSourceFiles excludes generated manifests even when selected', async function () {
+        const generatedManifest = {
+            ...analyzedBundleResource('/repo/source/package.json', { targetFilePath: 'package.json' }),
+            isGeneratedManifest: true as const
+        };
+        const result = await attributeSelectedChangelogSourceFiles(
+            { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
+            bundleWith([ generatedManifest ]),
+            [],
+            new Set([ 'package.json' ])
+        );
+
+        assert.deepStrictEqual(result, []);
+    });
+}
+
+suite('changelog-source-attribution', function () {
+    registerManifestInputTests();
+    registerJavaScriptAttributionTests();
+    registerSourceMapFailureTests();
+    registerDirectSourceTests();
+    registerSelectedSourceTests();
 });

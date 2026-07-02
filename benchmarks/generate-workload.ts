@@ -31,11 +31,11 @@ const sharedMainPackageJson = {
 } as const;
 
 type GeneratedCounts = {
-    packageCount: number;
-    jsFileCount: number;
-    declarationFileCount: number;
-    sourceMapFileCount: number;
-    maxImportFanOut: number;
+    readonly packageCount: number;
+    readonly jsFileCount: number;
+    readonly declarationFileCount: number;
+    readonly sourceMapFileCount: number;
+    readonly maxImportFanOut: number;
 };
 
 export type GeneratedWorkload = {
@@ -64,7 +64,7 @@ function createSourceMap(fileName: string, sourceName: string): string {
         version: clusterSourceMapVersion,
         file: fileName,
         sourceRoot: '',
-        sources: [`./src/${sourceName}`],
+        sources: [ `./src/${sourceName}` ],
         names: [],
         mappings: ''
     };
@@ -96,17 +96,19 @@ function createClusterSourceFiles(): Record<string, string> {
 
 function createCliPackageSourceFiles(): Record<string, string> {
     const sourceFiles: Record<string, string> = {};
-    const featureNames = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'];
-    const sharedNames = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const featureNames = [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l' ];
+    const sharedNames = [ 'a', 'b', 'c', 'd', 'e', 'f' ];
 
-    sourceFiles['index.js'] = `${featureNames
-        .map((featureName) => {
-            return `import { feature${featureName.toUpperCase()} } from './feature-${featureName}.js';`;
-        })
-        .join('\n')}\n//# sourceMappingURL=index.js.map\n`;
+    sourceFiles['index.js'] = `${
+        featureNames
+            .map(function (featureName) {
+                return `import { feature${featureName.toUpperCase()} } from './feature-${featureName}.js';`;
+            })
+            .join('\n')
+    }\n//# sourceMappingURL=index.js.map\n`;
     sourceFiles['index.js.map'] = createSourceMap('index.js', 'index.ts');
     sourceFiles['index.d.ts'] = featureNames
-        .map((featureName) => {
+        .map(function (featureName) {
             const upperCaseFeatureName = featureName.toUpperCase();
             return (
                 `export declare const feature${upperCaseFeatureName}: ` +
@@ -116,9 +118,8 @@ function createCliPackageSourceFiles(): Record<string, string> {
         .join('\n')
         .concat('\n');
 
-    sharedNames.forEach((sharedName) => {
-        sourceFiles[`shared-${sharedName}.js`] =
-            `export const shared${sharedName.toUpperCase()} = ` +
+    sharedNames.forEach(function (sharedName) {
+        sourceFiles[`shared-${sharedName}.js`] = `export const shared${sharedName.toUpperCase()} = ` +
             `'shared-${sharedName}';\n` +
             `//# sourceMappingURL=shared-${sharedName}.js.map\n`;
         sourceFiles[`shared-${sharedName}.js.map`] = createSourceMap(
@@ -128,7 +129,7 @@ function createCliPackageSourceFiles(): Record<string, string> {
         sourceFiles[`shared-${sharedName}.d.ts`] = `export type Shared${sharedName.toUpperCase()} = string;\n`;
     });
 
-    featureNames.forEach((featureName, index) => {
+    featureNames.forEach(function (featureName, index) {
         const sharedName = sharedNames[index % sharedNames.length];
         if (sharedName === undefined) {
             throw new Error(`Missing shared CLI benchmark module for feature "${featureName}"`);
@@ -145,8 +146,7 @@ function createCliPackageSourceFiles(): Record<string, string> {
             `feature-${featureName}.js`,
             `feature-${featureName}.ts`
         );
-        sourceFiles[`feature-${featureName}.d.ts`] =
-            `export type Feature${featureName.toUpperCase()} = ` +
+        sourceFiles[`feature-${featureName}.d.ts`] = `export type Feature${featureName.toUpperCase()} = ` +
             `import('./shared-${sharedName}.js').Shared${sharedName.toUpperCase()};\n`;
         sourceFiles[`internal-${featureName}.js`] =
             `export const internal${featureName.toUpperCase()} = 'benchmark-${featureName}';\n` +
@@ -168,7 +168,7 @@ async function writeClusterFiles(clusterRootDirectory: string): Promise<void> {
     await fs.mkdir(docsDirectory, { recursive: true });
 
     const clusterSourceFiles = createClusterSourceFiles();
-    for (const [fileName, contents] of Object.entries(clusterSourceFiles)) {
+    for (const [ fileName, contents ] of Object.entries(clusterSourceFiles)) {
         await fs.writeFile(path.join(sourceDirectory, fileName), contents);
     }
 
@@ -183,7 +183,7 @@ async function writeCliPackageFiles(packageRootDirectory: string): Promise<void>
     await fs.mkdir(sourceDirectory, { recursive: true });
     await fs.mkdir(docsDirectory, { recursive: true });
 
-    for (const [fileName, contents] of Object.entries(createCliPackageSourceFiles())) {
+    for (const [ fileName, contents ] of Object.entries(createCliPackageSourceFiles())) {
         await fs.writeFile(path.join(sourceDirectory, fileName), contents);
     }
 
@@ -191,9 +191,12 @@ async function writeCliPackageFiles(packageRootDirectory: string): Promise<void>
 }
 
 function countFanOut(sourceFileContents: string): number {
-    const importCount = sourceFileContents.split('\n').filter((line) => {
-        return line.startsWith('import ');
-    }).length;
+    const importCount = sourceFileContents
+        .split('\n')
+        .filter(function (line) {
+            return line.startsWith('import ');
+        })
+        .length;
     const sourceMapCount = sourceFileContents.includes('//# sourceMappingURL=') ? 1 : 0;
     return importCount + sourceMapCount;
 }
@@ -210,20 +213,20 @@ function createPackageConfigs(rootDirectory: string, clusterCount: number): read
                 name: `first-${clusterIndex}`,
                 sourcesFolder,
                 roots: { main: { js: 'entry1.js', declarationFile: 'entry1.d.ts' } },
-                additionalFiles: [{ sourceFilePath: '../docs/first.txt', targetFilePath: 'docs/first.txt' }]
+                additionalFiles: [ { sourceFilePath: '../docs/first.txt', targetFilePath: 'docs/first.txt' } ]
             },
             {
                 name: `second-${clusterIndex}`,
                 sourcesFolder,
                 roots: { main: { js: 'entry2.js', declarationFile: 'entry2.d.ts' } },
-                bundleDependencies: [`first-${clusterIndex}`]
+                bundleDependencies: [ `first-${clusterIndex}` ]
             },
             {
                 name: `third-${clusterIndex}`,
                 sourcesFolder,
                 roots: { main: { js: 'entry3.js', declarationFile: 'entry3.d.ts' } },
-                bundleDependencies: [`first-${clusterIndex}`],
-                bundlePeerDependencies: [`second-${clusterIndex}`]
+                bundleDependencies: [ `first-${clusterIndex}` ],
+                bundlePeerDependencies: [ `second-${clusterIndex}` ]
             }
         );
     }
@@ -236,7 +239,7 @@ function createConfigWithoutRegistry(rootDirectory: string, clusterCount: number
         commonPackageSettings: {
             mainPackageJson: sharedMainPackageJson,
             includeSourceMapFiles: true,
-            additionalFiles: [{ sourceFilePath: '../docs/common.txt', targetFilePath: 'docs/common.txt' }],
+            additionalFiles: [ { sourceFilePath: '../docs/common.txt', targetFilePath: 'docs/common.txt' } ],
             publishSettings: { access: 'public' }
         },
         packages: createPackageConfigs(rootDirectory, clusterCount)
@@ -260,7 +263,7 @@ function createCliPackageConfigs(rootDirectory: string, packageCount: number): r
             name: `parallel-package-${packageIndex}`,
             sourcesFolder: path.join(packageDirectory, 'src'),
             roots: { main: { js: 'index.js', declarationFile: 'index.d.ts' } },
-            additionalFiles: [{ sourceFilePath: '../docs/readme.txt', targetFilePath: 'docs/readme.txt' }]
+            additionalFiles: [ { sourceFilePath: '../docs/readme.txt', targetFilePath: 'docs/readme.txt' } ]
         });
     }
 
@@ -297,7 +300,7 @@ function gatherCounts(clusterCount: number): GeneratedCounts {
         jsFileCount: clusterCount * clusterJavaScriptFileCount,
         declarationFileCount: clusterCount * clusterDeclarationFileCount,
         sourceMapFileCount: clusterCount * clusterSourceMapFileCount,
-        maxImportFanOut: clusterSources.reduce((currentMaximum, sourceFileContents) => {
+        maxImportFanOut: clusterSources.reduce(function (currentMaximum, sourceFileContents) {
             return Math.max(currentMaximum, countFanOut(sourceFileContents));
         }, 0)
     };
@@ -309,7 +312,9 @@ function createGeneratedWorkloadCountMismatchMessage(
     expectedCount: number,
     fileKind: string
 ): string {
-    return [`Generated workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}`].join(' ');
+    return [ `Generated workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}` ].join(
+        ' '
+    );
 }
 
 function createGeneratedWorkloadFanOutMismatchMessage(
@@ -320,7 +325,8 @@ function createGeneratedWorkloadFanOutMismatchMessage(
     return [
         `Generated workload "${size}" produced max import fan-out ${actualFanOut},`,
         `expected at most ${expectedFanOut}`
-    ].join(' ');
+    ]
+        .join(' ');
 }
 
 function validateGeneratedWorkload(definition: WorkloadDefinition, counts: GeneratedCounts, size: WorkloadSize): void {
@@ -367,22 +373,25 @@ function gatherCliCounts(packageCount: number): GeneratedCounts {
 
     return {
         packageCount,
-        jsFileCount:
-            packageCount *
-            filePaths.filter((filePath) => {
-                return filePath.endsWith('.js');
-            }).length,
-        declarationFileCount:
-            packageCount *
-            filePaths.filter((filePath) => {
-                return filePath.endsWith('.d.ts');
-            }).length,
-        sourceMapFileCount:
-            packageCount *
-            filePaths.filter((filePath) => {
-                return filePath.endsWith('.js.map');
-            }).length,
-        maxImportFanOut: Object.values(packageSources).reduce((currentMaximum, sourceFileContents) => {
+        jsFileCount: packageCount *
+            filePaths
+                .filter(function (filePath) {
+                    return filePath.endsWith('.js');
+                })
+                .length,
+        declarationFileCount: packageCount *
+            filePaths
+                .filter(function (filePath) {
+                    return filePath.endsWith('.d.ts');
+                })
+                .length,
+        sourceMapFileCount: packageCount *
+            filePaths
+                .filter(function (filePath) {
+                    return filePath.endsWith('.js.map');
+                })
+                .length,
+        maxImportFanOut: Object.values(packageSources).reduce(function (currentMaximum, sourceFileContents) {
             return Math.max(currentMaximum, countFanOut(sourceFileContents));
         }, 0)
     };
@@ -394,9 +403,10 @@ function createGeneratedCliWorkloadCountMismatchMessage(
     expectedCount: number,
     fileKind: string
 ): string {
-    return [`Generated CLI workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}`].join(
-        ' '
-    );
+    return [ `Generated CLI workload "${size}" produced ${actualCount} ${fileKind},`, `expected ${expectedCount}` ]
+        .join(
+            ' '
+        );
 }
 
 function createGeneratedCliWorkloadFanOutMismatchMessage(
@@ -407,7 +417,8 @@ function createGeneratedCliWorkloadFanOutMismatchMessage(
     return [
         `Generated CLI workload "${size}" produced max import fan-out ${actualFanOut},`,
         `expected at most ${expectedFanOut}`
-    ].join(' ');
+    ]
+        .join(' ');
 }
 
 function validateGeneratedCliWorkload(
@@ -484,8 +495,8 @@ export async function generateCliWorkload(params: GenerateCliWorkloadParams): Pr
     readonly size: CliWorkloadSize;
     readonly definition: CliWorkloadDefinition;
     readonly packageNames: readonly string[];
-    createConfig: (registrySettings: RegistrySettings) => PacktoryConfig;
-    createConfigModuleText: (registrySettings: RegistrySettings) => string;
+    readonly createConfig: (registrySettings: RegistrySettings) => PacktoryConfig;
+    readonly createConfigModuleText: (registrySettings: RegistrySettings) => string;
 }> {
     const definition = params.workloads.cliWorkloads[params.size];
 
@@ -500,7 +511,7 @@ export async function generateCliWorkload(params: GenerateCliWorkloadParams): Pr
         rootDirectory: params.rootDirectory,
         size: params.size,
         definition,
-        packageNames: createCliPackageConfigs(params.rootDirectory, definition.packageCount).map((entry) => {
+        packageNames: createCliPackageConfigs(params.rootDirectory, definition.packageCount).map(function (entry) {
             return entry.name;
         }),
         createConfig(registrySettings) {

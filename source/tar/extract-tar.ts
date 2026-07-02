@@ -29,11 +29,13 @@ type ExtractionStreams = {
     readonly tarEntries: AsyncIterable<TarStreamEntry>;
 };
 
-const defaultExtractTarLimits: ExtractTarLimits = {
-    maxEntryCount: 50_000,
-    maxEntryPathLength: 4096,
-    maxExtractedBytes: 1_073_741_824
-};
+function defaultExtractTarLimits(): ExtractTarLimits {
+    return {
+        maxEntryCount: 50_000,
+        maxEntryPathLength: 4096,
+        maxExtractedBytes: 1_073_741_824
+    };
+}
 
 function toError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
@@ -100,24 +102,35 @@ async function collectTarEntries(stream: AsyncIterable<TarStreamEntry>, limits: 
 }
 
 async function waitForStreamError(stream: ErrorEmitter): Promise<never> {
-    return await new Promise<never>((_resolve, reject) => {
-        stream.once('error', (error: unknown) => {
+    return await new Promise<never>(function (_resolve, reject) {
+        stream.once('error', function (error: unknown) {
             reject(toError(error));
         });
     });
 }
 
-function appendOutcome(outcomes: Set<Promise<TarEntry[]>>, outcome: Promise<TarEntry[]>): Set<Promise<TarEntry[]>> {
+type ExtractionOutcomeCollection = {
+    readonly add: (outcome: Promise<readonly TarEntry[]>) => ExtractionOutcomeCollection;
+    readonly [Symbol.iterator]: () => IterableIterator<Promise<readonly TarEntry[]>>;
+};
+
+function appendOutcome(
+    outcomes: ExtractionOutcomeCollection,
+    outcome: Promise<readonly TarEntry[]>
+): ExtractionOutcomeCollection {
     outcomes.add(outcome);
     return outcomes;
 }
 
 async function raceExtractionOutcomes(streams: ExtractionStreams, limits: ExtractTarLimits): Promise<TarEntry[]> {
-    return await Promise.race(
+    const entries = await Promise.race(
         appendOutcome(
             appendOutcome(
                 appendOutcome(
-                    appendOutcome(new Set<Promise<TarEntry[]>>(), collectTarEntries(streams.tarEntries, limits)),
+                    appendOutcome(
+                        new Set<Promise<readonly TarEntry[]>>(),
+                        collectTarEntries(streams.tarEntries, limits)
+                    ),
                     waitForStreamError(streams.source)
                 ),
                 waitForStreamError(streams.gunzip)
@@ -125,12 +138,13 @@ async function raceExtractionOutcomes(streams: ExtractionStreams, limits: Extrac
             waitForStreamError(streams.extractStream)
         )
     );
+    return Array.from(entries);
 }
 
 export async function extractTarEntries(
     buffer: Buffer,
     dependencies: Partial<ExtractTarDependencies> = {},
-    limits: ExtractTarLimits = defaultExtractTarLimits
+    limits: ExtractTarLimits = defaultExtractTarLimits()
 ): Promise<TarEntry[]> {
     const createSource = dependencies.createSource ?? Readable.from;
     const extractStream = extract();

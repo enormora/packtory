@@ -10,7 +10,7 @@ function pkg(overrides: Partial<PackageConfig>): PackageConfig {
 
 suite('surface-resolution', function () {
     test('resolveSurface returns an implicit surface using the only root when there is a single root', function () {
-        const surface = resolveSurface(['main'], pkg({}));
+        const surface = resolveSurface([ 'main' ], pkg({}));
 
         if (surface.mode !== 'implicit') {
             assert.fail('expected implicit surface');
@@ -19,7 +19,7 @@ suite('surface-resolution', function () {
     });
 
     test('resolveSurface returns an implicit surface honouring defaultModuleRoot when multiple roots exist', function () {
-        const surface = resolveSurface(['main', 'feature'], pkg({ defaultModuleRoot: 'feature' }));
+        const surface = resolveSurface([ 'main', 'feature' ], pkg({ defaultModuleRoot: 'feature' }));
 
         if (surface.mode !== 'implicit') {
             assert.fail('expected implicit surface');
@@ -29,7 +29,7 @@ suite('surface-resolution', function () {
 
     test('resolveSurface throws when multiple roots exist without a defaultModuleRoot', function () {
         try {
-            resolveSurface(['main', 'feature'], pkg({}));
+            resolveSurface([ 'main', 'feature' ], pkg({}));
             assert.fail('Expected resolveSurface() to throw but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'Config for package "pkg-a" is missing defaultModuleRoot');
@@ -38,8 +38,8 @@ suite('surface-resolution', function () {
 
     test('resolveSurface returns an explicit surface when packageInterface is provided', function () {
         const surface = resolveSurface(
-            ['main'],
-            pkg({ packageInterface: { modules: [{ root: 'main', export: '.' }] } as never })
+            [ 'main' ],
+            pkg({ packageInterface: { modules: [ { root: 'main', export: '.' } ] } as never })
         );
 
         assert.strictEqual(surface.mode, 'explicit');

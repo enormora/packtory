@@ -9,10 +9,10 @@ suite('implicit-exports', function () {
             {
                 name: 'package-a',
                 roots: { main: rootWithSource('/src/index.js', 'index.js') },
-                contents: [content('/src/index.js', 'index.js'), content('/src/public.js', 'public.js')]
+                contents: [ content('/src/index.js', 'index.js'), content('/src/public.js', 'public.js') ]
             },
             { mode: 'implicit', defaultModuleRoot: 'main' },
-            new Set(['/src/public.js'])
+            new Set([ '/src/public.js' ])
         );
 
         assert.deepStrictEqual(result, {

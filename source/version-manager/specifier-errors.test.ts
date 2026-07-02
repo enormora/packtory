@@ -20,7 +20,8 @@ suite('specifier-errors', function () {
                 '  - "react" → "git+https://github.com/our-fork/react#v18.0.0" (git)',
                 '  - "internal-tool" → "file:./vendor/internal-tool" (file)',
                 'Add the dep name to dependencyPolicy.allowMutableSpecifiers to allow this on purpose.'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -35,7 +36,8 @@ suite('specifier-errors', function () {
                 "Refusing to publish: 1 dependency uses a mutable specifier, which bypasses the npm registry's integrity guarantees:",
                 '  - "react" → "git+https://github.com/foo/bar#v1" (git)',
                 'Add the dep name to dependencyPolicy.allowMutableSpecifiers to allow this on purpose.'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -44,7 +46,8 @@ suite('specifier-errors', function () {
             {
                 name: 'shared-utils',
                 specifier: 'workspace:*',
-                reason: 'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace, not valid in a published manifest'
+                reason:
+                    'workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace, not valid in a published manifest'
             }
         ]);
 
@@ -54,7 +57,8 @@ suite('specifier-errors', function () {
                 'Refusing to publish: 1 dependency has a specifier that npm cannot publish:',
                 '  - "shared-utils" → "workspace:*" (workspace protocol is yarn/pnpm/bun-specific; resolved at install time by the workspace, not valid in a published manifest)',
                 'Replace with a registry version (e.g. "^1.2.3"). Mutable-specifier allow-listing does not apply here.'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
@@ -71,12 +75,13 @@ suite('specifier-errors', function () {
                 '  - "a" → "workspace:*" (workspace reason)',
                 '  - "b" → "portal:./b" (portal reason)',
                 'Replace with a registry version (e.g. "^1.2.3"). Mutable-specifier allow-listing does not apply here.'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
     test('renderUnusedAllowListMessage formats a single-entry message exactly', function () {
-        const message = renderUnusedAllowListMessage(['old-vendored-pkg']);
+        const message = renderUnusedAllowListMessage([ 'old-vendored-pkg' ]);
 
         assert.strictEqual(
             message,
@@ -84,12 +89,13 @@ suite('specifier-errors', function () {
                 'Refusing to publish: 1 entry in dependencyPolicy.allowMutableSpecifiers is not in use:',
                 '  - "old-vendored-pkg"',
                 'Remove unused entries — they reflect stale exceptions to the integrity policy.'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 
     test('renderUnusedAllowListMessage uses the plural noun and verb for multiple entries', function () {
-        const message = renderUnusedAllowListMessage(['old-vendored-pkg', 'still-clean-now']);
+        const message = renderUnusedAllowListMessage([ 'old-vendored-pkg', 'still-clean-now' ]);
 
         assert.strictEqual(
             message,
@@ -98,7 +104,8 @@ suite('specifier-errors', function () {
                 '  - "old-vendored-pkg"',
                 '  - "still-clean-now"',
                 'Remove unused entries — they reflect stale exceptions to the integrity policy.'
-            ].join('\n')
+            ]
+                .join('\n')
         );
     });
 });

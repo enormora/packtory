@@ -11,7 +11,7 @@ suite('root-registry', function () {
     });
 
     test('getRoot throws when the id is not present', function () {
-        assert.throws(() => {
+        assert.throws(function () {
             getRoot({ name: 'package-a', roots: { main: rootWithSource('/src/index.js', 'index.js') } }, 'missing');
         }, /^Error: Package "package-a" references unknown root "missing"$/u);
     });
@@ -22,25 +22,25 @@ suite('root-registry', function () {
             surface: { mode: 'implicit', defaultModuleRoot: 'main' }
         });
 
-        assert.deepStrictEqual(result, new Set(['main', 'worker']));
+        assert.deepStrictEqual(result, new Set([ 'main', 'worker' ]));
     });
 
     test('getEntryRootIds includes explicit module roots', function () {
         const result = getEntryRootIds({
             roots: { main: plainRoot('index.js') },
-            surface: { mode: 'explicit', packageInterface: { modules: [{ root: 'main', export: '.' }] } }
+            surface: { mode: 'explicit', packageInterface: { modules: [ { root: 'main', export: '.' } ] } }
         });
 
-        assert.deepStrictEqual(result, new Set(['main']));
+        assert.deepStrictEqual(result, new Set([ 'main' ]));
     });
 
     test('getEntryRootIds includes explicit bin roots', function () {
         const result = getEntryRootIds({
             roots: { cli: plainRoot('cli.js') },
-            surface: { mode: 'explicit', packageInterface: { bins: [{ root: 'cli', name: 'package-a' }] } }
+            surface: { mode: 'explicit', packageInterface: { bins: [ { root: 'cli', name: 'package-a' } ] } }
         });
 
-        assert.deepStrictEqual(result, new Set(['cli']));
+        assert.deepStrictEqual(result, new Set([ 'cli' ]));
     });
 
     test('getEntryRootIds includes explicit privateRoots alongside public roots', function () {
@@ -49,13 +49,13 @@ suite('root-registry', function () {
             surface: {
                 mode: 'explicit',
                 packageInterface: {
-                    modules: [{ root: 'main', export: '.' }],
-                    privateRoots: ['worker']
+                    modules: [ { root: 'main', export: '.' } ],
+                    privateRoots: [ 'worker' ]
                 }
             }
         });
 
-        assert.deepStrictEqual(result, new Set(['main', 'worker']));
+        assert.deepStrictEqual(result, new Set([ 'main', 'worker' ]));
     });
 
     test('getEntryRootIds dedupes a root referenced by both modules and bins', function () {
@@ -64,12 +64,12 @@ suite('root-registry', function () {
             surface: {
                 mode: 'explicit',
                 packageInterface: {
-                    modules: [{ root: 'shared', export: '.' }],
-                    bins: [{ root: 'shared', name: 'package-a' }]
+                    modules: [ { root: 'shared', export: '.' } ],
+                    bins: [ { root: 'shared', name: 'package-a' } ]
                 }
             }
         });
 
-        assert.deepStrictEqual(result, new Set(['shared']));
+        assert.deepStrictEqual(result, new Set([ 'shared' ]));
     });
 });

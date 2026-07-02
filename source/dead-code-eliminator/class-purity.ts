@@ -36,7 +36,7 @@ export function hasClassImpurity(
     if (classDeclaration.getDecorators().length > 0) {
         return true;
     }
-    return classDeclaration.getMembers().some((member) => {
+    return classDeclaration.getMembers().some(function (member) {
         return classMemberIsImpure(member, settings);
     });
 }

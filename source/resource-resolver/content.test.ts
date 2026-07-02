@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { combineAllBundleFiles } from './content.ts';
 
-suite('content', function () {
+function registerLocalFileTests(): void {
     test('combines all bundle files correctly', function () {
         const result = combineAllBundleFiles('/foo', [], []);
         assert.deepStrictEqual(result, []);
@@ -14,7 +14,7 @@ suite('content', function () {
             [
                 {
                     filePath: '/src/nested/index.js',
-                    directDependencies: new Set(['/src/nested/internal.js']),
+                    directDependencies: new Set([ '/src/nested/internal.js' ]),
                     project: 'project' as never
                 }
             ],
@@ -25,7 +25,7 @@ suite('content', function () {
             {
                 sourceFilePath: '/src/nested/index.js',
                 targetFilePath: 'nested/index.js',
-                directDependencies: new Set(['/src/nested/internal.js']),
+                directDependencies: new Set([ '/src/nested/internal.js' ]),
                 project: 'project',
                 isExplicitlyIncluded: false
             }
@@ -34,7 +34,7 @@ suite('content', function () {
 
     test('rejects local dependency paths outside sourcesFolder', function () {
         assert.throws(
-            () => {
+            function () {
                 combineAllBundleFiles(
                     '/src',
                     [
@@ -55,7 +55,7 @@ suite('content', function () {
 
     test('rejects local dependency paths that resolve to sourcesFolder itself', function () {
         assert.throws(
-            () => {
+            function () {
                 combineAllBundleFiles(
                     '/src',
                     [
@@ -125,7 +125,7 @@ suite('content', function () {
     });
 
     test('marks string-form additional files as explicitly included', function () {
-        const result = combineAllBundleFiles('/src', [], ['readme.md']);
+        const result = combineAllBundleFiles('/src', [], [ 'readme.md' ]);
 
         assert.deepStrictEqual(result, [
             {
@@ -139,24 +139,27 @@ suite('content', function () {
 
     test('throws when an object-form additional file uses an absolute target path', function () {
         try {
-            combineAllBundleFiles('/src', [], [{ sourceFilePath: 'file.txt', targetFilePath: '/absolute/file.txt' }]);
+            combineAllBundleFiles('/src', [], [ { sourceFilePath: 'file.txt', targetFilePath: '/absolute/file.txt' } ]);
             assert.fail('Expected combineAllBundleFiles() should fail but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'The targetFilePath must be relative');
         }
     });
+}
 
-    const additionalCodeFileErrorMessage = [
-        'additionalFiles must not include code files; received "lib/template.ts".',
-        'Code that should ship in the bundle must be reachable from a root so',
-        'dependency, side-effect and dead-code analyses can run on it.',
-        'If you intend to ship code as a static asset (e.g. a template),',
-        'use a non-code extension like .txt.'
-    ].join(' ');
+const additionalCodeFileErrorMessage = [
+    'additionalFiles must not include code files; received "lib/template.ts".',
+    'Code that should ship in the bundle must be reachable from a root so',
+    'dependency, side-effect and dead-code analyses can run on it.',
+    'If you intend to ship code as a static asset (e.g. a template),',
+    'use a non-code extension like .txt.'
+]
+    .join(' ');
 
+function registerAdditionalFileValidationTests(): void {
     test('throws when a string-form additional file points at a code file', function () {
         try {
-            combineAllBundleFiles('/src', [], ['lib/template.ts']);
+            combineAllBundleFiles('/src', [], [ 'lib/template.ts' ]);
             assert.fail('Expected combineAllBundleFiles() should fail but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, additionalCodeFileErrorMessage);
@@ -168,7 +171,7 @@ suite('content', function () {
             combineAllBundleFiles(
                 '/src',
                 [],
-                [{ sourceFilePath: 'assets/template.txt', targetFilePath: 'lib/template.ts' }]
+                [ { sourceFilePath: 'assets/template.txt', targetFilePath: 'lib/template.ts' } ]
             );
             assert.fail('Expected combineAllBundleFiles() should fail but it did not');
         } catch (error: unknown) {
@@ -180,7 +183,7 @@ suite('content', function () {
         const result = combineAllBundleFiles(
             '/src',
             [],
-            [{ sourceFilePath: 'fixtures/template.ts', targetFilePath: 'fixtures/template.ts.txt' }]
+            [ { sourceFilePath: 'fixtures/template.ts', targetFilePath: 'fixtures/template.ts.txt' } ]
         );
         assert.deepStrictEqual(result, [
             {
@@ -191,4 +194,9 @@ suite('content', function () {
             }
         ]);
     });
+}
+
+suite('content', function () {
+    registerLocalFileTests();
+    registerAdditionalFileValidationTests();
 });

@@ -45,16 +45,16 @@ suite('preview-document-helpers', function () {
 
     test('hasMeaningfulChanges returns true when any eliminated source files are present', function () {
         assert.strictEqual(
-            hasMeaningfulChanges([], [{ path: '/src/dead.js', sourceBytes: 1, reason: 'no-uses' }]),
+            hasMeaningfulChanges([], [ { path: '/src/dead.js', sourceBytes: 1, reason: 'no-uses' } ]),
             true
         );
     });
 
     test('hasMeaningfulChanges returns true when any artifact has the changed status', function () {
-        assert.strictEqual(hasMeaningfulChanges([artifact({ status: 'changed' })], []), true);
+        assert.strictEqual(hasMeaningfulChanges([ artifact({ status: 'changed' }) ], []), true);
     });
 
     test('hasMeaningfulChanges returns false when no artifact is changed and no source file was eliminated', function () {
-        assert.strictEqual(hasMeaningfulChanges([artifact({ status: 'unchanged' })], []), false);
+        assert.strictEqual(hasMeaningfulChanges([ artifact({ status: 'unchanged' }) ], []), false);
     });
 });

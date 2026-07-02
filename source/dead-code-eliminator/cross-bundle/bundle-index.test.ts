@@ -9,7 +9,7 @@ suite('bundle-index', function () {
             { bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] },
             { bundle: linkedBundle({ name: 'pkg-b' }), fileBindings: [] }
         ]);
-        assert.deepStrictEqual(Array.from(indexed.keys()), ['pkg-a', 'pkg-b']);
+        assert.deepStrictEqual(Array.from(indexed.keys()), [ 'pkg-a', 'pkg-b' ]);
     });
 
     test('indexBundles places each file binding into its file-path lookup map', function () {
@@ -23,12 +23,12 @@ suite('bundle-index', function () {
             }
         ]);
         const bundle = indexed.get('pkg-a');
-        assert.deepStrictEqual(Array.from(bundle?.bindingsByFilePath.keys() ?? []), ['/a/index.ts', '/a/helpers.ts']);
+        assert.deepStrictEqual(Array.from(bundle?.bindingsByFilePath.keys() ?? []), [ '/a/index.ts', '/a/helpers.ts' ]);
     });
 
     test('indexBundles attaches the originating bundle to each indexed entry', function () {
         const bundle = linkedBundle({ name: 'pkg-a' });
-        const indexed = indexBundles([{ bundle, fileBindings: [] }]);
+        const indexed = indexBundles([ { bundle, fileBindings: [] } ]);
         assert.strictEqual(indexed.get('pkg-a')?.bundle, bundle);
     });
 
@@ -36,7 +36,7 @@ suite('bundle-index', function () {
         assert.strictEqual(
             resolveCrossBundleTarget(
                 'pkg-a/private.js',
-                indexBundles([{ bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] }])
+                indexBundles([ { bundle: linkedBundle({ name: 'pkg-a' }), fileBindings: [] } ])
             ),
             undefined
         );

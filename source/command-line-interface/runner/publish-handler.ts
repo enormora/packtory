@@ -14,7 +14,7 @@ export type PublishHandlerDeps = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
-    readonly flags: ReportFlags & { readonly noDryRun: boolean; readonly stage: boolean };
+    readonly flags: ReportFlags & { readonly noDryRun: boolean; readonly stage: boolean; };
 };
 
 async function reportOutcome(
@@ -30,22 +30,34 @@ async function reportOutcome(
     } else {
         printSuccessSummary(log, outcome.result.value, { stage: flags.stage });
     }
-    await writeReports(fileManager, outcome.getReport(), outcome.result, flags, !flags.noDryRun);
+    await writeReports({
+        dryRun: !flags.noDryRun,
+        fileManager,
+        flags,
+        report: outcome.getReport(),
+        result: outcome.result
+    });
     return exitCode;
 }
 
-export async function runPublishHandler(deps: PublishHandlerDeps): Promise<number> {
+async function publish(deps: PublishHandlerDeps): Promise<number> {
     const { log, packtory, spinnerRenderer, configLoader, fileManager, flags } = deps;
+    const outcome = await packtory.buildAndPublishAll(await configLoader.load(), {
+        dryRun: !flags.noDryRun,
+        stage: flags.stage,
+        collectReport: flags.reportJson || flags.reportHtml
+    });
+    spinnerRenderer.stopAll();
+    return reportOutcome(log, fileManager, outcome, flags);
+}
+
+export async function runPublishHandler(deps: PublishHandlerDeps): Promise<number> {
+    const { log, spinnerRenderer, flags } = deps;
     let shouldStopSpinners = true;
     try {
-        const outcome = await packtory.buildAndPublishAll(await configLoader.load(), {
-            dryRun: !flags.noDryRun,
-            stage: flags.stage,
-            collectReport: flags.reportJson || flags.reportHtml
-        });
+        const exitCode = await publish(deps);
         shouldStopSpinners = false;
-        spinnerRenderer.stopAll();
-        return await reportOutcome(log, fileManager, outcome, flags);
+        return exitCode;
     } finally {
         if (shouldStopSpinners) {
             spinnerRenderer.stopAll();

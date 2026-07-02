@@ -10,7 +10,7 @@ const declarationStub = { id: 'decl' };
 const referenceStub = { id: 'ref' };
 
 function loadedCodeResource(targetFilePath: string, content: string): LoadedCodeResource {
-    const project = createProject({ withFiles: [{ filePath: targetFilePath, content }] });
+    const project = createProject({ withFiles: [ { filePath: targetFilePath, content } ] });
     const sourceFile = project.getSourceFileOrThrow(targetFilePath);
     return {
         resource: {
@@ -26,7 +26,7 @@ function loadedCodeResource(targetFilePath: string, content: string): LoadedCode
         },
         sourceFile,
         bindings: []
-    } as unknown as LoadedCodeResource;
+    };
 }
 
 function nonCodeResource(targetFilePath: string, content: string): LoadedResource {
@@ -43,7 +43,7 @@ function nonCodeResource(targetFilePath: string, content: string): LoadedResourc
             isSubstituted: false
         },
         sourceFile: undefined
-    } as unknown as LoadedResource;
+    };
 }
 
 const baseContext: AnalysisContext = {

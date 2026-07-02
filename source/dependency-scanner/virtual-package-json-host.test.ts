@@ -2,11 +2,13 @@
 import assert from 'node:assert';
 import path from 'node:path';
 import { suite, test } from 'mocha';
+import type { FileSystemHost } from 'ts-morph';
+import type { MainPackageJson } from '../config/package-json.ts';
 import { createDelegatingFileSystemHost } from '../test-libraries/delegating-file-system-host.ts';
 import { createVirtualPackageJsonHost } from './virtual-package-json-host.ts';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- MainPackageJson is a complex branded type; tests only need a structurally-compatible literal
-const stubMainPackageJson = { name: 'pkg', version: '1.0.0', type: 'module' } as never;
+const stubMainPackageJson: MainPackageJson = { name: 'pkg', version: '1.0.0', type: 'module' } as never;
 
 suite('virtual-package-json-host', function () {
     test('createVirtualPackageJsonHost reports the virtual package.json as existing', async function () {
@@ -21,12 +23,12 @@ suite('virtual-package-json-host', function () {
         const host = createVirtualPackageJsonHost(createDelegatingFileSystemHost(new Map()), '/p', stubMainPackageJson);
         const packageJsonPath = path.resolve('/p', 'package.json');
 
-        assert.deepStrictEqual(JSON.parse(host.readFileSync(packageJsonPath)), stubMainPackageJson);
-        assert.deepStrictEqual(JSON.parse(await host.readFile(packageJsonPath)), stubMainPackageJson);
+        assert.deepStrictEqual(JSON.parse(host.readFileSync(packageJsonPath, 'utf8')), stubMainPackageJson);
+        assert.deepStrictEqual(JSON.parse(await host.readFile(packageJsonPath, 'utf8')), stubMainPackageJson);
     });
 
     test('createVirtualPackageJsonHost delegates unrelated file reads to the wrapped host', async function () {
-        const records = new Map([['/other.txt', 'hello']]);
+        const records = new Map([ [ '/other.txt', 'hello' ] ]);
         const host = createVirtualPackageJsonHost(createDelegatingFileSystemHost(records), '/p', stubMainPackageJson);
 
         assert.strictEqual(host.readFileSync('/other.txt'), 'hello');
@@ -34,7 +36,7 @@ suite('virtual-package-json-host', function () {
     });
 
     test('createVirtualPackageJsonHost delegates fileExists calls for unrelated paths to the wrapped host', async function () {
-        const records = new Map([['/other.txt', 'hello']]);
+        const records = new Map([ [ '/other.txt', 'hello' ] ]);
         const host = createVirtualPackageJsonHost(createDelegatingFileSystemHost(records), '/p', stubMainPackageJson);
 
         assert.strictEqual(host.fileExistsSync('/other.txt'), true);
@@ -44,11 +46,19 @@ suite('virtual-package-json-host', function () {
 
     test('createVirtualPackageJsonHost throws when the wrapped readFileSync returns a non-string for delegated reads', function () {
         const misbehavingHost = {
-            fileExists: async () => true,
-            fileExistsSync: () => true,
-            readFile: async () => '',
-            readFileSync: () => true
-        } as unknown as Parameters<typeof createVirtualPackageJsonHost>[0];
+            async fileExists() {
+                return true;
+            },
+            fileExistsSync() {
+                return true;
+            },
+            async readFile() {
+                return '';
+            },
+            readFileSync() {
+                return true;
+            }
+        } as unknown as FileSystemHost;
         const host = createVirtualPackageJsonHost(misbehavingHost, '/p', stubMainPackageJson);
 
         try {

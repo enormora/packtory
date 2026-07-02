@@ -6,7 +6,7 @@ function resolveDefaultModuleRoot(
     rootIds: readonly [string, ...(readonly string[])],
     packageConfig: PackageConfig
 ): string {
-    const [firstRootId, secondRootId] = rootIds;
+    const [ firstRootId, secondRootId ] = rootIds;
     if (secondRootId === undefined) {
         return firstRootId;
     }

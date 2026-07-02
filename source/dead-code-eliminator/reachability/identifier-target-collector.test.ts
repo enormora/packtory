@@ -5,7 +5,7 @@ import { createProject } from '../../test-libraries/typescript-project.ts';
 import { collectIdentifierTargets, type DeclarationNodeIndex } from './identifier-target-collector.ts';
 
 function rootSourceFile(content: string): SourceFile {
-    const project = createProject({ withFiles: [{ filePath: 'index.ts', content }] });
+    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
     return project.getSourceFileOrThrow('index.ts');
 }
 
@@ -15,7 +15,7 @@ function indexedDeclaration(sourceFile: SourceFile, statementOffset: number, bin
         throw new Error(`expected statement at offset ${statementOffset}`);
     }
     const declaration = statement.getFirstDescendantByKindOrThrow(SyntaxKind.VariableDeclaration);
-    return new Map<TsMorphNode, string>([[declaration, bindingId]]);
+    return new Map<TsMorphNode, string>([ [ declaration, bindingId ] ]);
 }
 
 suite('identifier-target-collector', function () {

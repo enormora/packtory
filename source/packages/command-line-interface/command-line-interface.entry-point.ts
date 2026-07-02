@@ -3,7 +3,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
-import { execFile } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPrLogEngine } from '@pr-log/core';
 import { createClock } from '../../common/clock.ts';
@@ -23,6 +22,11 @@ import { createGitHubReleaseClient } from '../../command-line-interface/runner/g
 import { createReleasePullRequestGitHubClient } from '../../command-line-interface/runner/release-pr-github-client.ts';
 import { createReleaseGitClient } from '../../command-line-interface/runner/release-git-client.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
+import {
+    createChildProcessGitCommandExecutor,
+    createGitCommandRunner,
+    spawnChildProcessGitCommand
+} from '../../git/git-command.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
@@ -53,27 +57,10 @@ function createSpinnerRenderer(): TerminalSpinnerRenderer {
     });
 }
 
-async function runGitCommand(
-    command: string,
-    args: readonly string[]
-): Promise<{
-    readonly stdout: string;
-    readonly stderr: string;
-}> {
-    return new Promise((resolve, reject) => {
-        execFile(command, Array.from(args), (error, stdout, stderr) => {
-            if (error !== null) {
-                reject(error instanceof Error ? error : new Error('Git command failed'));
-                return;
-            }
-            resolve({ stdout, stderr });
-        });
-    });
-}
-
 const spinnerRenderer = createSpinnerRenderer();
 const clock = createClock();
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const runGitCommand = createGitCommandRunner(createChildProcessGitCommandExecutor(spawnChildProcessGitCommand));
 const workingDirectory = process.cwd();
 const previewIo = createDefaultPreviewIo({
     async openFile(filePath) {
@@ -87,13 +74,13 @@ const previewIo = createDefaultPreviewIo({
 
 const promptForOneTimePassword = createOneTimePasswordPrompt({
     clock,
-    isInteractiveTerminal: () => {
+    isInteractiveTerminal() {
         return process.stdin.isTTY && process.stdout.isTTY;
     },
-    stopSpinner: () => {
+    stopSpinner() {
         spinnerRenderer.stopAll();
     },
-    createInterface: () => {
+    createInterface() {
         return readline.createInterface({
             input: process.stdin,
             output: process.stdout
@@ -120,11 +107,11 @@ const { packtory, progressBroadcaster } = buildPacktoryComposition({
 
 const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     createPrLogEngine,
-    createGitHubReleaseClient: (context) => {
-        return createGitHubReleaseClient({ ...context, fetch: globalThis.fetch });
+    createGitHubReleaseClient(context) {
+        return createGitHubReleaseClient({ ...context, fetch });
     },
-    createReleasePullRequestGitHubClient: (context) => {
-        return createReleasePullRequestGitHubClient({ ...context, fetch: globalThis.fetch });
+    createReleasePullRequestGitHubClient(context) {
+        return createReleasePullRequestGitHubClient({ ...context, fetch });
     },
     currentDate() {
         return new Date(clock.getCurrentTimeInMilliseconds());
@@ -134,7 +121,7 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
     spinnerRenderer,
     configLoader: createConfigLoader({ currentWorkingDirectory: workingDirectory, importModule }),
     fileManager,
-    pageOutput: async (content) => {
+    async pageOutput(content) {
         const didPage = await previewIo.pagePreviewOutput(content);
         if (!didPage) {
             console.log(content);
@@ -174,4 +161,5 @@ async function crash(error: unknown): Promise<void> {
 
 main().catch(crash);
 
+// eslint-disable-next-line unicorn/no-exports-in-scripts -- public CLI package types are re-exported from this entry point
 export type PacktoryConfig = PublicPacktoryConfig;

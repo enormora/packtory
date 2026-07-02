@@ -3,6 +3,10 @@ import { suite, test } from 'mocha';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { createBundleLinker } from './linker.ts';
 
+function compareText(left: string, right: string): number {
+    return left.localeCompare(right);
+}
+
 suite('linker', function () {
     test('linkBundle() keeps js-only roots when there are no bundle substitutions', async function () {
         const linker = createBundleLinker();
@@ -27,7 +31,7 @@ suite('linker', function () {
                             sourceFilePath: '/src/index.js',
                             targetFilePath: 'index.js'
                         },
-                        directDependencies: new Set(['/src/internal.js']),
+                        directDependencies: new Set([ '/src/internal.js' ]),
                         isExplicitlyIncluded: false,
                         project: createProject({
                             withFiles: [
@@ -103,7 +107,7 @@ suite('linker', function () {
                             sourceFilePath: '/src/index.js',
                             targetFilePath: 'index.js'
                         },
-                        directDependencies: new Set(['/src/dep.js']),
+                        directDependencies: new Set([ '/src/dep.js' ]),
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -114,7 +118,7 @@ suite('linker', function () {
                             sourceFilePath: '/src/index.d.ts',
                             targetFilePath: 'index.d.ts'
                         },
-                        directDependencies: new Set(['/src/dep.d.ts']),
+                        directDependencies: new Set([ '/src/dep.d.ts' ]),
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -187,7 +191,7 @@ suite('linker', function () {
 
         assert.strictEqual(result.contents.length, 2);
         assert.strictEqual(result.contents[0]?.isSubstituted, true);
-        assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), ['bundle-dependency']);
+        assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
     });
 
     test('linkBundle() tolerates explicit roots that share transitive files', async function () {
@@ -211,7 +215,7 @@ suite('linker', function () {
                             sourceFilePath: '/src/cli.js',
                             targetFilePath: 'cli.js'
                         },
-                        directDependencies: new Set(['/src/shared.js']),
+                        directDependencies: new Set([ '/src/shared.js' ]),
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -222,7 +226,7 @@ suite('linker', function () {
                             sourceFilePath: '/src/worker.js',
                             targetFilePath: 'worker.js'
                         },
-                        directDependencies: new Set(['/src/shared.js']),
+                        directDependencies: new Set([ '/src/shared.js' ]),
                         isExplicitlyIncluded: false,
                         project
                     },
@@ -259,8 +263,8 @@ suite('linker', function () {
                 surface: {
                     mode: 'explicit',
                     packageInterface: {
-                        bins: [{ root: 'cli', name: 'packtory' }],
-                        privateRoots: ['worker']
+                        bins: [ { root: 'cli', name: 'packtory' } ],
+                        privateRoots: [ 'worker' ]
                     }
                 },
                 externalDependencies: new Map()
@@ -270,12 +274,13 @@ suite('linker', function () {
 
         assert.strictEqual(result.contents.length, 3);
         assert.deepStrictEqual(
-            result.contents
-                .map((entry) => {
+            result
+                .contents
+                .map(function (entry) {
                     return entry.fileDescription.sourceFilePath;
                 })
-                .toSorted(),
-            ['/src/cli.js', '/src/worker.js', '/src/shared.js'].toSorted()
+                .toSorted(compareText),
+            [ '/src/cli.js', '/src/worker.js', '/src/shared.js' ].toSorted(compareText)
         );
     });
 });

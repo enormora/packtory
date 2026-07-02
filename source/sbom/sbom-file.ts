@@ -37,10 +37,10 @@ function isSbomEnabled(publishSettings: PublishSettings): boolean {
 
 function listDependencyEntries(bundle: SbomPackage): readonly DependencyEntry[] {
     return [
-        ...Object.entries(bundle.dependencies).map<DependencyEntry>(([name, specifier]) => {
+        ...Object.entries(bundle.dependencies).map<DependencyEntry>(function ([ name, specifier ]) {
             return { name, specifier, scope: cdx.Enums.ComponentScope.Required };
         }),
-        ...Object.entries(bundle.peerDependencies).map<DependencyEntry>(([name, specifier]) => {
+        ...Object.entries(bundle.peerDependencies).map<DependencyEntry>(function ([ name, specifier ]) {
             return { name, specifier, scope: cdx.Enums.ComponentScope.Optional };
         })
     ];
@@ -54,25 +54,24 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
         siblings: readonly SbomSiblingPackage[]
     ): Promise<readonly SbomDependency[]> {
         const siblingsByName = new Map(
-            siblings.map((sibling) => {
-                return [sibling.name, sibling];
+            siblings.map(function (sibling) {
+                return [ sibling.name, sibling ];
             })
         );
         const entries = listDependencyEntries(bundle);
         return Promise.all(
-            entries.map(async (entry) => {
+            entries.map(async function (entry) {
                 const sibling = siblingsByName.get(entry.name);
-                const license =
-                    sibling === undefined
-                        ? await licenseResolver.resolveLicense({ projectFolder, dependencyName: entry.name })
-                        : extractLicenseFromManifest(sibling.packageJson);
+                const license = sibling === undefined
+                    ? await licenseResolver.resolveLicense({ projectFolder, dependencyName: entry.name })
+                    : extractLicenseFromManifest(sibling.packageJson);
                 return { ...entry, license };
             })
         );
     }
 
     async function buildFile(bundle: SbomPackage, siblings: readonly SbomSiblingPackage[]): Promise<FileDescription> {
-        const [resolvedToolVersion, sbomDependencies] = await Promise.all([
+        const [ resolvedToolVersion, sbomDependencies ] = await Promise.all([
             toolVersionProvider(),
             resolveDependencyEntries(bundle, siblings)
         ]);
@@ -89,7 +88,7 @@ export function createSbomFileBuilder(dependencies: SbomFileBuilderDependencies)
             if (!isSbomEnabled(publishSettings)) {
                 return undefined;
             }
-            return [await buildFile(bundle, siblings)];
+            return [ await buildFile(bundle, siblings) ];
         }
     };
 }

@@ -27,7 +27,7 @@ function collectTimeoutMutantsForFile(
 }
 
 export function collectTimeoutMutants(report: MutationReport): readonly TimeoutMutant[] {
-    return Object.entries(report.files ?? {}).flatMap(([filePath, fileReport]) => {
+    return Object.entries(report.files ?? {}).flatMap(function ([ filePath, fileReport ]) {
         return collectTimeoutMutantsForFile(filePath, fileReport);
     });
 }

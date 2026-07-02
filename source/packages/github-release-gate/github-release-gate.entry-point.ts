@@ -2,7 +2,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { hasProp, isPlainObject } from 'remeda';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import type * as packtoryEntryPoint from '../packtory/packtory.entry-point.ts';
 import {
@@ -10,21 +9,24 @@ import {
     type GitHubReleaseGateRunnerDependencies
 } from '../../github-release-gate/cli-runner.ts';
 
-function getEnvironmentVariable(variableName: string): string | undefined {
-    const value = process.env[variableName];
-    return value === undefined || value.length === 0 ? undefined : value;
-}
+type UnknownFunction = (...args: readonly unknown[]) => unknown;
 
-function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
+type ConfigModule = Readonly<Record<PropertyKey, unknown>>;
+
+function isFunction(value: unknown): value is UnknownFunction {
     return typeof value === 'function';
 }
 
-function unwrapConfigModule(module: Readonly<Record<PropertyKey, unknown>>): unknown {
-    if (hasProp(module, 'config')) {
+function isConfigModule(value: unknown): value is ConfigModule {
+    return value !== null && typeof value === 'object';
+}
+
+function unwrapConfigModule(module: ConfigModule): unknown {
+    if (Object.hasOwn(module, 'config')) {
         return module.config;
     }
 
-    if (hasProp(module, 'buildConfig')) {
+    if (Object.hasOwn(module, 'buildConfig')) {
         const { buildConfig } = module;
         if (isFunction(buildConfig)) {
             return buildConfig();
@@ -36,11 +38,16 @@ function unwrapConfigModule(module: Readonly<Record<PropertyKey, unknown>>): unk
     throw new Error('Config file doesn’t have a named export "config" nor "buildConfig"');
 }
 
+function getEnvironmentVariable(variableName: string): string | undefined {
+    const value = process.env[variableName];
+    return value === undefined || value.length === 0 ? undefined : value;
+}
+
 async function loadPacktoryConfigFromCwd(): Promise<unknown> {
     const configFilePath = path.join(process.cwd(), 'packtory.config.js');
     const module: unknown = await import(configFilePath);
 
-    if (!isPlainObject(module)) {
+    if (!isConfigModule(module)) {
         throw new Error('Invalid config file');
     }
 
@@ -49,24 +56,24 @@ async function loadPacktoryConfigFromCwd(): Promise<unknown> {
 
 function createDependencies(): GitHubReleaseGateRunnerDependencies {
     return {
-        analyzeReleaseAgainstLatestPublished: async (config) => {
+        async analyzeReleaseAgainstLatestPublished(config) {
             const packtory: typeof packtoryEntryPoint = await import('../packtory/packtory.entry-point.ts');
             return packtory.analyzeReleaseAgainstLatestPublished(config);
         },
-        fetch: globalThis.fetch,
+        fetch,
         fileManager: createFileManager({ hostFileSystem: fs.promises }),
         getEnvironmentVariable,
         loadPacktoryConfig: loadPacktoryConfigFromCwd,
-        now: () => {
+        now() {
             return new Date();
         },
-        stdoutWrite: (message) => {
+        stdoutWrite(message) {
             process.stdout.write(`${message}\n`);
         }
     };
 }
 
-process.exitCode = await (async () => {
+process.exitCode = await (async function () {
     try {
         await runGitHubReleaseGate(createDependencies());
 

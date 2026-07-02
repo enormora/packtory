@@ -1,4 +1,3 @@
-/* eslint-disable @stylistic/max-len -- HTML template literals are intentionally long */
 import { escapeHtml } from './html-escaping.ts';
 
 const jsonIndentSpaces = 2;
@@ -12,7 +11,9 @@ function renderJsonBlock(value: unknown): string {
 }
 
 export function renderCollapsibleSection(title: string, value: unknown): string {
-    return `<details class="diagnostic secondary"><summary>${escapeHtml(title)}</summary>${renderJsonBlock(value)}</details>`;
+    return `<details class="diagnostic secondary"><summary>${escapeHtml(title)}</summary>${
+        renderJsonBlock(value)
+    }</details>`;
 }
 
 export function formatBytes(bytes: number): string {
@@ -24,7 +25,9 @@ export function renderBadge(text: string, className: string): string {
 }
 
 export function renderSummaryCard(label: string, value: number): string {
-    return `<div class="summary-card"><span class="summary-label">${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`;
+    return `<div class="summary-card"><span class="summary-label">${escapeHtml(label)}</span><strong>${
+        escapeHtml(String(value))
+    }</strong></div>`;
 }
 
 export function renderIssuesSection(issueItems: string): string {
