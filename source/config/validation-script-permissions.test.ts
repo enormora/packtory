@@ -12,7 +12,7 @@ import {
     withCommonWithoutPublishSettings,
     withCustomCommon,
     withRegistry
-} from './validation.test-support.ts';
+} from '../test-libraries/validation-test-support.ts';
 import { validateConfig } from './validation.ts';
 
 suite('validation script permissions', function () {

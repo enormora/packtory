@@ -175,6 +175,13 @@ suite('changelog-destinations', function () {
         assert.strictEqual(shouldPageGroupedChangelog(undefined), true);
         assert.strictEqual(shouldPageGroupedChangelog([ { kind: 'repository-file', path: 'CHANGELOG.md' } ]), false);
         assert.strictEqual(shouldPageGroupedChangelog([ { kind: 'github-release' } ]), true);
+        assert.strictEqual(
+            shouldPageGroupedChangelog([
+                { kind: 'repository-file', path: 'CHANGELOG.md' },
+                { kind: 'github-release' }
+            ]),
+            true
+        );
     });
 
     suite('writeConfiguredChangelogs repository outputs', function () {

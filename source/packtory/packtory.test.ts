@@ -122,6 +122,14 @@ function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): P
     };
 }
 
+function createConfigWithRegistry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        ...createConfigWithoutRegistry(),
+        ...overrides
+    };
+}
+
 type CreateProgressEvent = (params: ProgressEventInput) => ProgressEvent;
 
 type StageParams = {
@@ -316,67 +324,258 @@ function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): Pack
     };
 }
 
-suite('packtory resolve', function () {
-    test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async function () {
-        const { packtory } = createPacktoryUnderTest();
+suite('packtory', function () {
+    suite('resolve', function () {
+        test('resolveAndLinkAll() returns config issues when the config without registry is invalid', async function () {
+            const { packtory } = createPacktoryUnderTest();
 
-        const { result } = await packtory.resolveAndLinkAll({ invalid: true });
+            const { result } = await packtory.resolveAndLinkAll({ invalid: true });
 
-        const error = getErrResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
-        assert.strictEqual(error.type, 'config');
-    });
-
-    function createPacktoryThatSharesSourceFile(): PacktoryUnderTest {
-        return createPacktoryUnderTest({
-            resolveAndLink: fake(async function (options: ResolveOptionsInput) {
-                return createLinkedBundle(options.name, '/shared.js');
-            })
+            const error = getErrResult(result, 'Expected resolveAndLinkAll() should fail but it did not');
+            assert.strictEqual(error.type, 'config');
         });
-    }
 
-    test('resolveAndLinkAll() returns check failures after the linked bundles were built', async function () {
-        const { packtory } = createPacktoryThatSharesSourceFile();
+        function createPacktoryThatSharesSourceFile(): PacktoryUnderTest {
+            return createPacktoryUnderTest({
+                resolveAndLink: fake(async function (options: ResolveOptionsInput) {
+                    return createLinkedBundle(options.name, '/shared.js');
+                })
+            });
+        }
 
-        const { result } = await packtory.resolveAndLinkAll(
-            createConfigWithoutRegistry({
-                checks: { noDuplicatedFiles: { enabled: true } },
-                packages: twoPackageEntries
-            })
-        );
+        test('resolveAndLinkAll() returns check failures after the linked bundles were built', async function () {
+            const { packtory } = createPacktoryThatSharesSourceFile();
 
-        assert.deepStrictEqual(
-            result,
-            Result.err({
-                type: 'checks',
-                issues: [ 'File "/shared.js" is included in multiple packages: package-a, package-b' ]
-            })
-        );
+            const { result } = await packtory.resolveAndLinkAll(
+                createConfigWithoutRegistry({
+                    checks: { noDuplicatedFiles: { enabled: true } },
+                    packages: twoPackageEntries
+                })
+            );
+
+            assert.deepStrictEqual(
+                result,
+                Result.err({
+                    type: 'checks',
+                    issues: [ 'File "/shared.js" is included in multiple packages: package-a, package-b' ]
+                })
+            );
+        });
+
+        test('resolveAndLinkAll() returns all resolved packages on success', async function () {
+            const { packtory, resolveAndLink, scheduler } = createPacktoryUnderTest();
+
+            const { result } = await packtory.resolveAndLinkAll(
+                createConfigWithoutRegistry({
+                    packages: [
+                        { name: 'dependency', roots: { main: { js: 'dependency/index.js' } } },
+                        {
+                            name: 'package-a',
+                            roots: { main: { js: 'package-a/index.js' } },
+                            bundleDependencies: [ 'dependency' ]
+                        }
+                    ]
+                })
+            );
+
+            const resolvedPackages = getOkResult(result, 'Expected resolveAndLinkAll() should succeed');
+            assert.strictEqual(resolveAndLink.callCount, 2);
+            assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 1);
+            assert.deepStrictEqual(
+                resolvedPackages.map(function (entry) {
+                    return entry.name;
+                }),
+                [ 'dependency', 'package-a' ]
+            );
+        });
     });
 
-    test('resolveAndLinkAll() returns all resolved packages on success', async function () {
-        const { packtory, resolveAndLink, scheduler } = createPacktoryUnderTest();
+    suite('facade operations', function () {
+        suite('build and publish', function () {
+            test('buildAndPublishAll() returns config issues when the config is invalid', async function () {
+                const { packtory } = createPacktoryUnderTest();
 
-        const { result } = await packtory.resolveAndLinkAll(
-            createConfigWithoutRegistry({
-                packages: [
-                    { name: 'dependency', roots: { main: { js: 'dependency/index.js' } } },
+                const { result } = await packtory.buildAndPublishAll({ invalid: true }, {
+                    dryRun: true,
+                    stage: false
+                });
+
+                const error = getErrResult(result, 'Expected buildAndPublishAll() should fail but it did not');
+                assert.strictEqual(error.type, 'config');
+            });
+
+            test('buildAndPublishAll() rejects real publishes without registry auth', async function () {
+                const { packtory } = createPacktoryUnderTest();
+
+                const { result } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
+                    dryRun: false,
+                    stage: false
+                });
+
+                assert.deepStrictEqual(
+                    getErrResult(result, 'Expected buildAndPublishAll() should fail but it did not'),
                     {
-                        name: 'package-a',
-                        roots: { main: { js: 'package-a/index.js' } },
-                        bundleDependencies: [ 'dependency' ]
+                        type: 'config',
+                        issues: [
+                            'registrySettings.auth must be configured to publish; run with dryRun=true to skip the registry write.'
+                        ]
                     }
-                ]
-            })
-        );
+                );
+            });
 
-        const resolvedPackages = getOkResult(result, 'Expected resolveAndLinkAll() should succeed');
-        assert.strictEqual(resolveAndLink.callCount, 2);
-        assert.strictEqual(scheduler.runForEachScheduledPackage.callCount, 1);
-        assert.deepStrictEqual(
-            resolvedPackages.map(function (entry) {
-                return entry.name;
-            }),
-            [ 'dependency', 'package-a' ]
-        );
+            test('buildAndPublishAll() allows dry runs without registry auth', async function () {
+                const { packtory, tryBuildAndPublish } = createPacktoryUnderTest();
+
+                const { result, getReport } = await packtory.buildAndPublishAll(createConfigWithoutRegistry(), {
+                    dryRun: true,
+                    stage: false,
+                    collectReport: true
+                });
+
+                assert.strictEqual(getOkResult(result, 'Expected buildAndPublishAll() should succeed').length, 1);
+                assert.strictEqual(tryBuildAndPublish.callCount, 1);
+                assert.notStrictEqual(getReport(), undefined);
+            });
+
+            test('buildAndPublishAll() runs real publishes when registry auth is configured', async function () {
+                const { packtory, buildAndPublish } = createPacktoryUnderTest();
+
+                const { result } = await packtory.buildAndPublishAll(createConfigWithRegistry(), {
+                    dryRun: false,
+                    stage: false
+                });
+
+                assert.strictEqual(getOkResult(result, 'Expected buildAndPublishAll() should succeed').length, 1);
+                assert.strictEqual(buildAndPublish.callCount, 1);
+            });
+        });
+
+        suite('pack', function () {
+            test('packPackage() returns config issues when the config is invalid', async function () {
+                const { packtory } = createPacktoryUnderTest();
+
+                const { result } = await packtory.packPackage(
+                    { invalid: true },
+                    {
+                        packageName: 'package-a',
+                        format: 'tar',
+                        outputPath: '/out/package-a.tgz',
+                        version: '1.0.0',
+                        vendorDependencies: false
+                    }
+                );
+
+                const error = getErrResult(result, 'Expected packPackage() should fail but it did not');
+                assert.strictEqual(error.type, 'config');
+            });
+
+            test('packPackage() emits the requested package artifact on success', async function () {
+                const packEmitterPack = fake.resolves(undefined);
+                const versioned = createVersionedBundle('package-a');
+                const { packtory } = createPacktoryUnderTest({
+                    packEmitterPack,
+                    versionManagerAddVersion: fake.returns(versioned)
+                });
+
+                const { result } = await packtory.packPackage(
+                    createConfigWithoutRegistry(),
+                    {
+                        packageName: 'package-a',
+                        format: 'tar',
+                        outputPath: '/out/package-a.tgz',
+                        version: '1.0.0',
+                        vendorDependencies: false
+                    }
+                );
+
+                getOkResult(result, 'Expected packPackage() should succeed');
+                assert.deepStrictEqual(packEmitterPack.firstCall.args[0], {
+                    bundle: versioned,
+                    format: 'tar',
+                    outputPath: '/out/package-a.tgz',
+                    vendorEntries: [],
+                    extraFiles: []
+                });
+            });
+        });
+
+        suite('reports', function () {
+            test('diffAgainstLatestPublished() returns a required report and removes report subscribers', async function () {
+                const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+                const { result, getReport } = await packtory.diffAgainstLatestPublished(createConfigWithRegistry());
+
+                assert.strictEqual(
+                    getOkResult(result, 'Expected diffAgainstLatestPublished() should succeed').length,
+                    1
+                );
+                assert.notStrictEqual(getReport(), undefined);
+                assert.strictEqual(progressBroadcaster.provider.hasSubscribers('done'), false);
+            });
+
+            test('diffAgainstLatestPublished() returns config issues when the config is invalid', async function () {
+                const { packtory } = createPacktoryUnderTest();
+
+                const { result } = await packtory.diffAgainstLatestPublished({ invalid: true });
+
+                const error = getErrResult(result, 'Expected diffAgainstLatestPublished() should fail but it did not');
+                assert.strictEqual(error.type, 'config');
+            });
+
+            test('analyzeReleaseAgainstLatestPublished() returns analysis with a required report', async function () {
+                const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+                const { result, getReport } = await packtory.analyzeReleaseAgainstLatestPublished(
+                    createConfigWithRegistry()
+                );
+
+                assert.strictEqual(
+                    getOkResult(result, 'Expected analyzeReleaseAgainstLatestPublished() should succeed')
+                        .classification,
+                    'first-publish'
+                );
+                assert.notStrictEqual(getReport(), undefined);
+                assert.strictEqual(progressBroadcaster.provider.hasSubscribers('done'), false);
+            });
+
+            test('analyzeReleaseAgainstLatestPublished() returns config issues when the config is invalid', async function () {
+                const { packtory } = createPacktoryUnderTest();
+
+                const { result } = await packtory.analyzeReleaseAgainstLatestPublished({ invalid: true });
+
+                const error = getErrResult(
+                    result,
+                    'Expected analyzeReleaseAgainstLatestPublished() should fail but it did not'
+                );
+                assert.strictEqual(error.type, 'config');
+            });
+
+            test('planReleaseAgainstLatestPublished() returns a release plan with a required report', async function () {
+                const { packtory, progressBroadcaster } = createPacktoryUnderTest();
+
+                const { result, getReport } = await packtory.planReleaseAgainstLatestPublished(
+                    createConfigWithRegistry()
+                );
+
+                assert.strictEqual(
+                    getOkResult(result, 'Expected planReleaseAgainstLatestPublished() should succeed').packages.length,
+                    1
+                );
+                assert.notStrictEqual(getReport(), undefined);
+                assert.strictEqual(progressBroadcaster.provider.hasSubscribers('done'), false);
+            });
+
+            test('planReleaseAgainstLatestPublished() returns config issues when the config is invalid', async function () {
+                const { packtory } = createPacktoryUnderTest();
+
+                const { result } = await packtory.planReleaseAgainstLatestPublished({ invalid: true });
+
+                const error = getErrResult(
+                    result,
+                    'Expected planReleaseAgainstLatestPublished() should fail but it did not'
+                );
+                assert.strictEqual(error.type, 'config');
+            });
+        });
     });
 });

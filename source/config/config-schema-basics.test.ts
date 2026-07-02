@@ -1,9 +1,6 @@
 import assert from 'node:assert';
 import { safeParse } from '@schema-hub/zod-error-formatter';
 import { suite, test } from 'mocha';
-import { getBundledDependencies } from './config.ts';
-import { packtoryConfigSchema } from './packtory-config-schema.ts';
-import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 import {
     configWith,
     configWithEmptyNoDuplicatedFilesAllowList,
@@ -11,7 +8,10 @@ import {
     invalidConfig,
     packageConfig,
     validConfig
-} from './config-schema-test-support.ts';
+} from '../test-libraries/config-schema-test-support.ts';
+import { getBundledDependencies } from './config.ts';
+import { packtoryConfigSchema } from './packtory-config-schema.ts';
+import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 
 suite('config schema basics', function () {
     suite('basic registry and package settings', function () {

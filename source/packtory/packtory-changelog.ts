@@ -22,8 +22,13 @@ type PrLogMethods = readonly [
 
 type PrLogMethod = PrLogMethods[number];
 
-const dependencyUpdateLabel = 'upgrade';
-const dependencyUpdateTitle = 'Update dependencies';
+function dependencyUpdateLabel(): string {
+    return 'upgrade';
+}
+
+function dependencyUpdateTitle(): string {
+    return 'Update dependencies';
+}
 
 export type GenerateChangelogInput = {
     readonly currentDate: Date;
@@ -183,15 +188,15 @@ function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequest
     }
 
     return target.pullRequests.map(function (pullRequest) {
-        return { ...pullRequest, title: dependencyUpdateTitle, label: dependencyUpdateLabel };
+        return { ...pullRequest, title: dependencyUpdateTitle(), label: dependencyUpdateLabel() };
     });
 }
 
 function changelogLabelsForRendering(validLabels: ReadonlyMap<string, string>): ReadonlyMap<string, string> {
-    if (validLabels.has(dependencyUpdateLabel)) {
+    if (validLabels.has(dependencyUpdateLabel())) {
         return validLabels;
     }
-    return new Map([ ...validLabels, [ dependencyUpdateLabel, 'Dependency Upgrades' ] ]);
+    return new Map([ ...validLabels, [ dependencyUpdateLabel(), 'Dependency Upgrades' ] ]);
 }
 
 function createTargetSection(target: ChangelogTarget): TargetChangelogSection {

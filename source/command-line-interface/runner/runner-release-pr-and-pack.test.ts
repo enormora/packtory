@@ -10,7 +10,7 @@ import {
     createReleasePullRequestConfig,
     createRunner,
     expectHelp
-} from './runner-test-support.ts';
+} from '../../test-libraries/runner-test-support.ts';
 
 type ForwardedVendorDependencies = {
     readonly vendorDependencies: boolean;

@@ -1,22 +1,30 @@
 import type { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
+    defineCheckRule,
     pathAllowListGlobalSchema,
     pathAllowListPerPackageSchema,
-    type CheckRuleDefinition,
     type RuleRunParams
 } from '../rule.ts';
 import { duplicateMessage, hasMultipleOwners } from './duplicate-detection.ts';
 import { collectFileOwnership, type OwnerInfo } from './file-ownership.ts';
 
-const ruleName = 'noDuplicatedFiles';
+function ruleName(): 'noDuplicatedFiles' {
+    return 'noDuplicatedFiles';
+}
 
-const globalSchema = pathAllowListGlobalSchema;
-const perPackageSchema = pathAllowListPerPackageSchema;
+function globalSchema(): typeof pathAllowListGlobalSchema {
+    return pathAllowListGlobalSchema;
+}
 
-type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+function perPackageSchema(): typeof pathAllowListPerPackageSchema {
+    return pathAllowListPerPackageSchema;
+}
+
+type RuleName = ReturnType<typeof ruleName>;
+type GlobalConfig = Readonly<z.infer<ReturnType<typeof globalSchema>>>;
+type PerPackageConfig = Readonly<z.infer<ReturnType<typeof perPackageSchema>>>;
+type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
 
 function everyOwnerConsents(
     filePath: string,
@@ -58,9 +66,4 @@ async function run(params: RunParams): Promise<readonly string[]> {
     return findDuplicateIssues(params.bundles, params.perPackageSettings, globalConfig);
 }
 
-export const noDuplicatedFilesRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
-    name: ruleName,
-    globalSchema,
-    perPackageSchema,
-    run
-};
+export const noDuplicatedFilesRule = defineCheckRule(ruleName, globalSchema, perPackageSchema, run);

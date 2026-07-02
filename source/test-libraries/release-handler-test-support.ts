@@ -10,10 +10,10 @@ import type {
     ResolvePullRequestLabelsOptions,
     UpdateChangelogInput
 } from '@pr-log/core';
-import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage } from '../../packtory/packtory.ts';
-import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import type { ConfigLoader } from '../config-loader.ts';
-import { runReleaseHandler, type ReleaseHandlerDeps } from './release-handler.ts';
+import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage } from '../packtory/packtory.ts';
+import type { ConfigLoader } from '../command-line-interface/config-loader.ts';
+import { runReleaseHandler, type ReleaseHandlerDeps } from '../command-line-interface/runner/release-handler.ts';
+import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 
 export type ReleaseFlags = ReleaseHandlerDeps['flags'];
 type PacktoryFixture = Packtory & {

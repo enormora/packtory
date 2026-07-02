@@ -4,7 +4,7 @@ import {
     createCurrentHeadRetryPackage,
     createReleasePlanOutcomesForPackage,
     githubReleaseFlags
-} from './release-handler-test-support.ts';
+} from '../../test-libraries/release-handler-test-support.ts';
 
 suite('GitHub release validation', function () {
     test('rejects GitHub releases without a GitHub token', async function () {

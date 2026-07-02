@@ -12,15 +12,16 @@ export function bundleRelativePath(filePath: string): string {
 
 function currentAndAncestorFolders(startFolder: string): readonly string[] {
     const folders: string[] = [];
-    let currentFolder = path.resolve(startFolder);
-    let parentFolder = path.dirname(currentFolder);
 
-    while (parentFolder !== currentFolder) {
-        folders.push(currentFolder);
-        currentFolder = parentFolder;
-        parentFolder = path.dirname(currentFolder);
+    function collect(folder: string): void {
+        folders.push(folder);
+        const parentFolder = path.dirname(folder);
+        if (parentFolder !== folder) {
+            collect(parentFolder);
+        }
     }
-    folders.push(currentFolder);
+
+    collect(path.resolve(startFolder));
 
     return folders;
 }

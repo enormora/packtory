@@ -12,6 +12,9 @@ type TraversalState<T> = {
     readonly pending: readonly T[];
     readonly visited: ReadonlySet<T>;
 };
+type ActiveTraversalState<T> = TraversalState<T> & {
+    readonly current: T;
+};
 
 function initialTraversalState<T>(initialVisited: ReadonlySet<T>, seedList: readonly T[]): TraversalState<T> {
     const [ current, ...pending ] = seedList;
@@ -34,19 +37,48 @@ function enqueueNeighbor<T>(
 }
 
 function visitCurrent<T>(
-    state: TraversalState<T>,
+    state: ActiveTraversalState<T>,
     expand: (current: T) => Iterable<T>,
     visitedHas: BfsClosureDependencies['visitedHas']
 ): TraversalState<T> {
-    if (state.current === undefined) {
-        return state;
-    }
-    let nextState = state;
+    let nextState: TraversalState<T> = state;
     for (const neighbor of expand(state.current)) {
         nextState = enqueueNeighbor(nextState, neighbor, visitedHas);
     }
     const [ current, ...pending ] = nextState.pending;
     return { current, pending, visited: nextState.visited };
+}
+
+function attemptIndexes(maximumAttempts: number): readonly number[] {
+    return Array.from({ length: maximumAttempts }, function (_value, index) {
+        return index;
+    });
+}
+
+function traverseUntilExhausted<T>(
+    state: ActiveTraversalState<T>,
+    expand: (current: T) => Iterable<T>,
+    maximumAttempts: number,
+    options: BfsClosureOptions
+): Set<T> {
+    let traversalState: TraversalState<T> = state;
+    let current: T = state.current;
+    let attemptsUsed = 0;
+
+    for (const attempt of attemptIndexes(maximumAttempts)) {
+        attemptsUsed = attempt + 1;
+        traversalState = visitCurrent(
+            { current, pending: traversalState.pending, visited: traversalState.visited },
+            expand,
+            options.dependencies.visitedHas
+        );
+        if (traversalState.current === undefined) {
+            return new Set(traversalState.visited);
+        }
+        current = traversalState.current;
+    }
+
+    throw new Error(`Reachability traversal exceeded ${attemptsUsed} attempts`);
 }
 
 export function bfsClosure<T>(
@@ -57,18 +89,10 @@ export function bfsClosure<T>(
 ): Set<T> {
     const seedList = Array.from(seeds);
     const maximumAttempts = initialVisited.size + seedList.length + options.maximumNodeCount * options.maximumNodeCount;
-    let state = initialTraversalState(initialVisited, seedList);
+    const state = initialTraversalState(initialVisited, seedList);
 
     if (state.current === undefined) {
         return new Set(state.visited);
     }
-
-    for (let attempts = 0; attempts < maximumAttempts; attempts += 1) {
-        state = visitCurrent(state, expand, options.dependencies.visitedHas);
-        if (state.current === undefined) {
-            return new Set(state.visited);
-        }
-    }
-
-    throw new Error('Reachability traversal exceeded the maximum iteration budget');
+    return traverseUntilExhausted({ ...state, current: state.current }, expand, maximumAttempts, options);
 }

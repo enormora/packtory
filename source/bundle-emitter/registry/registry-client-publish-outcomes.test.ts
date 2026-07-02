@@ -2,7 +2,11 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { stagedForApproval } from '../publication-outcome.ts';
-import { expectFailure, publishWithBearerToken, registryClientFactory } from './registry-client-test-support.ts';
+import {
+    expectFailure,
+    publishWithBearerToken,
+    registryClientFactory
+} from '../../test-libraries/registry-client-test-support.ts';
 
 suite('registry-client publish outcomes', function () {
     test('publishPackage() forwards the access and provenance options resolved from publishSettings to libnpmpublish', async function () {

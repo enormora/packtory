@@ -6,7 +6,7 @@ import {
     packageConfig,
     packageWithoutCommonSettings,
     roots
-} from './config-schema-test-support.ts';
+} from '../test-libraries/config-schema-test-support.ts';
 import { packtoryConfigSchema } from './packtory-config-schema.ts';
 import { packtoryConfigWithoutRegistrySchema } from './packtory-config-without-registry-schema.ts';
 

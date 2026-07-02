@@ -123,6 +123,7 @@ type StagedPackageListResponse = {
 };
 
 const stageListPageSize = 100;
+const maximumStageListPages = 1000;
 
 type NpmFetchResponse = Awaited<ReturnType<typeof _npmFetch>>;
 export type NpmFetch = {
@@ -264,21 +265,23 @@ export async function fetchStagedPackageVersions(
 ): Promise<readonly string[]> {
     const auth = resolveStageListingAuthOptions(registrySettings);
     const versions: string[] = [];
-    let page = 0;
-    let hasMorePages = true;
+    const pages = Array.from({ length: maximumStageListPages }, function (_value, index) {
+        return index;
+    });
 
-    while (hasMorePages) {
+    for (const page of pages) {
         const response = await fetchStagedPackageVersionPage(npmFetch, auth, packageName, page);
 
         versions.push(...response.items.map(function (item) {
             return item.version;
         }));
 
-        hasMorePages = versions.length < response.total && response.items.length > 0;
-        page += 1;
+        if (versions.length >= response.total || response.items.length === 0) {
+            return versions;
+        }
     }
 
-    return versions;
+    throw new Error(`Staged package listing exceeded ${maximumStageListPages} pages`);
 }
 
 export async function fetchPackageTarball(

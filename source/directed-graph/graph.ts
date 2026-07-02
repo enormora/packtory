@@ -28,6 +28,10 @@ type GraphDependencies<TId extends GraphNodeId> = {
     readonly visitedHas: (visited: ReadonlySet<TId>, id: TId) => boolean;
 };
 
+function attemptSlots(length: number): readonly unknown[] {
+    return Array.from({ length });
+}
+
 export type DirectedGraph<TId extends GraphNodeId, TData> = {
     addNode: (id: TId, data: TData) => void;
     connect: (edge: Readonly<GraphEdge<TId>>) => void;
@@ -136,6 +140,11 @@ type BreadthFirstSearchNodeVisit<TId extends GraphNodeId, TData> = {
     readonly visited: ReadonlySet<TId>;
     readonly visitor: Visitor<TId, TData>;
 };
+type BreadthFirstSearchState<TId extends GraphNodeId, TData> = {
+    readonly head: GraphNode<TId, TData> | undefined;
+    readonly pendingNodes: Worklist<GraphNode<TId, TData>>;
+    readonly visited: ReadonlySet<TId>;
+};
 
 function scheduleAdjacentNodes<TId extends GraphNodeId, TData>(
     nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
@@ -169,26 +178,33 @@ function visitGraphBreadthFirstSearch<TId extends GraphNodeId, TData>(
     visitor: Visitor<TId, TData>
 ): void {
     const pendingNodes = createWorklist<GraphNode<TId, TData>>([]);
-    let visited: ReadonlySet<TId> = new Set();
-    let head: GraphNode<TId, TData> | undefined = getNode(nodes, startId);
-
-    for (let attempt = 0; attempt < nodes.size + countEdges(nodes) + 1; attempt += 1) {
-        if (head === undefined) {
-            return;
+    const maximumSteps = nodes.size + countEdges(nodes) + 1;
+    let state: BreadthFirstSearchState<TId, TData> = {
+        head: getNode(nodes, startId),
+        pendingNodes,
+        visited: new Set()
+    };
+    const completed = attemptSlots(maximumSteps).some(function () {
+        if (state.head === undefined) {
+            return true;
         }
+
         const nextStep: BreadthFirstSearchStep<TId, TData> = visitBreadthFirstSearchNode<TId, TData>({
             nodes,
             dependencies,
-            head,
-            pendingNodes,
-            visited,
+            head: state.head,
+            pendingNodes: state.pendingNodes,
+            visited: state.visited,
             visitor
         });
-        head = nextStep.head;
-        visited = nextStep.visited;
+        state = { ...state, head: nextStep.head, visited: nextStep.visited };
+        return false;
+    });
+    if (completed) {
+        return;
     }
 
-    throw new Error('Breadth-first traversal exceeded the maximum iteration budget');
+    throw new Error(`Breadth-first traversal exceeded ${maximumSteps} attempts`);
 }
 
 function collectCurrentGeneration<TId extends GraphNodeId, TData>(
@@ -279,6 +295,15 @@ type TopologicalDiscovery<TId extends GraphNodeId> = {
     readonly generations: readonly (readonly TId[])[];
     readonly incomingEdgesPerNode: ReadonlyMap<TId, number>;
 };
+type PendingDiscovery<TId extends GraphNodeId> = {
+    readonly type: 'pending';
+    readonly discovery: TopologicalDiscovery<TId>;
+};
+type FinishedDiscovery<TId extends GraphNodeId> = {
+    readonly type: 'finished';
+    readonly generations: readonly (readonly TId[])[];
+};
+type DiscoveryState<TId extends GraphNodeId> = FinishedDiscovery<TId> | PendingDiscovery<TId>;
 
 function createTopologicalDiscovery<TId extends GraphNodeId, TData>(
     nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
@@ -309,23 +334,29 @@ function collectTopologicalGenerations<TId extends GraphNodeId, TData>(
 ): readonly (readonly TId[])[] {
     assertAcyclic(nodes, dependencies);
 
-    let discovery = createTopologicalDiscovery(nodes);
-    let exhaustedAttempts = 0;
-
-    for (let attempt = 1; attempt <= nodes.size + 1; attempt += 1) {
-        exhaustedAttempts = attempt;
+    const maximumGenerations = nodes.size + 1;
+    const finalDiscovery = attemptSlots(maximumGenerations).reduce<DiscoveryState<TId>>(function (state) {
+        if (state.type !== 'pending') {
+            return state;
+        }
         const currentGeneration = collectCurrentGeneration(
             nodes,
-            discovery.alreadyDiscovered,
-            discovery.incomingEdgesPerNode
+            state.discovery.alreadyDiscovered,
+            state.discovery.incomingEdgesPerNode
         );
         if (currentGeneration.length === 0) {
-            return discovery.generations;
+            return { type: 'finished', generations: state.discovery.generations };
         }
-        discovery = advanceTopologicalDiscovery(nodes, dependencies, discovery, currentGeneration);
+        return {
+            type: 'pending',
+            discovery: advanceTopologicalDiscovery(nodes, dependencies, state.discovery, currentGeneration)
+        };
+    }, { type: 'pending', discovery: createTopologicalDiscovery(nodes) });
+    if (finalDiscovery.type === 'finished') {
+        return finalDiscovery.generations;
     }
 
-    throw new Error(`Topological generation discovery did not make progress after ${exhaustedAttempts} attempts`);
+    throw new Error(`Topological generation discovery did not make progress after ${maximumGenerations} attempts`);
 }
 
 export function createDirectedGraph<TId extends GraphNodeId, TData>(

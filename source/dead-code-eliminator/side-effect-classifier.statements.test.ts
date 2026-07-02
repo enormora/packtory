@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { classify } from './side-effect-classifier.test-support.ts';
+import { classify } from '../test-libraries/side-effect-classifier-test-support.ts';
 
 suite('side-effect-classifier statements', function () {
     suite('side-effect-classifier expression statements', function () {

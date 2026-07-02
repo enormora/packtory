@@ -126,6 +126,13 @@ function registerVersionTriggerTests(): void {
         assert.strictEqual(inferVersionTrigger(Maybe.just('1.0.0'), automaticOptions(), true), 'auto-patch-bump');
     });
 
+    test('inferVersionTrigger treats didBump as authoritative even for pinned options', function () {
+        assert.strictEqual(
+            inferVersionTrigger(Maybe.nothing<string>(), pinnedOptions('2.0.0'), true),
+            'auto-patch-bump'
+        );
+    });
+
     test('inferVersionTrigger returns pinned when automatic versioning is disabled and no bump occurred', function () {
         assert.strictEqual(inferVersionTrigger(Maybe.just('1.0.0'), pinnedOptions('2.0.0'), false), 'pinned');
     });

@@ -187,9 +187,11 @@ function registerSideEffectsTests(): void {
     });
 
     test('buildPackageManifest() emits the auto-detected file list as "sideEffects"', function () {
-        const result = buildPackageManifest(createBundle({ sideEffectsField: [ './impure.js' ] }));
+        const sideEffectsField = [ './impure.js' ];
+        const result = buildPackageManifest(createBundle({ sideEffectsField }));
 
         assert.deepStrictEqual(result.sideEffects, [ './impure.js' ]);
+        assert.notStrictEqual(result.sideEffects, sideEffectsField);
     });
 
     test('buildPackageManifest() prefers a user-provided sideEffects value in additionalAttributes over the auto-detected one', function () {

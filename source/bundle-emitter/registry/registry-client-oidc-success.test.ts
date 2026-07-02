@@ -9,7 +9,7 @@ import {
     publishWithNpmOidc,
     registryClientFactory,
     requireFetchSpy
-} from './registry-client-test-support.ts';
+} from '../../test-libraries/registry-client-test-support.ts';
 
 function expectOidcExchange(fetchSpy: SinonSpy, packageName = '@scope/the-name'): void {
     const registryPackagePath = packageName.replace('/', '%2F');

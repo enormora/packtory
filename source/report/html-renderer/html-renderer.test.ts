@@ -25,6 +25,8 @@ suite('html-renderer', function () {
 
         assert.match(html, /^<!doctype html>/);
         assert.ok(html.includes('<title>Packtory build report</title>'));
+        assert.ok(html.includes('Schema version: 1'));
+        assert.ok(html.includes('Generated at: 2026-05-11T00:00:00.000Z'));
         assert.match(html, /<style>[\s\S]*color-scheme: light;[\s\S]*\.summary-card[\s\S]*<\/style>/u);
     });
 

@@ -50,3 +50,23 @@ export type CheckRuleDefinition<TName extends string, TGlobal extends RuleGlobal
     readonly perPackageSchema: ZodMiniType<TPerPackage>;
     readonly run: (params: RuleRunParams<TName, TGlobal, TPerPackage>) => Promise<readonly string[]>;
 };
+
+export function defineCheckRule<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage>(
+    name: () => TName,
+    globalSchema: () => ZodMiniType<TGlobal>,
+    perPackageSchema: () => ZodMiniType<TPerPackage>,
+    run: (params: RuleRunParams<TName, TGlobal, TPerPackage>) => Promise<readonly string[]>
+): CheckRuleDefinition<TName, TGlobal, TPerPackage> {
+    return {
+        get name() {
+            return name();
+        },
+        get globalSchema() {
+            return globalSchema();
+        },
+        get perPackageSchema() {
+            return perPackageSchema();
+        },
+        run
+    };
+}

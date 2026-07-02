@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { buildLatestVersionFetchJson, registryClientFactory } from './registry-client-test-support.ts';
+import {
+    buildLatestVersionFetchJson,
+    registryClientFactory
+} from '../../test-libraries/registry-client-test-support.ts';
 
 suite('registry-client metadata auth', function () {
     test('fetchLatestVersion() uses shorthand auth for metadata by default', async function () {

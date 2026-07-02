@@ -5,130 +5,24 @@ import { Result } from 'true-myth';
 import { analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import {
     buildResultFor,
-    createReleaseTestDependencies,
     packageProcessorCheckingStage,
     packageProcessorWithFailure,
     previousReleaseArtifactsFor,
-    resolvedPackagesFor as sharedResolvedPackagesFor,
-    validatedReleaseConfigFor,
-    type ReleaseFileCollection,
-    type ReleaseTestDependencies
+    validatedReleaseConfigFor
 } from '../test-libraries/release-orchestrator-fixtures.ts';
-import type { BuildAndPublishResult } from './package-processor.ts';
-import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
-import type {
-    partialFailureType,
-    ReleasePlan,
-    ReleasePlanFailure,
-    ReleasePlanPackage,
-    ReleasePlanResult,
-    ResolveAndLinkFailure
-} from './packtory-results.ts';
+import {
+    createPlanner,
+    expectFirstPackage,
+    expectPartialFailure,
+    expectPlan,
+    planFor,
+    publishedBuildResultFor,
+    resolvedPackagesFor,
+    type ReleaseArtifactDescription,
+    type ReleasePackageResolver
+} from '../test-libraries/release-plan-test-support.ts';
+import type { ResolveAndLinkFailure } from './packtory-results.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
-
-type PackageProcessor = ReleaseTestDependencies['packageProcessor'];
-type FileCollection = ReleaseFileCollection;
-type ReleasePlanFileManager = ReleaseTestDependencies['fileManager'];
-type ReleasePlanner = ReturnType<typeof createPlanReleaseAgainstLatestPublishedValidated>;
-type ValidatedReleaseConfig = Parameters<ReleasePlanner>[0];
-type ReleasePackageResolver = Parameters<ReleasePlanner>[1];
-type ReleasePlannerSpec = {
-    readonly packageNames: readonly string[];
-    readonly buildResults?: readonly BuildAndPublishResult[];
-    readonly collectContents?: FileCollection;
-    readonly currentGitHead?: string | undefined;
-    readonly fileManager?: ReleasePlanFileManager | undefined;
-    readonly packageProcessor?: PackageProcessor;
-    readonly repositoryFolder?: string | undefined;
-};
-type ReleasePlanSpec = {
-    readonly packageNames: readonly string[];
-    readonly buildResults: readonly BuildAndPublishResult[];
-    readonly collectContents: FileCollection;
-    readonly bundleContents?: Readonly<Record<string, ResolvedPackage['analyzedBundle']['contents']>>;
-    readonly currentGitHead?: string | undefined;
-    readonly fileManager?: ReleasePlanFileManager | undefined;
-    readonly repositoryFolder?: string | undefined;
-};
-type ReleaseArtifactDescription = {
-    readonly content: string;
-    readonly filePath: string;
-    readonly isExecutable: false;
-};
-type ReleasePlanPartialFailure = Extract<ReleasePlanFailure, { readonly type: typeof partialFailureType; }>;
-
-function createPlanner(spec: ReleasePlannerSpec): ReleasePlanner {
-    return createPlanReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(spec));
-}
-
-function resolvedPackagesFor(
-    validated: ValidatedReleaseConfig,
-    bundleContents: Readonly<Record<string, ResolvedPackage['analyzedBundle']['contents']>> = {}
-): readonly ResolvedPackage[] {
-    return sharedResolvedPackagesFor(validated, {
-        bundleContents,
-        defaultContents(packageName) {
-            return [ analyzedBundleResource(`/source/${packageName}.js`, { targetFilePath: 'package/index.js' }) ];
-        }
-    });
-}
-
-async function planFor(spec: ReleasePlanSpec): Promise<ReleasePlanResult> {
-    const validated = validatedReleaseConfigFor(spec.packageNames);
-    const plan = createPlanner({
-        packageNames: spec.packageNames,
-        buildResults: spec.buildResults,
-        collectContents: spec.collectContents,
-        currentGitHead: spec.currentGitHead,
-        fileManager: spec.fileManager,
-        repositoryFolder: spec.repositoryFolder
-    });
-
-    return plan(validated, async function () {
-        return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(
-            resolvedPackagesFor(validated, spec.bundleContents)
-        );
-    });
-}
-
-function publishedBuildResultFor(status: BuildAndPublishResult['status'] = 'new-version'): BuildAndPublishResult {
-    return buildResultFor({
-        status,
-        packageName: 'pkg-a',
-        previousReleaseArtifacts: previousReleaseArtifactsFor({
-            version: '1.0.0',
-            publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-            files: [
-                { filePath: 'package/index.js', content: 'old', isExecutable: false },
-                { filePath: 'package/removed.js', content: 'removed', isExecutable: false }
-            ]
-        })
-    });
-}
-
-function expectPlan(result: ReleasePlanResult): ReleasePlan {
-    if (result.isErr) {
-        assert.fail(`Expected release plan, got ${result.error.type}`);
-    }
-    return result.value;
-}
-
-function expectPartialFailure(
-    result: ReleasePlanResult
-): ReleasePlanPartialFailure {
-    if (result.isOk || result.error.type !== 'partial') {
-        assert.fail('Expected a partial release-plan failure');
-    }
-    return result.error;
-}
-
-function expectFirstPackage(result: ReleasePlanResult): ReleasePlanPackage {
-    const [ pkg ] = expectPlan(result).packages;
-    if (pkg === undefined) {
-        assert.fail('Expected a package plan');
-    }
-    return pkg;
-}
 
 function registerPlanningTests(): void {
     test('runs dry-run release planning with staged publishing disabled', async function () {
@@ -294,6 +188,75 @@ function registerMetadataTests(): void {
     });
 }
 
+function registerDependencyAttributionTests(): void {
+    test('collects changed package manifest dependency names from previous and current artifacts', async function () {
+        const result = await planFor({
+            packageNames: [ 'pkg-a' ],
+            buildResults: [
+                buildResultFor({
+                    previousReleaseArtifacts: previousReleaseArtifactsFor({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        files: [
+                            {
+                                filePath: 'package/package.json',
+                                content: JSON.stringify({ dependencies: { react: '^18.0.0', shared: '^1.0.0' } }),
+                                isExecutable: false
+                            }
+                        ]
+                    })
+                })
+            ],
+            collectContents() {
+                return [
+                    {
+                        filePath: 'package/package.json',
+                        content: JSON.stringify({ dependencies: { react: '^19.0.0', shared: '^1.0.0' } }),
+                        isExecutable: false
+                    }
+                ];
+            },
+            bundleContents: {
+                'pkg-a': [
+                    analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
+                    analyzedBundleResource('/source/unused.js', { targetFilePath: 'package/unused.js' })
+                ]
+            }
+        });
+
+        const pkg = expectFirstPackage(result);
+        assert.deepStrictEqual(pkg.changelogDependencyNames, [ 'react' ]);
+        assert.strictEqual(pkg.releaseClassification, 'dependency-only');
+        assert.deepStrictEqual(pkg.changelogSourceFiles, [ 'source/pkg-a.js', 'source/unused.js' ]);
+    });
+
+    test('omits changed dependency names when the current artifact set has no manifest', async function () {
+        const result = await planFor({
+            packageNames: [ 'pkg-a' ],
+            buildResults: [
+                buildResultFor({
+                    previousReleaseArtifacts: previousReleaseArtifactsFor({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        files: [
+                            {
+                                filePath: 'package/package.json',
+                                content: JSON.stringify({ dependencies: { react: '^18.0.0' } }),
+                                isExecutable: false
+                            }
+                        ]
+                    })
+                })
+            ],
+            collectContents() {
+                return [ { filePath: 'package/index.js', content: 'new', isExecutable: false } ];
+            }
+        });
+
+        assert.deepStrictEqual(expectFirstPackage(result).changelogDependencyNames, []);
+    });
+}
+
 function registerFailureTests(): void {
     test('returns a partial failure when building a package plan throws after publish succeeds', async function () {
         const result = await planFor({
@@ -403,6 +366,40 @@ function registerFailureTests(): void {
 }
 
 function registerSourceFileTests(): void {
+    test('attributes only selected sources for substantive artifact changes', async function () {
+        const result = await planFor({
+            packageNames: [ 'pkg-a' ],
+            buildResults: [
+                buildResultFor({
+                    previousReleaseArtifacts: previousReleaseArtifactsFor({
+                        version: '1.0.0',
+                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+                        files: [
+                            { filePath: 'package/index.js', content: 'old', isExecutable: false },
+                            { filePath: 'package/unused.js', content: 'unchanged', isExecutable: false }
+                        ]
+                    })
+                })
+            ],
+            collectContents() {
+                return [
+                    { filePath: 'package/index.js', content: 'new', isExecutable: false },
+                    { filePath: 'package/unused.js', content: 'unchanged', isExecutable: false }
+                ];
+            },
+            bundleContents: {
+                'pkg-a': [
+                    analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
+                    analyzedBundleResource('/source/unused.js', { targetFilePath: 'package/unused.js' })
+                ]
+            }
+        });
+
+        const pkg = expectFirstPackage(result);
+        assert.strictEqual(pkg.releaseClassification, 'substantive');
+        assert.deepStrictEqual(pkg.changelogSourceFiles, [ 'source/pkg-a.js' ]);
+    });
+
     test('excludes generated manifests and includes substituted and additional source files', async function () {
         const generatedManifest = {
             ...analyzedBundleResource('/source/package.json', { targetFilePath: 'package.json' }),
@@ -465,6 +462,7 @@ function registerSourceFileTests(): void {
 suite('packtory-release-plan', function () {
     registerPlanningTests();
     registerMetadataTests();
+    registerDependencyAttributionTests();
     registerFailureTests();
     registerSourceFileTests();
 });

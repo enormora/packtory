@@ -29,11 +29,13 @@ type ExtractionStreams = {
     readonly tarEntries: AsyncIterable<TarStreamEntry>;
 };
 
-const defaultExtractTarLimits: ExtractTarLimits = {
-    maxEntryCount: 50_000,
-    maxEntryPathLength: 4096,
-    maxExtractedBytes: 1_073_741_824
-};
+function defaultExtractTarLimits(): ExtractTarLimits {
+    return {
+        maxEntryCount: 50_000,
+        maxEntryPathLength: 4096,
+        maxExtractedBytes: 1_073_741_824
+    };
+}
 
 function toError(error: unknown): Error {
     return error instanceof Error ? error : new Error(String(error));
@@ -142,7 +144,7 @@ async function raceExtractionOutcomes(streams: ExtractionStreams, limits: Extrac
 export async function extractTarEntries(
     buffer: Buffer,
     dependencies: Partial<ExtractTarDependencies> = {},
-    limits: ExtractTarLimits = defaultExtractTarLimits
+    limits: ExtractTarLimits = defaultExtractTarLimits()
 ): Promise<TarEntry[]> {
     const createSource = dependencies.createSource ?? Readable.from;
     const extractStream = extract();

@@ -1,137 +1,20 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
-    createReleasePullRequestGitHubClient,
-    type ReleasePullRequestGitHubClient
-} from './release-pr-github-client.ts';
-
-type RecordedRequest = {
-    readonly body: string;
-    readonly headers: RequestHeaders | undefined;
-    readonly method: string;
-    readonly path: string;
-    readonly search: string;
-};
-type RequestHeaders = Headers | Readonly<Record<string, string>> | readonly (readonly [string, string])[];
-type RecordedRequestResult = {
-    readonly method: string;
-    readonly request: RecordedRequest;
-    readonly url: URL;
-};
-type RouteResponse = () => Response;
-type CapturedRequests = {
-    readonly record: (request: RecordedRequest) => void;
-    readonly records: readonly RecordedRequest[];
-};
-
-function jsonResponse(data: unknown, status = 200): Response {
-    return Response.json(data, { status });
-}
-
-function emptyResponse(status = 204): Response {
-    return new Response(null, { status });
-}
-
-function createPullRequest(
-    number: number,
-    overrides: Readonly<Record<string, unknown>> = {}
-): Record<string, unknown> {
-    return {
-        base: { ref: 'main' },
-        head: { ref: 'release/packtory', repo: { full_name: 'owner/repo' }, sha: 'release-head' },
-        labels: [ { name: 'release' } ],
-        merge_commit_sha: 'merge-sha',
-        merged_at: '2026-06-01T00:00:00.000Z',
-        number,
-        title: 'Prepare release',
-        user: { login: 'github-actions[bot]' },
-        ...overrides
-    };
-}
-
-function createCommit(message = 'Release packages'): Record<string, unknown> {
-    return {
-        commit: { message },
-        parents: [ { sha: 'main-head' } ]
-    };
-}
-
-function requestUrl(input: Parameters<typeof globalThis.fetch>[0]): URL {
-    if (typeof input === 'string') {
-        return new URL(input);
-    }
-    if (input instanceof URL) {
-        return input;
-    }
-    return new URL(input.url);
-}
-
-function requestBody(init: Readonly<RequestInit> | undefined): string {
-    return typeof init?.body === 'string' ? init.body : '';
-}
-
-function readHeader(headers: RequestHeaders | undefined, name: string): string | undefined {
-    if (headers instanceof Headers) {
-        return headers.get(name) ?? undefined;
-    }
-    if (headers === undefined || Array.isArray(headers)) {
-        return undefined;
-    }
-    const value: unknown = Reflect.get(headers, name);
-    return typeof value === 'string' ? value : undefined;
-}
-
-function captureRequests(): CapturedRequests {
-    const records: RecordedRequest[] = [];
-    return {
-        record(request) {
-            records.push(request);
-        },
-        records
-    };
-}
-
-function recordRequest(
-    input: Parameters<typeof globalThis.fetch>[0],
-    init: Readonly<RequestInit> | undefined
-): RecordedRequestResult {
-    const url = requestUrl(input);
-    const method = init?.method ?? 'GET';
-    return {
-        method,
-        request: { body: requestBody(init), headers: init?.headers, method, path: url.pathname, search: url.search },
-        url
-    };
-}
-
-function requestHasSearchParameter(record: RecordedRequest, name: string, value: string): boolean {
-    const searchParameters = new URLSearchParams(record.search);
-    return searchParameters.get(name) === value;
-}
-
-function createClient(fetchImplementation: typeof globalThis.fetch): ReleasePullRequestGitHubClient {
-    return createReleasePullRequestGitHubClient({
-        fetch: fetchImplementation,
-        owner: 'owner',
-        repo: 'repo',
-        token: 'token'
-    });
-}
-
-function hasRequestWithBody(
-    records: readonly RecordedRequest[],
-    method: string,
-    path: string,
-    bodyPart: string
-): boolean {
-    return records.some(function (record) {
-        return record.method === method && record.path === path && record.body.includes(bodyPart);
-    });
-}
-
-function routeKey(method: string, path: string): string {
-    return `${method} ${path}`;
-}
+    captureRequests,
+    createClient,
+    createCommit,
+    createPullRequest,
+    createRecordedRouteFetch,
+    emptyResponse,
+    hasRequestWithBody,
+    jsonResponse,
+    readHeader,
+    requestHasSearchParameter,
+    routeKey,
+    type CapturedRequests,
+    type RouteResponse
+} from '../../test-libraries/release-pr-github-client-test-support.ts';
 
 const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
     [ routeKey('GET', '/repos/owner/repo/pulls'), function () {
@@ -218,20 +101,8 @@ const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
     } ]
 ]);
 
-function createFetchFromRoutes(
-    capturedRequests: CapturedRequests,
-    routes: ReadonlyMap<string, RouteResponse>
-): typeof globalThis.fetch {
-    return async function (input, init) {
-        const { method, request, url } = recordRequest(input, init);
-        capturedRequests.record(request);
-        return routes.get(routeKey(method, url.pathname))?.() ??
-            jsonResponse({ message: `Unhandled ${method} ${url.pathname}` }, 500);
-    };
-}
-
 function createFetch(capturedRequests: CapturedRequests): typeof globalThis.fetch {
-    return createFetchFromRoutes(capturedRequests, defaultRoutes);
+    return createRecordedRouteFetch(capturedRequests, defaultRoutes);
 }
 
 suite('release-pr-github-client', function () {
@@ -343,7 +214,56 @@ suite('release-pr-github-client', function () {
         );
         assert.strictEqual(await client.getBranchHeadSha('main'), 'main-head');
         assert.ok(records.some(function (record) {
-            return record.search.includes('event=workflow_dispatch');
+            return (
+                record.path === '/repos/owner/repo/actions/workflows/101/runs' &&
+                requestHasSearchParameter(record, 'event', 'workflow_dispatch')
+            );
+        }));
+    });
+
+    test('finds dispatched workflow runs through the repository fallback when workflow runs lag', async function () {
+        const capturedRequests = captureRequests();
+        const { records } = capturedRequests;
+        const client = createClient(
+            createRecordedRouteFetch(
+                capturedRequests,
+                new Map([
+                    [ routeKey('GET', '/repos/owner/repo/actions/workflows'), function () {
+                        return jsonResponse({
+                            workflows: [ { id: 101, name: 'ci', path: '.github/workflows/ci.yml' } ]
+                        });
+                    } ],
+                    [ routeKey('GET', '/repos/owner/repo/actions/workflows/101/runs'), function () {
+                        return jsonResponse({
+                            workflow_runs: [
+                                { database_id: 21, event: 'workflow_dispatch', head_sha: 'other-head' }
+                            ]
+                        });
+                    } ],
+                    [ routeKey('GET', '/repos/owner/repo/actions/runs'), function () {
+                        return jsonResponse({
+                            workflow_runs: [
+                                { database_id: 22, event: 'workflow_dispatch', head_sha: 'release-head' }
+                            ]
+                        });
+                    } ]
+                ])
+            )
+        );
+
+        assert.deepStrictEqual(
+            await client.findDispatchedWorkflowRun({
+                branch: 'release/packtory',
+                headSha: 'release-head',
+                workflowFile: 'ci.yml'
+            }),
+            { event: 'workflow_dispatch', observedRunIds: [ 21, 22 ], runId: 22 }
+        );
+        assert.ok(records.some(function (record) {
+            return (
+                record.path === '/repos/owner/repo/actions/runs' &&
+                requestHasSearchParameter(record, 'event', 'workflow_dispatch')
+            );
         }));
     });
 
@@ -397,12 +317,18 @@ suite('release-pr-github-client', function () {
                 }),
             [ '/repos/owner/repo/actions/runs/10' ]
         );
+        assert.ok(records.some(function (record) {
+            return (
+                record.path === '/repos/owner/repo/actions/runs' &&
+                requestHasSearchParameter(record, 'event', 'pull_request')
+            );
+        }));
     });
 
     test('creates a release pull request when no open release pull request exists', async function () {
         const capturedRequests = captureRequests();
         const { records } = capturedRequests;
-        const fetchMock = createFetchFromRoutes(
+        const fetchMock = createRecordedRouteFetch(
             capturedRequests,
             new Map([
                 [ routeKey('GET', '/repos/owner/repo/pulls'), function () {
@@ -433,81 +359,6 @@ suite('release-pr-github-client', function () {
                 return record.method === 'POST' && record.path === '/repos/owner/repo/pulls';
             }),
             true
-        );
-    });
-
-    test('normalizes nullable GitHub response fields', async function () {
-        const capturedRequests = captureRequests();
-        const fetchMock = createFetchFromRoutes(
-            capturedRequests,
-            new Map([
-                [ routeKey('GET', '/repos/owner/repo/pulls/12'), function () {
-                    return jsonResponse(
-                        createPullRequest(12, {
-                            head: { ref: 'release/packtory', repo: null, sha: 'release-head' },
-                            labels: [ { name: null }, {} ],
-                            merge_commit_sha: null,
-                            merged_at: null,
-                            user: null
-                        })
-                    );
-                } ],
-                [ routeKey('GET', '/repos/owner/repo/pulls/13'), function () {
-                    return jsonResponse(
-                        createPullRequest(13, {
-                            merge_commit_sha: null,
-                            merged_at: undefined
-                        })
-                    );
-                } ],
-                [ routeKey('GET', '/repos/owner/repo/pulls/12/files'), function () {
-                    return jsonResponse([]);
-                } ],
-                [ routeKey('GET', '/repos/owner/repo/pulls/13/files'), function () {
-                    return jsonResponse([]);
-                } ],
-                [ routeKey('GET', '/repos/owner/repo/commits/release-head'), function () {
-                    return jsonResponse(createCommit('Release packages\n\nDetails'));
-                } ]
-            ])
-        );
-        const client = createClient(fetchMock);
-
-        assert.deepStrictEqual(await client.getPullRequest(12), {
-            author: '',
-            baseRef: 'main',
-            changedFiles: [],
-            headRef: 'release/packtory',
-            headRepository: '',
-            labels: [],
-            mergeCommitSha: undefined,
-            merged: false,
-            number: 12,
-            subject: 'Release packages',
-            title: 'Prepare release'
-        });
-        const pullRequestWithOmittedMergeTimestamp = await client.getPullRequest(13);
-        assert.strictEqual(pullRequestWithOmittedMergeTimestamp.merged, false);
-    });
-
-    test('formats failed GitHub API requests with the endpoint path', async function () {
-        const client = createClient(async function () {
-            return jsonResponse({ message: 'Bad credentials' }, 401);
-        });
-
-        await assert.rejects(
-            async function () {
-                await client.getBranchHeadSha('main');
-            },
-            function (error: unknown) {
-                assert.ok(error instanceof Error);
-                assert.strictEqual(
-                    error.message,
-                    'GitHub API request failed (401) for /repos/owner/repo/branches/main'
-                );
-                assert.ok(error.cause instanceof Error);
-                return true;
-            }
         );
     });
 });

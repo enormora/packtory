@@ -1,7 +1,12 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
-import { expectCyclicError, fooPackage, packageWithDeps, withRegistry } from './validation.test-support.ts';
+import {
+    expectCyclicError,
+    fooPackage,
+    packageWithDeps,
+    withRegistry
+} from '../test-libraries/validation-test-support.ts';
 import { validateConfig } from './validation.ts';
 
 suite('validation package graph', function () {

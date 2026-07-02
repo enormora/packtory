@@ -28,9 +28,7 @@ export function startSpinnerWorker<Handle>(
 
     function renderTick(): void {
         const output = buildRenderTickOutput(accessors, state);
-        if (output.sequence === undefined) {
-            state = { ...state, snapshots: output.snapshots };
-        } else {
+        if (output.sequence !== undefined) {
             dependencies.write(input.stdoutFileDescriptor, output.sequence);
             state = {
                 snapshots: output.snapshots,

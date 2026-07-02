@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { Result } from 'true-myth';
-import { minimalPackageConfigFactory } from '../test-libraries/config-fixtures.ts';
-import { validateConfig } from './validation.ts';
+import { validateConfig } from '../config/validation.ts';
+import { minimalPackageConfigFactory } from './config-fixtures.ts';
 
 export type ConfigInput = Readonly<Record<string, unknown>>;
 

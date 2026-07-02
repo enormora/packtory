@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createVendorMaterializer, type VendorMaterializerFailure } from './vendor-materializer.ts';
 import {
     expectOk,
     runExpectingFailure,
@@ -9,7 +8,8 @@ import {
     targetRelativePaths,
     type FakeSetup,
     type StringResponse
-} from './vendor-materializer-test-support.ts';
+} from '../test-libraries/vendor-materializer-test-support.ts';
+import { createVendorMaterializer, type VendorMaterializerFailure } from './vendor-materializer.ts';
 
 type SinglePackageSymlinkScenario = {
     readonly initialName: string;
@@ -139,6 +139,53 @@ function registerMaterializationTests(): void {
             'node_modules/dep/lib.js',
             'node_modules/peer/peer.js'
         ]);
+    });
+
+    test('accepts dependency package names whose package or scope starts with a digit', async function () {
+        const result = await runWith(
+            {
+                readabilities: [
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } },
+                    { value: { isReadable: true } }
+                ],
+                realPaths: [
+                    { value: '/repo/node_modules/root' },
+                    { value: '/repo/node_modules/1dep' },
+                    { value: '/repo/node_modules/a1dep' },
+                    { value: '/repo/node_modules/@a1scope/dep' },
+                    { value: '/repo/node_modules/@1scope/dep' }
+                ],
+                listings: [
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
+                    { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] }
+                ],
+                fileReads: [
+                    {
+                        value: JSON.stringify({
+                            dependencies: {
+                                '1dep': '1.0.0',
+                                a1dep: '1.0.0',
+                                '@a1scope/dep': '1.0.0',
+                                '@1scope/dep': '1.0.0'
+                            }
+                        })
+                    },
+                    { value: '{}' },
+                    { value: '{}' },
+                    { value: '{}' },
+                    { value: '{}' }
+                ]
+            },
+            { initialDependencyNames: [ 'root' ], projectFolder: '/repo' }
+        );
+
+        assert.deepStrictEqual(result.packageNames, [ 'root', '1dep', 'a1dep', '@a1scope/dep', '@1scope/dep' ]);
     });
 
     test('skips nested node_modules when walking files (nested packages are visited as separate closure entries instead)', async function () {

@@ -31,9 +31,11 @@ suite('partial-result', function () {
     test('succeededResultsFrom ignores non-object and null failures', function () {
         const stringFailure: Result<readonly string[], unknown> = Result.err('boom');
         const nullFailure: Result<readonly string[], unknown> = Result.err(null);
+        const undefinedFailure: Result<readonly string[], unknown> = Result.err(undefined);
 
         assert.deepStrictEqual(succeededResultsFrom(stringFailure), []);
         assert.deepStrictEqual(succeededResultsFrom(nullFailure), []);
+        assert.deepStrictEqual(succeededResultsFrom(undefinedFailure), []);
     });
 
     test('succeededResultsFrom ignores object failures without the partial discriminant', function () {

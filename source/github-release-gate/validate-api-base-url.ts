@@ -1,5 +1,9 @@
-const expectedApiHostname = 'api.github.com';
-const loopbackHostnames = new Set([ '127.0.0.1', '[::1]', 'localhost' ]);
+function hostnameFromUrl(value: string): string {
+    const url = new URL(value);
+    return url.hostname;
+}
+
+const expectedApiHostname = hostnameFromUrl('https://api.github.com');
 
 function parseOrThrow(value: string): URL {
     try {
@@ -10,7 +14,11 @@ function parseOrThrow(value: string): URL {
 }
 
 function isLoopbackHostname(hostname: string): boolean {
-    return loopbackHostnames.has(hostname);
+    return (
+        hostname === hostnameFromUrl('http://127.0.0.1') ||
+        hostname === hostnameFromUrl('http://[::1]') ||
+        hostname === hostnameFromUrl('http://localhost')
+    );
 }
 
 function buildMismatchMessage(actualHostname: string): string {

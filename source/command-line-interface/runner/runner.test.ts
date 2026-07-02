@@ -9,7 +9,7 @@ import {
     expectCommandLoadsConfig,
     expectHelp,
     expectSubcommandHelp
-} from './runner-test-support.ts';
+} from '../../test-libraries/runner-test-support.ts';
 
 suite('runner command routing', function () {
     suite('publish and preview options', function () {

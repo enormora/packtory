@@ -3,7 +3,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline/promises';
-import { execFile } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPrLogEngine } from '@pr-log/core';
 import { createClock } from '../../common/clock.ts';
@@ -23,6 +22,11 @@ import { createGitHubReleaseClient } from '../../command-line-interface/runner/g
 import { createReleasePullRequestGitHubClient } from '../../command-line-interface/runner/release-pr-github-client.ts';
 import { createReleaseGitClient } from '../../command-line-interface/runner/release-git-client.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
+import {
+    createChildProcessGitCommandExecutor,
+    createGitCommandRunner,
+    spawnChildProcessGitCommand
+} from '../../git/git-command.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
@@ -53,27 +57,10 @@ function createSpinnerRenderer(): TerminalSpinnerRenderer {
     });
 }
 
-async function runGitCommand(
-    command: string,
-    args: readonly string[]
-): Promise<{
-    readonly stdout: string;
-    readonly stderr: string;
-}> {
-    return new Promise(function (resolve, reject) {
-        execFile(command, Array.from(args), function (error, stdout, stderr) {
-            if (error !== null) {
-                reject(error instanceof Error ? error : new Error('Git command failed'));
-                return;
-            }
-            resolve({ stdout, stderr });
-        });
-    });
-}
-
 const spinnerRenderer = createSpinnerRenderer();
 const clock = createClock();
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
+const runGitCommand = createGitCommandRunner(createChildProcessGitCommandExecutor(spawnChildProcessGitCommand));
 const workingDirectory = process.cwd();
 const previewIo = createDefaultPreviewIo({
     async openFile(filePath) {

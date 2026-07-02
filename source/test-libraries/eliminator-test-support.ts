@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
-import { bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
-import type { AnalyzedBundle } from './analyzed-bundle.ts';
+import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
 
 export function inputs(
     ...bundles: readonly LinkedBundle[]

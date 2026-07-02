@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import type { PrLogEngine, ResolvePullRequestLabelsOptions } from '@pr-log/core';
-import { runReleaseHandler } from './release-handler.ts';
 import {
     assertCleanChangelogNoOp,
     createConfigWithoutChangelogOutputs,
@@ -16,7 +15,8 @@ import {
     createTwoPackageChangelogConfig,
     unattributedPackageChangelogMessage,
     validConfig
-} from './release-handler-test-support.ts';
+} from '../../test-libraries/release-handler-test-support.ts';
+import { runReleaseHandler } from './release-handler.ts';
 
 suite('changelog writes', function () {
     test('writes changelogs without committing when only --write-changelog is set', async function () {

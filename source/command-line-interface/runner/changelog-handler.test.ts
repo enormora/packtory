@@ -230,125 +230,129 @@ function assertConfiguredChangelogInputs(
 }
 
 suite('changelog-handler', function () {
-    test('loads config, plans the release, and renders changelog markdown through the pager', async function () {
-        const spies = makeSpies();
+    suite('release output', function () {
+        test('loads config, plans the release, and renders changelog markdown through the pager', async function () {
+            const spies = makeSpies();
 
-        const code = await runChangelogHandler(depsWith({ spies }));
+            const code = await runChangelogHandler(depsWith({ spies }));
 
-        assert.strictEqual(code, 0);
-        assert.deepStrictEqual(spies.planReleaseAgainstLatestPublished.firstCall.args, [ validConfig ]);
-        assert.strictEqual(spies.createPrLogEngine.callCount, 1);
-        assert.deepStrictEqual(spies.pageOutput.firstCall.args, [ '## pkg-a 1.0.1\n' ]);
-        assert.strictEqual(spies.stopAll.callCount, 2);
-    });
+            assert.strictEqual(code, 0);
+            assert.deepStrictEqual(spies.planReleaseAgainstLatestPublished.firstCall.args, [ validConfig ]);
+            assert.strictEqual(spies.createPrLogEngine.callCount, 1);
+            assert.deepStrictEqual(spies.pageOutput.firstCall.args, [ '## pkg-a 1.0.1\n' ]);
+            assert.strictEqual(spies.stopAll.callCount, 2);
+        });
 
-    test('returns 1 and logs release-plan config failures without creating pr-log', async function () {
-        await assertReleasePlanFailureLogged({
-            releasePlanOutcome: configFailureOutcome([ 'bad config', 'worse config' ]),
-            expectedLog: 'Configuration issues, there are 2 issue(s)\n\n- bad config\n- worse config'
+        test('returns 1 and logs release-plan config failures without creating pr-log', async function () {
+            await assertReleasePlanFailureLogged({
+                releasePlanOutcome: configFailureOutcome([ 'bad config', 'worse config' ]),
+                expectedLog: 'Configuration issues, there are 2 issue(s)\n\n- bad config\n- worse config'
+            });
+        });
+
+        test('returns 1 and logs release-plan check failures without creating pr-log', async function () {
+            await assertReleasePlanFailureLogged({
+                releasePlanOutcome: checkFailureOutcome([ 'bad package', 'worse package' ]),
+                expectedLog: 'Check issues, there are 2 issue(s)\n\n- bad package\n- worse package'
+            });
+        });
+
+        test('does not render changelog output when the loaded config cannot be parsed', async function () {
+            const spies = makeSpies();
+
+            const code = await runChangelogHandler(
+                depsWith({
+                    spies,
+                    configLoader: configLoaderReturning({ packages: [] })
+                })
+            );
+
+            assert.strictEqual(code, 0);
+            assert.strictEqual(spies.createPrLogEngine.callCount, 0);
+            assert.strictEqual(spies.pageOutput.callCount, 0);
+        });
+
+        test('returns 1 and still renders succeeded changed packages for partial release-plan failures', async function () {
+            const releasePlanOutcome = partialFailureOutcome({
+                succeeded: [ releasePackage() ],
+                failures: [ new Error('pkg-b failed'), new Error('pkg-c failed') ]
+            });
+            const spies = makeSpies(createEngine(), releasePlanOutcome);
+
+            const code = await runChangelogHandler(depsWith({ spies }));
+
+            assert.strictEqual(code, 1);
+            assert.strictEqual(spies.pageOutput.callCount, 1);
+            assert.deepStrictEqual(spies.log.firstCall.args, [ 'pkg-b failed\npkg-c failed' ]);
         });
     });
 
-    test('returns 1 and logs release-plan check failures without creating pr-log', async function () {
-        await assertReleasePlanFailureLogged({
-            releasePlanOutcome: checkFailureOutcome([ 'bad package', 'worse package' ]),
-            expectedLog: 'Check issues, there are 2 issue(s)\n\n- bad package\n- worse package'
-        });
-    });
+    suite('github inputs', function () {
+        test('uses GITHUB_TOKEN when GH_TOKEN is not set', async function () {
+            const engine = createEngine();
+            const createPrLogEngine = fake(function (options: Readonly<PrLogEngineOptions>) {
+                assert.strictEqual(options.githubToken, 'github-token');
+                return engine;
+            });
+            const spies: Spies = {
+                ...makeSpies(engine),
+                createPrLogEngine
+            };
 
-    test('does not render changelog output when the loaded config cannot be parsed', async function () {
-        const spies = makeSpies();
-
-        const code = await runChangelogHandler(
-            depsWith({
-                spies,
-                configLoader: configLoaderReturning({ packages: [] })
-            })
-        );
-
-        assert.strictEqual(code, 0);
-        assert.strictEqual(spies.createPrLogEngine.callCount, 0);
-        assert.strictEqual(spies.pageOutput.callCount, 0);
-    });
-
-    test('returns 1 and still renders succeeded changed packages for partial release-plan failures', async function () {
-        const releasePlanOutcome = partialFailureOutcome({
-            succeeded: [ releasePackage() ],
-            failures: [ new Error('pkg-b failed'), new Error('pkg-c failed') ]
-        });
-        const spies = makeSpies(createEngine(), releasePlanOutcome);
-
-        const code = await runChangelogHandler(depsWith({ spies }));
-
-        assert.strictEqual(code, 1);
-        assert.strictEqual(spies.pageOutput.callCount, 1);
-        assert.deepStrictEqual(spies.log.firstCall.args, [ 'pkg-b failed\npkg-c failed' ]);
-    });
-
-    test('uses GITHUB_TOKEN when GH_TOKEN is not set', async function () {
-        const engine = createEngine();
-        const createPrLogEngine = fake(function (options: Readonly<PrLogEngineOptions>) {
-            assert.strictEqual(options.githubToken, 'github-token');
-            return engine;
-        });
-        const spies: Spies = {
-            ...makeSpies(engine),
-            createPrLogEngine
-        };
-
-        const code = await runChangelogHandler(
-            depsWith({
-                spies,
-                readEnvironmentVariable(name) {
-                    return name === 'GITHUB_TOKEN' ? 'github-token' : undefined;
-                }
-            })
-        );
-
-        assert.strictEqual(code, 0);
-        assert.strictEqual(createPrLogEngine.callCount, 1);
-    });
-
-    test('passes the GitHub repo from package metadata into pr-log', async function () {
-        const collectMergedPullRequests = fake(async function (input: CollectMergedPullRequestsOptions) {
-            assert.strictEqual(input.githubRepo, 'owner/repo');
-            return [];
-        });
-        const engine = {
-            ...createEngine(),
-            collectMergedPullRequests
-        };
-        const spies = makeSpies(engine);
-
-        const code = await runChangelogHandler(depsWith({ spies }));
-
-        assert.strictEqual(code, 0);
-        assert.strictEqual(collectMergedPullRequests.callCount, 1);
-    });
-
-    test('passes configured changelog label and base-ref settings into pr-log', async function () {
-        const resolveChangelogBaseRef = fake.resolves({ ref: 'configured-base' });
-        const resolvePullRequestLabels = fake.resolves([ { id: 1, title: 'Fix package', label: 'operations' } ]);
-        const engine = createEngine({ resolveChangelogBaseRef, resolvePullRequestLabels });
-        const spies = makeSpies(engine);
-
-        const code = await runChangelogHandler(
-            depsWith({
-                spies,
-                configLoader: configLoaderReturning({
-                    ...validConfig,
-                    changelog: {
-                        explicitBaseRef: 'main',
-                        labels: { operations: 'Operations' },
-                        packageTagFormat: 'pkg/{packageName}/v{version}',
-                        targetScopedLabelPattern: 'scope:{targetName}:{label}'
+            const code = await runChangelogHandler(
+                depsWith({
+                    spies,
+                    readEnvironmentVariable(name) {
+                        return name === 'GITHUB_TOKEN' ? 'github-token' : undefined;
                     }
                 })
-            })
-        );
+            );
 
-        assert.strictEqual(code, 0);
-        assertConfiguredChangelogInputs(resolveChangelogBaseRef, resolvePullRequestLabels);
+            assert.strictEqual(code, 0);
+            assert.strictEqual(createPrLogEngine.callCount, 1);
+        });
+
+        test('passes the GitHub repo from package metadata into pr-log', async function () {
+            const collectMergedPullRequests = fake(async function (input: CollectMergedPullRequestsOptions) {
+                assert.strictEqual(input.githubRepo, 'owner/repo');
+                return [];
+            });
+            const engine = {
+                ...createEngine(),
+                collectMergedPullRequests
+            };
+            const spies = makeSpies(engine);
+
+            const code = await runChangelogHandler(depsWith({ spies }));
+
+            assert.strictEqual(code, 0);
+            assert.strictEqual(collectMergedPullRequests.callCount, 1);
+        });
+
+        test('passes configured changelog label and base-ref settings into pr-log', async function () {
+            const resolveChangelogBaseRef = fake.resolves({ ref: 'configured-base' });
+            const resolvePullRequestLabels = fake.resolves([ { id: 1, title: 'Fix package', label: 'operations' } ]);
+            const engine = createEngine({ resolveChangelogBaseRef, resolvePullRequestLabels });
+            const spies = makeSpies(engine);
+
+            const code = await runChangelogHandler(
+                depsWith({
+                    spies,
+                    configLoader: configLoaderReturning({
+                        ...validConfig,
+                        changelog: {
+                            explicitBaseRef: 'main',
+                            labels: { operations: 'Operations' },
+                            packageTagFormat: 'pkg/{packageName}/v{version}',
+                            targetScopedLabelPattern: 'scope:{targetName}:{label}'
+                        }
+                    })
+                })
+            );
+
+            assert.strictEqual(code, 0);
+            assertConfiguredChangelogInputs(resolveChangelogBaseRef, resolvePullRequestLabels);
+        });
     });
 
     suite('repository validation', function () {
@@ -444,16 +448,80 @@ suite('changelog-handler', function () {
         });
     });
 
-    test('does not page empty changelog output for changed packages', async function () {
-        const engine = {
-            ...createEngine(),
-            renderGroupedTargetChangelog: fake.returns('')
-        };
-        const spies = makeSpies(engine);
+    suite('failure formatting', function () {
+        test('does not page empty changelog output for changed packages', async function () {
+            const engine = {
+                ...createEngine(),
+                renderGroupedTargetChangelog: fake.returns('')
+            };
+            const spies = makeSpies(engine);
 
-        const code = await runChangelogHandler(depsWith({ spies }));
+            const code = await runChangelogHandler(depsWith({ spies }));
 
-        assert.strictEqual(code, 0);
-        assert.strictEqual(spies.pageOutput.callCount, 0);
+            assert.strictEqual(code, 0);
+            assert.strictEqual(spies.pageOutput.callCount, 0);
+        });
+
+        test('strips leading TypeError prefixes from thrown errors', async function () {
+            const spies = makeSpies();
+
+            const code = await runChangelogHandler(
+                depsWith({
+                    spies,
+                    configLoader: {
+                        load: fake.rejects(new TypeError('bad config'))
+                    }
+                })
+            );
+
+            assert.strictEqual(code, 1);
+            assert.deepStrictEqual(spies.log.firstCall.args, [ 'bad config' ]);
+        });
+
+        test('does not strip Error text that is not at the start of the message', async function () {
+            const spies = makeSpies();
+
+            const code = await runChangelogHandler(
+                depsWith({
+                    spies,
+                    configLoader: {
+                        async load() {
+                            throw new Error('prefix Error: bad config');
+                        }
+                    }
+                })
+            );
+
+            assert.strictEqual(code, 1);
+            assert.deepStrictEqual(spies.log.firstCall.args, [ 'prefix Error: bad config' ]);
+        });
+
+        test('does not strip embedded Error text from non-Error thrown values', async function () {
+            const spies = makeSpies();
+            const rejection = {
+                toString() {
+                    return 'prefix Error: bad config';
+                }
+            };
+            const rejectedConfigLoad = {
+                then(_resolve: (value: unknown) => void, reject: (reason: unknown) => void) {
+                    reject(rejection);
+                }
+            } as unknown as Promise<unknown>;
+
+            const code = await runChangelogHandler(
+                depsWith({
+                    spies,
+                    configLoader: {
+                        async load() {
+                            return await rejectedConfigLoad;
+                        }
+                    }
+                })
+            );
+
+            assert.strictEqual(code, 1);
+            assert.deepStrictEqual(spies.log.firstCall.args, [ 'prefix Error: bad config' ]);
+        });
     });
 });

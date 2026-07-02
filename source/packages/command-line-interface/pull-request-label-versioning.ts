@@ -16,9 +16,12 @@ export type PullRequestLabelVersionSourceDeps = {
 
 type VersionBumpLevel = 'major' | 'minor' | 'patch';
 
-const orderedVersionBumpLevels: readonly VersionBumpLevel[] = [ 'major', 'minor', 'patch' ];
 const labelLookupIntervalMilliseconds = 250;
 const maximumRateLimitRetryCount = 3;
+
+function orderedVersionBumpLevels(): readonly VersionBumpLevel[] {
+    return [ 'major', 'minor', 'patch' ];
+}
 
 function readGitHubToken(deps: Pick<PullRequestLabelVersionSourceDeps, 'readEnvironmentVariable'>): string | undefined {
     return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
@@ -58,7 +61,7 @@ function selectVersionBumpLevel(
         })
     );
     const versionBumpLabels = createVersionBumpLabels(validLabels);
-    return orderedVersionBumpLevels.find(function (level) {
+    return orderedVersionBumpLevels().find(function (level) {
         return versionBumpLabels[level].some(function (label) {
             return labels.has(label);
         });

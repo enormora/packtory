@@ -5,33 +5,43 @@ type GitCommandRunner = (
 
 export type CurrentGitHeadReader = () => Promise<string | undefined>;
 
-type GitCommandResult = Awaited<ReturnType<GitCommandRunner>>;
+type GitHeadOutput = {
+    readonly stdout: string | null;
+};
 
 type CurrentGitHeadReaderDependencies = {
     readonly runGitCommand: GitCommandRunner;
     readonly repositoryFolder: string;
 };
 
-async function readGitHeadResult(
+async function runGitHeadCommand(
     dependencies: CurrentGitHeadReaderDependencies
-): Promise<GitCommandResult | undefined> {
+): Promise<{ readonly stdout: string; readonly stderr: string; }> {
+    return dependencies.runGitCommand(
+        'git',
+        [ '-C', dependencies.repositoryFolder, 'rev-parse', '--verify', 'HEAD' ]
+    );
+}
+
+async function readGitHeadOutput(dependencies: CurrentGitHeadReaderDependencies): Promise<GitHeadOutput> {
     try {
-        return await dependencies.runGitCommand(
-            'git',
-            [ '-C', dependencies.repositoryFolder, 'rev-parse', '--verify', 'HEAD' ]
-        );
+        const result = await runGitHeadCommand(dependencies);
+        return { stdout: result.stdout };
     } catch {
+        return { stdout: null };
+    }
+}
+
+function readCurrentGitHead(output: GitHeadOutput): string | undefined {
+    if (output.stdout === null) {
         return undefined;
     }
+    const currentGitHead = output.stdout.trim();
+    return currentGitHead.length === 0 ? undefined : currentGitHead;
 }
 
 export function createCurrentGitHeadReader(dependencies: CurrentGitHeadReaderDependencies): CurrentGitHeadReader {
     return async function () {
-        const result = await readGitHeadResult(dependencies);
-        if (result === undefined) {
-            return undefined;
-        }
-        const currentGitHead = result.stdout.trim();
-        return currentGitHead.length === 0 ? undefined : currentGitHead;
+        return readCurrentGitHead(await readGitHeadOutput(dependencies));
     };
 }

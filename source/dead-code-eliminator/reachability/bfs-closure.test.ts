@@ -36,6 +36,19 @@ suite('bfs-closure', function () {
         assert.deepStrictEqual(runBfs([], noNeighbors, new Set([ 'pre-a' ])), new Set([ 'pre-a' ]));
     });
 
+    test('bfsClosure accepts an empty seed list without expanding', function () {
+        const expanded: string[] = [];
+
+        assert.deepStrictEqual(
+            runBfs([], function (id) {
+                expanded.push(id);
+                return [];
+            }),
+            new Set<string>()
+        );
+        assert.deepStrictEqual(expanded, []);
+    });
+
     test('bfsClosure expands transitively through neighbors yielded by expand', function () {
         assert.deepStrictEqual(
             runBfs([ 'a' ], fromGraph({ a: [ 'b' ], b: [ 'c' ], c: [] })),
@@ -86,8 +99,14 @@ suite('bfs-closure', function () {
         } catch (error: unknown) {
             assert.strictEqual(
                 (error as Error).message,
-                'Reachability traversal exceeded the maximum iteration budget'
+                'Reachability traversal exceeded 5 attempts'
             );
         }
+    });
+
+    test('bfsClosure throws when one expansion would exceed the exact iteration budget', function () {
+        assert.throws(function () {
+            runBfs([ 'root' ], fromGraph({ root: [ 'leaf' ], leaf: [] }), new Set<string>(), 0);
+        }, { message: 'Reachability traversal exceeded 1 attempts' });
     });
 });

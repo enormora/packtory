@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import type { SourceFile, Statement, VariableDeclaration } from 'ts-morph';
-import { createProject } from '../../test-libraries/typescript-project.ts';
+import { createProject } from './typescript-project.ts';
 
 export function withSource(content: string): SourceFile {
     const project = createProject({ withFiles: [ { filePath: '/source.ts', content } ] });

@@ -58,7 +58,7 @@ type MutableDirectory<T> = {
 type PathEntry<T> = {
     readonly item: T;
     readonly path: string;
-    readonly parts: readonly string[];
+    readonly parts: readonly [string, ...readonly string[]];
 };
 
 type DirectoryChild<T> = {
@@ -79,18 +79,28 @@ function isDirectoryChild<T>(child: TreeChild<T>): child is DirectoryChild<T> {
 function toPathEntries<T>(items: readonly T[], getPath: (item: T) => string): readonly PathEntry<T>[] {
     return items.map(function (item) {
         const itemPath = getPath(item);
-        return { item, path: itemPath, parts: itemPath.split('/') };
+        const pathParts = itemPath.split('/');
+        return { item, path: itemPath, parts: [ pathParts.at(0) ?? itemPath, ...pathParts.slice(1) ] };
     });
+}
+
+function toNestedDirectoryEntry<T>(entry: PathEntry<T>): readonly [string, PathEntry<T>] | undefined {
+    const [ name, nextPart, ...remainingParts ] = entry.parts;
+    if (nextPart === undefined) {
+        return undefined;
+    }
+    return [ name, { ...entry, parts: [ nextPart, ...remainingParts ] } ];
 }
 
 function toDirectoryGroups<T>(entries: readonly PathEntry<T>[]): readonly MutableDirectory<T>[] {
     const groups = new Map<string, PathEntry<T>[]>();
 
     for (const entry of entries) {
-        const [ name, ...parts ] = entry.parts;
-        if (name !== undefined && parts.length > 0) {
+        const nestedEntry = toNestedDirectoryEntry(entry);
+        if (nestedEntry !== undefined) {
+            const [ name, groupedEntry ] = nestedEntry;
             const groupedEntries = groups.get(name) ?? [];
-            groupedEntries.push({ ...entry, parts });
+            groupedEntries.push(groupedEntry);
             groups.set(name, groupedEntries);
         }
     }

@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { execFile } from 'node:child_process';
 import { RealFileSystemHost } from '@ts-morph/common';
 import { publish } from 'libnpmpublish';
 import npmFetch from 'npm-registry-fetch';
@@ -29,6 +28,11 @@ import { createZipBuilder } from '../zip/zip-builder.ts';
 import { createVersionManager, type VersionManager } from '../version-manager/manager.ts';
 import { createClock, type Clock } from '../common/clock.ts';
 import { createCurrentGitHeadReader, type CurrentGitHeadReader } from '../git/current-git-head.ts';
+import {
+    createChildProcessGitCommandExecutor,
+    createGitCommandRunner,
+    spawnChildProcessGitCommand
+} from '../git/git-command.ts';
 import { createNpmOidcIdTokenResolver } from '../npm-oidc-id-token-resolver.ts';
 import { createLicenseResolver } from '../sbom/license-resolver.ts';
 import { createSbomFileBuilder, type SbomFileBuilder } from '../sbom/sbom-file.ts';
@@ -37,24 +41,6 @@ import { createPacktoryToolVersionResolver } from '../sbom/tool-version.ts';
 
 async function importPackageJson(specifier: string): Promise<unknown> {
     return await import(specifier, { with: { type: 'json' } });
-}
-
-async function runGitCommand(
-    command: string,
-    args: readonly string[]
-): Promise<{
-    readonly stdout: string;
-    readonly stderr: string;
-}> {
-    return new Promise(function (resolve, reject) {
-        execFile(command, Array.from(args), function (error, stdout, stderr) {
-            if (error !== null) {
-                reject(error instanceof Error ? error : new Error('Git command failed'));
-                return;
-            }
-            resolve({ stdout, stderr });
-        });
-    });
 }
 
 export type PackageProcessorComposition = {
@@ -165,6 +151,7 @@ type CompositionParts = {
 function buildCompositionParts(options: PackageProcessorCompositionOptions): CompositionParts {
     const repositoryFolder = options.repositoryFolder ?? process.cwd();
     const fileManager = createFileManager({ hostFileSystem: fs.promises });
+    const runGitCommand = createGitCommandRunner(createChildProcessGitCommandExecutor(spawnChildProcessGitCommand));
     const readCurrentGitHead = createCurrentGitHeadReader({
         repositoryFolder,
         runGitCommand

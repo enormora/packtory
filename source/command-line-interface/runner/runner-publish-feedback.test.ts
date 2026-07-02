@@ -8,7 +8,7 @@ import {
     createRunner,
     noPublicationOutcome,
     type Overrides
-} from './runner-test-support.ts';
+} from '../../test-libraries/runner-test-support.ts';
 
 suite('runner publish feedback', function () {
     async function expectRunnerToRethrow(overrides: Overrides, expectedMessage: string): Promise<void> {

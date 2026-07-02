@@ -6,7 +6,7 @@ import {
     npmOidcRegistrySettings,
     publishWithNpmOidc,
     registryClientFactory
-} from './registry-client-test-support.ts';
+} from '../../test-libraries/registry-client-test-support.ts';
 
 suite('registry-client oidc failures', function () {
     test('publishPackage() rejects npm oidc auth for non-npm registries', async function () {

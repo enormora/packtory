@@ -1,9 +1,9 @@
 import assert from 'node:assert';
-import { createProject } from '../../test-libraries/typescript-project.ts';
-import { extractTopLevelBindings } from './binding-extractor.ts';
-import { bindingId } from './binding-id.ts';
-import type { FileBindings } from './local-seed-gathering.ts';
-import { buildReachabilityIndex, type ReachabilityIndex } from './reachability.ts';
+import { extractTopLevelBindings } from '../dead-code-eliminator/reachability/binding-extractor.ts';
+import { bindingId } from '../dead-code-eliminator/reachability/binding-id.ts';
+import type { FileBindings } from '../dead-code-eliminator/reachability/local-seed-gathering.ts';
+import { buildReachabilityIndex, type ReachabilityIndex } from '../dead-code-eliminator/reachability/reachability.ts';
+import { createProject } from './typescript-project.ts';
 
 export const probeTestTimeoutMs = 10_000;
 

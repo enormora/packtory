@@ -1,8 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
+import { collectFromGraph, createGraphWithNodes } from '../test-libraries/graph-test-support.ts';
 import { createDirectedGraph, type DirectedGraph } from './graph.ts';
-import { collectFromGraph, createGraphWithNodes } from './graph-test-support.ts';
 
 const probeTestTimeoutMs = 10_000;
 
@@ -411,8 +411,10 @@ suite('graph topology and traversal', function () {
         });
 
         test('getTopologicalGenerations() throws when generation discovery stops making progress', function () {
+            let mergeCallCount = 0;
             const graph = createDirectedGraph<string, string>({
                 mergeDiscovered(_alreadyDiscovered, currentGeneration) {
+                    mergeCallCount += 1;
                     return new Set(
                         currentGeneration.filter(function (id) {
                             return id !== 'a';
@@ -427,6 +429,7 @@ suite('graph topology and traversal', function () {
             assert.throws(function () {
                 graph.getTopologicalGenerations();
             }, /^Error: Topological generation discovery did not make progress after 3 attempts$/u);
+            assert.strictEqual(mergeCallCount, 3);
         });
 
         test('visitBreadthFirstSearch() throws when traversal exceeds the iteration budget', function () {
@@ -449,7 +452,7 @@ suite('graph topology and traversal', function () {
 
             assert.throws(function () {
                 graph.visitBreadthFirstSearch('a', countVisit);
-            }, /^Error: Breadth-first traversal exceeded the maximum iteration budget$/u);
+            }, /^Error: Breadth-first traversal exceeded 5 attempts$/u);
             assert.strictEqual(visitorCallCount, 5);
         });
     });

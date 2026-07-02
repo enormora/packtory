@@ -7,7 +7,6 @@ import {
     createBuildReportFixture,
     createBuildResultFixture
 } from '../../test-libraries/preview-fixtures.ts';
-import { buildPreviewDocument } from './preview-document.ts';
 import {
     baseReport,
     buildResult,
@@ -17,7 +16,8 @@ import {
     requireTreeNodeAt,
     workspaceFileManager,
     workspaceReader
-} from './preview-document-test-support.ts';
+} from '../../test-libraries/preview-document-test-support.ts';
+import { buildPreviewDocument } from './preview-document.ts';
 
 suite('preview-document', function () {
     test('buildPreviewDocument orders packages by report order and formats version transitions', async function () {

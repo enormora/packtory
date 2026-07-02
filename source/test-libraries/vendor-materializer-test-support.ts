@@ -1,11 +1,11 @@
 import assert from 'node:assert';
-import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     createVendorMaterializer,
     type MaterializedExternals,
     type VendorMaterializer,
     type VendorMaterializerFailure
-} from './vendor-materializer.ts';
+} from '../vendor-materializer/vendor-materializer.ts';
+import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 
 type ReadabilityResponse = { readonly value: { readonly isReadable: boolean; }; };
 export type StringResponse = { readonly error: Error; } | { readonly value: string; };

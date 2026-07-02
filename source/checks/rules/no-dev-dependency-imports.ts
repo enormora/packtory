@@ -1,18 +1,29 @@
 import type { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
+    defineCheckRule,
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
-    type CheckRuleDefinition,
     type RulePackageConfig,
     type RuleRunParams
 } from '../rule.ts';
 
-const ruleName = 'noDevDependencyImports';
+function ruleName(): 'noDevDependencyImports' {
+    return 'noDevDependencyImports';
+}
 
-type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+function globalSchema(): typeof enabledOnlyGlobalSchema {
+    return enabledOnlyGlobalSchema;
+}
+
+function perPackageSchema(): typeof emptyPerPackageSchema {
+    return emptyPerPackageSchema;
+}
+
+type RuleName = ReturnType<typeof ruleName>;
+type GlobalConfig = Readonly<z.infer<ReturnType<typeof globalSchema>>>;
+type PerPackageConfig = Readonly<z.infer<ReturnType<typeof perPackageSchema>>>;
+type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
 
 function findLeakedDevDependencies(
     bundle: AnalyzedBundle,
@@ -50,9 +61,4 @@ async function run(params: RunParams): Promise<readonly string[]> {
     });
 }
 
-export const noDevDependencyImportsRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
-    name: ruleName,
-    globalSchema: enabledOnlyGlobalSchema,
-    perPackageSchema: emptyPerPackageSchema,
-    run
-};
+export const noDevDependencyImportsRule = defineCheckRule(ruleName, globalSchema, perPackageSchema, run);

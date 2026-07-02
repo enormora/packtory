@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createVendorMaterializer } from './vendor-materializer.ts';
 import {
     expectErr,
     runExpectingFailure,
     runWith,
     setupFileManager
-} from './vendor-materializer-test-support.ts';
+} from '../test-libraries/vendor-materializer-test-support.ts';
+import { createVendorMaterializer } from './vendor-materializer.ts';
 
 async function expectInvalidVendoredDependencyFailure(
     dependencies: Readonly<Record<string, string>>,

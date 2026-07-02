@@ -1,13 +1,10 @@
-import { isString } from 'remeda';
+import { isPlainObject, isString } from 'remeda';
+import { tryOr } from 'true-myth/result';
 import type { FileSystemHost } from 'ts-morph';
 import { isInstalledDependencyManifestPath } from '../common/package-layout.ts';
 import { bindRequiredMethod, syncMethodNames } from './host-method-binding.ts';
 
 const packageJsonIndentationSpaces = 2;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function injectTypesCondition(_key: string, value: unknown): unknown {
     if (!isPlainObject(value)) {
@@ -20,20 +17,19 @@ function injectTypesCondition(_key: string, value: unknown): unknown {
     return { types: target, ...value };
 }
 
-function parseManifestContent(content: string): unknown {
-    try {
-        return JSON.parse(content) as unknown;
-    } catch {
-        return undefined;
-    }
-}
-
 function rewriteManifestContent(content: string): string {
-    const parsed = parseManifestContent(content);
+    const parsedResult = tryOr(undefined, function () {
+        return JSON.parse(content) as unknown;
+    });
+    if (parsedResult.isErr) {
+        return content;
+    }
+    const parsed = parsedResult.value;
     if (!isPlainObject(parsed) || !Object.hasOwn(parsed, 'exports')) {
         return content;
     }
     const rewrittenExports: unknown = JSON.parse(JSON.stringify(parsed.exports, injectTypesCondition));
+
     return JSON.stringify({ ...parsed, exports: rewrittenExports }, null, packageJsonIndentationSpaces);
 }
 

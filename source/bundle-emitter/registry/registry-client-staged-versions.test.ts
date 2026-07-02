@@ -1,7 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
-import { buildStagedVersionsFetchJson, registryClientFactory } from './registry-client-test-support.ts';
+import {
+    buildStagedVersionsFetchJson,
+    registryClientFactory
+} from '../../test-libraries/registry-client-test-support.ts';
 
 suite('registry-client staged versions', function () {
     test('fetchStagedVersions() uses authenticated publish auth even when metadata is anonymous', async function () {

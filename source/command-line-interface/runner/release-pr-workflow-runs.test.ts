@@ -95,6 +95,34 @@ suite('release-pr-workflow-runs', function () {
             );
         });
 
+        test('accepts workflow dispatch runs with null or exact workflow paths', function () {
+            assert.strictEqual(
+                findWorkflowRunIdInRuns(
+                    [
+                        {
+                            database_id: 30,
+                            event: 'workflow_dispatch',
+                            head_sha: 'release-head',
+                            name: 'Continuous Integration',
+                            path: null,
+                            workflow_id: 101
+                        },
+                        {
+                            database_id: 31,
+                            event: 'workflow_dispatch',
+                            head_sha: 'release-head',
+                            name: 'Continuous Integration',
+                            path: '.github/workflows/continuous-integration.yml',
+                            workflow_id: 101
+                        }
+                    ],
+                    workflow,
+                    'release-head'
+                ),
+                31
+            );
+        });
+
         test('ignores newer workflow dispatch runs with mismatched workflow identity fields', function () {
             assert.strictEqual(
                 findWorkflowRunIdInRuns(

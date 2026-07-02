@@ -3,8 +3,8 @@ import { Maybe } from 'true-myth';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import type { BuildAndPublishOptions, ResolveAndLinkOptions } from './map-config.ts';
-import { createPackageProcessor, type PackageProcessor } from './package-processor.ts';
+import type { BuildAndPublishOptions, ResolveAndLinkOptions } from '../packtory/map-config.ts';
+import { createPackageProcessor, type PackageProcessor } from '../packtory/package-processor.ts';
 
 export type TransferableFile = {
     readonly sourceFilePath: string;

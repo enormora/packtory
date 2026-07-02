@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
-import { expectFailure, registryClientFactory } from './registry-client-test-support.ts';
+import { expectFailure, registryClientFactory } from '../../test-libraries/registry-client-test-support.ts';
 
 suite('registry-client metadata responses', function () {
     test('fetchLatestVersion() returns nothing for 404 and 403 responses', async function () {

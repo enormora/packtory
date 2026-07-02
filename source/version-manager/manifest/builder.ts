@@ -2,35 +2,26 @@ import type { PackageJson } from 'type-fest';
 import { hasProp, isDefined, isEmpty, pickBy } from 'remeda';
 import type { VersionedBundle, BundlePackageJson } from '../versioned-bundle.ts';
 
-type SideEffectsValue = boolean | readonly string[];
 type PackageJsonSideEffectsValue = NonNullable<PackageJson['sideEffects']>;
 
-function resolveSideEffectsValue(bundle: VersionedBundle): SideEffectsValue | undefined {
+function resolveSideEffectsValue(bundle: VersionedBundle): boolean | readonly string[] | undefined {
     if (hasProp(bundle.additionalAttributes, 'sideEffects')) {
         return undefined;
     }
-    const field = bundle.sideEffectsField;
-    if (field === undefined) {
-        return undefined;
-    }
-    if (field === false) {
-        return false;
-    }
-    return Array.from(field);
+    return bundle.sideEffectsField;
 }
 
 type PackageJsonImports = NonNullable<PackageJson['imports']>;
 type PackageJsonBin = Readonly<Record<string, string>> | string;
 type VersionedBundleBinField = Readonly<Record<string, string | undefined>> | string | undefined;
 
-function toPackageJsonSideEffectsValue(sideEffects: SideEffectsValue): PackageJsonSideEffectsValue {
-    return typeof sideEffects === 'boolean' ? sideEffects : Array.from(sideEffects);
-}
-
 function buildSideEffectsEntry(
-    sideEffects: SideEffectsValue | undefined
+    sideEffects: boolean | readonly string[] | undefined
 ): Record<PropertyKey, never> | { readonly sideEffects: PackageJsonSideEffectsValue; } {
-    return sideEffects === undefined ? {} : { sideEffects: toPackageJsonSideEffectsValue(sideEffects) };
+    if (sideEffects === undefined) {
+        return {};
+    }
+    return { sideEffects: typeof sideEffects === 'boolean' ? sideEffects : Array.from(sideEffects) };
 }
 
 function toPackageJsonImports(importsField: NonNullable<VersionedBundle['importsField']>): PackageJsonImports {

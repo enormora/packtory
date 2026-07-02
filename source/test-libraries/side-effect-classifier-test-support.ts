@@ -1,6 +1,6 @@
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
-import { createProject } from '../test-libraries/typescript-project.ts';
-import { classifySideEffects } from './side-effect-classifier.ts';
+import { classifySideEffects } from '../dead-code-eliminator/side-effect-classifier.ts';
+import { createProject } from './typescript-project.ts';
 
 export function classify(
     content: string,

@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
 import { createArtifactEntryFixture, createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
-import { artifactBadgeLabel, artifactStatusLabel, buildPreviewDocument } from './preview-document.ts';
 import {
     baseReport,
     buildResult,
@@ -15,7 +14,8 @@ import {
     requireSinglePackage,
     tinyUnchangedSource,
     workspaceFileManager
-} from './preview-document-test-support.ts';
+} from '../../test-libraries/preview-document-test-support.ts';
+import { artifactBadgeLabel, artifactStatusLabel, buildPreviewDocument } from './preview-document.ts';
 
 suite('preview-document package state', function () {
     suite('eliminated source files', function () {

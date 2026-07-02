@@ -1,12 +1,12 @@
 import assert from 'node:assert';
 import { suite, test, type Func } from 'mocha';
-import { createDirectedGraph, type DirectedGraph } from './graph.ts';
 import {
     collectFromGraph,
     createGraphWithNodes,
     type GraphEdge,
     type GraphWithNodesOptions
-} from './graph-test-support.ts';
+} from '../test-libraries/graph-test-support.ts';
+import { createDirectedGraph, type DirectedGraph } from './graph.ts';
 
 function expectGraphMethodToThrow(
     method: 'connect' | 'disconnect',
@@ -174,6 +174,18 @@ suite('graph', function () {
 
                 assert.strictEqual(graph.hasConnection({ from: 'a', to: 'b' }), true);
             });
+
+            test('disconnect() removes a self connection from cycle and topological accounting', function () {
+                const graph = createDirectedGraph<string, string>();
+                graph.addNode('a', 'foo');
+                graph.connect({ from: 'a', to: 'a' });
+
+                graph.disconnect({ from: 'a', to: 'a' });
+
+                assert.strictEqual(graph.hasConnection({ from: 'a', to: 'a' }), false);
+                assert.strictEqual(graph.isCyclic(), false);
+                assert.deepStrictEqual(graph.getTopologicalGenerations(), [ [ 'a' ] ]);
+            });
         });
     });
 
@@ -309,6 +321,28 @@ suite('graph', function () {
                     ],
                     startId: 'a',
                     expectedCollectedIds: [ 'a', 'b', 'c' ]
+                })
+            );
+
+            test(
+                'continues with later pending nodes after skipping an already visited node',
+                checkNodeVisiting({
+                    nodes: [
+                        [ 'a', 'foo' ],
+                        [ 'b', 'bar' ],
+                        [ 'c', 'baz' ],
+                        [ 'd', 'qux' ],
+                        [ 'e', 'quux' ]
+                    ],
+                    connections: [
+                        { from: 'a', to: 'b' },
+                        { from: 'a', to: 'c' },
+                        { from: 'b', to: 'd' },
+                        { from: 'c', to: 'd' },
+                        { from: 'c', to: 'e' }
+                    ],
+                    startId: 'a',
+                    expectedCollectedIds: [ 'a', 'b', 'c', 'd', 'e' ]
                 })
             );
 
@@ -491,6 +525,37 @@ suite('graph', function () {
             });
 
             assert.strictEqual(graph.isCyclic(), false);
+        });
+    });
+
+    suite('topological generations', function () {
+        test('getTopologicalGenerations() separates dependent nodes into later generations', function () {
+            const graph = createGraphWithNodes({
+                nodes: [
+                    [ 'a', 'foo' ],
+                    [ 'b', 'bar' ],
+                    [ 'c', 'baz' ]
+                ],
+                connections: [
+                    { from: 'a', to: 'b' },
+                    { from: 'b', to: 'c' }
+                ]
+            });
+
+            assert.deepStrictEqual(graph.getTopologicalGenerations(), [ [ 'a' ], [ 'b' ], [ 'c' ] ]);
+        });
+
+        test('reverse() flips connection direction and topological order', function () {
+            const graph = createGraphWithNodes({
+                nodes: [
+                    [ 'a', 'foo' ],
+                    [ 'b', 'bar' ]
+                ],
+                connections: [ { from: 'a', to: 'b' } ]
+            });
+
+            assert.strictEqual(graph.reverse().hasConnection({ from: 'b', to: 'a' }), true);
+            assert.deepStrictEqual(graph.reverse().getTopologicalGenerations(), [ [ 'b' ], [ 'a' ] ]);
         });
     });
 });

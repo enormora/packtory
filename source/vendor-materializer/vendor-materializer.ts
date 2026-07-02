@@ -1,6 +1,7 @@
 import path from 'node:path';
-import npa from 'npm-package-arg';
+import parsePackageArgument from 'npm-package-arg';
 import { Result } from 'true-myth';
+import { tryOr } from 'true-myth/result';
 import { z } from 'zod/mini';
 import { safeParse } from '../common/schema-validation.ts';
 import {
@@ -98,16 +99,11 @@ type ParsedManifestSummary = {
     readonly peerDependencyNames: readonly string[];
 };
 
-function parsePackageArgument(name: string): npa.Result | undefined {
-    try {
-        return npa(name);
-    } catch {
-        return undefined;
-    }
-}
-
 function getPackageArgumentName(name: string): string | undefined {
-    return parsePackageArgument(name)?.name ?? undefined;
+    const parsed = tryOr(undefined, function () {
+        return parsePackageArgument(name).name ?? undefined;
+    });
+    return parsed.isOk ? parsed.value : undefined;
 }
 
 function findFirstInvalidDependencyName(names: readonly string[]): string | undefined {

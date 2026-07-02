@@ -10,7 +10,7 @@ import {
     placementErrorMessage,
     withCommonWithoutPublishSettings,
     withRegistry
-} from './validation.test-support.ts';
+} from '../test-libraries/validation-test-support.ts';
 import { validateConfig, validateConfigWithoutRegistry } from './validation.ts';
 
 suite('validation publish settings', function () {

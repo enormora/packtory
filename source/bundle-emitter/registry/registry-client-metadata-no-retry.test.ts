@@ -6,7 +6,7 @@ import {
     expectFailure,
     type FakeNpmFetch,
     registryClientFactory
-} from './registry-client-test-support.ts';
+} from '../../test-libraries/registry-client-test-support.ts';
 
 suite('registry-client metadata no retry', function () {
     test('metadata using inherited publish auth does not retry on a 401 challenge', async function () {

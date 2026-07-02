@@ -16,14 +16,6 @@ export type ManifestChangelogInputs = {
     readonly peerDependencies?: Readonly<Record<string, unknown>> | undefined;
 };
 
-const packageManifestInputFilePaths = new Set([
-    'package.json',
-    'package-lock.json',
-    'npm-shrinkwrap.json',
-    'pnpm-lock.yaml',
-    'yarn.lock'
-]);
-
 const dependencyFieldNames = [ 'dependencies', 'optionalDependencies', 'peerDependencies' ] as const;
 
 type ReferencedMap = {
@@ -31,7 +23,9 @@ type ReferencedMap = {
     readonly mapFilePath: string;
 };
 
-const sourceMappingPrefix = '//# sourceMappingURL=';
+function sourceMappingPrefix(): string {
+    return '//# sourceMappingURL=';
+}
 
 function sortUniqueValues(values: readonly string[]): readonly string[] {
     return Array.from(new Set(values)).toSorted(compareValues);
@@ -89,8 +83,13 @@ export function collectManifestChangelogSourceFiles(
     return [ ...hasGeneratedManifestInputs(mainPackageJson) ? [ 'package.json' ] : [], ...additionalSourceFiles ];
 }
 
+function packageManifestInputFilePaths(): string {
+    return '\0package.json\0package-lock.json\0npm-shrinkwrap.json' +
+        '\0pnpm-lock.yaml\0yarn.lock\0';
+}
+
 export function isPackageManifestInputPath(filePath: string): boolean {
-    return packageManifestInputFilePaths.has(filePath);
+    return packageManifestInputFilePaths().includes(`\0${filePath}\0`);
 }
 
 export function changedPackageManifestDependencyNames(
@@ -128,10 +127,11 @@ function toRepositoryRelativePath(repositoryFolder: string, filePath: string): s
 
 function collectSourceMappingUrls(fileContent: string): readonly string[] {
     return fileContent.split('\n').flatMap(function (line) {
-        if (!line.startsWith(sourceMappingPrefix)) {
+        const prefix = sourceMappingPrefix();
+        if (!line.startsWith(prefix)) {
             return [];
         }
-        const sourceMappingUrl = line.slice(sourceMappingPrefix.length);
+        const sourceMappingUrl = line.slice(prefix.length);
         return sourceMappingUrl === '' ? [] : [ sourceMappingUrl ];
     });
 }

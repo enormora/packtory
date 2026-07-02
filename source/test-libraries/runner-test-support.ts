@@ -2,15 +2,15 @@ import assert from 'node:assert';
 import { stripVTControlCharacters } from 'node:util';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
-import { createProgressBroadcaster, type ProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
-import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
-import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
-import { toOutcome, toReleaseAnalysisOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
+import { createProgressBroadcaster, type ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import {
     createCommandLineInterfaceRunner,
     type CommandLineInterfaceRunner,
     type CommandLineInterfaceRunnerDependencies
-} from './runner.ts';
+} from '../command-line-interface/runner/runner.ts';
+import { createBuildReportFixture } from './preview-fixtures.ts';
+import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
+import { toOutcome, toReleaseAnalysisOutcome, toReleaseDiffOutcome } from './result-helpers.ts';
 
 export const noPublicationOutcome = { type: 'none' } as const;
 type ReleasePullRequestGitHubClientFixture = ReturnType<

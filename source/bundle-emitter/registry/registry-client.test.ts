@@ -1,9 +1,24 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
-import { registryClientFactory } from './registry-client-test-support.ts';
+import { registryClientFactory } from '../../test-libraries/registry-client-test-support.ts';
 
 suite('registry-client publish auth', function () {
+    test('publishPackage() rejects staged publishes without a returned stage ID', async function () {
+        const registryClient = registryClientFactory({ publish: fake.resolves(undefined) });
+
+        await assert.rejects(
+            registryClient.publishPackage(
+                { name: 'the-name', version: 'the-version' },
+                Buffer.from([]),
+                { auth: { type: 'bearer-token', token: 'the-token' } },
+                { access: 'public' },
+                true
+            ),
+            { message: 'npm staged publish succeeded without returning a stage ID' }
+        );
+    });
+
     test('publishPackage() uses shorthand bearer auth and one-time-password prompt when provided', async function () {
         const publish = fake.resolves(undefined);
         const promptForOneTimePassword = fake.resolves('123456');

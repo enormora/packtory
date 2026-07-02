@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { firstStatement, firstVariableDeclaration, withSource } from '../../test-libraries/transform-test-support.ts';
 import { captureSurvivorsForStatement } from './survivor-capture.ts';
-import { firstStatement, firstVariableDeclaration, withSource } from './transform-test-support.ts';
 
 suite('survivor-capture', function () {
     test('captureSurvivorsForStatement keeps a named declaration when its name is in the surviving set', function () {

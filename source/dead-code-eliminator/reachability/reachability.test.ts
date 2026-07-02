@@ -1,8 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
-import { bindingId } from './binding-id.ts';
-import { buildReachabilityIndex } from './reachability.ts';
 import {
     assertLocalValueExportIsReachable,
     assertReExportTargetIsReachable,
@@ -11,7 +9,9 @@ import {
     probeTestTimeoutMs,
     reachabilityForLocalValueExport,
     reachabilityForReExportTarget
-} from './reachability.test-support.ts';
+} from '../../test-libraries/reachability-test-support.ts';
+import { bindingId } from './binding-id.ts';
+import { buildReachabilityIndex } from './reachability.ts';
 
 suite('reachability', function () {
     suite('entry-point and local binding reachability', function () {
@@ -249,7 +249,7 @@ suite('reachability', function () {
 
             assert.throws(function () {
                 index.expandWith(new Set([ bindingId('entry.ts', 'pub') ]));
-            }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
+            }, /^Error: Reachability traversal exceeded 5 attempts$/u);
         });
 
         test('does not record any unresolved binding ids when a function references its own parameters', function () {
@@ -317,7 +317,7 @@ console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
 
             assert.throws(function () {
                 buildReachabilityIndex({ files, entryPointFilePaths: new Set([ 'entry.ts' ]) }, { visitedHas });
-            }, /^Error: Reachability traversal exceeded the maximum iteration budget$/u);
+            }, /^Error: Reachability traversal exceeded 5 attempts$/u);
         });
     });
 });

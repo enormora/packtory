@@ -24,7 +24,9 @@ function defaultOidcIdTokenEnvVariableName(): string {
     return 'NPM_ID_TOKEN';
 }
 
-const trustedOidcRequestSuffix = '.actions.githubusercontent.com';
+function trustedOidcRequestSuffix(): string {
+    return '.actions.githubusercontent.com';
+}
 
 function parseOidcRequestUrl(value: string): URL {
     try {
@@ -36,7 +38,7 @@ function parseOidcRequestUrl(value: string): URL {
 
 function buildOidcHostnameMismatchMessage(actualHostname: string): string {
     return (
-        `ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with "${trustedOidcRequestSuffix}", ` +
+        `ACTIONS_ID_TOKEN_REQUEST_URL hostname must end with "${trustedOidcRequestSuffix()}", ` +
         `got "${actualHostname}". A non-GitHub host would receive the GitHub-issued OIDC bearer.`
     );
 }
@@ -46,7 +48,7 @@ function assertTrustedOidcRequestUrl(value: string): URL {
     if (parsed.protocol !== 'https:') {
         throw new Error(`ACTIONS_ID_TOKEN_REQUEST_URL must use https, got: "${value}"`);
     }
-    if (!parsed.hostname.endsWith(trustedOidcRequestSuffix)) {
+    if (!parsed.hostname.endsWith(trustedOidcRequestSuffix())) {
         throw new Error(buildOidcHostnameMismatchMessage(parsed.hostname));
     }
     return parsed;

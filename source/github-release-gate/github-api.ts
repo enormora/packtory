@@ -2,6 +2,7 @@ import { isDefined } from 'remeda';
 import { Octokit } from '@octokit/core';
 import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
+import { resolveGitHubResponse } from '../github-api-request-error.ts';
 import {
     selectPullRequestActivityAt,
     type MainCiRunStatus,
@@ -62,27 +63,6 @@ type RepositoryRequestContext = {
     readonly owner: string;
     readonly repo: string;
 };
-
-function readReflectedProperty(value: unknown, property: string): unknown {
-    return Reflect.get(new Object(value), property) as unknown;
-}
-
-function createRequestError(error: unknown): Error {
-    const requestUrl = String(readReflectedProperty(readReflectedProperty(error, 'request'), 'url'));
-    const status = String(readReflectedProperty(error, 'status'));
-    const parsedUrl = new URL(requestUrl);
-    return new Error(`GitHub API request failed (${status}) for ${parsedUrl.pathname}${parsedUrl.search}`, {
-        cause: error
-    });
-}
-
-async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
-    try {
-        return await request;
-    } catch (error) {
-        throw createRequestError(error);
-    }
-}
 
 function createRequestHeaders(context: GitHubRepositoryContext): Readonly<Record<string, string>> {
     return {

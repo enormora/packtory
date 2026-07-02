@@ -34,6 +34,19 @@ suite('path-tree', function () {
             assert.strictEqual(node.path, 'package.json');
             assert.deepStrictEqual(rest, []);
         });
+
+        test('keeps an empty path as an empty root file node', function () {
+            const [ node, ...rest ] = buildPathTree([ item('') ], function (entry) {
+                return entry.path;
+            });
+            if (node === undefined) {
+                assert.fail('expected an empty root file node');
+            }
+            assert.strictEqual(node.type, 'file');
+            assert.strictEqual(node.path, '');
+            assert.strictEqual(node.name, '');
+            assert.deepStrictEqual(rest, []);
+        });
     });
 
     suite('ordering', function () {
@@ -73,6 +86,14 @@ suite('path-tree', function () {
                 return entry.path;
             });
             assert.deepStrictEqual(namesOf(nodes), [ 'package.json', 'inner.js', 'actual.txt' ]);
+        });
+
+        test('keeps root files out of directory groups', function () {
+            const nodes = buildPathTree([ item('root.txt'), item('src/index.js') ], function (entry) {
+                return entry.path;
+            });
+
+            assert.deepStrictEqual(namesOf(nodes), [ 'src', 'index.js', 'root.txt' ]);
         });
 
         test('keeps a directory literally named "package.json" sorted lexicographically among sibling directories', function () {

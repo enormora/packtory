@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
-import { runReleaseHandler } from './release-handler.ts';
 import {
     assertCurrentHeadRetryTag,
     createCurrentHeadRetryPackage,
@@ -12,7 +11,8 @@ import {
     createReleasePlanOutcomesForPackage,
     createReleaseStepRecorder,
     githubReleaseFlags
-} from './release-handler-test-support.ts';
+} from '../../test-libraries/release-handler-test-support.ts';
+import { runReleaseHandler } from './release-handler.ts';
 
 suite('release-handler mutation flow', function () {
     test('writes changelog, commits, replans, publishes, tags, pushes, and creates GitHub releases in order', async function () {

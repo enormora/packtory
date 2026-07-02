@@ -149,6 +149,17 @@ suite('terminal-spinner-renderer', function () {
             assert.deepStrictEqual(update.firstCall.args, [ 0, 'lbl', 'updated' ]);
         });
 
+        test('stop() uses the original slot and label after a message update', function () {
+            const finish = fake();
+            const renderer = terminalSpinnerRendererFactory(createFakeBackend({ finish }));
+
+            renderer.add('the-id', 'lbl', 'initial');
+            renderer.updateMessage('the-id', 'updated');
+            renderer.stop('the-id', 'success', 'done');
+
+            assert.deepStrictEqual(finish.firstCall.args, [ 0, 'succeeded', 'lbl', 'done' ]);
+        });
+
         test('stop() finishes only the targeted spinner when having multiple', function () {
             const finish = fake();
             const renderer = terminalSpinnerRendererFactory(createFakeBackend({ finish }));

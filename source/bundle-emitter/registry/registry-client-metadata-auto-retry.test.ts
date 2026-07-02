@@ -2,14 +2,14 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
-import type { PackageVersionDetails } from './package-metadata-fetcher.ts';
 import {
     createRetryingMetadataFetch,
     errorWithStatus,
     expectFailure,
     metadataAutoBearerAuth,
     registryClientFactory
-} from './registry-client-test-support.ts';
+} from '../../test-libraries/registry-client-test-support.ts';
+import type { PackageVersionDetails } from './package-metadata-fetcher.ts';
 
 function expectLatestVersion(result: Maybe<PackageVersionDetails>): void {
     assert.deepStrictEqual(

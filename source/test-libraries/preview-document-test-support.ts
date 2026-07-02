@@ -1,21 +1,21 @@
 import assert from 'node:assert';
 import { Result } from 'true-myth';
-import type { FileManager } from '../../file-manager/file-manager.ts';
-import type { BuildAndPublishResult } from '../../packtory/package-processor.ts';
-import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
+import type { FileManager } from '../file-manager/file-manager.ts';
+import type { BuildAndPublishResult } from '../packtory/package-processor.ts';
+import type { ArtifactEntry } from '../progress/progress-broadcaster.ts';
+import type { BuildReport, PackageReport } from '../report/aggregator/report-types.ts';
+import {
+    buildPreviewDocument,
+    type PreviewDocument,
+    type PreviewPackage
+} from '../report/preview/preview-document.ts';
+import type { PreviewArtifactNode } from '../report/preview/artifact-tree-builder.ts';
 import {
     createAnalyzedResource,
     createArtifactEntryFixture,
     createBuildReportFixture,
     createBuildResultFixture
-} from '../../test-libraries/preview-fixtures.ts';
-import type { BuildReport, PackageReport } from '../aggregator/report-types.ts';
-import {
-    buildPreviewDocument,
-    type PreviewDocument,
-    type PreviewPackage
-} from './preview-document.ts';
-import type { PreviewArtifactNode } from './artifact-tree-builder.ts';
+} from './preview-fixtures.ts';
 
 export const eliminatedUnusedFile = {
     path: '/workspace/src/unused.js',

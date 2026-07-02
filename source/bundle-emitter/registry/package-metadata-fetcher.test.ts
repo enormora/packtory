@@ -30,6 +30,24 @@ function fakeNpmFetch(
     return npmFetch as unknown as NpmFetch;
 }
 
+function fakeNpmFetchWithContentLength(contentLength: string | null): NpmFetch {
+    const npmFetch: FakeNpmFetch = Object.assign(
+        fake.resolves({
+            buffer: fake.resolves(Buffer.from('tarball-bytes')),
+            headers: {
+                get: fake(function (name: string) {
+                    return name === 'content-length' ? contentLength : null;
+                })
+            }
+        }),
+        {
+            json: Object.assign(fake(), { stream: fake() }),
+            pickRegistry: fake()
+        }
+    );
+    return npmFetch as unknown as NpmFetch;
+}
+
 function latestPackageResponse(time?: string): Record<string, unknown> {
     return {
         name: 'pkg-a',
@@ -258,6 +276,18 @@ suite('package-metadata-fetcher', function () {
             assert.deepStrictEqual(result, []);
             assert.strictEqual(json.callCount, 1);
         });
+
+        test('fetchStagedPackageVersions throws when staged results exceed the page budget', async function () {
+            const json = fake(async function () {
+                return { items: [ { version: '1.2.4' } ], total: 100_001 };
+            });
+
+            await assert.rejects(
+                fetchStagedPackageVersions(fakeNpmFetch(json), 'pkg-a', settings),
+                /^Error: Staged package listing exceeded 1000 pages$/u
+            );
+            assert.strictEqual(json.callCount, 1000);
+        });
     });
 
     suite('package tarballs', function () {
@@ -265,6 +295,24 @@ suite('package-metadata-fetcher', function () {
             const buffer = fake.resolves(Buffer.from('tarball-bytes'));
 
             const result = await fetchPackageTarball(fakeNpmFetch(fake(), buffer), tarballUrl, settings);
+
+            assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
+        });
+
+        test('fetchPackageTarball rejects tarballs whose content-length exceeds the download limit', async function () {
+            try {
+                await fetchPackageTarball(fakeNpmFetchWithContentLength('268435457'), tarballUrl, settings);
+                assert.fail('Expected fetchPackageTarball() to throw but it did not');
+            } catch (error: unknown) {
+                assert.strictEqual(
+                    (error as Error).message,
+                    'Refusing to download tarball larger than 268435456 bytes'
+                );
+            }
+        });
+
+        test('fetchPackageTarball accepts tarballs whose content-length is exactly the download limit', async function () {
+            const result = await fetchPackageTarball(fakeNpmFetchWithContentLength('268435456'), tarballUrl, settings);
 
             assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
         });

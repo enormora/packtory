@@ -14,7 +14,7 @@ import {
     createRunner,
     expectCollectReportFlag,
     runPreview
-} from './runner-test-support.ts';
+} from '../../test-libraries/runner-test-support.ts';
 
 suite('runner report and preview', function () {
     const sampleReport = createBuildReportFixture({

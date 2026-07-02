@@ -42,17 +42,20 @@ type PackageSuccessCollector<TResult, TOptions> = {
 function collectPackageSuccesses<TResult, TOptions>(
     results: readonly PromiseSettledResult<PackageSuccess<TResult, TOptions>>[]
 ): PackageSuccessCollector<TResult, TOptions> {
-    return {
-        succeeded: results.flatMap(function (result) {
-            return result.status === 'fulfilled' ? [ result.value ] : [];
-        }),
-        succeededResults: results.flatMap(function (result) {
-            return result.status === 'fulfilled' ? [ result.value.result ] : [];
-        }),
-        failures: results.flatMap(function (result) {
-            return result.status === 'rejected' ? [ toError(result.reason) ] : [];
-        })
-    };
+    const succeeded: PackageSuccess<TResult, TOptions>[] = [];
+    const succeededResults: TResult[] = [];
+    const failures: Error[] = [];
+
+    for (const result of results) {
+        if (result.status === 'fulfilled') {
+            succeeded.push(result.value);
+            succeededResults.push(result.value.result);
+        } else {
+            failures.push(toError(result.reason));
+        }
+    }
+
+    return { succeeded, succeededResults, failures };
 }
 
 function summarizeGenerationResults<TResult, TOptions>(

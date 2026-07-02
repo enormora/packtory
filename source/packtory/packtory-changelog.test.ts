@@ -6,7 +6,8 @@ import type {
     PrLogEngine,
     PullRequest,
     PullRequestWithLabel,
-    RenderGroupedTargetChangelogMarkdownInput
+    RenderGroupedTargetChangelogMarkdownInput,
+    ResolvePullRequestLabelsOptions
 } from '@pr-log/core';
 import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
@@ -266,6 +267,37 @@ function registerDependencyUpdateTests(): void {
 
         assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels, customValidLabels);
         assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels.get('upgrade'), 'Upgrades');
+    });
+
+    test('includes manifest dependency pull requests whose titles mention changed dependencies', async function () {
+        const { engine, calls } = createEngine();
+        const filterPullRequestsByTargetFiles = fake.returns([]);
+        const collectMergedPullRequests = fake.resolves([
+            { id: 1, title: 'Update React to v19' },
+            { id: 2, title: 'Update unrelated lockfile' },
+            { id: 3, title: 'Update react without manifest input' },
+            { id: 4, title: 'Update React without changed files' }
+        ]);
+        const readPullRequestChangedFiles = fake.resolves(
+            new Map([
+                [ 1, [ 'package-lock.json', 'source/index.ts' ] ],
+                [ 2, [ 'package-lock.json' ] ],
+                [ 3, [ 'source/index.ts' ] ]
+            ])
+        );
+        const dependencyEngine = {
+            ...engine,
+            collectMergedPullRequests,
+            filterPullRequestsByTargetFiles,
+            readPullRequestChangedFiles
+        } as unknown as PrLogEngine;
+
+        await render([ releasePackage({ changelogDependencyNames: [ 'react', 'vue' ] }) ], dependencyEngine);
+
+        const labelOptions = calls.resolvePullRequestLabels.firstCall.args[0] as ResolvePullRequestLabelsOptions;
+        assert.deepStrictEqual(labelOptions.pullRequests, [
+            { id: 1, title: 'Update React to v19' }
+        ]);
     });
 }
 

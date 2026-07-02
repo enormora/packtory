@@ -2,6 +2,7 @@ import {
     Package,
     checkPackage,
     type Analysis,
+    type CheckResult,
     type Problem,
     type ProblemKind,
     type ResolutionKind
@@ -34,10 +35,6 @@ type AreTheTypesWrongProfile = z.infer<typeof profileSchema>;
 type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
-type AreTheTypesWrongResult = Awaited<ReturnType<typeof checkPackage>>;
-type CheckedPackageResult = { readonly status: 'checked'; readonly result: AreTheTypesWrongResult; };
-type FailedPackageResult = { readonly status: 'failed'; readonly message: string; };
-type PackageCheckResult = CheckedPackageResult | FailedPackageResult;
 type ProblemSummaryInput = {
     readonly packageName: string;
     readonly kind: ProblemKind;
@@ -196,26 +193,28 @@ function summarizeAnalysis(
     return summarizeProblems(packageName, analysis, activeProblems, requiredResolutionKinds);
 }
 
-async function checkPublishedPackage(publishedPackage: PublishedPackageWithManifest): Promise<PackageCheckResult> {
-    try {
-        return { status: 'checked', result: await checkPackage(createInMemoryPackage(publishedPackage)) };
-    } catch (error) {
-        return { status: 'failed', message: String(error) };
-    }
-}
-
-function summarizePackageCheckResult(
+function summarizeCheckResult(
     packageName: string,
     profile: AreTheTypesWrongProfile,
-    checkResult: PackageCheckResult
+    result: CheckResult
 ): readonly string[] {
-    if (checkResult.status === 'failed') {
-        return [ `Package "${packageName}" failed the Are the Types Wrong check: ${checkResult.message}` ];
-    }
-    if (checkResult.result.types === false) {
+    if (result.types === false) {
         return [ `Package "${packageName}" does not expose TypeScript declarations` ];
     }
-    return summarizeAnalysis(packageName, checkResult.result, profile);
+    return summarizeAnalysis(packageName, result, profile);
+}
+
+async function summarizePublishedPackage(
+    packageName: string,
+    profile: AreTheTypesWrongProfile,
+    publishedPackage: PublishedPackageWithManifest
+): Promise<readonly string[]> {
+    try {
+        const result = await checkPackage(createInMemoryPackage(publishedPackage));
+        return summarizeCheckResult(packageName, profile, result);
+    } catch (error) {
+        return [ `Package "${packageName}" failed the Are the Types Wrong check: ${String(error)}` ];
+    }
 }
 
 async function runForPackage(
@@ -223,7 +222,7 @@ async function runForPackage(
     publishedPackage: PublishedPackageWithManifest,
     profile: AreTheTypesWrongProfile
 ): Promise<readonly string[]> {
-    return summarizePackageCheckResult(packageName, profile, await checkPublishedPackage(publishedPackage));
+    return summarizePublishedPackage(packageName, profile, publishedPackage);
 }
 
 async function run(params: RunParams): Promise<readonly string[]> {

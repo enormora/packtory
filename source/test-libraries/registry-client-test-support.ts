@@ -1,9 +1,13 @@
 import assert from 'node:assert';
 import { fake, type SinonSpy } from 'sinon';
-import type { PublicPublishSettings } from '../../config/publish-settings.ts';
-import type { PublishAuthStrategy } from '../../config/registry-settings.ts';
-import { createFakeClock, type FakeClock } from '../../test-libraries/fake-clock.ts';
-import { createRegistryClient, type RegistryClient, type RegistryClientDependencies } from './registry-client.ts';
+import type { PublicPublishSettings } from '../config/publish-settings.ts';
+import type { PublishAuthStrategy } from '../config/registry-settings.ts';
+import {
+    createRegistryClient,
+    type RegistryClient,
+    type RegistryClientDependencies
+} from '../bundle-emitter/registry/registry-client.ts';
+import { createFakeClock, type FakeClock } from './fake-clock.ts';
 
 type NpmFetchOverrides = {
     readonly buffer?: Readonly<SinonSpy>;

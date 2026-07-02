@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { firstStatement, withSource } from '../../test-libraries/transform-test-support.ts';
 import { processStatement } from './declaration-removal.ts';
-import { firstStatement, withSource } from './transform-test-support.ts';
 
 suite('declaration-removal', function () {
     test('processStatement removes a named declaration when its name is not in the surviving set', function () {

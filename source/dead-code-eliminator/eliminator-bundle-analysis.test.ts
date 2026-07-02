@@ -5,15 +5,15 @@ import { createProgressBroadcaster } from '../progress/progress-broadcaster.ts';
 import { analyzedBundle, bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import type { AnalyzedBundle } from './analyzed-bundle.ts';
-import { createDeadCodeEliminator } from './eliminator.ts';
 import {
     bundleForCodeFile,
     collectTargetPaths,
     indexTsBundle,
     indexTsContent,
     inputs
-} from './eliminator.test-support.ts';
+} from '../test-libraries/eliminator-test-support.ts';
+import type { AnalyzedBundle } from './analyzed-bundle.ts';
+import { createDeadCodeEliminator } from './eliminator.ts';
 
 type NamedBundle = {
     readonly packageName: string;

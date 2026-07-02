@@ -292,6 +292,17 @@ suite('spinner-worker-loop', function () {
             assert.strictEqual(harness.writes().length, 0);
         });
 
+        test('startSpinnerWorker keeps render state valid after a tick with nothing to render', function () {
+            const harness = createHarness(1);
+
+            harness.tick();
+            harness.accessors.setColumns(80);
+            harness.accessors.writeSlot(0, 'running', 'pkg', 'starting');
+            harness.tick();
+
+            assert.match(harness.writes().join(''), /pkg: starting/u);
+        });
+
         test('startSpinnerWorker acknowledges a pending mutation even when there is nothing to render', function () {
             const harness = createHarness(2);
             const mutation = harness.accessors.markMutation();

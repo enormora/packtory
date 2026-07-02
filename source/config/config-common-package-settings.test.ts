@@ -8,7 +8,7 @@ import {
     packageConfig,
     packageWithoutCommonSettings,
     validConfig
-} from './config-schema-test-support.ts';
+} from '../test-libraries/config-schema-test-support.ts';
 
 suite('config common package settings', function () {
     suite('common settings accepted shapes', function () {

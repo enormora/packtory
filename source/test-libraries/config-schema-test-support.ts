@@ -1,5 +1,5 @@
-import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
-import { packtoryConfigSchema } from './packtory-config-schema.ts';
+import { packtoryConfigSchema } from '../config/packtory-config-schema.ts';
+import { checkValidationFailure, checkValidationSuccess } from './verify-schema-validation.ts';
 
 export type ConfigShape = Readonly<Record<string, unknown>>;
 export type PackageShape = Readonly<Record<string, unknown>>;

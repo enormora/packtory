@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Result } from 'true-myth';
-import { runReleaseHandler } from './release-handler.ts';
 import {
     assertFailureLog,
     assertFlagError,
@@ -13,7 +12,8 @@ import {
     createReleasePlanFailureOutcome,
     createReleasePlanOutcome,
     createReleasePlanOutcomesForPackage
-} from './release-handler-test-support.ts';
+} from '../../test-libraries/release-handler-test-support.ts';
+import { runReleaseHandler } from './release-handler.ts';
 
 suite('release-handler', function () {
     suite('planning', function () {

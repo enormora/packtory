@@ -4,7 +4,10 @@ import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../config/
 import { buildPackageGraph } from '../../config/package-graph-builder.ts';
 import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
-import { createIteratingScheduler as iteratingScheduler } from '../../test-libraries/iterating-scheduler.ts';
+import {
+    createIteratingScheduler as iteratingScheduler,
+    type IteratingSchedulerCapture
+} from '../../test-libraries/iterating-scheduler.ts';
 import {
     emptyScheduler,
     failingDependencies,
@@ -101,6 +104,47 @@ suite('package-resolution-stage', function () {
 
         assert.deepStrictEqual(received, [
             { packageName: 'pkg-a', roots: { main: '/src/pkg-a/index.js' }, sourceFileCount: 0, siblingVersions: {} }
+        ]);
+    });
+
+    test('resolvePackages asks the scheduler to emit scheduled package events', async function () {
+        const capture: IteratingSchedulerCapture = { events: [] as unknown[], selected: [] as unknown[] };
+
+        await resolvePackages(
+            {
+                packageProcessor: stubPackageProcessor,
+                scheduler: iteratingScheduler([ 'pkg-a' ], capture),
+                progressBroadcaster: stubProgressBroadcaster
+            },
+            configWithPackage('pkg-a')
+        );
+
+        assert.strictEqual(capture.emitScheduledEvents, true);
+    });
+
+    test('resolvePackages emits resolveAndLink package failures to subscribers', async function () {
+        const broadcaster = createProgressBroadcaster();
+        const failures: unknown[] = [];
+        broadcaster.consumer.on('packageFailed', function (payload) {
+            failures.push(payload);
+        });
+
+        await resolvePackages(
+            {
+                packageProcessor: {
+                    ...stubPackageProcessor,
+                    async resolveAndLink() {
+                        throw new Error('resolve failed');
+                    }
+                },
+                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                progressBroadcaster: broadcaster
+            },
+            configWithPackage('pkg-a')
+        );
+
+        assert.deepStrictEqual(failures, [
+            { packageName: 'pkg-a', stage: 'resolveAndLink', message: 'resolve failed' }
         ]);
     });
 

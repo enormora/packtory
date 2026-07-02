@@ -6,7 +6,6 @@ import {
     createArtifactEntryFixture,
     createBuildResultFixture
 } from '../../test-libraries/preview-fixtures.ts';
-import { buildPreviewDocument } from './preview-document.ts';
 import {
     assertFirstFileHasNoDiff,
     buildChangedSourceDiffDocument,
@@ -16,7 +15,8 @@ import {
     requirePackageAt,
     reportForPkgA,
     workspaceFileManager
-} from './preview-document-test-support.ts';
+} from '../../test-libraries/preview-document-test-support.ts';
+import { buildPreviewDocument } from './preview-document.ts';
 
 suite('preview-document diffs', function () {
     test('buildPreviewDocument omits diffs when the artifact source path does not match the emitted content source', async function () {

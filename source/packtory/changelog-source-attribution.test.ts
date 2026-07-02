@@ -3,7 +3,13 @@ import { suite, test } from 'mocha';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
-import { attributeChangelogSourceFiles } from './changelog-source-attribution.ts';
+import {
+    attributeChangelogSourceFiles,
+    attributeSelectedChangelogSourceFiles,
+    changedPackageManifestDependencyNames,
+    collectManifestChangelogSourceFiles,
+    isPackageManifestInputPath
+} from './changelog-source-attribution.ts';
 
 function sourceMap(sources: readonly (string | null)[], sourceRoot = ''): string {
     return JSON.stringify({
@@ -254,8 +260,115 @@ function registerDirectSourceTests(): void {
     });
 }
 
+function registerManifestInputTests(): void {
+    test('collectManifestChangelogSourceFiles includes package.json when generated manifest inputs exist', function () {
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles({ dependencies: { left: '^1.0.0' } }, [ 'README.md' ]),
+            [ 'package.json', 'README.md' ]
+        );
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles({ peerDependencies: { react: '^19.0.0' } }, []),
+            [ 'package.json' ]
+        );
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles({ imports: { '#runtime': './runtime.js' } }, []),
+            [ 'package.json' ]
+        );
+    });
+
+    test('collectManifestChangelogSourceFiles omits package.json when generated manifest inputs are empty', function () {
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles(
+                { dependencies: {}, peerDependencies: {}, imports: {} },
+                [ 'README.md' ]
+            ),
+            [ 'README.md' ]
+        );
+    });
+
+    test('isPackageManifestInputPath recognizes manifest and lock files only', function () {
+        assert.strictEqual(isPackageManifestInputPath('package.json'), true);
+        assert.strictEqual(isPackageManifestInputPath('package-lock.json'), true);
+        assert.strictEqual(isPackageManifestInputPath('npm-shrinkwrap.json'), true);
+        assert.strictEqual(isPackageManifestInputPath('pnpm-lock.yaml'), true);
+        assert.strictEqual(isPackageManifestInputPath('yarn.lock'), true);
+        assert.strictEqual(isPackageManifestInputPath('packages/pkg/package.json'), false);
+        assert.strictEqual(isPackageManifestInputPath('README.md'), false);
+    });
+
+    test('changedPackageManifestDependencyNames returns sorted changes across dependency fields', function () {
+        const previousManifest = JSON.stringify({
+            dependencies: { left: '1.0.0', shared: '1.0.0' },
+            optionalDependencies: { optional: '1.0.0' },
+            peerDependencies: { react: '^18.0.0' }
+        });
+        const currentManifest = JSON.stringify({
+            dependencies: { right: '1.0.0', shared: '1.0.0' },
+            optionalDependencies: { optional: '1.0.1' },
+            peerDependencies: { react: '^19.0.0' }
+        });
+
+        assert.deepStrictEqual(changedPackageManifestDependencyNames(previousManifest, currentManifest), [
+            'left',
+            'optional',
+            'react',
+            'right'
+        ]);
+    });
+
+    test('changedPackageManifestDependencyNames ignores non-object manifests and fields', function () {
+        assert.deepStrictEqual(changedPackageManifestDependencyNames('[]', '{}'), []);
+        assert.deepStrictEqual(changedPackageManifestDependencyNames('{}', 'null'), []);
+        assert.deepStrictEqual(
+            changedPackageManifestDependencyNames(
+                JSON.stringify({ dependencies: [ 'left' ] }),
+                JSON.stringify({ dependencies: { left: '1.0.0' } })
+            ),
+            [ 'left' ]
+        );
+    });
+}
+
+function registerSelectedSourceTests(): void {
+    test('attributeSelectedChangelogSourceFiles attributes only selected artifact files', async function () {
+        const fileManager = createFakeFileManager({
+            simulatedReadFileResponses: [ { value: 'export const value = 1;\n' } ]
+        });
+        const result = await attributeSelectedChangelogSourceFiles(
+            { fileManager, repositoryFolder: '/repo' },
+            bundleWith([
+                analyzedBundleResource('/repo/source/included.js', { targetFilePath: 'dist/included.js' }),
+                analyzedBundleResource('/repo/source/skipped.js', { targetFilePath: 'dist/skipped.js' })
+            ]),
+            [ 'README.md' ],
+            new Set([ 'dist/included.js' ])
+        );
+
+        assert.deepStrictEqual(result, [ 'README.md', 'source/included.js' ]);
+        assert.strictEqual(fileManager.getReadFileCallCount(), 1);
+        assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: '/repo/source/included.js' });
+    });
+
+    test('attributeSelectedChangelogSourceFiles excludes generated manifests even when selected', async function () {
+        const generatedManifest = {
+            ...analyzedBundleResource('/repo/source/package.json', { targetFilePath: 'package.json' }),
+            isGeneratedManifest: true as const
+        };
+        const result = await attributeSelectedChangelogSourceFiles(
+            { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
+            bundleWith([ generatedManifest ]),
+            [],
+            new Set([ 'package.json' ])
+        );
+
+        assert.deepStrictEqual(result, []);
+    });
+}
+
 suite('changelog-source-attribution', function () {
+    registerManifestInputTests();
     registerJavaScriptAttributionTests();
     registerSourceMapFailureTests();
     registerDirectSourceTests();
+    registerSelectedSourceTests();
 });

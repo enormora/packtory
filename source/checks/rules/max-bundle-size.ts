@@ -1,23 +1,31 @@
 import { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+import { defineCheckRule, type RuleRunParams } from '../rule.ts';
 
-const ruleName = 'maxBundleSize';
+function ruleName(): 'maxBundleSize' {
+    return 'maxBundleSize';
+}
 
 const byteLimitSchema = z.number().check(z.int(), z.nonnegative());
 
-const globalSchema = z.strictObject({
-    enabled: z.boolean(),
-    bytes: z.optional(byteLimitSchema)
-});
+type RuleName = ReturnType<typeof ruleName>;
+type GlobalConfig = { readonly enabled: boolean; readonly bytes?: number | undefined; };
+type PerPackageConfig = { readonly bytes?: number | undefined; };
 
-const perPackageSchema = z.strictObject({
-    bytes: z.optional(byteLimitSchema)
-});
+function globalSchema(): z.ZodMiniType<GlobalConfig> {
+    return z.strictObject({
+        enabled: z.boolean(),
+        bytes: z.optional(byteLimitSchema)
+    });
+}
 
-type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
-type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+function perPackageSchema(): z.ZodMiniType<PerPackageConfig> {
+    return z.strictObject({
+        bytes: z.optional(byteLimitSchema)
+    });
+}
+
+type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
 
 function bundleSizeBytes(bundle: AnalyzedBundle): number {
     let total = 0;
@@ -50,9 +58,4 @@ async function run(params: RunParams): Promise<readonly string[]> {
     });
 }
 
-export const maxBundleSizeRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
-    name: ruleName,
-    globalSchema,
-    perPackageSchema,
-    run
-};
+export const maxBundleSizeRule = defineCheckRule(ruleName, globalSchema, perPackageSchema, run);

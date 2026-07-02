@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { hasProp, isPlainObject } from 'remeda';
+import { loadConfigModule } from '../../config/config-module-loader.ts';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import type * as packtoryEntryPoint from '../packtory/packtory.entry-point.ts';
 import {
@@ -15,36 +15,11 @@ function getEnvironmentVariable(variableName: string): string | undefined {
     return value === undefined || value.length === 0 ? undefined : value;
 }
 
-function isFunction(value: unknown): value is (...args: readonly unknown[]) => unknown {
-    return typeof value === 'function';
-}
-
-function unwrapConfigModule(module: Readonly<Record<PropertyKey, unknown>>): unknown {
-    if (hasProp(module, 'config')) {
-        return module.config;
-    }
-
-    if (hasProp(module, 'buildConfig')) {
-        const { buildConfig } = module;
-        if (isFunction(buildConfig)) {
-            return buildConfig();
-        }
-
-        throw new Error('Named export of "buildConfig" config file is not a function');
-    }
-
-    throw new Error('Config file doesn’t have a named export "config" nor "buildConfig"');
-}
-
 async function loadPacktoryConfigFromCwd(): Promise<unknown> {
     const configFilePath = path.join(process.cwd(), 'packtory.config.js');
-    const module: unknown = await import(configFilePath);
-
-    if (!isPlainObject(module)) {
-        throw new Error('Invalid config file');
-    }
-
-    return unwrapConfigModule(module);
+    return loadConfigModule(configFilePath, async function (modulePath) {
+        return import(modulePath);
+    });
 }
 
 function createDependencies(): GitHubReleaseGateRunnerDependencies {

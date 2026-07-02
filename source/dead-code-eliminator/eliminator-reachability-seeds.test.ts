@@ -2,7 +2,12 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
-import { bundleForCodeFile, consumerBundleWith, inputs, producerBundleWith } from './eliminator.test-support.ts';
+import {
+    bundleForCodeFile,
+    consumerBundleWith,
+    inputs,
+    producerBundleWith
+} from '../test-libraries/eliminator-test-support.ts';
 
 suite('eliminator reachability seeds', function () {
     suite('declaration files and cross-bundle reachability', function () {

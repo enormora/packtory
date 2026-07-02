@@ -22,10 +22,10 @@ function fileBindings(
 const statementStub = { id: 'stmt' };
 const referenceStub = { id: 'ref' };
 
-function exportedBinding(name: string, declarationNode: TsMorphNode): BindingDescriptor {
+function createBinding(name: string, isExported: boolean, declarationNode: TsMorphNode): BindingDescriptor {
     return {
         name,
-        isExported: true,
+        isExported,
 
         statement: statementStub as unknown as Statement,
         declarationNode,
@@ -34,54 +34,42 @@ function exportedBinding(name: string, declarationNode: TsMorphNode): BindingDes
     };
 }
 
+function gatherSeedsForSingleBinding(
+    content: string,
+    sourceFilePath: string,
+    entryPoints: ReadonlySet<string>,
+    isExported: boolean
+): Set<string> {
+    const sourceFile = sourceFileFor(content);
+    const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
+    const binding = createBinding('foo', isExported, declaration);
+    const file = fileBindings(sourceFilePath, sourceFile, [ binding ]);
+
+    return gatherLocalSeeds([ file ], entryPoints, buildDeclarationNodeIndex([ file ]), undefined);
+}
+
 suite('local-seed-gathering', function () {
     test('gatherLocalSeeds adds entry-point exported bindings to the seed set', function () {
-        const sourceFile = sourceFileFor('export const foo = 1;');
-        const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
-        const binding = exportedBinding('foo', declaration);
-        const file = fileBindings('/index.ts', sourceFile, [ binding ]);
-
-        const seeds = gatherLocalSeeds(
-            [ file ],
-            new Set([ '/index.ts' ]),
-            buildDeclarationNodeIndex([ file ]),
-            undefined
-        );
+        const seeds = gatherSeedsForSingleBinding('export const foo = 1;', '/index.ts', new Set([ '/index.ts' ]), true);
 
         assert.strictEqual(seeds.has('/index.ts::foo'), true);
     });
 
     test('gatherLocalSeeds ignores exported bindings of non-entry-point files', function () {
-        const sourceFile = sourceFileFor('export const foo = 1;');
-        const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
-        const binding = exportedBinding('foo', declaration);
-        const file = fileBindings('/lib.ts', sourceFile, [ binding ]);
-
-        const seeds = gatherLocalSeeds(
-            [ file ],
-            new Set([ '/index.ts' ]),
-            buildDeclarationNodeIndex([ file ]),
-            undefined
-        );
+        const seeds = gatherSeedsForSingleBinding('export const foo = 1;', '/lib.ts', new Set([ '/index.ts' ]), true);
 
         assert.strictEqual(seeds.has('/lib.ts::foo'), false);
     });
 
+    test('gatherLocalSeeds ignores non-exported bindings of entry-point files', function () {
+        const seeds = gatherSeedsForSingleBinding('const foo = 1;', '/index.ts', new Set([ '/index.ts' ]), false);
+
+        assert.strictEqual(seeds.has('/index.ts::foo'), false);
+        assert.strictEqual(seeds.has('Stryker was here'), false);
+    });
+
     test('gatherLocalSeeds returns an empty set when the bundle has no impure statements and no entry exports', function () {
-        const sourceFile = sourceFileFor('const foo = 1;');
-        const declaration = sourceFile.getVariableDeclarationOrThrow('foo');
-        const binding: BindingDescriptor = {
-            name: 'foo',
-            isExported: false,
-
-            statement: statementStub as unknown as Statement,
-            declarationNode: declaration,
-
-            referenceNode: referenceStub as unknown as TsMorphNode
-        };
-        const file = fileBindings('/index.ts', sourceFile, [ binding ]);
-
-        const seeds = gatherLocalSeeds([ file ], new Set<string>(), buildDeclarationNodeIndex([ file ]), undefined);
+        const seeds = gatherSeedsForSingleBinding('const foo = 1;', '/index.ts', new Set<string>(), false);
 
         assert.deepStrictEqual(seeds, new Set<string>());
     });

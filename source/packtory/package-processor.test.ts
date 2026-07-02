@@ -3,7 +3,6 @@ import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
 import { noPublication } from '../bundle-emitter/publication-outcome.ts';
-import type { DetermineVersionAndPublishOptions, PackageProcessor } from './package-processor.ts';
 import {
     createAnalyzedBundle,
     createBuildAndPublishOptions,
@@ -13,7 +12,8 @@ import {
     createTransferableFile,
     createVersionedBundle,
     getCallArgs
-} from './package-processor-test-support.ts';
+} from '../test-libraries/package-processor-test-support.ts';
+import type { DetermineVersionAndPublishOptions, PackageProcessor } from './package-processor.ts';
 
 type TransformationInput = {
     readonly transformationsEnabled: boolean;
