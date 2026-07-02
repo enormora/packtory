@@ -1,7 +1,7 @@
 import type { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
-    defineCheckRule,
+    type CheckRuleDefinition,
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
     type RulePackageConfig,
@@ -61,4 +61,15 @@ async function run(params: RunParams): Promise<readonly string[]> {
     });
 }
 
-export const noDevDependencyImportsRule = defineCheckRule(ruleName, globalSchema, perPackageSchema, run);
+export const noDevDependencyImportsRule: CheckRuleDefinition<RuleName, GlobalConfig, PerPackageConfig> = {
+    get name() {
+        return ruleName();
+    },
+    get globalSchema() {
+        return globalSchema();
+    },
+    get perPackageSchema() {
+        return perPackageSchema();
+    },
+    run
+};

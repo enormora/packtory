@@ -1,7 +1,7 @@
 import type { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import {
-    defineCheckRule,
+    type CheckRuleDefinition,
     pathAllowListGlobalSchema,
     pathAllowListPerPackageSchema,
     type RuleRunParams
@@ -66,4 +66,15 @@ async function run(params: RunParams): Promise<readonly string[]> {
     return findDuplicateIssues(params.bundles, params.perPackageSettings, globalConfig);
 }
 
-export const noDuplicatedFilesRule = defineCheckRule(ruleName, globalSchema, perPackageSchema, run);
+export const noDuplicatedFilesRule: CheckRuleDefinition<RuleName, GlobalConfig, PerPackageConfig> = {
+    get name() {
+        return ruleName();
+    },
+    get globalSchema() {
+        return globalSchema();
+    },
+    get perPackageSchema() {
+        return perPackageSchema();
+    },
+    run
+};

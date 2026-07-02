@@ -1,6 +1,6 @@
 import { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import { defineCheckRule, type RuleRunParams } from '../rule.ts';
+import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
 
 function ruleName(): 'maxBundleSize' {
     return 'maxBundleSize';
@@ -58,4 +58,15 @@ async function run(params: RunParams): Promise<readonly string[]> {
     });
 }
 
-export const maxBundleSizeRule = defineCheckRule(ruleName, globalSchema, perPackageSchema, run);
+export const maxBundleSizeRule: CheckRuleDefinition<RuleName, GlobalConfig, PerPackageConfig> = {
+    get name() {
+        return ruleName();
+    },
+    get globalSchema() {
+        return globalSchema();
+    },
+    get perPackageSchema() {
+        return perPackageSchema();
+    },
+    run
+};

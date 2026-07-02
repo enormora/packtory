@@ -3,7 +3,9 @@ function hostnameFromUrl(value: string): string {
     return url.hostname;
 }
 
-const expectedApiHostname = hostnameFromUrl('https://api.github.com');
+function expectedApiHostname(): string {
+    return hostnameFromUrl('https://api.github.com');
+}
 
 function parseOrThrow(value: string): URL {
     try {
@@ -23,7 +25,7 @@ function isLoopbackHostname(hostname: string): boolean {
 
 function buildMismatchMessage(actualHostname: string): string {
     return (
-        `GITHUB_API_BASE_URL hostname must be "${expectedApiHostname}", got "${actualHostname}". ` +
+        `GITHUB_API_BASE_URL hostname must be "${expectedApiHostname()}", got "${actualHostname}". ` +
         'A non-GitHub host would receive the GITHUB_TOKEN.'
     );
 }
@@ -37,7 +39,7 @@ export function assertGitHubApiBaseUrl(value: string): string {
     if (parsed.protocol !== 'https:') {
         throw new Error(`GITHUB_API_BASE_URL must use https, got: "${value}"`);
     }
-    if (parsed.hostname !== expectedApiHostname) {
+    if (parsed.hostname !== expectedApiHostname()) {
         throw new Error(buildMismatchMessage(parsed.hostname));
     }
 

@@ -2,7 +2,6 @@ import { isDefined } from 'remeda';
 import { Octokit } from '@octokit/core';
 import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
-import { resolveGitHubResponse } from '../../github-api-request-error.ts';
 import { createGitHubJsonRequestHeaders } from './github-api-request.ts';
 import {
     findWorkflowRunIdInRuns,
@@ -167,6 +166,24 @@ function commitSubject(commit: RawCommit): string {
 
 function pullRequestIsMerged(pullRequest: RawPullRequest): boolean {
     return pullRequest.merged_at !== undefined && pullRequest.merged_at !== null;
+}
+
+function createGitHubRequestError(error: unknown): Error {
+    const request: unknown = Reflect.get(new Object(error), 'request') as unknown;
+    const requestUrl = String(Reflect.get(new Object(request), 'url') as unknown);
+    const status = String(Reflect.get(new Object(error), 'status') as unknown);
+    const parsedUrl = new URL(requestUrl);
+    const requestPath = `${parsedUrl.pathname}${parsedUrl.search}`;
+    return new Error(`GitHub API request failed (${status}) for ${requestPath}`, { cause: error });
+}
+
+async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
+    try {
+        const response = await request;
+        return response;
+    } catch (error) {
+        throw createGitHubRequestError(error);
+    }
 }
 
 export function createReleasePullRequestGitHubClient(context: GitHubClientContext): ReleasePullRequestGitHubClient {

@@ -2,13 +2,41 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfigModule } from '../../config/config-module-loader.ts';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import type * as packtoryEntryPoint from '../packtory/packtory.entry-point.ts';
 import {
     runGitHubReleaseGate,
     type GitHubReleaseGateRunnerDependencies
 } from '../../github-release-gate/cli-runner.ts';
+
+type UnknownFunction = (...args: readonly unknown[]) => unknown;
+
+type ConfigModule = Readonly<Record<PropertyKey, unknown>>;
+
+function isFunction(value: unknown): value is UnknownFunction {
+    return typeof value === 'function';
+}
+
+function isConfigModule(value: unknown): value is ConfigModule {
+    return value !== null && typeof value === 'object';
+}
+
+function unwrapConfigModule(module: ConfigModule): unknown {
+    if (Object.hasOwn(module, 'config')) {
+        return module.config;
+    }
+
+    if (Object.hasOwn(module, 'buildConfig')) {
+        const { buildConfig } = module;
+        if (isFunction(buildConfig)) {
+            return buildConfig();
+        }
+
+        throw new Error('Named export of "buildConfig" config file is not a function');
+    }
+
+    throw new Error('Config file doesn’t have a named export "config" nor "buildConfig"');
+}
 
 function getEnvironmentVariable(variableName: string): string | undefined {
     const value = process.env[variableName];
@@ -17,9 +45,13 @@ function getEnvironmentVariable(variableName: string): string | undefined {
 
 async function loadPacktoryConfigFromCwd(): Promise<unknown> {
     const configFilePath = path.join(process.cwd(), 'packtory.config.js');
-    return loadConfigModule(configFilePath, async function (modulePath) {
-        return import(modulePath);
-    });
+    const module: unknown = await import(configFilePath);
+
+    if (!isConfigModule(module)) {
+        throw new Error('Invalid config file');
+    }
+
+    return unwrapConfigModule(module);
 }
 
 function createDependencies(): GitHubReleaseGateRunnerDependencies {
