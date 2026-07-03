@@ -50,7 +50,8 @@ suite('release-pull-request-handler', function () {
                         ensureClean: fake.resolves(undefined),
                         ensureTag: fake.resolves(undefined),
                         pushHeadToBranch: fake.resolves(undefined),
-                        pushFollowTags: fake.resolves(undefined)
+                        pushFollowTags: fake.resolves(undefined),
+                        readChangedFiles: fake.resolves([])
                     }
                 });
 
@@ -65,23 +66,39 @@ suite('release-pull-request-handler', function () {
 
             test('maintain updates the release PR when changelog content is committed', async function () {
                 const commit = fake.resolves(undefined);
+                const createCommitOnBranch = fake.resolves('signed-release-head');
                 const createOrUpdateReleasePullRequest = fake.resolves(12);
                 const pushHeadToBranch = fake.resolves(undefined);
                 const pushFollowTags = fake.resolves(undefined);
+                const readChangedFiles = fake.resolves([
+                    {
+                        contentBase64: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
+                        kind: 'addition',
+                        path: 'CHANGELOG.md'
+                    }
+                ]);
                 const { dependencies, log } = createReleaseContentDependencies({
                     createReleasePullRequestGitHubClient: fake.returns(
                         createReleasePullRequestClient({
+                            createCommitOnBranch,
                             createOrUpdateReleasePullRequest
                         })
                     ),
-                    gitClient: createChangingReleaseGitClient({ commit, pushFollowTags, pushHeadToBranch })
+                    gitClient: createChangingReleaseGitClient({
+                        commit,
+                        pushFollowTags,
+                        pushHeadToBranch,
+                        readChangedFiles
+                    })
                 });
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assertReleasePullRequestWasUpdated({
                     commit,
+                    createCommitOnBranch,
                     createOrUpdateReleasePullRequest,
                     log,
+                    readChangedFiles,
                     pushHeadToBranch,
                     pushFollowTags
                 });
@@ -104,7 +121,7 @@ suite('release-pull-request-handler', function () {
                 });
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
-                assert.strictEqual(log.lastCall.args[0], 'Release PR #12 points at release-head');
+                assert.strictEqual(log.lastCall.args[0], 'Release PR #12 points at signed-release-head');
             });
 
             test('maintain reports release preparation failures', async function () {

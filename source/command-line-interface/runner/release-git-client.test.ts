@@ -173,6 +173,54 @@ suite('release-git-client', function () {
         });
     });
 
+    suite('readChangedFiles', function () {
+        test('reads added and modified files at the target revision', async function () {
+            const { calls, client } = createGitClientWithRunner(async function (_command, args) {
+                if (args.includes('diff')) {
+                    return { stdout: 'CHANGELOG.md\0packages/pkg-a/CHANGELOG.md\0', stderr: '' };
+                }
+                if (args.includes('target-head:CHANGELOG.md')) {
+                    return { stdout: 'root changelog\n', stderr: '' };
+                }
+                if (args.includes('target-head:packages/pkg-a/CHANGELOG.md')) {
+                    return { stdout: 'package changelog\n', stderr: '' };
+                }
+                throw new Error(`unexpected git args ${args.join(' ')}`);
+            });
+
+            assert.deepStrictEqual(await client.readChangedFiles('base-head', 'target-head'), [
+                {
+                    contentBase64: Buffer.from('root changelog\n', 'utf8').toString('base64'),
+                    kind: 'addition',
+                    path: 'CHANGELOG.md'
+                },
+                {
+                    contentBase64: Buffer.from('package changelog\n', 'utf8').toString('base64'),
+                    kind: 'addition',
+                    path: 'packages/pkg-a/CHANGELOG.md'
+                }
+            ]);
+            assert.deepStrictEqual(calls, [
+                {
+                    command: 'git',
+                    args: [
+                        '-C',
+                        '/repo',
+                        'diff',
+                        '--name-only',
+                        '-z',
+                        '--diff-filter=AM',
+                        'base-head',
+                        'target-head',
+                        '--'
+                    ]
+                },
+                { command: 'git', args: [ '-C', '/repo', 'show', 'target-head:CHANGELOG.md' ] },
+                { command: 'git', args: [ '-C', '/repo', 'show', 'target-head:packages/pkg-a/CHANGELOG.md' ] }
+            ]);
+        });
+    });
+
     suite('remote updates', function () {
         test('pushFollowTags invokes git push with follow-tags', async function () {
             const { calls, client } = createGitClientWithRunner(async function () {

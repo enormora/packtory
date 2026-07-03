@@ -298,6 +298,9 @@ function createReleaseGitClient(recordReleaseStep: ReleaseStepRecorder): Release
         },
         async pushFollowTags() {
             recordReleaseStep('push');
+        },
+        async readChangedFiles() {
+            return [];
         }
     };
 }

@@ -114,9 +114,11 @@ npx packtory release-pr validate
 npx packtory release-pr authorize-publish
 ```
 
-`release-pr maintain` prepares the changelog commit with the same release planning logic, pushes it to the configured release branch, and creates or updates the release PR. `release-pr validate` checks that release PRs only change configured changelog output files and are not batched with other PRs in a merge queue. `release-pr authorize-publish` lets a publish workflow proceed only when the current commit, or a manually supplied PR number, is a merged valid release PR.
+`release-pr maintain` prepares the changelog commit with the same release planning logic, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR. `release-pr validate` checks that release PRs only change configured changelog output files and are not batched with other PRs in a merge queue. `release-pr authorize-publish` lets a publish workflow proceed only when the current commit, or a manually supplied PR number, is a merged valid release PR.
 
-The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory dispatches the configured workflow on the release branch, waits for the run, and mirrors the configured job names back as commit statuses. Leave it unset when your release branch push already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human push, or another CI system.
+Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
+
+The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory dispatches the configured workflow on the release branch, waits for the run, and mirrors the configured job names back as commit statuses. Leave it unset when your release branch update already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human update, or another CI system.
 
 For more details about the CLI application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
 

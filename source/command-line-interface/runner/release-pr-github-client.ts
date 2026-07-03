@@ -2,7 +2,8 @@ import { isDefined } from 'remeda';
 import { Octokit } from '@octokit/core';
 import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
-import { createGitHubJsonRequestHeaders } from './github-api-request.ts';
+import { createGitHubJsonRequestHeaders, resolveGitHubResponse } from './github-api-request.ts';
+import { createReleasePullRequestCommitClient, type CreateCommitOnBranchInput } from './release-pr-branch-commit.ts';
 import {
     findWorkflowRunIdInRuns,
     observedWorkflowRunIds,
@@ -93,6 +94,7 @@ type ReleasePullRequestUpdateInput = {
 };
 export type ReleasePullRequestGitHubClient = {
     readonly closeOpenReleasePullRequests: (input: CloseOpenReleasePullRequestsInput) => Promise<void>;
+    readonly createCommitOnBranch: (input: CreateCommitOnBranchInput) => Promise<string>;
     readonly createOrUpdateReleasePullRequest: (input: CreateOrUpdateReleasePullRequestInput) => Promise<number>;
     readonly createStatus: (input: CreateStatusInput) => Promise<void>;
     readonly deleteActionRequiredPullRequestRuns: (input: DeleteActionRequiredPullRequestRunsInput) => Promise<void>;
@@ -147,6 +149,10 @@ type RequestContext = {
     readonly owner: string;
     readonly repo: string;
 };
+type GitHubRestClientConstructor = ReturnType<
+    typeof Octokit.plugin<typeof Octokit, [typeof restEndpointMethods, typeof paginateRest]>
+>;
+type GitHubRestClientInstance = InstanceType<GitHubRestClientConstructor>;
 
 function labelNames(labels: readonly RawLabel[]): readonly string[] {
     return labels
@@ -168,36 +174,33 @@ function pullRequestIsMerged(pullRequest: RawPullRequest): boolean {
     return pullRequest.merged_at !== undefined && pullRequest.merged_at !== null;
 }
 
-function createGitHubRequestError(error: unknown): Error {
-    const request: unknown = Reflect.get(new Object(error), 'request') as unknown;
-    const requestUrl = String(Reflect.get(new Object(request), 'url') as unknown);
-    const status = String(Reflect.get(new Object(error), 'status') as unknown);
-    const parsedUrl = new URL(requestUrl);
-    const requestPath = `${parsedUrl.pathname}${parsedUrl.search}`;
-    return new Error(`GitHub API request failed (${status}) for ${requestPath}`, { cause: error });
-}
-
-async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
-    try {
-        const response = await request;
-        return response;
-    } catch (error) {
-        throw createGitHubRequestError(error);
-    }
+function createGitHubRestClient(
+    context: GitHubClientContext,
+    requestContext: RequestContext
+): GitHubRestClientInstance {
+    const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
+    return new GitHubRestClient({
+        request: {
+            fetch: context.fetch,
+            headers: requestContext.headers
+        }
+    });
 }
 
 export function createReleasePullRequestGitHubClient(context: GitHubClientContext): ReleasePullRequestGitHubClient {
-    const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
     const requestContext: RequestContext = {
         headers: createGitHubJsonRequestHeaders(context.token, 'packtory-release-pr'),
         owner: context.owner,
         repo: context.repo
     };
-    const octokit = new GitHubRestClient({
-        request: {
-            fetch: context.fetch,
-            headers: requestContext.headers
-        }
+    const octokit = createGitHubRestClient(context, requestContext);
+    const commitClient = createReleasePullRequestCommitClient({
+        git: octokit.rest.git,
+        graphql: octokit.graphql,
+        headers: requestContext.headers,
+        owner: context.owner,
+        repo: context.repo,
+        repositoryNameWithOwner: `${context.owner}/${context.repo}`
     });
 
     async function readPullRequestFiles(pullRequestNumber: number): Promise<readonly string[]> {
@@ -301,6 +304,10 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                     })
                 );
             }
+        },
+
+        async createCommitOnBranch(input) {
+            return commitClient.createCommitOnBranch(input);
         },
 
         async createOrUpdateReleasePullRequest(input) {

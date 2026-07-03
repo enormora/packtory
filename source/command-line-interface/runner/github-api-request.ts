@@ -1,4 +1,6 @@
-const defaultGitHubApiVersion = '2022-11-28';
+function defaultGitHubApiVersion(): string {
+    return '2022-11-28';
+}
 
 function readReflectedProperty(value: unknown, property: string): unknown {
     return Reflect.get(new Object(value), property) as unknown;
@@ -28,8 +30,16 @@ export function createGitHubJsonRequestHeaders(token: string, userAgent: string)
         accept: 'application/vnd.github+json',
         authorization: `Bearer ${token}`,
         'user-agent': userAgent,
-        'x-github-api-version': defaultGitHubApiVersion
+        'x-github-api-version': defaultGitHubApiVersion()
     };
+}
+
+export async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> {
+    try {
+        return await request;
+    } catch (error) {
+        throw createGitHubRequestError(error);
+    }
 }
 
 export async function resolveOptionalGitHubResponse<T>(

@@ -7,6 +7,7 @@ import type { ReleasePullRequestGitHubClient } from '../command-line-interface/r
 import { createBuildReportFixture } from './preview-fixtures.ts';
 import { createFakeFileManager } from './fake-file-manager.ts';
 import {
+    createReleaseGitClientFixture,
     createReleasePullRequestClient,
     createReleasePullRequestConfig
 } from './runner-test-support.ts';
@@ -116,15 +117,7 @@ export function createDependencies(
         },
         fileManager,
         flags: { command: 'authorize-publish', releasePullRequestNumber: undefined },
-        gitClient: {
-            commit: fake.resolves(undefined),
-            currentHead: fake.resolves('head'),
-            deleteRemoteBranch: fake.resolves(undefined),
-            ensureClean: fake.resolves(undefined),
-            ensureTag: fake.resolves(undefined),
-            pushHeadToBranch: fake.resolves(undefined),
-            pushFollowTags: fake.resolves(undefined)
-        },
+        gitClient: createReleaseGitClientFixture({ currentHead: fake.resolves('head') }),
         log(message) {
             log(message);
         },
@@ -155,18 +148,19 @@ export function createChangingReleaseGitClient(
     overrides: Readonly<Partial<ReleasePullRequestHandlerDependencies['gitClient']>> = {}
 ): ReleasePullRequestHandlerDependencies['gitClient'] {
     const heads = [ 'main-head', 'release-head' ];
-    return {
-        commit: fake.resolves(undefined),
+    return createReleaseGitClientFixture({
         async currentHead() {
             return heads.shift() ?? 'release-head';
         },
-        deleteRemoteBranch: fake.resolves(undefined),
-        ensureClean: fake.resolves(undefined),
-        ensureTag: fake.resolves(undefined),
-        pushHeadToBranch: fake.resolves(undefined),
-        pushFollowTags: fake.resolves(undefined),
+        readChangedFiles: fake.resolves([
+            {
+                contentBase64: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
+                kind: 'addition',
+                path: 'CHANGELOG.md'
+            }
+        ]),
         ...overrides
-    };
+    });
 }
 
 export function createReleaseContentDependencies(
@@ -259,15 +253,29 @@ export function createPullRequestHead(
 
 type ReleasePullRequestUpdateAssertion = {
     readonly commit: ReturnType<typeof fake>;
+    readonly createCommitOnBranch: ReturnType<typeof fake>;
     readonly createOrUpdateReleasePullRequest: ReturnType<typeof fake>;
     readonly log: ReturnType<typeof fake>;
+    readonly readChangedFiles: ReturnType<typeof fake>;
     readonly pushHeadToBranch: ReturnType<typeof fake>;
     readonly pushFollowTags: ReturnType<typeof fake>;
 };
 
 export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpdateAssertion): void {
     assert.strictEqual(input.commit.callCount, 1);
-    assert.deepStrictEqual(input.pushHeadToBranch.firstCall.args, [ 'release/packtory' ]);
+    assert.deepStrictEqual(input.readChangedFiles.firstCall.args, [ 'main-head', 'release-head' ]);
+    assert.deepStrictEqual(input.createCommitOnBranch.firstCall.args[0], {
+        additions: [
+            {
+                contents: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
+                path: 'CHANGELOG.md'
+            }
+        ],
+        branch: 'release/packtory',
+        expectedHeadOid: 'main-head',
+        message: 'Release packages'
+    });
+    assert.strictEqual(input.pushHeadToBranch.callCount, 0);
     assert.strictEqual(input.pushFollowTags.callCount, 0);
     assert.deepStrictEqual(input.createOrUpdateReleasePullRequest.firstCall.args[0], {
         baseBranch: 'main',
@@ -276,5 +284,5 @@ export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpda
         releaseBranch: 'release/packtory',
         title: 'Prepare release'
     });
-    assert.strictEqual(input.log.lastCall.args[0], 'Release PR #12 points at release-head');
+    assert.strictEqual(input.log.lastCall.args[0], 'Release PR #12 points at signed-release-head');
 }
