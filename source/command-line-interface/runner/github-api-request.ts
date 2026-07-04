@@ -16,9 +16,49 @@ function readGitHubErrorPath(error: unknown): string {
     return `${parsedUrl.pathname}${parsedUrl.search}`;
 }
 
+function readStringProperty(value: unknown, property: string): string | undefined {
+    const propertyValue = readReflectedProperty(value, property);
+    return typeof propertyValue === 'string' && propertyValue.length > 0 ? propertyValue : undefined;
+}
+
+function readGitHubErrorMessages(value: unknown): readonly (string | undefined)[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value.map(function (item) {
+        return readStringProperty(item, 'message');
+    });
+}
+
+function uniqueMessages(messages: readonly (string | undefined)[]): readonly string[] {
+    return Array.from(
+        new Set(
+            messages.filter(function (message): message is string {
+                return message !== undefined;
+            })
+        )
+    );
+}
+
+function readGitHubErrorDetails(error: unknown): readonly string[] {
+    const response = readReflectedProperty(error, 'response');
+    const responseData = readReflectedProperty(response, 'data');
+    return uniqueMessages([
+        readStringProperty(error, 'message'),
+        readStringProperty(responseData, 'message'),
+        ...readGitHubErrorMessages(readReflectedProperty(error, 'errors')),
+        ...readGitHubErrorMessages(readReflectedProperty(response, 'errors')),
+        ...readGitHubErrorMessages(readReflectedProperty(responseData, 'errors'))
+    ]);
+}
+
 function createGitHubRequestError(error: unknown): Error {
+    const details = readGitHubErrorDetails(error);
+    const detailText = details.length === 0 ? '' : `: ${details.join('; ')}`;
     return new Error(
-        `GitHub API request failed (${String(readGitHubErrorStatus(error))}) for ${readGitHubErrorPath(error)}`,
+        `GitHub API request failed (${String(readGitHubErrorStatus(error))}) for ${
+            readGitHubErrorPath(error)
+        }${detailText}`,
         {
             cause: error
         }

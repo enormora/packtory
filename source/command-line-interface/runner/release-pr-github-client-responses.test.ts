@@ -66,7 +66,7 @@ suite('release-pr-github-client responses', function () {
                 assert.ok(error instanceof Error);
                 assert.strictEqual(
                     error.message,
-                    'GitHub API request failed (401) for /repos/owner/repo/branches/main'
+                    'GitHub API request failed (401) for /repos/owner/repo/branches/main: Bad credentials'
                 );
                 assert.ok(error.cause instanceof Error);
                 return true;

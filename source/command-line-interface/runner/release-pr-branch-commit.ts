@@ -27,6 +27,7 @@ type UpdateRefInput = CreateRefInput & {
 };
 type GitHubGitApi = {
     readonly createRef: (input: CreateRefInput) => Promise<unknown>;
+    readonly deleteRef: (input: GitRefInput) => Promise<unknown>;
     readonly getRef: (input: GitRefInput) => Promise<{ readonly data: RawGitRef; }>;
     readonly updateRef: (input: UpdateRefInput) => Promise<unknown>;
 };
@@ -52,6 +53,11 @@ type CreateCommitOnBranchResponse = {
 };
 
 const missingGitHubResourceStatusCode = 404;
+const temporaryBranchHeadLength = 12;
+
+function temporaryBranchName(branch: string, expectedHeadOid: string): string {
+    return `${branch}/packtory-staging-${expectedHeadOid.slice(0, temporaryBranchHeadLength)}`;
+}
 
 function createCommitOnBranchMutation(): string {
     return `
@@ -92,7 +98,7 @@ export function createReleasePullRequestCommitClient(
         return response?.data;
     }
 
-    async function pointBranchAtHead(branch: string, expectedHeadOid: string): Promise<void> {
+    async function pointBranchAtHead(branch: string, targetHeadOid: string): Promise<void> {
         const branchRef = await readBranchRef(branch);
         if (branchRef === undefined) {
             await resolveGitHubResponse(
@@ -101,12 +107,12 @@ export function createReleasePullRequestCommitClient(
                     owner: dependencies.owner,
                     ref: `refs/heads/${branch}`,
                     repo: dependencies.repo,
-                    sha: expectedHeadOid
+                    sha: targetHeadOid
                 })
             );
             return;
         }
-        if (branchRef.object.sha === expectedHeadOid) {
+        if (branchRef.object.sha === targetHeadOid) {
             return;
         }
         await resolveGitHubResponse(
@@ -116,24 +122,43 @@ export function createReleasePullRequestCommitClient(
                 owner: dependencies.owner,
                 ref: `heads/${branch}`,
                 repo: dependencies.repo,
-                sha: expectedHeadOid
+                sha: targetHeadOid
             })
+        );
+    }
+
+    async function deleteBranchRef(branch: string): Promise<void> {
+        await resolveOptionalGitHubResponse(
+            dependencies.git.deleteRef({
+                headers: dependencies.headers,
+                owner: dependencies.owner,
+                repo: dependencies.repo,
+                ref: `heads/${branch}`
+            }),
+            missingGitHubResourceStatusCode
         );
     }
 
     return {
         async createCommitOnBranch(input) {
-            await pointBranchAtHead(input.branch, input.expectedHeadOid);
-            const response = await resolveGitHubResponse(
-                dependencies.graphql(createCommitOnBranchMutation(), {
-                    additions: input.additions,
-                    branchName: input.branch,
-                    expectedHeadOid: input.expectedHeadOid,
-                    headline: input.message,
-                    repositoryNameWithOwner: dependencies.repositoryNameWithOwner
-                })
-            );
-            return response.createCommitOnBranch.commit.oid;
+            const temporaryBranch = temporaryBranchName(input.branch, input.expectedHeadOid);
+            await pointBranchAtHead(temporaryBranch, input.expectedHeadOid);
+            try {
+                const response = await resolveGitHubResponse(
+                    dependencies.graphql(createCommitOnBranchMutation(), {
+                        additions: input.additions,
+                        branchName: temporaryBranch,
+                        expectedHeadOid: input.expectedHeadOid,
+                        headline: input.message,
+                        repositoryNameWithOwner: dependencies.repositoryNameWithOwner
+                    })
+                );
+                const releaseHead = response.createCommitOnBranch.commit.oid;
+                await pointBranchAtHead(input.branch, releaseHead);
+                return releaseHead;
+            } finally {
+                await deleteBranchRef(temporaryBranch);
+            }
         }
     };
 }
