@@ -34,7 +34,7 @@ type GitHubGitApi = {
 };
 type GitHubGraphQLApi = (
     query: string,
-    variables: Readonly<Record<string, unknown>>
+    parameters: Readonly<Record<string, unknown>>
 ) => Promise<CreateCommitOnBranchResponse>;
 export type ReleasePullRequestCommitClientDependencies = {
     readonly git: GitHubGitApi;
@@ -165,6 +165,7 @@ export function createReleasePullRequestCommitClient(
                         additions: input.additions,
                         branchName: temporaryBranch,
                         expectedHeadOid: input.expectedHeadOid,
+                        headers: dependencies.headers,
                         headline: input.message,
                         repositoryNameWithOwner: dependencies.repositoryNameWithOwner
                     })

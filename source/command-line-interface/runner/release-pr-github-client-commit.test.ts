@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
     captureRequests,
-    createClient,
+    createClientWithToken,
     createRecordedRouteFetch,
     emptyResponse,
     hasRequestWithBody,
@@ -21,14 +21,14 @@ type CommitScenario = {
     readonly records: readonly RecordedRequest[];
 };
 
-function createCommitScenario(): CommitScenario {
+function createCommitScenarioWithToken(token: string | undefined): CommitScenario {
     const capturedRequests = captureRequests();
     const encodedBranchRef = encodeURIComponent('heads/release/packtory');
     const encodedTemporaryBranchRef = encodeURIComponent(
         'heads/packtory-release-pr-staging-release-packtory-ebb84e32ba80-main-head'
     );
     const encodedContent = Buffer.from('changelog\n', 'utf8').toString('base64');
-    const client = createClient(
+    const client = createClientWithToken(
         createRecordedRouteFetch(
             capturedRequests,
             new Map([
@@ -56,9 +56,14 @@ function createCommitScenario(): CommitScenario {
                     }
                 ]
             ])
-        )
+        ),
+        token
     );
     return { client, encodedBranchRef, encodedContent, encodedTemporaryBranchRef, records: capturedRequests.records };
+}
+
+function createCommitScenario(): CommitScenario {
+    return createCommitScenarioWithToken('token');
 }
 
 function assertBranchWasMoved(records: readonly RecordedRequest[], encodedBranchRef: string, sha: string): void {
@@ -83,10 +88,21 @@ function assertGraphQLCommitRequest(records: readonly RecordedRequest[], encoded
     assert.strictEqual(hasRequestWithBody(records, 'POST', '/graphql', 'mutation CreateCommitOnBranch'), true);
 }
 
+function findGraphQLRequest(records: readonly RecordedRequest[]): RecordedRequest {
+    const request = records.find(function (record) {
+        return record.method === 'POST' && record.path === '/graphql';
+    });
+    if (request === undefined) {
+        throw new Error('Expected a GraphQL request');
+    }
+    return request;
+}
+
 function assertGitHubHeaders(records: readonly RecordedRequest[]): void {
     assert.strictEqual(readHeader(records[0]?.headers, 'accept'), 'application/vnd.github+json');
     assert.strictEqual(readHeader(records[0]?.headers, 'authorization'), 'Bearer token');
     assert.strictEqual(readHeader(records[0]?.headers, 'x-github-api-version'), '2022-11-28');
+    assert.strictEqual(readHeader(findGraphQLRequest(records).headers, 'authorization'), 'Bearer token');
 }
 
 suite('release-pr-github-client-commit', function () {
@@ -106,5 +122,21 @@ suite('release-pr-github-client-commit', function () {
         assertBranchWasDeleted(records, encodedTemporaryBranchRef);
         assertGraphQLCommitRequest(records, encodedContent);
         assertGitHubHeaders(records);
+    });
+
+    test('creates signed release commits without authentication when no token is set', async function () {
+        const { client, encodedContent, records } = createCommitScenarioWithToken(undefined);
+
+        assert.strictEqual(
+            await client.createCommitOnBranch({
+                additions: [ { contents: encodedContent, path: 'CHANGELOG.md' } ],
+                branch: 'release/packtory',
+                expectedHeadOid: 'main-head',
+                message: 'Release packages'
+            }),
+            'signed-release-head'
+        );
+        assert.strictEqual(readHeader(records[0]?.headers, 'authorization'), undefined);
+        assert.strictEqual(readHeader(findGraphQLRequest(records).headers, 'authorization'), undefined);
     });
 });

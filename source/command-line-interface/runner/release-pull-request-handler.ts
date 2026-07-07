@@ -47,7 +47,7 @@ type ReleasePullRequestFlags = ReleasePullRequestWriteFlags | ValidateReleasePul
 type GitHubClientContext = {
     readonly owner: string;
     readonly repo: string;
-    readonly token: string;
+    readonly token: string | undefined;
 };
 
 export type ReleasePullRequestHandlerDependencies = {
@@ -106,13 +106,11 @@ function formatHandlerError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function readGitHubToken(dependencies: Pick<ReleasePullRequestHandlerDependencies, 'readEnvironmentVariable'>): string {
-    const token = dependencies.readEnvironmentVariable('GH_TOKEN') ??
+function readGitHubToken(
+    dependencies: Pick<ReleasePullRequestHandlerDependencies, 'readEnvironmentVariable'>
+): string | undefined {
+    return dependencies.readEnvironmentVariable('GH_TOKEN') ??
         dependencies.readEnvironmentVariable('GITHUB_TOKEN');
-    if (token === undefined) {
-        throw new Error('GH_TOKEN or GITHUB_TOKEN must be set');
-    }
-    return token;
 }
 
 function parseGitHubRepositoryName(repositoryName: string): GitHubRepositoryNameParts {

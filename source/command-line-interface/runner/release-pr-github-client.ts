@@ -111,7 +111,7 @@ type GitHubClientContext = {
     readonly fetch: typeof globalThis.fetch;
     readonly owner: string;
     readonly repo: string;
-    readonly token: string;
+    readonly token: string | undefined;
 };
 
 type RawLabel = { readonly name?: string | null | undefined; };

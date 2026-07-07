@@ -11,6 +11,7 @@ type GitOperation = {
     readonly name: string;
 };
 type GraphQLCall = {
+    readonly headers: Readonly<Record<string, string>>;
     readonly query: string;
     readonly variables: Readonly<Record<string, unknown>>;
 };
@@ -40,6 +41,15 @@ function createMissingRefError(ref: string): Error {
         status: missingGitHubResourceStatusCode
     });
     return error;
+}
+
+function createGraphQLCall(query: string, parameters: Readonly<Record<string, unknown>>): GraphQLCall {
+    const { headers, ...variables } = parameters;
+    return {
+        headers: headers as Readonly<Record<string, string>>,
+        query,
+        variables
+    };
 }
 
 function createDependencies(
@@ -74,8 +84,8 @@ function createDependencies(
                 return {};
             }
         },
-        async graphql(query, variables) {
-            recordGraphQLCall({ query, variables });
+        async graphql(query, parameters) {
+            recordGraphQLCall(createGraphQLCall(query, parameters));
             if (graphQLBehavior === 'fail') {
                 const error = new Error('Resource not accessible by integration');
                 Object.assign(error, {
@@ -132,6 +142,21 @@ async function createReleaseCommitWithBranchHead(currentBranchHead: string | und
     };
 }
 
+function assertCreateCommitGraphQLCall(call: GraphQLCall | undefined): void {
+    if (call === undefined) {
+        throw new Error('Expected a GraphQL call');
+    }
+    assert.deepStrictEqual(call.variables, {
+        additions: [ { contents: encodedChangelogContent, path: 'CHANGELOG.md' } ],
+        branchName: temporaryReleaseBranch,
+        expectedHeadOid: 'main-head',
+        headline: 'Release packages',
+        repositoryNameWithOwner: 'owner/repo'
+    });
+    assert.deepStrictEqual(call.headers, { authorization: 'Bearer token' });
+    assert.match(call.query, /createCommitOnBranch/u);
+}
+
 suite('release-pr-branch-commit', function () {
     test('creates GitHub-signed release commits on the release branch', async function () {
         const { graphQLCalls, operations, releaseHead } = await createReleaseCommitWithBranchHead('old-release-head');
@@ -171,14 +196,7 @@ suite('release-pr-branch-commit', function () {
             ref: temporaryReleaseBranchRef,
             repo: 'repo'
         });
-        assert.deepStrictEqual(graphQLCalls[0]?.variables, {
-            additions: [ { contents: encodedChangelogContent, path: 'CHANGELOG.md' } ],
-            branchName: temporaryReleaseBranch,
-            expectedHeadOid: 'main-head',
-            headline: 'Release packages',
-            repositoryNameWithOwner: 'owner/repo'
-        });
-        assert.match(graphQLCalls[0].query, /createCommitOnBranch/u);
+        assertCreateCommitGraphQLCall(graphQLCalls[0]);
     });
 
     test('creates the release branch before the first GitHub-signed commit', async function () {
@@ -321,8 +339,8 @@ suite('release-pr-branch-commit', function () {
                     return {};
                 }
             },
-            async graphql(query, variables) {
-                events.push(`graphql:${String(variables.branchName)}`);
+            async graphql(query, parameters) {
+                events.push(`graphql:${String(parameters.branchName)}`);
                 assert.match(query, /createCommitOnBranch/u);
                 return { createCommitOnBranch: { commit: { oid: 'signed-release-head' } } };
             }

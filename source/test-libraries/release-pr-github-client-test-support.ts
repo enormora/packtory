@@ -80,13 +80,20 @@ export function requestHasSearchParameter(record: RecordedRequest, name: string,
     return searchParameters.get(name) === value;
 }
 
-export function createClient(fetchImplementation: typeof globalThis.fetch): ReleasePullRequestGitHubClient {
+export function createClientWithToken(
+    fetchImplementation: typeof globalThis.fetch,
+    token: string | undefined
+): ReleasePullRequestGitHubClient {
     return createReleasePullRequestGitHubClient({
         fetch: fetchImplementation,
         owner: 'owner',
         repo: 'repo',
-        token: 'token'
+        token
     });
+}
+
+export function createClient(fetchImplementation: typeof globalThis.fetch): ReleasePullRequestGitHubClient {
+    return createClientWithToken(fetchImplementation, 'token');
 }
 
 export function hasRequestWithBody(
