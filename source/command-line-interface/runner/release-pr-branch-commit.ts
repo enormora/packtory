@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { resolveGitHubResponse, resolveOptionalGitHubResponse } from './github-api-request.ts';
 
 type CreateCommitFileAddition = {
@@ -53,10 +54,25 @@ type CreateCommitOnBranchResponse = {
 };
 
 const missingGitHubResourceStatusCode = 404;
+const sanitizedBranchNameLength = 80;
 const temporaryBranchHeadLength = 12;
+const temporaryBranchNamespace = 'packtory-release-pr-staging';
+
+function sanitizeBranchName(branch: string): string {
+    const readableName = (branch.match(/[A-Za-z0-9]+/gu) ?? [])
+        .join('-')
+        .slice(0, sanitizedBranchNameLength);
+    const branchHash = createHash('sha256').update(branch).digest('hex').slice(0, temporaryBranchHeadLength);
+    return `${readableName.length === 0 ? 'branch' : readableName}-${branchHash}`;
+}
 
 function temporaryBranchName(branch: string, expectedHeadOid: string): string {
-    return `${branch}/packtory-staging-${expectedHeadOid.slice(0, temporaryBranchHeadLength)}`;
+    return [
+        temporaryBranchNamespace,
+        sanitizeBranchName(branch),
+        expectedHeadOid.slice(0, temporaryBranchHeadLength)
+    ]
+        .join('-');
 }
 
 function createCommitOnBranchMutation(): string {

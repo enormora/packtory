@@ -24,7 +24,9 @@ type CommitScenario = {
 function createCommitScenario(): CommitScenario {
     const capturedRequests = captureRequests();
     const encodedBranchRef = encodeURIComponent('heads/release/packtory');
-    const encodedTemporaryBranchRef = encodeURIComponent('heads/release/packtory/packtory-staging-main-head');
+    const encodedTemporaryBranchRef = encodeURIComponent(
+        'heads/packtory-release-pr-staging-release-packtory-ebb84e32ba80-main-head'
+    );
     const encodedContent = Buffer.from('changelog\n', 'utf8').toString('base64');
     const client = createClient(
         createRecordedRouteFetch(
