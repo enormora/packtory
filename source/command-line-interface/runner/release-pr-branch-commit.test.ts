@@ -24,8 +24,23 @@ type GraphQLBehavior = 'fail' | 'succeed';
 const encodedChangelogContent = Buffer.from('updated changelog\n', 'utf8').toString('base64');
 const missingGitHubResourceStatusCode = 404;
 const releaseBranchRef = 'heads/release/packtory';
-const temporaryReleaseBranch = 'release/packtory/packtory-staging-main-head';
+const temporaryReleaseBranch = 'packtory-release-pr-staging-release-packtory-ebb84e32ba80-main-head';
 const temporaryReleaseBranchRef = `heads/${temporaryReleaseBranch}`;
+
+function createMissingRefError(ref: string): Error {
+    const error = new Error('Not Found');
+    Object.assign(error, {
+        request: {
+            url: [
+                'https://api.github.com/repos/owner/repo/git/ref/',
+                encodeURIComponent(ref)
+            ]
+                .join('')
+        },
+        status: missingGitHubResourceStatusCode
+    });
+    return error;
+}
 
 function createDependencies(
     currentBranchHead: string | undefined,
@@ -33,21 +48,6 @@ function createDependencies(
     recordOperation: (operation: GitOperation) => void,
     recordGraphQLCall: (call: GraphQLCall) => void
 ): ReleasePullRequestCommitClientDependencies {
-    function createMissingRefError(): Error {
-        const error = new Error('Not Found');
-        Object.assign(error, {
-            request: {
-                url: [
-                    'https://api.github.com/repos/owner/repo/git/ref/',
-                    encodeURIComponent(releaseBranchRef)
-                ]
-                    .join('')
-            },
-            status: missingGitHubResourceStatusCode
-        });
-        return error;
-    }
-
     return {
         git: {
             async createRef(input) {
@@ -62,7 +62,7 @@ function createDependencies(
                 recordOperation({ input, name: 'getRef' });
                 const { ref } = input;
                 if (currentBranchHead === undefined) {
-                    throw createMissingRefError();
+                    throw createMissingRefError(ref);
                 }
                 if (ref === temporaryReleaseBranchRef) {
                     return { data: { object: { sha: currentBranchHead } } };
@@ -103,10 +103,10 @@ function createReleaseCommitInput(): CreateCommitOnBranchInput {
     };
 }
 
-function createReleaseCommitInputWithHead(expectedHeadOid: string): CreateCommitOnBranchInput {
+function createReleaseCommitInputWithBranch(branch: string): CreateCommitOnBranchInput {
     return {
         ...createReleaseCommitInput(),
-        expectedHeadOid
+        branch
     };
 }
 
@@ -221,7 +221,7 @@ suite('release-pr-branch-commit', function () {
         assert.strictEqual(graphQLCalls.length, 1);
     });
 
-    test('uses a stable prefix of the expected head in the temporary branch name', async function () {
+    test('uses stable non-conflicting temporary branch names', async function () {
         const graphQLCalls: GraphQLCall[] = [];
         const client = createReleasePullRequestCommitClient(
             createDependencies(
@@ -235,14 +235,116 @@ suite('release-pr-branch-commit', function () {
                 }
             )
         );
+        const longReleaseBranch = `release/${'a'.repeat(90)}`;
+        const cases = [
+            {
+                branch: 'release/packtory',
+                expectedHeadOid: '0123456789abcdef',
+                temporaryBranch: 'packtory-release-pr-staging-release-packtory-ebb84e32ba80-0123456789ab'
+            },
+            {
+                branch: '!release/wyvern-ledger!',
+                expectedHeadOid: 'main-head',
+                temporaryBranch: 'packtory-release-pr-staging-release-wyvern-ledger-79732f82875d-main-head'
+            },
+            {
+                branch: '!!!',
+                expectedHeadOid: 'main-head',
+                temporaryBranch: 'packtory-release-pr-staging-branch-e84c538e7fe2-main-head'
+            },
+            {
+                branch: 'release//wyvern-ledger',
+                expectedHeadOid: 'main-head',
+                temporaryBranch: 'packtory-release-pr-staging-release-wyvern-ledger-6a221e54a88c-main-head'
+            },
+            {
+                branch: longReleaseBranch,
+                expectedHeadOid: 'main-head',
+                temporaryBranch: [
+                    'packtory-release-pr-staging-release-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                    '15cd0726021a-main-head'
+                ]
+                    .join('-')
+            }
+        ];
+
+        for (const testCase of cases) {
+            assert.strictEqual(
+                await client.createCommitOnBranch({
+                    ...createReleaseCommitInputWithBranch(testCase.branch),
+                    expectedHeadOid: testCase.expectedHeadOid
+                }),
+                'signed-release-head'
+            );
+        }
+        assert.deepStrictEqual(
+            graphQLCalls.map(function (call) {
+                return call.variables.branchName;
+            }),
+            cases.map(function (testCase) {
+                return testCase.temporaryBranch;
+            })
+        );
+    });
+
+    test('creates a non-conflicting temporary branch when the release branch has slash prefixes', async function () {
+        const events: string[] = [];
+        const client = createReleasePullRequestCommitClient({
+            ...createDependencies(
+                'old-release-head',
+                'succeed',
+                function () {
+                    return undefined;
+                },
+                function () {
+                    return undefined;
+                }
+            ),
+            git: {
+                async createRef(input) {
+                    events.push(`createRef:${input.ref}`);
+                    return {};
+                },
+                async deleteRef(input) {
+                    events.push(`deleteRef:${input.ref}`);
+                    return {};
+                },
+                async getRef(input) {
+                    events.push(`getRef:${input.ref}`);
+                    if (input.ref === 'heads/release/wyvern-ledger') {
+                        return { data: { object: { sha: 'old-release-head' } } };
+                    }
+                    throw createMissingRefError(input.ref);
+                },
+                async updateRef(input) {
+                    events.push(`updateRef:${input.ref}:${input.sha}`);
+                    return {};
+                }
+            },
+            async graphql(query, variables) {
+                events.push(`graphql:${String(variables.branchName)}`);
+                assert.match(query, /createCommitOnBranch/u);
+                return { createCommitOnBranch: { commit: { oid: 'signed-release-head' } } };
+            }
+        });
 
         assert.strictEqual(
-            await client.createCommitOnBranch(createReleaseCommitInputWithHead('0123456789abcdef')),
+            await client.createCommitOnBranch(createReleaseCommitInputWithBranch('release/wyvern-ledger')),
             'signed-release-head'
         );
+        assert.deepStrictEqual(events, [
+            'getRef:heads/packtory-release-pr-staging-release-wyvern-ledger-6d45f8088f71-main-head',
+            'createRef:refs/heads/packtory-release-pr-staging-release-wyvern-ledger-6d45f8088f71-main-head',
+            'graphql:packtory-release-pr-staging-release-wyvern-ledger-6d45f8088f71-main-head',
+            'getRef:heads/release/wyvern-ledger',
+            'updateRef:heads/release/wyvern-ledger:signed-release-head',
+            'deleteRef:heads/packtory-release-pr-staging-release-wyvern-ledger-6d45f8088f71-main-head'
+        ]);
         assert.strictEqual(
-            graphQLCalls[0]?.variables.branchName,
-            'release/packtory/packtory-staging-0123456789ab'
+            events.some(function (event) {
+                return event.includes('refs/heads/release/wyvern-ledger/');
+            }),
+            false
         );
     });
 
