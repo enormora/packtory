@@ -30,16 +30,23 @@ import { runReleaseHandler } from './release-handler.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
 
-type GitHubClientContext = {
+type GitHubReleaseClientContext = {
     readonly owner: string;
     readonly repo: string;
     readonly token: string;
 };
+type ReleasePullRequestGitHubClientContext = {
+    readonly owner: string;
+    readonly repo: string;
+    readonly token: string | undefined;
+};
 
 export type CommandLineInterfaceRunnerDependencies = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
-    readonly createGitHubReleaseClient: (context: GitHubClientContext) => GitHubReleaseClient;
-    readonly createReleasePullRequestGitHubClient: (context: GitHubClientContext) => ReleasePullRequestGitHubClient;
+    readonly createGitHubReleaseClient: (context: GitHubReleaseClientContext) => GitHubReleaseClient;
+    readonly createReleasePullRequestGitHubClient: (
+        context: ReleasePullRequestGitHubClientContext
+    ) => ReleasePullRequestGitHubClient;
     readonly currentDate: () => Date;
     readonly packtory: Packtory;
     readonly progressBroadcaster: ProgressBroadcastConsumer;

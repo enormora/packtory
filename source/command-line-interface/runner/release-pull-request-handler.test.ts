@@ -174,9 +174,9 @@ suite('release-pull-request-handler', function () {
                 assert.strictEqual(log.lastCall.args[0], 'The loaded config is invalid for release PR management');
             });
 
-            test('maintain rejects missing GitHub tokens before creating a client', async function () {
-                const createReleasePullRequestGitHubClient = fake();
-                const { dependencies, log } = createDependencies({
+            test('maintain creates an unauthenticated GitHub client when no token is set', async function () {
+                const createReleasePullRequestGitHubClient = fake.returns(createReleasePullRequestClient({}));
+                const { dependencies } = createDependencies({
                     createReleasePullRequestGitHubClient,
                     flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
                     readEnvironmentVariable(name) {
@@ -184,9 +184,12 @@ suite('release-pull-request-handler', function () {
                     }
                 });
 
-                assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
-                assert.strictEqual(log.lastCall.args[0], 'GH_TOKEN or GITHUB_TOKEN must be set');
-                assert.strictEqual(createReleasePullRequestGitHubClient.callCount, 0);
+                assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
+                assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
+                    owner: 'owner',
+                    repo: 'repo',
+                    token: undefined
+                });
             });
 
             test('maintain uses GITHUB_TOKEN and package repository when GitHub repository env is absent', async function () {

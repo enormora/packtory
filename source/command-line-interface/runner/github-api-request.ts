@@ -65,12 +65,21 @@ function createGitHubRequestError(error: unknown): Error {
     );
 }
 
-export function createGitHubJsonRequestHeaders(token: string, userAgent: string): Readonly<Record<string, string>> {
-    return {
+export function createGitHubJsonRequestHeaders(
+    token: string | undefined,
+    userAgent: string
+): Readonly<Record<string, string>> {
+    const headers = {
         accept: 'application/vnd.github+json',
-        authorization: `Bearer ${token}`,
         'user-agent': userAgent,
         'x-github-api-version': defaultGitHubApiVersion()
+    };
+    if (token === undefined) {
+        return headers;
+    }
+    return {
+        ...headers,
+        authorization: `Bearer ${token}`
     };
 }
 
