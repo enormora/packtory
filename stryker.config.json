@@ -5,6 +5,7 @@
     "tempDirName": "target/.stryker-tmp",
     "allowConsoleColors": false,
     "concurrency": "100%",
+    "incrementalFile": "target/stryker-incremental.json",
     "mochaOptions": {
         "no-package": true,
         "no-opts": true,
