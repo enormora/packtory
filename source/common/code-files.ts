@@ -8,7 +8,7 @@ export function isDeclarationCodeFile(targetFilePath: string): boolean {
 }
 
 const textDiffablePatterns: readonly RegExp[] = [
-    /(?:\.d\.ts|\.[cm]?[jt]sx?)$/,
+    codeFilePattern,
     /\.json$/,
     /\.md$/,
     /\.txt$/,
