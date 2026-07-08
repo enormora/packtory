@@ -11,8 +11,8 @@ function statementsFor(content: string): readonly Statement[] {
 
 function firstTwoStatements(content: string): readonly [Statement, Statement] {
     const [ first, second ] = statementsFor(content);
-    assert.ok(first !== undefined);
-    assert.ok(second !== undefined);
+    assert.notStrictEqual(first, undefined);
+    assert.notStrictEqual(second, undefined);
     return [ first, second ];
 }
 

@@ -58,19 +58,23 @@ suite('linker', function () {
             bundleDependencies: []
         });
 
-        assert.strictEqual(result.name, 'package-a');
-        assert.strictEqual(result.exportPackageJson, true);
-        assert.deepStrictEqual(result.roots, {
-            main: {
-                js: {
-                    content: '',
-                    isExecutable: false,
-                    sourceFilePath: '/src/index.js',
-                    targetFilePath: 'index.js'
+        assert.partialDeepStrictEqual(result, {
+            name: 'package-a',
+            exportPackageJson: true,
+            roots: {
+                main: {
+                    js: {
+                        content: '',
+                        isExecutable: false,
+                        sourceFilePath: '/src/index.js',
+                        targetFilePath: 'index.js'
+                    }
                 }
+            },
+            contents: {
+                length: 2
             }
         });
-        assert.strictEqual(result.contents.length, 2);
     });
 
     test('linkBundle() flattens declaration roots and substitutes matching bundle dependencies', async function () {

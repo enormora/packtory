@@ -34,7 +34,7 @@ suite('registry', function () {
     test('every entry in allRules exposes the rule contract (name, schemas, run)', function () {
         for (const rule of allRules) {
             assert.strictEqual(typeof rule.name, 'string', `name should be a string for ${rule.name}`);
-            assert.ok(typeof rule.run === 'function', `run should be a function for ${rule.name}`);
+            assert.strictEqual(typeof rule.run, 'function', `run should be a function for ${rule.name}`);
             assert.strictEqual(typeof rule.globalSchema.safeParse, 'function');
             assert.strictEqual(typeof rule.perPackageSchema.safeParse, 'function');
         }

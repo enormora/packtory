@@ -9,14 +9,14 @@ export function withSource(content: string): SourceFile {
 
 export function firstStatement(sourceFile: SourceFile): Statement {
     const [ statement ] = sourceFile.getStatements();
-    assert.ok(statement !== undefined);
+    assert.notStrictEqual(statement, undefined);
     return statement;
 }
 
 export function firstVariableDeclaration(sourceFile: SourceFile): VariableDeclaration {
     const [ variableStatement ] = sourceFile.getVariableStatements();
-    assert.ok(variableStatement !== undefined);
+    assert.notStrictEqual(variableStatement, undefined);
     const [ declaration ] = variableStatement.getDeclarations();
-    assert.ok(declaration !== undefined);
+    assert.notStrictEqual(declaration, undefined);
     return declaration;
 }

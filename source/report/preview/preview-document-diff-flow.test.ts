@@ -68,7 +68,7 @@ suite('preview-document diffs', function () {
         if (fileNode?.type !== 'file') {
             assert.fail('expected index.js file node');
         }
-        assert.ok(fileNode.artifact.diff !== undefined);
+        assert.notStrictEqual(fileNode.artifact.diff, undefined);
     });
 
     test('buildPreviewDocument limits diffs to two hunks and drops patch metadata lines', async function () {

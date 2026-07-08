@@ -58,9 +58,11 @@ suite('preview-document package state', function () {
                 })
             });
 
-            assert.strictEqual(document.previewable, false);
-            assert.strictEqual(document.resultType, 'checks');
-            assert.deepStrictEqual(document.issues, [ 'bundle is too large' ]);
+            assert.partialDeepStrictEqual(document, {
+                previewable: false,
+                resultType: 'checks',
+                issues: [ 'bundle is too large' ]
+            });
         });
 
         test('buildPreviewDocument marks a partial run with succeeded packages as previewable', async function () {
@@ -73,9 +75,11 @@ suite('preview-document package state', function () {
                 })
             });
 
-            assert.strictEqual(document.previewable, true);
-            assert.strictEqual(document.resultType, 'partial');
-            assert.deepStrictEqual(document.issues, [ 'boom' ]);
+            assert.partialDeepStrictEqual(document, {
+                previewable: true,
+                resultType: 'partial',
+                issues: [ 'boom' ]
+            });
         });
 
         test('buildPreviewDocument uses publish mode when dryRun is false', async function () {
@@ -141,9 +145,13 @@ suite('preview-document package state', function () {
             if (pkg.failure === undefined) {
                 assert.fail('expected package failure');
             }
-            assert.strictEqual(pkg.failure.message, 'boom');
-            assert.strictEqual(pkg.openByDefault, true);
-            assert.deepStrictEqual(pkg.tree, []);
+            assert.partialDeepStrictEqual(pkg, {
+                failure: {
+                    message: 'boom'
+                },
+                openByDefault: true,
+                tree: []
+            });
             assert.deepStrictEqual(document.summary, {
                 totalPackages: 1,
                 changedPackages: 0,

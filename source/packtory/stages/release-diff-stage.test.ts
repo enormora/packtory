@@ -140,9 +140,11 @@ function registerBasicDiffTests(): void {
         const result = await runAlreadyPublishedPkgAStage(artifactsBuilderReturning([]));
 
         const first = expectFirstEntry(result);
-        assert.strictEqual(first.state, 'unchanged');
-        assert.strictEqual(first.previousVersionLabel, '1.0.0');
-        assert.deepStrictEqual(first.files, { added: [], removed: [], modified: [], unchanged: [] });
+        assert.partialDeepStrictEqual(first, {
+            state: 'unchanged',
+            previousVersionLabel: '1.0.0',
+            files: { added: [], removed: [], modified: [], unchanged: [] }
+        });
     });
 
     test('produces a first-publish state with all bundled files in `added`, empty `removed`/`modified`/`unchanged`', async function () {
@@ -152,15 +154,19 @@ function registerBasicDiffTests(): void {
         ]);
 
         const first = expectFirstEntry(result);
-        assert.strictEqual(first.state, 'first-publish');
-        assert.deepStrictEqual(first.files.added, [
-            { path: 'package.json', sizeBytes: 2, isExecutable: false },
-            { path: 'bin/cli.js', sizeBytes: 20, isExecutable: true }
-        ]);
-        assert.deepStrictEqual(first.files.removed, []);
-        assert.deepStrictEqual(first.files.modified, []);
-        assert.deepStrictEqual(first.files.unchanged, []);
-        assert.strictEqual(first.versionTransition, '(unpublished) -> 1.0.0');
+        assert.partialDeepStrictEqual(first, {
+            state: 'first-publish',
+            files: {
+                added: [
+                    { path: 'package.json', sizeBytes: 2, isExecutable: false },
+                    { path: 'bin/cli.js', sizeBytes: 20, isExecutable: true }
+                ],
+                removed: [],
+                modified: [],
+                unchanged: []
+            },
+            versionTransition: '(unpublished) -> 1.0.0'
+        });
     });
 
     test('measures added-file sizes in UTF-8 bytes', async function () {
@@ -199,8 +205,12 @@ function registerBasicDiffTests(): void {
             ]
         );
 
-        assert.strictEqual(collectContents.callCount, 1);
-        assert.deepStrictEqual(collectContents.firstCall.args, [ bundle, 'package', [ extraFile ] ]);
+        assert.partialDeepStrictEqual(collectContents, {
+            callCount: 1,
+            firstCall: {
+                args: [ bundle, 'package', [ extraFile ] ]
+            }
+        });
     });
 
     test('does not call artifactsBuilder.collectContents for an already-published package', async function () {
@@ -234,8 +244,12 @@ function registerSchedulerTests(): void {
         if (result.isOk) {
             assert.fail('expected Err');
         }
-        assert.deepStrictEqual(result.error.failures, [ failingError ]);
-        assert.deepStrictEqual(result.error.succeeded, []);
+        assert.partialDeepStrictEqual(result, {
+            error: {
+                failures: [ failingError ],
+                succeeded: []
+            }
+        });
     });
 
     test('passes emitScheduledEvents=false to the scheduler so it does not re-emit `scheduled` events the publish-stage already emitted', async function () {
@@ -300,19 +314,35 @@ function registerChangedDiffTests(): void {
         );
 
         const entry = expectFirstEntry(result);
-        assert.strictEqual(entry.state, 'changed');
-        assert.strictEqual(entry.files.modified.length, 2);
-        assert.strictEqual(entry.files.removed.length, 1);
-        assert.strictEqual(entry.files.added.length, 0);
-        assert.strictEqual(entry.versionTransition, '1.0.0 -> 1.0.1');
+        assert.partialDeepStrictEqual(entry, {
+            state: 'changed',
+            files: {
+                modified: {
+                    length: 2
+                },
+                removed: {
+                    length: 1
+                },
+                added: {
+                    length: 0
+                }
+            },
+            versionTransition: '1.0.0 -> 1.0.1'
+        });
     });
 
     test('classifies an SBOM that differs only in the packtory tool version as unchanged', async function () {
         const previousSbom = buildSbomFixtureContent({ packtoryVersion: '1.2.3' });
         const currentSbom = buildSbomFixtureContent({ packtoryVersion: '9.9.9' });
         const files = await runSbomDiff(previousSbom, currentSbom);
-        assert.strictEqual(files.modified.length, 0);
-        assert.strictEqual(files.unchanged.length, 1);
+        assert.partialDeepStrictEqual(files, {
+            modified: {
+                length: 0
+            },
+            unchanged: {
+                length: 1
+            }
+        });
         assert.strictEqual(files.unchanged[0]?.path, 'sbom.cdx.json');
     });
 

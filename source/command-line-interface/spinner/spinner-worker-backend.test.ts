@@ -84,9 +84,11 @@ suite('spinner-worker-backend', function () {
 
             assert.strictEqual(spawnWorker.callCount, 1);
             const request = spawnWorker.firstCall.firstArg as WorkerSpawnRequest;
-            assert.strictEqual(request.buffer, runtime.accessors.buffer);
-            assert.strictEqual(request.slotCount, 2);
-            assert.strictEqual(request.stdoutFileDescriptor, 5);
+            assert.partialDeepStrictEqual(request, {
+                buffer: runtime.accessors.buffer,
+                slotCount: 2,
+                stdoutFileDescriptor: 5
+            });
         });
 
         test('createSpinnerRuntime falls back to default slot and interval settings', function () {

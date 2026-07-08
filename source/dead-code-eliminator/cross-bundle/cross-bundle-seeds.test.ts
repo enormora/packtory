@@ -81,7 +81,7 @@ function seedsForLoneConsumer(consumerContent: string): SeedMap {
 }
 
 function assertHelpersBindingsSeeded(bSeeds: ReadonlySet<string> | undefined): void {
-    assert.ok(bSeeds !== undefined);
+    assert.notStrictEqual(bSeeds, undefined);
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'a')));
     assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'b')));
 }
@@ -131,7 +131,7 @@ suite('cross-bundle-seeds', function () {
             ]);
             const seeds = buildCrossBundleSeeds([ consumerInput, producerInput ]);
             const bSeeds = seeds.get('pkg-b');
-            assert.ok(bSeeds !== undefined);
+            assert.notStrictEqual(bSeeds, undefined);
             assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
             assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
             assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'default')), false);
@@ -162,7 +162,7 @@ suite('cross-bundle-seeds', function () {
                 inputFor(producer, [ { sourceFilePath: '/b/main.ts', content: 'export default 42;' } ])
             ]);
             const bSeeds = seeds.get('pkg-b');
-            assert.ok(bSeeds !== undefined);
+            assert.notStrictEqual(bSeeds, undefined);
             assert.ok(bSeeds.has(bindingId('/b/main.ts', 'default')));
         });
 
@@ -171,7 +171,7 @@ suite('cross-bundle-seeds', function () {
                 'export { used } from "pkg-b/helpers.ts";',
                 'export function used() { return 1; }\nexport function unused() { return 2; }'
             );
-            assert.ok(bSeeds !== undefined);
+            assert.notStrictEqual(bSeeds, undefined);
             assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
             assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'unused')), false);
         });
@@ -307,7 +307,7 @@ suite('cross-bundle-seeds', function () {
             ]);
             assert.strictEqual(seeds.has('pkg-a'), false);
             const bSeeds = seeds.get('pkg-b');
-            assert.ok(bSeeds !== undefined);
+            assert.notStrictEqual(bSeeds, undefined);
             assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
         });
 
@@ -342,7 +342,7 @@ suite('cross-bundle-seeds', function () {
                 'import { used as renamed } from "pkg-b/helpers.ts";\nexport function pub() { return renamed(); }',
                 'export function used() { return 1; }'
             );
-            assert.ok(bSeeds !== undefined);
+            assert.notStrictEqual(bSeeds, undefined);
             assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
         });
 
@@ -364,7 +364,7 @@ suite('cross-bundle-seeds', function () {
                     .join('\n'),
                 'export function used() { return 1; }\nexport function alsoDead() { return 2; }'
             );
-            assert.ok(bSeeds !== undefined);
+            assert.notStrictEqual(bSeeds, undefined);
             assert.ok(bSeeds.has(bindingId('/b/helpers.ts', 'used')));
             assert.strictEqual(bSeeds.has(bindingId('/b/helpers.ts', 'alsoDead')), false);
         });

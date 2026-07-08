@@ -51,9 +51,11 @@ function registerPackageEventTests(): void {
         });
 
         const entry = expectPackageEntry(state, 'pkg-a');
-        assert.deepStrictEqual(entry.roots, { main: 'src/index.js' });
-        assert.deepStrictEqual(entry.siblingVersions, { 'pkg-b': '1.0.0' });
-        assert.strictEqual(entry.sourceFileCount, 3);
+        assert.partialDeepStrictEqual(entry, {
+            roots: { main: 'src/index.js' },
+            siblingVersions: { 'pkg-b': '1.0.0' },
+            sourceFileCount: 3
+        });
     });
 
     test('registerSubscribers records the assembled package.json fields on the package entry', function () {
@@ -233,8 +235,16 @@ function registerEliminationTests(): void {
         ]);
 
         const entry = expectPackageEntry(state, 'pkg-a');
-        assert.strictEqual(entry.decisions.deadCodeElimination?.files.length, 1);
-        assert.deepStrictEqual(entry.eliminatedSourceFiles, [ { path: 'b.js', sourceBytes: 5, reason: 'no-uses' } ]);
+        assert.partialDeepStrictEqual(entry, {
+            decisions: {
+                deadCodeElimination: {
+                    files: {
+                        length: 1
+                    }
+                }
+            },
+            eliminatedSourceFiles: [ { path: 'b.js', sourceBytes: 5, reason: 'no-uses' } ]
+        });
     });
 }
 

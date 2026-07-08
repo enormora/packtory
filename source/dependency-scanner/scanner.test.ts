@@ -62,11 +62,15 @@ suite('scanner', function () {
 
             await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
 
-            assert.strictEqual(analyzeProject.callCount, 1);
-            assert.deepStrictEqual(analyzeProject.firstCall.args, [
-                '/foo',
-                { resolveDeclarationFiles: false, mainPackageJson: defaultMainPackageJson }
-            ]);
+            assert.partialDeepStrictEqual(analyzeProject, {
+                callCount: 1,
+                firstCall: {
+                    args: [
+                        '/foo',
+                        { resolveDeclarationFiles: false, mainPackageJson: defaultMainPackageJson }
+                    ]
+                }
+            });
         });
 
         test('passes the resolveDeclarationFiles option to the project analyzer', async function () {
@@ -78,11 +82,15 @@ suite('scanner', function () {
                 mainPackageJson: defaultMainPackageJson
             });
 
-            assert.strictEqual(analyzeProject.callCount, 1);
-            assert.deepStrictEqual(analyzeProject.firstCall.args, [
-                '/foo',
-                { resolveDeclarationFiles: true, mainPackageJson: defaultMainPackageJson }
-            ]);
+            assert.partialDeepStrictEqual(analyzeProject, {
+                callCount: 1,
+                firstCall: {
+                    args: [
+                        '/foo',
+                        { resolveDeclarationFiles: true, mainPackageJson: defaultMainPackageJson }
+                    ]
+                }
+            });
         });
 
         test('scans the dependencies of the given entryPoint file', async function () {
@@ -92,8 +100,12 @@ suite('scanner', function () {
 
             await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
 
-            assert.strictEqual(getReferencedModules.callCount, 1);
-            assert.deepStrictEqual(getReferencedModules.firstCall.args, [ '/foo/bar.js' ]);
+            assert.partialDeepStrictEqual(getReferencedModules, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/bar.js' ]
+                }
+            });
         });
     });
 
@@ -145,9 +157,15 @@ suite('scanner', function () {
                 mainPackageJson: defaultMainPackageJson
             });
 
-            assert.strictEqual(locate.callCount, 2);
-            assert.deepStrictEqual(locate.firstCall.args, [ '/dir/entry.js', '/dir' ]);
-            assert.deepStrictEqual(locate.secondCall.args, [ '/dir/foo.js', '/dir' ]);
+            assert.partialDeepStrictEqual(locate, {
+                callCount: 2,
+                firstCall: {
+                    args: [ '/dir/entry.js', '/dir' ]
+                },
+                secondCall: {
+                    args: [ '/dir/foo.js', '/dir' ]
+                }
+            });
         });
 
         async function scanWithSourceMapLocate(locate: SinonSpy): Promise<DependencyFiles> {
@@ -227,10 +245,18 @@ suite('scanner', function () {
             });
             const result = graph.flatten('/dir/entry.js');
 
-            assert.strictEqual(getReferencedModules.callCount, 4);
-            assert.deepStrictEqual(getReferencedModules.firstCall.args, [ '/dir/entry.js' ]);
-            assert.deepStrictEqual(getReferencedModules.secondCall.args, [ '/dir/foo.js' ]);
-            assert.deepStrictEqual(getReferencedModules.thirdCall.args, [ '/dir/bar.js' ]);
+            assert.partialDeepStrictEqual(getReferencedModules, {
+                callCount: 4,
+                firstCall: {
+                    args: [ '/dir/entry.js' ]
+                },
+                secondCall: {
+                    args: [ '/dir/foo.js' ]
+                },
+                thirdCall: {
+                    args: [ '/dir/bar.js' ]
+                }
+            });
             assert.deepStrictEqual(getReferencedModules.getCall(3).args, [ '/dir/baz.js' ]);
             assert.deepStrictEqual(result.localFiles, [
                 {

@@ -118,8 +118,12 @@ function runAnalyzeProjectExpectingArgs(testArgs: AnalyzeProjectExpectation): vo
             extra: testArgs.expectedExtra
         })
     );
-    assert.strictEqual(addSourceFilesAtPaths.callCount, 1);
-    assert.deepStrictEqual(addSourceFilesAtPaths.firstCall.args, [ [ testArgs.expectedFilesGlob ] ]);
+    assert.partialDeepStrictEqual(addSourceFilesAtPaths, {
+        callCount: 1,
+        firstCall: {
+            args: [ [ testArgs.expectedFilesGlob ] ]
+        }
+    });
 }
 
 suite('typescript-project-analyzer', function () {

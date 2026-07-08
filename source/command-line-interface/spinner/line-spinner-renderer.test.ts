@@ -45,8 +45,12 @@ suite('line-spinner-renderer', function () {
 
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
 
-        assert.strictEqual(log.callCount, 1);
-        assert.deepStrictEqual(log.firstCall.args, [ 'pkg-a: Scheduled ...' ]);
+        assert.partialDeepStrictEqual(log, {
+            callCount: 1,
+            firstCall: {
+                args: [ 'pkg-a: Scheduled ...' ]
+            }
+        });
     });
 
     test('updateMessage() logs message updates as plain lines', function () {
@@ -55,8 +59,12 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.updateMessage('the-id', 'Building package with version 1.2.3');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ 'pkg-a: Building package with version 1.2.3' ]);
+        assert.partialDeepStrictEqual(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ 'pkg-a: Building package with version 1.2.3' ]
+            }
+        });
     });
 
     test('add() throws when adding two spinners with the same id', function () {
@@ -83,8 +91,12 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.stop('the-id', 'success', 'First version 1.2.3 has been published');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ '✔ pkg-a: First version 1.2.3 has been published' ]);
+        assert.partialDeepStrictEqual(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ '✔ pkg-a: First version 1.2.3 has been published' ]
+            }
+        });
     });
 
     test('stop() logs a failure line with the final message', function () {
@@ -93,8 +105,12 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.stop('the-id', 'failure', 'publish failed');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ '✖ pkg-a: publish failed' ]);
+        assert.partialDeepStrictEqual(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ '✖ pkg-a: publish failed' ]
+            }
+        });
     });
 
     test('stop() throws when trying to stop a spinner that does not exist', function () {
@@ -115,7 +131,11 @@ suite('line-spinner-renderer', function () {
 
         renderer.add('the-id', 'pkg-a', 'Scheduled again');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ 'pkg-a: Scheduled again' ]);
+        assert.partialDeepStrictEqual(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ 'pkg-a: Scheduled again' ]
+            }
+        });
     });
 });

@@ -89,7 +89,7 @@ suite('placeholder-tarball', function () {
             return entry.name === 'package/package.json';
         });
 
-        assert.ok(manifestEntry !== undefined, 'expected manifest entry');
+        assert.notStrictEqual(manifestEntry, undefined, 'expected manifest entry');
         assert.strictEqual(manifestEntry.content.endsWith('\n'), true);
         assert.deepStrictEqual(JSON.parse(manifestEntry.content), {
             name: '@scope/example',
@@ -110,7 +110,7 @@ suite('placeholder-tarball', function () {
             return entry.name === 'package/readme.md';
         });
 
-        assert.ok(readmeEntry !== undefined, 'expected readme entry');
+        assert.notStrictEqual(readmeEntry, undefined, 'expected readme entry');
         assert.strictEqual(readmeEntry.content, readmeContent);
     });
 

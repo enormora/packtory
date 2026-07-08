@@ -27,8 +27,14 @@ suite('spinner-runtime', function () {
             spawnWorker: spawn
         });
 
-        assert.strictEqual(runtime.slotCount, 5);
-        assert.strictEqual(runtime.accessors.layout.slotCount, 5);
+        assert.partialDeepStrictEqual(runtime, {
+            slotCount: 5,
+            accessors: {
+                layout: {
+                    slotCount: 5
+                }
+            }
+        });
     });
 
     test('createSpinnerRuntime defaults the slot count when none is provided', function () {
@@ -52,9 +58,11 @@ suite('spinner-runtime', function () {
         if (request === undefined) {
             assert.fail('expected a worker spawn request');
         }
-        assert.strictEqual(request.buffer, runtime.accessors.buffer);
-        assert.strictEqual(request.slotCount, 4);
-        assert.strictEqual(request.stdoutFileDescriptor, 7);
+        assert.partialDeepStrictEqual(request, {
+            buffer: runtime.accessors.buffer,
+            slotCount: 4,
+            stdoutFileDescriptor: 7
+        });
     });
 
     test('createSpinnerRuntime initializes the shared accessors with the requested interval and columns', function () {

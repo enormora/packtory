@@ -50,7 +50,7 @@ function assertRecomposedMap(analyzed: AnalyzedBundle | undefined, originalMap: 
     const emittedMap = analyzed?.contents.find(function (resource) {
         return resource.fileDescription.targetFilePath === 'index.ts.map';
     });
-    assert.ok(emittedMap !== undefined);
+    assert.notStrictEqual(emittedMap, undefined);
     assert.notStrictEqual(emittedMap.fileDescription.content, originalMap);
     const parsed = JSON.parse(emittedMap.fileDescription.content) as {
         readonly mappings: string;
@@ -140,9 +140,11 @@ suite('eliminator bundle analysis', function () {
                 } ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
-            assert.strictEqual(analyzed?.roots, input.roots);
-            assert.strictEqual(analyzed.externalDependencies, input.externalDependencies);
-            assert.strictEqual(analyzed.linkedBundleDependencies, input.linkedBundleDependencies);
+            assert.partialDeepStrictEqual(analyzed, {
+                roots: input.roots,
+                externalDependencies: input.externalDependencies,
+                linkedBundleDependencies: input.linkedBundleDependencies
+            });
         });
 
         test('eliminate preserves resource fields and uses empty analysis defaults on non-code files', async function () {
@@ -152,15 +154,17 @@ suite('eliminator bundle analysis', function () {
                 inputs(linkedBundle({ name: 'pkg', contents: [ resource ] }))
             );
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
-            assert.strictEqual(emitted.fileDescription, resource.fileDescription);
-            assert.strictEqual(emitted.isSubstituted, false);
-            assert.strictEqual(emitted.directDependencies, resource.directDependencies);
-            assert.strictEqual(emitted.isExplicitlyIncluded, resource.isExplicitlyIncluded);
-            assert.deepStrictEqual(emitted.analysis, {
-                survivingBindings: new Set<string>(),
-                sideEffectStatements: [],
-                sideEffectImports: new Set<string>()
+            assert.notStrictEqual(emitted, undefined);
+            assert.partialDeepStrictEqual(emitted, {
+                fileDescription: resource.fileDescription,
+                isSubstituted: false,
+                directDependencies: resource.directDependencies,
+                isExplicitlyIncluded: resource.isExplicitlyIncluded,
+                analysis: {
+                    survivingBindings: new Set<string>(),
+                    sideEffectStatements: [],
+                    sideEffectImports: new Set<string>()
+                }
             });
         });
     });
@@ -170,15 +174,17 @@ suite('eliminator bundle analysis', function () {
             const eliminator = createTestEliminator();
             const input: AnalyzedBundle = analyzedBundle({ name: 'pkg' });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
-            assert.strictEqual(analyzed?.name, 'pkg');
-            assert.strictEqual(analyzed.sideEffectsField, false);
+            assert.partialDeepStrictEqual(analyzed, {
+                name: 'pkg',
+                sideEffectsField: false
+            });
         });
 
         test('eliminate removes an unreachable function declaration and records the surviving bindings when transformations are enabled', async function () {
             const eliminator = createTestEliminator();
             const [ analyzed ] = await eliminator.eliminate(inputs(indexTsBundle()));
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.strictEqual(emitted.fileDescription.content.includes('dead'), false);
             assert.strictEqual(emitted.fileDescription.content.includes('live'), true);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'live' ]));
@@ -198,7 +204,7 @@ suite('eliminator bundle analysis', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.strictEqual(emitted.fileDescription.content.includes('export const { live, dead } = api;'), true);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'api', 'live', 'dead' ]));
         });
@@ -218,7 +224,7 @@ suite('eliminator bundle analysis', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.strictEqual(emitted.fileDescription.content.includes('const { helper, other } = build();'), true);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'helper', 'other', 'build', 'live' ]));
         });
@@ -235,7 +241,7 @@ suite('eliminator bundle analysis', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.strictEqual(
                 emitted.fileDescription.content.includes('const { helper, other } = { helper: 1, other: 2 };'),
                 true
@@ -259,7 +265,7 @@ suite('eliminator bundle analysis', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.strictEqual(emitted.fileDescription.content.includes('const globalSchema = 1;'), true);
             assert.strictEqual(emitted.fileDescription.content.includes('const perPackageSchema = 2;'), true);
             assert.strictEqual(emitted.fileDescription.content.includes('function run()'), true);
@@ -273,7 +279,7 @@ suite('eliminator bundle analysis', function () {
             const eliminator = createTestEliminator();
             const result = await eliminator.eliminate([ { bundle: indexTsBundle(), transformationsEnabled: false } ]);
             const emitted = result[0]?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.strictEqual(emitted.fileDescription.content, indexTsContent);
         });
 

@@ -20,16 +20,20 @@ suite('preview-summary', function () {
         const summary = summarizePackages([
             { hasChanges: true, eliminatedSourceFiles: [], artifactCounts: { emitted: 1, changed: 1 } }
         ]);
-        assert.strictEqual(summary.changedPackages, 1);
-        assert.strictEqual(summary.unchangedPackages, 0);
+        assert.partialDeepStrictEqual(summary, {
+            changedPackages: 1,
+            unchangedPackages: 0
+        });
     });
 
     test('summarizePackages counts an unchanged success as an unchanged package', function () {
         const summary = summarizePackages([
             { hasChanges: false, eliminatedSourceFiles: [], artifactCounts: { emitted: 0, changed: 0 } }
         ]);
-        assert.strictEqual(summary.unchangedPackages, 1);
-        assert.strictEqual(summary.changedPackages, 0);
+        assert.partialDeepStrictEqual(summary, {
+            unchangedPackages: 1,
+            changedPackages: 0
+        });
     });
 
     test('summarizePackages counts a package as failed when it has a failure entry', function () {
@@ -52,8 +56,10 @@ suite('preview-summary', function () {
                 artifactCounts: { emitted: 2, changed: 1 }
             }
         ]);
-        assert.strictEqual(summary.emittedArtifacts, 2);
-        assert.strictEqual(summary.changedArtifacts, 1);
-        assert.strictEqual(summary.eliminatedSourceFiles, 1);
+        assert.partialDeepStrictEqual(summary, {
+            emittedArtifacts: 2,
+            changedArtifacts: 1,
+            eliminatedSourceFiles: 1
+        });
     });
 });

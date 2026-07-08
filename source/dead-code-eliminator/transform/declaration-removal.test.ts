@@ -20,7 +20,7 @@ suite('declaration-removal', function () {
         const mutated = processStatement(sourceFile.getFunctionOrThrow('keep'), new Set([ 'keep' ]));
 
         assert.strictEqual(mutated, false);
-        assert.ok(sourceFile.getFunction('keep') !== undefined);
+        assert.notStrictEqual(sourceFile.getFunction('keep'), undefined);
     });
 
     test('processStatement drops only the non-surviving declarators inside a variable statement', function () {

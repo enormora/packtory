@@ -21,15 +21,19 @@ suite('artifact-entry-merger', function () {
     test('mergeArtifactEntry adds the import-path-rewrite badge and "changed" status for rewritten files', function () {
         const merged = mergeArtifactEntry(baseEntry, new Set([ '/workspace/src/index.js' ]), new Set());
 
-        assert.strictEqual(merged.status, 'changed');
-        assert.deepStrictEqual(merged.badges, [ 'import-path-rewrite' ]);
+        assert.partialDeepStrictEqual(merged, {
+            status: 'changed',
+            badges: [ 'import-path-rewrite' ]
+        });
     });
 
     test('mergeArtifactEntry adds the dead-code-elimination badge and "changed" status for transformed files', function () {
         const merged = mergeArtifactEntry(baseEntry, new Set(), new Set([ '/workspace/src/index.js' ]));
 
-        assert.strictEqual(merged.status, 'changed');
-        assert.deepStrictEqual(merged.badges, [ 'dead-code-elimination' ]);
+        assert.partialDeepStrictEqual(merged, {
+            status: 'changed',
+            badges: [ 'dead-code-elimination' ]
+        });
     });
 
     test('mergeArtifactEntry combines both badges when both rewrite and transform apply', function () {

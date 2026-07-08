@@ -30,6 +30,11 @@ type EntryPointScriptCall = {
 
 const testDeadlineMilliseconds = 200;
 
+function isClosedServerFetchFailure(error: unknown): boolean {
+    return error instanceof Error &&
+        [ 'TypeError', 'TimeoutError', 'AbortError' ].includes(error.name);
+}
+
 suite('github-release-gate-test-support', function () {
     test('createBaseEnvironment exposes the expected default publish settings', function () {
         assert.strictEqual(workspaceOutputPath, '/workspace/github-output.txt');
@@ -174,11 +179,14 @@ suite('github-release-gate-test-support', function () {
 
         assert.strictEqual(actionResult, 'done');
         assert.match(apiBaseUrl, /^http:\/\/127\.0\.0\.1:\d+$/u);
-        await assert.rejects(async function () {
-            await fetch(`${apiBaseUrl}/ready`, {
-                signal: AbortSignal.timeout(testDeadlineMilliseconds)
-            });
-        });
+        await assert.rejects(
+            async function () {
+                await fetch(`${apiBaseUrl}/ready`, {
+                    signal: AbortSignal.timeout(testDeadlineMilliseconds)
+                });
+            },
+            isClosedServerFetchFailure
+        );
     });
 
     test('runEntryPointScript uses the expected temp prefix, utf8 encoding, and output fallback', async function () {

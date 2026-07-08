@@ -16,8 +16,10 @@ suite('registry-client publish outcomes', function () {
         await publishWithBearerToken(registryClient, { access: 'public', provenance: { type: 'auto' } }, false);
 
         const publishOptions = publish.firstCall.args.at(-1) as Record<string, unknown>;
-        assert.strictEqual(publishOptions.access, 'public');
-        assert.strictEqual(publishOptions.provenance, true);
+        assert.partialDeepStrictEqual(publishOptions, {
+            access: 'public',
+            provenance: true
+        });
     });
 
     test('publishPackage() rewrites a libnpmpublish error through the publish-settings bridge', async function () {

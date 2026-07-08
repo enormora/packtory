@@ -41,7 +41,7 @@ export function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
 }
 
 export function collectTargetPaths(analyzed: AnalyzedBundle | undefined): readonly string[] {
-    assert.ok(analyzed !== undefined);
+    assert.notStrictEqual(analyzed, undefined);
     return analyzed.contents.map(function (resource) {
         return resource.fileDescription.targetFilePath;
     });

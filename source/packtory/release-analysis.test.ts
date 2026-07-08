@@ -289,8 +289,10 @@ function registerReleaseSummaryTests(): void {
             }
         ]);
 
-        assert.strictEqual(result.classification, 'substantive');
-        assert.deepStrictEqual(result.mostRecentPublishedAt, new Date('2026-05-03T00:00:00.000Z'));
+        assert.partialDeepStrictEqual(result, {
+            classification: 'substantive',
+            mostRecentPublishedAt: new Date('2026-05-03T00:00:00.000Z')
+        });
     });
 
     test('summarizeReleaseAnalysis stays unchanged when every package analysis is unchanged', function () {
@@ -303,8 +305,10 @@ function registerReleaseSummaryTests(): void {
             }
         ]);
 
-        assert.strictEqual(result.classification, 'unchanged');
-        assert.strictEqual(result.mostRecentPublishedAt, undefined);
+        assert.partialDeepStrictEqual(result, {
+            classification: 'unchanged',
+            mostRecentPublishedAt: undefined
+        });
     });
 
     test('summarizeReleaseAnalysis prefers first-publish over dependency-only', function () {
@@ -349,8 +353,10 @@ function registerReleaseSummaryTests(): void {
             }
         ]);
 
-        assert.strictEqual(result.classification, 'first-publish');
-        assert.strictEqual(result.mostRecentPublishedAt, undefined);
+        assert.partialDeepStrictEqual(result, {
+            classification: 'first-publish',
+            mostRecentPublishedAt: undefined
+        });
     });
 
     test('summarizeReleaseAnalysis uses dependency-only when it is the strongest changed classification', function () {
@@ -363,8 +369,10 @@ function registerReleaseSummaryTests(): void {
             }
         ]);
 
-        assert.strictEqual(result.classification, 'dependency-only');
-        assert.deepStrictEqual(result.mostRecentPublishedAt, new Date('2026-05-02T00:00:00.000Z'));
+        assert.partialDeepStrictEqual(result, {
+            classification: 'dependency-only',
+            mostRecentPublishedAt: new Date('2026-05-02T00:00:00.000Z')
+        });
     });
 
     test('summarizeReleaseAnalysis keeps the latest published timestamp even when later entries are older', function () {

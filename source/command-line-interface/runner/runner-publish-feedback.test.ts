@@ -40,10 +40,14 @@ suite('runner publish feedback', function () {
 
         test('prints error summary when publish command encounters config errors', async function () {
             const { log } = await runWithIssues('config', [ 'foo' ]);
-            assert.strictEqual(log.callCount, 2);
-            assert.deepStrictEqual(log.firstCall.args, [
-                '✖ The provided config is invalid, there are 1 issue(s)\n\n- foo'
-            ]);
+            assert.partialDeepStrictEqual(log, {
+                callCount: 2,
+                firstCall: {
+                    args: [
+                        '✖ The provided config is invalid, there are 1 issue(s)\n\n- foo'
+                    ]
+                }
+            });
         });
 
         test('prints every config issue on its own bullet line', async function () {
@@ -55,8 +59,12 @@ suite('runner publish feedback', function () {
 
         test('prints error summary when publish command encounters check errors', async function () {
             const { log } = await runWithIssues('checks', [ 'foo' ]);
-            assert.strictEqual(log.callCount, 2);
-            assert.deepStrictEqual(log.firstCall.args, [ '✖ Checks failed, there are 1 issue(s)\n\n- foo' ]);
+            assert.partialDeepStrictEqual(log, {
+                callCount: 2,
+                firstCall: {
+                    args: [ '✖ Checks failed, there are 1 issue(s)\n\n- foo' ]
+                }
+            });
         });
 
         test('prints every check issue on its own bullet line', async function () {
@@ -90,28 +98,44 @@ suite('runner publish feedback', function () {
         test('prints error summary and dry-run note when publish command encounters partial errors', async function () {
             const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures));
 
-            assert.strictEqual(log.callCount, 2);
-            assert.deepStrictEqual(log.firstCall.args, [
-                '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
-            ]);
-            assert.deepStrictEqual(log.secondCall.args, [ dryRunNote ]);
+            assert.partialDeepStrictEqual(log, {
+                callCount: 2,
+                firstCall: {
+                    args: [
+                        '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
+                    ]
+                },
+                secondCall: {
+                    args: [ dryRunNote ]
+                }
+            });
         });
 
         test('prints error summary without dry-run note when publish command encounters partial errors and dry-run mode is disabled', async function () {
             const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures), [ '--no-dry-run' ]);
 
-            assert.strictEqual(log.callCount, 1);
-            assert.deepStrictEqual(log.firstCall.args, [
-                '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
-            ]);
+            assert.partialDeepStrictEqual(log, {
+                callCount: 1,
+                firstCall: {
+                    args: [
+                        '✖ 2 from 3 package(s) failed; 1 succeeded\n- first\n- second'
+                    ]
+                }
+            });
         });
 
         test('prints success summary and dry-run note when publish command had no errors', async function () {
             const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok([ 'foo', 'bar' ]))));
 
-            assert.strictEqual(log.callCount, 2);
-            assert.deepStrictEqual(log.firstCall.args, [ '✔ Success: all 2 package(s) have been published' ]);
-            assert.deepStrictEqual(log.secondCall.args, [ dryRunNote ]);
+            assert.partialDeepStrictEqual(log, {
+                callCount: 2,
+                firstCall: {
+                    args: [ '✔ Success: all 2 package(s) have been published' ]
+                },
+                secondCall: {
+                    args: [ dryRunNote ]
+                }
+            });
         });
 
         test('prints success summary without dry-run note when publish command had no errors and dry-run mode is disabled', async function () {
@@ -119,8 +143,12 @@ suite('runner publish feedback', function () {
                 '--no-dry-run'
             ]);
 
-            assert.strictEqual(log.callCount, 1);
-            assert.deepStrictEqual(log.firstCall.args, [ '✔ Success: all 2 package(s) have been published' ]);
+            assert.partialDeepStrictEqual(log, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '✔ Success: all 2 package(s) have been published' ]
+                }
+            });
         });
     });
 
@@ -152,8 +180,12 @@ suite('runner publish feedback', function () {
             await runner.run([ 'foo', 'bar', 'publish' ]);
             progressBroadcaster.provider.emit('scheduled', { packageName: 'foo' });
 
-            assert.strictEqual(add.callCount, 1);
-            assert.deepStrictEqual(add.firstCall.args, [ 'foo', 'foo', 'Scheduled …' ]);
+            assert.partialDeepStrictEqual(add, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'foo', 'foo', 'Scheduled …' ]
+                }
+            });
         });
 
         async function runWithProgressEvent(
@@ -174,8 +206,12 @@ suite('runner publish feedback', function () {
             const stop = fake();
             await runWithProgressEvent({ stop }, 'error', { packageName: 'foo', error: new Error('bar') });
 
-            assert.strictEqual(stop.callCount, 1);
-            assert.deepStrictEqual(stop.firstCall.args, [ 'foo', 'failure', 'bar' ]);
+            assert.partialDeepStrictEqual(stop, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'foo', 'failure', 'bar' ]
+                }
+            });
         });
 
         test('stops a running spinner with success status when progressBroadcaster receives an "done" event and already-published status', async function () {
@@ -187,12 +223,16 @@ suite('runner publish feedback', function () {
                 publication: noPublicationOutcome
             });
 
-            assert.strictEqual(stop.callCount, 1);
-            assert.deepStrictEqual(stop.firstCall.args, [
-                'foo',
-                'success',
-                'Nothing has changed, published version 1 is already up-to-date'
-            ]);
+            assert.partialDeepStrictEqual(stop, {
+                callCount: 1,
+                firstCall: {
+                    args: [
+                        'foo',
+                        'success',
+                        'Nothing has changed, published version 1 is already up-to-date'
+                    ]
+                }
+            });
         });
 
         test('stops a running spinner with success status when progressBroadcaster receives an "done" event and initial-version status', async function () {
@@ -204,8 +244,12 @@ suite('runner publish feedback', function () {
                 publication: noPublicationOutcome
             });
 
-            assert.strictEqual(stop.callCount, 1);
-            assert.deepStrictEqual(stop.firstCall.args, [ 'foo', 'success', 'First version 1 has been published' ]);
+            assert.partialDeepStrictEqual(stop, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'foo', 'success', 'First version 1 has been published' ]
+                }
+            });
         });
 
         test('stops a running spinner with success status when progressBroadcaster receives an "done" event and new-version status', async function () {
@@ -217,24 +261,36 @@ suite('runner publish feedback', function () {
                 publication: noPublicationOutcome
             });
 
-            assert.strictEqual(stop.callCount, 1);
-            assert.deepStrictEqual(stop.firstCall.args, [ 'foo', 'success', 'New version 1 published' ]);
+            assert.partialDeepStrictEqual(stop, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'foo', 'success', 'New version 1 published' ]
+                }
+            });
         });
 
         test('updates a running spinner message when a "building" event is received', async function () {
             const updateMessage = fake();
             await runWithProgressEvent({ updateMessage }, 'building', { packageName: 'foo', version: '1' });
 
-            assert.strictEqual(updateMessage.callCount, 1);
-            assert.deepStrictEqual(updateMessage.firstCall.args, [ 'foo', 'Building package with version 1' ]);
+            assert.partialDeepStrictEqual(updateMessage, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'foo', 'Building package with version 1' ]
+                }
+            });
         });
 
         test('updates a running spinner message when a "rebuilding" event is received', async function () {
             const updateMessage = fake();
             await runWithProgressEvent({ updateMessage }, 'rebuilding', { packageName: 'foo', version: '1' });
 
-            assert.strictEqual(updateMessage.callCount, 1);
-            assert.deepStrictEqual(updateMessage.firstCall.args, [ 'foo', 'Rebuilding package with version 1' ]);
+            assert.partialDeepStrictEqual(updateMessage, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'foo', 'Rebuilding package with version 1' ]
+                }
+            });
         });
     });
 });

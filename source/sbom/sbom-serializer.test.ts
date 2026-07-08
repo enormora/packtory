@@ -15,8 +15,10 @@ suite('sbom-serializer', function () {
 
         const result = JSON.parse(serializer.serialize(bom)) as Record<string, unknown>;
 
-        assert.strictEqual(result.specVersion, '1.6');
-        assert.strictEqual(result.bomFormat, 'CycloneDX');
+        assert.partialDeepStrictEqual(result, {
+            specVersion: '1.6',
+            bomFormat: 'CycloneDX'
+        });
     });
 
     test('serialize() yields byte-identical output for the same inputs', function () {

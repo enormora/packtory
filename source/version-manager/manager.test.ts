@@ -47,43 +47,45 @@ suite('manager', function () {
             allowMutableSpecifiers: []
         });
 
-        assert.deepStrictEqual(result.packageJson, {
-            name: 'package-a',
-            version: '1.2.3',
-            exports: {
-                '.': {
-                    import: './index.js',
-                    types: './index.d.ts'
-                }
+        assert.partialDeepStrictEqual(result, {
+            packageJson: {
+                name: 'package-a',
+                version: '1.2.3',
+                exports: {
+                    '.': {
+                        import: './index.js',
+                        types: './index.d.ts'
+                    }
+                },
+                type: 'module',
+                dependencies: { 'bundle-dependency': '4.5.6', 'left-pad': '^1.0.0' },
+                publishConfig: { access: 'public' }
             },
-            type: 'module',
-            dependencies: { 'bundle-dependency': '4.5.6', 'left-pad': '^1.0.0' },
-            publishConfig: { access: 'public' }
-        });
-        assert.deepStrictEqual(result.manifestFile, {
-            filePath: 'package.json',
-            isExecutable: false,
-            content: [
-                '{',
-                '    "dependencies": {',
-                '        "bundle-dependency": "4.5.6",',
-                '        "left-pad": "^1.0.0"',
-                '    },',
-                '    "exports": {',
-                '        ".": {',
-                '            "import": "./index.js",',
-                '            "types": "./index.d.ts"',
-                '        }',
-                '    },',
-                '    "name": "package-a",',
-                '    "publishConfig": {',
-                '        "access": "public"',
-                '    },',
-                '    "type": "module",',
-                '    "version": "1.2.3"',
-                '}'
-            ]
-                .join('\n')
+            manifestFile: {
+                filePath: 'package.json',
+                isExecutable: false,
+                content: [
+                    '{',
+                    '    "dependencies": {',
+                    '        "bundle-dependency": "4.5.6",',
+                    '        "left-pad": "^1.0.0"',
+                    '    },',
+                    '    "exports": {',
+                    '        ".": {',
+                    '            "import": "./index.js",',
+                    '            "types": "./index.d.ts"',
+                    '        }',
+                    '    },',
+                    '    "name": "package-a",',
+                    '    "publishConfig": {',
+                    '        "access": "public"',
+                    '    },',
+                    '    "type": "module",',
+                    '    "version": "1.2.3"',
+                    '}'
+                ]
+                    .join('\n')
+            }
         });
     });
 
@@ -106,43 +108,45 @@ suite('manager', function () {
             })
         );
 
-        assert.strictEqual(result.version, '1.2.4');
-        assert.deepStrictEqual(result.packageJson, {
-            name: 'package-a',
+        assert.partialDeepStrictEqual(result, {
             version: '1.2.4',
-            exports: {
-                '.': {
-                    import: './index.js',
-                    types: './index.d.ts'
-                }
+            packageJson: {
+                name: 'package-a',
+                version: '1.2.4',
+                exports: {
+                    '.': {
+                        import: './index.js',
+                        types: './index.d.ts'
+                    }
+                },
+                type: 'module',
+                dependencies: { dep: '^1.0.0' },
+                peerDependencies: { react: '^19.0.0' }
             },
-            type: 'module',
-            dependencies: { dep: '^1.0.0' },
-            peerDependencies: { react: '^19.0.0' }
-        });
-        assert.deepStrictEqual(result.manifestFile, {
-            filePath: 'package.json',
-            isExecutable: false,
-            content: [
-                '{',
-                '    "dependencies": {',
-                '        "dep": "^1.0.0"',
-                '    },',
-                '    "exports": {',
-                '        ".": {',
-                '            "import": "./index.js",',
-                '            "types": "./index.d.ts"',
-                '        }',
-                '    },',
-                '    "name": "package-a",',
-                '    "peerDependencies": {',
-                '        "react": "^19.0.0"',
-                '    },',
-                '    "type": "module",',
-                '    "version": "1.2.4"',
-                '}'
-            ]
-                .join('\n')
+            manifestFile: {
+                filePath: 'package.json',
+                isExecutable: false,
+                content: [
+                    '{',
+                    '    "dependencies": {',
+                    '        "dep": "^1.0.0"',
+                    '    },',
+                    '    "exports": {',
+                    '        ".": {',
+                    '            "import": "./index.js",',
+                    '            "types": "./index.d.ts"',
+                    '        }',
+                    '    },',
+                    '    "name": "package-a",',
+                    '    "peerDependencies": {',
+                    '        "react": "^19.0.0"',
+                    '    },',
+                    '    "type": "module",',
+                    '    "version": "1.2.4"',
+                    '}'
+                ]
+                    .join('\n')
+            }
         });
     });
 
@@ -247,10 +251,12 @@ suite('manager', function () {
         callAddVersionWithProvider(broadcaster.provider, { publishConfig: { access: 'public' } });
 
         const fields = expectAssembledFields(received);
-        assert.deepStrictEqual(fields.type, { source: 'mainPackageJson' });
-        assert.deepStrictEqual(fields.publishConfig, { source: 'additionalAttributes' });
-        assert.deepStrictEqual(fields.name, { source: 'derived' });
-        assert.deepStrictEqual(fields.version, { source: 'derived' });
+        assert.partialDeepStrictEqual(fields, {
+            type: { source: 'mainPackageJson' },
+            publishConfig: { source: 'additionalAttributes' },
+            name: { source: 'derived' },
+            version: { source: 'derived' }
+        });
     });
 
     test('addVersion() does NOT emit packageJsonAssembled when no subscriber is registered', function () {

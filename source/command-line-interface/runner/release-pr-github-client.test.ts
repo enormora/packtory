@@ -283,8 +283,10 @@ suite('release-pr-github-client', function () {
         });
         const pullRequest = await client.getPullRequest(12);
         const commitPullRequests = await client.listCommitPullRequests('merge-sha');
-        assert.strictEqual(pullRequest.number, 12);
-        assert.strictEqual(pullRequest.merged, true);
+        assert.partialDeepStrictEqual(pullRequest, {
+            number: 12,
+            merged: true
+        });
         assert.strictEqual(commitPullRequests[0]?.number, 12);
         assert.strictEqual(records.length > 0, true);
     });

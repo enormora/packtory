@@ -262,8 +262,10 @@ type ReleasePullRequestUpdateAssertion = {
 };
 
 export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpdateAssertion): void {
-    assert.strictEqual(input.commit.callCount, 1);
-    assert.deepStrictEqual(input.readChangedFiles.firstCall.args, [ 'main-head', 'release-head' ]);
+    assert.partialDeepStrictEqual(input, {
+        commit: { callCount: 1 },
+        readChangedFiles: { firstCall: { args: [ 'main-head', 'release-head' ] } }
+    });
     assert.deepStrictEqual(input.createCommitOnBranch.firstCall.args[0], {
         additions: [
             {
@@ -275,8 +277,10 @@ export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpda
         expectedHeadOid: 'main-head',
         message: 'Release packages'
     });
-    assert.strictEqual(input.pushHeadToBranch.callCount, 0);
-    assert.strictEqual(input.pushFollowTags.callCount, 0);
+    assert.partialDeepStrictEqual(input, {
+        pushHeadToBranch: { callCount: 0 },
+        pushFollowTags: { callCount: 0 }
+    });
     assert.deepStrictEqual(input.createOrUpdateReleasePullRequest.firstCall.args[0], {
         baseBranch: 'main',
         body: 'Updates changelogs for the next release.',

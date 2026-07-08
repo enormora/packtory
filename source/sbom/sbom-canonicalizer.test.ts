@@ -159,8 +159,10 @@ suite('sbom-canonicalizer', function () {
             if (result === undefined) {
                 assert.fail('Expected canonicalized SBOM file');
             }
-            assert.strictEqual(result.filePath, 'sbom.cdx.json');
-            assert.strictEqual(result.isExecutable, true);
+            assert.partialDeepStrictEqual(result, {
+                filePath: 'sbom.cdx.json',
+                isExecutable: true
+            });
         });
 
         test('canonicalizes SBOM entries under the npm tarball package prefix', function () {
@@ -177,8 +179,10 @@ suite('sbom-canonicalizer', function () {
             if (result === undefined || previousResult === undefined) {
                 assert.fail('Expected canonicalized SBOM files');
             }
-            assert.strictEqual(result.filePath, 'package/sbom.cdx.json');
-            assert.strictEqual(result.content, previousResult.content);
+            assert.partialDeepStrictEqual(result, {
+                filePath: 'package/sbom.cdx.json',
+                content: previousResult.content
+            });
         });
 
         test('does not modify entries whose path is not sbom.cdx.json', function () {

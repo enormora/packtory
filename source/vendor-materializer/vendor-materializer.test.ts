@@ -30,15 +30,17 @@ function registerMaterializationTests(): void {
             { initialDependencyNames: [ 'broken' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(result.packageNames, [ 'broken' ]);
-        assert.deepStrictEqual(result.entries, [
-            {
-                sourceAbsolutePath: '/repo/node_modules/broken/index.js',
-                sourcePackageRootPath: '/repo/node_modules/broken',
-                targetRelativePath: 'node_modules/broken/index.js',
-                isExecutable: false
-            }
-        ]);
+        assert.partialDeepStrictEqual(result, {
+            packageNames: [ 'broken' ],
+            entries: [
+                {
+                    sourceAbsolutePath: '/repo/node_modules/broken/index.js',
+                    sourcePackageRootPath: '/repo/node_modules/broken',
+                    targetRelativePath: 'node_modules/broken/index.js',
+                    isExecutable: false
+                }
+            ]
+        });
         assert.deepStrictEqual(Array.from(result.peerRequirements), [ [ 'broken', [] ] ]);
     });
 
@@ -53,8 +55,10 @@ function registerMaterializationTests(): void {
             })
         );
 
-        assert.deepStrictEqual(result.entries, []);
-        assert.deepStrictEqual(result.packageNames, []);
+        assert.partialDeepStrictEqual(result, {
+            entries: [],
+            packageNames: []
+        });
     });
 
     test('collects files for a single dependency by probing the start folder first and reads its package.json by exact name', async function () {
@@ -80,21 +84,23 @@ function registerMaterializationTests(): void {
             })
         );
 
-        assert.deepStrictEqual(result.packageNames, [ 'leaf' ]);
-        assert.deepStrictEqual(result.entries, [
-            {
-                sourceAbsolutePath: '/repo/node_modules/leaf/index.js',
-                sourcePackageRootPath: '/repo/node_modules/leaf',
-                targetRelativePath: 'node_modules/leaf/index.js',
-                isExecutable: false
-            },
-            {
-                sourceAbsolutePath: '/repo/node_modules/leaf/package.json',
-                sourcePackageRootPath: '/repo/node_modules/leaf',
-                targetRelativePath: 'node_modules/leaf/package.json',
-                isExecutable: false
-            }
-        ]);
+        assert.partialDeepStrictEqual(result, {
+            packageNames: [ 'leaf' ],
+            entries: [
+                {
+                    sourceAbsolutePath: '/repo/node_modules/leaf/index.js',
+                    sourcePackageRootPath: '/repo/node_modules/leaf',
+                    targetRelativePath: 'node_modules/leaf/index.js',
+                    isExecutable: false
+                },
+                {
+                    sourceAbsolutePath: '/repo/node_modules/leaf/package.json',
+                    sourcePackageRootPath: '/repo/node_modules/leaf',
+                    targetRelativePath: 'node_modules/leaf/package.json',
+                    isExecutable: false
+                }
+            ]
+        });
         assert.deepStrictEqual(fileManager.getCheckReadabilityCall(0), {
             fileOrFolderPath: '/repo/node_modules/leaf'
         });
@@ -292,8 +298,10 @@ function registerMaterializationTests(): void {
             })
         );
 
-        assert.deepStrictEqual(result.entries, []);
-        assert.deepStrictEqual(result.packageNames, []);
+        assert.partialDeepStrictEqual(result, {
+            entries: [],
+            packageNames: []
+        });
         assert.deepStrictEqual(fileManager.getAllCheckReadabilityCalls(), [
             { fileOrFolderPath: '/some/deep/folder/node_modules/missing' },
             { fileOrFolderPath: '/some/deep/node_modules/missing' },

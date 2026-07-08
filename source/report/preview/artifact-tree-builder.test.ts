@@ -24,8 +24,10 @@ suite('artifact-tree-builder', function () {
         const nodes = buildArtifactTree([ artifact('package.json', { kind: 'manifest' }) ]);
         const [ , ...rest ] = nodes;
         const node = expectFirstNode(nodes);
-        assert.strictEqual(node.type, 'file');
-        assert.strictEqual(node.path, 'package.json');
+        assert.partialDeepStrictEqual(node, {
+            type: 'file',
+            path: 'package.json'
+        });
         assert.deepStrictEqual(rest, []);
     });
 

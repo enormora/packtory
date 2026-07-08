@@ -215,7 +215,13 @@ suite('sbom-file', function () {
         const bom = serialize.firstCall.args[0] as {
             readonly metadata: { readonly component: { readonly name: string; readonly version: string; }; };
         };
-        assert.strictEqual(bom.metadata.component.name, 'my-pkg');
-        assert.strictEqual(bom.metadata.component.version, '4.5.6');
+        assert.partialDeepStrictEqual(bom, {
+            metadata: {
+                component: {
+                    name: 'my-pkg',
+                    version: '4.5.6'
+                }
+            }
+        });
     });
 });

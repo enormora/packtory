@@ -178,9 +178,9 @@ suite('preview-io-shared', function () {
             );
             const firstCall = requireFirstCall(calls);
             assert.deepStrictEqual(firstCall.options, { stdio: [ 'pipe', 'inherit', 'inherit' ] });
-            assert.ok(firstCall.child.listeners.close !== undefined);
-            assert.ok(firstCall.child.listeners.error !== undefined);
-            assert.ok(firstCall.child.listeners.stdinError !== undefined);
+            assert.notStrictEqual(firstCall.child.listeners.close, undefined);
+            assert.notStrictEqual(firstCall.child.listeners.error, undefined);
+            assert.notStrictEqual(firstCall.child.listeners.stdinError, undefined);
             assert.strictEqual(firstCall.child.endedContent, 'content');
         });
 

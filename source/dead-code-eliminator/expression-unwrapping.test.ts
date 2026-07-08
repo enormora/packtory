@@ -6,7 +6,7 @@ import { unwrapExpression } from './expression-unwrapping.ts';
 
 function firstDeclaration(declarations: readonly VariableDeclaration[]): VariableDeclaration {
     const [ declaration ] = declarations;
-    assert.ok(declaration !== undefined);
+    assert.notStrictEqual(declaration, undefined);
     return declaration;
 }
 

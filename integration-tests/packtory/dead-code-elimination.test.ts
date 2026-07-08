@@ -99,7 +99,7 @@ function assertSharedDeclarationIssue(
         assert.fail(`Expected a checks failure, got ${result.error.type}`);
     }
     const [ issue ] = result.error.issues;
-    assert.ok(issue !== undefined);
+    assert.notStrictEqual(issue, undefined);
     assert.ok(issue.includes('shared/util.js'));
     assert.ok(issue.includes('"sharedValue"'), 'message should name the shared declaration');
 }

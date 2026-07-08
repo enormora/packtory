@@ -57,8 +57,16 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.deepStrictEqual(result.transforms, []);
-        assert.strictEqual(result.resource.analysis.survivingBindings.size, 0);
+        assert.partialDeepStrictEqual(result, {
+            transforms: [],
+            resource: {
+                analysis: {
+                    survivingBindings: {
+                        size: 0
+                    }
+                }
+            }
+        });
     });
 
     test('buildAnalyzedResource leaves the content unchanged when transformations are disabled', function () {
@@ -66,8 +74,14 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.deepStrictEqual(result.transforms, []);
-        assert.strictEqual(result.resource.fileDescription.content, 'export const foo = 1;\n');
+        assert.partialDeepStrictEqual(result, {
+            transforms: [],
+            resource: {
+                fileDescription: {
+                    content: 'export const foo = 1;\n'
+                }
+            }
+        });
     });
 
     test('buildAnalyzedResource includes side-effect statements in the analysis when transformations are disabled', function () {
@@ -83,8 +97,14 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
 
-        assert.deepStrictEqual(result.transforms, []);
-        assert.strictEqual(result.resource.fileDescription.content, 'console.log(1);\nexport const foo = 1;\n');
+        assert.partialDeepStrictEqual(result, {
+            transforms: [],
+            resource: {
+                fileDescription: {
+                    content: 'console.log(1);\nexport const foo = 1;\n'
+                }
+            }
+        });
     });
 
     test('buildAnalyzedResource carries through every original binding name on the analysis when no transform happens', function () {

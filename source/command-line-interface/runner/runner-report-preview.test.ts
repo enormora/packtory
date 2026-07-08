@@ -247,8 +247,12 @@ suite('runner report and preview', function () {
             assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
             assert.deepStrictEqual(fileManager.getWriteFileCall(0).filePath, '/workspace/packtory-preview-test.html');
             assert.match(fileManager.getWriteFileCall(0).content, /^<!doctype html>/);
-            assert.strictEqual(openFile.callCount, 1);
-            assert.deepStrictEqual(openFile.firstCall.args, [ '/workspace/packtory-preview-test.html' ]);
+            assert.partialDeepStrictEqual(openFile, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/workspace/packtory-preview-test.html' ]
+                }
+            });
             assert.strictEqual(log.callCount, 0);
         });
 
@@ -268,8 +272,12 @@ suite('runner report and preview', function () {
             const exitCode = await runner.run([ 'foo', 'bar', 'preview', '--open' ]);
 
             assert.strictEqual(exitCode, 0);
-            assert.strictEqual(log.callCount, 1);
-            assert.deepStrictEqual(log.firstCall.args, [ '/workspace/packtory-preview-test.html' ]);
+            assert.partialDeepStrictEqual(log, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/workspace/packtory-preview-test.html' ]
+                }
+            });
         });
 
         test('preview builds an empty fallback report when getReport returns undefined', async function () {

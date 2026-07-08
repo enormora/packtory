@@ -24,9 +24,9 @@ suite('source-file-references', function () {
                     withFiles: [ { filePath: 'main.ts', content: `import value from "${moduleName}";` } ]
                 });
 
-                assert.doesNotThrow(function () {
-                    getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
-                });
+                const references = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
+
+                assert.deepStrictEqual(references, []);
             })
         );
     });

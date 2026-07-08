@@ -106,8 +106,14 @@ suite('release-diff-handler', function () {
         const code = await runReleaseDiffHandler(depsWith(outcome, spies));
 
         assert.strictEqual(code, 1);
-        assert.strictEqual(spies.pageOutput.callCount, 0);
-        assert.strictEqual(spies.log.callCount, 1);
+        assert.partialDeepStrictEqual(spies, {
+            pageOutput: {
+                callCount: 0
+            },
+            log: {
+                callCount: 1
+            }
+        });
         const loggedMessage = spies.log.firstCall.args[0] as string;
         assert.match(loggedMessage, /Configuration issues/u);
         assert.ok(!loggedMessage.endsWith('\n'), 'expected failure-only log to be trimEnd-ed');
@@ -138,8 +144,14 @@ suite('release-diff-handler', function () {
         const code = await runReleaseDiffHandler(depsWith(outcome, spies));
 
         assert.strictEqual(code, 1);
-        assert.strictEqual(spies.pageOutput.callCount, 1);
-        assert.strictEqual(spies.log.callCount, 0);
+        assert.partialDeepStrictEqual(spies, {
+            pageOutput: {
+                callCount: 1
+            },
+            log: {
+                callCount: 0
+            }
+        });
         const pagedMessage = spies.pageOutput.firstCall.args[0] as string;
         assert.match(pagedMessage, /pkg-a/u);
         assert.match(pagedMessage, /\[first publish\]/u);

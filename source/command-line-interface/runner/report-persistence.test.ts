@@ -18,9 +18,11 @@ suite('report-persistence', function () {
     test('createEmptyReport returns a schema-version-1 report with no packages or aggregate links', function () {
         const report = createEmptyReport();
 
-        assert.strictEqual(report.schemaVersion, 1);
-        assert.deepStrictEqual(report.packages, {});
-        assert.deepStrictEqual(report.aggregate, { crossBundleLinks: [] });
+        assert.partialDeepStrictEqual(report, {
+            schemaVersion: 1,
+            packages: {},
+            aggregate: { crossBundleLinks: [] }
+        });
     });
 
     test('writeReports writes nothing when the report is undefined', async function () {

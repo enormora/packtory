@@ -43,8 +43,10 @@ suite('package-surface-index', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' }
             });
 
-            assert.deepStrictEqual(summary.publicRootIds, new Set([ 'main', 'worker' ]));
-            assert.strictEqual(summary.representativeRootId, 'main');
+            assert.partialDeepStrictEqual(summary, {
+                publicRootIds: new Set([ 'main', 'worker' ]),
+                representativeRootId: 'main'
+            });
         });
 
         test('summarizePackageSurface returns explicit module and bin roots', function () {
@@ -63,15 +65,19 @@ suite('package-surface-index', function () {
                 }
             });
 
-            assert.deepStrictEqual(summary.publicRootIds, new Set([ 'main', 'cli' ]));
-            assert.strictEqual(summary.representativeRootId, 'main');
+            assert.partialDeepStrictEqual(summary, {
+                publicRootIds: new Set([ 'main', 'cli' ]),
+                representativeRootId: 'main'
+            });
         });
 
         test('summarizePackageSurface falls back to the first explicit bin root', function () {
             const summary = summarizePackageSurface(binsOnlyExplicitBundle);
 
-            assert.deepStrictEqual(summary.publicRootIds, new Set([ 'cli' ]));
-            assert.strictEqual(summary.representativeRootId, 'cli');
+            assert.partialDeepStrictEqual(summary, {
+                publicRootIds: new Set([ 'cli' ]),
+                representativeRootId: 'cli'
+            });
         });
 
         test('summarizePackageSurface rejects explicit surfaces without public entries', function () {
@@ -147,8 +153,10 @@ suite('package-surface-index', function () {
         test('indexPublicModules returns empty maps for explicit surfaces without modules', function () {
             const index = indexPublicModules(binsOnlyExplicitBundle);
 
-            assert.deepStrictEqual(index.sourceFilePathBySpecifier, new Map());
-            assert.deepStrictEqual(index.specifierBySourceFilePath, new Map());
+            assert.partialDeepStrictEqual(index, {
+                sourceFilePathBySpecifier: new Map(),
+                specifierBySourceFilePath: new Map()
+            });
         });
 
         test('indexPublicModules keeps implicit root mappings ahead of duplicate content mappings', function () {

@@ -153,8 +153,10 @@ suite('packtory-release-analysis', function () {
         });
 
         const partial = expectPartialFailure(result);
-        assert.deepStrictEqual(partial.succeeded, []);
-        assert.deepStrictEqual(partial.failures, [ failure ]);
+        assert.partialDeepStrictEqual(partial, {
+            succeeded: [],
+            failures: [ failure ]
+        });
     });
 
     test('skips fresh content collection for already-published build results', async function () {
@@ -224,8 +226,14 @@ suite('packtory-release-analysis', function () {
                 }
             })
         );
-        assert.strictEqual(partial.succeeded.length, 0);
-        assert.strictEqual(partial.failures.length, 1);
+        assert.partialDeepStrictEqual(partial, {
+            succeeded: {
+                length: 0
+            },
+            failures: {
+                length: 1
+            }
+        });
         assert.match(partial.failures[0]?.message ?? '', /collect failed/u);
     });
 

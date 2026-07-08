@@ -146,14 +146,16 @@ function assertCreateCommitGraphQLCall(call: GraphQLCall | undefined): void {
     if (call === undefined) {
         throw new Error('Expected a GraphQL call');
     }
-    assert.deepStrictEqual(call.variables, {
-        additions: [ { contents: encodedChangelogContent, path: 'CHANGELOG.md' } ],
-        branchName: temporaryReleaseBranch,
-        expectedHeadOid: 'main-head',
-        headline: 'Release packages',
-        repositoryNameWithOwner: 'owner/repo'
+    assert.partialDeepStrictEqual(call, {
+        variables: {
+            additions: [ { contents: encodedChangelogContent, path: 'CHANGELOG.md' } ],
+            branchName: temporaryReleaseBranch,
+            expectedHeadOid: 'main-head',
+            headline: 'Release packages',
+            repositoryNameWithOwner: 'owner/repo'
+        },
+        headers: { authorization: 'Bearer token' }
     });
-    assert.deepStrictEqual(call.headers, { authorization: 'Bearer token' });
     assert.match(call.query, /createCommitOnBranch/u);
 }
 

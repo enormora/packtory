@@ -159,10 +159,12 @@ suite('spinner-shared-state', function () {
         test('createSpinnerSharedLayout reports the byte length required to hold the header and slots', function () {
             const layout = createSpinnerSharedLayout(2);
 
-            assert.strictEqual(layout.slotCount, 2);
-            assert.strictEqual(layout.headerByteLength, 24);
-            assert.strictEqual(layout.slotByteLength, 384);
-            assert.strictEqual(layout.bufferByteLength, 24 + 2 * 384);
+            assert.partialDeepStrictEqual(layout, {
+                slotCount: 2,
+                headerByteLength: 24,
+                slotByteLength: 384,
+                bufferByteLength: 24 + 2 * 384
+            });
         });
 
         test('setColumns and getColumns round-trip the value', function () {

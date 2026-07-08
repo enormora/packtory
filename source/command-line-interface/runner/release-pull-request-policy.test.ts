@@ -50,9 +50,9 @@ function assertPolicyError(validate: () => void, expectedMessage: string): void 
 
 suite('release-pull-request-policy', function () {
     test('accepts a valid release pull request', function () {
-        assert.doesNotThrow(function () {
-            validateReleasePullRequestPolicy(validPullRequest, policyConfig);
-        });
+        validateReleasePullRequestPolicy(validPullRequest, policyConfig);
+
+        assert.strictEqual(validPullRequest.headRef, 'release/packtory');
     });
 
     test('rejects release pull requests that violate the policy', function () {
@@ -111,9 +111,9 @@ suite('release-pull-request-policy', function () {
     });
 
     test('accepts merge groups that contain only the release pull request', function () {
-        assert.doesNotThrow(function () {
-            validateReleaseMergeGroupPolicy({ pullRequests: [ validPullRequest ] }, policyConfig);
-        });
+        validateReleaseMergeGroupPolicy({ pullRequests: [ validPullRequest ] }, policyConfig);
+
+        assert.deepStrictEqual(validPullRequest.labels, [ 'release' ]);
     });
 
     test('rejects merge groups with invalid release pull requests', function () {
@@ -133,9 +133,9 @@ suite('release-pull-request-policy', function () {
     });
 
     test('accepts a merged release PR publish target', function () {
-        assert.doesNotThrow(function () {
-            validateReleasePullRequestPublishPolicy(validPublishInput, policyConfig, 'merge-sha');
-        });
+        validateReleasePullRequestPublishPolicy(validPublishInput, policyConfig, 'merge-sha');
+
+        assert.strictEqual(validPublishInput.mergeCommitSha, 'merge-sha');
     });
 
     test('rejects publish targets that violate the policy', function () {
@@ -158,16 +158,16 @@ suite('release-pull-request-policy', function () {
     });
 
     test('accepts merge groups without release pull requests', function () {
-        assert.doesNotThrow(function () {
-            validateReleaseMergeGroupPolicy(
-                {
-                    pullRequests: [
-                        { ...validPullRequest, labels: [ 'bug' ] },
-                        { ...validPullRequest, labels: [ 'feature' ] }
-                    ]
-                },
-                policyConfig
-            );
-        });
+        validateReleaseMergeGroupPolicy(
+            {
+                pullRequests: [
+                    { ...validPullRequest, labels: [ 'bug' ] },
+                    { ...validPullRequest, labels: [ 'feature' ] }
+                ]
+            },
+            policyConfig
+        );
+
+        assert.strictEqual(policyConfig.label, 'release');
     });
 });

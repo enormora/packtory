@@ -161,8 +161,10 @@ function assertPreviousReleaseArtifacts(
     value: PreviousReleaseArtifactsSummary,
     expectedFileCount?: number
 ): void {
-    assert.strictEqual(value.version, latestReleaseMetadata.version);
-    assert.deepStrictEqual(value.publishedAt, publishedAt);
+    assert.partialDeepStrictEqual(value, {
+        version: latestReleaseMetadata.version,
+        publishedAt
+    });
 
     if (expectedFileCount !== undefined) {
         assert.strictEqual(value.files.length, expectedFileCount);
@@ -206,8 +208,12 @@ suite('emitter', function () {
 
             await determineCurrentVersion(emitter, { stage: false, versioning: { automatic: true } });
 
-            assert.strictEqual(fetchLatestVersion.callCount, 1);
-            assert.deepStrictEqual(fetchLatestVersion.firstCall.args, [ 'the-name', registrySettings ]);
+            assert.partialDeepStrictEqual(fetchLatestVersion, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'the-name', registrySettings ]
+                }
+            });
         });
 
         test('determineCurrentVersion() returns the fetched version when automatic versioning is enabled', async function () {
@@ -430,8 +436,12 @@ suite('emitter', function () {
                 bundle: namedBundle()
             });
 
-            assert.strictEqual(fetchLatestReleaseMetadata.callCount, 1);
-            assert.deepStrictEqual(fetchLatestReleaseMetadata.firstCall.args, [ 'the-name', registrySettings ]);
+            assert.partialDeepStrictEqual(fetchLatestReleaseMetadata, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 'the-name', registrySettings ]
+                }
+            });
         });
 
         test('checkBundleAlreadyPublished() returns false and Nothing when there is no latest version in the registry', async function () {
@@ -444,8 +454,12 @@ suite('emitter', function () {
                 bundle: namedBundle()
             });
 
-            assert.strictEqual(result.alreadyPublishedAsLatest, false);
-            assert.strictEqual(result.previousReleaseArtifacts.isNothing, true);
+            assert.partialDeepStrictEqual(result, {
+                alreadyPublishedAsLatest: false,
+                previousReleaseArtifacts: {
+                    isNothing: true
+                }
+            });
             assert.strictEqual(collectContents.callCount, 0);
         });
 

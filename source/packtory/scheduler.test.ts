@@ -189,8 +189,12 @@ suite('scheduler', function () {
         });
 
         const error = getErrResult(result, 'Expected result to be an error');
-        assert.deepStrictEqual(error.succeeded, [ 'root-result', 'package-a-result' ]);
-        assert.strictEqual(error.failures.length, 1);
+        assert.partialDeepStrictEqual(error, {
+            succeeded: [ 'root-result', 'package-a-result' ],
+            failures: {
+                length: 1
+            }
+        });
         assert.strictEqual(error.failures[0]?.message, 'package-b failed');
         const emitCalls = getEmitCallArguments(emit);
         assert.deepStrictEqual(emitCalls.slice(0, 4), [

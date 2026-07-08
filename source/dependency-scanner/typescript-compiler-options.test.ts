@@ -13,8 +13,10 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.strictEqual(options.moduleResolution, ModuleResolutionKind.Node16);
-        assert.strictEqual(options.module, ModuleKind.Node16);
+        assert.partialDeepStrictEqual(options, {
+            moduleResolution: ModuleResolutionKind.Node16,
+            module: ModuleKind.Node16
+        });
     });
 
     test('analyzationOptionsToCompilerOptions enables esModuleInterop, allowJs, resolveJsonModule, noLib, skipLibCheck, and noEmit', function () {
@@ -23,12 +25,14 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.strictEqual(options.esModuleInterop, true);
-        assert.strictEqual(options.allowJs, true);
-        assert.strictEqual(options.resolveJsonModule, true);
-        assert.strictEqual(options.noLib, true);
-        assert.strictEqual(options.skipLibCheck, true);
-        assert.strictEqual(options.noEmit, true);
+        assert.partialDeepStrictEqual(options, {
+            esModuleInterop: true,
+            allowJs: true,
+            resolveJsonModule: true,
+            noLib: true,
+            skipLibCheck: true,
+            noEmit: true
+        });
     });
 
     test('analyzationOptionsToCompilerOptions clears types and typeRoots when declaration-file resolution is disabled', function () {
@@ -37,8 +41,10 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.deepStrictEqual(options.types, []);
-        assert.deepStrictEqual(options.typeRoots, []);
+        assert.partialDeepStrictEqual(options, {
+            types: [],
+            typeRoots: []
+        });
     });
 
     test('analyzationOptionsToCompilerOptions omits types and typeRoots when declaration-file resolution is enabled', function () {
@@ -47,7 +53,9 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.strictEqual(options.types, undefined);
-        assert.strictEqual(options.typeRoots, undefined);
+        assert.partialDeepStrictEqual(options, {
+            types: undefined,
+            typeRoots: undefined
+        });
     });
 });

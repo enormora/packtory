@@ -32,11 +32,12 @@ suite('normalize-paths', function () {
                     const relativeRoot = declarationFile === undefined ? { js } : { js, declarationFile };
                     const normalizedRelativeRoot = normalizeRoot(relativeRoot, sourceFolder);
 
-                    assert.strictEqual(normalizedRelativeRoot.js, path.join(sourceFolder, js));
-                    assert.strictEqual(
-                        normalizedRelativeRoot.declarationFile,
-                        declarationFile === undefined ? undefined : path.join(sourceFolder, declarationFile)
-                    );
+                    assert.partialDeepStrictEqual(normalizedRelativeRoot, {
+                        js: path.join(sourceFolder, js),
+                        declarationFile: declarationFile === undefined
+                            ? undefined
+                            : path.join(sourceFolder, declarationFile)
+                    });
                 }
             )
         );
@@ -50,8 +51,10 @@ suite('normalize-paths', function () {
                     const absoluteRoot = declarationFile === undefined ? { js } : { js, declarationFile };
                     const normalizedAbsoluteRoot = normalizeRoot(absoluteRoot, sourceFolder);
 
-                    assert.strictEqual(normalizedAbsoluteRoot.js, js);
-                    assert.strictEqual(normalizedAbsoluteRoot.declarationFile, declarationFile);
+                    assert.partialDeepStrictEqual(normalizedAbsoluteRoot, {
+                        js,
+                        declarationFile
+                    });
                 }
             )
         );

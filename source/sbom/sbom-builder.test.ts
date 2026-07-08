@@ -23,19 +23,21 @@ suite('sbom-builder', function () {
     test('builds an SBOM with root component metadata and no dependencies when there are none', function () {
         const serialized = buildAndSerialize({});
 
-        assert.strictEqual(serialized.bomFormat, 'CycloneDX');
-        assert.strictEqual(serialized.specVersion, '1.6');
-        assert.deepStrictEqual(serialized.components, []);
-        assert.deepStrictEqual(serialized.metadata, {
-            tools: {
-                components: [ { type: 'application', name: 'packtory', version: '1.2.3' } ]
-            },
-            component: {
-                type: 'library',
-                name: 'my-pkg',
-                version: '1.0.0',
-                'bom-ref': 'pkg:npm/my-pkg@1.0.0',
-                purl: 'pkg:npm/my-pkg@1.0.0'
+        assert.partialDeepStrictEqual(serialized, {
+            bomFormat: 'CycloneDX',
+            specVersion: '1.6',
+            components: [],
+            metadata: {
+                tools: {
+                    components: [ { type: 'application', name: 'packtory', version: '1.2.3' } ]
+                },
+                component: {
+                    type: 'library',
+                    name: 'my-pkg',
+                    version: '1.0.0',
+                    'bom-ref': 'pkg:npm/my-pkg@1.0.0',
+                    purl: 'pkg:npm/my-pkg@1.0.0'
+                }
             }
         });
     });

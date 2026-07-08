@@ -20,8 +20,12 @@ suite('config-loader', function () {
 
         await configLoader.load();
 
-        assert.strictEqual(importModule.callCount, 1);
-        assert.deepStrictEqual(importModule.firstCall.args, [ 'the-folder/packtory.config.js' ]);
+        assert.partialDeepStrictEqual(importModule, {
+            callCount: 1,
+            firstCall: {
+                args: [ 'the-folder/packtory.config.js' ]
+            }
+        });
     });
 
     test('throws when the imported module is not an object', async function () {

@@ -454,10 +454,12 @@ export async function assertCurrentHeadRetryTag(flags: Partial<ReleaseFlags>): P
         planOutcomes: createReleasePlanOutcomesForPackage(createCurrentHeadRetryPackage())
     });
 
+    assert.partialDeepStrictEqual(deps, {
+        log: { lastCall: { args: [ 'Release completed.' ] } },
+        releaseSteps: [ 'plan', 'clean', 'head', 'tag:pkg-a@1.0.1' ]
+    });
     assert.strictEqual(code, 0);
     assert.strictEqual(buildAndPublishAll.callCount, 0);
-    assert.deepStrictEqual(deps.log.lastCall.args, [ 'Release completed.' ]);
-    assert.deepStrictEqual(deps.releaseSteps, [ 'plan', 'clean', 'head', 'tag:pkg-a@1.0.1' ]);
 }
 
 export { githubReleaseFlags, unattributedPackageChangelogMessage, validConfig };

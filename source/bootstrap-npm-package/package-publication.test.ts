@@ -109,23 +109,29 @@ function buildInput(overrides: Partial<PublicationInput> = {}): PublicationInput
 }
 
 function assertFirstPublishCallOptions(call: PublishCallRecord | undefined): void {
-    assert.ok(call !== undefined);
-    assert.strictEqual(call.defaultTag, 'bootstrap');
-    assert.strictEqual(call.access, 'public');
-    assert.strictEqual(call.registry, 'https://registry.npmjs.org/');
-    assert.strictEqual(call.forceAuthToken, 'bearer');
-    assert.strictEqual(call.authType, 'web');
-    assert.strictEqual(call.otp, undefined);
+    assert.notStrictEqual(call, undefined);
+    assert.partialDeepStrictEqual(call, {
+        defaultTag: 'bootstrap',
+        access: 'public',
+        registry: 'https://registry.npmjs.org/',
+        forceAuthToken: 'bearer',
+        authType: 'web',
+        otp: undefined
+    });
 }
 
 function assertRetryOptions(retryOptions: LibnpmpublishOptions | undefined): void {
-    assert.ok(retryOptions !== undefined);
-    assert.strictEqual(retryOptions.otp, 'web-otp-token');
-    assert.strictEqual(retryOptions.defaultTag, 'bootstrap');
-    assert.strictEqual(retryOptions.access, 'public');
-    assert.strictEqual(retryOptions.registry, 'https://registry.npmjs.org/');
-    assert.strictEqual(retryOptions.forceAuth.token, 'bearer');
-    assert.strictEqual(retryOptions.authType, 'web');
+    assert.notStrictEqual(retryOptions, undefined);
+    assert.partialDeepStrictEqual(retryOptions, {
+        otp: 'web-otp-token',
+        defaultTag: 'bootstrap',
+        access: 'public',
+        registry: 'https://registry.npmjs.org/',
+        forceAuth: {
+            token: 'bearer'
+        },
+        authType: 'web'
+    });
 }
 
 suite('package-publication', function () {
@@ -155,9 +161,11 @@ suite('package-publication', function () {
         await publication.publish(buildInput({ manifest, tarball }));
 
         const [ call ] = calls;
-        assert.ok(call !== undefined);
-        assert.deepStrictEqual(call.manifest, manifest);
-        assert.strictEqual(call.tarball, tarball);
+        assert.notStrictEqual(call, undefined);
+        assert.partialDeepStrictEqual(call, {
+            manifest,
+            tarball
+        });
     });
 
     test('forwards the web-OTP urls from an EOTP body to the prompt and retries with the returned OTP', async function () {

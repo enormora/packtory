@@ -265,7 +265,7 @@ suite('reachability', function () {
             const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set<string>() });
 
             const isolatedIds = index.bindingIdsByFile.get('isolated.ts');
-            assert.ok(isolatedIds !== undefined);
+            assert.notStrictEqual(isolatedIds, undefined);
             assert.ok(isolatedIds.has(bindingId('isolated.ts', 'never')));
         });
 

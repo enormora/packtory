@@ -81,9 +81,11 @@ suite('changelog-destinations', function () {
             })
         );
 
-        assert.strictEqual(options.explicitBaseRef, 'main');
-        assert.strictEqual(options.packageTagFormat, 'pkg/{packageName}/v{version}');
-        assert.strictEqual(options.targetScopedLabelPattern, 'scope:{targetName}:{label}');
+        assert.partialDeepStrictEqual(options, {
+            explicitBaseRef: 'main',
+            packageTagFormat: 'pkg/{packageName}/v{version}',
+            targetScopedLabelPattern: 'scope:{targetName}:{label}'
+        });
         assert.strictEqual(options.validLabels.get('bug'), 'Fixed Bugs');
         assert.strictEqual(options.validLabels.get('operations'), 'Operations');
     });

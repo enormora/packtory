@@ -353,8 +353,12 @@ suite('package-json', function () {
                 ]
             ) {
                 const result = safeParse(schema, { [key]: 'value' });
-                assert.strictEqual(result.success, false);
-                assert.deepStrictEqual(result.error.issues, [ `at ${key}: invalid key` ]);
+                assert.partialDeepStrictEqual(result, {
+                    success: false,
+                    error: {
+                        issues: [ `at ${key}: invalid key` ]
+                    }
+                });
             }
         });
 

@@ -37,7 +37,7 @@ suite('eliminator reachability seeds', function () {
             const emittedMap = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.targetFilePath === 'index.ts.map';
             });
-            assert.ok(emittedMap !== undefined);
+            assert.notStrictEqual(emittedMap, undefined);
             assert.strictEqual(emittedMap.fileDescription.content, validMapContent);
         });
 
@@ -72,7 +72,7 @@ suite('eliminator reachability seeds', function () {
                 )
             );
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'Public', 'Private' ]));
         });
 
@@ -125,7 +125,7 @@ suite('eliminator reachability seeds', function () {
             const emittedWorker = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.sourceFilePath === '/src/worker.js';
             });
-            assert.ok(emittedWorker !== undefined);
+            assert.notStrictEqual(emittedWorker, undefined);
             assert.deepStrictEqual(
                 emittedWorker.analysis.survivingBindings,
                 new Set([ 'workerPublic', 'workerPrivate' ])
@@ -143,7 +143,7 @@ suite('eliminator reachability seeds', function () {
                 )
             );
             const producerEmitted = result[1]?.contents[0];
-            assert.ok(producerEmitted !== undefined);
+            assert.notStrictEqual(producerEmitted, undefined);
             assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), true);
             assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), false);
         });
@@ -190,7 +190,7 @@ suite('eliminator reachability seeds', function () {
             const runtimeHelper = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.sourceFilePath === '/src/helpers.js';
             });
-            assert.ok(runtimeHelper !== undefined);
+            assert.notStrictEqual(runtimeHelper, undefined);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('used'), true);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('unused'), false);
         });
@@ -207,7 +207,7 @@ suite('eliminator reachability seeds', function () {
                 inputs(consumerBundleWith(consumerContent), producerBundleWith('export function used() { return 1; }'))
             );
             const producerEmitted = result[1]?.contents[0];
-            assert.ok(producerEmitted !== undefined);
+            assert.notStrictEqual(producerEmitted, undefined);
             assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), false);
         });
 
@@ -227,7 +227,7 @@ suite('eliminator reachability seeds', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const emitted = analyzed?.contents[0];
-            assert.ok(emitted !== undefined);
+            assert.notStrictEqual(emitted, undefined);
             assert.strictEqual(emitted.fileDescription.content.includes('dead'), true);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'dead', 'live' ]));
         });

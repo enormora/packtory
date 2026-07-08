@@ -166,8 +166,10 @@ suite('github-release-gate', function () {
         test('evaluateGitHubReleaseGate blocks publishing while recent PR activity is inside the quiet period', function () {
             const decision = createQuietPeriodDecision();
 
-            assert.strictEqual(decision.shouldPublish, false);
-            assert.strictEqual(decision.reason, 'activity_not_stale');
+            assert.partialDeepStrictEqual(decision, {
+                shouldPublish: false,
+                reason: 'activity_not_stale'
+            });
             assert.ok(decision.logs.includes('quiet period elapsed: false'));
             assert.ok(decision.logs.includes('max latency elapsed: false'));
         });
@@ -192,8 +194,10 @@ suite('github-release-gate', function () {
                 pullRequestActivities: [ pullRequestActivity({ activityAt: createDate('2026-05-19T10:00:00.000Z') }) ]
             });
 
-            assert.strictEqual(decision.shouldPublish, true);
-            assert.strictEqual(decision.reason, 'quiet_period_elapsed');
+            assert.partialDeepStrictEqual(decision, {
+                shouldPublish: true,
+                reason: 'quiet_period_elapsed'
+            });
             assert.strictEqual(decision.logs.at(-1), 'Publishing is allowed by the release gate.');
         });
 
@@ -202,8 +206,10 @@ suite('github-release-gate', function () {
                 pullRequestActivities: [ pullRequestActivity({ activityAt: createDate('2026-05-19T11:15:00.000Z') }) ]
             });
 
-            assert.strictEqual(decision.shouldPublish, true);
-            assert.strictEqual(decision.reason, 'quiet_period_elapsed');
+            assert.partialDeepStrictEqual(decision, {
+                shouldPublish: true,
+                reason: 'quiet_period_elapsed'
+            });
         });
 
         test('evaluateGitHubReleaseGate allows publishing once max latency elapses even with fresh PR activity', function () {
@@ -212,8 +218,10 @@ suite('github-release-gate', function () {
                 pullRequestActivities: [ pullRequestActivity({ activityAt: createDate('2026-05-20T11:50:00.000Z') }) ]
             });
 
-            assert.strictEqual(decision.shouldPublish, true);
-            assert.strictEqual(decision.reason, 'max_latency_elapsed');
+            assert.partialDeepStrictEqual(decision, {
+                shouldPublish: true,
+                reason: 'max_latency_elapsed'
+            });
             assert.ok(decision.logs.includes('quiet period elapsed: false'));
             assert.ok(decision.logs.includes('max latency elapsed: true'));
         });
@@ -231,8 +239,10 @@ suite('github-release-gate', function () {
                 pullRequestActivities: [ pullRequestActivity({ activityAt: createDate('2026-05-20T11:59:00.000Z') }) ]
             });
 
-            assert.strictEqual(decision.shouldPublish, true);
-            assert.strictEqual(decision.reason, 'max_latency_elapsed');
+            assert.partialDeepStrictEqual(decision, {
+                shouldPublish: true,
+                reason: 'max_latency_elapsed'
+            });
         });
     });
 });

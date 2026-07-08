@@ -92,13 +92,17 @@ function requireRequest(requests: readonly RequestRecord[], index: number, messa
 }
 
 function assertReleaseLookupRequest(request: RequestRecord): void {
-    assert.strictEqual(request.method, 'GET');
-    assert.strictEqual(request.url, 'https://api.github.com/repos/owner/repo/releases/tags/pkg-a%401.0.0');
-    assert.strictEqual(request.headers.authorization, 'Bearer token');
-    assert.strictEqual(request.headers.accept, 'application/vnd.github+json');
-    assert.strictEqual(request.headers.userAgent, 'packtory');
-    assert.strictEqual(request.headers.githubApiVersion, '2022-11-28');
-    assert.strictEqual(request.body, undefined);
+    assert.partialDeepStrictEqual(request, {
+        method: 'GET',
+        url: 'https://api.github.com/repos/owner/repo/releases/tags/pkg-a%401.0.0',
+        headers: {
+            authorization: 'Bearer token',
+            accept: 'application/vnd.github+json',
+            userAgent: 'packtory',
+            githubApiVersion: '2022-11-28'
+        },
+        body: undefined
+    });
 }
 
 suite('github-release-client', function () {
@@ -128,8 +132,10 @@ suite('github-release-client', function () {
         assert.strictEqual(result, 'created');
         assert.strictEqual(requests.length, 2);
         const postRequest = requireRequest(requests, 1, 'Expected a GitHub release creation request');
-        assert.strictEqual(postRequest.method, 'POST');
-        assert.strictEqual(postRequest.url, 'https://api.github.com/repos/owner/repo/releases');
+        assert.partialDeepStrictEqual(postRequest, {
+            method: 'POST',
+            url: 'https://api.github.com/repos/owner/repo/releases'
+        });
         assert.deepStrictEqual(JSON.parse(postRequest.body ?? '{}'), {
             tag_name: 'pkg-a@1.0.0',
             name: 'pkg-a@1.0.0',
