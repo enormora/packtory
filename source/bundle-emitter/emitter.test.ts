@@ -50,6 +50,7 @@ type Overrides = {
     readonly fetchLatestReleaseMetadata?: SinonSpy;
     readonly collectContents?: SinonSpy;
     readonly fetchTarball?: SinonSpy;
+    readonly currentGitHead?: string | undefined;
 };
 
 function createSpy<TSpy extends Readonly<SinonSpy>>(spy: TSpy | undefined, fallback: () => TSpy): TSpy {
@@ -86,7 +87,7 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
         },
         ciRepositoryUrl: undefined,
         async readCurrentGitHead() {
-            return undefined;
+            return overrides.currentGitHead;
         }
     };
 
@@ -260,6 +261,52 @@ suite('emitter', function () {
 
             assert.deepStrictEqual(result, Maybe.just('1.2.3'));
             assert.deepStrictEqual(fetchLatestVersion.firstCall.args, [ 'the-name', registrySettings ]);
+        });
+    });
+
+    suite('current-head published version lookup', function () {
+        test('findCurrentHeadPublishedVersion() returns the latest version when gitHead matches current HEAD', async function () {
+            const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', gitHead: 'current-head' }));
+            const emitter = emitterFactory({ fetchLatestVersion, currentGitHead: 'current-head' });
+
+            const result = await emitter.findCurrentHeadPublishedVersion({
+                name: 'the-name',
+                registrySettings
+            });
+
+            assert.deepStrictEqual(result, { version: '1.2.3', gitHead: 'current-head' });
+            assert.deepStrictEqual(fetchLatestVersion.firstCall.args, [ 'the-name', registrySettings ]);
+        });
+
+        test('findCurrentHeadPublishedVersion() returns undefined when no current HEAD is available', async function () {
+            const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', gitHead: 'current-head' }));
+            const emitter = emitterFactory({ fetchLatestVersion, currentGitHead: undefined });
+
+            assert.strictEqual(
+                await emitter.findCurrentHeadPublishedVersion({ name: 'the-name', registrySettings }),
+                undefined
+            );
+            assert.strictEqual(fetchLatestVersion.callCount, 0);
+        });
+
+        test('findCurrentHeadPublishedVersion() returns undefined when the registry has no latest version', async function () {
+            const fetchLatestVersion = fake.resolves(Maybe.nothing());
+            const emitter = emitterFactory({ fetchLatestVersion, currentGitHead: 'current-head' });
+
+            assert.strictEqual(
+                await emitter.findCurrentHeadPublishedVersion({ name: 'the-name', registrySettings }),
+                undefined
+            );
+        });
+
+        test('findCurrentHeadPublishedVersion() returns undefined when gitHead differs', async function () {
+            const fetchLatestVersion = fake.resolves(Maybe.just({ version: '1.2.3', gitHead: 'other-head' }));
+            const emitter = emitterFactory({ fetchLatestVersion, currentGitHead: 'current-head' });
+
+            assert.strictEqual(
+                await emitter.findCurrentHeadPublishedVersion({ name: 'the-name', registrySettings }),
+                undefined
+            );
         });
     });
 

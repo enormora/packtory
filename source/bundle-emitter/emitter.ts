@@ -62,6 +62,22 @@ type CurrentVersionLookupOptions = {
     readonly versioning: VersioningSettings;
 };
 
+type CurrentHeadPublishedVersionLookupOptions = {
+    readonly name: string;
+    readonly registrySettings: RegistrySettings;
+};
+
+type CurrentHeadPublishedVersion = {
+    readonly version: string;
+    readonly gitHead: string;
+};
+type PackageVersionGitHead = {
+    readonly gitHead: string | undefined;
+};
+type PackageVersionWithGitHead = {
+    readonly gitHead: string;
+};
+
 type BundlePublishedCheckResult = {
     readonly alreadyPublishedAsLatest: boolean;
     readonly previousReleaseArtifacts: PreviousReleaseArtifacts;
@@ -70,6 +86,9 @@ type BundlePublishedCheckResult = {
 export type BundleEmitter = {
     publish: (options: PublishOptions) => Promise<PublicationOutcome>;
     determineCurrentVersion: (options: CurrentVersionLookupOptions) => Promise<Maybe<string>>;
+    findCurrentHeadPublishedVersion: (
+        options: CurrentHeadPublishedVersionLookupOptions
+    ) => Promise<CurrentHeadPublishedVersion | undefined>;
     checkBundleAlreadyPublished: (options: AlreadyPublishedCheckOptions) => Promise<BundlePublishedCheckResult>;
 };
 
@@ -108,6 +127,13 @@ function hasVersionProvider(
     versioning: VersioningSettings
 ): versioning is Extract<VersioningSettings, { readonly provideVersion: unknown; }> {
     return Object.hasOwn(versioning, 'provideVersion');
+}
+
+function isCurrentHeadPackageVersion(
+    versionDetails: PackageVersionGitHead,
+    currentGitHead: string
+): versionDetails is PackageVersionWithGitHead {
+    return versionDetails.gitHead === currentGitHead;
 }
 
 export function createBundleEmitter(dependencies: BundleEmitterDependencies): BundleEmitter {
@@ -151,6 +177,21 @@ export function createBundleEmitter(dependencies: BundleEmitterDependencies): Bu
             }
 
             return Maybe.just(versioning.version);
+        },
+
+        async findCurrentHeadPublishedVersion(options) {
+            const currentGitHead = await readCurrentGitHead();
+            if (currentGitHead === undefined) {
+                return undefined;
+            }
+            const latestVersion = await registryClient.fetchLatestVersion(options.name, options.registrySettings);
+            if (latestVersion.isNothing || !isCurrentHeadPackageVersion(latestVersion.value, currentGitHead)) {
+                return undefined;
+            }
+            return {
+                version: latestVersion.value.version,
+                gitHead: latestVersion.value.gitHead
+            };
         },
 
         async checkBundleAlreadyPublished(options) {
