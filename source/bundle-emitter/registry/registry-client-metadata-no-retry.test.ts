@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     errorWithStatus,
     expectFailure,
@@ -87,7 +88,7 @@ suite('registry-client metadata no retry', function () {
         });
 
         assert.deepStrictEqual(result, Buffer.from([ 1, 2, 3 ]));
-        assert.partialDeepStrictEqual(npmFetch, {
+        assertDeepSubset(npmFetch, {
             callCount: 2,
             secondCall: {
                 args: [

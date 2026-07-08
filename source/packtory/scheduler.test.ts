@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { noPublication } from '../bundle-emitter/publication-outcome.ts';
 import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import { getErrResult } from '../test-libraries/result-helpers.ts';
@@ -189,7 +190,7 @@ suite('scheduler', function () {
         });
 
         const error = getErrResult(result, 'Expected result to be an error');
-        assert.partialDeepStrictEqual(error, {
+        assertDeepSubset(error, {
             succeeded: [ 'root-result', 'package-a-result' ],
             failures: {
                 length: 1

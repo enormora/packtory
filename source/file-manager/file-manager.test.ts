@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { type FileManagerDependencies, createFileManager, type FileManager } from './file-manager.ts';
 
 type Overrides = {
@@ -43,7 +44,7 @@ async function expectCheckReadability(access: SinonSpy, expectedReadable: boolea
 
     const result = await fileManager.checkReadability('/foo/bar.txt');
 
-    assert.partialDeepStrictEqual(access, {
+    assertDeepSubset(access, {
         callCount: 1,
         firstCall: {
             args: [ '/foo/bar.txt', fs.constants.R_OK ]
@@ -71,13 +72,13 @@ suite('file-manager', function () {
 
             await fileManager.writeFile('/foo/bar.txt', 'the-content');
 
-            assert.partialDeepStrictEqual(access, {
+            assertDeepSubset(access, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo', fs.constants.R_OK ]
                 }
             });
-            assert.partialDeepStrictEqual(writeFile, {
+            assertDeepSubset(writeFile, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/bar.txt', 'the-content', { encoding: 'utf8' } ]
@@ -150,7 +151,7 @@ suite('file-manager', function () {
 
             const result = await fileManager.readFileBytes('/foo/native.node');
 
-            assert.partialDeepStrictEqual(readFile, {
+            assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/native.node' ]
@@ -166,7 +167,7 @@ suite('file-manager', function () {
 
             await fileManager.copyFileBytes('/src/lib.node', '/dest/lib.node');
 
-            assert.partialDeepStrictEqual(access, {
+            assertDeepSubset(access, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/dest', fs.constants.R_OK ]
@@ -249,7 +250,7 @@ suite('file-manager', function () {
 
             const result = await fileManager.readFile('/foo/bar.txt');
 
-            assert.partialDeepStrictEqual(readFile, {
+            assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/bar.txt', { encoding: 'utf8' } ]
@@ -265,13 +266,13 @@ suite('file-manager', function () {
 
             await fileManager.copyFile('/foo/1.txt', '/foo/2.txt');
 
-            assert.partialDeepStrictEqual(readFile, {
+            assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/1.txt', { encoding: 'utf8' } ]
                 }
             });
-            assert.partialDeepStrictEqual(writeFile, {
+            assertDeepSubset(writeFile, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/2.txt', 'the-content', { encoding: 'utf8' } ]
@@ -304,13 +305,13 @@ suite('file-manager', function () {
 
             const result = await fileManager.getTransferableFileDescriptionFromPath('/foo/bar.txt', '/target/path.txt');
 
-            assert.partialDeepStrictEqual(stat, {
+            assertDeepSubset(stat, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/bar.txt' ]
                 }
             });
-            assert.partialDeepStrictEqual(readFile, {
+            assertDeepSubset(readFile, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/bar.txt', { encoding: 'utf8' } ]

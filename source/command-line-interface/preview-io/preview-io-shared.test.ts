@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { withPromiseDeadline } from '../../test-libraries/promise-with-deadline.ts';
 import { createPreviewIo, type PreviewIo } from './preview-io-shared.ts';
 import type { SpawnedProcess, SpawnOptions } from './preview-spawn.ts';
@@ -178,9 +179,9 @@ suite('preview-io-shared', function () {
             );
             const firstCall = requireFirstCall(calls);
             assert.deepStrictEqual(firstCall.options, { stdio: [ 'pipe', 'inherit', 'inherit' ] });
-            assert.notStrictEqual(firstCall.child.listeners.close, undefined);
-            assert.notStrictEqual(firstCall.child.listeners.error, undefined);
-            assert.notStrictEqual(firstCall.child.listeners.stdinError, undefined);
+            assertDefined(firstCall.child.listeners.close);
+            assertDefined(firstCall.child.listeners.error);
+            assertDefined(firstCall.child.listeners.stdinError);
             assert.strictEqual(firstCall.child.endedContent, 'content');
         });
 

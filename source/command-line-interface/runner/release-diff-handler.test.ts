@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
@@ -106,7 +107,7 @@ suite('release-diff-handler', function () {
         const code = await runReleaseDiffHandler(depsWith(outcome, spies));
 
         assert.strictEqual(code, 1);
-        assert.partialDeepStrictEqual(spies, {
+        assertDeepSubset(spies, {
             pageOutput: {
                 callCount: 0
             },
@@ -144,7 +145,7 @@ suite('release-diff-handler', function () {
         const code = await runReleaseDiffHandler(depsWith(outcome, spies));
 
         assert.strictEqual(code, 1);
-        assert.partialDeepStrictEqual(spies, {
+        assertDeepSubset(spies, {
             pageOutput: {
                 callCount: 1
             },

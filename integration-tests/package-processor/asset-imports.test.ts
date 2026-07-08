@@ -41,8 +41,9 @@ suite('asset-imports', function () {
             return resource.fileDescription.targetFilePath === 'data.json';
         });
 
-        assert.notStrictEqual(entry, undefined);
-        assert.notStrictEqual(json, undefined);
+        if (entry === undefined || json === undefined) {
+            assert.fail('expected bundled entry and json resources');
+        }
         assert.partialDeepStrictEqual(entry, {
             directDependencies: new Set([ path.join(fixture, 'src/data.json') ]),
             fileDescription: {
@@ -62,8 +63,9 @@ suite('asset-imports', function () {
             return resource.fileDescription.targetFilePath === 'module.wasm';
         });
 
-        assert.notStrictEqual(entry, undefined);
-        assert.notStrictEqual(wasm, undefined);
+        if (entry === undefined || wasm === undefined) {
+            assert.fail('expected bundled entry and wasm resources');
+        }
         assert.deepStrictEqual(entry.directDependencies, new Set([ path.join(fixture, 'src/module.wasm') ]));
         assert.strictEqual(wasm.fileDescription.content, 'wasm-binary-placeholder\n');
     });
@@ -102,8 +104,9 @@ suite('asset-imports', function () {
             return resource.fileDescription.targetFilePath === 'package.json';
         });
 
-        assert.notStrictEqual(entry, undefined);
-        assert.notStrictEqual(generatedManifestResource, undefined);
+        if (entry === undefined || generatedManifestResource === undefined) {
+            assert.fail('expected bundled entry and generated manifest resources');
+        }
         assert.partialDeepStrictEqual(entry, {
             directDependencies: new Set([ path.join(fixture, 'src/package.json') ]),
             fileDescription: {

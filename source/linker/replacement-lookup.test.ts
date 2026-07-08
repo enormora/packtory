@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { explicitPackageSurface } from '../package-surface/surface.ts';
 import { analyzedBundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
@@ -23,7 +24,7 @@ suite('replacement-lookup', function () {
     test('findAllPathReplacements returns no replacements when no bundle owns any of the files', function () {
         const result = findAllPathReplacements([ '/x/a.ts' ], []);
 
-        assert.partialDeepStrictEqual(result, {
+        assertDeepSubset(result, {
             importPathReplacements: {
                 size: 0
             },

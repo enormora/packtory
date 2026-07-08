@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import type { SbomPackage } from '../published-package/published-package.ts';
 import { createSbomFileBuilder, type SbomFileBuilder } from './sbom-file.ts';
@@ -80,7 +81,7 @@ suite('sbom-file', function () {
                 defaultPublishSettings
             );
 
-            assert.notStrictEqual(result, undefined);
+            assertDefined(result);
         });
 
         test('generate() does not invoke the toolVersion provider when SBOM is disabled', async function () {

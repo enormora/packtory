@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProgressBroadcaster, type ProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import { toOutcome } from '../../test-libraries/result-helpers.ts';
 import {
@@ -40,7 +41,7 @@ suite('runner publish feedback', function () {
 
         test('prints error summary when publish command encounters config errors', async function () {
             const { log } = await runWithIssues('config', [ 'foo' ]);
-            assert.partialDeepStrictEqual(log, {
+            assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
                     args: [
@@ -59,7 +60,7 @@ suite('runner publish feedback', function () {
 
         test('prints error summary when publish command encounters check errors', async function () {
             const { log } = await runWithIssues('checks', [ 'foo' ]);
-            assert.partialDeepStrictEqual(log, {
+            assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
                     args: [ '✖ Checks failed, there are 1 issue(s)\n\n- foo' ]
@@ -98,7 +99,7 @@ suite('runner publish feedback', function () {
         test('prints error summary and dry-run note when publish command encounters partial errors', async function () {
             const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures));
 
-            assert.partialDeepStrictEqual(log, {
+            assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
                     args: [
@@ -114,7 +115,7 @@ suite('runner publish feedback', function () {
         test('prints error summary without dry-run note when publish command encounters partial errors and dry-run mode is disabled', async function () {
             const log = await runPublishCapturingLog(fake.resolves(partialResultWithTwoFailures), [ '--no-dry-run' ]);
 
-            assert.partialDeepStrictEqual(log, {
+            assertDeepSubset(log, {
                 callCount: 1,
                 firstCall: {
                     args: [
@@ -127,7 +128,7 @@ suite('runner publish feedback', function () {
         test('prints success summary and dry-run note when publish command had no errors', async function () {
             const log = await runPublishCapturingLog(fake.resolves(toOutcome(Result.ok([ 'foo', 'bar' ]))));
 
-            assert.partialDeepStrictEqual(log, {
+            assertDeepSubset(log, {
                 callCount: 2,
                 firstCall: {
                     args: [ '✔ Success: all 2 package(s) have been published' ]
@@ -143,7 +144,7 @@ suite('runner publish feedback', function () {
                 '--no-dry-run'
             ]);
 
-            assert.partialDeepStrictEqual(log, {
+            assertDeepSubset(log, {
                 callCount: 1,
                 firstCall: {
                     args: [ '✔ Success: all 2 package(s) have been published' ]
@@ -180,7 +181,7 @@ suite('runner publish feedback', function () {
             await runner.run([ 'foo', 'bar', 'publish' ]);
             progressBroadcaster.provider.emit('scheduled', { packageName: 'foo' });
 
-            assert.partialDeepStrictEqual(add, {
+            assertDeepSubset(add, {
                 callCount: 1,
                 firstCall: {
                     args: [ 'foo', 'foo', 'Scheduled …' ]
@@ -206,7 +207,7 @@ suite('runner publish feedback', function () {
             const stop = fake();
             await runWithProgressEvent({ stop }, 'error', { packageName: 'foo', error: new Error('bar') });
 
-            assert.partialDeepStrictEqual(stop, {
+            assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
                     args: [ 'foo', 'failure', 'bar' ]
@@ -223,7 +224,7 @@ suite('runner publish feedback', function () {
                 publication: noPublicationOutcome
             });
 
-            assert.partialDeepStrictEqual(stop, {
+            assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
                     args: [
@@ -244,7 +245,7 @@ suite('runner publish feedback', function () {
                 publication: noPublicationOutcome
             });
 
-            assert.partialDeepStrictEqual(stop, {
+            assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
                     args: [ 'foo', 'success', 'First version 1 has been published' ]
@@ -261,7 +262,7 @@ suite('runner publish feedback', function () {
                 publication: noPublicationOutcome
             });
 
-            assert.partialDeepStrictEqual(stop, {
+            assertDeepSubset(stop, {
                 callCount: 1,
                 firstCall: {
                     args: [ 'foo', 'success', 'New version 1 published' ]
@@ -273,7 +274,7 @@ suite('runner publish feedback', function () {
             const updateMessage = fake();
             await runWithProgressEvent({ updateMessage }, 'building', { packageName: 'foo', version: '1' });
 
-            assert.partialDeepStrictEqual(updateMessage, {
+            assertDeepSubset(updateMessage, {
                 callCount: 1,
                 firstCall: {
                     args: [ 'foo', 'Building package with version 1' ]
@@ -285,7 +286,7 @@ suite('runner publish feedback', function () {
             const updateMessage = fake();
             await runWithProgressEvent({ updateMessage }, 'rebuilding', { packageName: 'foo', version: '1' });
 
-            assert.partialDeepStrictEqual(updateMessage, {
+            assertDeepSubset(updateMessage, {
                 callCount: 1,
                 firstCall: {
                     args: [ 'foo', 'Rebuilding package with version 1' ]

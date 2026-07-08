@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import {
     createPackagePublication,
     type PackagePublication,
@@ -109,7 +110,7 @@ function buildInput(overrides: Partial<PublicationInput> = {}): PublicationInput
 }
 
 function assertFirstPublishCallOptions(call: PublishCallRecord | undefined): void {
-    assert.notStrictEqual(call, undefined);
+    assertDefined(call);
     assert.partialDeepStrictEqual(call, {
         defaultTag: 'bootstrap',
         access: 'public',
@@ -121,7 +122,7 @@ function assertFirstPublishCallOptions(call: PublishCallRecord | undefined): voi
 }
 
 function assertRetryOptions(retryOptions: LibnpmpublishOptions | undefined): void {
-    assert.notStrictEqual(retryOptions, undefined);
+    assertDefined(retryOptions);
     assert.partialDeepStrictEqual(retryOptions, {
         otp: 'web-otp-token',
         defaultTag: 'bootstrap',
@@ -161,7 +162,7 @@ suite('package-publication', function () {
         await publication.publish(buildInput({ manifest, tarball }));
 
         const [ call ] = calls;
-        assert.notStrictEqual(call, undefined);
+        assertDefined(call);
         assert.partialDeepStrictEqual(call, {
             manifest,
             tarball

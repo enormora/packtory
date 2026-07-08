@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { stripVTControlCharacters } from 'node:util';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { createLineSpinnerRenderer } from './line-spinner-renderer.ts';
 import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 
@@ -45,7 +46,7 @@ suite('line-spinner-renderer', function () {
 
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
 
-        assert.partialDeepStrictEqual(log, {
+        assertDeepSubset(log, {
             callCount: 1,
             firstCall: {
                 args: [ 'pkg-a: Scheduled ...' ]
@@ -59,7 +60,7 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.updateMessage('the-id', 'Building package with version 1.2.3');
 
-        assert.partialDeepStrictEqual(log, {
+        assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
                 args: [ 'pkg-a: Building package with version 1.2.3' ]
@@ -91,7 +92,7 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.stop('the-id', 'success', 'First version 1.2.3 has been published');
 
-        assert.partialDeepStrictEqual(log, {
+        assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
                 args: [ '✔ pkg-a: First version 1.2.3 has been published' ]
@@ -105,7 +106,7 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.stop('the-id', 'failure', 'publish failed');
 
-        assert.partialDeepStrictEqual(log, {
+        assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
                 args: [ '✖ pkg-a: publish failed' ]
@@ -131,7 +132,7 @@ suite('line-spinner-renderer', function () {
 
         renderer.add('the-id', 'pkg-a', 'Scheduled again');
 
-        assert.partialDeepStrictEqual(log, {
+        assertDeepSubset(log, {
             callCount: 2,
             secondCall: {
                 args: [ 'pkg-a: Scheduled again' ]

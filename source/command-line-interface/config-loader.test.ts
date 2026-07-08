@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createConfigLoader, type ConfigLoader } from './config-loader.ts';
 
 type Overrides = {
@@ -20,7 +21,7 @@ suite('config-loader', function () {
 
         await configLoader.load();
 
-        assert.partialDeepStrictEqual(importModule, {
+        assertDeepSubset(importModule, {
             callCount: 1,
             firstCall: {
                 args: [ 'the-folder/packtory.config.js' ]

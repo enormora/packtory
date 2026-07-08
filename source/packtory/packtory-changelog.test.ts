@@ -9,6 +9,7 @@ import type {
     RenderGroupedTargetChangelogMarkdownInput,
     ResolvePullRequestLabelsOptions
 } from '@pr-log/core';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
@@ -125,7 +126,7 @@ function registerTargetSelectionTests(): void {
 
         await render([ releasePackage({ changed: false, artifactState: 'unchanged' }) ], engine);
 
-        assert.partialDeepStrictEqual(calls, {
+        assertDeepSubset(calls, {
             collectMergedPullRequests: {
                 callCount: 0
             },
@@ -332,7 +333,7 @@ function registerPackageChangelogTests(): void {
         });
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
-        assert.partialDeepStrictEqual(changelog, {
+        assertDeepSubset(changelog, {
             packageNamesWithoutChangelogEntries: [ 'pkg-a' ],
             packageMarkdownByName: new Map()
         });

@@ -185,10 +185,10 @@ function mainPackageJsonValuesOf(config: PacktoryConfig): readonly PackageConfig
 }
 
 function assertParsedConfigMatchesInput(parsedConfig: PacktoryConfig, typedConfig: PacktoryConfig): void {
-    assert.partialDeepStrictEqual(parsedConfig, {
-        registrySettings: typedConfig.registrySettings,
-        packages: { length: typedConfig.packages.length }
-    });
+    assert.deepStrictEqual(
+        { registrySettings: parsedConfig.registrySettings, packageCount: parsedConfig.packages.length },
+        { registrySettings: typedConfig.registrySettings, packageCount: typedConfig.packages.length }
+    );
     assert.deepStrictEqual(namesOf(parsedConfig), namesOf(typedConfig));
     assert.deepStrictEqual(rootsOf(parsedConfig), rootsOf(typedConfig));
     assert.deepStrictEqual(sourcesFoldersOf(parsedConfig), sourcesFoldersOf(typedConfig));

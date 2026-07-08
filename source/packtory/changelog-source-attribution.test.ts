@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
@@ -154,7 +155,7 @@ function registerSourceMapFailureTests(): void {
             attributeSingleFile(readableMapFileManager(sourceWithMap('index.js.map'), '{'), '/repo/dist/index.js'),
             function (error: unknown) {
                 assert.strictEqual((error as Error).message, 'Failed to parse source map "/repo/dist/index.js.map"');
-                assert.notStrictEqual((error as Error).cause, undefined);
+                assertDefined((error as Error).cause);
                 return true;
             }
         );

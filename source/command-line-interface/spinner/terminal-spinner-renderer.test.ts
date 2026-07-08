@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     createTerminalSpinnerRenderer,
     type SpinnerBackend,
@@ -46,7 +47,7 @@ suite('terminal-spinner-renderer', function () {
 
             renderer.add('the-id', 'the-label', 'the message');
 
-            assert.partialDeepStrictEqual(add, {
+            assertDeepSubset(add, {
                 callCount: 1,
                 firstCall: {
                     args: [ 0, 'the-label', 'the message' ]
@@ -61,7 +62,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('first', 'a', '1');
             renderer.add('second', 'b', '2');
 
-            assert.partialDeepStrictEqual(add, {
+            assertDeepSubset(add, {
                 callCount: 2,
                 firstCall: {
                     args: [ 0, 'a', '1' ]
@@ -94,7 +95,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('the-id', 'lbl', 'initial');
             renderer.updateMessage('the-id', 'foo');
 
-            assert.partialDeepStrictEqual(update, {
+            assertDeepSubset(update, {
                 callCount: 1,
                 firstCall: {
                     args: [ 0, 'lbl', 'foo' ]
@@ -111,7 +112,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.updateMessage('first', 'foo');
             renderer.updateMessage('second', 'bar');
 
-            assert.partialDeepStrictEqual(update, {
+            assertDeepSubset(update, {
                 callCount: 2,
                 firstCall: {
                     args: [ 0, 'one', 'foo' ]
@@ -142,7 +143,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('the-id', 'lbl', '');
             renderer.stop('the-id', 'success', 'foo');
 
-            assert.partialDeepStrictEqual(finish, {
+            assertDeepSubset(finish, {
                 callCount: 1,
                 firstCall: {
                     args: [ 0, 'succeeded', 'lbl', 'foo' ]
@@ -157,7 +158,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('the-id', 'lbl', '');
             renderer.stop('the-id', 'failure', 'foo');
 
-            assert.partialDeepStrictEqual(finish, {
+            assertDeepSubset(finish, {
                 callCount: 1,
                 firstCall: {
                     args: [ 0, 'failed', 'lbl', 'foo' ]
@@ -173,7 +174,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.stop('the-id', 'success', 'foo');
             renderer.updateMessage('the-id', 'updated');
 
-            assert.partialDeepStrictEqual(update, {
+            assertDeepSubset(update, {
                 callCount: 1,
                 firstCall: {
                     args: [ 0, 'lbl', 'updated' ]
@@ -201,7 +202,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.stop('first', 'failure', 'foo');
             renderer.stop('second', 'failure', 'bar');
 
-            assert.partialDeepStrictEqual(finish, {
+            assertDeepSubset(finish, {
                 callCount: 2,
                 firstCall: {
                     args: [ 0, 'failed', 'a', 'foo' ]
@@ -242,7 +243,7 @@ suite('terminal-spinner-renderer', function () {
             renderer.stop('first', 'success', 'foo');
             renderer.stopAll();
 
-            assert.partialDeepStrictEqual(finish, {
+            assertDeepSubset(finish, {
                 callCount: 2,
                 firstCall: {
                     args: [ 0, 'succeeded', 'one', 'foo' ]

@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import vm from 'node:vm';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import {
     buildResultFor,
     createReleaseTestDependencies,
@@ -153,7 +154,7 @@ suite('packtory-release-analysis', function () {
         });
 
         const partial = expectPartialFailure(result);
-        assert.partialDeepStrictEqual(partial, {
+        assertDeepSubset(partial, {
             succeeded: [],
             failures: [ failure ]
         });
@@ -226,7 +227,7 @@ suite('packtory-release-analysis', function () {
                 }
             })
         );
-        assert.partialDeepStrictEqual(partial, {
+        assertDeepSubset(partial, {
             succeeded: {
                 length: 0
             },

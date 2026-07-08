@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import { buildFileSetDiff, type ModifiedFile } from './file-set-diff.ts';
 
@@ -20,7 +21,7 @@ function singleModifiedEntry(previous: readonly FileDescription[], current: read
 suite('file-set-diff', function () {
     test('classifies a file that only exists on the new side as added', function () {
         const diff = buildFileSetDiff([], [ file('lib/new.ts', 'export const x = 1;\n') ]);
-        assert.partialDeepStrictEqual(diff, {
+        assertDeepSubset(diff, {
             added: {
                 length: 1
             },
@@ -55,7 +56,7 @@ suite('file-set-diff', function () {
         const previous = [ file('package.json', '{"name":"p"}\n') ];
         const current = [ file('package.json', '{"name":"p"}\n') ];
         const diff = buildFileSetDiff(previous, current);
-        assert.partialDeepStrictEqual(diff, {
+        assertDeepSubset(diff, {
             unchanged: {
                 length: 1
             },
@@ -70,7 +71,7 @@ suite('file-set-diff', function () {
             [ file('bin/cli.js', '#!/usr/bin/env node\n', false) ],
             [ file('bin/cli.js', '#!/usr/bin/env node\n', true) ]
         );
-        assert.partialDeepStrictEqual(entry, {
+        assertDeepSubset(entry, {
             contentChange: {
                 kind: 'mode-only'
             },

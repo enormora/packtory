@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import {
     bundleResource,
@@ -434,7 +435,7 @@ suite('packtory', function () {
 
                 assert.strictEqual(getOkResult(result, 'Expected buildAndPublishAll() should succeed').length, 1);
                 assert.strictEqual(tryBuildAndPublish.callCount, 1);
-                assert.notStrictEqual(getReport(), undefined);
+                assertDefined(getReport());
             });
 
             test('buildAndPublishAll() runs real publishes when registry auth is configured', async function () {
@@ -509,7 +510,7 @@ suite('packtory', function () {
                     getOkResult(result, 'Expected diffAgainstLatestPublished() should succeed').length,
                     1
                 );
-                assert.notStrictEqual(getReport(), undefined);
+                assertDefined(getReport());
                 assert.strictEqual(progressBroadcaster.provider.hasSubscribers('done'), false);
             });
 
@@ -534,7 +535,7 @@ suite('packtory', function () {
                         .classification,
                     'first-publish'
                 );
-                assert.notStrictEqual(getReport(), undefined);
+                assertDefined(getReport());
                 assert.strictEqual(progressBroadcaster.provider.hasSubscribers('done'), false);
             });
 
@@ -561,7 +562,7 @@ suite('packtory', function () {
                     getOkResult(result, 'Expected planReleaseAgainstLatestPublished() should succeed').packages.length,
                     1
                 );
-                assert.notStrictEqual(getReport(), undefined);
+                assertDefined(getReport());
                 assert.strictEqual(progressBroadcaster.provider.hasSubscribers('done'), false);
             });
 

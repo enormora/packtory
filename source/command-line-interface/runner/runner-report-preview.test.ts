@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     createArtifactEntryFixture,
     createBuildReportFixture,
@@ -247,7 +248,7 @@ suite('runner report and preview', function () {
             assert.strictEqual(fileManager.getWriteFileCallCount(), 1);
             assert.deepStrictEqual(fileManager.getWriteFileCall(0).filePath, '/workspace/packtory-preview-test.html');
             assert.match(fileManager.getWriteFileCall(0).content, /^<!doctype html>/);
-            assert.partialDeepStrictEqual(openFile, {
+            assertDeepSubset(openFile, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/workspace/packtory-preview-test.html' ]
@@ -272,7 +273,7 @@ suite('runner report and preview', function () {
             const exitCode = await runner.run([ 'foo', 'bar', 'preview', '--open' ]);
 
             assert.strictEqual(exitCode, 0);
-            assert.partialDeepStrictEqual(log, {
+            assertDeepSubset(log, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/workspace/packtory-preview-test.html' ]

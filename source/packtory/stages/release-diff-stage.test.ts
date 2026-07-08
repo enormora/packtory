@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
 import type { ValidConfigResult } from '../../config/validation.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
@@ -140,7 +141,7 @@ function registerBasicDiffTests(): void {
         const result = await runAlreadyPublishedPkgAStage(artifactsBuilderReturning([]));
 
         const first = expectFirstEntry(result);
-        assert.partialDeepStrictEqual(first, {
+        assertDeepSubset(first, {
             state: 'unchanged',
             previousVersionLabel: '1.0.0',
             files: { added: [], removed: [], modified: [], unchanged: [] }
@@ -154,7 +155,7 @@ function registerBasicDiffTests(): void {
         ]);
 
         const first = expectFirstEntry(result);
-        assert.partialDeepStrictEqual(first, {
+        assertDeepSubset(first, {
             state: 'first-publish',
             files: {
                 added: [
@@ -205,7 +206,7 @@ function registerBasicDiffTests(): void {
             ]
         );
 
-        assert.partialDeepStrictEqual(collectContents, {
+        assertDeepSubset(collectContents, {
             callCount: 1,
             firstCall: {
                 args: [ bundle, 'package', [ extraFile ] ]
@@ -244,7 +245,7 @@ function registerSchedulerTests(): void {
         if (result.isOk) {
             assert.fail('expected Err');
         }
-        assert.partialDeepStrictEqual(result, {
+        assertDeepSubset(result, {
             error: {
                 failures: [ failingError ],
                 succeeded: []
@@ -314,7 +315,7 @@ function registerChangedDiffTests(): void {
         );
 
         const entry = expectFirstEntry(result);
-        assert.partialDeepStrictEqual(entry, {
+        assertDeepSubset(entry, {
             state: 'changed',
             files: {
                 modified: {
@@ -335,7 +336,7 @@ function registerChangedDiffTests(): void {
         const previousSbom = buildSbomFixtureContent({ packtoryVersion: '1.2.3' });
         const currentSbom = buildSbomFixtureContent({ packtoryVersion: '9.9.9' });
         const files = await runSbomDiff(previousSbom, currentSbom);
-        assert.partialDeepStrictEqual(files, {
+        assertDeepSubset(files, {
             modified: {
                 length: 0
             },

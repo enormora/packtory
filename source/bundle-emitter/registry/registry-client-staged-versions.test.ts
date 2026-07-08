@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     buildStagedVersionsFetchJson,
     registryClientFactory
@@ -41,7 +42,7 @@ suite('registry-client staged versions', function () {
         });
 
         assert.deepStrictEqual(result, [ '1.2.4', '1.2.5' ]);
-        assert.partialDeepStrictEqual(npmFetchJson, {
+        assertDeepSubset(npmFetchJson, {
             callCount: 2,
             firstCall: {
                 firstArg: '/-/stage?package=the-name&page=0&perPage=100'

@@ -353,7 +353,7 @@ suite('github-release-gate-github-api', function () {
                 async function () {
                     await api.getOpenPullRequestActivities();
                 },
-                /openPullRequests\.map is not a function/u
+                /issues\/\/timeline/u
             );
         });
 

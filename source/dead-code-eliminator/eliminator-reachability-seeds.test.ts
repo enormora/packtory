@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import {
@@ -37,7 +38,7 @@ suite('eliminator reachability seeds', function () {
             const emittedMap = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.targetFilePath === 'index.ts.map';
             });
-            assert.notStrictEqual(emittedMap, undefined);
+            assertDefined(emittedMap);
             assert.strictEqual(emittedMap.fileDescription.content, validMapContent);
         });
 
@@ -72,7 +73,7 @@ suite('eliminator reachability seeds', function () {
                 )
             );
             const emitted = analyzed?.contents[0];
-            assert.notStrictEqual(emitted, undefined);
+            assertDefined(emitted);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'Public', 'Private' ]));
         });
 
@@ -125,7 +126,7 @@ suite('eliminator reachability seeds', function () {
             const emittedWorker = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.sourceFilePath === '/src/worker.js';
             });
-            assert.notStrictEqual(emittedWorker, undefined);
+            assertDefined(emittedWorker);
             assert.deepStrictEqual(
                 emittedWorker.analysis.survivingBindings,
                 new Set([ 'workerPublic', 'workerPrivate' ])
@@ -143,7 +144,7 @@ suite('eliminator reachability seeds', function () {
                 )
             );
             const producerEmitted = result[1]?.contents[0];
-            assert.notStrictEqual(producerEmitted, undefined);
+            assertDefined(producerEmitted);
             assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), true);
             assert.strictEqual(producerEmitted.fileDescription.content.includes('unused'), false);
         });
@@ -190,7 +191,7 @@ suite('eliminator reachability seeds', function () {
             const runtimeHelper = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.sourceFilePath === '/src/helpers.js';
             });
-            assert.notStrictEqual(runtimeHelper, undefined);
+            assertDefined(runtimeHelper);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('used'), true);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('unused'), false);
         });
@@ -207,7 +208,7 @@ suite('eliminator reachability seeds', function () {
                 inputs(consumerBundleWith(consumerContent), producerBundleWith('export function used() { return 1; }'))
             );
             const producerEmitted = result[1]?.contents[0];
-            assert.notStrictEqual(producerEmitted, undefined);
+            assertDefined(producerEmitted);
             assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), false);
         });
 
@@ -227,7 +228,7 @@ suite('eliminator reachability seeds', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const emitted = analyzed?.contents[0];
-            assert.notStrictEqual(emitted, undefined);
+            assertDefined(emitted);
             assert.strictEqual(emitted.fileDescription.content.includes('dead'), true);
             assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'dead', 'live' ]));
         });

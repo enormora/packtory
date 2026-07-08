@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { safeParse } from '../../common/schema-validation.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
@@ -70,8 +71,8 @@ suite('no-side-effects', function () {
         test('rule definition exposes name, schemas and a run function', function () {
             assert.strictEqual(noSideEffectsRule.name, 'noSideEffects');
             assert.strictEqual(typeof noSideEffectsRule.run, 'function');
-            assert.notStrictEqual(noSideEffectsRule.globalSchema, undefined);
-            assert.notStrictEqual(noSideEffectsRule.perPackageSchema, undefined);
+            assertDefined(noSideEffectsRule.globalSchema);
+            assertDefined(noSideEffectsRule.perPackageSchema);
         });
 
         test('returns no issues when settings are missing entirely', async function () {

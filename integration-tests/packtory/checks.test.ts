@@ -35,13 +35,17 @@ async function createBaseConfig(fixturePath: string): Promise<PacktoryConfigWith
 
 function packageConfigAt(config: PacktoryConfigWithoutRegistry, index: number): PackageConfig {
     const packageConfig = config.packages[index];
-    assert.notStrictEqual(packageConfig, undefined);
+    if (packageConfig === undefined) {
+        assert.fail('expected package config');
+    }
     return packageConfig;
 }
 
 function firstIssue(issues: readonly string[]): string {
     const [ issue ] = issues;
-    assert.notStrictEqual(issue, undefined);
+    if (issue === undefined) {
+        assert.fail('expected issue');
+    }
     return issue;
 }
 

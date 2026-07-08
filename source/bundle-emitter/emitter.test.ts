@@ -208,12 +208,10 @@ suite('emitter', function () {
 
             await determineCurrentVersion(emitter, { stage: false, versioning: { automatic: true } });
 
-            assert.partialDeepStrictEqual(fetchLatestVersion, {
-                callCount: 1,
-                firstCall: {
-                    args: [ 'the-name', registrySettings ]
-                }
-            });
+            assert.deepStrictEqual(
+                { callCount: fetchLatestVersion.callCount, args: fetchLatestVersion.firstCall.args },
+                { callCount: 1, args: [ 'the-name', registrySettings ] }
+            );
         });
 
         test('determineCurrentVersion() returns the fetched version when automatic versioning is enabled', async function () {
@@ -436,12 +434,13 @@ suite('emitter', function () {
                 bundle: namedBundle()
             });
 
-            assert.partialDeepStrictEqual(fetchLatestReleaseMetadata, {
-                callCount: 1,
-                firstCall: {
-                    args: [ 'the-name', registrySettings ]
-                }
-            });
+            assert.deepStrictEqual(
+                {
+                    callCount: fetchLatestReleaseMetadata.callCount,
+                    args: fetchLatestReleaseMetadata.firstCall.args
+                },
+                { callCount: 1, args: [ 'the-name', registrySettings ] }
+            );
         });
 
         test('checkBundleAlreadyPublished() returns false and Nothing when there is no latest version in the registry', async function () {
@@ -454,12 +453,16 @@ suite('emitter', function () {
                 bundle: namedBundle()
             });
 
-            assert.partialDeepStrictEqual(result, {
-                alreadyPublishedAsLatest: false,
-                previousReleaseArtifacts: {
-                    isNothing: true
+            assert.deepStrictEqual(
+                {
+                    alreadyPublishedAsLatest: result.alreadyPublishedAsLatest,
+                    previousReleaseArtifactsIsNothing: result.previousReleaseArtifacts.isNothing
+                },
+                {
+                    alreadyPublishedAsLatest: false,
+                    previousReleaseArtifactsIsNothing: true
                 }
-            });
+            );
             assert.strictEqual(collectContents.callCount, 0);
         });
 

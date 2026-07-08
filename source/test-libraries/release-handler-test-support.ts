@@ -13,6 +13,7 @@ import type {
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage } from '../packtory/packtory.ts';
 import type { ConfigLoader } from '../command-line-interface/config-loader.ts';
 import { runReleaseHandler, type ReleaseHandlerDeps } from '../command-line-interface/runner/release-handler.ts';
+import { assertDeepSubset } from './deep-subset-assertion.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 
 export type ReleaseFlags = ReleaseHandlerDeps['flags'];
@@ -454,7 +455,7 @@ export async function assertCurrentHeadRetryTag(flags: Partial<ReleaseFlags>): P
         planOutcomes: createReleasePlanOutcomesForPackage(createCurrentHeadRetryPackage())
     });
 
-    assert.partialDeepStrictEqual(deps, {
+    assertDeepSubset(deps, {
         log: { lastCall: { args: [ 'Release completed.' ] } },
         releaseSteps: [ 'plan', 'clean', 'head', 'tag:pkg-a@1.0.1' ]
     });

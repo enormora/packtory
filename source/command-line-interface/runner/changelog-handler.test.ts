@@ -214,16 +214,10 @@ async function assertReleasePlanFailureLogged(spec: ReleasePlanFailureLogSpec): 
     const code = await runChangelogHandler(depsWith({ spies }));
 
     assert.strictEqual(code, 1);
-    assert.partialDeepStrictEqual(spies, {
-        createPrLogEngine: {
-            callCount: 0
-        },
-        log: {
-            firstCall: {
-                args: [ spec.expectedLog ]
-            }
-        }
-    });
+    assert.deepStrictEqual(
+        { createPrLogEngine: spies.createPrLogEngine.callCount, logArgs: spies.log.firstCall.args },
+        { createPrLogEngine: 0, logArgs: [ spec.expectedLog ] }
+    );
 }
 
 function assertConfiguredChangelogInputs(
@@ -251,24 +245,20 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(depsWith({ spies }));
 
             assert.strictEqual(code, 0);
-            assert.partialDeepStrictEqual(spies, {
-                planReleaseAgainstLatestPublished: {
-                    firstCall: {
-                        args: [ validConfig ]
-                    }
+            assert.deepStrictEqual(
+                {
+                    planReleaseArgs: spies.planReleaseAgainstLatestPublished.firstCall.args,
+                    createPrLogEngine: spies.createPrLogEngine.callCount,
+                    pageOutputArgs: spies.pageOutput.firstCall.args,
+                    stopAll: spies.stopAll.callCount
                 },
-                createPrLogEngine: {
-                    callCount: 1
-                },
-                pageOutput: {
-                    firstCall: {
-                        args: [ '## pkg-a 1.0.1\n' ]
-                    }
-                },
-                stopAll: {
-                    callCount: 2
+                {
+                    planReleaseArgs: [ validConfig ],
+                    createPrLogEngine: 1,
+                    pageOutputArgs: [ '## pkg-a 1.0.1\n' ],
+                    stopAll: 2
                 }
-            });
+            );
         });
 
         test('returns 1 and logs release-plan config failures without creating pr-log', async function () {
@@ -296,14 +286,10 @@ suite('changelog-handler', function () {
             );
 
             assert.strictEqual(code, 0);
-            assert.partialDeepStrictEqual(spies, {
-                createPrLogEngine: {
-                    callCount: 0
-                },
-                pageOutput: {
-                    callCount: 0
-                }
-            });
+            assert.deepStrictEqual(
+                { createPrLogEngine: spies.createPrLogEngine.callCount, pageOutput: spies.pageOutput.callCount },
+                { createPrLogEngine: 0, pageOutput: 0 }
+            );
         });
 
         test('returns 1 and still renders succeeded changed packages for partial release-plan failures', async function () {
@@ -316,16 +302,10 @@ suite('changelog-handler', function () {
             const code = await runChangelogHandler(depsWith({ spies }));
 
             assert.strictEqual(code, 1);
-            assert.partialDeepStrictEqual(spies, {
-                pageOutput: {
-                    callCount: 1
-                },
-                log: {
-                    firstCall: {
-                        args: [ 'pkg-b failed\npkg-c failed' ]
-                    }
-                }
-            });
+            assert.deepStrictEqual(
+                { pageOutput: spies.pageOutput.callCount, logArgs: spies.log.firstCall.args },
+                { pageOutput: 1, logArgs: [ 'pkg-b failed\npkg-c failed' ] }
+            );
         });
     });
 
@@ -411,18 +391,13 @@ suite('changelog-handler', function () {
             );
 
             assert.strictEqual(code, 1);
-            assert.partialDeepStrictEqual(spies, {
-                log: {
-                    firstCall: {
-                        args: [
-                            'package.json repository must point to a GitHub repository'
-                        ]
-                    }
-                },
-                pageOutput: {
-                    callCount: 0
+            assert.deepStrictEqual(
+                { logArgs: spies.log.firstCall.args, pageOutput: spies.pageOutput.callCount },
+                {
+                    logArgs: [ 'package.json repository must point to a GitHub repository' ],
+                    pageOutput: 0
                 }
-            });
+            );
         });
 
         test('returns 1 when package.json repository is missing', async function () {

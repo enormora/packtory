@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import zlib from 'node:zlib';
 import { suite, test } from 'mocha';
 import tar from 'tar-stream';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { createPlaceholderTarballBuilder, type PlaceholderTarballBuilder } from './placeholder-tarball.ts';
 
 type PlaceholderTarballInput = Parameters<PlaceholderTarballBuilder['build']>[0];
@@ -89,7 +90,7 @@ suite('placeholder-tarball', function () {
             return entry.name === 'package/package.json';
         });
 
-        assert.notStrictEqual(manifestEntry, undefined, 'expected manifest entry');
+        assertDefined(manifestEntry, 'expected manifest entry');
         assert.strictEqual(manifestEntry.content.endsWith('\n'), true);
         assert.deepStrictEqual(JSON.parse(manifestEntry.content), {
             name: '@scope/example',
@@ -110,7 +111,7 @@ suite('placeholder-tarball', function () {
             return entry.name === 'package/readme.md';
         });
 
-        assert.notStrictEqual(readmeEntry, undefined, 'expected readme entry');
+        assertDefined(readmeEntry, 'expected readme entry');
         assert.strictEqual(readmeEntry.content, readmeContent);
     });
 

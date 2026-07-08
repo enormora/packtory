@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import { registerSubscribers, type AggregatorState } from './report-event-handlers.ts';
@@ -51,7 +52,7 @@ function registerPackageEventTests(): void {
         });
 
         const entry = expectPackageEntry(state, 'pkg-a');
-        assert.partialDeepStrictEqual(entry, {
+        assertDeepSubset(entry, {
             roots: { main: 'src/index.js' },
             siblingVersions: { 'pkg-b': '1.0.0' },
             sourceFileCount: 3
@@ -235,7 +236,7 @@ function registerEliminationTests(): void {
         ]);
 
         const entry = expectPackageEntry(state, 'pkg-a');
-        assert.partialDeepStrictEqual(entry, {
+        assertDeepSubset(entry, {
             decisions: {
                 deadCodeElimination: {
                     files: {

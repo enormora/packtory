@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     createRetryingMetadataFetch,
     errorWithStatus,
@@ -30,7 +31,7 @@ suite('registry-client metadata auto retry', function () {
         const result = await registryClient.fetchLatestVersion('the-name', { auth: metadataAutoBearerAuth });
 
         expectLatestVersion(result);
-        assert.partialDeepStrictEqual(npmFetchJson, {
+        assertDeepSubset(npmFetchJson, {
             callCount: 2,
             firstCall: {
                 args: [

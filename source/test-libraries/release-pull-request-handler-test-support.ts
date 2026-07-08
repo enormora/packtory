@@ -4,6 +4,7 @@ import { Result } from 'true-myth';
 import type { Packtory, ReleasePlanPackage } from '../packtory/packtory.ts';
 import type { ReleasePullRequestHandlerDependencies } from '../command-line-interface/runner/release-pull-request-handler.ts';
 import type { ReleasePullRequestGitHubClient } from '../command-line-interface/runner/release-pr-github-client.ts';
+import { assertDeepSubset } from './deep-subset-assertion.ts';
 import { createBuildReportFixture } from './preview-fixtures.ts';
 import { createFakeFileManager } from './fake-file-manager.ts';
 import {
@@ -262,7 +263,7 @@ type ReleasePullRequestUpdateAssertion = {
 };
 
 export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpdateAssertion): void {
-    assert.partialDeepStrictEqual(input, {
+    assertDeepSubset(input, {
         commit: { callCount: 1 },
         readChangedFiles: { firstCall: { args: [ 'main-head', 'release-head' ] } }
     });
@@ -277,7 +278,7 @@ export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpda
         expectedHeadOid: 'main-head',
         message: 'Release packages'
     });
-    assert.partialDeepStrictEqual(input, {
+    assertDeepSubset(input, {
         pushHeadToBranch: { callCount: 0 },
         pushFollowTags: { callCount: 0 }
     });

@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { stub, fake, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import type { MainPackageJson } from '../config/package-json.ts';
 import type { DependencyFiles } from './dependency-graph.ts';
 import type { ModuleReference } from './source-file-references.ts';
@@ -62,7 +63,7 @@ suite('scanner', function () {
 
             await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
 
-            assert.partialDeepStrictEqual(analyzeProject, {
+            assertDeepSubset(analyzeProject, {
                 callCount: 1,
                 firstCall: {
                     args: [
@@ -82,7 +83,7 @@ suite('scanner', function () {
                 mainPackageJson: defaultMainPackageJson
             });
 
-            assert.partialDeepStrictEqual(analyzeProject, {
+            assertDeepSubset(analyzeProject, {
                 callCount: 1,
                 firstCall: {
                     args: [
@@ -100,7 +101,7 @@ suite('scanner', function () {
 
             await dependencyScanner.scan('/foo/bar.js', '/foo', { mainPackageJson: defaultMainPackageJson });
 
-            assert.partialDeepStrictEqual(getReferencedModules, {
+            assertDeepSubset(getReferencedModules, {
                 callCount: 1,
                 firstCall: {
                     args: [ '/foo/bar.js' ]
@@ -157,7 +158,7 @@ suite('scanner', function () {
                 mainPackageJson: defaultMainPackageJson
             });
 
-            assert.partialDeepStrictEqual(locate, {
+            assertDeepSubset(locate, {
                 callCount: 2,
                 firstCall: {
                     args: [ '/dir/entry.js', '/dir' ]
@@ -245,7 +246,7 @@ suite('scanner', function () {
             });
             const result = graph.flatten('/dir/entry.js');
 
-            assert.partialDeepStrictEqual(getReferencedModules, {
+            assertDeepSubset(getReferencedModules, {
                 callCount: 4,
                 firstCall: {
                     args: [ '/dir/entry.js' ]

@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Node as TsMorphNode, Statement } from 'ts-morph';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
@@ -57,7 +58,7 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.partialDeepStrictEqual(result, {
+        assertDeepSubset(result, {
             transforms: [],
             resource: {
                 analysis: {
@@ -74,7 +75,7 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.partialDeepStrictEqual(result, {
+        assertDeepSubset(result, {
             transforms: [],
             resource: {
                 fileDescription: {
@@ -97,7 +98,7 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
 
-        assert.partialDeepStrictEqual(result, {
+        assertDeepSubset(result, {
             transforms: [],
             resource: {
                 fileDescription: {

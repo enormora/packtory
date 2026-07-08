@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { createBundleLinker } from './linker.ts';
 
@@ -58,7 +59,7 @@ suite('linker', function () {
             bundleDependencies: []
         });
 
-        assert.partialDeepStrictEqual(result, {
+        assertDeepSubset(result, {
             name: 'package-a',
             exportPackageJson: true,
             roots: {

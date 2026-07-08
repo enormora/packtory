@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, stub, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createDependencyGraph, type DependencyGraph } from '../dependency-scanner/dependency-graph.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
@@ -162,7 +163,7 @@ function addGeneratedManifestDependency(graph: DependencyGraph): void {
 }
 
 function assertGeneratedManifestResource(manifestResource: ResolvedContent): void {
-    assert.partialDeepStrictEqual(manifestResource, {
+    assertDeepSubset(manifestResource, {
         isGeneratedManifest: true,
         fileDescription: {
             content: '{\n    "type": "module"\n}\n',
@@ -192,7 +193,7 @@ suite('resource-resolver', function () {
                 mainPackageJson: { type: 'module' }
             }
         ]);
-        assert.partialDeepStrictEqual(result, {
+        assertDeepSubset(result, {
             name: 'package-a',
             contents: {
                 length: 3
@@ -261,7 +262,7 @@ suite('resource-resolver', function () {
             mainPackageJson: { type: 'module' }
         });
 
-        assert.partialDeepStrictEqual(scan, {
+        assertDeepSubset(scan, {
             callCount: 2,
             secondCall: {
                 args: [

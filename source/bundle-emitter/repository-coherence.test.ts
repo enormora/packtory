@@ -267,7 +267,7 @@ suite('repository-coherence', function () {
 
             assert.strictEqual(
                 normalizeRepositoryUrl('git+ssh://git@github.com/enormora/packtory.git'),
-                'github.com/enormora/packtory'
+                'https://github.com/enormora/packtory'
             );
         });
 

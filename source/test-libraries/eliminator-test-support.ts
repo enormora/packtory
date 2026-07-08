@@ -1,6 +1,6 @@
-import assert from 'node:assert';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import { assertDefined } from './deep-subset-assertion.ts';
 import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
 
 export function inputs(
@@ -41,7 +41,7 @@ export function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
 }
 
 export function collectTargetPaths(analyzed: AnalyzedBundle | undefined): readonly string[] {
-    assert.notStrictEqual(analyzed, undefined);
+    assertDefined(analyzed);
     return analyzed.contents.map(function (resource) {
         return resource.fileDescription.targetFilePath;
     });

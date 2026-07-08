@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Statement } from 'ts-morph';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
 
@@ -11,8 +12,8 @@ function statementsFor(content: string): readonly Statement[] {
 
 function firstTwoStatements(content: string): readonly [Statement, Statement] {
     const [ first, second ] = statementsFor(content);
-    assert.notStrictEqual(first, undefined);
-    assert.notStrictEqual(second, undefined);
+    assertDefined(first);
+    assertDefined(second);
     return [ first, second ];
 }
 

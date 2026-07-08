@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { stub, fake, type SinonSpy, type SinonStub } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import {
     createTypescriptProjectAnalyzer,
     type TypescriptProjectAnalyzer,
@@ -118,7 +119,7 @@ function runAnalyzeProjectExpectingArgs(testArgs: AnalyzeProjectExpectation): vo
             extra: testArgs.expectedExtra
         })
     );
-    assert.partialDeepStrictEqual(addSourceFilesAtPaths, {
+    assertDeepSubset(addSourceFilesAtPaths, {
         callCount: 1,
         firstCall: {
             args: [ [ testArgs.expectedFilesGlob ] ]

@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
@@ -43,7 +44,7 @@ suite('pack-emitter', function () {
 
         await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip', vendorEntries: [], extraFiles: [] });
 
-        assert.partialDeepStrictEqual(buildZip, {
+        assertDeepSubset(buildZip, {
             callCount: 1,
             firstCall: {
                 args: [ bundle, [], [] ]
@@ -65,7 +66,7 @@ suite('pack-emitter', function () {
 
         await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz', vendorEntries: [], extraFiles: [] });
 
-        assert.partialDeepStrictEqual(buildTarball, {
+        assertDeepSubset(buildTarball, {
             callCount: 1,
             firstCall: {
                 args: [ bundle, [], [] ]
@@ -92,7 +93,7 @@ suite('pack-emitter', function () {
             extraFiles: []
         });
 
-        assert.partialDeepStrictEqual(buildFolder, {
+        assertDeepSubset(buildFolder, {
             callCount: 1,
             firstCall: {
                 args: [ bundle, '/out/extracted', [], [] ]

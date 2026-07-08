@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     createAnalyzedResource,
     createArtifactEntryFixture,
@@ -68,7 +69,7 @@ suite('preview-document diffs', function () {
         if (fileNode?.type !== 'file') {
             assert.fail('expected index.js file node');
         }
-        assert.notStrictEqual(fileNode.artifact.diff, undefined);
+        assertDefined(fileNode.artifact.diff);
     });
 
     test('buildPreviewDocument limits diffs to two hunks and drops patch metadata lines', async function () {

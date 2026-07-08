@@ -32,12 +32,15 @@ suite('normalize-paths', function () {
                     const relativeRoot = declarationFile === undefined ? { js } : { js, declarationFile };
                     const normalizedRelativeRoot = normalizeRoot(relativeRoot, sourceFolder);
 
-                    assert.partialDeepStrictEqual(normalizedRelativeRoot, {
-                        js: path.join(sourceFolder, js),
-                        declarationFile: declarationFile === undefined
-                            ? undefined
-                            : path.join(sourceFolder, declarationFile)
-                    });
+                    assert.strictEqual(normalizedRelativeRoot.js, path.join(sourceFolder, js));
+                    if (declarationFile === undefined) {
+                        assert.strictEqual(Object.hasOwn(normalizedRelativeRoot, 'declarationFile'), false);
+                    } else {
+                        assert.strictEqual(
+                            normalizedRelativeRoot.declarationFile,
+                            path.join(sourceFolder, declarationFile)
+                        );
+                    }
                 }
             )
         );
@@ -51,10 +54,12 @@ suite('normalize-paths', function () {
                     const absoluteRoot = declarationFile === undefined ? { js } : { js, declarationFile };
                     const normalizedAbsoluteRoot = normalizeRoot(absoluteRoot, sourceFolder);
 
-                    assert.partialDeepStrictEqual(normalizedAbsoluteRoot, {
-                        js,
-                        declarationFile
-                    });
+                    assert.strictEqual(normalizedAbsoluteRoot.js, js);
+                    if (declarationFile === undefined) {
+                        assert.strictEqual(Object.hasOwn(normalizedAbsoluteRoot, 'declarationFile'), false);
+                    } else {
+                        assert.strictEqual(normalizedAbsoluteRoot.declarationFile, declarationFile);
+                    }
                 }
             )
         );
