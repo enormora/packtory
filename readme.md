@@ -106,6 +106,8 @@ npx packtory release --write-changelog --commit --publish --tag --push --github-
 
 `release` writes changelogs, commits them, recomputes the final plan, publishes directly to npm, creates annotated `{packageName}@{version}` tags, pushes with `git push --follow-tags`, and creates GitHub Releases. It requires a clean Git index and worktree before writing. Commit identity and push credentials come from normal Git config and environment, such as `GIT_AUTHOR_*`, `GIT_COMMITTER_*`, and your configured Git credential helper or CI checkout credentials.
 
+If npm publish succeeds but a later tag, push, or GitHub Release step fails, rerun the same `release` command. When npm metadata says the latest package version has `gitHead` equal to the current Git HEAD and Packtory regenerates matching package contents for that version, Packtory treats the publish as complete and finishes any missing git tags, tag pushes, and GitHub Releases without publishing the package again.
+
 For a reviewed release PR flow, use `release-pr`:
 
 ```bash

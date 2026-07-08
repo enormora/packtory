@@ -12,6 +12,7 @@ import {
     createTransferableFile,
     createVersionedBundle,
     getCallArgs,
+    type ProcessorContext,
     type TransferableFile
 } from '../test-libraries/package-processor-test-support.ts';
 import type { BuildAndPublishOptions } from './map-config.ts';
@@ -30,9 +31,62 @@ type SbomScenario = {
     readonly checkBundleAlreadyPublished: SinonSpy;
     readonly processor: PackageProcessor;
 };
+type CurrentHeadRetryScenario = {
+    readonly alreadyPublishedAsLatest: boolean;
+    readonly artifactGitHead: string;
+    readonly artifactVersion: string;
+};
 
 function nonEsmMainPackageJson(): BuildAndPublishOptions['mainPackageJson'] {
     return JSON.parse('{"type":"commonjs"}') as BuildAndPublishOptions['mainPackageJson'];
+}
+
+function publishedArtifacts(version: string, gitHead: string): BuildAndPublishResult['previousReleaseArtifacts'] {
+    return Maybe.just({
+        version,
+        publishedAt: undefined,
+        gitHead,
+        files: []
+    });
+}
+
+function providerVersioningBuildOptions(): BuildAndPublishOptions {
+    return {
+        ...createBuildAndPublishOptions(),
+        versioning: {
+            automatic: false,
+            provideVersion() {
+                throw new Error('missing package tag');
+            }
+        }
+    };
+}
+
+function tryBuildOptions(buildOptions: BuildAndPublishOptions): DetermineVersionAndPublishOptions {
+    return {
+        analyzedBundle: createAnalyzedBundle(),
+        buildOptions,
+        stage: false
+    };
+}
+
+async function expectMissingTagFailure(processor: PackageProcessor): Promise<void> {
+    await assert.rejects(
+        processor.tryBuildAndPublish(tryBuildOptions(providerVersioningBuildOptions())),
+        { message: 'missing package tag' }
+    );
+}
+
+function createCurrentHeadRetryProcessor(scenario: CurrentHeadRetryScenario): ProcessorContext {
+    return createProcessor({
+        determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+        findCurrentHeadPublishedVersion: fake.resolves({ version: '1.2.3', gitHead: 'current-head' }),
+        addVersion: fake.returns(createVersionedBundle()),
+        checkBundleAlreadyPublished: fake.resolves({
+            alreadyPublishedAsLatest: scenario.alreadyPublishedAsLatest,
+            previousReleaseArtifacts: publishedArtifacts(scenario.artifactVersion, scenario.artifactGitHead)
+        })
+    });
 }
 
 suite('package-processor publish', function () {
@@ -50,6 +104,92 @@ suite('package-processor publish', function () {
                 { message: 'mainPackageJson.type must be "module"' }
             );
             assert.strictEqual(determineCurrentVersion.callCount, 0);
+        });
+    });
+
+    suite('current-head retry publishing', function () {
+        test('tryBuildAndPublish() finalizes current-head registry packages before provider versioning', async function () {
+            const publish = fake.resolves(undefined);
+            const determineCurrentVersion = fake.rejects(new Error('version provider should not run'));
+            const findCurrentHeadPublishedVersion = fake.resolves({ version: '1.2.3', gitHead: 'current-head' });
+            const { processor } = createProcessor({
+                determineCurrentVersion,
+                findCurrentHeadPublishedVersion,
+                addVersion: fake.returns(createVersionedBundle()),
+                checkBundleAlreadyPublished: fake.resolves({
+                    alreadyPublishedAsLatest: true,
+                    previousReleaseArtifacts: publishedArtifacts('1.2.3', 'current-head')
+                }),
+                publish
+            });
+
+            const result = await processor.tryBuildAndPublish(tryBuildOptions(providerVersioningBuildOptions()));
+
+            assert.strictEqual(result.status, 'already-published');
+            assert.strictEqual(result.bundle.version, '1.2.3');
+            assert.deepStrictEqual(findCurrentHeadPublishedVersion.firstCall.args, [
+                {
+                    name: 'package-a',
+                    registrySettings: { auth: { type: 'bearer-token', token: 'token' } }
+                }
+            ]);
+            assert.strictEqual(determineCurrentVersion.callCount, 0);
+            assert.strictEqual(publish.callCount, 0);
+        });
+
+        test('tryBuildAndPublish() falls back when current-head registry contents differ', async function () {
+            const { processor, determineCurrentVersion } = createCurrentHeadRetryProcessor({
+                alreadyPublishedAsLatest: false,
+                artifactVersion: '1.2.3',
+                artifactGitHead: 'current-head'
+            });
+
+            await expectMissingTagFailure(processor);
+
+            assert.strictEqual(determineCurrentVersion.callCount, 1);
+        });
+
+        for (
+            const scenario of [
+                { name: 'versions', artifactVersion: '1.2.4', artifactGitHead: 'current-head' },
+                { name: 'git heads', artifactVersion: '1.2.3', artifactGitHead: 'other-head' }
+            ] as const
+        ) {
+            test(
+                `tryBuildAndPublish() falls back when current-head registry metadata changes ${scenario.name}`,
+                async function () {
+                    const { processor } = createCurrentHeadRetryProcessor({
+                        alreadyPublishedAsLatest: true,
+                        ...scenario
+                    });
+
+                    await expectMissingTagFailure(processor);
+                }
+            );
+        }
+
+        test('tryBuildAndPublish() skips current-head retry detection in stage mode', async function () {
+            const findCurrentHeadPublishedVersion = fake.resolves({ version: '1.2.3', gitHead: 'current-head' });
+            const { processor } = createProcessor({
+                determineCurrentVersion: fake.resolves(Maybe.just('1.2.3')),
+                findCurrentHeadPublishedVersion,
+                addVersion: fake.returns(createVersionedBundle()),
+                checkBundleAlreadyPublished: fake.resolves({
+                    alreadyPublishedAsLatest: true,
+                    previousReleaseArtifacts: publishedArtifacts('1.2.3', 'current-head')
+                })
+            });
+
+            await processor.tryBuildAndPublish({
+                analyzedBundle: createAnalyzedBundle(),
+                buildOptions: {
+                    ...createBuildAndPublishOptions(),
+                    versioning: { automatic: false, version: '1.2.3' }
+                },
+                stage: true
+            });
+
+            assert.strictEqual(findCurrentHeadPublishedVersion.callCount, 0);
         });
     });
 

@@ -25,6 +25,9 @@ type VersionedBundleWithManifest = Awaited<ReturnType<PublishDependencies['versi
 type CurrentVersion = Awaited<ReturnType<PublishDependencies['bundleEmitter']['determineCurrentVersion']>>;
 type PublicationOutcome = Awaited<ReturnType<PublishDependencies['bundleEmitter']['publish']>>;
 type PublishedCheckResult = Awaited<ReturnType<PublishDependencies['bundleEmitter']['checkBundleAlreadyPublished']>>;
+type CurrentHeadPublishedVersion = Awaited<
+    ReturnType<PublishDependencies['bundleEmitter']['findCurrentHeadPublishedVersion']>
+>;
 type PreviousReleaseArtifacts = Readonly<PublishedCheckResult['previousReleaseArtifacts']>;
 type ExtraFiles = Exclude<Awaited<ReturnType<PublishDependencies['sbomFileBuilder']['generate']>>, undefined>;
 type SiblingPackage = Parameters<PublishDependencies['sbomFileBuilder']['generate']>[1][number];
@@ -44,6 +47,13 @@ type VersionDeterminedInput = {
 type FinalizeWithoutBumpExtras = {
     readonly extraFiles: ExtraFiles;
     readonly previousReleaseArtifacts: PreviousReleaseArtifacts;
+};
+type BuildVersionedBundleForVersionInput = {
+    readonly dependencies: PublishDependencies;
+    readonly analyzedBundle: AnalyzedBundle;
+    readonly options: BuildAndPublishOptions;
+    readonly version: string;
+    readonly substitutionPublicModuleSourcePaths: ReadonlySet<string> | undefined;
 };
 
 export type BuildAndPublishResult = {
@@ -71,6 +81,111 @@ function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly Sib
     return [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
 }
 
+function buildVersionedBundleForVersion(input: BuildVersionedBundleForVersionInput): VersionedBundleWithManifest {
+    const { dependencies, analyzedBundle, options, version, substitutionPublicModuleSourcePaths } = input;
+    dependencies.progressBroadcaster.emit('building', { packageName: options.name, version });
+    return dependencies.versionManager.addVersion({
+        bundle: analyzedBundle,
+        ...options,
+        version,
+        substitutionPublicModuleSourcePaths
+    });
+}
+
+async function generateExtraFiles(
+    dependencies: PublishDependencies,
+    versionedBundle: VersionedBundleWithManifest,
+    buildOptions: BuildAndPublishOptions
+): Promise<ExtraFiles> {
+    const result = await dependencies.sbomFileBuilder.generate(
+        versionedBundle,
+        siblingsFromOptions(buildOptions),
+        buildOptions.publishSettings
+    );
+    return result ?? [];
+}
+
+function checkAlreadyPublishedOptions(
+    versionedBundle: VersionedBundleWithManifest,
+    buildOptions: BuildAndPublishOptions,
+    extraFiles: ExtraFiles
+): Parameters<BundleEmitter['checkBundleAlreadyPublished']>[0] {
+    return pickBy(
+        {
+            bundle: versionedBundle,
+            registrySettings: buildOptions.registrySettings,
+            extraFiles: extraFiles.length === 0 ? undefined : extraFiles
+        },
+        isDefined
+    );
+}
+
+async function checkBundleAlreadyPublished(
+    dependencies: PublishDependencies,
+    versionedBundle: VersionedBundleWithManifest,
+    buildOptions: BuildAndPublishOptions,
+    extraFiles: ExtraFiles
+): Promise<PublishedCheckResult> {
+    return dependencies.bundleEmitter.checkBundleAlreadyPublished(
+        checkAlreadyPublishedOptions(versionedBundle, buildOptions, extraFiles)
+    );
+}
+
+function isVerifiedFinalizedPublish(
+    candidate: Exclude<CurrentHeadPublishedVersion, undefined>,
+    result: PublishedCheckResult
+): boolean {
+    if (!result.alreadyPublishedAsLatest || result.previousReleaseArtifacts.isNothing) {
+        return false;
+    }
+    return (
+        result.previousReleaseArtifacts.value.version === candidate.version &&
+        result.previousReleaseArtifacts.value.gitHead === candidate.gitHead
+    );
+}
+
+async function tryFinalizePublishedCurrentHead(
+    dependencies: PublishDependencies,
+    options: DetermineVersionAndPublishOptions
+): Promise<BuildAndPublishResult | undefined> {
+    const candidate = options.stage
+        ? undefined
+        : await dependencies.bundleEmitter.findCurrentHeadPublishedVersion({
+            name: options.buildOptions.name,
+            registrySettings: options.buildOptions.registrySettings
+        });
+    if (candidate === undefined) {
+        return undefined;
+    }
+
+    const versionedBundle = buildVersionedBundleForVersion({
+        dependencies,
+        analyzedBundle: options.analyzedBundle,
+        options: options.buildOptions,
+        version: candidate.version,
+        substitutionPublicModuleSourcePaths: options.substitutionPublicModuleSourcePaths
+    });
+    const extraFiles = await generateExtraFiles(dependencies, versionedBundle, options.buildOptions);
+    const alreadyPublished = await checkBundleAlreadyPublished(
+        dependencies,
+        versionedBundle,
+        options.buildOptions,
+        extraFiles
+    );
+
+    if (!isVerifiedFinalizedPublish(candidate, alreadyPublished)) {
+        return undefined;
+    }
+
+    return {
+        bundle: versionedBundle,
+        status: publishedReleaseStatus.alreadyPublished,
+        publication: noPublication,
+        extraFiles,
+        previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
+    };
+}
+
 export type PublishOperations = {
     readonly buildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
     readonly tryBuildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
@@ -95,10 +210,10 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             options,
             await createVersionProviderContext(dependencies, analyzedBundle, options, stage)
         );
-        dependencies.progressBroadcaster.emit('building', { packageName: options.name, version });
-        const versionedBundle = dependencies.versionManager.addVersion({
-            bundle: analyzedBundle,
-            ...options,
+        const versionedBundle = buildVersionedBundleForVersion({
+            dependencies,
+            analyzedBundle,
+            options,
             version,
             substitutionPublicModuleSourcePaths
         });
@@ -156,58 +271,59 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         return newVersionedBundle;
     }
 
-    async function generateExtraFiles(
-        versionedBundle: VersionedBundleWithManifest,
-        buildOptions: BuildAndPublishOptions
-    ): Promise<ExtraFiles> {
-        const result = await dependencies.sbomFileBuilder.generate(
-            versionedBundle,
-            siblingsFromOptions(buildOptions),
-            buildOptions.publishSettings
-        );
-        return result ?? [];
+    function tryFinalizeWithoutBump(
+        buildContext: VersionedBundleBuildContext,
+        options: BuildAndPublishOptions,
+        alreadyPublished: PublishedCheckResult,
+        extraFiles: ExtraFiles
+    ): BuildAndPublishResult | undefined {
+        const extras = { extraFiles, previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts };
+        if (alreadyPublished.alreadyPublishedAsLatest) {
+            return finalizeWithoutBump(buildContext, options, publishedReleaseStatus.alreadyPublished, extras);
+        }
+        if (!shouldIncreaseVersion(buildContext.currentVersion, options)) {
+            return finalizeWithoutBump(
+                buildContext,
+                options,
+                buildContext.currentVersion.isJust
+                    ? publishedReleaseStatus.newVersion
+                    : publishedReleaseStatus.initialVersion,
+                extras
+            );
+        }
+        return undefined;
     }
 
-    async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
+    async function buildPendingPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
         const buildContext = await buildVersionedBundle(
             options.analyzedBundle,
             options.buildOptions,
             options.stage,
             options.substitutionPublicModuleSourcePaths
         );
-        const preBumpExtraFiles = await generateExtraFiles(buildContext.versionedBundle, options.buildOptions);
-        const alreadyPublished = await dependencies.bundleEmitter.checkBundleAlreadyPublished(
-            pickBy(
-                {
-                    bundle: buildContext.versionedBundle,
-                    registrySettings: options.buildOptions.registrySettings,
-                    extraFiles: preBumpExtraFiles.length === 0 ? undefined : preBumpExtraFiles
-                },
-                isDefined
-            )
+        const preBumpExtraFiles = await generateExtraFiles(
+            dependencies,
+            buildContext.versionedBundle,
+            options.buildOptions
+        );
+        const alreadyPublished = await checkBundleAlreadyPublished(
+            dependencies,
+            buildContext.versionedBundle,
+            options.buildOptions,
+            preBumpExtraFiles
+        );
+        const finalizedWithoutBump = tryFinalizeWithoutBump(
+            buildContext,
+            options.buildOptions,
+            alreadyPublished,
+            preBumpExtraFiles
         );
 
-        if (alreadyPublished.alreadyPublishedAsLatest) {
-            return finalizeWithoutBump(buildContext, options.buildOptions, publishedReleaseStatus.alreadyPublished, {
-                extraFiles: preBumpExtraFiles,
-                previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
-            });
-        }
-        if (!shouldIncreaseVersion(buildContext.currentVersion, options.buildOptions)) {
-            return finalizeWithoutBump(
-                buildContext,
-                options.buildOptions,
-                buildContext.currentVersion.isJust
-                    ? publishedReleaseStatus.newVersion
-                    : publishedReleaseStatus.initialVersion,
-                {
-                    extraFiles: preBumpExtraFiles,
-                    previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
-                }
-            );
+        if (finalizedWithoutBump !== undefined) {
+            return finalizedWithoutBump;
         }
         const newVersionedBundle = await bumpVersion(buildContext, options.buildOptions);
-        const extraFiles = await generateExtraFiles(newVersionedBundle, options.buildOptions);
+        const extraFiles = await generateExtraFiles(dependencies, newVersionedBundle, options.buildOptions);
         return {
             bundle: newVersionedBundle,
             status: buildContext.currentVersion.isJust
@@ -217,6 +333,11 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             extraFiles,
             previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
         };
+    }
+
+    async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
+        const finalizedPublish = await tryFinalizePublishedCurrentHead(dependencies, options);
+        return finalizedPublish ?? await buildPendingPublish(options);
     }
 
     async function buildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {

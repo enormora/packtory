@@ -60,6 +60,27 @@ suite('release-handler mutation flow', function () {
         await assertCurrentHeadRetryTag({ publish: true, tag: true, noDryRun: true });
     });
 
+    test('finishes tags, pushes, and GitHub releases for current-head retry packages with publish enabled', async function () {
+        const buildAndPublishAll = fake();
+        const deps = createReleaseHandlerDeps({
+            buildAndPublishAll,
+            flags: { publish: true, tag: true, push: true, githubRelease: true, noDryRun: true },
+            planOutcomes: createReleasePlanOutcomesForPackage(createCurrentHeadRetryPackage())
+        });
+        const code = await runReleaseHandler(deps);
+
+        assert.strictEqual(code, 0);
+        assert.strictEqual(buildAndPublishAll.callCount, 0);
+        assert.deepStrictEqual(deps.releaseSteps, [
+            'plan',
+            'clean',
+            'head',
+            'tag:pkg-a@1.0.1',
+            'push',
+            'github-release'
+        ]);
+    });
+
     test('creates GitHub releases with empty notes for current-head retry packages', async function () {
         const createReleaseIfMissing = fake.resolves('created');
         const createGitHubReleaseClient = fake(function () {
