@@ -68,6 +68,7 @@ function registerPlanningTests(): void {
                 releaseClassification: 'first-publish',
                 sourceFiles: [ '/source/pkg-a.js' ],
                 changelogDependencyNames: [],
+                changelogDependencyUpdates: [],
                 changelogSourceFiles: [ 'source/pkg-a.js' ]
             }
         ]);
@@ -103,6 +104,7 @@ function registerPlanningTests(): void {
             releaseClassification: 'substantive',
             sourceFiles: [ '/source/pkg-a.js' ],
             changelogDependencyNames: [],
+            changelogDependencyUpdates: [],
             changelogSourceFiles: [ 'source/pkg-a.js' ]
         });
     });
@@ -134,6 +136,7 @@ function registerPlanningTests(): void {
             releaseClassification: 'unchanged',
             sourceFiles: [ '/source/pkg-a.js' ],
             changelogDependencyNames: [],
+            changelogDependencyUpdates: [],
             changelogSourceFiles: [ 'source/pkg-a.js' ]
         });
     });
@@ -231,6 +234,7 @@ function registerDependencyAttributionTests(): void {
         const pkg = expectFirstPackage(result);
         assert.partialDeepStrictEqual(pkg, {
             changelogDependencyNames: [ 'react' ],
+            changelogDependencyUpdates: [ { name: 'react', version: '^19.0.0' } ],
             releaseClassification: 'dependency-only',
             changelogSourceFiles: [ 'source/pkg-a.js', 'source/unused.js' ]
         });
@@ -260,6 +264,7 @@ function registerDependencyAttributionTests(): void {
         });
 
         assert.deepStrictEqual(expectFirstPackage(result).changelogDependencyNames, []);
+        assert.deepStrictEqual(expectFirstPackage(result).changelogDependencyUpdates, []);
     });
 }
 

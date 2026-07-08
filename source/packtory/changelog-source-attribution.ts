@@ -76,6 +76,19 @@ function changedDependencyNamesFor(
         .toSorted(compareValues);
 }
 
+function dependencyVersionFrom(
+    manifest: Readonly<Record<string, unknown>>,
+    dependencyName: string
+): string | undefined {
+    for (const fieldName of dependencyFieldNames) {
+        const version = dependencyFieldFrom(manifest, fieldName)[dependencyName];
+        if (typeof version === 'string') {
+            return version;
+        }
+    }
+    return undefined;
+}
+
 export function collectManifestChangelogSourceFiles(
     mainPackageJson: ManifestChangelogInputs,
     additionalSourceFiles: readonly string[]
@@ -111,6 +124,22 @@ export function changedPackageManifestDependencyNames(
             )
         )
         .toSorted(compareValues);
+}
+
+export function packageManifestDependencyVersions(
+    manifestContent: string,
+    dependencyNames: readonly string[]
+): readonly { readonly name: string; readonly version: string; }[] {
+    const manifest = parseJsonRecord(manifestContent);
+    if (manifest === undefined) {
+        return [];
+    }
+
+    return dependencyNames
+        .flatMap(function (name) {
+            const version = dependencyVersionFrom(manifest, name);
+            return version === undefined ? [] : [ { name, version } ];
+        });
 }
 
 function isJavaScriptFile(filePath: string): boolean {

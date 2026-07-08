@@ -26,8 +26,16 @@ function dependencyUpdateLabel(): string {
     return 'upgrade';
 }
 
-function dependencyUpdateTitle(): string {
-    return 'Update dependencies';
+function dependencyUpdateTitle(packagePlan: ReleasePlanPackage): string {
+    if (packagePlan.changelogDependencyUpdates.length !== 1) {
+        return 'Update dependencies';
+    }
+
+    const update = packagePlan.changelogDependencyUpdates[0];
+    if (update === undefined) {
+        throw new Error('Expected a dependency update');
+    }
+    return `Update ${update.name} to ${update.version}`;
 }
 
 export type GenerateChangelogInput = {
@@ -186,7 +194,7 @@ function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequest
     }
 
     return target.pullRequests.map(function (pullRequest) {
-        return { ...pullRequest, title: dependencyUpdateTitle(), label: dependencyUpdateLabel() };
+        return { ...pullRequest, title: dependencyUpdateTitle(target.packagePlan), label: dependencyUpdateLabel() };
     });
 }
 

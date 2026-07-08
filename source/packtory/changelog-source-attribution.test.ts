@@ -9,7 +9,8 @@ import {
     attributeSelectedChangelogSourceFiles,
     changedPackageManifestDependencyNames,
     collectManifestChangelogSourceFiles,
-    isPackageManifestInputPath
+    isPackageManifestInputPath,
+    packageManifestDependencyVersions
 } from './changelog-source-attribution.ts';
 
 function sourceMap(sources: readonly (string | null)[], sourceRoot = ''): string {
@@ -327,6 +328,24 @@ function registerManifestInputTests(): void {
             ),
             [ 'left' ]
         );
+    });
+
+    test('packageManifestDependencyVersions returns current versions for dependency names', function () {
+        const manifest = JSON.stringify({
+            dependencies: { shared: '1.0.0' },
+            optionalDependencies: { optional: '1.0.1' },
+            peerDependencies: { react: '^19.0.0', right: '2.0.0' }
+        });
+
+        assert.deepStrictEqual(packageManifestDependencyVersions(manifest, [ 'left', 'optional', 'react', 'right' ]), [
+            { name: 'optional', version: '1.0.1' },
+            { name: 'react', version: '^19.0.0' },
+            { name: 'right', version: '2.0.0' }
+        ]);
+    });
+
+    test('packageManifestDependencyVersions ignores non-object manifests', function () {
+        assert.deepStrictEqual(packageManifestDependencyVersions('[]', [ 'left' ]), []);
     });
 }
 

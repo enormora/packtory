@@ -15,6 +15,7 @@ import {
     attributeSelectedChangelogSourceFiles,
     attributeChangelogSourceFiles,
     changedPackageManifestDependencyNames,
+    packageManifestDependencyVersions,
     type ChangelogSourceAttributionDependencies
 } from './changelog-source-attribution.ts';
 
@@ -143,6 +144,18 @@ function collectReleasePlanChangelogDependencyNames(
     return changedPackageManifestDependencyNames(previousManifest, currentManifest);
 }
 
+function collectReleasePlanChangelogDependencyUpdates(
+    currentFiles: readonly FileDescription[],
+    changelogDependencyNames: readonly string[]
+): ReleasePlanPackage['changelogDependencyUpdates'] {
+    const currentManifest = manifestArtifactContentFrom(currentFiles);
+    if (currentManifest === undefined) {
+        return [];
+    }
+
+    return packageManifestDependencyVersions(currentManifest, changelogDependencyNames);
+}
+
 function shouldAttributeAllBundleSources(releaseClassification: ReleasePlanPackage['releaseClassification']): boolean {
     return (
         releaseClassification === releaseAnalysisClassification.dependencyOnly ||
@@ -177,6 +190,10 @@ export async function createReleasePlanPackage(
         buildResult,
         input.releaseArtifactFiles
     );
+    const changelogDependencyUpdates = collectReleasePlanChangelogDependencyUpdates(
+        input.releaseArtifactFiles,
+        changelogDependencyNames
+    );
     return {
         name: buildResult.bundle.name,
         previousVersion: latestRegistryMetadata?.version,
@@ -191,6 +208,7 @@ export async function createReleasePlanPackage(
         changedArtifactFiles,
         sourceFiles: sourceFilesFrom(analyzedBundle),
         changelogDependencyNames,
+        changelogDependencyUpdates,
         changelogSourceFiles: await attributedChangelogSourceFiles({
             analyzedBundle,
             changedArtifactFiles,

@@ -73,6 +73,7 @@ export function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}
         sourceFiles: [ 'source/pkg-a.ts' ],
         changelogSourceFiles: [ 'source/pkg-a.ts' ],
         changelogDependencyNames: [],
+        changelogDependencyUpdates: [],
         ...overrides
     };
 }

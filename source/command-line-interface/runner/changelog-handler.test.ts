@@ -31,6 +31,7 @@ function releasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePla
         sourceFiles: [ 'source/pkg-a.ts' ],
         changelogSourceFiles: [ 'source/pkg-a.ts' ],
         changelogDependencyNames: [],
+        changelogDependencyUpdates: [],
         ...overrides
     };
 }
