@@ -44,6 +44,7 @@ type VersionDeterminedInput = {
     readonly chosenVersion: string;
     readonly didBump: boolean;
 };
+type CurrentHeadPublishAttempt = BuildAndPublishResult | false | undefined;
 type FinalizeWithoutBumpExtras = {
     readonly extraFiles: ExtraFiles;
     readonly previousReleaseArtifacts: PreviousReleaseArtifacts;
@@ -55,7 +56,6 @@ type BuildVersionedBundleForVersionInput = {
     readonly version: string;
     readonly substitutionPublicModuleSourcePaths: ReadonlySet<string> | undefined;
 };
-
 export type BuildAndPublishResult = {
     readonly status: PublishedReleaseStatus;
     readonly bundle: VersionedBundleWithManifest;
@@ -79,6 +79,10 @@ function assertEsmMainPackageJson(mainPackageJson: MainPackageTypeField): void {
 
 function siblingsFromOptions(buildOptions: BuildAndPublishOptions): readonly SiblingPackage[] {
     return [ ...buildOptions.bundleDependencies, ...buildOptions.bundlePeerDependencies ];
+}
+
+function usesVersionProvider(versioning: BuildAndPublishOptions['versioning']): boolean {
+    return Object.hasOwn(versioning, 'provideVersion');
 }
 
 function buildVersionedBundleForVersion(input: BuildVersionedBundleForVersionInput): VersionedBundleWithManifest {
@@ -147,7 +151,7 @@ function isVerifiedFinalizedPublish(
 async function tryFinalizePublishedCurrentHead(
     dependencies: PublishDependencies,
     options: DetermineVersionAndPublishOptions
-): Promise<BuildAndPublishResult | undefined> {
+): Promise<CurrentHeadPublishAttempt> {
     const candidate = options.stage
         ? undefined
         : await dependencies.bundleEmitter.findCurrentHeadPublishedVersion({
@@ -174,7 +178,7 @@ async function tryFinalizePublishedCurrentHead(
     );
 
     if (!isVerifiedFinalizedPublish(candidate, alreadyPublished)) {
-        return undefined;
+        return false;
     }
 
     return {
@@ -294,6 +298,43 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         return undefined;
     }
 
+    async function tryFinalizeCurrentProviderVersion(
+        options: DetermineVersionAndPublishOptions
+    ): Promise<BuildAndPublishResult | undefined> {
+        const currentVersion = await dependencies.bundleEmitter.determineCurrentVersion({
+            name: options.analyzedBundle.name,
+            registrySettings: options.buildOptions.registrySettings,
+            stage: options.stage,
+            versioning: options.buildOptions.versioning
+        });
+        if (!usesVersionProvider(options.buildOptions.versioning) || currentVersion.isNothing) {
+            return undefined;
+        }
+        const versionedBundle = buildVersionedBundleForVersion({
+            dependencies,
+            analyzedBundle: options.analyzedBundle,
+            options: options.buildOptions,
+            version: currentVersion.value,
+            substitutionPublicModuleSourcePaths: options.substitutionPublicModuleSourcePaths
+        });
+        const extraFiles = await generateExtraFiles(dependencies, versionedBundle, options.buildOptions);
+        const alreadyPublished = await checkBundleAlreadyPublished(
+            dependencies,
+            versionedBundle,
+            options.buildOptions,
+            extraFiles
+        );
+        return alreadyPublished.alreadyPublishedAsLatest
+            ? {
+                bundle: versionedBundle,
+                status: publishedReleaseStatus.alreadyPublished,
+                publication: noPublication,
+                extraFiles,
+                previousReleaseArtifacts: alreadyPublished.previousReleaseArtifacts
+            }
+            : undefined;
+    }
+
     async function buildPendingPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
         const buildContext = await buildVersionedBundle(
             options.analyzedBundle,
@@ -322,7 +363,9 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         if (finalizedWithoutBump !== undefined) {
             return finalizedWithoutBump;
         }
-        const newVersionedBundle = await bumpVersion(buildContext, options.buildOptions);
+        const newVersionedBundle = usesVersionProvider(options.buildOptions.versioning)
+            ? buildContext.versionedBundle
+            : await bumpVersion(buildContext, options.buildOptions);
         const extraFiles = await generateExtraFiles(dependencies, newVersionedBundle, options.buildOptions);
         return {
             bundle: newVersionedBundle,
@@ -336,8 +379,14 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
     }
 
     async function tryBuildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
-        const finalizedPublish = await tryFinalizePublishedCurrentHead(dependencies, options);
-        return finalizedPublish ?? await buildPendingPublish(options);
+        assertEsmMainPackageJson(options.buildOptions.mainPackageJson);
+        const currentHeadPublishAttempt = await tryFinalizePublishedCurrentHead(dependencies, options);
+        if (currentHeadPublishAttempt === false) {
+            return buildPendingPublish(options);
+        }
+        return currentHeadPublishAttempt ??
+            await tryFinalizeCurrentProviderVersion(options) ??
+            await buildPendingPublish(options);
     }
 
     async function buildAndPublish(options: DetermineVersionAndPublishOptions): Promise<BuildAndPublishResult> {
