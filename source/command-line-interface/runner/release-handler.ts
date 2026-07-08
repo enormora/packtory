@@ -9,6 +9,7 @@ import {
 } from './changelog-destinations.ts';
 import { printPublishFailure } from './failure-printing.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
+import { collectGitHubReleaseNotes, missingGitHubReleaseNotes } from './github-release-notes.ts';
 import { formatGitHubRepositoryName, parseGitHubRepositoryParts } from './github-repository.ts';
 import type { ReleaseGitClient } from './release-git-client.ts';
 import { printReleasePlanFailure } from './release-plan-result-printing.ts';
@@ -297,6 +298,7 @@ async function ensureTags(deps: ReleaseHandlerDeps, targets: readonly ReleaseTar
 
 async function createGitHubReleases(
     deps: ReleaseHandlerDeps,
+    config: ValidChangelogConfig,
     targets: readonly ReleaseTarget[],
     changelog: GeneratedChangelog
 ): Promise<void> {
@@ -306,11 +308,12 @@ async function createGitHubReleases(
     }
     const repository = parseGitHubRepositoryParts(await deps.readPackageInfo());
     const client = deps.createGitHubReleaseClient({ ...repository, token });
+    const releaseNotesByPackageName = await collectGitHubReleaseNotes(deps, config, targets, changelog);
     for (const target of targets) {
         await client.createReleaseIfMissing({
             tagName: target.tagName,
             name: target.tagName,
-            body: changelog.packageMarkdownByName.get(target.name) ?? ''
+            body: releaseNotesByPackageName.get(target.name) ?? missingGitHubReleaseNotes(target)
         });
     }
 }
@@ -443,7 +446,7 @@ async function finishReleaseActions(
         await deps.gitClient.pushFollowTags();
     }
     if (state.githubRelease) {
-        await createGitHubReleases(deps, releaseTargets, state.changelog.changelog);
+        await createGitHubReleases(deps, state.changelog.config, releaseTargets, state.changelog.changelog);
     }
 }
 

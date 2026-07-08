@@ -10,9 +10,37 @@ import {
     createReleasePlanOutcome,
     createReleasePlanOutcomesForPackage,
     createReleaseStepRecorder,
-    githubReleaseFlags
+    githubReleaseFlags,
+    validConfig
 } from '../../test-libraries/release-handler-test-support.ts';
+import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { runReleaseHandler } from './release-handler.ts';
+
+const currentHeadRetryChangelog = [
+    '## 1.0.1 (June 13, 2026)',
+    '',
+    '### Bug Fixes',
+    '',
+    '* Fix package (#1)',
+    '',
+    '## 1.0.0 (June 1, 2026)',
+    '',
+    '* Previous release'
+]
+    .join('\n');
+
+function packageChangelogConfig(): unknown {
+    return {
+        ...validConfig,
+        changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] }
+    };
+}
+
+function packageChangelogFileManager(): FakeFileManager {
+    return createFakeFileManager({
+        simulatedReadFileResponses: [ { value: currentHeadRetryChangelog } ]
+    });
+}
 
 suite('release-handler mutation flow', function () {
     test('writes changelog, commits, replans, publishes, tags, pushes, and creates GitHub releases in order', async function () {
@@ -64,6 +92,8 @@ suite('release-handler mutation flow', function () {
         const buildAndPublishAll = fake();
         const deps = createReleaseHandlerDeps({
             buildAndPublishAll,
+            config: packageChangelogConfig(),
+            fileManager: packageChangelogFileManager(),
             flags: { publish: true, tag: true, push: true, githubRelease: true, noDryRun: true },
             planOutcomes: createReleasePlanOutcomesForPackage(createCurrentHeadRetryPackage())
         });
@@ -81,15 +111,18 @@ suite('release-handler mutation flow', function () {
         ]);
     });
 
-    test('creates GitHub releases with empty notes for current-head retry packages', async function () {
+    test('recovers GitHub release notes from package changelogs for current-head retry packages', async function () {
         const createReleaseIfMissing = fake.resolves('created');
         const createGitHubReleaseClient = fake(function () {
             return { createReleaseIfMissing };
         });
+        const fileManager = packageChangelogFileManager();
 
         const code = await runReleaseHandler(
             createReleaseHandlerDeps({
+                config: packageChangelogConfig(),
                 createGitHubReleaseClient,
+                fileManager,
                 flags: githubReleaseFlags,
                 planOutcomes: createReleasePlanOutcomesForPackage(createCurrentHeadRetryPackage())
             })
@@ -100,7 +133,40 @@ suite('release-handler mutation flow', function () {
             { owner: 'enormora', repo: 'packtory', token: 'gh-token' }
         ]);
         assert.deepStrictEqual(createReleaseIfMissing.firstCall.args, [
-            { tagName: 'pkg-a@1.0.1', name: 'pkg-a@1.0.1', body: '' }
+            {
+                tagName: 'pkg-a@1.0.1',
+                name: 'pkg-a@1.0.1',
+                body: [
+                    '## 1.0.1 (June 13, 2026)',
+                    '',
+                    '### Bug Fixes',
+                    '',
+                    '* Fix package (#1)'
+                ]
+                    .join('\n')
+            }
+        ]);
+        assert.deepStrictEqual(fileManager.getAllReadFileCalls(), [ { filePath: '/repo/src/pkg-a/CHANGELOG.md' } ]);
+    });
+
+    test('fails GitHub release creation when release notes cannot be generated', async function () {
+        const createReleaseIfMissing = fake.resolves('created');
+        const createGitHubReleaseClient = fake(function () {
+            return { createReleaseIfMissing };
+        });
+
+        const deps = createReleaseHandlerDeps({
+            createGitHubReleaseClient,
+            flags: githubReleaseFlags,
+            planOutcomes: createReleasePlanOutcomesForPackage(createCurrentHeadRetryPackage())
+        });
+
+        const code = await runReleaseHandler(deps);
+
+        assert.strictEqual(code, 1);
+        assert.strictEqual(createReleaseIfMissing.callCount, 0);
+        assert.deepStrictEqual(deps.log.firstCall.args, [
+            'GitHub release notes for "pkg-a@1.0.1" could not be generated'
         ]);
     });
 
@@ -111,7 +177,9 @@ suite('release-handler mutation flow', function () {
 
         const code = await runReleaseHandler(
             createReleaseHandlerDeps({
+                config: packageChangelogConfig(),
                 createGitHubReleaseClient,
+                fileManager: packageChangelogFileManager(),
                 readEnvironmentVariable(name) {
                     return name === 'GITHUB_TOKEN' ? 'github-token' : undefined;
                 },
