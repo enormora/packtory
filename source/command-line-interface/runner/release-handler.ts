@@ -1,4 +1,4 @@
-import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
+import type { PrLogConfig, PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
 import { generateChangelogOutputs, type GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import {
@@ -210,12 +210,11 @@ function readGitHubToken(deps: Pick<ReleaseHandlerDeps, 'readEnvironmentVariable
     return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(deps: ReleaseHandlerDeps): PrLogEngine {
+function createEngine(deps: ReleaseHandlerDeps, config: PrLogConfig): PrLogEngine {
     return deps.createPrLogEngine({
         githubToken: readGitHubToken(deps),
         workingDirectory: deps.workingDirectory,
-        labelLookupIntervalMilliseconds: 250,
-        maximumRateLimitRetryCount: 3
+        config
     });
 }
 
@@ -225,19 +224,18 @@ async function generateReleaseChangelog(
     packages: readonly ReleasePlanPackage[]
 ): Promise<ReleaseChangelog> {
     const packageInfo = await deps.readPackageInfo();
-    const engine = createEngine(deps);
     const generationOptions = createChangelogGenerationOptions(config);
+    const engine = createEngine(deps, generationOptions.prLogConfig);
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine: engine,
         explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
         ignoredAttributionPaths: collectGeneratedAttributionPaths(deps, config),
-        packageInfo,
         currentDate: deps.currentDate(),
         packageTagFormat: generationOptions.packageTagFormat,
-        targetScopedLabelPattern: generationOptions.targetScopedLabelPattern,
-        validLabels: generationOptions.validLabels
+        prLogConfig: generationOptions.prLogConfig,
+        targetScopedLabelPattern: generationOptions.targetScopedLabelPattern
     });
     return { changelog, config, engine };
 }

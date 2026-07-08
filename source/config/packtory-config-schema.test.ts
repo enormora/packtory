@@ -135,7 +135,21 @@ suite('packtory-config-schema', function () {
             data: {
                 registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
                 changelog: {
-                    labels: { operations: 'Operations' },
+                    prLog: {
+                        validLabels: { operations: 'Operations' },
+                        ignoredLabels: [ 'skip-changelog' ],
+                        versionBumps: { patch: [ 'operations' ] },
+                        dateFormat: 'yyyy-MM-dd',
+                        collapseRules: [
+                            {
+                                label: 'operations',
+                                pattern: '^Update (?<dependency>.+?) from (?<from>.+?) to (?<to>.+?)$',
+                                replace: 'Update $<dependency> from $<from> to $<to>'
+                            }
+                        ],
+                        labelLookupIntervalMilliseconds: 500,
+                        maximumRateLimitRetryCount: 5
+                    },
                     targetScopedLabelPattern: 'scope:{targetName}:{label}',
                     packageTagFormat: 'pkg/{packageName}/v{version}',
                     explicitBaseRef: 'main',

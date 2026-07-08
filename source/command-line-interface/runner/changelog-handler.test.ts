@@ -93,7 +93,7 @@ type ChangelogUpdateInput = {
 };
 type ChangelogLabelInput = {
     readonly targetScopedLabelPattern: string;
-    readonly validLabels: ReadonlyMap<string, string>;
+    readonly config: { readonly validLabels: ReadonlyMap<string, string>; };
 };
 
 type EngineOverrides = {
@@ -117,6 +117,7 @@ function createEngine(overrides: EngineOverrides = {}): PrLogEngine {
             return input.pullRequests;
         }),
         resolvePullRequestLabels: overrides.resolvePullRequestLabels ?? fake.resolves(labeledPullRequests),
+        resolveVersionNumber: fake.returns('1.0.1'),
         renderGroupedTargetChangelog: fake.returns('## pkg-a 1.0.1\n'),
         renderTargetChangelog: fake(function (input: TargetChangelogInput) {
             return `## ${input.targetName} 1.0.1\n`;
@@ -194,6 +195,7 @@ function makeSpies(
                 githubToken: 'gh-token',
                 workingDirectory: '/repo'
             });
+            assert.strictEqual(options.config.maximumRateLimitRetryCount, 3);
             return engine;
         }),
         log: fake(),
@@ -233,8 +235,8 @@ function assertConfiguredChangelogInputs(
     });
     const labelInput = resolvePullRequestLabels.firstCall.args[0] as ChangelogLabelInput;
     assert.strictEqual(labelInput.targetScopedLabelPattern, 'scope:{targetName}:{label}');
-    assert.strictEqual(labelInput.validLabels.get('bug'), 'Bug Fixes');
-    assert.strictEqual(labelInput.validLabels.get('operations'), 'Operations');
+    assert.strictEqual(labelInput.config.validLabels.get('bug'), 'Bug Fixes');
+    assert.strictEqual(labelInput.config.validLabels.get('operations'), 'Operations');
 }
 
 suite('changelog-handler', function () {
@@ -364,7 +366,7 @@ suite('changelog-handler', function () {
                         ...validConfig,
                         changelog: {
                             explicitBaseRef: 'main',
-                            labels: { operations: 'Operations' },
+                            prLog: { validLabels: { operations: 'Operations' } },
                             packageTagFormat: 'pkg/{packageName}/v{version}',
                             targetScopedLabelPattern: 'scope:{targetName}:{label}'
                         }

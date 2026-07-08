@@ -113,8 +113,8 @@ suite('changelog writes', function () {
         const resolvePullRequestLabels = fake(
             async function (input: ResolvePullRequestLabelsOptions) {
                 assert.strictEqual(input.targetScopedLabelPattern, 'scope:{targetName}:{label}');
-                assert.strictEqual(input.validLabels.get('bug'), 'Bug Fixes');
-                assert.strictEqual(input.validLabels.get('operations'), 'Operations');
+                assert.strictEqual(input.config.validLabels.get('bug'), 'Bug Fixes');
+                assert.strictEqual(input.config.validLabels.get('operations'), 'Operations');
                 return [ { id: 1, title: 'Fix package', label: 'operations' } ];
             }
         );
@@ -131,7 +131,7 @@ suite('changelog writes', function () {
                     ...validConfig,
                     changelog: {
                         explicitBaseRef: 'main',
-                        labels: { operations: 'Operations' },
+                        prLog: { validLabels: { operations: 'Operations' } },
                         outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ],
                         packageTagFormat: 'pkg/{packageName}/v{version}',
                         targetScopedLabelPattern: 'scope:{targetName}:{label}'

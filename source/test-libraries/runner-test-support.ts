@@ -86,6 +86,7 @@ function createPrLogEngineFactory(overrides: Overrides): CommandLineInterfaceRun
         readPullRequestLabels: fake.resolves(new Map()),
         filterPullRequestsByTargetFiles: fake.returns([]),
         resolvePullRequestLabels: fake.resolves([]),
+        resolveVersionNumber: fake.returns('1.0.1'),
         renderChangelog: fake.returns(''),
         renderGroupedTargetChangelog: fake.returns(''),
         renderTargetChangelog: fake.returns(''),

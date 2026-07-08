@@ -1,27 +1,23 @@
 import path from 'node:path';
-import { defaultValidLabels, type PrLogEngine } from '@pr-log/core';
+import type { PrLogConfig, PrLogEngine } from '@pr-log/core';
+import type { z } from 'zod/mini';
 import { safeParse } from '../../common/schema-validation.ts';
-import type { ChangelogOutput } from '../../config/changelog-settings.ts';
+import type { ChangelogOutput, ChangelogSettings } from '../../config/changelog-settings.ts';
 import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import * as generatedAttributionPaths from '../../packtory/generated-attribution-paths.ts';
 import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
+import { createPrLogConfig } from './changelog-pr-log-config.ts';
 
 type PackagePathConfig = {
     readonly name: string;
     readonly sourcesFolder?: string | undefined;
 };
 
-type ChangelogSettingsConfig = {
-    readonly explicitBaseRef?: string | undefined;
-    readonly labels?: Readonly<Record<string, string>> | undefined;
-    readonly outputs?: readonly ChangelogOutput[] | undefined;
-    readonly packageTagFormat?: string | undefined;
-    readonly targetScopedLabelPattern?: string | undefined;
-};
+type ParsedPacktoryConfig = Readonly<z.infer<typeof packtoryConfigSchema>>;
 
 export type ChangelogConfig = {
-    readonly changelog?: ChangelogSettingsConfig | undefined;
+    readonly changelog?: ChangelogSettings | undefined;
     readonly commonPackageSettings?: { readonly sourcesFolder?: string | undefined; } | undefined;
     readonly packages: readonly PackagePathConfig[];
 };
@@ -48,21 +44,36 @@ type PackageChangelogOutputWithExplicitPaths = PackageChangelogOutput & {
 export type ChangelogGenerationOptions = {
     readonly explicitBaseRef: string | undefined;
     readonly packageTagFormat: string | undefined;
+    readonly prLogConfig: PrLogConfig;
     readonly targetScopedLabelPattern: string | undefined;
-    readonly validLabels: ReadonlyMap<string, string>;
 };
+
+function isPassThroughObject(value: unknown): boolean {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isChangelogSettings(changelog: ParsedPacktoryConfig['changelog']): changelog is ChangelogSettings | undefined {
+    return changelog?.prLog === undefined || isPassThroughObject(changelog.prLog);
+}
 
 export function parseValidConfig(config: unknown): ChangelogConfig | undefined {
     const result = safeParse(packtoryConfigSchema, config);
-    return result.success ? result.data : undefined;
+    if (!result.success || !isChangelogSettings(result.data.changelog)) {
+        return undefined;
+    }
+    return {
+        changelog: result.data.changelog,
+        commonPackageSettings: result.data.commonPackageSettings,
+        packages: result.data.packages
+    };
 }
 
 export function createChangelogGenerationOptions(config: ChangelogConfig): ChangelogGenerationOptions {
     return {
         explicitBaseRef: config.changelog?.explicitBaseRef,
         packageTagFormat: config.changelog?.packageTagFormat,
-        targetScopedLabelPattern: config.changelog?.targetScopedLabelPattern,
-        validLabels: new Map([ ...defaultValidLabels, ...Object.entries(config.changelog?.labels ?? {}) ])
+        prLogConfig: createPrLogConfig(config.changelog),
+        targetScopedLabelPattern: config.changelog?.targetScopedLabelPattern
     };
 }
 

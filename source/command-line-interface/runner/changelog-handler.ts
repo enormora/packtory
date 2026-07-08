@@ -1,4 +1,4 @@
-import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
+import type { PrLogConfig, PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { FileManager } from '../../file-manager/file-manager.ts';
 import type { Packtory, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import { generateChangelogOutputs } from '../../packtory/packtory-changelog.ts';
@@ -32,9 +32,6 @@ export type ChangelogHandlerDeps = {
     readonly workingDirectory: string;
 };
 
-const labelLookupIntervalMilliseconds = 250;
-const maximumRateLimitRetryCount = 3;
-
 function formatChangelogHandlerError(error: unknown): string {
     return String(error).replace(/^[A-Za-z]*Error: /u, '');
 }
@@ -43,12 +40,11 @@ function readGitHubToken(deps: Pick<ChangelogHandlerDeps, 'readEnvironmentVariab
     return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(deps: ChangelogHandlerDeps): PrLogEngine {
+function createEngine(deps: ChangelogHandlerDeps, config: PrLogConfig): PrLogEngine {
     return deps.createPrLogEngine({
         githubToken: readGitHubToken(deps),
         workingDirectory: deps.workingDirectory,
-        labelLookupIntervalMilliseconds,
-        maximumRateLimitRetryCount
+        config
     });
 }
 
@@ -61,19 +57,18 @@ async function renderChangelog(
         return;
     }
     const packageInfo = await deps.readPackageInfo();
-    const prLogEngine = createEngine(deps);
     const generationOptions = createChangelogGenerationOptions(config);
+    const prLogEngine = createEngine(deps, generationOptions.prLogConfig);
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine,
         explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
         ignoredAttributionPaths: collectGeneratedAttributionPaths(deps, config),
-        packageInfo,
         packageTagFormat: generationOptions.packageTagFormat,
         currentDate: deps.currentDate(),
-        targetScopedLabelPattern: generationOptions.targetScopedLabelPattern,
-        validLabels: generationOptions.validLabels
+        prLogConfig: generationOptions.prLogConfig,
+        targetScopedLabelPattern: generationOptions.targetScopedLabelPattern
     });
     if (shouldPageGroupedChangelog(config.changelog?.outputs) && changelog.groupedMarkdown.length > 0) {
         await deps.pageOutput(changelog.groupedMarkdown);

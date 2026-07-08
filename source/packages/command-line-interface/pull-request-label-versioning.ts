@@ -1,9 +1,10 @@
 import semver from 'semver';
-import { defaultValidLabels, type PrLogEngine, type PrLogEngineOptions, type PullRequestWithLabel } from '@pr-log/core';
+import type { PrLogConfig, PrLogEngine, PrLogEngineOptions, PullRequestWithLabel } from '@pr-log/core';
 import type { VersionProvider } from '../../config/manual-versioning-settings.ts';
 import type { PacktoryConfig } from '../../config/config.ts';
 import type { VersionSourceResolver } from '../../packtory/map-config.ts';
 import { formatGitHubRepositoryName } from '../../command-line-interface/runner/github-repository.ts';
+import { createPrLogConfig } from '../../command-line-interface/runner/changelog-pr-log-config.ts';
 
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 
@@ -14,10 +15,7 @@ export type PullRequestLabelVersionSourceDeps = {
     readonly workingDirectory: string;
 };
 
-type VersionBumpLevel = 'major' | 'minor' | 'patch';
-
-const labelLookupIntervalMilliseconds = 250;
-const maximumRateLimitRetryCount = 3;
+type VersionBumpLevel = keyof PrLogConfig['versionBumps'];
 
 function orderedVersionBumpLevels(): readonly VersionBumpLevel[] {
     return [ 'major', 'minor', 'patch' ];
@@ -27,42 +25,25 @@ function readGitHubToken(deps: Pick<PullRequestLabelVersionSourceDeps, 'readEnvi
     return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(deps: PullRequestLabelVersionSourceDeps): PrLogEngine {
+function createEngine(deps: PullRequestLabelVersionSourceDeps, config: PrLogConfig): PrLogEngine {
     return deps.createPrLogEngine({
         githubToken: readGitHubToken(deps),
         workingDirectory: deps.workingDirectory,
-        labelLookupIntervalMilliseconds,
-        maximumRateLimitRetryCount
+        config
     });
-}
-
-function createValidLabels(config: PacktoryConfig): ReadonlyMap<string, string> {
-    return new Map([ ...defaultValidLabels, ...Object.entries(config.changelog?.labels ?? {}) ]);
-}
-
-function createVersionBumpLabels(
-    validLabels: ReadonlyMap<string, string>
-): Readonly<Record<VersionBumpLevel, readonly string[]>> {
-    const allLabels = Array.from(validLabels.keys());
-    return {
-        major: [ 'breaking' ],
-        minor: [ 'feature' ],
-        patch: allLabels
-    };
 }
 
 function selectVersionBumpLevel(
     pullRequests: readonly PullRequestWithLabel[],
-    validLabels: ReadonlyMap<string, string>
+    versionBumps: PrLogConfig['versionBumps']
 ): VersionBumpLevel | undefined {
     const labels = new Set(
         pullRequests.map(function (pullRequest) {
             return pullRequest.label;
         })
     );
-    const versionBumpLabels = createVersionBumpLabels(validLabels);
     return orderedVersionBumpLevels().find(function (level) {
-        return versionBumpLabels[level].some(function (label) {
+        return versionBumps[level].some(function (label) {
             return labels.has(label);
         });
     });
@@ -79,9 +60,9 @@ function incrementVersion(version: string, level: VersionBumpLevel): string {
 function selectNextVersion(
     currentVersion: string,
     pullRequests: readonly PullRequestWithLabel[],
-    validLabels: ReadonlyMap<string, string>
+    versionBumps: PrLogConfig['versionBumps']
 ): string {
-    const versionBumpLevel = selectVersionBumpLevel(pullRequests, validLabels);
+    const versionBumpLevel = selectVersionBumpLevel(pullRequests, versionBumps);
     return versionBumpLevel === undefined ? currentVersion : incrementVersion(currentVersion, versionBumpLevel);
 }
 
@@ -94,8 +75,8 @@ export function createPullRequestLabelVersionSourceResolver(
     ): Promise<readonly PullRequestWithLabel[]> {
         const packageInfo = await deps.readPackageInfo();
         const githubRepo = formatGitHubRepositoryName(packageInfo);
-        const validLabels = createValidLabels(packtoryConfig);
-        const prLogEngine = createEngine(deps);
+        const prLogConfig = createPrLogConfig(packtoryConfig.changelog);
+        const prLogEngine = createEngine(deps, prLogConfig);
         const baseRef = await prLogEngine.resolveChangelogBaseRef({
             packageName: input.packageName,
             previousVersion: input.currentVersion,
@@ -117,8 +98,7 @@ export function createPullRequestLabelVersionSourceResolver(
         });
         return prLogEngine.resolvePullRequestLabels({
             githubRepo,
-            validLabels,
-            ignoredLabels: [],
+            config: prLogConfig,
             pullRequests: targetPullRequests,
             targetName: input.packageName,
             targetScopedLabelPattern: packtoryConfig.changelog?.targetScopedLabelPattern
@@ -130,10 +110,11 @@ export function createPullRequestLabelVersionSourceResolver(
             if (input.currentVersion === undefined) {
                 return '0.0.1';
             }
+            const prLogConfig = createPrLogConfig(sourceInput.packtoryConfig.changelog);
             return selectNextVersion(
                 input.currentVersion,
                 await collectLabeledPullRequests(input, sourceInput.packtoryConfig),
-                createValidLabels(sourceInput.packtoryConfig)
+                prLogConfig.versionBumps
             );
         };
     };

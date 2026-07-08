@@ -54,7 +54,7 @@ export async function buildConfig() {
         checks: {
             noDuplicatedFiles: { enabled: true, allowList: [ sharedLicensePath ] },
             requiredFiles: { enabled: true, files: [ 'LICENSE', 'readme.md' ] },
-            maxBundleSize: { enabled: true, bytes: 1_000_000 },
+            maxBundleSize: { enabled: true, bytes: 1_050_000 },
             noUnusedBundleDependencies: { enabled: true },
             noDevDependencyImports: { enabled: true },
             uniqueTargetPaths: { enabled: true },

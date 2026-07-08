@@ -183,7 +183,7 @@ versioning: {
 }
 ```
 
-This source uses the same pull request attribution files as changelog generation. It inspects merged pull request labels since the package's current version tag, bumps `major` for `breaking`, `minor` for `feature`, and `patch` for other configured changelog labels. If no attributed pull request has a matching label, it returns the current version.
+This source uses the same pull request attribution files as changelog generation. It inspects merged pull request labels since the package's current version tag and applies `changelog.prLog.versionBumps`. If no attributed pull request has a matching label, it returns the current version.
 
 ### Pack (on-disk artifacts)
 
@@ -244,7 +244,13 @@ The configuration for `packtory` is an object with the following properties:
 4. **`changelog`** (Optional, Object):
    - Configures changelog generation and outputs for `packtory changelog` and `packtory release --write-changelog`.
    - If omitted, `packtory changelog` prints grouped Markdown to the pager and writes no files.
-   - `labels` extends or overrides the default pull request label to changelog section mapping.
+   - `prLog` passes changelog behavior into `@pr-log/core`.
+   - `prLog.validLabels` extends or overrides the default pull request label to changelog section mapping.
+   - `prLog.ignoredLabels` skips pull request labels during changelog attribution.
+   - `prLog.versionBumps` configures the `major`, `minor`, and `patch` label groups used by `versioning.source: 'pull-request-labels'`.
+   - `prLog.dateFormat` customizes rendered changelog dates.
+   - `prLog.collapseRules` groups repeated pull request entries with a configured label, regular expression, replacement, and optional capture group names.
+   - `prLog.labelLookupIntervalMilliseconds` and `prLog.maximumRateLimitRetryCount` tune GitHub label lookup timing and retry behavior.
    - `targetScopedLabelPattern` customizes package-specific labels. It must contain `{targetName}` and `{label}`.
    - `packageTagFormat` customizes package tag lookup for changelog base refs. `explicitBaseRef` uses one fixed base ref instead.
    - `outputs` is a non-empty array of:
@@ -252,7 +258,7 @@ The configuration for `packtory` is an object with the following properties:
      - `{ kind: 'package-file', path: 'CHANGELOG.md' }`: writes one package-specific changelog below each changed package's effective `sourcesFolder`.
      - `{ kind: 'package-file', paths: { 'pkg-a': 'packages/pkg-a/CHANGELOG.md' } }`: writes package-specific changelogs to explicit repository-relative paths. Every changed package must have a configured path.
      - `{ kind: 'github-release' }`: prints grouped release-body Markdown to the pager. Remote GitHub release creation is not implemented by `packtory changelog`.
-   - `outputs` can be omitted when only label or base-ref settings are configured.
+   - `outputs` can be omitted when only `prLog` or base-ref settings are configured.
    - Output paths must be safe relative paths. Absolute paths and parent-traversing paths are rejected.
    - Duplicate `github-release` outputs, duplicate repository-file paths, and package-file destinations that resolve to the same file are rejected.
    - Generated changelog files are ignored during pull request source attribution.

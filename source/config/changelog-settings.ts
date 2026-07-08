@@ -39,20 +39,44 @@ const changelogOutputSchema = z.union([
     explicitPackageFileOutputSchema,
     githubReleaseOutputSchema
 ]);
-const validLabelsSchema = z.readonly(z.record(nonEmptyStringSchema, nonEmptyStringSchema));
-
 export const changelogSettingsSchema = z.readonly(
     z.strictObject({
         explicitBaseRef: z.optional(nonEmptyStringSchema),
-        labels: z.optional(validLabelsSchema),
         outputs: z.optional(z.readonly(z.tuple([ changelogOutputSchema ], changelogOutputSchema))),
         packageTagFormat: z.optional(nonEmptyStringSchema),
+        prLog: z.optional(z.unknown()),
         targetScopedLabelPattern: z.optional(nonEmptyStringSchema)
     })
 );
 
 export type ChangelogOutput = z.infer<typeof changelogOutputSchema>;
-export type ChangelogSettings = z.infer<typeof changelogSettingsSchema>;
+type PrLogCollapseRuleSettings = {
+    readonly label: string;
+    readonly pattern: string;
+    readonly replace: string;
+    readonly keyGroup?: string | undefined;
+    readonly fromGroup?: string | undefined;
+    readonly toGroup?: string | undefined;
+};
+export type ChangelogSettings = {
+    readonly explicitBaseRef?: string | undefined;
+    readonly outputs?: readonly [ChangelogOutput, ...(readonly ChangelogOutput[])] | undefined;
+    readonly packageTagFormat?: string | undefined;
+    readonly prLog?: {
+        readonly validLabels?: Readonly<Record<string, string>> | undefined;
+        readonly ignoredLabels?: readonly string[] | undefined;
+        readonly versionBumps?: {
+            readonly major?: readonly string[] | undefined;
+            readonly minor?: readonly string[] | undefined;
+            readonly patch?: readonly string[] | undefined;
+        } | undefined;
+        readonly dateFormat?: string | undefined;
+        readonly collapseRules?: readonly PrLogCollapseRuleSettings[] | undefined;
+        readonly labelLookupIntervalMilliseconds?: number | undefined;
+        readonly maximumRateLimitRetryCount?: number | undefined;
+    } | undefined;
+    readonly targetScopedLabelPattern?: string | undefined;
+};
 
 type PackageChangelogValidationConfig = {
     readonly [key: string]: unknown;
