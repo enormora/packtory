@@ -141,11 +141,11 @@ function registerBasicDiffTests(): void {
         const result = await runAlreadyPublishedPkgAStage(artifactsBuilderReturning([]));
 
         const first = expectFirstEntry(result);
-        assertDeepSubset(first, {
+        assert.partialDeepStrictEqual(first, {
             state: 'unchanged',
-            previousVersionLabel: '1.0.0',
-            files: { added: [], removed: [], modified: [], unchanged: [] }
+            previousVersionLabel: '1.0.0'
         });
+        assert.deepStrictEqual(first.files, { added: [], removed: [], modified: [], unchanged: [] });
     });
 
     test('produces a first-publish state with all bundled files in `added`, empty `removed`/`modified`/`unchanged`', async function () {
@@ -155,18 +155,18 @@ function registerBasicDiffTests(): void {
         ]);
 
         const first = expectFirstEntry(result);
-        assertDeepSubset(first, {
+        assert.partialDeepStrictEqual(first, {
             state: 'first-publish',
-            files: {
-                added: [
-                    { path: 'package.json', sizeBytes: 2, isExecutable: false },
-                    { path: 'bin/cli.js', sizeBytes: 20, isExecutable: true }
-                ],
-                removed: [],
-                modified: [],
-                unchanged: []
-            },
             versionTransition: '(unpublished) -> 1.0.0'
+        });
+        assert.deepStrictEqual(first.files, {
+            added: [
+                { path: 'package.json', sizeBytes: 2, isExecutable: false },
+                { path: 'bin/cli.js', sizeBytes: 20, isExecutable: true }
+            ],
+            removed: [],
+            modified: [],
+            unchanged: []
         });
     });
 
@@ -317,33 +317,27 @@ function registerChangedDiffTests(): void {
         const entry = expectFirstEntry(result);
         assertDeepSubset(entry, {
             state: 'changed',
-            files: {
-                modified: {
-                    length: 2
-                },
-                removed: {
-                    length: 1
-                },
-                added: {
-                    length: 0
-                }
-            },
             versionTransition: '1.0.0 -> 1.0.1'
         });
+        assert.deepStrictEqual(
+            {
+                modified: entry.files.modified.length,
+                removed: entry.files.removed.length,
+                added: entry.files.added.length,
+                unchanged: entry.files.unchanged.length
+            },
+            { modified: 2, removed: 1, added: 0, unchanged: 0 }
+        );
     });
 
     test('classifies an SBOM that differs only in the packtory tool version as unchanged', async function () {
         const previousSbom = buildSbomFixtureContent({ packtoryVersion: '1.2.3' });
         const currentSbom = buildSbomFixtureContent({ packtoryVersion: '9.9.9' });
         const files = await runSbomDiff(previousSbom, currentSbom);
-        assertDeepSubset(files, {
-            modified: {
-                length: 0
-            },
-            unchanged: {
-                length: 1
-            }
-        });
+        assert.deepStrictEqual(
+            { modified: files.modified.length, unchanged: files.unchanged.length },
+            { modified: 0, unchanged: 1 }
+        );
         assert.strictEqual(files.unchanged[0]?.path, 'sbom.cdx.json');
     });
 

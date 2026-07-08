@@ -61,12 +61,20 @@ function createEngine(overrides: Partial<PrLogEngine> = {}): PrLogEngine {
             return input.pullRequests;
         },
         async resolvePullRequestLabels(input: ResolveLabelsInput) {
-            assert.partialDeepStrictEqual(input, {
-                githubRepo: 'owner/repo',
-                targetName: 'pkg',
-                targetScopedLabelPattern: undefined,
-                ignoredLabels: []
-            });
+            assert.deepStrictEqual(
+                {
+                    githubRepo: input.githubRepo,
+                    targetName: input.targetName,
+                    targetScopedLabelPattern: input.targetScopedLabelPattern,
+                    ignoredLabels: input.ignoredLabels
+                },
+                {
+                    githubRepo: 'owner/repo',
+                    targetName: 'pkg',
+                    targetScopedLabelPattern: undefined,
+                    ignoredLabels: []
+                }
+            );
             return [
                 { id: 1, title: 'Fix bug', label: 'bug' },
                 { id: 2, title: 'Add feature', label: 'feature' }

@@ -402,10 +402,16 @@ function registerSourceFileTests(): void {
         });
 
         const pkg = expectFirstPackage(result);
-        assert.partialDeepStrictEqual(pkg, {
-            releaseClassification: 'substantive',
-            changelogSourceFiles: [ 'source/pkg-a.js' ]
-        });
+        assert.deepStrictEqual(
+            {
+                releaseClassification: pkg.releaseClassification,
+                changelogSourceFiles: pkg.changelogSourceFiles
+            },
+            {
+                releaseClassification: 'substantive',
+                changelogSourceFiles: [ 'source/pkg-a.js' ]
+            }
+        );
     });
 
     test('excludes generated manifests and includes substituted and additional source files', async function () {

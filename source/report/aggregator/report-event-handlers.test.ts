@@ -236,16 +236,22 @@ function registerEliminationTests(): void {
         ]);
 
         const entry = expectPackageEntry(state, 'pkg-a');
-        assertDeepSubset(entry, {
-            decisions: {
-                deadCodeElimination: {
-                    files: {
-                        length: 1
-                    }
-                }
+        const { decisions: { deadCodeElimination }, eliminatedSourceFiles } = entry;
+        if (deadCodeElimination === undefined || eliminatedSourceFiles === undefined) {
+            assert.fail('expected dead-code-elimination report data');
+        }
+        assert.deepStrictEqual(
+            {
+                keptFileCount: deadCodeElimination.files.length,
+                eliminatedSourceFiles,
+                hasOutputBytes: Object.hasOwn(eliminatedSourceFiles[0] ?? {}, 'outputBytes')
             },
-            eliminatedSourceFiles: [ { path: 'b.js', sourceBytes: 5, reason: 'no-uses' } ]
-        });
+            {
+                keptFileCount: 1,
+                eliminatedSourceFiles: [ { path: 'b.js', sourceBytes: 5, reason: 'no-uses' } ],
+                hasOutputBytes: false
+            }
+        );
     });
 }
 
