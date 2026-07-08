@@ -223,6 +223,7 @@ export type Scenario = {
     readonly configLoader?: ConfigLoader;
     readonly createGitHubReleaseClient?: SinonSpy;
     readonly engine?: PrLogEngine;
+    readonly fileManager?: FakeFileManager;
     readonly flags?: Partial<ReleaseFlags>;
     readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
     readonly readPackageInfo?: () => Promise<Readonly<Record<string, unknown>>>;
@@ -362,7 +363,7 @@ export function createReleaseHandlerDeps(scenario: Scenario = {}): ReleaseHandle
         currentDate() {
             return new Date('2026-06-13T00:00:00.000Z');
         },
-        fileManager: createFakeFileManager(),
+        fileManager: scenario.fileManager ?? createFakeFileManager(),
         flags: { ...defaultFlags, ...scenario.flags },
         gitClient: createReleaseGitClient(recordReleaseStep),
         log: fake(),

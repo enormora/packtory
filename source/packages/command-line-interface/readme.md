@@ -97,6 +97,7 @@ packtory <command> [options]
 - The write order is changelog files, commit, final release-plan recomputation, direct npm publish, annotated tags, `git push --follow-tags`, then GitHub Releases.
 - Existing package tags at the current head are accepted. Existing tags at another head fail.
 - Existing GitHub Releases for verified package tags are accepted and their notes are not rewritten.
+- GitHub Release creation requires non-empty release notes. Retry runs recover notes from configured package changelog outputs when npm already has the package version for the current Git head.
 - Packtory uses inherited Git configuration, environment, and credentials. In CI, configure commit identity with standard variables such as `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL`, and configure push credentials outside Packtory.
 - GitHub Release creation reads `GH_TOKEN` first, then `GITHUB_TOKEN`.
 
