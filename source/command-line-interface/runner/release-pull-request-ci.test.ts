@@ -87,6 +87,7 @@ function assertSuccessfulWorkflowMirrored(
         branch: 'release/packtory',
         headSha: 'release-head'
     });
+    assert.strictEqual(deleteActionRequiredPullRequestRuns.calledBefore(findDispatchedWorkflowRun), true);
 }
 
 async function assertUnsuccessfulJobIsMirrored(conclusion: string, expectedState: 'error' | 'failure'): Promise<void> {
@@ -492,11 +493,13 @@ suite('release-pull-request-ci', function () {
         });
 
         test('fails when the dispatched workflow run does not complete', async function () {
+            const createStatus = fake.resolves(undefined);
+            const deleteActionRequiredPullRequestRuns = fake.resolves(undefined);
             const readWorkflowRunResult = fake.resolves({ conclusion: undefined, databaseId: 1, jobs: [] });
             const sleep = fake.resolves(undefined);
             await assert.rejects(
                 runConfiguredGitHubActionsCi({
-                    client: createClient({ readWorkflowRunResult }),
+                    client: createClient({ createStatus, deleteActionRequiredPullRequestRuns, readWorkflowRunResult }),
                     config: createConfig(),
                     headSha: 'release-head',
                     sleep
@@ -505,6 +508,17 @@ suite('release-pull-request-ci', function () {
             );
             assert.strictEqual(readWorkflowRunResult.callCount, 120);
             assert.strictEqual(sleep.callCount, 119);
+            assert.deepStrictEqual(deleteActionRequiredPullRequestRuns.firstCall.args[0], {
+                branch: 'release/packtory',
+                headSha: 'release-head'
+            });
+            assert.deepStrictEqual(createStatus.lastCall.args[0], {
+                commitSha: 'release-head',
+                context: 'Node.js',
+                description: 'Dispatched release CI did not complete.',
+                state: 'error',
+                targetUrl: undefined
+            });
         });
     });
 });

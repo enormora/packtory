@@ -304,20 +304,11 @@ async function createFailedWorkflowStatuses(input: FailedWorkflowStatusesInput):
 
 async function dispatchWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
     await createPendingWorkflowStatuses(input);
-    try {
-        await input.client.dispatchWorkflow({
-            ref: input.config.branch,
-            workflowFile: input.ciConfig.workflowFile
-        });
-        const runId = await waitForDispatchedWorkflowRun(input);
-        return runId;
-    } catch (error) {
-        await createFailedWorkflowStatuses({
-            ...input,
-            description: 'Dispatched release CI did not start.'
-        });
-        throw error;
-    }
+    await input.client.dispatchWorkflow({
+        ref: input.config.branch,
+        workflowFile: input.ciConfig.workflowFile
+    });
+    return waitForDispatchedWorkflowRun(input);
 }
 
 async function resolveWorkflowRunId(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
@@ -325,26 +316,68 @@ async function resolveWorkflowRunId(input: WaitForDispatchedWorkflowRunInput): P
     return runId ?? dispatchWorkflowRun(input);
 }
 
+async function deleteActionRequiredPullRequestRuns(
+    input: RunConfiguredGitHubActionsCiInput,
+    ciConfig: GitHubActionsCiConfig
+): Promise<void> {
+    if (!ciConfig.deleteActionRequiredPullRequestRuns) {
+        return;
+    }
+    await input.client.deleteActionRequiredPullRequestRuns({ branch: input.config.branch, headSha: input.headSha });
+}
+
+async function resolveWorkflowRunIdOrFailStatuses(
+    input: RunConfiguredGitHubActionsCiInput,
+    ciConfig: GitHubActionsCiConfig
+): Promise<number> {
+    try {
+        return await resolveWorkflowRunId({ ...input, ciConfig });
+    } catch (error) {
+        await createFailedWorkflowStatuses({
+            ciConfig,
+            client: input.client,
+            description: 'Dispatched release CI did not start.',
+            headSha: input.headSha
+        });
+        throw error;
+    }
+}
+
+async function waitForWorkflowCompletionOrFailStatuses(
+    input: RunConfiguredGitHubActionsCiInput,
+    ciConfig: GitHubActionsCiConfig,
+    runId: number
+): Promise<WorkflowRunResult> {
+    try {
+        return await waitForWorkflowCompletion({
+            ciConfig,
+            client: input.client,
+            headSha: input.headSha,
+            runId,
+            sleep: input.sleep
+        });
+    } catch (error) {
+        await createFailedWorkflowStatuses({
+            ciConfig,
+            client: input.client,
+            description: 'Dispatched release CI did not complete.',
+            headSha: input.headSha
+        });
+        throw error;
+    }
+}
+
 export async function runConfiguredGitHubActionsCi(input: RunConfiguredGitHubActionsCiInput): Promise<boolean> {
     const { githubActionsCi } = input.config;
     if (githubActionsCi === undefined) {
         return true;
     }
-    const runId = await resolveWorkflowRunId({ ...input, ciConfig: githubActionsCi });
-    const runResult = await waitForWorkflowCompletion({
-        ciConfig: githubActionsCi,
-        client: input.client,
-        headSha: input.headSha,
-        runId,
-        sleep: input.sleep
-    });
-    if (githubActionsCi.deleteActionRequiredPullRequestRuns) {
-        await input.client.deleteActionRequiredPullRequestRuns({ branch: input.config.branch, headSha: input.headSha });
-    }
+    await deleteActionRequiredPullRequestRuns(input, githubActionsCi);
+    const runId = await resolveWorkflowRunIdOrFailStatuses(input, githubActionsCi);
     return mirrorWorkflowStatuses({
         ciConfig: githubActionsCi,
         client: input.client,
         headSha: input.headSha,
-        runResult
+        runResult: await waitForWorkflowCompletionOrFailStatuses(input, githubActionsCi, runId)
     });
 }
