@@ -37,6 +37,37 @@ async function unusedPacktoryMethod(): Promise<never> {
     throw new Error('unused packtory method');
 }
 
+type ReleaseChangelogEngine = ReturnType<ReleasePullRequestHandlerDependencies['createPrLogEngine']>;
+type ReleaseChangelogEngineOverrides = Partial<ReleaseChangelogEngine>;
+
+function createReleaseChangelogEngine(overrides: ReleaseChangelogEngineOverrides = {}): ReleaseChangelogEngine {
+    return {
+        collectMergedPullRequests: fake.resolves([ { id: 1, title: 'Fix package' } ]),
+        filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Fix package' } ]),
+        readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
+        readPullRequestChangedFiles: fake.resolves(new Map([ [ 1, [ 'src/index.ts' ] ] ])),
+        resolveVersionNumber: fake.returns('1.0.1'),
+        renderChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
+        renderGroupedTargetChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
+        renderTargetChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
+        resolveChangelogBaseRef: fake.resolves({ ref: 'pkg@1.0.0' }),
+        resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: '1.0.0' }),
+        resolvePullRequestLabels: fake.resolves([ { id: 1, label: 'bug', title: 'Fix package' } ]),
+        updateChangelog: fake.returns('updated changelog'),
+        ...overrides
+    };
+}
+
+export function createEmptyReleaseChangelogEngine(): ReleaseChangelogEngine {
+    return createReleaseChangelogEngine({
+        collectMergedPullRequests: fake.resolves([]),
+        filterPullRequestsByTargetFiles: fake.returns([]),
+        renderGroupedTargetChangelog: fake.returns(''),
+        renderTargetChangelog: fake.returns(''),
+        resolvePullRequestLabels: fake.resolves([])
+    });
+}
+
 export async function rejectWithUnknown(reason: unknown): Promise<never> {
     return new Promise(function (_resolve, reject) {
         Reflect.apply(reject, undefined, [ reason ]);
@@ -99,21 +130,7 @@ export function createDependencies(
         })
     });
     const dependencies: ReleasePullRequestHandlerDependencies = {
-        createGitHubReleaseClient: fake.returns({ createReleaseIfMissing: fake.resolves('created') }),
-        createPrLogEngine: fake.returns({
-            collectMergedPullRequests: fake.resolves([ { id: 1, title: 'Fix package' } ]),
-            filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Fix package' } ]),
-            readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
-            readPullRequestChangedFiles: fake.resolves(new Map([ [ 1, [ 'src/index.ts' ] ] ])),
-            resolveVersionNumber: fake.returns('1.0.1'),
-            renderChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
-            renderGroupedTargetChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
-            renderTargetChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
-            resolveChangelogBaseRef: fake.resolves({ ref: 'pkg@1.0.0' }),
-            resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: '1.0.0' }),
-            resolvePullRequestLabels: fake.resolves([ { id: 1, label: 'bug', title: 'Fix package' } ]),
-            updateChangelog: fake.returns('updated changelog')
-        }),
+        createPrLogEngine: fake.returns(createReleaseChangelogEngine()),
         createReleasePullRequestGitHubClient: fake.returns(releasePullRequestClient),
         currentDate() {
             return new Date('2026-06-13T00:00:00.000Z');
@@ -258,6 +275,7 @@ type ReleasePullRequestUpdateAssertion = {
     readonly commit: ReturnType<typeof fake>;
     readonly createCommitOnBranch: ReturnType<typeof fake>;
     readonly createOrUpdateReleasePullRequest: ReturnType<typeof fake>;
+    readonly ensureClean: ReturnType<typeof fake>;
     readonly log: ReturnType<typeof fake>;
     readonly readChangedFiles: ReturnType<typeof fake>;
     readonly pushHeadToBranch: ReturnType<typeof fake>;
@@ -266,13 +284,14 @@ type ReleasePullRequestUpdateAssertion = {
 
 export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpdateAssertion): void {
     assertDeepSubset(input, {
-        commit: { callCount: 1 },
-        readChangedFiles: { firstCall: { args: [ 'main-head', 'release-head' ] } }
+        commit: { callCount: 0 },
+        ensureClean: { callCount: 1 },
+        readChangedFiles: { callCount: 0 }
     });
     assert.deepStrictEqual(input.createCommitOnBranch.firstCall.args[0], {
         additions: [
             {
-                contents: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
+                contents: Buffer.from('updated changelog', 'utf8').toString('base64'),
                 path: 'CHANGELOG.md'
             }
         ],

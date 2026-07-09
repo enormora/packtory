@@ -31,6 +31,10 @@ type FileChangelogDestination = {
     readonly filePath: string;
     readonly generatedMarkdown: string;
 };
+export type WrittenChangelogFile = {
+    readonly content: string;
+    readonly filePath: string;
+};
 type ChangelogOutputFilePath = {
     readonly filePath: string;
     readonly packageName: string | undefined;
@@ -285,19 +289,17 @@ async function writeChangelogDestination(
     deps: Pick<ChangelogDestinationDeps, 'fileManager'>,
     prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
     destination: FileChangelogDestination
-): Promise<string | undefined> {
+): Promise<WrittenChangelogFile | undefined> {
     if (destination.generatedMarkdown.length === 0) {
         return undefined;
     }
     const existingChangelogMarkdownValue = await readChangelogMarkdown(deps.fileManager, destination.filePath);
-    await deps.fileManager.writeFile(
-        destination.filePath,
-        prLogEngine.updateChangelog({
-            existingChangelogMarkdown: existingChangelogMarkdownValue,
-            generatedChangelogMarkdown: destination.generatedMarkdown
-        })
-    );
-    return destination.filePath;
+    const content = prLogEngine.updateChangelog({
+        existingChangelogMarkdown: existingChangelogMarkdownValue,
+        generatedChangelogMarkdown: destination.generatedMarkdown
+    });
+    await deps.fileManager.writeFile(destination.filePath, content);
+    return { content, filePath: destination.filePath };
 }
 
 function collectChangelogDestinations(
@@ -315,19 +317,31 @@ function collectChangelogDestinations(
     ];
 }
 
+export async function writeConfiguredChangelogFiles(
+    deps: ChangelogDestinationDeps,
+    config: ChangelogConfig,
+    prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
+    changelog: GeneratedChangelog
+): Promise<readonly WrittenChangelogFile[]> {
+    const destinations = collectChangelogDestinations(deps, config, changelog);
+    const writtenFiles: WrittenChangelogFile[] = [];
+    for (const destination of destinations) {
+        const writtenFile = await writeChangelogDestination(deps, prLogEngine, destination);
+        if (writtenFile !== undefined) {
+            writtenFiles.push(writtenFile);
+        }
+    }
+    return writtenFiles;
+}
+
 export async function writeConfiguredChangelogs(
     deps: ChangelogDestinationDeps,
     config: ChangelogConfig,
     prLogEngine: Pick<PrLogEngine, 'updateChangelog'>,
     changelog: GeneratedChangelog
 ): Promise<readonly string[]> {
-    const destinations = collectChangelogDestinations(deps, config, changelog);
-    const writtenPaths: string[] = [];
-    for (const destination of destinations) {
-        const writtenPath = await writeChangelogDestination(deps, prLogEngine, destination);
-        if (writtenPath !== undefined) {
-            writtenPaths.push(writtenPath);
-        }
-    }
-    return writtenPaths;
+    const writtenFiles = await writeConfiguredChangelogFiles(deps, config, prLogEngine, changelog);
+    return writtenFiles.map(function (file) {
+        return file.filePath;
+    });
 }

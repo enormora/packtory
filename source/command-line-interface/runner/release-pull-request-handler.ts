@@ -1,19 +1,24 @@
 import { parseValidConfig } from './changelog-destinations.ts';
 import { formatGitHubRepositoryName, parseGitHubRepositoryParts } from './github-repository.ts';
 import type { ReleaseGitClient } from './release-git-client.ts';
-import { runReleaseHandler, type ReleaseHandlerDeps } from './release-handler.ts';
 import {
     authorizeReleasePublishFromCommit,
     authorizeReleasePublishFromPullRequest,
     type ReleasePublishAuthorization
 } from './release-publish-authorization.ts';
-import { collectReleaseOutputFiles } from './release-output-files.ts';
+import { collectReleaseOutputFiles, releaseCommitFilePath } from './release-output-files.ts';
 import { runConfiguredGitHubActionsCi } from './release-pull-request-ci.ts';
 import {
     parseReleasePullRequestConfigContainer,
     resolveReleasePullRequestConfig,
     type ReleasePullRequestConfig
 } from './release-pull-request-config.ts';
+import {
+    loadPlannedRelease,
+    type PlannedRelease,
+    type ReleasePreparationDeps,
+    writeReleaseChangelogs
+} from './release-preparation.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 import {
     validateReleaseMergeGroupPolicy,
@@ -24,7 +29,6 @@ import {
 
 type Logger = (message: string) => void;
 type EnvironmentReader = (name: string) => string | undefined;
-type ReleaseHandlerDependencies = ReleaseHandlerDeps;
 
 type AuthorizePublishReleasePullRequestFlags = {
     readonly command: 'authorize-publish';
@@ -51,23 +55,19 @@ type GitHubClientContext = {
 };
 
 export type ReleasePullRequestHandlerDependencies = {
-    readonly createGitHubReleaseClient: ReleaseHandlerDependencies['createGitHubReleaseClient'];
-    readonly createPrLogEngine: ReleaseHandlerDependencies['createPrLogEngine'];
+    readonly createPrLogEngine: ReleasePreparationDeps['createPrLogEngine'];
     readonly createReleasePullRequestGitHubClient: (context: GitHubClientContext) => ReleasePullRequestGitHubClient;
-    readonly currentDate: () => Date;
-    readonly fileManager: {
-        readonly readFile: (filePath: string) => Promise<string>;
-        readonly writeFile: (filePath: string, content: string) => Promise<void>;
-    };
+    readonly currentDate: ReleasePreparationDeps['currentDate'];
+    readonly fileManager: ReleasePreparationDeps['fileManager'];
     readonly flags: ReleasePullRequestFlags;
     readonly gitClient: ReleaseGitClient;
     readonly log: Logger;
-    readonly packtory: ReleaseHandlerDependencies['packtory'];
+    readonly packtory: ReleasePreparationDeps['packtory'];
     readonly readEnvironmentVariable: EnvironmentReader;
-    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
+    readonly readPackageInfo: ReleasePreparationDeps['readPackageInfo'];
     readonly sleep: (milliseconds: number) => Promise<void>;
-    readonly spinnerRenderer: { readonly stopAll: () => void; };
-    readonly configLoader: { readonly load: () => Promise<unknown>; };
+    readonly spinnerRenderer: ReleasePreparationDeps['spinnerRenderer'];
+    readonly configLoader: ReleasePreparationDeps['configLoader'];
     readonly workingDirectory: string;
 };
 
@@ -77,7 +77,15 @@ type LoadedReleasePullRequestConfig = {
 };
 type PreparedReleaseCommit = {
     readonly baseHead: string;
-    readonly localHead: string;
+    readonly files: readonly PreparedReleaseFile[];
+};
+type PreparedReleaseFile = {
+    readonly contentBase64: string;
+    readonly path: string;
+};
+type WrittenReleaseChangelogFile = {
+    readonly content: string;
+    readonly filePath: string;
 };
 
 type GitHubMergeGroupEvent = {
@@ -189,30 +197,20 @@ async function loadReleasePullRequestConfig(
     return parseReleasePullRequestConfig(dependencies, await dependencies.configLoader.load());
 }
 
-async function runPrepareRelease(dependencies: ReleasePullRequestHandlerDependencies): Promise<number> {
-    return runReleaseHandler({
-        createGitHubReleaseClient: dependencies.createGitHubReleaseClient,
-        createPrLogEngine: dependencies.createPrLogEngine,
-        currentDate: dependencies.currentDate,
-        fileManager: dependencies.fileManager,
-        flags: {
-            commit: true,
-            githubRelease: false,
-            noDryRun: true,
-            publish: false,
-            push: false,
-            tag: false,
-            writeChangelog: true
-        },
-        gitClient: dependencies.gitClient,
-        log: dependencies.log,
-        packtory: dependencies.packtory,
-        readEnvironmentVariable: dependencies.readEnvironmentVariable,
-        readPackageInfo: dependencies.readPackageInfo,
-        spinnerRenderer: dependencies.spinnerRenderer,
-        configLoader: dependencies.configLoader,
-        workingDirectory: dependencies.workingDirectory
+function hasChangedPackages(planned: PlannedRelease): boolean {
+    return planned.packages.some(function (packagePlan) {
+        return packagePlan.changed;
     });
+}
+
+function toPreparedReleaseFile(
+    workingDirectory: string,
+    file: WrittenReleaseChangelogFile
+): PreparedReleaseFile {
+    return {
+        contentBase64: Buffer.from(file.content).toString('base64'),
+        path: releaseCommitFilePath(workingDirectory, file.filePath)
+    };
 }
 
 async function closeReleaseState(
@@ -227,13 +225,22 @@ async function closeReleaseState(
 async function prepareReleasePullRequest(
     dependencies: ReleasePullRequestHandlerDependencies
 ): Promise<PreparedReleaseCommit | undefined> {
-    const originalHead = await dependencies.gitClient.currentHead();
-    const releaseExitCode = await runPrepareRelease(dependencies);
-    if (releaseExitCode !== 0) {
+    const baseHead = await dependencies.gitClient.currentHead();
+    const planned = await loadPlannedRelease(dependencies);
+    if (planned === undefined) {
         throw new Error('Release preparation failed');
     }
-    const releaseHead = await dependencies.gitClient.currentHead();
-    return releaseHead === originalHead ? undefined : { baseHead: originalHead, localHead: releaseHead };
+    if (!hasChangedPackages(planned)) {
+        return undefined;
+    }
+    await dependencies.gitClient.ensureClean();
+    const { writtenFiles } = await writeReleaseChangelogs(dependencies, planned, true);
+    return {
+        baseHead,
+        files: writtenFiles.map(function (file) {
+            return toPreparedReleaseFile(dependencies.workingDirectory, file);
+        })
+    };
 }
 
 async function updateReleasePullRequest(
@@ -242,9 +249,8 @@ async function updateReleasePullRequest(
     config: ReleasePullRequestConfig,
     releaseCommit: PreparedReleaseCommit
 ): Promise<number> {
-    const releaseFiles = await dependencies.gitClient.readChangedFiles(releaseCommit.baseHead, releaseCommit.localHead);
     const releaseHead = await client.createCommitOnBranch({
-        additions: releaseFiles.map(function (file) {
+        additions: releaseCommit.files.map(function (file) {
             return { contents: file.contentBase64, path: file.path };
         }),
         branch: config.branch,

@@ -8,6 +8,7 @@ import {
     assertReleasePullRequestWasUpdated,
     createChangingReleaseGitClient,
     createDependencies,
+    createEmptyReleaseChangelogEngine,
     createPacktoryWithPlan,
     createPullRequestHead,
     createReleaseContentDependencies,
@@ -19,9 +20,26 @@ import {
     createReleasePullRequestClient,
     createReleasePullRequestConfig
 } from '../../test-libraries/runner-test-support.ts';
+import { releaseCommitFilePath } from './release-output-files.ts';
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
 
 suite('release-pull-request-handler', function () {
+    suite('release commit paths', function () {
+        test('formats repository-relative paths with Windows separators', function () {
+            assert.strictEqual(
+                releaseCommitFilePath('/repo\\workspace', '/repo\\workspace\\CHANGELOG.md'),
+                'CHANGELOG.md'
+            );
+        });
+
+        test('keeps paths outside the repository unchanged', function () {
+            assert.strictEqual(
+                releaseCommitFilePath('/repo/workspace', '/repo/other/CHANGELOG.md'),
+                '/repo/other/CHANGELOG.md'
+            );
+        });
+    });
+
     suite('maintain', function () {
         suite('release content', function () {
             test('maintain requires no-dry-run', async function () {
@@ -64,10 +82,11 @@ suite('release-pull-request-handler', function () {
                 assert.strictEqual(log.lastCall.args[0], 'No release content remains');
             });
 
-            test('maintain updates the release PR when changelog content is committed', async function () {
+            test('maintain updates the release PR when changelog content is prepared', async function () {
                 const commit = fake.resolves(undefined);
                 const createCommitOnBranch = fake.resolves('signed-release-head');
                 const createOrUpdateReleasePullRequest = fake.resolves(12);
+                const ensureClean = fake.resolves(undefined);
                 const pushHeadToBranch = fake.resolves(undefined);
                 const pushFollowTags = fake.resolves(undefined);
                 const readChangedFiles = fake.resolves([
@@ -86,6 +105,7 @@ suite('release-pull-request-handler', function () {
                     ),
                     gitClient: createChangingReleaseGitClient({
                         commit,
+                        ensureClean,
                         pushFollowTags,
                         pushHeadToBranch,
                         readChangedFiles
@@ -97,6 +117,7 @@ suite('release-pull-request-handler', function () {
                     commit,
                     createCommitOnBranch,
                     createOrUpdateReleasePullRequest,
+                    ensureClean,
                     log,
                     readChangedFiles,
                     pushHeadToBranch,
@@ -139,6 +160,18 @@ suite('release-pull-request-handler', function () {
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
                 assert.strictEqual(log.lastCall.args[0], 'Release preparation failed');
+            });
+
+            test('maintain rejects changed releases without written changelogs', async function () {
+                const { dependencies, log } = createReleaseContentDependencies({
+                    createPrLogEngine: fake.returns(createEmptyReleaseChangelogEngine())
+                });
+
+                assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
+                assert.strictEqual(
+                    log.lastCall.args[0],
+                    'No changelog files were written; changelog attribution found no pull requests for pkg.'
+                );
             });
         });
 
