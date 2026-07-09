@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
@@ -117,8 +118,8 @@ suite('no-duplicated-files', function () {
     test('rule definition exposes name, schemas and a run function', function () {
         assert.strictEqual(noDuplicatedFilesRule.name, 'noDuplicatedFiles');
         assert.strictEqual(typeof noDuplicatedFilesRule.run, 'function');
-        assert.notStrictEqual(noDuplicatedFilesRule.globalSchema, undefined);
-        assert.notStrictEqual(noDuplicatedFilesRule.perPackageSchema, undefined);
+        assertDefined(noDuplicatedFilesRule.globalSchema);
+        assertDefined(noDuplicatedFilesRule.perPackageSchema);
     });
 
     suite('consent scenarios', function () {

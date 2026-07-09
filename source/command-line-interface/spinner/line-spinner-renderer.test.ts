@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { stripVTControlCharacters } from 'node:util';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { createLineSpinnerRenderer } from './line-spinner-renderer.ts';
 import type { TerminalSpinnerRenderer } from './terminal-spinner-renderer.ts';
 
@@ -45,8 +46,12 @@ suite('line-spinner-renderer', function () {
 
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
 
-        assert.strictEqual(log.callCount, 1);
-        assert.deepStrictEqual(log.firstCall.args, [ 'pkg-a: Scheduled ...' ]);
+        assertDeepSubset(log, {
+            callCount: 1,
+            firstCall: {
+                args: [ 'pkg-a: Scheduled ...' ]
+            }
+        });
     });
 
     test('updateMessage() logs message updates as plain lines', function () {
@@ -55,8 +60,12 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.updateMessage('the-id', 'Building package with version 1.2.3');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ 'pkg-a: Building package with version 1.2.3' ]);
+        assertDeepSubset(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ 'pkg-a: Building package with version 1.2.3' ]
+            }
+        });
     });
 
     test('add() throws when adding two spinners with the same id', function () {
@@ -83,8 +92,12 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.stop('the-id', 'success', 'First version 1.2.3 has been published');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ '✔ pkg-a: First version 1.2.3 has been published' ]);
+        assertDeepSubset(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ '✔ pkg-a: First version 1.2.3 has been published' ]
+            }
+        });
     });
 
     test('stop() logs a failure line with the final message', function () {
@@ -93,8 +106,12 @@ suite('line-spinner-renderer', function () {
         renderer.add('the-id', 'pkg-a', 'Scheduled ...');
         renderer.stop('the-id', 'failure', 'publish failed');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ '✖ pkg-a: publish failed' ]);
+        assertDeepSubset(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ '✖ pkg-a: publish failed' ]
+            }
+        });
     });
 
     test('stop() throws when trying to stop a spinner that does not exist', function () {
@@ -115,7 +132,11 @@ suite('line-spinner-renderer', function () {
 
         renderer.add('the-id', 'pkg-a', 'Scheduled again');
 
-        assert.strictEqual(log.callCount, 2);
-        assert.deepStrictEqual(log.secondCall.args, [ 'pkg-a: Scheduled again' ]);
+        assertDeepSubset(log, {
+            callCount: 2,
+            secondCall: {
+                args: [ 'pkg-a: Scheduled again' ]
+            }
+        });
     });
 });

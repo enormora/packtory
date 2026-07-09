@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { type FileManagerDependencies, createFileManager, type FileManager } from './file-manager.ts';
 
 type Overrides = {
@@ -43,8 +44,12 @@ async function expectCheckReadability(access: SinonSpy, expectedReadable: boolea
 
     const result = await fileManager.checkReadability('/foo/bar.txt');
 
-    assert.strictEqual(access.callCount, 1);
-    assert.deepStrictEqual(access.firstCall.args, [ '/foo/bar.txt', fs.constants.R_OK ]);
+    assertDeepSubset(access, {
+        callCount: 1,
+        firstCall: {
+            args: [ '/foo/bar.txt', fs.constants.R_OK ]
+        }
+    });
     assert.deepStrictEqual(result, { isReadable: expectedReadable });
 }
 
@@ -67,10 +72,18 @@ suite('file-manager', function () {
 
             await fileManager.writeFile('/foo/bar.txt', 'the-content');
 
-            assert.strictEqual(access.callCount, 1);
-            assert.deepStrictEqual(access.firstCall.args, [ '/foo', fs.constants.R_OK ]);
-            assert.strictEqual(writeFile.callCount, 1);
-            assert.deepStrictEqual(writeFile.firstCall.args, [ '/foo/bar.txt', 'the-content', { encoding: 'utf8' } ]);
+            assertDeepSubset(access, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo', fs.constants.R_OK ]
+                }
+            });
+            assertDeepSubset(writeFile, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/bar.txt', 'the-content', { encoding: 'utf8' } ]
+                }
+            });
         });
 
         async function runWriteFile(
@@ -138,8 +151,12 @@ suite('file-manager', function () {
 
             const result = await fileManager.readFileBytes('/foo/native.node');
 
-            assert.strictEqual(readFile.callCount, 1);
-            assert.deepStrictEqual(readFile.firstCall.args, [ '/foo/native.node' ]);
+            assertDeepSubset(readFile, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/native.node' ]
+                }
+            });
             assert.strictEqual(result, expected);
         });
 
@@ -150,8 +167,12 @@ suite('file-manager', function () {
 
             await fileManager.copyFileBytes('/src/lib.node', '/dest/lib.node');
 
-            assert.strictEqual(access.callCount, 1);
-            assert.deepStrictEqual(access.firstCall.args, [ '/dest', fs.constants.R_OK ]);
+            assertDeepSubset(access, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/dest', fs.constants.R_OK ]
+                }
+            });
             assert.deepStrictEqual(copyFile.args, [ [ '/src/lib.node', '/dest/lib.node' ] ]);
         });
 
@@ -229,8 +250,12 @@ suite('file-manager', function () {
 
             const result = await fileManager.readFile('/foo/bar.txt');
 
-            assert.strictEqual(readFile.callCount, 1);
-            assert.deepStrictEqual(readFile.firstCall.args, [ '/foo/bar.txt', { encoding: 'utf8' } ]);
+            assertDeepSubset(readFile, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/bar.txt', { encoding: 'utf8' } ]
+                }
+            });
             assert.strictEqual(result, 'the-content');
         });
 
@@ -241,10 +266,18 @@ suite('file-manager', function () {
 
             await fileManager.copyFile('/foo/1.txt', '/foo/2.txt');
 
-            assert.strictEqual(readFile.callCount, 1);
-            assert.deepStrictEqual(readFile.firstCall.args, [ '/foo/1.txt', { encoding: 'utf8' } ]);
-            assert.strictEqual(writeFile.callCount, 1);
-            assert.deepStrictEqual(writeFile.firstCall.args, [ '/foo/2.txt', 'the-content', { encoding: 'utf8' } ]);
+            assertDeepSubset(readFile, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/1.txt', { encoding: 'utf8' } ]
+                }
+            });
+            assertDeepSubset(writeFile, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/2.txt', 'the-content', { encoding: 'utf8' } ]
+                }
+            });
         });
 
         test('setExecutable() writes the executable file mode when enabled', async function () {
@@ -272,10 +305,18 @@ suite('file-manager', function () {
 
             const result = await fileManager.getTransferableFileDescriptionFromPath('/foo/bar.txt', '/target/path.txt');
 
-            assert.strictEqual(stat.callCount, 1);
-            assert.deepStrictEqual(stat.firstCall.args, [ '/foo/bar.txt' ]);
-            assert.strictEqual(readFile.callCount, 1);
-            assert.deepStrictEqual(readFile.firstCall.args, [ '/foo/bar.txt', { encoding: 'utf8' } ]);
+            assertDeepSubset(stat, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/bar.txt' ]
+                }
+            });
+            assertDeepSubset(readFile, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '/foo/bar.txt', { encoding: 'utf8' } ]
+                }
+            });
             assert.deepStrictEqual(result, {
                 sourceFilePath: '/foo/bar.txt',
                 targetFilePath: '/target/path.txt',

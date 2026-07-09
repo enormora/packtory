@@ -244,21 +244,31 @@ suite('repository-coherence', function () {
 
     suite('repository coherence assertions', function () {
         test('assertRepositoryCoherence() does not throw when the manifest matches the CI repository', function () {
-            assert.doesNotThrow(function () {
-                assertRepositoryCoherence(
-                    { repository: 'git+ssh://git@github.com/enormora/packtory.git' },
-                    'https://github.com/enormora/packtory'
-                );
-            });
+            assertRepositoryCoherence(
+                { repository: 'git+ssh://git@github.com/enormora/packtory.git' },
+                'https://github.com/enormora/packtory'
+            );
+
+            assert.strictEqual(
+                getCiRepositoryUrl({
+                    githubRepository: 'enormora/packtory',
+                    githubServerUrl: 'https://github.com',
+                    gitlabProjectUrl: ''
+                }),
+                'https://github.com/enormora/packtory'
+            );
         });
 
         test('assertRepositoryCoherence() does not throw when the object form matches the CI repository', function () {
-            assert.doesNotThrow(function () {
-                assertRepositoryCoherence(
-                    { repository: { type: 'git', url: 'git+ssh://git@github.com/enormora/packtory.git' } },
-                    'https://github.com/enormora/packtory'
-                );
-            });
+            assertRepositoryCoherence(
+                { repository: { type: 'git', url: 'git+ssh://git@github.com/enormora/packtory.git' } },
+                'https://github.com/enormora/packtory'
+            );
+
+            assert.strictEqual(
+                normalizeRepositoryUrl('git+ssh://git@github.com/enormora/packtory.git'),
+                'https://github.com/enormora/packtory'
+            );
         });
 
         test('assertRepositoryCoherence() throws when the manifest repository differs from the CI repository', function () {

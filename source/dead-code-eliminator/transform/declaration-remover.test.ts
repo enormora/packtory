@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { applyRemovalPlan, type PositionAtom } from './declaration-remover.ts';
 
@@ -132,7 +133,7 @@ suite('declaration-remover', function () {
             const { atoms } = transform('export const a = 1, b = 2;', new Set([ 'a', 'b' ]));
             assert.strictEqual(atoms.length, 1);
             const [ atom ] = atoms;
-            assert.ok(atom !== undefined);
+            assertDefined(atom);
             assert.strictEqual(atom.originalStart, 0);
         });
     });
@@ -148,9 +149,11 @@ suite('declaration-remover', function () {
             const { atoms } = transform('function dead() {}\nexport function live() {}', new Set([ 'live' ]));
             assert.strictEqual(atoms.length, 1);
             const [ atom ] = atoms;
-            assert.ok(atom !== undefined);
-            assert.strictEqual(atom.originalStart, 19);
-            assert.strictEqual(atom.newStart, 0);
+            assertDefined(atom);
+            assert.partialDeepStrictEqual(atom, {
+                originalStart: 19,
+                newStart: 0
+            });
         });
     });
 });

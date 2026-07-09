@@ -65,12 +65,18 @@ type SbomMetadata = {
 };
 
 function assertFirstPackageSbom(sbom: Readonly<Record<string, unknown>>): void {
-    assert.strictEqual(sbom.bomFormat, 'CycloneDX');
-    assert.strictEqual(sbom.specVersion, '1.6');
+    assert.partialDeepStrictEqual(sbom, {
+        bomFormat: 'CycloneDX',
+        specVersion: '1.6'
+    });
     const metadata = sbom.metadata as SbomMetadata;
     assert.strictEqual(metadata.component['bom-ref'], 'pkg:npm/first@0.0.1');
-    assert.strictEqual(metadata.component.name, 'first');
-    assert.strictEqual(metadata.component.version, '0.0.1');
+    assert.partialDeepStrictEqual(metadata, {
+        component: {
+            name: 'first',
+            version: '0.0.1'
+        }
+    });
     assert.deepStrictEqual(sbom.components, []);
 }
 
@@ -146,8 +152,12 @@ suite('publish', function () {
 
                 const publishedPackage = await fetchPublishedPackage('first', registryDetails);
 
-                assert.strictEqual(publishedPackage.version, '3.2.1');
-                assert.strictEqual(publishedPackage.manifest.version, '3.2.1');
+                assert.partialDeepStrictEqual(publishedPackage, {
+                    version: '3.2.1',
+                    manifest: {
+                        version: '3.2.1'
+                    }
+                });
             })
         );
 
@@ -168,8 +178,12 @@ suite('publish', function () {
 
                 const publishedPackage = await fetchPublishedPackage('first', registryDetails);
 
-                assert.strictEqual(publishedPackage.version, '0.0.1');
-                assert.strictEqual(publishedPackage.manifest.version, '0.0.1');
+                assert.partialDeepStrictEqual(publishedPackage, {
+                    version: '0.0.1',
+                    manifest: {
+                        version: '0.0.1'
+                    }
+                });
             })
         );
 
@@ -189,8 +203,12 @@ suite('publish', function () {
 
                 const publishedPackage = await fetchPublishedPackage('first', registryDetails);
 
-                assert.strictEqual(publishedPackage.version, '1.2.3');
-                assert.strictEqual(publishedPackage.manifest.version, '1.2.3');
+                assert.partialDeepStrictEqual(publishedPackage, {
+                    version: '1.2.3',
+                    manifest: {
+                        version: '1.2.3'
+                    }
+                });
             })
         );
 
@@ -213,8 +231,12 @@ suite('publish', function () {
 
                 const publishedPackage = await fetchPublishedPackage('third', registryDetails);
 
-                assert.deepStrictEqual(publishedPackage.manifest.dependencies, { first: '0.0.1' });
-                assert.deepStrictEqual(publishedPackage.manifest.peerDependencies, { second: '0.0.1' });
+                assert.partialDeepStrictEqual(publishedPackage, {
+                    manifest: {
+                        dependencies: { first: '0.0.1' },
+                        peerDependencies: { second: '0.0.1' }
+                    }
+                });
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/foo.js').content,
                     "import { bar } from 'second/bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
@@ -430,8 +452,12 @@ suite('publish', function () {
 
                 const publishedPackage = await fetchPublishedPackage('first', registryDetails);
 
-                assert.strictEqual(publishedPackage.manifest.license, 'MIT');
-                assert.strictEqual(publishedPackage.manifest.description, 'first package');
+                assert.partialDeepStrictEqual(publishedPackage, {
+                    manifest: {
+                        license: 'MIT',
+                        description: 'first package'
+                    }
+                });
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/entry1.js.map').content,
                     '{"version":3,"file":"entry.js","sourceRoot":"","sources":["./src/entry.ts"],"names":[],"mappings":""}\n'

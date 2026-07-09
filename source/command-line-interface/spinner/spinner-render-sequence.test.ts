@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { buildRenderTickOutput } from './spinner-render-sequence.ts';
 import {
     createSpinnerSharedAccessors,
@@ -18,8 +19,10 @@ suite('spinner-render-sequence', function () {
         const accessors = createAccessors(3);
         const output = buildRenderTickOutput(accessors, { snapshots: [], renderedLineCount: 0, frameIndex: 0 });
 
-        assert.strictEqual(output.sequence, undefined);
-        assert.strictEqual(output.expectedLineCount, 0);
+        assert.partialDeepStrictEqual(output, {
+            sequence: undefined,
+            expectedLineCount: 0
+        });
     });
 
     test('buildRenderTickOutput renders one line per active slot and ends each line with a newline', function () {
@@ -30,8 +33,8 @@ suite('spinner-render-sequence', function () {
         const output = buildRenderTickOutput(accessors, { snapshots: [], renderedLineCount: 0, frameIndex: 0 });
 
         assert.strictEqual(output.expectedLineCount, 2);
-        assert.notStrictEqual(output.sequence, undefined);
-        const sequence = output.sequence ?? '';
+        assertDefined(output.sequence);
+        const { sequence } = output;
         assert.strictEqual(sequence.endsWith('\n'), true);
         const lineCount = sequence.split('\n').length;
         assert.strictEqual(lineCount, 3);

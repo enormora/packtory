@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
@@ -106,8 +107,14 @@ suite('release-diff-handler', function () {
         const code = await runReleaseDiffHandler(depsWith(outcome, spies));
 
         assert.strictEqual(code, 1);
-        assert.strictEqual(spies.pageOutput.callCount, 0);
-        assert.strictEqual(spies.log.callCount, 1);
+        assertDeepSubset(spies, {
+            pageOutput: {
+                callCount: 0
+            },
+            log: {
+                callCount: 1
+            }
+        });
         const loggedMessage = spies.log.firstCall.args[0] as string;
         assert.match(loggedMessage, /Configuration issues/u);
         assert.ok(!loggedMessage.endsWith('\n'), 'expected failure-only log to be trimEnd-ed');
@@ -138,8 +145,14 @@ suite('release-diff-handler', function () {
         const code = await runReleaseDiffHandler(depsWith(outcome, spies));
 
         assert.strictEqual(code, 1);
-        assert.strictEqual(spies.pageOutput.callCount, 1);
-        assert.strictEqual(spies.log.callCount, 0);
+        assertDeepSubset(spies, {
+            pageOutput: {
+                callCount: 1
+            },
+            log: {
+                callCount: 0
+            }
+        });
         const pagedMessage = spies.pageOutput.firstCall.args[0] as string;
         assert.match(pagedMessage, /pkg-a/u);
         assert.match(pagedMessage, /\[first publish\]/u);

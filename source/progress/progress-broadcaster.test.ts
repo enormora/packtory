@@ -84,14 +84,14 @@ suite('progress-broadcaster', function () {
     test('decision events with no subscribers emit without error', function () {
         const broadcaster = createProgressBroadcaster();
 
-        assert.doesNotThrow(function () {
-            broadcaster.provider.emit('versionDetermined', {
-                packageName: 'package-a',
-                previousVersion: '1.0.0',
-                chosenVersion: '1.0.1',
-                trigger: 'auto-patch-bump'
-            });
+        broadcaster.provider.emit('versionDetermined', {
+            packageName: 'package-a',
+            previousVersion: '1.0.0',
+            chosenVersion: '1.0.1',
+            trigger: 'auto-patch-bump'
         });
+
+        assert.strictEqual(broadcaster.provider.hasSubscribers('versionDetermined'), false);
     });
 
     test('round-trips an eliminationCompleted decision event', function () {

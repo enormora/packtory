@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import type { PublishSettings } from '../config/publish-settings.ts';
 import type { SbomPackage } from '../published-package/published-package.ts';
 import { createSbomFileBuilder, type SbomFileBuilder } from './sbom-file.ts';
@@ -80,7 +81,7 @@ suite('sbom-file', function () {
                 defaultPublishSettings
             );
 
-            assert.notStrictEqual(result, undefined);
+            assertDefined(result);
         });
 
         test('generate() does not invoke the toolVersion provider when SBOM is disabled', async function () {
@@ -215,7 +216,13 @@ suite('sbom-file', function () {
         const bom = serialize.firstCall.args[0] as {
             readonly metadata: { readonly component: { readonly name: string; readonly version: string; }; };
         };
-        assert.strictEqual(bom.metadata.component.name, 'my-pkg');
-        assert.strictEqual(bom.metadata.component.version, '4.5.6');
+        assert.partialDeepStrictEqual(bom, {
+            metadata: {
+                component: {
+                    name: 'my-pkg',
+                    version: '4.5.6'
+                }
+            }
+        });
     });
 });

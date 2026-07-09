@@ -33,10 +33,14 @@ suite('normalize-paths', function () {
                     const normalizedRelativeRoot = normalizeRoot(relativeRoot, sourceFolder);
 
                     assert.strictEqual(normalizedRelativeRoot.js, path.join(sourceFolder, js));
-                    assert.strictEqual(
-                        normalizedRelativeRoot.declarationFile,
-                        declarationFile === undefined ? undefined : path.join(sourceFolder, declarationFile)
-                    );
+                    if (declarationFile === undefined) {
+                        assert.strictEqual(Object.hasOwn(normalizedRelativeRoot, 'declarationFile'), false);
+                    } else {
+                        assert.strictEqual(
+                            normalizedRelativeRoot.declarationFile,
+                            path.join(sourceFolder, declarationFile)
+                        );
+                    }
                 }
             )
         );
@@ -51,7 +55,11 @@ suite('normalize-paths', function () {
                     const normalizedAbsoluteRoot = normalizeRoot(absoluteRoot, sourceFolder);
 
                     assert.strictEqual(normalizedAbsoluteRoot.js, js);
-                    assert.strictEqual(normalizedAbsoluteRoot.declarationFile, declarationFile);
+                    if (declarationFile === undefined) {
+                        assert.strictEqual(Object.hasOwn(normalizedAbsoluteRoot, 'declarationFile'), false);
+                    } else {
+                        assert.strictEqual(normalizedAbsoluteRoot.declarationFile, declarationFile);
+                    }
                 }
             )
         );

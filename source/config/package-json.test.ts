@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { safeParse } from '../common/schema-validation.ts';
 import { checkValidationFailure, checkValidationSuccess } from '../test-libraries/verify-schema-validation.ts';
 import { isForbiddenAdditionalPackageJsonAttributeName, packageJsonDependencyFieldNames } from './package-json.ts';
@@ -353,8 +354,12 @@ suite('package-json', function () {
                 ]
             ) {
                 const result = safeParse(schema, { [key]: 'value' });
-                assert.strictEqual(result.success, false);
-                assert.deepStrictEqual(result.error.issues, [ `at ${key}: invalid key` ]);
+                assertDeepSubset(result, {
+                    success: false,
+                    error: {
+                        issues: [ `at ${key}: invalid key` ]
+                    }
+                });
             }
         });
 

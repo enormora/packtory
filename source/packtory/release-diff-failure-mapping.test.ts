@@ -22,7 +22,10 @@ suite('release-diff-failure-mapping', function () {
         if (result.type !== 'partial') {
             assert.fail(`expected partial failure, got ${result.type}`);
         }
-        assert.deepStrictEqual(result.succeeded, []);
-        assert.deepStrictEqual(result.failures, resolveFailures);
+        assert.deepStrictEqual(result, {
+            type: 'partial',
+            succeeded: [],
+            failures: resolveFailures
+        });
     });
 });

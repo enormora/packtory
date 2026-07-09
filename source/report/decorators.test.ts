@@ -83,8 +83,10 @@ function registerStageTimingTests(): void {
 
         assert.strictEqual(received.length, 1);
         const payload = expectPayload(received);
-        assert.strictEqual(payload.packageName, 'pkg-a');
-        assert.strictEqual(payload.stage, 'resolveAndLink');
+        assert.partialDeepStrictEqual(payload, {
+            packageName: 'pkg-a',
+            stage: 'resolveAndLink'
+        });
         assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
     });
 
@@ -100,8 +102,10 @@ function registerStageTimingTests(): void {
 
         assert.strictEqual(received.length, 1);
         const payload = expectPayload(received);
-        assert.strictEqual(payload.packageName, 'pkg-b');
-        assert.strictEqual(payload.stage, 'publish');
+        assert.partialDeepStrictEqual(payload, {
+            packageName: 'pkg-b',
+            stage: 'publish'
+        });
         assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
     });
 
@@ -210,8 +214,10 @@ function registerStageTimingTests(): void {
 
         assert.strictEqual(received.length, 1);
         const payload = expectPayload(received);
-        assert.strictEqual(payload.packageName, 'pkg-build');
-        assert.strictEqual(payload.stage, 'build');
+        assert.partialDeepStrictEqual(payload, {
+            packageName: 'pkg-build',
+            stage: 'build'
+        });
         assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
     });
 

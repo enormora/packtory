@@ -99,8 +99,10 @@ suite('mutation-timeout-cli-runner', function () {
                 })
             );
 
-            assert.strictEqual(result.exitCode, 1);
-            assert.deepStrictEqual(result.errors, [ timeoutReportMessage() ]);
+            assert.partialDeepStrictEqual(result, {
+                exitCode: 1,
+                errors: [ timeoutReportMessage() ]
+            });
         });
     });
 
@@ -113,8 +115,10 @@ suite('mutation-timeout-cli-runner', function () {
                 })
             );
 
-            assert.strictEqual(result.exitCode, 0);
-            assert.deepStrictEqual(result.errors, []);
+            assert.partialDeepStrictEqual(result, {
+                exitCode: 0,
+                errors: []
+            });
         });
     });
 
@@ -124,8 +128,10 @@ suite('mutation-timeout-cli-runner', function () {
         });
         const result = await runCheckWithCollectedErrors([ 'node', 'check' ], fileManager);
 
-        assert.strictEqual(result.exitCode, 0);
-        assert.deepStrictEqual(result.errors, []);
+        assert.partialDeepStrictEqual(result, {
+            exitCode: 0,
+            errors: []
+        });
         assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: defaultReportFilePath });
     });
 
@@ -144,8 +150,10 @@ suite('mutation-timeout-cli-runner', function () {
             })
         );
 
-        assert.strictEqual(result.exitCode, 1);
-        assert.deepStrictEqual(result.errors, [ `Mutation report not found at "${defaultMissingReportPath}"` ]);
+        assert.partialDeepStrictEqual(result, {
+            exitCode: 1,
+            errors: [ `Mutation report not found at "${defaultMissingReportPath}"` ]
+        });
     });
 
     test('runMutationTimeoutCheck uses the default stderr writer when no custom writer is passed', async function () {
@@ -207,8 +215,10 @@ suite('mutation-timeout-cli-runner', function () {
         await withDefaultReport(singleMutantReport(killedMutant), async function (directory) {
             const result = await runCheckerCli([], directory);
 
-            assert.strictEqual(result.exitCode, 0);
-            assert.strictEqual(result.standardError, '');
+            assert.partialDeepStrictEqual(result, {
+                exitCode: 0,
+                standardError: ''
+            });
         });
     });
 });

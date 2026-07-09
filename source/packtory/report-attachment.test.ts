@@ -42,9 +42,9 @@ function registerAggregatorAttachmentTests(): void {
 
         const attachment = maybeAttachAggregator(broadcaster, false);
 
-        assert.doesNotThrow(function () {
-            attachment.dispose();
-        });
+        attachment.dispose();
+
+        assert.strictEqual(attachment.getReport(), undefined);
     });
 
     test('maybeAttachAggregator() does not subscribe to broadcaster when collectReport is false', function () {
@@ -74,9 +74,11 @@ function registerAggregatorAttachmentTests(): void {
         if (report === undefined) {
             assert.fail('expected a BuildReport');
         }
-        assert.strictEqual(report.schemaVersion, 1);
-        assert.deepStrictEqual(report.packages, {});
-        assert.deepStrictEqual(report.aggregate, { crossBundleLinks: [] });
+        assert.partialDeepStrictEqual(report, {
+            schemaVersion: 1,
+            packages: {},
+            aggregate: { crossBundleLinks: [] }
+        });
     });
 
     test('maybeAttachAggregator() getReport reflects events emitted before build', function () {

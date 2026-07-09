@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
 import { type BootstrapInput, type BootstrapRunnerDependencies, createBootstrapRunner } from './bootstrap-runner.ts';
 import type { PackagePublication } from './package-publication.ts';
 import type { PlaceholderTarballBuilder } from './placeholder-tarball.ts';
@@ -114,19 +115,27 @@ function buildBootstrapInput(overrides: Partial<BootstrapInput> = {}): Bootstrap
 }
 
 function assertPlaceholderManifest(placeholderInput: PlaceholderTarballInput | undefined): void {
-    assert.ok(placeholderInput !== undefined);
-    assert.strictEqual(placeholderInput.manifest.name, '@scope/example');
-    assert.strictEqual(placeholderInput.manifest.version, '0.0.1');
-    assert.strictEqual(placeholderInput.manifest.license, 'MIT');
+    assertDefined(placeholderInput);
+    assert.partialDeepStrictEqual(placeholderInput, {
+        manifest: {
+            name: '@scope/example',
+            version: '0.0.1',
+            license: 'MIT'
+        }
+    });
 }
 
 function assertPublicationInput(publication: PublicationInput | undefined): void {
-    assert.ok(publication !== undefined);
-    assert.strictEqual(publication.distTag, 'bootstrap');
-    assert.strictEqual(publication.registryUrl, 'https://registry.npmjs.org/');
-    assert.strictEqual(publication.token, 'session-token');
-    assert.strictEqual(publication.manifest.name, '@scope/example');
-    assert.deepStrictEqual(publication.tarball, Buffer.from('tarball-for-@scope/example'));
+    assertDefined(publication);
+    assert.partialDeepStrictEqual(publication, {
+        distTag: 'bootstrap',
+        registryUrl: 'https://registry.npmjs.org/',
+        token: 'session-token',
+        manifest: {
+            name: '@scope/example'
+        },
+        tarball: Buffer.from('tarball-for-@scope/example')
+    });
 }
 
 suite('bootstrap-runner', function () {
@@ -171,7 +180,7 @@ suite('bootstrap-runner', function () {
             await runner.run(buildBootstrapInput());
 
             const lastLog = scenario.recordings.logs.at(-1);
-            assert.ok(lastLog !== undefined);
+            assertDefined(lastLog);
             assert.strictEqual(
                 lastLog,
                 'Done. Configure the Trusted Publisher at https://www.npmjs.com/package/@scope/example/access'
@@ -192,7 +201,7 @@ suite('bootstrap-runner', function () {
             await runner.run(buildBootstrapInput());
 
             const [ publication ] = scenario.recordings.publicationInputs;
-            assert.ok(publication !== undefined);
+            assertDefined(publication);
             assert.strictEqual(publication.promptForOneTimePassword, promptForOneTimePassword);
         });
     });
@@ -205,7 +214,7 @@ suite('bootstrap-runner', function () {
             await runner.run(buildBootstrapInput({ packageName: '@scope/foo' }));
 
             const [ placeholderInput ] = scenario.recordings.placeholderInputs;
-            assert.ok(placeholderInput !== undefined);
+            assertDefined(placeholderInput);
             const expectedDescription =
                 'Placeholder claiming the npm package name "@scope/foo" so a trusted publisher ' +
                 'can be configured. See https://github.com/npm/cli/issues/8544.';
@@ -219,7 +228,7 @@ suite('bootstrap-runner', function () {
             await runner.run(buildBootstrapInput());
 
             const [ placeholderInput ] = scenario.recordings.placeholderInputs;
-            assert.ok(placeholderInput !== undefined);
+            assertDefined(placeholderInput);
             const expectedDeprecation =
                 'Placeholder published as a workaround so a Trusted Publisher could be configured. ' +
                 'See https://github.com/npm/cli/issues/8544.';
@@ -244,7 +253,7 @@ suite('bootstrap-runner', function () {
             ]
                 .join('\n');
             const [ placeholderInput ] = scenario.recordings.placeholderInputs;
-            assert.ok(placeholderInput !== undefined);
+            assertDefined(placeholderInput);
             assert.strictEqual(placeholderInput.readmeContent, expectedReadme);
         });
 

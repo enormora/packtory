@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import { buildFileSetDiff, type ModifiedFile } from './file-set-diff.ts';
 
@@ -20,10 +21,20 @@ function singleModifiedEntry(previous: readonly FileDescription[], current: read
 suite('file-set-diff', function () {
     test('classifies a file that only exists on the new side as added', function () {
         const diff = buildFileSetDiff([], [ file('lib/new.ts', 'export const x = 1;\n') ]);
-        assert.strictEqual(diff.added.length, 1);
-        assert.strictEqual(diff.removed.length, 0);
-        assert.strictEqual(diff.modified.length, 0);
-        assert.strictEqual(diff.unchanged.length, 0);
+        assertDeepSubset(diff, {
+            added: {
+                length: 1
+            },
+            removed: {
+                length: 0
+            },
+            modified: {
+                length: 0
+            },
+            unchanged: {
+                length: 0
+            }
+        });
         assert.deepStrictEqual(diff.added[0], {
             path: 'lib/new.ts',
             sizeBytes: 'export const x = 1;\n'.length,
@@ -45,8 +56,14 @@ suite('file-set-diff', function () {
         const previous = [ file('package.json', '{"name":"p"}\n') ];
         const current = [ file('package.json', '{"name":"p"}\n') ];
         const diff = buildFileSetDiff(previous, current);
-        assert.strictEqual(diff.unchanged.length, 1);
-        assert.strictEqual(diff.modified.length, 0);
+        assertDeepSubset(diff, {
+            unchanged: {
+                length: 1
+            },
+            modified: {
+                length: 0
+            }
+        });
     });
 
     test('classifies same content with different exec bit as modified with mode-only change', function () {
@@ -54,9 +71,13 @@ suite('file-set-diff', function () {
             [ file('bin/cli.js', '#!/usr/bin/env node\n', false) ],
             [ file('bin/cli.js', '#!/usr/bin/env node\n', true) ]
         );
-        assert.strictEqual(entry.contentChange.kind, 'mode-only');
-        assert.strictEqual(entry.oldIsExecutable, false);
-        assert.strictEqual(entry.newIsExecutable, true);
+        assertDeepSubset(entry, {
+            contentChange: {
+                kind: 'mode-only'
+            },
+            oldIsExecutable: false,
+            newIsExecutable: true
+        });
     });
 
     test('classifies different text content as modified with text hunks', function () {

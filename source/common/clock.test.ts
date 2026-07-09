@@ -17,7 +17,9 @@ suite('clock', function () {
     test('createClock() exposes the global timeout functions', function () {
         const clock = createClock();
 
-        assert.strictEqual(clock.setTimeout, setTimer);
-        assert.strictEqual(clock.clearTimeout, clearTimer);
+        assert.partialDeepStrictEqual(clock, {
+            setTimeout: setTimer,
+            clearTimeout: clearTimer
+        });
     });
 });

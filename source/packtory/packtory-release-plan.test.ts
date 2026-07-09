@@ -182,9 +182,13 @@ function registerMetadataTests(): void {
         });
 
         const pkg = expectFirstPackage(result);
-        assert.strictEqual(pkg.previousGitHead, 'old-head');
-        assert.strictEqual(pkg.currentGitHead, 'current-head');
-        assert.strictEqual(pkg.latestRegistryMetadata?.gitHead, 'old-head');
+        assert.partialDeepStrictEqual(pkg, {
+            previousGitHead: 'old-head',
+            currentGitHead: 'current-head',
+            latestRegistryMetadata: {
+                gitHead: 'old-head'
+            }
+        });
     });
 }
 
@@ -225,9 +229,11 @@ function registerDependencyAttributionTests(): void {
         });
 
         const pkg = expectFirstPackage(result);
-        assert.deepStrictEqual(pkg.changelogDependencyNames, [ 'react' ]);
-        assert.strictEqual(pkg.releaseClassification, 'dependency-only');
-        assert.deepStrictEqual(pkg.changelogSourceFiles, [ 'source/pkg-a.js', 'source/unused.js' ]);
+        assert.partialDeepStrictEqual(pkg, {
+            changelogDependencyNames: [ 'react' ],
+            releaseClassification: 'dependency-only',
+            changelogSourceFiles: [ 'source/pkg-a.js', 'source/unused.js' ]
+        });
     });
 
     test('omits changed dependency names when the current artifact set has no manifest', async function () {
@@ -396,8 +402,16 @@ function registerSourceFileTests(): void {
         });
 
         const pkg = expectFirstPackage(result);
-        assert.strictEqual(pkg.releaseClassification, 'substantive');
-        assert.deepStrictEqual(pkg.changelogSourceFiles, [ 'source/pkg-a.js' ]);
+        assert.deepStrictEqual(
+            {
+                releaseClassification: pkg.releaseClassification,
+                changelogSourceFiles: pkg.changelogSourceFiles
+            },
+            {
+                releaseClassification: 'substantive',
+                changelogSourceFiles: [ 'source/pkg-a.js' ]
+            }
+        );
     });
 
     test('excludes generated manifests and includes substituted and additional source files', async function () {
@@ -454,8 +468,10 @@ function registerSourceFileTests(): void {
             })
         );
 
-        assert.deepStrictEqual(partial.succeeded, []);
-        assert.deepStrictEqual(partial.failures, [ failure ]);
+        assert.partialDeepStrictEqual(partial, {
+            succeeded: [],
+            failures: [ failure ]
+        });
     });
 }
 

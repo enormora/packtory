@@ -18,9 +18,9 @@ suite('validate-tarball-host', function () {
     test('accepts a tarball URL whose host matches the default npm registry', function () {
         const settings: RegistrySettings = { auth: bearerAuth };
 
-        assert.doesNotThrow(function () {
-            assertTarballOriginMatchesRegistry('https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz', settings);
-        });
+        assertTarballOriginMatchesRegistry('https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz', settings);
+
+        assert.strictEqual(settings.auth, bearerAuth);
     });
 
     test('accepts a tarball URL whose host matches a configured custom registry', function () {
@@ -29,9 +29,9 @@ suite('validate-tarball-host', function () {
             auth: bearerAuth
         };
 
-        assert.doesNotThrow(function () {
-            assertTarballOriginMatchesRegistry('https://registry.example.test/pkg/-/pkg-1.0.0.tgz', settings);
-        });
+        assertTarballOriginMatchesRegistry('https://registry.example.test/pkg/-/pkg-1.0.0.tgz', settings);
+
+        assert.strictEqual(settings.registryUrl, 'https://registry.example.test/path/');
     });
 
     test('rejects a tarball URL whose host differs from the default npm registry', function () {

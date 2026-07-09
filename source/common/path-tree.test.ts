@@ -30,8 +30,10 @@ suite('path-tree', function () {
             if (node === undefined) {
                 assert.fail('expected a root file node');
             }
-            assert.strictEqual(node.type, 'file');
-            assert.strictEqual(node.path, 'package.json');
+            assert.partialDeepStrictEqual(node, {
+                type: 'file',
+                path: 'package.json'
+            });
             assert.deepStrictEqual(rest, []);
         });
 
@@ -42,9 +44,11 @@ suite('path-tree', function () {
             if (node === undefined) {
                 assert.fail('expected an empty root file node');
             }
-            assert.strictEqual(node.type, 'file');
-            assert.strictEqual(node.path, '');
-            assert.strictEqual(node.name, '');
+            assert.partialDeepStrictEqual(node, {
+                type: 'file',
+                path: '',
+                name: ''
+            });
             assert.deepStrictEqual(rest, []);
         });
     });

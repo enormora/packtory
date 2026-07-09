@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import {
     emptyDeadCodeEliminator,
     emptyScheduler,
@@ -44,8 +45,16 @@ suite('packtory-resolve', function () {
         if (!result.isErr || result.error.type !== 'partial') {
             assert.fail('expected a partial failure');
         }
-        assert.deepStrictEqual(result.error.error.succeeded, []);
-        assert.strictEqual(result.error.error.failures.length, 1);
+        assertDeepSubset(result, {
+            error: {
+                error: {
+                    succeeded: [],
+                    failures: {
+                        length: 1
+                    }
+                }
+            }
+        });
         assert.strictEqual(result.error.error.failures[0]?.message, 'boom');
     });
 });

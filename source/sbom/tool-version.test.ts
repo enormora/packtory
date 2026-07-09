@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createPacktoryToolVersionResolver } from './tool-version.ts';
 
 const unresolvableExpectedMessage =
@@ -147,8 +148,12 @@ suite('tool-version', function () {
                 assert.strictEqual(error, expectedError);
             }
 
-            assert.strictEqual(importPackageJson.callCount, 1);
-            assert.deepStrictEqual(importPackageJson.firstCall.args, [ '@packtory/cli/package.json' ]);
+            assertDeepSubset(importPackageJson, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '@packtory/cli/package.json' ]
+                }
+            });
         });
 
         test('rethrows non-object import failures instead of treating them as resolution errors', async function () {
@@ -165,8 +170,12 @@ suite('tool-version', function () {
                 assert.strictEqual(error, 'boom');
             }
 
-            assert.strictEqual(importPackageJson.callCount, 1);
-            assert.deepStrictEqual(importPackageJson.firstCall.args, [ '@packtory/cli/package.json' ]);
+            assertDeepSubset(importPackageJson, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '@packtory/cli/package.json' ]
+                }
+            });
         });
 
         test('rethrows null import failures instead of treating them as resolution errors', async function () {
@@ -183,8 +192,12 @@ suite('tool-version', function () {
                 assert.strictEqual(error, null);
             }
 
-            assert.strictEqual(importPackageJson.callCount, 1);
-            assert.deepStrictEqual(importPackageJson.firstCall.args, [ '@packtory/cli/package.json' ]);
+            assertDeepSubset(importPackageJson, {
+                callCount: 1,
+                firstCall: {
+                    args: [ '@packtory/cli/package.json' ]
+                }
+            });
         });
 
         test('throws when the imported package.json has an unexpected package name', async function () {

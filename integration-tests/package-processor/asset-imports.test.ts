@@ -41,13 +41,15 @@ suite('asset-imports', function () {
             return resource.fileDescription.targetFilePath === 'data.json';
         });
 
-        assert.ok(entry !== undefined);
-        assert.ok(json !== undefined);
-        assert.deepStrictEqual(entry.directDependencies, new Set([ path.join(fixture, 'src/data.json') ]));
-        assert.strictEqual(
-            entry.fileDescription.content,
-            'import data from "./data.json" with { type: "json" };\n\nexport default data;\n'
-        );
+        if (entry === undefined || json === undefined) {
+            assert.fail('expected bundled entry and json resources');
+        }
+        assert.partialDeepStrictEqual(entry, {
+            directDependencies: new Set([ path.join(fixture, 'src/data.json') ]),
+            fileDescription: {
+                content: 'import data from "./data.json" with { type: "json" };\n\nexport default data;\n'
+            }
+        });
         assert.strictEqual(json.fileDescription.content, '{\n    "message": "hello"\n}\n');
     });
 
@@ -61,8 +63,9 @@ suite('asset-imports', function () {
             return resource.fileDescription.targetFilePath === 'module.wasm';
         });
 
-        assert.ok(entry !== undefined);
-        assert.ok(wasm !== undefined);
+        if (entry === undefined || wasm === undefined) {
+            assert.fail('expected bundled entry and wasm resources');
+        }
         assert.deepStrictEqual(entry.directDependencies, new Set([ path.join(fixture, 'src/module.wasm') ]));
         assert.strictEqual(wasm.fileDescription.content, 'wasm-binary-placeholder\n');
     });
@@ -101,13 +104,15 @@ suite('asset-imports', function () {
             return resource.fileDescription.targetFilePath === 'package.json';
         });
 
-        assert.ok(entry !== undefined);
-        assert.ok(generatedManifestResource !== undefined);
-        assert.deepStrictEqual(entry.directDependencies, new Set([ path.join(fixture, 'src/package.json') ]));
-        assert.strictEqual(
-            entry.fileDescription.content,
-            'import manifest from "./package.json" with { type: "json" };\n\nexport default manifest;\n'
-        );
+        if (entry === undefined || generatedManifestResource === undefined) {
+            assert.fail('expected bundled entry and generated manifest resources');
+        }
+        assert.partialDeepStrictEqual(entry, {
+            directDependencies: new Set([ path.join(fixture, 'src/package.json') ]),
+            fileDescription: {
+                content: 'import manifest from "./package.json" with { type: "json" };\n\nexport default manifest;\n'
+            }
+        });
         assert.strictEqual(generatedManifestResource.isGeneratedManifest, true);
         assert.deepStrictEqual(JSON.parse(bundle.manifestFile.content), {
             exports: { '.': { import: './entry.js' } },

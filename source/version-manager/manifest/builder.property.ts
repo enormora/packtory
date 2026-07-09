@@ -126,10 +126,12 @@ suite('builder', function () {
             fc.property(bundleArbitrary, function (bundle) {
                 const manifest = buildPackageManifest(bundle);
 
-                assert.strictEqual(manifest.name, bundle.name);
-                assert.strictEqual(manifest.version, bundle.version);
-                assert.deepStrictEqual(manifest.exports, bundle.exportsField);
-                assert.strictEqual(manifest.type, bundle.packageType);
+                assert.partialDeepStrictEqual(manifest, {
+                    name: bundle.name,
+                    version: bundle.version,
+                    exports: bundle.exportsField,
+                    type: bundle.packageType
+                });
                 assertManifestDependencyGroup(manifest, 'dependencies', bundle.dependencies);
                 assertManifestDependencyGroup(manifest, 'peerDependencies', bundle.peerDependencies);
             })

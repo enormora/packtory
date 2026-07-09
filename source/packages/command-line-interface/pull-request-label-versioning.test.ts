@@ -53,16 +53,28 @@ function createEngine(overrides: Partial<PrLogEngine> = {}): PrLogEngine {
             ]);
         },
         filterPullRequestsByTargetFiles(input: FilterPullRequestsInput) {
-            assert.strictEqual(input.targetName, 'pkg');
-            assert.deepStrictEqual(input.targetSourceFiles, [ 'source/index.ts' ]);
-            assert.deepStrictEqual(input.ignoredAttributionPaths, [ 'CHANGELOG.md' ]);
+            assert.partialDeepStrictEqual(input, {
+                targetName: 'pkg',
+                targetSourceFiles: [ 'source/index.ts' ],
+                ignoredAttributionPaths: [ 'CHANGELOG.md' ]
+            });
             return input.pullRequests;
         },
         async resolvePullRequestLabels(input: ResolveLabelsInput) {
-            assert.strictEqual(input.githubRepo, 'owner/repo');
-            assert.strictEqual(input.targetName, 'pkg');
-            assert.strictEqual(input.targetScopedLabelPattern, undefined);
-            assert.deepStrictEqual(input.ignoredLabels, []);
+            assert.deepStrictEqual(
+                {
+                    githubRepo: input.githubRepo,
+                    targetName: input.targetName,
+                    targetScopedLabelPattern: input.targetScopedLabelPattern,
+                    ignoredLabels: input.ignoredLabels
+                },
+                {
+                    githubRepo: 'owner/repo',
+                    targetName: 'pkg',
+                    targetScopedLabelPattern: undefined,
+                    ignoredLabels: []
+                }
+            );
             return [
                 { id: 1, title: 'Fix bug', label: 'bug' },
                 { id: 2, title: 'Add feature', label: 'feature' }

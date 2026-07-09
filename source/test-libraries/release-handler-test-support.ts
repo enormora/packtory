@@ -13,6 +13,7 @@ import type {
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage } from '../packtory/packtory.ts';
 import type { ConfigLoader } from '../command-line-interface/config-loader.ts';
 import { runReleaseHandler, type ReleaseHandlerDeps } from '../command-line-interface/runner/release-handler.ts';
+import { assertDeepSubset } from './deep-subset-assertion.ts';
 import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 
 export type ReleaseFlags = ReleaseHandlerDeps['flags'];
@@ -455,10 +456,12 @@ export async function assertCurrentHeadRetryTag(flags: Partial<ReleaseFlags>): P
         planOutcomes: createReleasePlanOutcomesForPackage(createCurrentHeadRetryPackage())
     });
 
+    assertDeepSubset(deps, {
+        log: { lastCall: { args: [ 'Release completed.' ] } },
+        releaseSteps: [ 'plan', 'clean', 'head', 'tag:pkg-a@1.0.1' ]
+    });
     assert.strictEqual(code, 0);
     assert.strictEqual(buildAndPublishAll.callCount, 0);
-    assert.deepStrictEqual(deps.log.lastCall.args, [ 'Release completed.' ]);
-    assert.deepStrictEqual(deps.releaseSteps, [ 'plan', 'clean', 'head', 'tag:pkg-a@1.0.1' ]);
 }
 
 export { githubReleaseFlags, unattributedPackageChangelogMessage, validConfig };

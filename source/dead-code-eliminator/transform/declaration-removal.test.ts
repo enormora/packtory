@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { firstStatement, withSource } from '../../test-libraries/transform-test-support.ts';
 import { processStatement } from './declaration-removal.ts';
 
@@ -20,7 +21,7 @@ suite('declaration-removal', function () {
         const mutated = processStatement(sourceFile.getFunctionOrThrow('keep'), new Set([ 'keep' ]));
 
         assert.strictEqual(mutated, false);
-        assert.ok(sourceFile.getFunction('keep') !== undefined);
+        assertDefined(sourceFile.getFunction('keep'));
     });
 
     test('processStatement drops only the non-surviving declarators inside a variable statement', function () {

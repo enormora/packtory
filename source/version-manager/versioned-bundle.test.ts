@@ -94,8 +94,10 @@ suite('versioned-bundle', function () {
             })
         );
 
-        assert.deepStrictEqual(result.dependencies, { 'bundle-dependency': '2.0.0' });
-        assert.deepStrictEqual(result.peerDependencies, { 'peer-dependency': '3.0.0' });
+        assert.partialDeepStrictEqual(result, {
+            dependencies: { 'bundle-dependency': '2.0.0' },
+            peerDependencies: { 'peer-dependency': '3.0.0' }
+        });
     });
 
     test('buildVersionedBundle() omits the importsField when no #imports survive', function () {

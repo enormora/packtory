@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
-import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { ModuleKind, ModuleResolutionKind } from 'ts-morph';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { analyzationOptionsToCompilerOptions } from './typescript-compiler-options.ts';
 
 const stubMainPackageJson = { name: 'pkg', version: '1.0.0', type: 'module' } as never;
@@ -13,8 +13,10 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.strictEqual(options.moduleResolution, ModuleResolutionKind.Node16);
-        assert.strictEqual(options.module, ModuleKind.Node16);
+        assertDeepSubset(options, {
+            moduleResolution: ModuleResolutionKind.Node16,
+            module: ModuleKind.Node16
+        });
     });
 
     test('analyzationOptionsToCompilerOptions enables esModuleInterop, allowJs, resolveJsonModule, noLib, skipLibCheck, and noEmit', function () {
@@ -23,12 +25,14 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.strictEqual(options.esModuleInterop, true);
-        assert.strictEqual(options.allowJs, true);
-        assert.strictEqual(options.resolveJsonModule, true);
-        assert.strictEqual(options.noLib, true);
-        assert.strictEqual(options.skipLibCheck, true);
-        assert.strictEqual(options.noEmit, true);
+        assertDeepSubset(options, {
+            esModuleInterop: true,
+            allowJs: true,
+            resolveJsonModule: true,
+            noLib: true,
+            skipLibCheck: true,
+            noEmit: true
+        });
     });
 
     test('analyzationOptionsToCompilerOptions clears types and typeRoots when declaration-file resolution is disabled', function () {
@@ -37,8 +41,10 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.deepStrictEqual(options.types, []);
-        assert.deepStrictEqual(options.typeRoots, []);
+        assertDeepSubset(options, {
+            types: [],
+            typeRoots: []
+        });
     });
 
     test('analyzationOptionsToCompilerOptions omits types and typeRoots when declaration-file resolution is enabled', function () {
@@ -47,7 +53,9 @@ suite('typescript-compiler-options', function () {
             mainPackageJson: stubMainPackageJson
         });
 
-        assert.strictEqual(options.types, undefined);
-        assert.strictEqual(options.typeRoots, undefined);
+        assertDeepSubset(options, {
+            types: undefined,
+            typeRoots: undefined
+        });
     });
 });

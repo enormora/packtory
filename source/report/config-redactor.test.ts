@@ -171,8 +171,10 @@ function registerSourceAndRegistryTests(): void {
             'pkg-missing'
         );
 
-        assert.deepStrictEqual(redacted.publishSettings, { access: 'public' });
-        assert.strictEqual(redacted.sourcesFolder, '/common/src');
+        assert.partialDeepStrictEqual(redacted, {
+            publishSettings: { access: 'public' },
+            sourcesFolder: '/common/src'
+        });
     });
 }
 

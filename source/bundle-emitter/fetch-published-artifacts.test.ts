@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { emptyTarball } from '../test-libraries/tarball-fixtures.ts';
 import type { RegistryClient } from './registry/registry-client.ts';
 import { fetchPublishedArtifacts } from './fetch-published-artifacts.ts';
@@ -27,10 +28,14 @@ function assertFetchedArtifacts(result: Awaited<ReturnType<typeof fetchPublished
     if (result.isNothing) {
         assert.fail('expected fetched artifacts');
     }
-    assert.strictEqual(result.value.version, '1.2.3');
-    assert.deepStrictEqual(result.value.publishedAt, new Date('2026-05-20T00:00:00.000Z'));
-    assert.strictEqual(result.value.gitHead, 'abcdef123456');
-    assert.deepStrictEqual(result.value.files, []);
+    assertDeepSubset(result, {
+        value: {
+            version: '1.2.3',
+            publishedAt: new Date('2026-05-20T00:00:00.000Z'),
+            gitHead: 'abcdef123456',
+            files: []
+        }
+    });
 }
 
 suite('fetch-published-artifacts', function () {
@@ -42,8 +47,12 @@ suite('fetch-published-artifacts', function () {
         const result = await fetchPublishedArtifacts(client, 'the-name', registrySettings);
 
         assert.strictEqual(result.isNothing, true);
-        assert.strictEqual(fetchLatestReleaseMetadata.callCount, 1);
-        assert.deepStrictEqual(fetchLatestReleaseMetadata.firstCall.args, [ 'the-name', registrySettings ]);
+        assertDeepSubset(fetchLatestReleaseMetadata, {
+            callCount: 1,
+            firstCall: {
+                args: [ 'the-name', registrySettings ]
+            }
+        });
         assert.strictEqual(fetchTarball.callCount, 0);
     });
 

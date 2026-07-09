@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     createTerminalSpinnerRenderer,
     type SpinnerBackend,
@@ -46,8 +47,12 @@ suite('terminal-spinner-renderer', function () {
 
             renderer.add('the-id', 'the-label', 'the message');
 
-            assert.strictEqual(add.callCount, 1);
-            assert.deepStrictEqual(add.firstCall.args, [ 0, 'the-label', 'the message' ]);
+            assertDeepSubset(add, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 0, 'the-label', 'the message' ]
+                }
+            });
         });
 
         test('add() assigns successive spinners to consecutive slot indices', function () {
@@ -57,9 +62,15 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('first', 'a', '1');
             renderer.add('second', 'b', '2');
 
-            assert.strictEqual(add.callCount, 2);
-            assert.deepStrictEqual(add.firstCall.args, [ 0, 'a', '1' ]);
-            assert.deepStrictEqual(add.secondCall.args, [ 1, 'b', '2' ]);
+            assertDeepSubset(add, {
+                callCount: 2,
+                firstCall: {
+                    args: [ 0, 'a', '1' ]
+                },
+                secondCall: {
+                    args: [ 1, 'b', '2' ]
+                }
+            });
         });
 
         test('add() throws when adding two spinners with the same id', function () {
@@ -84,8 +95,12 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('the-id', 'lbl', 'initial');
             renderer.updateMessage('the-id', 'foo');
 
-            assert.strictEqual(update.callCount, 1);
-            assert.deepStrictEqual(update.firstCall.args, [ 0, 'lbl', 'foo' ]);
+            assertDeepSubset(update, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 0, 'lbl', 'foo' ]
+                }
+            });
         });
 
         test('updateMessage() updates the correct spinner when having multiple', function () {
@@ -97,9 +112,15 @@ suite('terminal-spinner-renderer', function () {
             renderer.updateMessage('first', 'foo');
             renderer.updateMessage('second', 'bar');
 
-            assert.strictEqual(update.callCount, 2);
-            assert.deepStrictEqual(update.firstCall.args, [ 0, 'one', 'foo' ]);
-            assert.deepStrictEqual(update.secondCall.args, [ 1, 'two', 'bar' ]);
+            assertDeepSubset(update, {
+                callCount: 2,
+                firstCall: {
+                    args: [ 0, 'one', 'foo' ]
+                },
+                secondCall: {
+                    args: [ 1, 'two', 'bar' ]
+                }
+            });
         });
 
         test('updateMessage() throws when trying to change the message of a non-existing spinner', function () {
@@ -122,8 +143,12 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('the-id', 'lbl', '');
             renderer.stop('the-id', 'success', 'foo');
 
-            assert.strictEqual(finish.callCount, 1);
-            assert.deepStrictEqual(finish.firstCall.args, [ 0, 'succeeded', 'lbl', 'foo' ]);
+            assertDeepSubset(finish, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 0, 'succeeded', 'lbl', 'foo' ]
+                }
+            });
         });
 
         test('stop() finishes the spinner with failed state when the status is failure', function () {
@@ -133,8 +158,12 @@ suite('terminal-spinner-renderer', function () {
             renderer.add('the-id', 'lbl', '');
             renderer.stop('the-id', 'failure', 'foo');
 
-            assert.strictEqual(finish.callCount, 1);
-            assert.deepStrictEqual(finish.firstCall.args, [ 0, 'failed', 'lbl', 'foo' ]);
+            assertDeepSubset(finish, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 0, 'failed', 'lbl', 'foo' ]
+                }
+            });
         });
 
         test('stop() keeps the stopped spinner addressable for later message updates', function () {
@@ -145,8 +174,12 @@ suite('terminal-spinner-renderer', function () {
             renderer.stop('the-id', 'success', 'foo');
             renderer.updateMessage('the-id', 'updated');
 
-            assert.strictEqual(update.callCount, 1);
-            assert.deepStrictEqual(update.firstCall.args, [ 0, 'lbl', 'updated' ]);
+            assertDeepSubset(update, {
+                callCount: 1,
+                firstCall: {
+                    args: [ 0, 'lbl', 'updated' ]
+                }
+            });
         });
 
         test('stop() uses the original slot and label after a message update', function () {
@@ -169,9 +202,15 @@ suite('terminal-spinner-renderer', function () {
             renderer.stop('first', 'failure', 'foo');
             renderer.stop('second', 'failure', 'bar');
 
-            assert.strictEqual(finish.callCount, 2);
-            assert.deepStrictEqual(finish.firstCall.args, [ 0, 'failed', 'a', 'foo' ]);
-            assert.deepStrictEqual(finish.secondCall.args, [ 1, 'failed', 'b', 'bar' ]);
+            assertDeepSubset(finish, {
+                callCount: 2,
+                firstCall: {
+                    args: [ 0, 'failed', 'a', 'foo' ]
+                },
+                secondCall: {
+                    args: [ 1, 'failed', 'b', 'bar' ]
+                }
+            });
         });
 
         test('stop() throws when trying to stop a spinner that does not exist', function () {
@@ -204,9 +243,15 @@ suite('terminal-spinner-renderer', function () {
             renderer.stop('first', 'success', 'foo');
             renderer.stopAll();
 
-            assert.strictEqual(finish.callCount, 2);
-            assert.deepStrictEqual(finish.firstCall.args, [ 0, 'succeeded', 'one', 'foo' ]);
-            assert.deepStrictEqual(finish.secondCall.args, [ 1, 'canceled', 'two', 'Canceled …' ]);
+            assertDeepSubset(finish, {
+                callCount: 2,
+                firstCall: {
+                    args: [ 0, 'succeeded', 'one', 'foo' ]
+                },
+                secondCall: {
+                    args: [ 1, 'canceled', 'two', 'Canceled …' ]
+                }
+            });
         });
 
         test('stopAll() does not re-cancel previously canceled spinners on a second invocation', function () {

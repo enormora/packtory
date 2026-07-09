@@ -129,8 +129,10 @@ suite('package-processor', function () {
         if (firstInput === undefined) {
             assert.fail('expected elimination input');
         }
-        assert.strictEqual(firstInput.transformationsEnabled, false);
-        assert.deepStrictEqual(firstInput.deadCodeElimination, deadCodeElimination);
+        assert.partialDeepStrictEqual(firstInput, {
+            transformationsEnabled: false,
+            deadCodeElimination
+        });
     });
 
     test('build() defaults transformationsEnabled to true when deadCodeElimination is not configured', async function () {

@@ -58,7 +58,7 @@ suite('source-map-composer', function () {
             });
             const mappings = listMappings(result);
             for (const mapping of mappings) {
-                assert.ok(mapping.generatedLine !== 1, 'no mapping should land on the removed line 1');
+                assert.notStrictEqual(mapping.generatedLine, 1, 'no mapping should land on the removed line 1');
             }
         });
 

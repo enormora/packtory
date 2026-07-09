@@ -56,7 +56,7 @@ suite('bundle-artifact-index', function () {
     test('buildBundleArtifactIndex maps each bundle to its own inner index by package name', function () {
         const index = buildBundleArtifactIndex([ buildResult('pkg-a', '{}'), buildResult('pkg-b', '{}') ]);
 
-        assert.strictEqual(index.get('pkg-a') === index.get('pkg-b'), false);
+        assert.notStrictEqual(index.get('pkg-a'), index.get('pkg-b'));
         assert.strictEqual(index.has('pkg-a'), true);
         assert.strictEqual(index.has('pkg-b'), true);
     });

@@ -50,8 +50,10 @@ suite('packtory-results', function () {
 
     test('resolvePartialFailure wraps a PartialError under the partial discriminator', function () {
         const partial = resolvePartialFailure({ succeeded: [], failures: [] });
-        assert.strictEqual(partial.type, 'partial');
-        assert.deepStrictEqual(partial.error, { succeeded: [], failures: [] });
+        assert.partialDeepStrictEqual(partial, {
+            type: 'partial',
+            error: { succeeded: [], failures: [] }
+        });
     });
 
     test('releaseAnalysisPartialFailure tags a PartialError as a release-analysis partial failure', function () {
@@ -70,8 +72,10 @@ suite('packtory-results', function () {
             failures
         });
 
-        assert.strictEqual(failure.type, 'partial');
-        assert.deepStrictEqual(failure.failures, failures);
+        assert.partialDeepStrictEqual(failure, {
+            type: 'partial',
+            failures
+        });
     });
 
     test('createPublishAllOutcome captures the result and the report getter', function () {

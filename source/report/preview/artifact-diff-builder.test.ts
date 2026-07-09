@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import type { ArtifactEntry } from '../../progress/progress-broadcaster.ts';
 import { buildDiffForArtifact } from './artifact-diff-builder.ts';
 import type { BundleArtifactIndex } from './bundle-artifact-index.ts';
@@ -67,8 +68,8 @@ suite('artifact-diff-builder', function () {
             await alwaysRead('export const removed = 1;')
         );
 
-        assert.notStrictEqual(result, undefined);
-        assert.ok((result ?? []).length > 0);
-        assert.match((result ?? [])[0]?.header ?? '', /^@@ -\d+,\d+ \+\d+,\d+ @@$/u);
+        assertDefined(result);
+        assert.ok(result.length > 0);
+        assert.match(result[0]?.header ?? '', /^@@ -\d+,\d+ \+\d+,\d+ @@$/u);
     });
 });

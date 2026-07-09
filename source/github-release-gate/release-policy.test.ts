@@ -55,15 +55,17 @@ suite('github-release-gate-release-policy', function () {
             releaseAnalysis: releaseAnalysis()
         });
 
-        assert.strictEqual(decision.shouldPublish, true);
-        assert.strictEqual(decision.reason, 'quiet_period_elapsed');
-        assert.deepStrictEqual(decision.logs, [
-            'Publishing is allowed by the release gate.',
-            'release classification: substantive',
-            'most recent published package timestamp: 2026-05-01T00:00:00.000Z',
-            'package pkg-a: substantive latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
-            'Publishing is allowed by the Packtory release policy.'
-        ]);
+        assert.partialDeepStrictEqual(decision, {
+            shouldPublish: true,
+            reason: 'quiet_period_elapsed',
+            logs: [
+                'Publishing is allowed by the release gate.',
+                'release classification: substantive',
+                'most recent published package timestamp: 2026-05-01T00:00:00.000Z',
+                'package pkg-a: substantive latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
+                'Publishing is allowed by the Packtory release policy.'
+            ]
+        });
     });
 
     test('blocks unchanged releases even when the GitHub time gate is open', function () {
@@ -85,15 +87,17 @@ suite('github-release-gate-release-policy', function () {
             })
         });
 
-        assert.strictEqual(decision.shouldPublish, false);
-        assert.strictEqual(decision.reason, 'release_unchanged');
-        assert.deepStrictEqual(decision.logs, [
-            'Publishing is allowed by the release gate.',
-            'release classification: unchanged',
-            'most recent published package timestamp: (unknown)',
-            'package pkg-a: unchanged latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
-            'Skipping publish: the next Packtory release would be unchanged versus npm latest.'
-        ]);
+        assert.partialDeepStrictEqual(decision, {
+            shouldPublish: false,
+            reason: 'release_unchanged',
+            logs: [
+                'Publishing is allowed by the release gate.',
+                'release classification: unchanged',
+                'most recent published package timestamp: (unknown)',
+                'package pkg-a: unchanged latest=1.0.0 publishedAt=2026-05-01T00:00:00.000Z',
+                'Skipping publish: the next Packtory release would be unchanged versus npm latest.'
+            ]
+        });
     });
 
     test('blocks dependency-only releases until the minimum age elapses', function () {
@@ -104,8 +108,10 @@ suite('github-release-gate-release-policy', function () {
             releaseAnalysis: dependencyOnlyReleaseAnalysis(new Date('2026-05-01T00:00:00.000Z'))
         });
 
-        assert.strictEqual(decision.shouldPublish, false);
-        assert.strictEqual(decision.reason, 'dependency_only_min_age_not_elapsed');
+        assert.partialDeepStrictEqual(decision, {
+            shouldPublish: false,
+            reason: 'dependency_only_min_age_not_elapsed'
+        });
         assert.strictEqual(
             decision.logs.at(-1),
             'Skipping publish: dependency-only releases must age for at least 7 day(s).'
@@ -120,8 +126,10 @@ suite('github-release-gate-release-policy', function () {
             releaseAnalysis: dependencyOnlyReleaseAnalysis(new Date('2026-05-01T00:00:00.000Z'))
         });
 
-        assert.strictEqual(decision.shouldPublish, true);
-        assert.strictEqual(decision.reason, 'dependency_only_min_age_elapsed');
+        assert.partialDeepStrictEqual(decision, {
+            shouldPublish: true,
+            reason: 'dependency_only_min_age_elapsed'
+        });
         assert.strictEqual(
             decision.logs.at(-1),
             'Publishing is allowed because the dependency-only minimum age of 7 day(s) has elapsed.'
@@ -147,8 +155,10 @@ suite('github-release-gate-release-policy', function () {
             })
         });
 
-        assert.strictEqual(decision.shouldPublish, true);
-        assert.strictEqual(decision.reason, 'dependency_only_published_at_unknown');
+        assert.partialDeepStrictEqual(decision, {
+            shouldPublish: true,
+            reason: 'dependency_only_published_at_unknown'
+        });
         assert.strictEqual(
             decision.logs.at(-1),
             'Publishing is allowed because this dependency-only release has no publishedAt baseline to delay from.'

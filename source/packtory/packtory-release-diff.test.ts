@@ -143,9 +143,11 @@ async function assertDerivedTransition(spec: DerivedTransitionSpec): Promise<voi
     if (entry === undefined) {
         assert.fail('expected a release diff entry');
     }
-    assert.strictEqual(entry.state, spec.expectedState);
-    assert.strictEqual(entry.versionTransition, spec.expectedVersionTransition);
-    assert.strictEqual(entry.previousVersionLabel, spec.expectedPreviousVersionLabel);
+    assert.partialDeepStrictEqual(entry, {
+        state: spec.expectedState,
+        versionTransition: spec.expectedVersionTransition,
+        previousVersionLabel: spec.expectedPreviousVersionLabel
+    });
 }
 
 function expectPartialErr(result: ReleaseDiffAllResult): PartialError<unknown> & { readonly type: 'partial'; } {
@@ -222,8 +224,10 @@ suite('packtory-release-diff', function () {
         });
 
         const partial = expectPartialErr(result);
-        assert.deepStrictEqual(partial.succeeded, []);
-        assert.deepStrictEqual(partial.failures, resolveFailures);
+        assert.partialDeepStrictEqual(partial, {
+            succeeded: [],
+            failures: resolveFailures
+        });
     });
 
     test('returns Ok with an empty diff array when resolve, publish-stage, and release-diff-stage all succeed with no packages', async function () {
@@ -251,8 +255,10 @@ suite('packtory-release-diff', function () {
         );
 
         const partial = expectPartialErr(await diff(configFor([ 'pkg-a' ]), okResolve));
-        assert.deepStrictEqual(partial.failures, [ publishError ]);
-        assert.deepStrictEqual(partial.succeeded, []);
+        assert.partialDeepStrictEqual(partial, {
+            failures: [ publishError ],
+            succeeded: []
+        });
     });
 
     test('returns a partial Err combining publish-stage failures with the release-diff stage succeeded entries when both stages fail', async function () {
@@ -277,8 +283,10 @@ suite('packtory-release-diff', function () {
         );
 
         const partial = expectPartialErr(await diff(configFor([ 'pkg-a' ]), okResolve));
-        assert.deepStrictEqual(partial.failures, [ publishError ]);
-        assert.deepStrictEqual(partial.succeeded, [ partialStageSuccess ]);
+        assert.partialDeepStrictEqual(partial, {
+            failures: [ publishError ],
+            succeeded: [ partialStageSuccess ]
+        });
     });
 
     test('returns a partial Err carrying the release-diff stage failures when only the stage returns Err', async function () {

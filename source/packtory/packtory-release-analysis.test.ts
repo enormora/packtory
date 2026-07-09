@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import vm from 'node:vm';
 import { suite, test } from 'mocha';
 import { Result } from 'true-myth';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import {
     buildResultFor,
     createReleaseTestDependencies,
@@ -153,8 +154,10 @@ suite('packtory-release-analysis', function () {
         });
 
         const partial = expectPartialFailure(result);
-        assert.deepStrictEqual(partial.succeeded, []);
-        assert.deepStrictEqual(partial.failures, [ failure ]);
+        assertDeepSubset(partial, {
+            succeeded: [],
+            failures: [ failure ]
+        });
     });
 
     test('skips fresh content collection for already-published build results', async function () {
@@ -224,8 +227,14 @@ suite('packtory-release-analysis', function () {
                 }
             })
         );
-        assert.strictEqual(partial.succeeded.length, 0);
-        assert.strictEqual(partial.failures.length, 1);
+        assertDeepSubset(partial, {
+            succeeded: {
+                length: 0
+            },
+            failures: {
+                length: 1
+            }
+        });
         assert.match(partial.failures[0]?.message ?? '', /collect failed/u);
     });
 

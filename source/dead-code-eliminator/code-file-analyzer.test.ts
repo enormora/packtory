@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Node as TsMorphNode, Statement } from 'ts-morph';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
@@ -57,8 +58,16 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.deepStrictEqual(result.transforms, []);
-        assert.strictEqual(result.resource.analysis.survivingBindings.size, 0);
+        assertDeepSubset(result, {
+            transforms: [],
+            resource: {
+                analysis: {
+                    survivingBindings: {
+                        size: 0
+                    }
+                }
+            }
+        });
     });
 
     test('buildAnalyzedResource leaves the content unchanged when transformations are disabled', function () {
@@ -66,8 +75,14 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
-        assert.deepStrictEqual(result.transforms, []);
-        assert.strictEqual(result.resource.fileDescription.content, 'export const foo = 1;\n');
+        assertDeepSubset(result, {
+            transforms: [],
+            resource: {
+                fileDescription: {
+                    content: 'export const foo = 1;\n'
+                }
+            }
+        });
     });
 
     test('buildAnalyzedResource includes side-effect statements in the analysis when transformations are disabled', function () {
@@ -83,8 +98,14 @@ suite('code-file-analyzer', function () {
 
         const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
 
-        assert.deepStrictEqual(result.transforms, []);
-        assert.strictEqual(result.resource.fileDescription.content, 'console.log(1);\nexport const foo = 1;\n');
+        assertDeepSubset(result, {
+            transforms: [],
+            resource: {
+                fileDescription: {
+                    content: 'console.log(1);\nexport const foo = 1;\n'
+                }
+            }
+        });
     });
 
     test('buildAnalyzedResource carries through every original binding name on the analysis when no transform happens', function () {

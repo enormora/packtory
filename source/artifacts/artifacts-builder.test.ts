@@ -139,16 +139,21 @@ suite('artifacts-builder', function () {
             ];
             await builder.buildTarball(bundleWithContents(contents, 'package.json'));
 
-            assert.strictEqual(tarballBuilder.build.callCount, 1);
-            assert.deepStrictEqual(tarballBuilder.build.firstCall.args, [
-                [
-                    { filePath: 'package/package.json', content: '{}', isExecutable: false },
-                    { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
-                    { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
-                    { filePath: 'package/qux.txt', content: 'qux', isExecutable: false }
-                ],
-                []
-            ]);
+            assert.deepStrictEqual(
+                { callCount: tarballBuilder.build.callCount, args: tarballBuilder.build.firstCall.args },
+                {
+                    callCount: 1,
+                    args: [
+                        [
+                            { filePath: 'package/package.json', content: '{}', isExecutable: false },
+                            { filePath: 'package/bar.txt', content: 'bar', isExecutable: false },
+                            { filePath: 'package/baz.txt', content: 'baz', isExecutable: false },
+                            { filePath: 'package/qux.txt', content: 'qux', isExecutable: false }
+                        ],
+                        []
+                    ]
+                }
+            );
         });
 
         test('buildFolder() writes only the manifest when the given bundle has no contents', async function () {
@@ -351,16 +356,21 @@ suite('artifacts-builder', function () {
             ];
             await builder.buildZip(bundleWithContents(contents, 'manifest.json'));
 
-            assert.strictEqual(zipBuilder.build.callCount, 1);
-            assert.deepStrictEqual(zipBuilder.build.firstCall.args, [
-                [
-                    { filePath: 'manifest.json', content: '{}', isExecutable: false },
-                    { filePath: 'handler.js', content: 'handler', isExecutable: false },
-                    { filePath: 'lib/helper.js', content: 'helper', isExecutable: false },
-                    { filePath: 'lib/cli.js', content: 'cli', isExecutable: false }
-                ],
-                []
-            ]);
+            assert.deepStrictEqual(
+                { callCount: zipBuilder.build.callCount, args: zipBuilder.build.firstCall.args },
+                {
+                    callCount: 1,
+                    args: [
+                        [
+                            { filePath: 'manifest.json', content: '{}', isExecutable: false },
+                            { filePath: 'handler.js', content: 'handler', isExecutable: false },
+                            { filePath: 'lib/helper.js', content: 'helper', isExecutable: false },
+                            { filePath: 'lib/cli.js', content: 'cli', isExecutable: false }
+                        ],
+                        []
+                    ]
+                }
+            );
         });
 
         test('buildZip() forwards extra files to the zip builder alongside the bundle contents', async function () {

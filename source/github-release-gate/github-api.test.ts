@@ -334,9 +334,12 @@ suite('github-release-gate-github-api', function () {
             };
             const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
 
-            await assert.rejects(async function () {
-                await api.getMainBranchHeadSha();
-            });
+            await assert.rejects(
+                async function () {
+                    await api.getMainBranchHeadSha();
+                },
+                /Cannot read properties/u
+            );
         });
 
         test('getOpenPullRequestActivities preserves pull list parse failures', async function () {
@@ -346,9 +349,12 @@ suite('github-release-gate-github-api', function () {
             };
             const api = createGitHubReleaseGateApi(createJsonFetch(routes), defaultContext);
 
-            await assert.rejects(async function () {
-                await api.getOpenPullRequestActivities();
-            });
+            await assert.rejects(
+                async function () {
+                    await api.getOpenPullRequestActivities();
+                },
+                /issues\/\/timeline/u
+            );
         });
 
         test('getOpenPullRequestActivities formats GitHub pagination failures with the failing request path', async function () {

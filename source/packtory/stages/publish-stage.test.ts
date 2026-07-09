@@ -147,11 +147,13 @@ suite('publish-stage', function () {
             { dryRun: false, stage: false }
         );
 
-        assert.deepStrictEqual(capture.selected, [ bundle ]);
-        assert.deepStrictEqual(capture.events, [
-            { version: '2.0.0', status: 'new-version', publication: noPublication }
-        ]);
-        assert.strictEqual(capture.emitScheduledEvents, false);
+        assert.partialDeepStrictEqual(capture, {
+            selected: [ bundle ],
+            events: [
+                { version: '2.0.0', status: 'new-version', publication: noPublication }
+            ],
+            emitScheduledEvents: false
+        });
     });
 
     test('determineVersionAndPublishAll emits publish package failures to subscribers', async function () {

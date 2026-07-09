@@ -16,8 +16,10 @@ function addedFile(path: string): FileSetDiff['added'][number] {
 suite('release-diff-summary', function () {
     test('counts zero failed packages when none are reported', function () {
         const summary = summarizeReleaseDiff([], 0);
-        assert.strictEqual(summary.totalPackages, 0);
-        assert.strictEqual(summary.failedPackages, 0);
+        assert.partialDeepStrictEqual(summary, {
+            totalPackages: 0,
+            failedPackages: 0
+        });
     });
 
     test('classifies package states into changed, first-publish, and unchanged buckets', function () {
@@ -30,10 +32,12 @@ suite('release-diff-summary', function () {
             ],
             0
         );
-        assert.strictEqual(summary.changedPackages, 2);
-        assert.strictEqual(summary.firstPublishPackages, 1);
-        assert.strictEqual(summary.unchangedPackages, 1);
-        assert.strictEqual(summary.totalPackages, 4);
+        assert.partialDeepStrictEqual(summary, {
+            changedPackages: 2,
+            firstPublishPackages: 1,
+            unchangedPackages: 1,
+            totalPackages: 4
+        });
     });
 
     test('keeps first-publish and unchanged buckets distinct when their counts differ (detects state-equality inversion)', function () {
@@ -45,15 +49,19 @@ suite('release-diff-summary', function () {
             ],
             0
         );
-        assert.strictEqual(summary.firstPublishPackages, 1);
-        assert.strictEqual(summary.unchangedPackages, 2);
+        assert.partialDeepStrictEqual(summary, {
+            firstPublishPackages: 1,
+            unchangedPackages: 2
+        });
     });
 
     test('includes the failed package count in total but not in any other state bucket', function () {
         const summary = summarizeReleaseDiff([ stateView({ state: 'changed' }) ], 2);
-        assert.strictEqual(summary.totalPackages, 3);
-        assert.strictEqual(summary.failedPackages, 2);
-        assert.strictEqual(summary.changedPackages, 1);
+        assert.partialDeepStrictEqual(summary, {
+            totalPackages: 3,
+            failedPackages: 2,
+            changedPackages: 1
+        });
     });
 
     test('aggregates file counts across all packages', function () {
@@ -87,8 +95,10 @@ suite('release-diff-summary', function () {
             ],
             0
         );
-        assert.strictEqual(summary.addedFiles, 3);
-        assert.strictEqual(summary.removedFiles, 1);
-        assert.strictEqual(summary.modifiedFiles, 1);
+        assert.partialDeepStrictEqual(summary, {
+            addedFiles: 3,
+            removedFiles: 1,
+            modifiedFiles: 1
+        });
     });
 });

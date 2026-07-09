@@ -29,10 +29,12 @@ suite('release-diff-document', function () {
             result: successResult,
             packages: [ releaseDiffPackage() ]
         });
-        assert.strictEqual(document.title, 'Packtory release diff');
-        assert.strictEqual(document.modeLabel, 'vs registry latest');
-        assert.strictEqual(document.previewable, true);
-        assert.strictEqual(document.resultType, 'success');
+        assert.partialDeepStrictEqual(document, {
+            title: 'Packtory release diff',
+            modeLabel: 'vs registry latest',
+            previewable: true,
+            resultType: 'success'
+        });
     });
 
     test('counts only packages with a failure (asymmetric mix to detect equality-operator inversion)', function () {

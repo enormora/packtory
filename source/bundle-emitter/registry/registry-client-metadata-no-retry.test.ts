@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
+import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     errorWithStatus,
     expectFailure,
@@ -87,16 +88,20 @@ suite('registry-client metadata no retry', function () {
         });
 
         assert.deepStrictEqual(result, Buffer.from([ 1, 2, 3 ]));
-        assert.strictEqual(npmFetch.callCount, 2);
-        assert.deepStrictEqual(npmFetch.secondCall.args, [
-            'https://registry.example.test/pkg.tgz',
-            {
-                alwaysAuth: true,
-                registry: 'https://registry.example.test/',
-                forceAuth: {
-                    _auth: Buffer.from('reader:reader-secret', 'utf8').toString('base64')
-                }
+        assertDeepSubset(npmFetch, {
+            callCount: 2,
+            secondCall: {
+                args: [
+                    'https://registry.example.test/pkg.tgz',
+                    {
+                        alwaysAuth: true,
+                        registry: 'https://registry.example.test/',
+                        forceAuth: {
+                            _auth: Buffer.from('reader:reader-secret', 'utf8').toString('base64')
+                        }
+                    }
+                ]
             }
-        ]);
+        });
     });
 });

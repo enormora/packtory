@@ -1,5 +1,5 @@
 import { baseConfig } from '@enormora/eslint-config-base';
-import { mochaConfig, testSupportConfig } from '@enormora/eslint-config-mocha';
+import { mochaNodeAssertConfig, testSupportConfig } from '@enormora/eslint-config-mocha-node-assert';
 import { typescriptConfig } from '@enormora/eslint-config-typescript';
 import { nodeConfig, nodeConfigFileConfig, nodeEntryPointFileConfig } from '@enormora/eslint-config-node';
 
@@ -17,7 +17,7 @@ export default [
         files: [ '**/*.ts' ]
     },
     {
-        ...mochaConfig,
+        ...mochaNodeAssertConfig,
         files: [ '**/*.test.ts', '**/*.property.ts', 'integration-tests/**/*.ts' ]
     },
     {

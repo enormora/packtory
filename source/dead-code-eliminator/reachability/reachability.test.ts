@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { runNodeProbe } from '../../test-libraries/run-node-probe.ts';
 import {
     assertLocalValueExportIsReachable,
@@ -265,7 +266,7 @@ suite('reachability', function () {
             const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set<string>() });
 
             const isolatedIds = index.bindingIdsByFile.get('isolated.ts');
-            assert.ok(isolatedIds !== undefined);
+            assertDefined(isolatedIds);
             assert.ok(isolatedIds.has(bindingId('isolated.ts', 'never')));
         });
 

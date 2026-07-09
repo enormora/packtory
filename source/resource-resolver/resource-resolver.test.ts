@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, stub, type SinonSpy } from 'sinon';
 import { Maybe } from 'true-myth';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createDependencyGraph, type DependencyGraph } from '../dependency-scanner/dependency-graph.ts';
 import { createFakeFileManager, type FakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
@@ -162,9 +163,13 @@ function addGeneratedManifestDependency(graph: DependencyGraph): void {
 }
 
 function assertGeneratedManifestResource(manifestResource: ResolvedContent): void {
-    assert.strictEqual(manifestResource.isGeneratedManifest, true);
-    assert.strictEqual(manifestResource.fileDescription.content, '{\n    "type": "module"\n}\n');
-    assert.strictEqual(manifestResource.fileDescription.isExecutable, false);
+    assertDeepSubset(manifestResource, {
+        isGeneratedManifest: true,
+        fileDescription: {
+            content: '{\n    "type": "module"\n}\n',
+            isExecutable: false
+        }
+    });
 }
 
 suite('resource-resolver', function () {
@@ -188,10 +193,14 @@ suite('resource-resolver', function () {
                 mainPackageJson: { type: 'module' }
             }
         ]);
-        assert.strictEqual(result.name, 'package-a');
-        assert.strictEqual(result.contents.length, 3);
-        assert.deepStrictEqual(result.roots, {
-            main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined }
+        assertDeepSubset(result, {
+            name: 'package-a',
+            contents: {
+                length: 3
+            },
+            roots: {
+                main: { js: createTransferableFile('/src/index.js', 'index.js'), declarationFile: undefined }
+            }
         });
     });
 
@@ -253,16 +262,20 @@ suite('resource-resolver', function () {
             mainPackageJson: { type: 'module' }
         });
 
-        assert.strictEqual(scan.callCount, 2);
-        assert.deepStrictEqual(scan.secondCall.args, [
-            '/src/index.d.ts',
-            '/src',
-            {
-                includeSourceMapFiles: false,
-                resolveDeclarationFiles: true,
-                mainPackageJson: { type: 'module' }
+        assertDeepSubset(scan, {
+            callCount: 2,
+            secondCall: {
+                args: [
+                    '/src/index.d.ts',
+                    '/src',
+                    {
+                        includeSourceMapFiles: false,
+                        resolveDeclarationFiles: true,
+                        mainPackageJson: { type: 'module' }
+                    }
+                ]
             }
-        ]);
+        });
         assert.deepStrictEqual(
             Array.from(result.externalDependencies.keys()).toSorted(function (left, right) {
                 return left.localeCompare(right);

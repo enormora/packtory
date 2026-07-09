@@ -33,8 +33,14 @@ suite('prepare-package-options', function () {
     test('preparePackageOptions returns the selected package config along with shared options', function () {
         const prepared = preparePackageOptions('pkg-a', minimalPackageConfigsByName(), minimalPacktoryConfig(), []);
 
-        assert.strictEqual(prepared.packageConfig.name, 'pkg-a');
-        assert.strictEqual(prepared.sharedOptions.name, 'pkg-a');
+        assert.partialDeepStrictEqual(prepared, {
+            packageConfig: {
+                name: 'pkg-a'
+            },
+            sharedOptions: {
+                name: 'pkg-a'
+            }
+        });
     });
 
     test('preparePackageOptions defaults versioning to automatic when not configured', function () {

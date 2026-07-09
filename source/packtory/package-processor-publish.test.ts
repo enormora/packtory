@@ -125,8 +125,12 @@ suite('package-processor publish', function () {
 
             const result = await processor.tryBuildAndPublish(tryBuildOptions(providerVersioningBuildOptions()));
 
-            assert.strictEqual(result.status, 'already-published');
-            assert.strictEqual(result.bundle.version, '1.2.3');
+            assert.partialDeepStrictEqual(result, {
+                status: 'already-published',
+                bundle: {
+                    version: '1.2.3'
+                }
+            });
             assert.deepStrictEqual(findCurrentHeadPublishedVersion.firstCall.args, [
                 {
                     name: 'package-a',

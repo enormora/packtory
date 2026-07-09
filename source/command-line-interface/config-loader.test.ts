@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createConfigLoader, type ConfigLoader } from './config-loader.ts';
 
 type Overrides = {
@@ -20,8 +21,12 @@ suite('config-loader', function () {
 
         await configLoader.load();
 
-        assert.strictEqual(importModule.callCount, 1);
-        assert.deepStrictEqual(importModule.firstCall.args, [ 'the-folder/packtory.config.js' ]);
+        assertDeepSubset(importModule, {
+            callCount: 1,
+            firstCall: {
+                args: [ 'the-folder/packtory.config.js' ]
+            }
+        });
     });
 
     test('throws when the imported module is not an object', async function () {

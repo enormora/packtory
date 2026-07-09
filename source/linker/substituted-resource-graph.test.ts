@@ -55,17 +55,16 @@ suite('substituted-resource-graph', function () {
                 }),
             [ '/entry.js', '/extra.txt', '/shared.js' ]
         );
-        assert.deepStrictEqual(
-            result.linkedBundleDependencies,
-            new Map([ [ 'bundle-dependency', {
+        assert.partialDeepStrictEqual(result, {
+            linkedBundleDependencies: new Map([ [ 'bundle-dependency', {
                 name: 'bundle-dependency',
                 referencedFrom: [ '/entry.js', '/shared.js' ]
+            } ] ]),
+            externalDependencies: new Map([ [ 'left-pad', {
+                name: 'left-pad',
+                referencedFrom: [ '/entry.js', '/shared.js' ]
             } ] ])
-        );
-        assert.deepStrictEqual(
-            result.externalDependencies,
-            new Map([ [ 'left-pad', { name: 'left-pad', referencedFrom: [ '/entry.js', '/shared.js' ] } ] ])
-        );
+        });
     });
 
     test('flatten() preserves the generated-manifest marker on collected resources', function () {

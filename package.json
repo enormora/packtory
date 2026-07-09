@@ -67,7 +67,7 @@
     },
     "devDependencies": {
         "@enormora/eslint-config-base": "0.0.46",
-        "@enormora/eslint-config-mocha": "0.0.43",
+        "@enormora/eslint-config-mocha-node-assert": "0.0.3",
         "@enormora/eslint-config-node": "0.0.36",
         "@enormora/eslint-config-typescript": "0.0.53",
         "@enormora/objectory": "0.0.10",

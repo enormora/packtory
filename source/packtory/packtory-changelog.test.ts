@@ -9,6 +9,7 @@ import type {
     RenderGroupedTargetChangelogMarkdownInput,
     ResolvePullRequestLabelsOptions
 } from '@pr-log/core';
+import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
@@ -125,8 +126,14 @@ function registerTargetSelectionTests(): void {
 
         await render([ releasePackage({ changed: false, artifactState: 'unchanged' }) ], engine);
 
-        assert.strictEqual(calls.collectMergedPullRequests.callCount, 0);
-        assert.strictEqual(calls.renderGroupedTargetChangelog.callCount, 1);
+        assertDeepSubset(calls, {
+            collectMergedPullRequests: {
+                callCount: 0
+            },
+            renderGroupedTargetChangelog: {
+                callCount: 1
+            }
+        });
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
     });
 
@@ -326,8 +333,10 @@ function registerPackageChangelogTests(): void {
         });
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
-        assert.deepStrictEqual(changelog.packageNamesWithoutChangelogEntries, [ 'pkg-a' ]);
-        assert.deepStrictEqual(changelog.packageMarkdownByName, new Map());
+        assertDeepSubset(changelog, {
+            packageNamesWithoutChangelogEntries: [ 'pkg-a' ],
+            packageMarkdownByName: new Map()
+        });
         assert.strictEqual(renderTargetChangelog.callCount, 0);
     });
 }

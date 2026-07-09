@@ -120,14 +120,13 @@ suite('emitter publish', function () {
 
         await publishBundle(emitter, { publishSettings });
 
-        assert.strictEqual(publishPackage.callCount, 1);
-        assert.deepStrictEqual(publishPackage.firstCall.args, [
-            { name: '', version: '' },
-            emptyTarball,
-            registrySettings,
-            publishSettings,
-            false
-        ]);
+        assert.deepStrictEqual(
+            { callCount: publishPackage.callCount, args: publishPackage.firstCall.args },
+            {
+                callCount: 1,
+                args: [ { name: '', version: '' }, emptyTarball, registrySettings, publishSettings, false ]
+            }
+        );
     });
 
     test('publish() adds the current git head to the registry manifest without changing the bundle manifest', async function () {
@@ -154,8 +153,10 @@ suite('emitter publish', function () {
             gitHead: 'abcdef123456'
         });
         assert.deepStrictEqual(buildTarball.firstCall.args[0], bundle);
-        assert.strictEqual(bundle.manifestFile.content, '{"name":"the-name","version":"1.0.0"}');
-        assert.deepStrictEqual(bundle.packageJson, { name: 'the-name', version: '1.0.0' });
+        assert.partialDeepStrictEqual(bundle, {
+            manifestFile: { content: '{"name":"the-name","version":"1.0.0"}' },
+            packageJson: { name: 'the-name', version: '1.0.0' }
+        });
     });
 
     test('checkBundleAlreadyPublished() ignores gitHead-only manifest differences', async function () {
@@ -215,8 +216,10 @@ suite('emitter publish', function () {
         } catch (error) {
             assert.ok(error instanceof Error);
             assert.match(error.message, /repository URL does not match/u);
-            assert.strictEqual(scenario.buildTarball.callCount, 0);
-            assert.strictEqual(scenario.publishPackage.callCount, 0);
+            assert.deepStrictEqual(
+                { buildTarball: scenario.buildTarball.callCount, publishPackage: scenario.publishPackage.callCount },
+                { buildTarball: 0, publishPackage: 0 }
+            );
             return;
         }
         assert.fail('Expected publish() to throw');
@@ -230,8 +233,10 @@ suite('emitter publish', function () {
             publishSettings: { access: 'public', provenance: { type: 'file', path: '/build/bundle.sigstore' } }
         });
 
-        assert.strictEqual(scenario.buildTarball.callCount, 1);
-        assert.strictEqual(scenario.publishPackage.callCount, 1);
+        assert.deepStrictEqual(
+            { buildTarball: scenario.buildTarball.callCount, publishPackage: scenario.publishPackage.callCount },
+            { buildTarball: 1, publishPackage: 1 }
+        );
     });
 
     test('publish() does not run the coherence check when provenance is unset', async function () {
@@ -242,8 +247,10 @@ suite('emitter publish', function () {
             publishSettings: { access: 'public' }
         });
 
-        assert.strictEqual(scenario.buildTarball.callCount, 1);
-        assert.strictEqual(scenario.publishPackage.callCount, 1);
+        assert.deepStrictEqual(
+            { buildTarball: scenario.buildTarball.callCount, publishPackage: scenario.publishPackage.callCount },
+            { buildTarball: 1, publishPackage: 1 }
+        );
     });
 
     test('publish() does not run the coherence check when access is restricted even if provenance is set to auto', async function () {
@@ -254,7 +261,9 @@ suite('emitter publish', function () {
             publishSettings: { access: 'restricted', provenance: { type: 'auto' } } as unknown as PublishSettings
         });
 
-        assert.strictEqual(scenario.buildTarball.callCount, 1);
-        assert.strictEqual(scenario.publishPackage.callCount, 1);
+        assert.deepStrictEqual(
+            { buildTarball: scenario.buildTarball.callCount, publishPackage: scenario.publishPackage.callCount },
+            { buildTarball: 1, publishPackage: 1 }
+        );
     });
 });

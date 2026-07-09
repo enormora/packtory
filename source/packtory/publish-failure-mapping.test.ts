@@ -18,8 +18,10 @@ suite('publish-failure-mapping', function () {
         const failures = [ { message: 'boom' } as never ];
         const mapped = mapResolveFailureToPublishFailure({ type: 'partial', error: { succeeded: [], failures } });
 
-        assert.strictEqual(mapped.type, 'partial');
-        assert.deepStrictEqual(mapped.succeeded, []);
-        assert.strictEqual(mapped.failures, failures);
+        assert.deepStrictEqual(mapped, {
+            type: 'partial',
+            succeeded: [],
+            failures
+        });
     });
 });

@@ -154,7 +154,7 @@ function registerLifecycleTests(): void {
         const aggregator = createReportAggregator(broadcaster.consumer);
 
         const { generatedAt } = aggregator.build();
-        assert.ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(generatedAt));
+        assert.match(generatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
     test('build() reports an empty packages map when no events were observed', function () {

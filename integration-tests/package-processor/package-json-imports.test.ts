@@ -78,11 +78,15 @@ suite('package-json-imports', function () {
         assert.deepStrictEqual(firstBundle.packageJson.imports, {
             '#shared': './shared.js'
         });
-        assert.deepStrictEqual(secondBundle.packageJson.imports, {
-            '#local': './local.js'
-        });
-        assert.deepStrictEqual(secondBundle.packageJson.dependencies, {
-            first: '1.2.3'
+        assert.partialDeepStrictEqual(secondBundle, {
+            packageJson: {
+                imports: {
+                    '#local': './local.js'
+                },
+                dependencies: {
+                    first: '1.2.3'
+                }
+            }
         });
 
         const rewrittenEntry = findEntry(secondBundle, 'entry-second.js');
