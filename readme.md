@@ -116,7 +116,7 @@ npx packtory release-pr validate
 npx packtory release-pr authorize-publish
 ```
 
-`release-pr maintain` prepares the changelog commit with the same release planning logic, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR. `release-pr validate` checks that release PRs only change configured changelog output files and are not batched with other PRs in a merge queue. `release-pr authorize-publish` lets a publish workflow proceed only when the current commit, or a manually supplied PR number, is a merged valid release PR.
+`release-pr maintain` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR. `release-pr validate` checks that release PRs only change configured changelog output files and are not batched with other PRs in a merge queue. `release-pr authorize-publish` lets a publish workflow proceed only when the current commit, or a manually supplied PR number, is a merged valid release PR.
 
 Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
 

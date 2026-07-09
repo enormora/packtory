@@ -21,3 +21,15 @@ export function collectReleaseOutputFiles(input: ReleaseOutputFilesInput): reado
         }
     );
 }
+
+export function releaseCommitFilePath(workingDirectory: string, filePath: string): string {
+    const normalizedWorkingDirectory = workingDirectory.replaceAll('\\', '/');
+    const normalizedFilePath = filePath.replaceAll('\\', '/');
+    const prefix = normalizedWorkingDirectory.endsWith('/')
+        ? normalizedWorkingDirectory
+        : `${normalizedWorkingDirectory}/`;
+    if (normalizedFilePath.startsWith(prefix)) {
+        return normalizedFilePath.slice(prefix.length);
+    }
+    return normalizedFilePath;
+}

@@ -39,7 +39,7 @@ packtory <command> [options]
 - **release --tag:** Creates one annotated tag per released package, named `{packageName}@{version}`.
 - **release --push:** Runs `git push --follow-tags`. Requires `--commit` or `--tag`.
 - **release --github-release:** Creates one GitHub Release per package tag. Requires `--tag --push`.
-- **release-pr maintain --no-dry-run:** Writes and commits configured changelogs, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR.
+- **release-pr maintain --no-dry-run:** Writes configured changelogs, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR.
 - **release-pr validate:** Validates the current GitHub `pull_request` or `merge_group` event against the release PR policy.
 - **release-pr authorize-publish:** Writes `should_publish` and publish target outputs for a workflow that should publish only after a valid release PR merge.
 - **release-pr authorize-publish --release-pull-request &lt;number&gt;:** Authorizes a manual retry from a merged release PR.
@@ -103,7 +103,7 @@ packtory <command> [options]
 
 **Release PR behavior:**
 
-- `release-pr maintain --no-dry-run` runs the changelog commit part of `packtory release`, creates a GitHub-signed commit on `releasePullRequest.branch` with the GitHub API, creates or updates the release PR, and replaces its labels with `releasePullRequest.label`.
+- `release-pr maintain --no-dry-run` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on `releasePullRequest.branch` with the GitHub API, creates or updates the release PR, and replaces its labels with `releasePullRequest.label`.
 - Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
 - If release planning produces no changelog commit, `maintain` closes the open release PR for that branch and deletes the remote release branch.
 - Release PR settings live in top-level `releasePullRequest`. Defaults are `branch: 'release/packtory'`, `label: 'release'`, `title: 'Prepare release'`, `commitSubject: 'Release packages'`, `defaultBranch: 'main'`, and `automationAuthor: 'github-actions[bot]'`.

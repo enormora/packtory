@@ -1,18 +1,18 @@
-import type { PrLogConfig, PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
+import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
-import { generateChangelogOutputs, type GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
-import {
-    collectGeneratedAttributionPaths,
-    createChangelogGenerationOptions,
-    parseValidConfig,
-    writeConfiguredChangelogs
-} from './changelog-destinations.ts';
+import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import { printPublishFailure } from './failure-printing.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
 import { collectGitHubReleaseNotes, missingGitHubReleaseNotes } from './github-release-notes.ts';
-import { formatGitHubRepositoryName, parseGitHubRepositoryParts } from './github-repository.ts';
+import { parseGitHubRepositoryParts } from './github-repository.ts';
+import {
+    generateRequiredChangelog,
+    loadPlannedRelease,
+    type PlannedRelease,
+    type ReleaseChangelog,
+    writeReleaseChangelogs
+} from './release-preparation.ts';
 import type { ReleaseGitClient } from './release-git-client.ts';
-import { printReleasePlanFailure } from './release-plan-result-printing.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
@@ -21,16 +21,7 @@ type ReleaseTarget = {
     readonly tagName: string;
     readonly version: string;
 };
-type ValidChangelogConfig = NonNullable<ReturnType<typeof parseValidConfig>>;
-type ReleaseChangelog = {
-    readonly changelog: GeneratedChangelog;
-    readonly config: ValidChangelogConfig;
-    readonly engine: PrLogEngine;
-};
-type PlannedRelease = {
-    readonly config: unknown;
-    readonly packages: readonly ReleasePlanPackage[];
-};
+type ValidChangelogConfig = ReleaseChangelog['config'];
 type ChangelogStepResult = {
     readonly changelog: ReleaseChangelog | undefined;
     readonly planned: PlannedRelease;
@@ -210,49 +201,6 @@ function readGitHubToken(deps: Pick<ReleaseHandlerDeps, 'readEnvironmentVariable
     return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(deps: ReleaseHandlerDeps, config: PrLogConfig): PrLogEngine {
-    return deps.createPrLogEngine({
-        githubToken: readGitHubToken(deps),
-        workingDirectory: deps.workingDirectory,
-        config
-    });
-}
-
-async function generateReleaseChangelog(
-    deps: ReleaseHandlerDeps,
-    config: ValidChangelogConfig,
-    packages: readonly ReleasePlanPackage[]
-): Promise<ReleaseChangelog> {
-    const packageInfo = await deps.readPackageInfo();
-    const generationOptions = createChangelogGenerationOptions(config);
-    const engine = createEngine(deps, generationOptions.prLogConfig);
-    const changelog = await generateChangelogOutputs({
-        packages,
-        prLogEngine: engine,
-        explicitBaseRef: generationOptions.explicitBaseRef,
-        githubRepo: formatGitHubRepositoryName(packageInfo),
-        ignoredAttributionPaths: collectGeneratedAttributionPaths(deps, config),
-        currentDate: deps.currentDate(),
-        packageTagFormat: generationOptions.packageTagFormat,
-        prLogConfig: generationOptions.prLogConfig,
-        targetScopedLabelPattern: generationOptions.targetScopedLabelPattern
-    });
-    return { changelog, config, engine };
-}
-
-async function planRelease(
-    deps: ReleaseHandlerDeps,
-    config: unknown
-): Promise<readonly ReleasePlanPackage[] | undefined> {
-    const outcome = await deps.packtory.planReleaseAgainstLatestPublished(config);
-    deps.spinnerRenderer.stopAll();
-    if (outcome.result.isErr) {
-        printReleasePlanFailure(deps.log, outcome.result.error);
-        return undefined;
-    }
-    return outcome.result.value.packages;
-}
-
 async function publishTargets(
     deps: ReleaseHandlerDeps,
     config: unknown,
@@ -325,15 +273,6 @@ function reportFlagIssues(deps: ReleaseHandlerDeps): number | undefined {
     return undefined;
 }
 
-async function loadPlannedRelease(deps: ReleaseHandlerDeps): Promise<PlannedRelease | undefined> {
-    const config = await deps.configLoader.load();
-    const packages = await planRelease(deps, config);
-    if (packages === undefined) {
-        return undefined;
-    }
-    return { config, packages };
-}
-
 function resolvePlannedReleaseExitCode(
     deps: ReleaseHandlerDeps,
     packages: readonly ReleasePlanPackage[]
@@ -349,22 +288,6 @@ function resolvePlannedReleaseExitCode(
     return undefined;
 }
 
-function parseRequiredChangelogConfig(config: unknown): ValidChangelogConfig {
-    const validConfig = parseValidConfig(config);
-    if (validConfig === undefined) {
-        throw new Error('The loaded config is invalid for changelog generation');
-    }
-    return validConfig;
-}
-
-async function generateRequiredChangelog(
-    deps: ReleaseHandlerDeps,
-    config: unknown,
-    packages: readonly ReleasePlanPackage[]
-): Promise<ReleaseChangelog> {
-    return generateReleaseChangelog(deps, parseRequiredChangelogConfig(config), packages);
-}
-
 async function commitChangelogAndReplan(
     deps: ReleaseHandlerDeps,
     changelog: ReleaseChangelog,
@@ -375,34 +298,6 @@ async function commitChangelogAndReplan(
     return committedPlan === undefined ? undefined : { changelog, planned: committedPlan };
 }
 
-function formatEmptyChangelogMessage(changelog: GeneratedChangelog): string {
-    const packageNames = changelog.packageNamesWithoutChangelogEntries;
-    if (packageNames.length === 0) {
-        return 'No changelog files were written.';
-    }
-    return [
-        'No changelog files were written; changelog attribution found no pull requests for ',
-        packageNames.join(', '),
-        '.'
-    ]
-        .join('');
-}
-
-function reportUnwrittenChangelogs(
-    deps: Pick<ReleaseHandlerDeps, 'flags' | 'log'>,
-    changelog: GeneratedChangelog,
-    writtenPaths: readonly string[]
-): void {
-    if (writtenPaths.length > 0) {
-        return;
-    }
-    const message = formatEmptyChangelogMessage(changelog);
-    if (deps.flags.commit) {
-        throw new Error(message);
-    }
-    deps.log(message);
-}
-
 async function writeChangelogAndMaybeCommit(
     deps: ReleaseHandlerDeps,
     planned: PlannedRelease
@@ -410,10 +305,7 @@ async function writeChangelogAndMaybeCommit(
     if (!deps.flags.writeChangelog) {
         return { changelog: undefined, planned };
     }
-    const validConfig = parseRequiredChangelogConfig(planned.config);
-    const changelog = await generateReleaseChangelog(deps, validConfig, planned.packages);
-    const writtenPaths = await writeConfiguredChangelogs(deps, changelog.config, changelog.engine, changelog.changelog);
-    reportUnwrittenChangelogs(deps, changelog.changelog, writtenPaths);
+    const { changelog, writtenPaths } = await writeReleaseChangelogs(deps, planned, deps.flags.commit);
     if (!deps.flags.commit) {
         return { changelog, planned };
     }
