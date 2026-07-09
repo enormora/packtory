@@ -11,8 +11,6 @@ type FakeGitCommandChildProcess = {
     readonly once: (eventName: 'close', listener: () => void) => FakeGitCommandChildProcess;
 };
 
-const runChildProcessGitCommand = createChildProcessGitCommandExecutor(spawnChildProcessGitCommand);
-
 function createFakeGitCommandChildProcess(
     recordCloseListener: (listener: () => void) => void
 ): FakeGitCommandChildProcess {
@@ -113,6 +111,7 @@ suite('git-command', function () {
     });
 
     test('runChildProcessGitCommand resolves stdout and stderr from a child process', async function () {
+        const runChildProcessGitCommand = createChildProcessGitCommandExecutor(spawnChildProcessGitCommand);
         const result = await withPromiseDeadline(
             runChildProcessGitCommand(process.execPath, [
                 '-e',
@@ -126,6 +125,7 @@ suite('git-command', function () {
     });
 
     test('runChildProcessGitCommand rejects failed child processes', async function () {
+        const runChildProcessGitCommand = createChildProcessGitCommandExecutor(spawnChildProcessGitCommand);
         await assert.rejects(
             withPromiseDeadline(
                 runChildProcessGitCommand(process.execPath, [ '-e', 'process.exit(13);' ]),
@@ -137,6 +137,7 @@ suite('git-command', function () {
     });
 
     test('runChildProcessGitCommand rejects launch failures', async function () {
+        const runChildProcessGitCommand = createChildProcessGitCommandExecutor(spawnChildProcessGitCommand);
         await assert.rejects(
             withPromiseDeadline(
                 runChildProcessGitCommand('/definitely-missing/packtory-git-command', []),

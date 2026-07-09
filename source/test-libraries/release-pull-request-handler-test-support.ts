@@ -104,6 +104,7 @@ export function createDependencies(
             filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Fix package' } ]),
             readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
             readPullRequestChangedFiles: fake.resolves(new Map([ [ 1, [ 'src/index.ts' ] ] ])),
+            resolveVersionNumber: fake.returns('1.0.1'),
             renderChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
             renderGroupedTargetChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
             renderTargetChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),

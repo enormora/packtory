@@ -1,19 +1,24 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
-import type {
-    FilterPullRequestsByTargetFilesInput,
-    PrLogEngine,
-    PullRequest,
-    PullRequestWithLabel,
-    RenderGroupedTargetChangelogMarkdownInput,
-    ResolvePullRequestLabelsOptions
+import {
+    defaultPrLogConfig,
+    type FilterPullRequestsByTargetFilesInput,
+    type PrLogEngine,
+    type PullRequest,
+    type PullRequestWithLabel,
+    type RenderGroupedTargetChangelogMarkdownInput,
+    type ResolvePullRequestLabelsOptions
 } from '@pr-log/core';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
-const validLabels = new Map([ [ 'bug', 'Bug Fixes' ] ]);
+const prLogConfig = {
+    ...defaultPrLogConfig,
+    validLabels: new Map([ [ 'bug', 'Bug Fixes' ] ]),
+    versionBumps: { major: [], minor: [], patch: [ 'bug' ] }
+};
 
 function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPackage {
     return {
@@ -47,6 +52,7 @@ type EngineCalls = {
     readonly resolveChangelogBaseRef: SinonSpy;
     readonly resolveLatestSemverChangelogBaseRef: SinonSpy;
     readonly resolvePullRequestLabels: SinonSpy;
+    readonly resolveVersionNumber: SinonSpy;
 };
 
 type EngineFixture = {
@@ -98,7 +104,8 @@ function createEngine(): EngineFixture {
             return { ref: `${input.packageName}-base` };
         }),
         resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
-        resolvePullRequestLabels: fake.resolves(labeledPullRequests)
+        resolvePullRequestLabels: fake.resolves(labeledPullRequests),
+        resolveVersionNumber: fake.returns('1.0.1')
     };
 
     return { engine: calls as unknown as PrLogEngine, calls };
@@ -110,12 +117,11 @@ async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngi
         prLogEngine: engine,
         explicitBaseRef: undefined,
         githubRepo: 'owner/repo',
-        packageInfo: {},
         packageTagFormat: undefined,
         currentDate: new Date('2026-06-13T00:00:00.000Z'),
         ignoredAttributionPaths: [],
-        targetScopedLabelPattern: undefined,
-        validLabels
+        prLogConfig,
+        targetScopedLabelPattern: undefined
     });
     return changelog.groupedMarkdown;
 }
@@ -174,8 +180,7 @@ function registerTargetSelectionTests(): void {
         });
         assert.deepStrictEqual(calls.resolvePullRequestLabels.firstCall.args[0], {
             githubRepo: 'owner/repo',
-            validLabels,
-            ignoredLabels: [],
+            config: prLogConfig,
             pullRequests: [ { id: 1, title: 'Fix package' } ],
             targetName: 'pkg-a',
             targetScopedLabelPattern: undefined
@@ -250,30 +255,35 @@ function registerDependencyUpdateTests(): void {
             }
         ]);
         assert.strictEqual(
-            calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels.get('upgrade'),
+            calls.renderGroupedTargetChangelog.firstCall.args[0].config.validLabels.get('upgrade'),
             'Dependency Upgrades'
         );
     });
 
     test('preserves configured dependency update changelog labels', async function () {
         const { engine, calls } = createEngine();
-        const customValidLabels = new Map([ ...validLabels, [ 'upgrade', 'Upgrades' ] ]);
+        const customPrLogConfig = {
+            ...prLogConfig,
+            validLabels: new Map([ ...prLogConfig.validLabels, [ 'upgrade', 'Upgrades' ] ])
+        };
 
         await generateChangelogOutputs({
             packages: [ releasePackage({ releaseClassification: 'dependency-only' }) ],
             prLogEngine: engine,
             githubRepo: 'owner/repo',
-            packageInfo: {},
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             explicitBaseRef: undefined,
             ignoredAttributionPaths: [],
             packageTagFormat: undefined,
-            targetScopedLabelPattern: undefined,
-            validLabels: customValidLabels
+            prLogConfig: customPrLogConfig,
+            targetScopedLabelPattern: undefined
         });
 
-        assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels, customValidLabels);
-        assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].validLabels.get('upgrade'), 'Upgrades');
+        assert.strictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].config, customPrLogConfig);
+        assert.strictEqual(
+            calls.renderGroupedTargetChangelog.firstCall.args[0].config.validLabels.get('upgrade'),
+            'Upgrades'
+        );
     });
 
     test('includes manifest dependency pull requests whose titles mention changed dependencies', async function () {
@@ -323,13 +333,12 @@ function registerPackageChangelogTests(): void {
             packages: [ releasePackage({ changelogSourceFiles: [ 'source/pkg-a.ts' ] }) ],
             prLogEngine: emptyEngine,
             githubRepo: 'owner/repo',
-            packageInfo: {},
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             explicitBaseRef: undefined,
             ignoredAttributionPaths: [],
             packageTagFormat: undefined,
-            targetScopedLabelPattern: undefined,
-            validLabels
+            prLogConfig,
+            targetScopedLabelPattern: undefined
         });
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, []);
@@ -382,13 +391,12 @@ function registerAttributionPathTests(): void {
             packages: [ releasePackage({ changelogSourceFiles: [ 'source/pkg-a.ts' ] }) ],
             prLogEngine: engine,
             githubRepo: 'owner/repo',
-            packageInfo: {},
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             explicitBaseRef: undefined,
             ignoredAttributionPaths: [ 'docs/generated.md' ],
             packageTagFormat: undefined,
-            targetScopedLabelPattern: undefined,
-            validLabels
+            prLogConfig,
+            targetScopedLabelPattern: undefined
         });
 
         assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].ignoredAttributionPaths, [
@@ -406,12 +414,11 @@ function registerOptionForwardingTests(): void {
             prLogEngine: engine,
             explicitBaseRef: 'release-base',
             githubRepo: 'owner/repo',
-            packageInfo: {},
             packageTagFormat: 'pkg/{packageName}/v{version}',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             ignoredAttributionPaths: [],
-            targetScopedLabelPattern: 'scope:{targetName}:{label}',
-            validLabels
+            prLogConfig,
+            targetScopedLabelPattern: 'scope:{targetName}:{label}'
         });
 
         assert.strictEqual(calls.resolveLatestSemverChangelogBaseRef.callCount, 0);

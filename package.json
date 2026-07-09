@@ -35,7 +35,7 @@
         "@octokit/core": "7.0.6",
         "@octokit/plugin-paginate-rest": "14.0.0",
         "@octokit/plugin-rest-endpoint-methods": "17.0.0",
-        "@pr-log/core": "0.0.2",
+        "@pr-log/core": "0.0.3",
         "@schema-hub/zod-error-formatter": "0.0.12",
         "@ts-morph/common": "0.29.0",
         "@types/common-tags": "1.8.4",

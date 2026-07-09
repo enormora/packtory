@@ -140,6 +140,7 @@ export function createEngine(): PrLogEngine {
             assert.strictEqual(input.githubRepo, 'enormora/packtory');
             return [ { id: 1, title: 'Fix package', label: 'bug' } ];
         }),
+        resolveVersionNumber: fake.returns('1.0.1'),
         renderGroupedTargetChangelog: fake.returns('## pkg-a 1.0.1\n'),
         renderTargetChangelog: fake.returns('## pkg-a 1.0.1\n'),
         updateChangelog: fake(function (input: UpdateChangelogInput) {
@@ -359,6 +360,7 @@ export function createReleaseHandlerDeps(scenario: Scenario = {}): ReleaseHandle
             if (scenario.readEnvironmentVariable === undefined) {
                 assert.strictEqual(options.githubToken, 'gh-token');
             }
+            assert.strictEqual(options.config.labelLookupIntervalMilliseconds, 250);
             return scenario.engine ?? createEngine();
         },
         currentDate() {

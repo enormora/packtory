@@ -48,6 +48,21 @@ function createGeneratedChangelog(overrides: GeneratedChangelogOverrides = {}): 
     };
 }
 
+function createPacktoryConfigWithPrLog(prLog: unknown): unknown {
+    return {
+        changelog: { prLog },
+        packages: [
+            {
+                mainPackageJson: { type: 'module' },
+                name: 'pkg-a',
+                publishSettings: { access: 'public' },
+                roots: { main: { js: 'index.js' } },
+                sourcesFolder: 'source'
+            }
+        ]
+    };
+}
+
 async function assertRepositoryReadFailureRethrown(error: Error, messagePattern: RegExp): Promise<void> {
     const fileManager = createFakeFileManager({
         simulatedReadFileResponses: [ { error } ]
@@ -69,12 +84,24 @@ suite('changelog-destinations', function () {
         assert.strictEqual(parseValidConfig({ packages: [] }), undefined);
     });
 
+    test('parseValidConfig returns undefined for non-object pr-log settings', function () {
+        assert.strictEqual(parseValidConfig(createPacktoryConfigWithPrLog(null)), undefined);
+        assert.strictEqual(parseValidConfig(createPacktoryConfigWithPrLog('invalid')), undefined);
+    });
+
+    test('parseValidConfig accepts object pr-log settings', function () {
+        assert.notStrictEqual(
+            parseValidConfig(createPacktoryConfigWithPrLog({ validLabels: { bug: 'Bugs' } })),
+            undefined
+        );
+    });
+
     test('createChangelogGenerationOptions combines defaults with configured settings', function () {
         const options = createChangelogGenerationOptions(
             createChangelogConfig({
                 changelog: {
                     explicitBaseRef: 'main',
-                    labels: { bug: 'Fixed Bugs', operations: 'Operations' },
+                    prLog: { validLabels: { bug: 'Fixed Bugs', operations: 'Operations' } },
                     packageTagFormat: 'pkg/{packageName}/v{version}',
                     targetScopedLabelPattern: 'scope:{targetName}:{label}'
                 }
@@ -86,8 +113,8 @@ suite('changelog-destinations', function () {
             packageTagFormat: 'pkg/{packageName}/v{version}',
             targetScopedLabelPattern: 'scope:{targetName}:{label}'
         });
-        assert.strictEqual(options.validLabels.get('bug'), 'Fixed Bugs');
-        assert.strictEqual(options.validLabels.get('operations'), 'Operations');
+        assert.strictEqual(options.prLogConfig.validLabels.get('bug'), 'Fixed Bugs');
+        assert.strictEqual(options.prLogConfig.validLabels.get('operations'), 'Operations');
     });
 
     suite('collectGeneratedAttributionPaths', function () {
@@ -99,7 +126,7 @@ suite('changelog-destinations', function () {
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
                     deps,
-                    createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } })
+                    createChangelogConfig({ changelog: { prLog: { validLabels: { operations: 'Operations' } } } })
                 ),
                 []
             );
@@ -206,7 +233,7 @@ suite('changelog-destinations', function () {
 
             const writtenPaths = await writeConfiguredChangelogs(
                 { ...deps, fileManager },
-                createChangelogConfig({ changelog: { labels: { operations: 'Operations' } } }),
+                createChangelogConfig({ changelog: { prLog: { validLabels: { operations: 'Operations' } } } }),
                 { updateChangelog: fake.returns('updated') },
                 createGeneratedChangelog()
             );

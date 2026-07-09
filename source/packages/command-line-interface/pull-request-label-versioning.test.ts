@@ -17,7 +17,7 @@ type TokenSourceInput = {
 
 const source = { automatic: false, source: 'pull-request-labels' } as const;
 const packtoryConfig: PacktoryConfig = {
-    changelog: { labels: { bug: 'Bug fixes', feature: 'Features' } },
+    changelog: { prLog: { validLabels: { bug: 'Bug fixes', feature: 'Features' } } },
     packages: []
 };
 
@@ -66,7 +66,7 @@ function createEngine(overrides: Partial<PrLogEngine> = {}): PrLogEngine {
                     githubRepo: input.githubRepo,
                     targetName: input.targetName,
                     targetScopedLabelPattern: input.targetScopedLabelPattern,
-                    ignoredLabels: input.ignoredLabels
+                    ignoredLabels: input.config.ignoredLabels
                 },
                 {
                     githubRepo: 'owner/repo',
@@ -134,9 +134,30 @@ suite('pull-request-label-version-source', function () {
                 assert.deepStrictEqual(options, {
                     githubToken: 'gh-token',
                     workingDirectory: '/repo',
-                    labelLookupIntervalMilliseconds: 250,
-                    maximumRateLimitRetryCount: 3
+                    config: {
+                        validLabels: options.config.validLabels,
+                        ignoredLabels: [],
+                        versionBumps: options.config.versionBumps,
+                        dateFormat: undefined,
+                        collapseRules: [],
+                        labelLookupIntervalMilliseconds: 250,
+                        maximumRateLimitRetryCount: 3
+                    }
                 });
+                assert.deepStrictEqual(
+                    {
+                        bugLabel: options.config.validLabels.get('bug'),
+                        majorBumpLabels: options.config.versionBumps.major,
+                        minorBumpLabels: options.config.versionBumps.minor,
+                        patchIncludesBug: options.config.versionBumps.patch.includes('bug')
+                    },
+                    {
+                        bugLabel: 'Bug fixes',
+                        majorBumpLabels: [ 'breaking' ],
+                        minorBumpLabels: [ 'feature' ],
+                        patchIncludesBug: true
+                    }
+                );
             },
             readEnvironmentVariable(name) {
                 return name === 'GH_TOKEN' ? 'gh-token' : undefined;

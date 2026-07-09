@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { PrLogEngine, PullRequest, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
+import type { PrLogConfig, PrLogEngine, PullRequest, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
 import { compareValues } from '../common/sort-values.ts';
 import { releaseAnalysisClassification, type ReleasePlanPackage } from './packtory-results.ts';
 import { isPackageManifestInputPath } from './changelog-source-attribution.ts';
@@ -35,12 +35,11 @@ export type GenerateChangelogInput = {
     readonly explicitBaseRef: string | undefined;
     readonly githubRepo: string;
     readonly ignoredAttributionPaths: readonly string[];
-    readonly packageInfo: Readonly<Record<string, unknown>>;
     readonly packages: readonly ReleasePlanPackage[];
     readonly packageTagFormat: string | undefined;
+    readonly prLogConfig: PrLogConfig;
     readonly prLogEngine: Pick<PrLogEngine, PrLogMethod>;
     readonly targetScopedLabelPattern: string | undefined;
-    readonly validLabels: ReadonlyMap<string, string>;
 };
 
 export type GeneratedChangelog = {
@@ -163,8 +162,7 @@ async function collectTargetPullRequests(
 
     return input.prLogEngine.resolvePullRequestLabels({
         githubRepo: input.githubRepo,
-        validLabels: input.validLabels,
-        ignoredLabels: [],
+        config: input.prLogConfig,
         pullRequests: mergePullRequests([ ...packagePullRequests, ...dependencyPullRequests ]),
         targetName: packagePlan.name,
         targetScopedLabelPattern: input.targetScopedLabelPattern
@@ -192,11 +190,14 @@ function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequest
     });
 }
 
-function changelogLabelsForRendering(validLabels: ReadonlyMap<string, string>): ReadonlyMap<string, string> {
-    if (validLabels.has(dependencyUpdateLabel())) {
-        return validLabels;
+function prLogConfigForRendering(config: PrLogConfig): PrLogConfig {
+    if (config.validLabels.has(dependencyUpdateLabel())) {
+        return config;
     }
-    return new Map([ ...validLabels, [ dependencyUpdateLabel(), 'Dependency Upgrades' ] ]);
+    return {
+        ...config,
+        validLabels: new Map([ ...config.validLabels, [ dependencyUpdateLabel(), 'Dependency Upgrades' ] ])
+    };
 }
 
 function createTargetSection(target: ChangelogTarget): TargetChangelogSection {
@@ -216,16 +217,15 @@ function createPackageMarkdownByName(
     input: GenerateChangelogInput,
     targets: readonly ChangelogTarget[]
 ): ReadonlyMap<string, string> {
-    const validLabels = changelogLabelsForRendering(input.validLabels);
+    const config = prLogConfigForRendering(input.prLogConfig);
     return new Map(
         targets.filter(hasChangelogEntries).map(function (target) {
             const targetSection = createTargetSection(target);
             return [
                 target.packagePlan.name,
                 input.prLogEngine.renderTargetChangelog({
-                    packageInfo: input.packageInfo,
+                    config,
                     currentDate: input.currentDate,
-                    validLabels,
                     githubRepo: input.githubRepo,
                     ...targetSection
                 })
@@ -237,7 +237,7 @@ function createPackageMarkdownByName(
 export async function generateChangelogOutputs(input: GenerateChangelogInput): Promise<GeneratedChangelog> {
     const packages = selectChangedPackages(input.packages);
     const ignoredAttributionPaths = mergeIgnoredAttributionPaths(packages, input.ignoredAttributionPaths);
-    const validLabels = changelogLabelsForRendering(input.validLabels);
+    const config = prLogConfigForRendering(input.prLogConfig);
     const targets = await Promise.all(
         packages.map(async function (packagePlan) {
             return createChangelogTarget(input, packagePlan, ignoredAttributionPaths);
@@ -247,9 +247,8 @@ export async function generateChangelogOutputs(input: GenerateChangelogInput): P
 
     return {
         groupedMarkdown: input.prLogEngine.renderGroupedTargetChangelog({
-            packageInfo: input.packageInfo,
+            config,
             currentDate: input.currentDate,
-            validLabels,
             githubRepo: input.githubRepo,
             targets: targetsWithEntries.map(createTargetSection)
         }),

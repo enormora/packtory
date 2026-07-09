@@ -63,10 +63,6 @@ function reportExecFileResult(
     deferred.reject(error);
 }
 
-function reportClosedChildProcess(deferred: Deferred<never>): void {
-    deferred.reject(new Error('Child process closed before reporting output'));
-}
-
 function* gitCommandCompletionSignals(
     output: Deferred<GitCommandExecutorResult>,
     closed: Deferred<never>
@@ -89,10 +85,12 @@ export function createChildProcessGitCommandExecutor(spawnGitCommand: SpawnGitCo
         const callback: ExecFileCallback = function (error, stdout, stderr) {
             reportExecFileResult(output, error, stdout, stderr);
         };
+        const rejectClosedChildProcess = closed.reject.bind(
+            undefined,
+            new Error('Child process closed before reporting output')
+        );
         const childProcess = spawnGitCommand(command, Array.from(args), callback);
-        childProcess.once('close', function () {
-            reportClosedChildProcess(closed);
-        });
+        childProcess.once('close', rejectClosedChildProcess);
         return await runUntilOutputOrClose(output, closed);
     };
 }

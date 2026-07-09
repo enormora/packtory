@@ -59,9 +59,26 @@ suite('changelog-settings', function () {
             assert.strictEqual(result.success, true);
         });
 
-        test('schema accepts label and base-ref settings without outputs', function () {
+        test('schema accepts pr-log and base-ref settings without outputs', function () {
             const result = safeParse(changelogSettingsSchema, {
-                labels: { bug: 'Fixes', operations: 'Operations' },
+                prLog: {
+                    validLabels: { bug: 'Fixes', operations: 'Operations' },
+                    ignoredLabels: [ 'skip-changelog' ],
+                    versionBumps: { major: [ 'breaking' ], minor: [ 'feature' ], patch: [ 'bug' ] },
+                    dateFormat: 'yyyy-MM-dd',
+                    collapseRules: [
+                        {
+                            label: 'operations',
+                            pattern: '^Update (?<dependency>.+?) from (?<from>.+?) to (?<to>.+?)$',
+                            replace: 'Update $<dependency> from $<from> to $<to>',
+                            keyGroup: 'dependency',
+                            fromGroup: 'from',
+                            toGroup: 'to'
+                        }
+                    ],
+                    labelLookupIntervalMilliseconds: 500,
+                    maximumRateLimitRetryCount: 5
+                },
                 targetScopedLabelPattern: 'scope:{targetName}:{label}',
                 packageTagFormat: 'pkg/{packageName}/v{version}',
                 explicitBaseRef: 'main'
@@ -74,9 +91,7 @@ suite('changelog-settings', function () {
             assert.strictEqual(safeParse(changelogSettingsSchema, { outputs: [] }).success, false);
         });
 
-        test('schema rejects empty label, pattern and base-ref settings', function () {
-            assert.strictEqual(safeParse(changelogSettingsSchema, { labels: { bug: '' } }).success, false);
-            assert.strictEqual(safeParse(changelogSettingsSchema, { labels: { '': 'Fixes' } }).success, false);
+        test('schema rejects empty pattern and base-ref settings', function () {
             assert.strictEqual(safeParse(changelogSettingsSchema, { targetScopedLabelPattern: '' }).success, false);
             assert.strictEqual(safeParse(changelogSettingsSchema, { packageTagFormat: '' }).success, false);
             assert.strictEqual(safeParse(changelogSettingsSchema, { explicitBaseRef: '' }).success, false);

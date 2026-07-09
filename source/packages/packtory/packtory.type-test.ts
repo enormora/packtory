@@ -40,6 +40,8 @@ type PlanReleaseAgainstLatestPublishedFunction = (config: unknown) => Promise<Re
 type PackageConfig = PacktoryConfig['packages'][number];
 type ChangelogSettings = NonNullable<PacktoryConfig['changelog']>;
 type Root = PackageConfig['roots'][string];
+type LabelLookupIntervalMilliseconds = 500;
+type MaximumRateLimitRetryCount = 5;
 type ConfigWithVersioning<TVersioning> = {
     readonly registrySettings: {
         readonly auth: { readonly type: 'bearer-token'; readonly token: 'any-token'; };
@@ -162,7 +164,21 @@ describe('PacktoryConfig - accepted shapes', function () {
             readonly checks: { readonly noDuplicatedFiles: { readonly enabled: true; }; };
             readonly changelog: {
                 readonly explicitBaseRef: 'main';
-                readonly labels: { readonly operations: 'Operations'; };
+                readonly prLog: {
+                    readonly validLabels: { readonly operations: 'Operations'; };
+                    readonly ignoredLabels: readonly ['skip-changelog'];
+                    readonly versionBumps: { readonly patch: readonly ['operations']; };
+                    readonly dateFormat: 'yyyy-MM-dd';
+                    readonly collapseRules: readonly [
+                        {
+                            readonly label: 'operations';
+                            readonly pattern: '^Update (?<dependency>.+?) from (?<from>.+?) to (?<to>.+?)$';
+                            readonly replace: 'Update $<dependency> from $<from> to $<to>';
+                        }
+                    ];
+                    readonly labelLookupIntervalMilliseconds: LabelLookupIntervalMilliseconds;
+                    readonly maximumRateLimitRetryCount: MaximumRateLimitRetryCount;
+                };
                 readonly outputs: readonly [
                     { readonly kind: 'repository-file'; readonly path: 'CHANGELOG.md'; },
                     {
@@ -326,7 +342,9 @@ describe('VersionProviderInput', function () {
 describe('PacktoryConfig changelog structure', function () {
     test('changelog exposes generation and output settings', function () {
         expect<ChangelogSettings['explicitBaseRef']>().type.toBe<string | undefined>();
-        expect<ChangelogSettings['labels']>().type.toBe<Readonly<Record<string, string>> | undefined>();
+        expect<NonNullable<ChangelogSettings['prLog']>['validLabels']>().type.toBe<
+            Readonly<Record<string, string>> | undefined
+        >();
         expect<ChangelogSettings['outputs']>().type.toBeAssignableTo<readonly unknown[] | undefined>();
         expect<ChangelogSettings['packageTagFormat']>().type.toBe<string | undefined>();
         expect<ChangelogSettings['targetScopedLabelPattern']>().type.toBe<string | undefined>();
