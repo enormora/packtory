@@ -220,6 +220,11 @@ export type ReleasePlanRegistryMetadata = {
     readonly gitHead: string | undefined;
 };
 
+type ReleasePlanDependencyUpdate = {
+    readonly name: string;
+    readonly version: string;
+};
+
 export type ReleasePlanPackage = {
     readonly name: string;
     readonly previousVersion: string | undefined;
@@ -234,6 +239,7 @@ export type ReleasePlanPackage = {
     readonly changedArtifactFiles: readonly string[];
     readonly sourceFiles: readonly string[];
     readonly changelogDependencyNames: readonly string[];
+    readonly changelogDependencyUpdates: readonly ReleasePlanDependencyUpdate[];
     readonly changelogSourceFiles: readonly string[];
 };
 

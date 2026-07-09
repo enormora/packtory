@@ -36,6 +36,7 @@ function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPack
         sourceFiles: [ 'source/pkg-a.ts' ],
         changelogSourceFiles: [ 'source/pkg-a.ts' ],
         changelogDependencyNames: [],
+        changelogDependencyUpdates: [],
         ...overrides
     };
 }
@@ -257,6 +258,68 @@ function registerDependencyUpdateTests(): void {
         assert.strictEqual(
             calls.renderGroupedTargetChangelog.firstCall.args[0].config.validLabels.get('upgrade'),
             'Dependency Upgrades'
+        );
+    });
+
+    test('renders single dependency-only package changes with the dependency version', async function () {
+        const { engine, calls } = createEngine();
+
+        await render(
+            [
+                releasePackage({
+                    releaseClassification: 'dependency-only',
+                    changelogDependencyNames: [ '@scope/pkg' ],
+                    changelogDependencyUpdates: [ { name: '@scope/pkg', version: '1.2.3' } ]
+                })
+            ],
+            engine
+        );
+
+        assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets, [
+            {
+                targetName: 'pkg-a',
+                unreleased: false,
+                versionNumber: '1.0.1',
+                mergedPullRequests: [ { id: 1, title: 'Update @scope/pkg to 1.2.3', label: 'upgrade' } ]
+            }
+        ]);
+    });
+
+    test('renders multiple dependency-only package changes with the generic dependency title', async function () {
+        const { engine, calls } = createEngine();
+
+        await render(
+            [
+                releasePackage({
+                    releaseClassification: 'dependency-only',
+                    changelogDependencyUpdates: [
+                        { name: 'left', version: '1.0.1' },
+                        { name: 'right', version: '2.0.1' }
+                    ]
+                })
+            ],
+            engine
+        );
+
+        assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets[0]?.mergedPullRequests, [
+            { id: 1, title: 'Update dependencies', label: 'upgrade' }
+        ]);
+    });
+
+    test('rejects malformed single dependency-only package changes', async function () {
+        const { engine } = createEngine();
+
+        await assert.rejects(
+            render(
+                [
+                    releasePackage({
+                        releaseClassification: 'dependency-only',
+                        changelogDependencyUpdates: [ undefined as never ]
+                    })
+                ],
+                engine
+            ),
+            { message: 'Expected a dependency update' }
         );
     });
 

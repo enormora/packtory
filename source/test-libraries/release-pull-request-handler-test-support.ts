@@ -28,7 +28,8 @@ function createReleasePackage(): ReleasePlanPackage {
         changedArtifactFiles: [ 'dist/index.js' ],
         sourceFiles: [ 'src/index.ts' ],
         changelogSourceFiles: [ 'src/index.ts' ],
-        changelogDependencyNames: []
+        changelogDependencyNames: [],
+        changelogDependencyUpdates: []
     };
 }
 
