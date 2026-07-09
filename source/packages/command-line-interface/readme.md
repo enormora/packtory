@@ -21,7 +21,7 @@ packtory <command> [options]
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
-- **release:** Prints the next release plan by default, or runs one explicit release workflow when action flags and `--no-dry-run` are set.
+- **release:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API.
 - **release-pr:** Maintains, validates, and authorizes a reviewed release PR flow for generated changelog releases.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
 - **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection. `pack` never talks to a registry.
@@ -33,12 +33,7 @@ packtory <command> [options]
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
 - **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
-- **release --write-changelog:** Writes configured changelog file outputs for packages in the release plan.
-- **release --commit:** Commits written changelog files. Requires `--write-changelog`.
-- **release --publish:** Publishes changed packages directly to npm. Staged publishing is not used by `release`.
-- **release --tag:** Creates one annotated tag per released package, named `{packageName}@{version}`.
-- **release --push:** Runs `git push --follow-tags`. Requires `--commit` or `--tag`.
-- **release --github-release:** Creates one GitHub Release per package tag. Requires `--tag --push`.
+- **release --publish --tag --push --github-release --no-dry-run:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API. `--push` is accepted for compatibility with existing workflows because tags are created remotely.
 - **release-pr maintain --no-dry-run:** Writes configured changelogs, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR.
 - **release-pr validate:** Validates the current GitHub `pull_request` or `merge_group` event against the release PR policy.
 - **release-pr authorize-publish:** Writes `should_publish` and publish target outputs for a workflow that should publish only after a valid release PR merge.
@@ -89,23 +84,17 @@ packtory <command> [options]
 
 **Release behavior:**
 
-- `packtory release` prints the computed release plan and exits without writing.
-- Any action flag requires `--no-dry-run`.
-- Invalid combinations fail before writing: `--commit` requires `--write-changelog`; `--write-changelog --publish` requires `--commit`; `--push` requires `--commit` or `--tag`; `--github-release` requires `--tag --push`.
-- `--tag` requires `--publish` in the same run unless the registry latest `gitHead` already matches the current Git head. This allows retrying tag and GitHub Release creation after a publish succeeded.
-- Non-dry-run release writes require a clean Git index and worktree before the first write.
-- The write order is changelog files, commit, final release-plan recomputation, direct npm publish, annotated tags, `git push --follow-tags`, then GitHub Releases.
-- Existing package tags at the current head are accepted. Existing tags at another head fail.
-- Existing GitHub Releases for verified package tags are accepted and their notes are not rewritten.
-- GitHub Release creation requires non-empty release notes. Retry runs recover notes from configured package changelog outputs when npm already has the package version for the current Git head.
-- Packtory uses inherited Git configuration, environment, and credentials. In CI, configure commit identity with standard variables such as `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL`, and configure push credentials outside Packtory.
-- GitHub Release creation reads `GH_TOKEN` first, then `GITHUB_TOKEN`.
+- `packtory release` prints the release plan when no release action flag is provided.
+- `packtory release --publish --tag --push --github-release --no-dry-run` publishes changed packages, creates annotated package tags, and creates missing GitHub releases.
+- `release` reads `GH_TOKEN` when set, otherwise `GITHUB_TOKEN`, and creates tags and GitHub releases through the GitHub API.
+- `release` does not commit changelog files or run local Git tag and push commands.
+- `--github-release` requires `--tag --push`, and any release write requires `--no-dry-run`.
 
 **Release PR behavior:**
 
 - `release-pr maintain --no-dry-run` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on `releasePullRequest.branch` with the GitHub API, creates or updates the release PR, and replaces its labels with `releasePullRequest.label`.
 - Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
-- If release planning produces no changelog commit, `maintain` closes the open release PR for that branch and deletes the remote release branch.
+- If release planning produces no changelog content, `maintain` closes the open release PR for that branch and deletes the remote release branch.
 - Release PR settings live in top-level `releasePullRequest`. Defaults are `branch: 'release/packtory'`, `label: 'release'`, `title: 'Prepare release'`, `commitSubject: 'Release packages'`, `defaultBranch: 'main'`, and `automationAuthor: 'github-actions[bot]'`.
 - The release PR policy derives allowed files from `changelog.outputs`. Repository and package changelog files are allowed. GitHub Release outputs are ignored because they do not write repository files.
 - `release-pr validate` accepts normal PRs without a release label. Release-labeled PRs must match the configured branch, title, author, commit subject, base head, and allowed files. Merge groups must not batch release PRs with other PRs.

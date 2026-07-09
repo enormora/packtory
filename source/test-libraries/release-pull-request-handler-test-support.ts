@@ -4,11 +4,9 @@ import { Result } from 'true-myth';
 import type { Packtory, ReleasePlanPackage } from '../packtory/packtory.ts';
 import type { ReleasePullRequestHandlerDependencies } from '../command-line-interface/runner/release-pull-request-handler.ts';
 import type { ReleasePullRequestGitHubClient } from '../command-line-interface/runner/release-pr-github-client.ts';
-import { assertDeepSubset } from './deep-subset-assertion.ts';
 import { createBuildReportFixture } from './preview-fixtures.ts';
-import { createFakeFileManager } from './fake-file-manager.ts';
+import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 import {
-    createReleaseGitClientFixture,
     createReleasePullRequestClient,
     createReleasePullRequestConfig
 } from './runner-test-support.ts';
@@ -89,6 +87,7 @@ export function createPacktoryWithPlan(
 
 export type CreatedReleasePullRequestDependencies = {
     readonly dependencies: ReleasePullRequestHandlerDependencies;
+    readonly fileManager: FakeFileManager;
     readonly log: ReturnType<typeof fake>;
 };
 
@@ -137,7 +136,6 @@ export function createDependencies(
         },
         fileManager,
         flags: { command: 'authorize-publish', releasePullRequestNumber: undefined },
-        gitClient: createReleaseGitClientFixture({ currentHead: fake.resolves('head') }),
         log(message) {
             log(message);
         },
@@ -161,26 +159,7 @@ export function createDependencies(
         workingDirectory: '/repo',
         ...overrides
     };
-    return { dependencies, log };
-}
-
-export function createChangingReleaseGitClient(
-    overrides: Readonly<Partial<ReleasePullRequestHandlerDependencies['gitClient']>> = {}
-): ReleasePullRequestHandlerDependencies['gitClient'] {
-    const heads = [ 'main-head', 'release-head' ];
-    return createReleaseGitClientFixture({
-        async currentHead() {
-            return heads.shift() ?? 'release-head';
-        },
-        readChangedFiles: fake.resolves([
-            {
-                contentBase64: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
-                kind: 'addition',
-                path: 'CHANGELOG.md'
-            }
-        ]),
-        ...overrides
-    });
+    return { dependencies, fileManager, log };
 }
 
 export function createReleaseContentDependencies(
@@ -188,7 +167,6 @@ export function createReleaseContentDependencies(
 ): CreatedReleasePullRequestDependencies {
     return createDependencies({
         flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
-        gitClient: createChangingReleaseGitClient(),
         packtory: createPacktoryWithPlan(
             fake.resolves({
                 result: Result.ok({ packages: [ createReleasePackage() ] }),
@@ -272,22 +250,14 @@ export function createPullRequestHead(
 }
 
 type ReleasePullRequestUpdateAssertion = {
-    readonly commit: ReturnType<typeof fake>;
     readonly createCommitOnBranch: ReturnType<typeof fake>;
     readonly createOrUpdateReleasePullRequest: ReturnType<typeof fake>;
-    readonly ensureClean: ReturnType<typeof fake>;
+    readonly fileManager: FakeFileManager;
     readonly log: ReturnType<typeof fake>;
-    readonly readChangedFiles: ReturnType<typeof fake>;
-    readonly pushHeadToBranch: ReturnType<typeof fake>;
-    readonly pushFollowTags: ReturnType<typeof fake>;
 };
 
 export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpdateAssertion): void {
-    assertDeepSubset(input, {
-        commit: { callCount: 0 },
-        ensureClean: { callCount: 1 },
-        readChangedFiles: { callCount: 0 }
-    });
+    assert.deepStrictEqual(input.fileManager.getAllWriteFileCalls(), []);
     assert.deepStrictEqual(input.createCommitOnBranch.firstCall.args[0], {
         additions: [
             {
@@ -298,10 +268,6 @@ export function assertReleasePullRequestWasUpdated(input: ReleasePullRequestUpda
         branch: 'release/packtory',
         expectedHeadOid: 'main-head',
         message: 'Release packages'
-    });
-    assertDeepSubset(input, {
-        pushHeadToBranch: { callCount: 0 },
-        pushFollowTags: { callCount: 0 }
     });
     assert.deepStrictEqual(input.createOrUpdateReleasePullRequest.firstCall.args[0], {
         baseBranch: 'main',

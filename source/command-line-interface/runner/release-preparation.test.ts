@@ -7,13 +7,8 @@ import type { Packtory, ReleasePlanPackage, ReleasePlanResult } from '../../pack
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
 import {
-    createReleasePackage,
-    validConfig
-} from '../../test-libraries/release-handler-test-support.ts';
-import {
-    generateRequiredChangelog,
     loadPlannedRelease,
-    writeReleaseChangelogs,
+    prepareReleaseChangelogs,
     type PlannedRelease,
     type ReleasePreparationDeps
 } from './release-preparation.ts';
@@ -26,6 +21,13 @@ type EngineSpec = {
 
 type ChangelogUpdateInput = {
     readonly generatedChangelogMarkdown: string;
+};
+type PullRequestFilterInput = {
+    readonly targetName: string;
+    readonly pullRequests: readonly PullRequest[];
+};
+type PullRequestLabelInput = {
+    readonly pullRequests: readonly PullRequest[];
 };
 
 type DependencySpec = {
@@ -43,6 +45,40 @@ type CreatedReleasePreparationDeps = ReleasePreparationDeps & {
     readonly log: SinonSpy;
     readonly stopAll: SinonSpy;
 };
+
+const validConfig = {
+    changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] },
+    packages: [
+        {
+            sourcesFolder: 'src/pkg-a',
+            mainPackageJson: { type: 'module' },
+            name: 'pkg-a',
+            roots: { main: { js: 'index.js' } },
+            publishSettings: { access: 'public' }
+        }
+    ]
+} as const;
+
+function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
+    return {
+        name: 'pkg-a',
+        previousVersion: '1.0.0',
+        nextVersion: '1.0.1',
+        artifactState: 'changed',
+        releaseClassification: 'substantive',
+        changed: true,
+        previousGitHead: 'old-head',
+        currentGitHead: 'new-head',
+        latestRegistryMetadata: undefined,
+        artifactFiles: [ 'index.js' ],
+        changedArtifactFiles: [ 'index.js' ],
+        sourceFiles: [ 'src/pkg-a/index.ts' ],
+        changelogDependencyNames: [],
+        changelogDependencyUpdates: [],
+        changelogSourceFiles: [ 'src/pkg-a/index.ts' ],
+        ...overrides
+    };
+}
 
 function createEngine(spec: EngineSpec): PrLogEngine {
     return {
@@ -190,9 +226,26 @@ suite('release-preparation', function () {
             }
         });
 
-        const changelog = await generateRequiredChangelog(deps, validConfig, [ createReleasePackage() ]);
+        const { changelog } = await prepareReleaseChangelogs(deps, plannedRelease(), true);
 
         assert.strictEqual(changelog.changelog.groupedMarkdown, '## pkg-a 1.0.1\n');
+        assert.strictEqual(createPrLogEngine.callCount, 1);
+    });
+
+    test('prefers GH_TOKEN over GITHUB_TOKEN for changelog generation', async function () {
+        const createPrLogEngine = fake(function (options: Readonly<PrLogEngineOptions>) {
+            assert.strictEqual(options.githubToken, 'gh-token');
+            return createDefaultEngine();
+        });
+        const deps = createDependencies({
+            createPrLogEngine,
+            readEnvironmentVariable(name) {
+                return name === 'GH_TOKEN' ? 'gh-token' : 'github-token';
+            }
+        });
+
+        await prepareReleaseChangelogs(deps, plannedRelease(), true);
+
         assert.strictEqual(createPrLogEngine.callCount, 1);
     });
 
@@ -200,30 +253,28 @@ suite('release-preparation', function () {
         const deps = createDependencies();
 
         await assert.rejects(
-            generateRequiredChangelog(deps, {}, [ createReleasePackage() ]),
+            prepareReleaseChangelogs(deps, { config: {}, packages: [ createReleasePackage() ] }, true),
             /The loaded config is invalid for changelog generation/u
         );
         assert.strictEqual(deps.createPrLogEngine.callCount, 0);
     });
 
-    test('writes configured changelog files and returns their paths', async function () {
+    test('prepares configured changelog files and returns their paths', async function () {
         const deps = createDependencies();
 
-        const { writtenFiles, writtenPaths } = await writeReleaseChangelogs(deps, plannedRelease(), true);
+        const { writtenFiles, writtenPaths } = await prepareReleaseChangelogs(deps, plannedRelease(), true);
 
         assert.deepStrictEqual(writtenPaths, [ '/repo/CHANGELOG.md' ]);
         assert.deepStrictEqual(writtenFiles, [
             { content: 'updated:\n## pkg-a 1.0.1\n', filePath: '/repo/CHANGELOG.md' }
         ]);
-        assert.deepStrictEqual(deps.fileManager.getAllWriteFileCalls(), [
-            { content: 'updated:\n## pkg-a 1.0.1\n', filePath: '/repo/CHANGELOG.md' }
-        ]);
+        assert.deepStrictEqual(deps.fileManager.getAllWriteFileCalls(), []);
     });
 
     test('logs unchanged plans when no changelog files are written', async function () {
         const deps = createEmptyChangelogDependencies();
 
-        const result = await writeReleaseChangelogs(
+        const result = await prepareReleaseChangelogs(
             deps,
             plannedRelease([ createReleasePackage({ changed: false }) ]),
             false
@@ -236,19 +287,59 @@ suite('release-preparation', function () {
     test('reports packages without changelog entries when changelog files are optional', async function () {
         const deps = createEmptyChangelogDependencies();
 
-        const result = await writeReleaseChangelogs(deps, plannedRelease(), false);
+        const result = await prepareReleaseChangelogs(
+            deps,
+            plannedRelease([
+                createReleasePackage(),
+                createReleasePackage({ name: 'pkg-b', changelogSourceFiles: [ 'src/pkg-b/index.ts' ] })
+            ]),
+            false
+        );
 
         assert.deepStrictEqual(result.writtenPaths, []);
         assert.deepStrictEqual(deps.log.firstCall.args, [
-            'No changelog files were written; changelog attribution found no pull requests for pkg-a.'
+            'No changelog files were written; changelog attribution found no pull requests for pkg-a, pkg-b.'
         ]);
+    });
+
+    test('reports only changed packages without changelog entries', async function () {
+        const pullRequests: readonly PullRequest[] = [ { id: 1, title: 'Fix package' } ];
+        const engine = {
+            ...createEngine({
+                labeledPullRequests: [ { id: 1, label: 'bug', title: 'Fix package' } ],
+                pullRequests,
+                renderedMarkdown: '## pkg-a 1.0.1\n'
+            }),
+            filterPullRequestsByTargetFiles: fake(function (input: PullRequestFilterInput) {
+                return input.targetName === 'pkg-a' ? input.pullRequests : [];
+            }),
+            resolvePullRequestLabels: fake(async function (input: PullRequestLabelInput) {
+                return input.pullRequests.map(function (pullRequest) {
+                    return { id: pullRequest.id, label: 'bug', title: pullRequest.title };
+                });
+            })
+        };
+        const deps = createDependencies({
+            createPrLogEngine: fake.returns(engine)
+        });
+
+        const result = await prepareReleaseChangelogs(
+            deps,
+            plannedRelease([
+                createReleasePackage(),
+                createReleasePackage({ name: 'pkg-b', changelogSourceFiles: [ 'src/pkg-b/index.ts' ] })
+            ]),
+            true
+        );
+
+        assert.deepStrictEqual(result.changelog.changelog.packageNamesWithoutChangelogEntries, [ 'pkg-b' ]);
     });
 
     test('rejects required changelog generation when no files are written', async function () {
         const deps = createEmptyChangelogDependencies();
 
         await assert.rejects(
-            writeReleaseChangelogs(deps, plannedRelease(), true),
+            prepareReleaseChangelogs(deps, plannedRelease(), true),
             /No changelog files were written; changelog attribution found no pull requests for pkg-a\./u
         );
         assert.deepStrictEqual(deps.log.getCalls(), []);

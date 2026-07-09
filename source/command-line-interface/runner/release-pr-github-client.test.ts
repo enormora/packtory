@@ -13,6 +13,7 @@ import {
     requestHasSearchParameter,
     routeKey,
     type CapturedRequests,
+    type RecordedRequest,
     type RouteResponse
 } from '../../test-libraries/release-pr-github-client-test-support.ts';
 
@@ -67,6 +68,7 @@ const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
         });
     } ],
     [ routeKey('DELETE', '/repos/owner/repo/actions/runs/10'), emptyResponse ],
+    [ routeKey('DELETE', `/repos/owner/repo/git/refs/${encodeURIComponent('heads/release/packtory')}`), emptyResponse ],
     [ routeKey('GET', '/repos/owner/repo/actions/runs/11'), function () {
         return jsonResponse({ conclusion: 'success' });
     } ],
@@ -105,13 +107,38 @@ function createFetch(capturedRequests: CapturedRequests): typeof globalThis.fetc
     return createRecordedRouteFetch(capturedRequests, defaultRoutes);
 }
 
+function assertBranchWasDeleted(records: readonly RecordedRequest[]): void {
+    assert.strictEqual(
+        records.some(function (record) {
+            return (
+                record.method === 'DELETE' &&
+                record.path === `/repos/owner/repo/git/refs/${encodeURIComponent('heads/release/packtory')}`
+            );
+        }),
+        true
+    );
+}
+
+function countReleasePullRequestLookups(records: readonly RecordedRequest[]): number {
+    return records
+        .filter(function (record) {
+            return (
+                record.method === 'GET' &&
+                record.path === '/repos/owner/repo/pulls' &&
+                requestHasSearchParameter(record, 'head', 'owner:release/packtory') &&
+                requestHasSearchParameter(record, 'state', 'open')
+            );
+        })
+        .length;
+}
+
 suite('release-pr-github-client', function () {
     test('maintains release pull requests', async function () {
         const capturedRequests = captureRequests();
-        const { records } = capturedRequests;
         const client = createClient(createFetch(capturedRequests));
 
         await client.closeOpenReleasePullRequests({ baseBranch: 'main', releaseBranch: 'release/packtory' });
+        await client.deleteBranch('release/packtory');
         assert.deepStrictEqual(
             await client.createOrUpdateReleasePullRequest({
                 baseBranch: 'main',
@@ -122,22 +149,17 @@ suite('release-pr-github-client', function () {
             }),
             1
         );
+        assert.strictEqual(countReleasePullRequestLookups(capturedRequests.records), 2);
         assert.strictEqual(
-            records
-                .filter(function (record) {
-                    return (
-                        record.method === 'GET' &&
-                        record.path === '/repos/owner/repo/pulls' &&
-                        requestHasSearchParameter(record, 'head', 'owner:release/packtory') &&
-                        requestHasSearchParameter(record, 'state', 'open')
-                    );
-                })
-                .length,
-            2
+            hasRequestWithBody(capturedRequests.records, 'PATCH', '/repos/owner/repo/pulls/1', '"state":"closed"'),
+            true
         );
-        assert.strictEqual(hasRequestWithBody(records, 'PATCH', '/repos/owner/repo/pulls/1', '"state":"closed"'), true);
-        assert.strictEqual(hasRequestWithBody(records, 'PUT', '/repos/owner/repo/issues/1/labels', '"release"'), true);
-        assert.strictEqual(readHeader(records[0]?.headers, 'user-agent'), 'packtory-release-pr');
+        assertBranchWasDeleted(capturedRequests.records);
+        assert.strictEqual(
+            hasRequestWithBody(capturedRequests.records, 'PUT', '/repos/owner/repo/issues/1/labels', '"release"'),
+            true
+        );
+        assert.strictEqual(readHeader(capturedRequests.records[0]?.headers, 'user-agent'), 'packtory-release-pr');
     });
 
     test('writes statuses and dispatches workflows', async function () {

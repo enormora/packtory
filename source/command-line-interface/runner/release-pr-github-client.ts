@@ -2,7 +2,11 @@ import { isDefined } from 'remeda';
 import { Octokit } from '@octokit/core';
 import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
-import { createGitHubJsonRequestHeaders, resolveGitHubResponse } from './github-api-request.ts';
+import {
+    createGitHubJsonRequestHeaders,
+    resolveGitHubResponse,
+    resolveOptionalGitHubResponse
+} from './github-api-request.ts';
 import { createReleasePullRequestCommitClient, type CreateCommitOnBranchInput } from './release-pr-branch-commit.ts';
 import {
     findWorkflowRunIdInRuns,
@@ -98,6 +102,7 @@ export type ReleasePullRequestGitHubClient = {
     readonly createOrUpdateReleasePullRequest: (input: CreateOrUpdateReleasePullRequestInput) => Promise<number>;
     readonly createStatus: (input: CreateStatusInput) => Promise<void>;
     readonly deleteActionRequiredPullRequestRuns: (input: DeleteActionRequiredPullRequestRunsInput) => Promise<void>;
+    readonly deleteBranch: (branch: string) => Promise<void>;
     readonly dispatchWorkflow: (input: DispatchWorkflowInput) => Promise<void>;
     readonly findDispatchedWorkflowRun: (input: FindDispatchedWorkflowRunInput) => Promise<WorkflowRunLookupResult>;
     readonly getBranchHeadSha: (branch: string) => Promise<string>;
@@ -153,6 +158,8 @@ type GitHubRestClientConstructor = ReturnType<
     typeof Octokit.plugin<typeof Octokit, [typeof restEndpointMethods, typeof paginateRest]>
 >;
 type GitHubRestClientInstance = InstanceType<GitHubRestClientConstructor>;
+
+const missingGitHubResourceStatusCode = 404;
 
 function labelNames(labels: readonly RawLabel[]): readonly string[] {
     return labels
@@ -367,6 +374,16 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                     octokit.rest.actions.deleteWorkflowRun({ ...requestContext, run_id: runId })
                 );
             }
+        },
+
+        async deleteBranch(branch) {
+            await resolveOptionalGitHubResponse(
+                octokit.rest.git.deleteRef({
+                    ...requestContext,
+                    ref: `heads/${branch}`
+                }),
+                missingGitHubResourceStatusCode
+            );
         },
 
         async dispatchWorkflow(input) {

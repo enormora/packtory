@@ -1,327 +1,219 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { fake } from 'sinon';
 import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
-import {
-    collectGitHubReleaseNotes,
-    type GitHubReleaseNotesDeps,
-    type ReleaseNotesTarget
-} from './github-release-notes.ts';
 import type { ChangelogConfig } from './changelog-destinations.ts';
+import { collectGitHubReleaseNotes } from './github-release-notes.ts';
 
-const target: ReleaseNotesTarget = {
-    name: '@scope/pkg-a',
-    tagName: '@scope/pkg-a@1.0.1',
+const target = {
+    name: 'pkg-a',
+    tagName: 'pkg-a@1.0.1',
+    version: '1.0.1'
+};
+const secondTarget = {
+    name: 'pkg-b',
+    tagName: 'pkg-b@1.0.1',
     version: '1.0.1'
 };
 
 const config: ChangelogConfig = {
-    packages: [
-        { name: 'pkg-b', sourcesFolder: 'packages/pkg-b' },
-        { name: '@scope/pkg-a', sourcesFolder: 'packages/pkg-a' }
-    ],
+    changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
+    packages: [ { name: 'pkg-a', sourcesFolder: 'packages/pkg-a' } ]
+};
+const explicitPathConfig: ChangelogConfig = {
     changelog: {
-        outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ]
-    }
+        outputs: [
+            { kind: 'package-file', paths: { 'pkg-a': 'changelogs/pkg-a.md', 'pkg-b': 'changelogs/pkg-b.md' } }
+        ]
+    },
+    packages: [
+        { name: 'pkg-a', sourcesFolder: 'packages/pkg-a' },
+        { name: 'pkg-b', sourcesFolder: 'packages/pkg-b' }
+    ]
 };
 
-function changelog(markdownByName: ReadonlyMap<string, string> = new Map()): GeneratedChangelog {
+function generatedChangelog(packageMarkdownByName: ReadonlyMap<string, string>): GeneratedChangelog {
     return {
         groupedMarkdown: '',
-        packageNamesWithoutChangelogEntries: [],
-        packageMarkdownByName: markdownByName
+        packageMarkdownByName,
+        packageNamesWithoutChangelogEntries: []
     };
-}
-
-function readFileDeps(contentByPath: ReadonlyMap<string, string>): GitHubReleaseNotesDeps {
-    return {
-        workingDirectory: '/repo',
-        fileManager: {
-            async readFile(filePath: string): Promise<string> {
-                const content = contentByPath.get(filePath);
-                if (content === undefined) {
-                    const error = new Error(`Missing file ${filePath}`);
-                    Object.assign(error, { code: 'ENOENT' });
-                    throw error;
-                }
-                return content;
-            }
-        }
-    };
-}
-
-function markdown(...lines: readonly string[]): string {
-    return lines.join('\n');
-}
-
-function registerGeneratedNotesTests(): void {
-    test('keeps generated release notes without reading changelog files', async function () {
-        let readCount = 0;
-        const result = await collectGitHubReleaseNotes(
-            {
-                workingDirectory: '/repo',
-                fileManager: {
-                    async readFile(): Promise<string> {
-                        readCount += 1;
-                        return 'unused';
-                    }
-                }
-            },
-            config,
-            [ target ],
-            changelog(new Map([ [ target.name, '## @scope/pkg-a 1.0.1\n\n* Fix package' ] ]))
-        );
-
-        assert.strictEqual(result.get(target.name), '## @scope/pkg-a 1.0.1\n\n* Fix package');
-        assert.strictEqual(readCount, 0);
-    });
-
-    test('recovers when generated release notes are whitespace only', async function () {
-        const result = await collectGitHubReleaseNotes(
-            readFileDeps(
-                new Map([
-                    [
-                        '/repo/packages/pkg-a/CHANGELOG.md',
-                        markdown('## @scope/pkg-a 1.0.1 (June 13, 2026)', '', '* Recovered package notes')
-                    ]
-                ])
-            ),
-            config,
-            [ target ],
-            changelog(new Map([ [ target.name, ' '.repeat(3) ] ]))
-        );
-
-        assert.strictEqual(
-            result.get(target.name),
-            markdown('## @scope/pkg-a 1.0.1 (June 13, 2026)', '', '* Recovered package notes')
-        );
-    });
-}
-
-function registerRecoveryTests(): void {
-    test('recovers scoped package release notes from the configured package changelog', async function () {
-        const result = await collectGitHubReleaseNotes(
-            readFileDeps(
-                new Map([
-                    [
-                        '/repo/packages/pkg-a/CHANGELOG.md',
-                        markdown(
-                            '## @scope/pkg-a 1.0.1 (June 13, 2026)',
-                            '',
-                            '* Fix package',
-                            '* Keep multiline notes',
-                            '',
-                            '## @scope/pkg-a 1.0.0 (June 1, 2026)',
-                            '',
-                            '* Previous release'
-                        )
-                    ]
-                ])
-            ),
-            config,
-            [ target ],
-            changelog()
-        );
-
-        assert.strictEqual(
-            result.get(target.name),
-            markdown('## @scope/pkg-a 1.0.1 (June 13, 2026)', '', '* Fix package', '* Keep multiline notes')
-        );
-    });
-
-    test('recovers release notes from a changelog section at end of file', async function () {
-        const result = await collectGitHubReleaseNotes(
-            readFileDeps(
-                new Map([
-                    [
-                        '/repo/packages/pkg-a/CHANGELOG.md',
-                        markdown(
-                            '## @scope/pkg-a 1.0.2 (June 14, 2026)',
-                            '',
-                            '* Newer release',
-                            '',
-                            '## @scope/pkg-a 1.0.1 (June 13, 2026)',
-                            '',
-                            '* Last release'
-                        )
-                    ]
-                ])
-            ),
-            config,
-            [ target ],
-            changelog()
-        );
-
-        assert.strictEqual(
-            result.get(target.name),
-            markdown('## @scope/pkg-a 1.0.1 (June 13, 2026)', '', '* Last release')
-        );
-    });
-
-    test('recovers unscoped release notes from an explicit package changelog path', async function () {
-        const unscopedTarget = { name: 'pkg-a', tagName: 'pkg-a@1.0.1', version: '1.0.1' };
-        const result = await collectGitHubReleaseNotes(
-            readFileDeps(
-                new Map([
-                    [
-                        '/repo/changelogs/pkg-a.md',
-                        markdown(
-                            '## 1.0.1 (June 13, 2026)',
-                            '',
-                            '* Fix package',
-                            '',
-                            '## 1.0.0 (June 1, 2026)',
-                            '',
-                            '* Previous release'
-                        )
-                    ]
-                ])
-            ),
-            {
-                packages: [ { name: 'pkg-a', sourcesFolder: 'packages/pkg-a' } ],
-                changelog: { outputs: [ { kind: 'package-file', paths: { 'pkg-a': 'changelogs/pkg-a.md' } } ] }
-            },
-            [ unscopedTarget ],
-            changelog()
-        );
-
-        assert.strictEqual(result.get('pkg-a'), markdown('## 1.0.1 (June 13, 2026)', '', '* Fix package'));
-    });
-}
-
-function registerFailureTests(): void {
-    test('does not recover notes from another package changelog path', async function () {
-        await assert.rejects(
-            collectGitHubReleaseNotes(
-                readFileDeps(
-                    new Map([
-                        [
-                            '/repo/packages/pkg-b/CHANGELOG.md',
-                            markdown('## @scope/pkg-a 1.0.1 (June 13, 2026)', '', '* Wrong file')
-                        ]
-                    ])
-                ),
-                config,
-                [ target ],
-                changelog()
-            ),
-            /GitHub release notes for "@scope\/pkg-a@1\.0\.1" could not be generated/u
-        );
-    });
-
-    test('rejects when the configured changelog has no matching release section', async function () {
-        await assert.rejects(
-            collectGitHubReleaseNotes(
-                readFileDeps(
-                    new Map([
-                        [
-                            '/repo/packages/pkg-a/CHANGELOG.md',
-                            markdown('## @scope/pkg-a 1.0.2 (June 14, 2026)', '', '* Newer release')
-                        ]
-                    ])
-                ),
-                config,
-                [ target ],
-                changelog()
-            ),
-            /GitHub release notes for "@scope\/pkg-a@1\.0\.1" could not be generated/u
-        );
-    });
-
-    test('rejects when the configured changelog has no release headings', async function () {
-        await assert.rejects(
-            collectGitHubReleaseNotes(
-                readFileDeps(
-                    new Map([
-                        [
-                            '/repo/packages/pkg-a/CHANGELOG.md',
-                            markdown('Changelog', '', '* No release heading')
-                        ]
-                    ])
-                ),
-                config,
-                [ target ],
-                changelog()
-            ),
-            /GitHub release notes for "@scope\/pkg-a@1\.0\.1" could not be generated/u
-        );
-    });
-
-    test('rejects when no package changelog output is configured', async function () {
-        let readCount = 0;
-        await assert.rejects(
-            collectGitHubReleaseNotes(
-                {
-                    workingDirectory: '/repo',
-                    fileManager: {
-                        async readFile(): Promise<string> {
-                            readCount += 1;
-                            throw new Error('unexpected read');
-                        }
-                    }
-                },
-                {
-                    packages: [ { name: '@scope/pkg-a', sourcesFolder: 'packages/pkg-a' } ],
-                    changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
-                },
-                [ target ],
-                changelog()
-            ),
-            /GitHub release notes for "@scope\/pkg-a@1\.0\.1" could not be generated/u
-        );
-        assert.strictEqual(readCount, 0);
-    });
-
-    test('rejects missing and whitespace-only release sections', async function () {
-        await assert.rejects(
-            collectGitHubReleaseNotes(
-                readFileDeps(
-                    new Map([
-                        [
-                            '/repo/packages/pkg-a/CHANGELOG.md',
-                            markdown(
-                                '## @scope/pkg-a 1.0.2 (June 14, 2026)',
-                                '',
-                                '* Newer release',
-                                '',
-                                '## @scope/pkg-a 1.0.1 (June 13, 2026)',
-                                ' '.repeat(3),
-                                '## @scope/pkg-a 1.0.0 (June 1, 2026)',
-                                '',
-                                '* Previous release'
-                            )
-                        ]
-                    ])
-                ),
-                config,
-                [ target ],
-                changelog()
-            ),
-            /GitHub release notes for "@scope\/pkg-a@1\.0\.1" could not be generated/u
-        );
-    });
-
-    test('propagates unexpected changelog read failures', async function () {
-        await assert.rejects(
-            collectGitHubReleaseNotes(
-                {
-                    workingDirectory: '/repo',
-                    fileManager: {
-                        async readFile(): Promise<string> {
-                            throw new Error('permission denied');
-                        }
-                    }
-                },
-                config,
-                [ target ],
-                changelog()
-            ),
-            /permission denied/u
-        );
-    });
 }
 
 suite('github-release-notes', function () {
-    registerGeneratedNotesTests();
-    registerRecoveryTests();
-    registerFailureTests();
+    suite('collection', function () {
+        test('uses generated package release notes', async function () {
+            const readFile = fake.rejects(new Error('unexpected read'));
+
+            const notes = await collectGitHubReleaseNotes(
+                { fileManager: { readFile }, workingDirectory: '/repo' },
+                config,
+                [ target ],
+                generatedChangelog(new Map([ [ 'pkg-a', '## pkg-a 1.0.1\n\n* Generated' ] ]))
+            );
+
+            assert.strictEqual(notes.get('pkg-a'), '## pkg-a 1.0.1\n\n* Generated');
+            assert.strictEqual(readFile.callCount, 0);
+        });
+    });
+
+    suite('recovery', function () {
+        test('recovers missing package release notes from the configured package changelog', async function () {
+            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.1\n\n* Recovered\n\n## pkg-a 1.0.0\n\n* Old');
+
+            const notes = await collectGitHubReleaseNotes(
+                { fileManager: { readFile }, workingDirectory: '/repo' },
+                config,
+                [ target ],
+                generatedChangelog(new Map())
+            );
+
+            assert.strictEqual(notes.get('pkg-a'), '## pkg-a 1.0.1\n\n* Recovered');
+            assert.strictEqual(readFile.firstCall.args[0], '/repo/packages/pkg-a/CHANGELOG.md');
+        });
+
+        test('recovers release notes with a version-only heading', async function () {
+            const readFile = fake.resolves('# Changelog\n\n## 1.0.1 (2026-06-13)\n\n* Recovered');
+
+            const notes = await collectGitHubReleaseNotes(
+                { fileManager: { readFile }, workingDirectory: '/repo' },
+                config,
+                [ target ],
+                generatedChangelog(new Map([ [ 'pkg-a', ' '.repeat(3) ] ]))
+            );
+
+            assert.strictEqual(notes.get('pkg-a'), '## 1.0.1 (2026-06-13)\n\n* Recovered');
+        });
+
+        test('recovers release notes from the matching explicit package changelog path', async function () {
+            const readFile = fake.resolves('## pkg-a 1.0.1\n\n* Recovered');
+
+            const notes = await collectGitHubReleaseNotes(
+                { fileManager: { readFile }, workingDirectory: '/repo' },
+                explicitPathConfig,
+                [ target ],
+                generatedChangelog(new Map())
+            );
+
+            assert.strictEqual(notes.get('pkg-a'), '## pkg-a 1.0.1\n\n* Recovered');
+            assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/pkg-a.md');
+        });
+
+        test('selects the matching explicit path for later package outputs', async function () {
+            const readFile = fake.resolves('## pkg-b 1.0.1\n\n* Recovered');
+
+            const notes = await collectGitHubReleaseNotes(
+                { fileManager: { readFile }, workingDirectory: '/repo' },
+                explicitPathConfig,
+                [ secondTarget ],
+                generatedChangelog(new Map())
+            );
+
+            assert.strictEqual(notes.get('pkg-b'), '## pkg-b 1.0.1\n\n* Recovered');
+            assert.strictEqual(readFile.firstCall.args[0], '/repo/changelogs/pkg-b.md');
+        });
+    });
+
+    suite('rejections', function () {
+        test('rejects when no package changelog output path is configured', async function () {
+            const readFile = fake.resolves('unexpected');
+
+            await assert.rejects(
+                collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    { changelog: { outputs: [ { kind: 'github-release' } ] }, packages: [ { name: 'pkg-a' } ] },
+                    [ target ],
+                    generatedChangelog(new Map())
+                ),
+                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+            );
+            assert.strictEqual(readFile.callCount, 0);
+        });
+
+        test('rejects configured changelogs without a matching release heading', async function () {
+            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.0\n\n* Old');
+
+            await assert.rejects(
+                collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    config,
+                    [ target ],
+                    generatedChangelog(new Map())
+                ),
+                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+            );
+        });
+
+        test('rejects configured changelogs without release headings', async function () {
+            const readFile = fake.resolves('# Changelog\n\nNo release headings yet.');
+
+            await assert.rejects(
+                collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    config,
+                    [ target ],
+                    generatedChangelog(new Map())
+                ),
+                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+            );
+        });
+
+        test('rejects configured changelogs whose matching release heading has only whitespace', async function () {
+            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.1\n  \n## pkg-a 1.0.0\n\n* Old');
+
+            await assert.rejects(
+                collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    config,
+                    [ target ],
+                    generatedChangelog(new Map())
+                ),
+                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+            );
+        });
+
+        test('rejects when the configured changelog file is missing', async function () {
+            const missingFile = Object.assign(new Error('missing file'), { code: 'ENOENT' });
+            const readFile = fake.rejects(missingFile);
+
+            await assert.rejects(
+                collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    config,
+                    [ target ],
+                    generatedChangelog(new Map())
+                ),
+                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+            );
+        });
+
+        test('rethrows configured changelog read failures', async function () {
+            const readFailure = new Error('permission denied');
+            const readFile = fake.rejects(readFailure);
+
+            await assert.rejects(
+                collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    config,
+                    [ target ],
+                    generatedChangelog(new Map())
+                ),
+                /permission denied/u
+            );
+        });
+
+        test('rejects targets without generated or configured release notes', async function () {
+            const readFile = fake.resolves('# Changelog\n\n## pkg-a 1.0.1');
+
+            await assert.rejects(
+                collectGitHubReleaseNotes(
+                    { fileManager: { readFile }, workingDirectory: '/repo' },
+                    config,
+                    [ target ],
+                    generatedChangelog(new Map())
+                ),
+                /GitHub release notes for "pkg-a@1.0.1" could not be generated/u
+            );
+        });
+    });
 });

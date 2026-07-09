@@ -1,6 +1,5 @@
 import { parseValidConfig } from './changelog-destinations.ts';
 import { formatGitHubRepositoryName, parseGitHubRepositoryParts } from './github-repository.ts';
-import type { ReleaseGitClient } from './release-git-client.ts';
 import {
     authorizeReleasePublishFromCommit,
     authorizeReleasePublishFromPullRequest,
@@ -16,8 +15,8 @@ import {
 import {
     loadPlannedRelease,
     type PlannedRelease,
-    type ReleasePreparationDeps,
-    writeReleaseChangelogs
+    prepareReleaseChangelogs,
+    type ReleasePreparationDeps
 } from './release-preparation.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 import {
@@ -29,6 +28,9 @@ import {
 
 type Logger = (message: string) => void;
 type EnvironmentReader = (name: string) => string | undefined;
+type ReleasePullRequestFileManager = ReleasePreparationDeps['fileManager'] & {
+    readonly writeFile: (filePath: string, content: string) => Promise<void>;
+};
 
 type AuthorizePublishReleasePullRequestFlags = {
     readonly command: 'authorize-publish';
@@ -58,9 +60,8 @@ export type ReleasePullRequestHandlerDependencies = {
     readonly createPrLogEngine: ReleasePreparationDeps['createPrLogEngine'];
     readonly createReleasePullRequestGitHubClient: (context: GitHubClientContext) => ReleasePullRequestGitHubClient;
     readonly currentDate: ReleasePreparationDeps['currentDate'];
-    readonly fileManager: ReleasePreparationDeps['fileManager'];
+    readonly fileManager: ReleasePullRequestFileManager;
     readonly flags: ReleasePullRequestFlags;
-    readonly gitClient: ReleaseGitClient;
     readonly log: Logger;
     readonly packtory: ReleasePreparationDeps['packtory'];
     readonly readEnvironmentVariable: EnvironmentReader;
@@ -214,18 +215,19 @@ function toPreparedReleaseFile(
 }
 
 async function closeReleaseState(
-    dependencies: ReleasePullRequestHandlerDependencies,
     client: ReleasePullRequestGitHubClient,
     config: ReleasePullRequestConfig
 ): Promise<void> {
     await client.closeOpenReleasePullRequests({ baseBranch: config.defaultBranch, releaseBranch: config.branch });
-    await dependencies.gitClient.deleteRemoteBranch(config.branch);
+    await client.deleteBranch(config.branch);
 }
 
 async function prepareReleasePullRequest(
-    dependencies: ReleasePullRequestHandlerDependencies
+    dependencies: ReleasePullRequestHandlerDependencies,
+    client: ReleasePullRequestGitHubClient,
+    config: ReleasePullRequestConfig
 ): Promise<PreparedReleaseCommit | undefined> {
-    const baseHead = await dependencies.gitClient.currentHead();
+    const baseHead = await client.getBranchHeadSha(config.defaultBranch);
     const planned = await loadPlannedRelease(dependencies);
     if (planned === undefined) {
         throw new Error('Release preparation failed');
@@ -233,8 +235,7 @@ async function prepareReleasePullRequest(
     if (!hasChangedPackages(planned)) {
         return undefined;
     }
-    await dependencies.gitClient.ensureClean();
-    const { writtenFiles } = await writeReleaseChangelogs(dependencies, planned, true);
+    const { writtenFiles } = await prepareReleaseChangelogs(dependencies, planned, true);
     return {
         baseHead,
         files: writtenFiles.map(function (file) {
@@ -281,7 +282,7 @@ async function finishReleasePullRequestMaintenance(
     releaseCommit: PreparedReleaseCommit | undefined
 ): Promise<number> {
     if (releaseCommit === undefined) {
-        await closeReleaseState(dependencies, client, config);
+        await closeReleaseState(client, config);
         dependencies.log('No release content remains');
         return 0;
     }
@@ -299,7 +300,7 @@ async function runMaintain(dependencies: MaintainReleasePullRequestHandlerDepend
     }
     const loadedConfig = await loadReleasePullRequestConfig(dependencies);
     const { client } = await createGitHubClient(dependencies);
-    const releaseCommit = await prepareReleasePullRequest(dependencies);
+    const releaseCommit = await prepareReleasePullRequest(dependencies, client, loadedConfig.config);
     return finishReleasePullRequestMaintenance(dependencies, client, loadedConfig.config, releaseCommit);
 }
 
