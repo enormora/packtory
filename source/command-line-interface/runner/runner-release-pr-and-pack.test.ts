@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Result } from 'true-myth';
+import type { BuildReport } from '../../packtory/packtory.ts';
 import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { toOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
@@ -19,9 +20,76 @@ type ForwardedVendorDependencies = {
 type ForwardedPackFormat = {
     readonly format: string;
 };
+type RunnerReleasePlanOutcome = {
+    readonly result: unknown;
+    readonly getReport: () => BuildReport;
+};
+
+function releasePlanOutcome(packages: readonly unknown[]): RunnerReleasePlanOutcome {
+    return {
+        result: Result.ok({ packages }),
+        getReport() {
+            return createBuildReportFixture();
+        }
+    };
+}
+
+async function expectCommandPlansRelease(command: 'changelog' | 'release'): Promise<void> {
+    const loadConfig = fake.resolves('the-config');
+    const planReleaseAgainstLatestPublished = fake.resolves(releasePlanOutcome([]));
+    const runner = createRunner({ loadConfig, planReleaseAgainstLatestPublished });
+
+    const exitCode = await runner.run([ 'foo', 'bar', command ]);
+
+    assert.strictEqual(exitCode, 0);
+    assert.strictEqual(loadConfig.callCount, 1);
+    assert.strictEqual(planReleaseAgainstLatestPublished.callCount, 1);
+    assert.strictEqual(planReleaseAgainstLatestPublished.firstCall.args[0], 'the-config');
+}
 
 suite('runner release-pr and pack', function () {
     suite('release diff and changelog', function () {
+        test('release command loads the config and plans the release', async function () {
+            await expectCommandPlansRelease('release');
+        });
+
+        test('release command forwards publish flags into the release handler', async function () {
+            const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([
+                {
+                    status: 'new-version',
+                    bundle: { name: 'pkg-a', version: '1.0.1' },
+                    publication: { type: 'published' },
+                    extraFiles: [],
+                    previousReleaseArtifacts: { isJust: false }
+                }
+            ])));
+            const planReleaseAgainstLatestPublished = fake.resolves(releasePlanOutcome([
+                {
+                    name: 'pkg-a',
+                    previousVersion: '1.0.0',
+                    nextVersion: '1.0.1',
+                    artifactState: 'changed',
+                    releaseClassification: 'substantive',
+                    changed: true,
+                    previousGitHead: 'old-head',
+                    currentGitHead: 'release-head',
+                    latestRegistryMetadata: undefined,
+                    artifactFiles: [ 'index.js' ],
+                    changedArtifactFiles: [ 'index.js' ],
+                    sourceFiles: [ 'src/pkg-a/index.ts' ],
+                    changelogDependencyNames: [],
+                    changelogDependencyUpdates: [],
+                    changelogSourceFiles: [ 'src/pkg-a/index.ts' ]
+                }
+            ]));
+            const runner = createRunner({ buildAndPublishAll, planReleaseAgainstLatestPublished });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'release', '--publish', '--no-dry-run' ]);
+
+            assert.strictEqual(exitCode, 0);
+            assert.strictEqual(buildAndPublishAll.callCount, 1);
+        });
+
         test('release-diff command loads the config and invokes diffAgainstLatestPublished', async function () {
             const loadConfig = fake.resolves('the-config');
             const diffAgainstLatestPublished = fake.resolves(toReleaseDiffOutcome(Result.ok([])));
@@ -60,21 +128,7 @@ suite('runner release-pr and pack', function () {
         });
 
         test('changelog command loads the config and invokes planReleaseAgainstLatestPublished', async function () {
-            const loadConfig = fake.resolves('the-config');
-            const planReleaseAgainstLatestPublished = fake.resolves({
-                result: Result.ok({ packages: [] }),
-                getReport() {
-                    return createBuildReportFixture();
-                }
-            });
-            const runner = createRunner({ loadConfig, planReleaseAgainstLatestPublished });
-
-            const exitCode = await runner.run([ 'foo', 'bar', 'changelog' ]);
-
-            assert.strictEqual(exitCode, 0);
-            assert.strictEqual(loadConfig.callCount, 1);
-            assert.strictEqual(planReleaseAgainstLatestPublished.callCount, 1);
-            assert.strictEqual(planReleaseAgainstLatestPublished.firstCall.args[0], 'the-config');
+            await expectCommandPlansRelease('changelog');
         });
 
         test('changelog --help advertises grouped Markdown output for the next release', async function () {

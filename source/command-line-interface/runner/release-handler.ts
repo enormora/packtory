@@ -1,6 +1,4 @@
-import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
-import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import { printPublishFailure } from './failure-printing.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
 import { collectGitHubReleaseNotes, missingGitHubReleaseNotes } from './github-release-notes.ts';
@@ -9,36 +7,20 @@ import {
     generateRequiredChangelog,
     loadPlannedRelease,
     type PlannedRelease,
-    type ReleaseChangelog,
-    writeReleaseChangelogs
+    type ReleasePreparationDeps
 } from './release-preparation.ts';
-import type { ReleaseGitClient } from './release-git-client.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 type ReleaseTarget = {
     readonly name: string;
     readonly tagName: string;
+    readonly targetHead: string | undefined;
     readonly version: string;
 };
-type ValidChangelogConfig = ReleaseChangelog['config'];
-type ChangelogStepResult = {
-    readonly changelog: ReleaseChangelog | undefined;
-    readonly planned: PlannedRelease;
+type PublishedReleaseTarget = ReleaseTarget & {
+    readonly targetHead: string;
 };
-type MutatingReleaseStateBase = {
-    readonly changedTargets: readonly ReleaseTarget[];
-    readonly planned: PlannedRelease;
-};
-type GitHubReleaseState = {
-    readonly changelog: ReleaseChangelog;
-    readonly githubRelease: true;
-};
-type GitlessReleaseState = {
-    readonly changelog: ReleaseChangelog | undefined;
-    readonly githubRelease: false;
-};
-type MutatingReleaseState = MutatingReleaseStateBase & (GitHubReleaseState | GitlessReleaseState);
 type FlagRule = {
     readonly failed: (flags: ReleaseFlags) => boolean;
     readonly message: string;
@@ -50,57 +32,36 @@ type GitHubReleaseClientContext = {
 };
 
 type ReleaseFlags = {
-    readonly commit: boolean;
     readonly githubRelease: boolean;
     readonly noDryRun: boolean;
     readonly publish: boolean;
     readonly push: boolean;
     readonly tag: boolean;
-    readonly writeChangelog: boolean;
 };
 
-export type ReleaseHandlerDeps = {
+export type ReleaseHandlerDeps = ReleasePreparationDeps & {
     readonly createGitHubReleaseClient: (context: GitHubReleaseClientContext) => GitHubReleaseClient;
-    readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
-    readonly currentDate: () => Date;
-    readonly fileManager: {
-        readonly readFile: (filePath: string) => Promise<string>;
-        readonly writeFile: (filePath: string, content: string) => Promise<void>;
-    };
+    readonly fileManager: ReleasePreparationDeps['fileManager'];
     readonly flags: ReleaseFlags;
-    readonly gitClient: ReleaseGitClient;
-    readonly log: Logger;
     readonly packtory: Packtory;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
-    readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
-    readonly spinnerRenderer: { readonly stopAll: () => void; };
-    readonly configLoader: { readonly load: () => Promise<unknown>; };
-    readonly workingDirectory: string;
 };
 
-const releaseCommitMessage = 'Release packages';
+const releaseCompletedMessage = 'Release completed.';
 
 function formatReleaseHandlerError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
 function hasAction(flags: ReleaseFlags): boolean {
-    return flags.writeChangelog || flags.commit || flags.publish || flags.tag || flags.push || flags.githubRelease;
+    return flags.publish || flags.tag || flags.push || flags.githubRelease;
 }
 
-function isCommitWithoutChangelog(flags: ReleaseFlags): boolean {
-    return flags.commit && !flags.writeChangelog;
+function isPushWithoutTag(flags: ReleaseFlags): boolean {
+    return flags.push && !flags.tag;
 }
 
-function isChangelogPublishWithoutCommit(flags: ReleaseFlags): boolean {
-    return flags.writeChangelog && flags.publish && !flags.commit;
-}
-
-function isPushWithoutSource(flags: ReleaseFlags): boolean {
-    return flags.push && !(flags.commit || flags.tag);
-}
-
-function isGitHubReleaseWithoutGitPublication(flags: ReleaseFlags): boolean {
+function isGitHubReleaseWithoutTagPublication(flags: ReleaseFlags): boolean {
     return flags.githubRelease && !(flags.tag && flags.push);
 }
 
@@ -109,10 +70,8 @@ function isReleaseWriteWithoutMutationApproval(flags: ReleaseFlags): boolean {
 }
 
 const flagRules: readonly FlagRule[] = [
-    { failed: isCommitWithoutChangelog, message: '--commit requires --write-changelog' },
-    { failed: isChangelogPublishWithoutCommit, message: '--write-changelog --publish requires --commit' },
-    { failed: isPushWithoutSource, message: '--push requires --commit or --tag' },
-    { failed: isGitHubReleaseWithoutGitPublication, message: '--github-release requires --tag --push' },
+    { failed: isPushWithoutTag, message: '--push requires --tag' },
+    { failed: isGitHubReleaseWithoutTagPublication, message: '--github-release requires --tag --push' },
     { failed: isReleaseWriteWithoutMutationApproval, message: 'Release writes require --no-dry-run' }
 ];
 
@@ -122,12 +81,20 @@ function collectFlagIssues(flags: ReleaseFlags): readonly string[] {
     });
 }
 
-function createTargetFromPlanPackage(packagePlan: ReleasePlanPackage): ReleaseTarget {
+function targetFromPlanPackage(packagePlan: ReleasePlanPackage): ReleaseTarget {
     return {
         name: packagePlan.name,
         version: packagePlan.nextVersion,
-        tagName: `${packagePlan.name}@${packagePlan.nextVersion}`
+        tagName: `${packagePlan.name}@${packagePlan.nextVersion}`,
+        targetHead: packagePlan.currentGitHead
     };
+}
+
+function requireTargetHead(target: ReleaseTarget): PublishedReleaseTarget {
+    if (target.targetHead === undefined) {
+        throw new Error(`GitHub tag target for "${target.tagName}" could not be determined`);
+    }
+    return { ...target, targetHead: target.targetHead };
 }
 
 function selectChangedTargets(packages: readonly ReleasePlanPackage[]): readonly ReleaseTarget[] {
@@ -135,10 +102,10 @@ function selectChangedTargets(packages: readonly ReleasePlanPackage[]): readonly
         .filter(function (packagePlan) {
             return packagePlan.changed;
         })
-        .map(createTargetFromPlanPackage);
+        .map(targetFromPlanPackage);
 }
 
-function selectCurrentHeadPublishedTargets(packages: readonly ReleasePlanPackage[]): readonly ReleaseTarget[] {
+function selectCurrentHeadPublishedTargets(packages: readonly ReleasePlanPackage[]): readonly PublishedReleaseTarget[] {
     return packages
         .filter(function (packagePlan) {
             return (
@@ -146,7 +113,8 @@ function selectCurrentHeadPublishedTargets(packages: readonly ReleasePlanPackage
                 packagePlan.latestRegistryMetadata?.gitHead === packagePlan.currentGitHead
             );
         })
-        .map(createTargetFromPlanPackage);
+        .map(targetFromPlanPackage)
+        .map(requireTargetHead);
 }
 
 function mapTargetsByName(targets: readonly ReleaseTarget[]): ReadonlyMap<string, ReleaseTarget> {
@@ -157,7 +125,9 @@ function mapTargetsByName(targets: readonly ReleaseTarget[]): ReadonlyMap<string
     );
 }
 
-function mergeTargets(...targetGroups: readonly (readonly ReleaseTarget[])[]): readonly ReleaseTarget[] {
+function mergeTargets(
+    ...targetGroups: readonly (readonly PublishedReleaseTarget[])[]
+): readonly PublishedReleaseTarget[] {
     const targetsByName = new Map(
         targetGroups.flatMap(function (targets) {
             return targets.map(function (target) {
@@ -203,14 +173,14 @@ function readGitHubToken(deps: Pick<ReleaseHandlerDeps, 'readEnvironmentVariable
 
 async function publishTargets(
     deps: ReleaseHandlerDeps,
-    config: unknown,
+    planned: PlannedRelease,
     changedTargets: readonly ReleaseTarget[]
-): Promise<readonly ReleaseTarget[] | undefined> {
+): Promise<readonly PublishedReleaseTarget[] | undefined> {
     if (changedTargets.length === 0) {
         return [];
     }
     const changedTargetsByName = mapTargetsByName(changedTargets);
-    const outcome = await deps.packtory.buildAndPublishAll(config, {
+    const outcome = await deps.packtory.buildAndPublishAll(planned.config, {
         dryRun: false,
         stage: false,
         collectReport: false
@@ -226,35 +196,47 @@ async function publishTargets(
             return [];
         }
         return [
-            {
+            requireTargetHead({
                 name: result.bundle.name,
                 version: result.bundle.version,
-                tagName: `${result.bundle.name}@${result.bundle.version}`
-            }
+                tagName: `${result.bundle.name}@${result.bundle.version}`,
+                targetHead: plannedTarget.targetHead
+            })
         ];
     });
 }
 
-async function ensureTags(deps: ReleaseHandlerDeps, targets: readonly ReleaseTarget[]): Promise<void> {
-    const head = await deps.gitClient.currentHead();
+async function createGitHubClientAsync(deps: ReleaseHandlerDeps): Promise<GitHubReleaseClient> {
+    const token = readGitHubToken(deps);
+    if (token === undefined) {
+        throw new Error('GH_TOKEN or GITHUB_TOKEN must be set to create release tags or GitHub releases');
+    }
+    return deps.createGitHubReleaseClient({ ...parseGitHubRepositoryParts(await deps.readPackageInfo()), token });
+}
+
+async function ensureTags(client: GitHubReleaseClient, targets: readonly PublishedReleaseTarget[]): Promise<void> {
     for (const target of targets) {
-        await deps.gitClient.ensureTag(target.tagName, target.tagName, head);
+        await client.ensureAnnotatedTag({
+            tagName: target.tagName,
+            message: target.tagName,
+            targetHead: target.targetHead
+        });
     }
 }
 
 async function createGitHubReleases(
     deps: ReleaseHandlerDeps,
-    config: ValidChangelogConfig,
-    targets: readonly ReleaseTarget[],
-    changelog: GeneratedChangelog
+    client: GitHubReleaseClient,
+    planned: PlannedRelease,
+    targets: readonly PublishedReleaseTarget[]
 ): Promise<void> {
-    const token = readGitHubToken(deps);
-    if (token === undefined) {
-        throw new Error('GH_TOKEN or GITHUB_TOKEN must be set to create GitHub releases');
-    }
-    const repository = parseGitHubRepositoryParts(await deps.readPackageInfo());
-    const client = deps.createGitHubReleaseClient({ ...repository, token });
-    const releaseNotesByPackageName = await collectGitHubReleaseNotes(deps, config, targets, changelog);
+    const changelog = await generateRequiredChangelog(deps, planned.config, planned.packages);
+    const releaseNotesByPackageName = await collectGitHubReleaseNotes(
+        deps,
+        changelog.config,
+        targets,
+        changelog.changelog
+    );
     for (const target of targets) {
         await client.createReleaseIfMissing({
             tagName: target.tagName,
@@ -288,113 +270,35 @@ function resolvePlannedReleaseExitCode(
     return undefined;
 }
 
-async function commitChangelogAndReplan(
-    deps: ReleaseHandlerDeps,
-    changelog: ReleaseChangelog,
-    writtenPaths: readonly string[]
-): Promise<ChangelogStepResult | undefined> {
-    await deps.gitClient.commit(writtenPaths, releaseCommitMessage);
-    const committedPlan = await loadPlannedRelease(deps);
-    return committedPlan === undefined ? undefined : { changelog, planned: committedPlan };
-}
-
-async function writeChangelogAndMaybeCommit(
-    deps: ReleaseHandlerDeps,
-    planned: PlannedRelease
-): Promise<ChangelogStepResult | undefined> {
-    if (!deps.flags.writeChangelog) {
-        return { changelog: undefined, planned };
-    }
-    const { changelog, writtenPaths } = await writeReleaseChangelogs(deps, planned, deps.flags.commit);
-    if (!deps.flags.commit) {
-        return { changelog, planned };
-    }
-    return commitChangelogAndReplan(deps, changelog, writtenPaths);
-}
-
-async function publishOrRetryTargets(
-    deps: ReleaseHandlerDeps,
-    planned: PlannedRelease,
-    changedTargets: readonly ReleaseTarget[]
-): Promise<readonly ReleaseTarget[] | undefined> {
-    if (deps.flags.publish) {
-        return publishTargets(deps, planned.config, changedTargets);
-    }
-    return selectCurrentHeadPublishedTargets(planned.packages);
-}
-
 async function finishReleaseActions(
     deps: ReleaseHandlerDeps,
-    state: MutatingReleaseState,
-    publishedTargets: readonly ReleaseTarget[]
+    planned: PlannedRelease,
+    publishedTargets: readonly PublishedReleaseTarget[]
 ): Promise<void> {
-    const releaseTargets = mergeTargets(publishedTargets, selectCurrentHeadPublishedTargets(state.planned.packages));
-    if (deps.flags.tag) {
-        await ensureTags(deps, releaseTargets);
+    const releaseTargets = mergeTargets(publishedTargets, selectCurrentHeadPublishedTargets(planned.packages));
+    if (releaseTargets.length === 0) {
+        return;
     }
-    if (deps.flags.push) {
-        await deps.gitClient.pushFollowTags();
+    if (!deps.flags.tag && !deps.flags.githubRelease) {
+        return;
     }
-    if (state.githubRelease) {
-        await createGitHubReleases(deps, state.changelog.config, releaseTargets, state.changelog.changelog);
-    }
-}
-
-async function createMutatingReleaseState(
-    deps: ReleaseHandlerDeps,
-    changelogStep: ChangelogStepResult
-): Promise<MutatingReleaseState> {
-    const base = {
-        changedTargets: selectChangedTargets(changelogStep.planned.packages),
-        planned: changelogStep.planned
-    };
+    const client = await createGitHubClientAsync(deps);
+    await ensureTags(client, releaseTargets);
     if (deps.flags.githubRelease) {
-        return {
-            ...base,
-            githubRelease: true,
-            changelog: changelogStep.changelog ??
-                await generateRequiredChangelog(deps, changelogStep.planned.config, changelogStep.planned.packages)
-        };
+        await createGitHubReleases(deps, client, planned, releaseTargets);
     }
-    return { ...base, githubRelease: false, changelog: changelogStep.changelog };
-}
-
-async function prepareMutatingRelease(
-    deps: ReleaseHandlerDeps,
-    planned: PlannedRelease
-): Promise<MutatingReleaseState | undefined> {
-    const initialChangedTargets = selectChangedTargets(planned.packages);
-    assertTagRule(deps.flags, initialChangedTargets);
-
-    await deps.gitClient.ensureClean();
-
-    const changelogStep = await writeChangelogAndMaybeCommit(deps, planned);
-    if (changelogStep === undefined) {
-        return undefined;
-    }
-    return createMutatingReleaseState(deps, changelogStep);
-}
-
-async function finishAndReportRelease(
-    deps: ReleaseHandlerDeps,
-    state: MutatingReleaseState,
-    publishedTargets: readonly ReleaseTarget[]
-): Promise<number> {
-    await finishReleaseActions(deps, state, publishedTargets);
-    deps.log('Release completed.');
-    return 0;
 }
 
 async function runMutatingRelease(deps: ReleaseHandlerDeps, planned: PlannedRelease): Promise<number> {
-    const state = await prepareMutatingRelease(deps, planned);
-    if (state === undefined) {
-        return 1;
-    }
-    const publishedTargets = await publishOrRetryTargets(deps, state.planned, state.changedTargets);
+    const changedTargets = selectChangedTargets(planned.packages);
+    assertTagRule(deps.flags, changedTargets);
+    const publishedTargets = await publishTargets(deps, planned, changedTargets);
     if (publishedTargets === undefined) {
         return 1;
     }
-    return finishAndReportRelease(deps, state, publishedTargets);
+    await finishReleaseActions(deps, planned, publishedTargets);
+    deps.log(releaseCompletedMessage);
+    return 0;
 }
 
 async function runRelease(deps: ReleaseHandlerDeps): Promise<number> {

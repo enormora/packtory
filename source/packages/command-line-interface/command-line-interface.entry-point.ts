@@ -20,13 +20,7 @@ import { createConfigLoader } from '../../command-line-interface/config-loader.t
 import { createDefaultPreviewIo } from '../../command-line-interface/preview-io/preview-io.ts';
 import { createGitHubReleaseClient } from '../../command-line-interface/runner/github-release-client.ts';
 import { createReleasePullRequestGitHubClient } from '../../command-line-interface/runner/release-pr-github-client.ts';
-import { createReleaseGitClient } from '../../command-line-interface/runner/release-git-client.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
-import {
-    createChildProcessGitCommandExecutor,
-    createGitCommandRunner,
-    spawnChildProcessGitCommand
-} from '../../git/git-command.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 import { awaitSpinnerWorkerTermination, createBootedSpinnerRuntime } from './spinner-boot.entry-point.ts';
@@ -60,7 +54,6 @@ function createSpinnerRenderer(): TerminalSpinnerRenderer {
 const spinnerRenderer = createSpinnerRenderer();
 const clock = createClock();
 const fileManager = createFileManager({ hostFileSystem: fs.promises });
-const runGitCommand = createGitCommandRunner(createChildProcessGitCommandExecutor(spawnChildProcessGitCommand));
 const workingDirectory = process.cwd();
 const previewIo = createDefaultPreviewIo({
     async openFile(filePath) {
@@ -133,7 +126,6 @@ const commandLinerInterfaceRunner = createCommandLineInterfaceRunner({
         return process.env[name];
     },
     readPackageInfo,
-    releaseGitClient: createReleaseGitClient({ repositoryFolder: workingDirectory, runGitCommand }),
     async sleep(milliseconds) {
         await delay(milliseconds);
     },

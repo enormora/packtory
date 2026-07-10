@@ -22,23 +22,22 @@ import { getParseExitCode } from './command-parsing.ts';
 import { runPackHandler } from './pack-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
+import type { GitHubReleaseClient } from './github-release-client.ts';
+import { runReleaseHandler } from './release-handler.ts';
 import { registerProgressListeners } from './progress-wiring.ts';
 import { runPublishHandler } from './publish-handler.ts';
-import type { GitHubReleaseClient } from './github-release-client.ts';
-import type { ReleaseGitClient } from './release-git-client.ts';
-import { runReleaseHandler } from './release-handler.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
 
-type GitHubReleaseClientContext = {
-    readonly owner: string;
-    readonly repo: string;
-    readonly token: string;
-};
 type ReleasePullRequestGitHubClientContext = {
     readonly owner: string;
     readonly repo: string;
     readonly token: string | undefined;
+};
+type GitHubReleaseClientContext = {
+    readonly owner: string;
+    readonly repo: string;
+    readonly token: string;
 };
 
 export type CommandLineInterfaceRunnerDependencies = {
@@ -58,7 +57,6 @@ export type CommandLineInterfaceRunnerDependencies = {
     readonly createTemporaryFilePath: () => string;
     readonly readEnvironmentVariable: (name: string) => string | undefined;
     readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
-    readonly releaseGitClient: ReleaseGitClient;
     readonly sleep: (milliseconds: number) => Promise<void>;
     readonly workingDirectory: string;
     log: (message: string) => void;
@@ -70,8 +68,8 @@ export type CommandLineInterfaceRunner = {
 
 const publishCommandName = 'publish';
 const previewCommandName = 'preview';
-const releaseDiffCommandName = 'release-diff';
 const releaseCommandName = 'release';
+const releaseDiffCommandName = 'release-diff';
 const releasePullRequestCommandName = 'release-pr';
 const authorizePublishReleasePullRequestCommandName = 'authorize-publish';
 const changelogCommandName = 'changelog';
@@ -99,7 +97,6 @@ export function createCommandLineInterfaceRunner(
         currentDate,
         readEnvironmentVariable,
         readPackageInfo,
-        releaseGitClient,
         sleep,
         workingDirectory
     } = dependencies;
@@ -161,17 +158,15 @@ export function createCommandLineInterfaceRunner(
             }),
             [releaseCommandName]: command({
                 name: releaseCommandName,
-                description: 'Plans or runs a release workflow.',
+                description: 'Publishes packages and creates release tags through the GitHub API.',
                 args: {
-                    writeChangelog: flag({ long: 'write-changelog' }),
-                    commit: flag({ long: 'commit' }),
                     publish: flag({ long: 'publish' }),
                     tag: flag({ long: 'tag' }),
                     push: flag({ long: 'push' }),
                     githubRelease: flag({ long: 'github-release' }),
                     noDryRun: flag({ long: 'no-dry-run' })
                 },
-                async handler({ writeChangelog, commit, publish, tag, push, githubRelease, noDryRun }) {
+                async handler({ publish, tag, push, githubRelease, noDryRun }) {
                     exitCode = await runReleaseHandler({
                         log,
                         packtory,
@@ -184,8 +179,7 @@ export function createCommandLineInterfaceRunner(
                         readEnvironmentVariable,
                         readPackageInfo,
                         workingDirectory,
-                        gitClient: releaseGitClient,
-                        flags: { writeChangelog, commit, publish, tag, push, githubRelease, noDryRun }
+                        flags: { publish, tag, push, githubRelease, noDryRun }
                     });
                 }
             }),
@@ -211,7 +205,6 @@ export function createCommandLineInterfaceRunner(
                                 readEnvironmentVariable,
                                 readPackageInfo,
                                 workingDirectory,
-                                gitClient: releaseGitClient,
                                 sleep,
                                 flags: {
                                     command: maintainReleasePullRequestCommandName,
@@ -238,7 +231,6 @@ export function createCommandLineInterfaceRunner(
                                 readEnvironmentVariable,
                                 readPackageInfo,
                                 workingDirectory,
-                                gitClient: releaseGitClient,
                                 sleep,
                                 flags: {
                                     command: validateReleasePullRequestCommandName,
@@ -269,7 +261,6 @@ export function createCommandLineInterfaceRunner(
                                 readEnvironmentVariable,
                                 readPackageInfo,
                                 workingDirectory,
-                                gitClient: releaseGitClient,
                                 sleep,
                                 flags: {
                                     command: authorizePublishReleasePullRequestCommandName,

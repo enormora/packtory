@@ -16,7 +16,7 @@ export const noPublicationOutcome = { type: 'none' } as const;
 type ReleasePullRequestGitHubClientFixture = ReturnType<
     CommandLineInterfaceRunnerDependencies['createReleasePullRequestGitHubClient']
 >;
-type ReleaseGitClientFixture = CommandLineInterfaceRunnerDependencies['releaseGitClient'];
+type GitHubReleaseClientFixture = ReturnType<CommandLineInterfaceRunnerDependencies['createGitHubReleaseClient']>;
 type RunPreviewOverrides = {
     readonly pageOutput?: SinonSpy;
     readonly log?: SinonSpy;
@@ -43,7 +43,6 @@ export type Overrides = {
     readonly createReleasePullRequestGitHubClient?: SinonSpy;
     readonly readEnvironmentVariable?: (name: string) => string | undefined;
     readonly readPackageInfo?: () => Promise<Readonly<Record<string, unknown>>>;
-    readonly releaseGitClient?: CommandLineInterfaceRunnerDependencies['releaseGitClient'];
     readonly progressBroadcaster?: ProgressBroadcaster;
     readonly spinnerRenderer?: {
         readonly add?: SinonSpy;
@@ -94,14 +93,6 @@ function createPrLogEngineFactory(overrides: Overrides): CommandLineInterfaceRun
     });
 }
 
-function createGitHubReleaseClientFactory(
-    overrides: Overrides
-): CommandLineInterfaceRunnerDependencies['createGitHubReleaseClient'] {
-    return overrides.createGitHubReleaseClient ?? fake.returns({
-        createReleaseIfMissing: fake.resolves('created')
-    });
-}
-
 function createReleasePullRequestClientFixture(
     overrides: Readonly<Partial<ReleasePullRequestGitHubClientFixture>>
 ): ReleasePullRequestGitHubClientFixture {
@@ -111,6 +102,7 @@ function createReleasePullRequestClientFixture(
         createOrUpdateReleasePullRequest: fake.resolves(1),
         createStatus: fake.resolves(undefined),
         deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
+        deleteBranch: fake.resolves(undefined),
         dispatchWorkflow: fake.resolves(undefined),
         findDispatchedWorkflowRun: fake.resolves({
             event: 'workflow_dispatch',
@@ -135,6 +127,22 @@ function createReleasePullRequestGitHubClientFactory(
     overrides: Overrides
 ): CommandLineInterfaceRunnerDependencies['createReleasePullRequestGitHubClient'] {
     return overrides.createReleasePullRequestGitHubClient ?? fake.returns(createReleasePullRequestClientFixture({}));
+}
+
+export function createGitHubReleaseClientFixture(
+    overrides: Readonly<Partial<GitHubReleaseClientFixture>>
+): GitHubReleaseClientFixture {
+    return {
+        createReleaseIfMissing: fake.resolves('created'),
+        ensureAnnotatedTag: fake.resolves('created'),
+        ...overrides
+    };
+}
+
+function createGitHubReleaseClientFactory(
+    overrides: Overrides
+): CommandLineInterfaceRunnerDependencies['createGitHubReleaseClient'] {
+    return overrides.createGitHubReleaseClient ?? fake.returns(createGitHubReleaseClientFixture({}));
 }
 
 function createPacktoryFixture(overrides: Overrides): CommandLineInterfaceRunnerDependencies['packtory'] {
@@ -192,26 +200,6 @@ function readPackageInfo(overrides: Overrides): () => Promise<Readonly<Record<st
         };
 }
 
-export function createReleaseGitClientFixture(
-    overrides: Readonly<Partial<ReleaseGitClientFixture>> = {}
-): ReleaseGitClientFixture {
-    return {
-        commit: fake.resolves(undefined),
-        currentHead: fake.resolves('new-head'),
-        deleteRemoteBranch: fake.resolves(undefined),
-        ensureClean: fake.resolves(undefined),
-        ensureTag: fake.resolves(undefined),
-        pushHeadToBranch: fake.resolves(undefined),
-        pushFollowTags: fake.resolves(undefined),
-        readChangedFiles: fake.resolves([]),
-        ...overrides
-    };
-}
-
-function createReleaseGitClient(overrides: Overrides): CommandLineInterfaceRunnerDependencies['releaseGitClient'] {
-    return overrides.releaseGitClient ?? createReleaseGitClientFixture();
-}
-
 function createRunnerDependencies(overrides: Overrides): CommandLineInterfaceRunnerDependencies {
     const log = overrides.log ?? fake();
     const pageOutput = createPageOutputSpy(overrides);
@@ -239,7 +227,6 @@ function createRunnerDependencies(overrides: Overrides): CommandLineInterfaceRun
         createTemporaryFilePath: createTemporaryFilePath(overrides),
         readEnvironmentVariable: readEnvironmentVariable(overrides),
         readPackageInfo: readPackageInfo(overrides),
-        releaseGitClient: createReleaseGitClient(overrides),
         sleep: fake.resolves(undefined),
         workingDirectory: '/workspace'
     };

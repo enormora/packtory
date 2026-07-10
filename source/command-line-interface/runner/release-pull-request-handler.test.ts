@@ -6,7 +6,6 @@ import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts
 import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
 import {
     assertReleasePullRequestWasUpdated,
-    createChangingReleaseGitClient,
     createDependencies,
     createEmptyReleaseChangelogEngine,
     createPacktoryWithPlan,
@@ -52,29 +51,20 @@ suite('release-pull-request-handler', function () {
             });
 
             test('maintain closes release state when no release content remains', async function () {
-                const deleteRemoteBranch = fake.resolves(undefined);
+                const deleteBranch = fake.resolves(undefined);
                 const closeOpenReleasePullRequests = fake.resolves(undefined);
                 const { dependencies, log } = createDependencies({
                     createReleasePullRequestGitHubClient: fake.returns(
                         createReleasePullRequestClient({
-                            closeOpenReleasePullRequests
+                            closeOpenReleasePullRequests,
+                            deleteBranch
                         })
                     ),
-                    flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
-                    gitClient: {
-                        commit: fake.resolves(undefined),
-                        currentHead: fake.resolves('head'),
-                        deleteRemoteBranch,
-                        ensureClean: fake.resolves(undefined),
-                        ensureTag: fake.resolves(undefined),
-                        pushHeadToBranch: fake.resolves(undefined),
-                        pushFollowTags: fake.resolves(undefined),
-                        readChangedFiles: fake.resolves([])
-                    }
+                    flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined }
                 });
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
-                assert.strictEqual(deleteRemoteBranch.callCount, 1);
+                assert.deepStrictEqual(deleteBranch.firstCall.args, [ 'release/packtory' ]);
                 assert.deepStrictEqual(closeOpenReleasePullRequests.firstCall.args[0], {
                     baseBranch: 'main',
                     releaseBranch: 'release/packtory'
@@ -83,45 +73,23 @@ suite('release-pull-request-handler', function () {
             });
 
             test('maintain updates the release PR when changelog content is prepared', async function () {
-                const commit = fake.resolves(undefined);
                 const createCommitOnBranch = fake.resolves('signed-release-head');
                 const createOrUpdateReleasePullRequest = fake.resolves(12);
-                const ensureClean = fake.resolves(undefined);
-                const pushHeadToBranch = fake.resolves(undefined);
-                const pushFollowTags = fake.resolves(undefined);
-                const readChangedFiles = fake.resolves([
-                    {
-                        contentBase64: Buffer.from('updated changelog\n', 'utf8').toString('base64'),
-                        kind: 'addition',
-                        path: 'CHANGELOG.md'
-                    }
-                ]);
-                const { dependencies, log } = createReleaseContentDependencies({
+                const { dependencies, fileManager, log } = createReleaseContentDependencies({
                     createReleasePullRequestGitHubClient: fake.returns(
                         createReleasePullRequestClient({
                             createCommitOnBranch,
                             createOrUpdateReleasePullRequest
                         })
-                    ),
-                    gitClient: createChangingReleaseGitClient({
-                        commit,
-                        ensureClean,
-                        pushFollowTags,
-                        pushHeadToBranch,
-                        readChangedFiles
-                    })
+                    )
                 });
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assertReleasePullRequestWasUpdated({
-                    commit,
                     createCommitOnBranch,
                     createOrUpdateReleasePullRequest,
-                    ensureClean,
-                    log,
-                    readChangedFiles,
-                    pushHeadToBranch,
-                    pushFollowTags
+                    fileManager,
+                    log
                 });
             });
 

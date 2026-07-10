@@ -5,8 +5,8 @@ import {
     collectGeneratedAttributionPaths,
     createChangelogGenerationOptions,
     parseValidConfig,
-    type WrittenChangelogFile,
-    writeConfiguredChangelogFiles
+    buildConfiguredChangelogFiles,
+    type WrittenChangelogFile
 } from './changelog-destinations.ts';
 import { formatGitHubRepositoryName } from './github-repository.ts';
 import { printReleasePlanFailure } from './release-plan-result-printing.ts';
@@ -29,7 +29,6 @@ export type ReleasePreparationDeps = {
     readonly currentDate: () => Date;
     readonly fileManager: {
         readonly readFile: (filePath: string) => Promise<string>;
-        readonly writeFile: (filePath: string, content: string) => Promise<void>;
     };
     readonly log: Logger;
     readonly packtory: Packtory;
@@ -141,7 +140,7 @@ function reportUnwrittenChangelogs(
     log(message);
 }
 
-export async function writeReleaseChangelogs(
+export async function prepareReleaseChangelogs(
     deps: ReleasePreparationDeps,
     planned: PlannedRelease,
     requireWrittenChangelog: boolean
@@ -152,7 +151,7 @@ export async function writeReleaseChangelogs(
 }> {
     const validConfig = parseRequiredChangelogConfig(planned.config);
     const changelog = await generateReleaseChangelog(deps, validConfig, planned.packages);
-    const writtenFiles = await writeConfiguredChangelogFiles(
+    const writtenFiles = await buildConfiguredChangelogFiles(
         deps,
         changelog.config,
         changelog.engine,
