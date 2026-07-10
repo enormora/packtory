@@ -280,7 +280,7 @@ function registerDependencyUpdateTests(): void {
                 targetName: 'pkg-a',
                 unreleased: false,
                 versionNumber: '1.0.1',
-                mergedPullRequests: [ { id: 1, title: 'Update @scope/pkg to 1.2.3', label: 'upgrade' } ]
+                mergedPullRequests: [ { id: 0, title: 'Update @scope/pkg to 1.2.3', label: 'upgrade' } ]
             }
         ]);
     });
@@ -302,7 +302,7 @@ function registerDependencyUpdateTests(): void {
         );
 
         assert.deepStrictEqual(calls.renderGroupedTargetChangelog.firstCall.args[0].targets[0]?.mergedPullRequests, [
-            { id: 1, title: 'Update dependencies', label: 'upgrade' }
+            { id: 0, title: 'Update dependencies', label: 'upgrade' }
         ]);
     });
 
