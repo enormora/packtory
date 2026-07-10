@@ -90,7 +90,7 @@
         "fast-check": "4.8.0",
         "get-port": "7.2.0",
         "jscpd": "5.0.11",
-        "knip": "6.24.0",
+        "knip": "6.25.0",
         "mocha": "11.7.6",
         "node-pty": "1.1.0",
         "rust-just": "1.55.1",
