@@ -6,6 +6,12 @@ import { isPackageManifestInputPath } from './changelog-source-attribution.ts';
 
 type ChangelogTarget = {
     readonly packagePlan: ReleasePlanPackage;
+    readonly manifestDependencyPullRequests: readonly PullRequestWithLabel[];
+    readonly pullRequests: readonly PullRequestWithLabel[];
+};
+
+type CollectedPullRequests = {
+    readonly manifestDependencyPullRequests: readonly PullRequestWithLabel[];
     readonly pullRequests: readonly PullRequestWithLabel[];
 };
 
@@ -36,6 +42,10 @@ function dependencyUpdateTitle(packagePlan: ReleasePlanPackage): string {
         throw new Error('Expected a dependency update');
     }
     return `Update ${update.name} to ${update.version}`;
+}
+
+function syntheticDependencyPullRequestId(): 0 {
+    return 0;
 }
 
 export type GenerateChangelogInput = {
@@ -145,7 +155,7 @@ async function collectTargetPullRequests(
     input: GenerateChangelogInput,
     packagePlan: ReleasePlanPackage,
     ignoredAttributionPaths: readonly string[]
-): Promise<readonly PullRequestWithLabel[]> {
+): Promise<CollectedPullRequests> {
     const baseRef = await resolveBaseRefFor(input.prLogEngine, packagePlan, input);
     const pullRequests = await input.prLogEngine.collectMergedPullRequests({
         githubRepo: input.githubRepo,
@@ -167,14 +177,25 @@ async function collectTargetPullRequests(
         pullRequests,
         changedFilesByPullRequest
     );
-
-    return input.prLogEngine.resolvePullRequestLabels({
+    const dependencyPullRequestIds = new Set(
+        dependencyPullRequests.map(function (pullRequest) {
+            return pullRequest.id;
+        })
+    );
+    const labeledPullRequests = await input.prLogEngine.resolvePullRequestLabels({
         githubRepo: input.githubRepo,
         config: input.prLogConfig,
         pullRequests: mergePullRequests([ ...packagePullRequests, ...dependencyPullRequests ]),
         targetName: packagePlan.name,
         targetScopedLabelPattern: input.targetScopedLabelPattern
     });
+
+    return {
+        manifestDependencyPullRequests: labeledPullRequests.filter(function (pullRequest) {
+            return dependencyPullRequestIds.has(pullRequest.id);
+        }),
+        pullRequests: labeledPullRequests
+    };
 }
 
 async function createChangelogTarget(
@@ -182,18 +203,45 @@ async function createChangelogTarget(
     packagePlan: ReleasePlanPackage,
     ignoredAttributionPaths: readonly string[]
 ): Promise<ChangelogTarget> {
+    const pullRequests = await collectTargetPullRequests(input, packagePlan, ignoredAttributionPaths);
     return {
         packagePlan,
-        pullRequests: await collectTargetPullRequests(input, packagePlan, ignoredAttributionPaths)
+        manifestDependencyPullRequests: pullRequests.manifestDependencyPullRequests,
+        pullRequests: pullRequests.pullRequests
     };
 }
 
+function isDependencyOnlyTarget(target: ChangelogTarget): boolean {
+    return target.packagePlan.releaseClassification === releaseAnalysisClassification.dependencyOnly;
+}
+
+function isSubstitutionOnlyDependencyTarget(target: ChangelogTarget): boolean {
+    return (
+        isDependencyOnlyTarget(target) &&
+        target.packagePlan.changelogDependencyUpdates.length > 0 &&
+        target.manifestDependencyPullRequests.length === 0
+    );
+}
+
 function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
-    if (target.packagePlan.releaseClassification !== releaseAnalysisClassification.dependencyOnly) {
+    if (!isDependencyOnlyTarget(target)) {
         return target.pullRequests;
     }
 
-    return target.pullRequests.map(function (pullRequest) {
+    if (isSubstitutionOnlyDependencyTarget(target)) {
+        return [
+            {
+                id: syntheticDependencyPullRequestId(),
+                title: dependencyUpdateTitle(target.packagePlan),
+                label: dependencyUpdateLabel()
+            }
+        ];
+    }
+
+    const pullRequests = target.manifestDependencyPullRequests.length > 0
+        ? target.manifestDependencyPullRequests
+        : target.pullRequests;
+    return pullRequests.map(function (pullRequest) {
         return { ...pullRequest, title: dependencyUpdateTitle(target.packagePlan), label: dependencyUpdateLabel() };
     });
 }
@@ -218,7 +266,14 @@ function createTargetSection(target: ChangelogTarget): TargetChangelogSection {
 }
 
 function hasChangelogEntries(target: ChangelogTarget): boolean {
-    return target.pullRequests.length > 0;
+    return target.pullRequests.length > 0 || isSubstitutionOnlyDependencyTarget(target);
+}
+
+function removeSyntheticDependencyPullRequestLinks(markdown: string, githubRepo: string): string {
+    return markdown.replaceAll(
+        ` ([#${syntheticDependencyPullRequestId()}](https://github.com/${githubRepo}/pull/${syntheticDependencyPullRequestId()}))`,
+        ''
+    );
 }
 
 function createPackageMarkdownByName(
@@ -231,12 +286,15 @@ function createPackageMarkdownByName(
             const targetSection = createTargetSection(target);
             return [
                 target.packagePlan.name,
-                input.prLogEngine.renderTargetChangelog({
-                    config,
-                    currentDate: input.currentDate,
-                    githubRepo: input.githubRepo,
-                    ...targetSection
-                })
+                removeSyntheticDependencyPullRequestLinks(
+                    input.prLogEngine.renderTargetChangelog({
+                        config,
+                        currentDate: input.currentDate,
+                        githubRepo: input.githubRepo,
+                        ...targetSection
+                    }),
+                    input.githubRepo
+                )
             ] as const;
         })
     );
@@ -254,12 +312,15 @@ export async function generateChangelogOutputs(input: GenerateChangelogInput): P
     const targetsWithEntries = targets.filter(hasChangelogEntries);
 
     return {
-        groupedMarkdown: input.prLogEngine.renderGroupedTargetChangelog({
-            config,
-            currentDate: input.currentDate,
-            githubRepo: input.githubRepo,
-            targets: targetsWithEntries.map(createTargetSection)
-        }),
+        groupedMarkdown: removeSyntheticDependencyPullRequestLinks(
+            input.prLogEngine.renderGroupedTargetChangelog({
+                config,
+                currentDate: input.currentDate,
+                githubRepo: input.githubRepo,
+                targets: targetsWithEntries.map(createTargetSection)
+            }),
+            input.githubRepo
+        ),
         packageNamesWithoutChangelogEntries: targets
             .filter(function (target) {
                 return !hasChangelogEntries(target);
