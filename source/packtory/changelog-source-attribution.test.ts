@@ -364,7 +364,7 @@ function registerSelectedSourceTests(): void {
             new Set([ 'dist/included.js' ])
         );
 
-        assert.deepStrictEqual(result, [ 'README.md', 'source/included.js' ]);
+        assert.deepStrictEqual(result, [ 'source/included.js' ]);
         assert.strictEqual(fileManager.getReadFileCallCount(), 1);
         assert.deepStrictEqual(fileManager.getReadFileCall(0), { filePath: '/repo/source/included.js' });
     });
@@ -377,11 +377,25 @@ function registerSelectedSourceTests(): void {
         const result = await attributeSelectedChangelogSourceFiles(
             { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
             bundleWith([ generatedManifest ]),
-            [],
+            [ 'source/package.json', 'README.md' ],
             new Set([ 'package.json' ])
         );
 
-        assert.deepStrictEqual(result, []);
+        assert.deepStrictEqual(result, [ 'source/package.json' ]);
+    });
+
+    test('attributeSelectedChangelogSourceFiles attributes selected additional package files', async function () {
+        const result = await attributeSelectedChangelogSourceFiles(
+            { fileManager: createFakeFileManager(), repositoryFolder: '/repo' },
+            bundleWith([
+                analyzedBundleResource('/repo/source/README.md', { targetFilePath: 'README.md' }),
+                analyzedBundleResource('/repo/source/LICENSE', { targetFilePath: 'LICENSE' })
+            ]),
+            [],
+            new Set([ 'README.md' ])
+        );
+
+        assert.deepStrictEqual(result, [ 'source/README.md' ]);
     });
 }
 

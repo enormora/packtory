@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { TraceMap } from '@jridgewell/trace-mapping';
-import { bundleRelativePath } from '../common/package-layout.ts';
+import { bundleRelativePath, isPackageManifestPath, packageManifestFilePath } from '../common/package-layout.ts';
 import { compareValues } from '../common/sort-values.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
@@ -272,7 +272,9 @@ export async function attributeSelectedChangelogSourceFiles(
     additionalSourceFiles: readonly string[],
     selectedArtifactFiles: ReadonlySet<string>
 ): Promise<readonly string[]> {
-    const attributedFiles: string[] = Array.from(additionalSourceFiles);
+    const attributedFiles: string[] = selectedArtifactFiles.has(packageManifestFilePath)
+        ? additionalSourceFiles.filter(isPackageManifestPath)
+        : [];
     for (const entry of analyzedBundle.contents) {
         const targetFilePath = bundleRelativePath(entry.fileDescription.targetFilePath);
         if (!entry.isGeneratedManifest && selectedArtifactFiles.has(targetFilePath)) {
