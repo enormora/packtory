@@ -99,7 +99,7 @@ packtory <command> [options]
 - The release PR policy derives allowed files from `changelog.outputs`. Repository and package changelog files are allowed. GitHub Release outputs are ignored because they do not write repository files.
 - `release-pr validate` accepts normal PRs without a release label. Release-labeled PRs must match the configured branch, title, author, commit subject, base head, and allowed files. Merge groups must not batch release PRs with other PRs.
 - `release-pr authorize-publish` writes GitHub step outputs when `$GITHUB_OUTPUT` exists, otherwise it prints them. Normal commits get `should_publish=false`. A merged valid release PR gets `should_publish=true`, `publish_commit_sha`, `release_commit_sha`, and `release_pull_request_number`.
-- Set `releasePullRequest.githubActionsCi` only for the GitHub Actions `GITHUB_TOKEN` workaround. With `trigger: 'workflow-dispatch'`, `workflowFile`, and `requiredStatusContexts`, `maintain` dispatches CI for the release branch, waits for the exact release commit run, and mirrors the configured job names as commit statuses.
+- Set `releasePullRequest.githubActionsCi` only for the GitHub Actions `GITHUB_TOKEN` workaround. With `trigger: 'workflow-dispatch'`, `workflowFile`, and `requiredStatusContexts`, `maintain` dispatches fresh CI for the release branch, waits for that release commit run, and mirrors the configured job names as commit statuses.
 - Leave `githubActionsCi` unset when the release branch update already triggers normal CI, such as with a GitHub App token, PAT, human update, external automation, or non-GitHub CI.
 
 **Pack behavior:**

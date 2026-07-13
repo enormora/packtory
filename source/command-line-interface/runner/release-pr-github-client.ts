@@ -113,6 +113,7 @@ export type ReleasePullRequestGitHubClient = {
 };
 
 type GitHubClientContext = {
+    readonly apiBaseUrl: string;
     readonly fetch: typeof globalThis.fetch;
     readonly owner: string;
     readonly repo: string;
@@ -187,6 +188,7 @@ function createGitHubRestClient(
 ): GitHubRestClientInstance {
     const GitHubRestClient = Octokit.plugin(restEndpointMethods, paginateRest);
     return new GitHubRestClient({
+        baseUrl: context.apiBaseUrl,
         request: {
             fetch: context.fetch,
             headers: requestContext.headers

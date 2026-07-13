@@ -9,7 +9,6 @@ import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.
 type WorkflowRunLookup = ReleasePullRequestGitHubClient['findDispatchedWorkflowRun'];
 type FakeWorkflowRunLookup = ReturnType<typeof fake> & WorkflowRunLookup;
 type WorkflowRunResult = Awaited<ReturnType<ReleasePullRequestGitHubClient['readWorkflowRunResult']>>;
-
 function createConfig(requiredStatusContexts: readonly string[] = [ 'Node.js' ]): ReleasePullRequestConfig {
     return {
         automationAuthor: 'github-actions[bot]',
@@ -34,6 +33,18 @@ function createDispatchedWorkflowRunLookup(): FakeWorkflowRunLookup {
         return callCount === 1
             ? { event: 'workflow_dispatch' as const, observedRunIds: [], runId: undefined }
             : { event: 'workflow_dispatch' as const, observedRunIds: [ 1 ], runId: 1 };
+    }) as FakeWorkflowRunLookup;
+}
+function createFreshWorkflowRunLookup(dispatchWorkflow: ReturnType<typeof fake>): FakeWorkflowRunLookup {
+    let staleLookupsAfterDispatch = 0;
+    return fake(async function (): ReturnType<WorkflowRunLookup> {
+        if (dispatchWorkflow.callCount === 0) {
+            return { event: 'workflow_dispatch' as const, observedRunIds: [ 7 ], runId: 7 };
+        }
+        staleLookupsAfterDispatch += 1;
+        return staleLookupsAfterDispatch === 1
+            ? { event: 'workflow_dispatch' as const, observedRunIds: [ 7 ], runId: 7 }
+            : { event: 'workflow_dispatch' as const, observedRunIds: [ 7, 8 ], runId: 8 };
     }) as FakeWorkflowRunLookup;
 }
 
@@ -190,17 +201,15 @@ suite('release-pull-request-ci', function () {
             });
         });
 
-        test('uses an existing dispatched workflow run without dispatching again', async function () {
+        test('ignores existing dispatched workflow runs and waits for a fresh run', async function () {
             const createStatus = fake.resolves(undefined);
             const dispatchWorkflow = fake.resolves(undefined);
+            const readWorkflowRunResult = fake.resolves(workflowRunResultForJob('success'));
             const client = createClient({
                 createStatus,
                 dispatchWorkflow,
-                findDispatchedWorkflowRun: fake.resolves({
-                    event: 'workflow_dispatch',
-                    observedRunIds: [ 7 ],
-                    runId: 7
-                })
+                findDispatchedWorkflowRun: createFreshWorkflowRunLookup(dispatchWorkflow),
+                readWorkflowRunResult
             });
 
             assert.strictEqual(
@@ -213,9 +222,15 @@ suite('release-pull-request-ci', function () {
                 true
             );
 
-            assert.strictEqual(dispatchWorkflow.callCount, 0);
-            assert.strictEqual(createStatus.callCount, 1);
+            assert.strictEqual(readWorkflowRunResult.firstCall.args[0], 8);
             assert.deepStrictEqual(createStatus.firstCall.args[0], {
+                commitSha: 'release-head',
+                context: 'Node.js',
+                description: 'Waiting for dispatched release CI.',
+                state: 'pending',
+                targetUrl: undefined
+            });
+            assert.deepStrictEqual(createStatus.secondCall.args[0], {
                 commitSha: 'release-head',
                 context: 'Node.js',
                 description: 'Dispatched release CI job success.',

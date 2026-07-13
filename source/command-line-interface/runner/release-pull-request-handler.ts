@@ -51,6 +51,7 @@ type ValidateReleasePullRequestFlags = {
 type ReleasePullRequestWriteFlags = AuthorizePublishReleasePullRequestFlags | MaintainReleasePullRequestFlags;
 type ReleasePullRequestFlags = ReleasePullRequestWriteFlags | ValidateReleasePullRequestFlags;
 type GitHubClientContext = {
+    readonly apiBaseUrl: string;
     readonly owner: string;
     readonly repo: string;
     readonly token: string | undefined;
@@ -111,6 +112,9 @@ type GitHubRepositoryNameParts = {
 type GitHubRepository = GitHubRepositoryNameParts & {
     readonly name: string;
 };
+
+const defaultGitHubApiBaseUrl = 'https://api.github.com';
+
 function formatHandlerError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
@@ -149,6 +153,7 @@ async function createGitHubClient(dependencies: ReleasePullRequestHandlerDepende
     const repository = await readGitHubRepository(dependencies);
     return {
         client: dependencies.createReleasePullRequestGitHubClient({
+            apiBaseUrl: dependencies.readEnvironmentVariable('GITHUB_API_BASE_URL') ?? defaultGitHubApiBaseUrl,
             owner: repository.owner,
             repo: repository.repo,
             token: readGitHubToken(dependencies)

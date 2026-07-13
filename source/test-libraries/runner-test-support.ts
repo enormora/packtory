@@ -96,6 +96,7 @@ function createPrLogEngineFactory(overrides: Overrides): CommandLineInterfaceRun
 function createReleasePullRequestClientFixture(
     overrides: Readonly<Partial<ReleasePullRequestGitHubClientFixture>>
 ): ReleasePullRequestGitHubClientFixture {
+    let workflowRunLookupCount = 0;
     return {
         closeOpenReleasePullRequests: fake.resolves(undefined),
         createCommitOnBranch: fake.resolves('signed-release-head'),
@@ -104,10 +105,11 @@ function createReleasePullRequestClientFixture(
         deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
         deleteBranch: fake.resolves(undefined),
         dispatchWorkflow: fake.resolves(undefined),
-        findDispatchedWorkflowRun: fake.resolves({
-            event: 'workflow_dispatch',
-            observedRunIds: [],
-            runId: undefined
+        findDispatchedWorkflowRun: fake(async function () {
+            workflowRunLookupCount += 1;
+            return workflowRunLookupCount === 1
+                ? { event: 'workflow_dispatch' as const, observedRunIds: [], runId: undefined }
+                : { event: 'workflow_dispatch' as const, observedRunIds: [ 1 ], runId: 1 };
         }),
         getBranchHeadSha: fake.resolves('main-head'),
         getPullRequest: fake.resolves(undefined as never),

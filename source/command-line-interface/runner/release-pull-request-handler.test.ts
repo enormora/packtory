@@ -187,6 +187,7 @@ suite('release-pull-request-handler', function () {
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
+                    apiBaseUrl: 'https://api.github.com',
                     owner: 'owner',
                     repo: 'repo',
                     token: undefined
@@ -208,6 +209,7 @@ suite('release-pull-request-handler', function () {
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
+                    apiBaseUrl: 'https://api.github.com',
                     owner: 'package-owner',
                     repo: 'package-repo',
                     token: 'github-token'
@@ -223,6 +225,30 @@ suite('release-pull-request-handler', function () {
 
                 assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
                 assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
+                    apiBaseUrl: 'https://api.github.com',
+                    owner: 'owner',
+                    repo: 'repo',
+                    token: 'token'
+                });
+            });
+
+            test('maintain passes GITHUB_API_BASE_URL to the GitHub client', async function () {
+                const createReleasePullRequestGitHubClient = fake.returns(createReleasePullRequestClient({}));
+                const { dependencies } = createDependencies({
+                    createReleasePullRequestGitHubClient,
+                    flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
+                    readEnvironmentVariable(name) {
+                        return {
+                            GH_TOKEN: 'token',
+                            GITHUB_API_BASE_URL: 'http://127.0.0.1:1234',
+                            GITHUB_REPOSITORY: 'owner/repo'
+                        }[name];
+                    }
+                });
+
+                assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
+                assert.deepStrictEqual(createReleasePullRequestGitHubClient.firstCall.args[0], {
+                    apiBaseUrl: 'http://127.0.0.1:1234',
                     owner: 'owner',
                     repo: 'repo',
                     token: 'token'

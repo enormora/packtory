@@ -1,7 +1,18 @@
+export type DeterministicGitHubApiRequest = {
+    readonly body: string;
+    readonly method: string;
+    readonly path: string;
+    readonly search: string;
+};
+
 export type DeterministicGitHubApiResponse = {
     readonly status: number;
     readonly body: Readonly<Record<string, unknown>> | readonly unknown[];
 };
+
+export type DeterministicGitHubApiRouteResponse = (
+    requests: readonly DeterministicGitHubApiRequest[]
+) => DeterministicGitHubApiResponse;
 
 export type DeterministicGitHubRestRoute = {
     readonly method: string;
@@ -10,14 +21,26 @@ export type DeterministicGitHubRestRoute = {
     readonly response: DeterministicGitHubApiResponse;
 };
 
+export type DeterministicGitHubRestDynamicRoute = {
+    readonly method: string;
+    readonly path: string;
+    readonly search: string;
+    readonly response: DeterministicGitHubApiRouteResponse;
+};
+
 export type DeterministicGitHubGraphqlRoute = {
     readonly operationName: string;
     readonly response: DeterministicGitHubApiResponse;
 };
 
+export type DeterministicGitHubGraphqlDynamicRoute = {
+    readonly operationName: string;
+    readonly response: DeterministicGitHubApiRouteResponse;
+};
+
 export type DeterministicGitHubApiScenario = {
-    readonly restRoutes: readonly DeterministicGitHubRestRoute[];
-    readonly graphqlRoutes: readonly DeterministicGitHubGraphqlRoute[];
+    readonly restRoutes: readonly (DeterministicGitHubRestDynamicRoute | DeterministicGitHubRestRoute)[];
+    readonly graphqlRoutes: readonly (DeterministicGitHubGraphqlDynamicRoute | DeterministicGitHubGraphqlRoute)[];
 };
 
 const okStatus = 200;

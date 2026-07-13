@@ -1,17 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type {
+    DeterministicGitHubApiRequest,
     DeterministicGitHubApiResponse,
-    DeterministicGitHubApiScenario,
-    DeterministicGitHubGraphqlRoute,
-    DeterministicGitHubRestRoute
+    DeterministicGitHubApiRouteResponse,
+    DeterministicGitHubApiScenario
 } from './deterministic-github-api-scenarios.ts';
-
-export type DeterministicGitHubApiRequest = {
-    readonly body: string;
-    readonly method: string;
-    readonly path: string;
-    readonly search: string;
-};
 
 export type DeterministicGitHubApiServer = {
     readonly baseUrl: string;
@@ -30,8 +23,12 @@ const internalServerErrorStatus = 500;
 
 type DeterministicGitHubApiState = {
     readonly recordRequest: (request: DeterministicGitHubApiRequest) => void;
+    readonly requests: () => readonly DeterministicGitHubApiRequest[];
     readonly scenario: DeterministicGitHubApiScenario;
 };
+type DeterministicGitHubRestRoute = DeterministicGitHubApiScenario['restRoutes'][number];
+type DeterministicGitHubGraphqlRoute = DeterministicGitHubApiScenario['graphqlRoutes'][number];
+type DeterministicGitHubRouteResponse = DeterministicGitHubApiResponse | DeterministicGitHubApiRouteResponse;
 
 type RecordedIncomingRequest = {
     readonly body: string;
@@ -82,19 +79,33 @@ function findGraphqlRoute(
     });
 }
 
+function resolveApiResponse(
+    response: DeterministicGitHubRouteResponse,
+    requests: readonly DeterministicGitHubApiRequest[]
+): DeterministicGitHubApiResponse {
+    return typeof response === 'function' ? response(requests) : response;
+}
+
 function graphqlResponse(
     state: DeterministicGitHubApiState,
     request: RecordedIncomingRequest
 ): DeterministicGitHubApiResponse {
-    return findGraphqlRoute(state.scenario, request.body)?.response ??
-        notFoundResponse(request.method, request.path);
+    const response = findGraphqlRoute(state.scenario, request.body)?.response;
+    return response === undefined ? notFoundResponse(request.method, request.path) : resolveApiResponse(
+        response,
+        state.requests()
+    );
 }
 
 function restResponse(
     state: DeterministicGitHubApiState,
     request: RecordedIncomingRequest
 ): DeterministicGitHubApiResponse {
-    return findRestRoute(state.scenario, request)?.response ?? notFoundResponse(request.method, request.path);
+    const response = findRestRoute(state.scenario, request)?.response;
+    return response === undefined ? notFoundResponse(request.method, request.path) : resolveApiResponse(
+        response,
+        state.requests()
+    );
 }
 
 function routeResponse(
@@ -172,6 +183,9 @@ export async function createDeterministicGitHubApiServer(
                 scenario: options.scenario,
                 recordRequest(recordedRequest) {
                     requests = [ ...requests, recordedRequest ];
+                },
+                requests() {
+                    return requests;
                 }
             },
             request,

@@ -85,6 +85,7 @@ export function createClientWithToken(
     token: string | undefined
 ): ReleasePullRequestGitHubClient {
     return createReleasePullRequestGitHubClient({
+        apiBaseUrl: 'https://api.github.com',
         fetch: fetchImplementation,
         owner: 'owner',
         repo: 'repo',
