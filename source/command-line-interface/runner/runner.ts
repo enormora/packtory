@@ -30,6 +30,7 @@ import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
 
 type ReleasePullRequestGitHubClientContext = {
+    readonly apiBaseUrl: string;
     readonly owner: string;
     readonly repo: string;
     readonly token: string | undefined;

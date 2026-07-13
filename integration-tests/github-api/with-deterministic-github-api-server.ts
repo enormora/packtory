@@ -1,10 +1,12 @@
 import type { AsyncFunc as MochaAsyncTestFunction } from 'mocha';
 import getPort from 'get-port';
 import {
-    createDeterministicGitHubApiServer,
-    type DeterministicGitHubApiRequest
+    createDeterministicGitHubApiServer
 } from './deterministic-github-api-server.ts';
-import type { DeterministicGitHubApiScenario } from './deterministic-github-api-scenarios.ts';
+import type {
+    DeterministicGitHubApiRequest,
+    DeterministicGitHubApiScenario
+} from './deterministic-github-api-scenarios.ts';
 
 export type DeterministicGitHubApiServerContext = {
     readonly baseUrl: string;

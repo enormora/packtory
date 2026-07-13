@@ -96,9 +96,15 @@ export function createDependencies(
 ): CreatedReleasePullRequestDependencies {
     const log = fake();
     const fileManager = createFakeFileManager();
+    let workflowRunLookupCount = 0;
     const releasePullRequestClient = createReleasePullRequestClient({
         createOrUpdateReleasePullRequest: fake.resolves(12),
-        findDispatchedWorkflowRun: fake.resolves({ event: 'workflow_dispatch', observedRunIds: [ 1 ], runId: 1 }),
+        findDispatchedWorkflowRun: fake(async function () {
+            workflowRunLookupCount += 1;
+            return workflowRunLookupCount === 1
+                ? { event: 'workflow_dispatch' as const, observedRunIds: [ 1 ], runId: 1 }
+                : { event: 'workflow_dispatch' as const, observedRunIds: [ 1, 2 ], runId: 2 };
+        }),
         getPullRequest: fake.resolves({
             author: 'github-actions[bot]',
             baseRef: 'main',

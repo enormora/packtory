@@ -112,7 +112,7 @@ npx packtory release --publish --tag --push --github-release --no-dry-run
 
 Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
 
-The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory dispatches the configured workflow on the release branch, waits for the run, and mirrors the configured job names back as commit statuses. Leave it unset when your release branch update already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human update, or another CI system.
+The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory dispatches the configured workflow on the release branch, waits for the fresh run, and mirrors the configured job names back as commit statuses. Leave it unset when your release branch update already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human update, or another CI system.
 
 For more details about the CLI application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
 

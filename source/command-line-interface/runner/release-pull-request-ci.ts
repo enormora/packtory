@@ -21,6 +21,7 @@ type FindDispatchedWorkflowRunInput = {
 };
 
 type WaitForDispatchedWorkflowRunInput = FindDispatchedWorkflowRunInput & {
+    readonly ignoredRunIds: ReadonlySet<number>;
     readonly sleep: WorkflowSleep;
 };
 
@@ -106,7 +107,7 @@ async function waitForDispatchedWorkflowRun(input: WaitForDispatchedWorkflowRunI
         if (attempt !== 0) {
             lookup = await findDispatchedWorkflowRun(input);
         }
-        if (lookup.runId !== undefined) {
+        if (lookup.runId !== undefined && !input.ignoredRunIds.has(lookup.runId)) {
             return lookup.runId;
         }
         if (!isLastAttempt(attempt, workflowRunLookupAttempts)) {
@@ -304,16 +305,15 @@ async function createFailedWorkflowStatuses(input: FailedWorkflowStatusesInput):
 
 async function dispatchWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
     await createPendingWorkflowStatuses(input);
+    const baseline = await findDispatchedWorkflowRun(input);
     await input.client.dispatchWorkflow({
         ref: input.config.branch,
         workflowFile: input.ciConfig.workflowFile
     });
-    return waitForDispatchedWorkflowRun(input);
-}
-
-async function resolveWorkflowRunId(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
-    const { runId } = await findDispatchedWorkflowRun(input);
-    return runId ?? dispatchWorkflowRun(input);
+    return waitForDispatchedWorkflowRun({
+        ...input,
+        ignoredRunIds: new Set([ ...input.ignoredRunIds, ...baseline.observedRunIds ])
+    });
 }
 
 async function deleteActionRequiredPullRequestRuns(
@@ -331,7 +331,7 @@ async function resolveWorkflowRunIdOrFailStatuses(
     ciConfig: GitHubActionsCiConfig
 ): Promise<number> {
     try {
-        return await resolveWorkflowRunId({ ...input, ciConfig });
+        return await dispatchWorkflowRun({ ...input, ciConfig, ignoredRunIds: new Set() });
     } catch (error) {
         await createFailedWorkflowStatuses({
             ciConfig,

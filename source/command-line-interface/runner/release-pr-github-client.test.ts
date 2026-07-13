@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { fake } from 'sinon';
 import {
     captureRequests,
     createClient,
@@ -16,6 +17,7 @@ import {
     type RecordedRequest,
     type RouteResponse
 } from '../../test-libraries/release-pr-github-client-test-support.ts';
+import { createReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 
 const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
     [ routeKey('GET', '/repos/owner/repo/pulls'), function () {
@@ -132,7 +134,48 @@ function countReleasePullRequestLookups(records: readonly RecordedRequest[]): nu
         .length;
 }
 
+function fetchInputUrl(input: Parameters<typeof globalThis.fetch>[0]): string {
+    if (typeof input === 'string') {
+        return input;
+    }
+    if (input instanceof URL) {
+        return input.href;
+    }
+    return input.url;
+}
+
+async function assertBranchHeadUsesApiBaseUrl(apiBaseUrl: string, expectedUrl: string): Promise<void> {
+    const fetchImplementation = fake(async function (input: Parameters<typeof globalThis.fetch>[0]) {
+        assert.strictEqual(fetchInputUrl(input), expectedUrl);
+        return jsonResponse({ commit: { sha: 'main-head' } });
+    });
+    const client = createReleasePullRequestGitHubClient({
+        apiBaseUrl,
+        fetch: fetchImplementation,
+        owner: 'owner',
+        repo: 'repo',
+        token: 'token'
+    });
+
+    assert.strictEqual(await client.getBranchHeadSha('main'), 'main-head');
+    assert.strictEqual(fetchImplementation.callCount, 1);
+}
+
 suite('release-pr-github-client', function () {
+    test('uses the default GitHub API base URL', async function () {
+        await assertBranchHeadUsesApiBaseUrl(
+            'https://api.github.com',
+            'https://api.github.com/repos/owner/repo/branches/main'
+        );
+    });
+
+    test('uses the configured GitHub API base URL', async function () {
+        await assertBranchHeadUsesApiBaseUrl(
+            'http://127.0.0.1:1234',
+            'http://127.0.0.1:1234/repos/owner/repo/branches/main'
+        );
+    });
+
     test('maintains release pull requests', async function () {
         const capturedRequests = captureRequests();
         const client = createClient(createFetch(capturedRequests));
