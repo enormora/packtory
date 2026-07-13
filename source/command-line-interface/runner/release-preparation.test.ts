@@ -6,6 +6,7 @@ import { Result } from 'true-myth';
 import type { Packtory, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
+import { pullRequestChangedFileFactory } from '../../test-libraries/pr-log-fixtures.ts';
 import {
     loadPlannedRelease,
     prepareReleaseChangelogs,
@@ -86,8 +87,13 @@ function createEngine(spec: EngineSpec): PrLogEngine {
         filterPullRequestsByTargetFiles: fake(function () {
             return spec.pullRequests;
         }),
-        readPullRequestChangedFiles: fake.resolves(new Map([ [ 1, [ 'src/pkg-a/index.ts' ] ] ])),
+        readPullRequestChangedFiles: fake.resolves(
+            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'src/pkg-a/index.ts' }) ] ] ])
+        ),
         readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
+        extractChangelogReleaseSection: fake(function (): never {
+            throw new Error('unexpected changelog section extraction');
+        }),
         renderChangelog: fake.returns(''),
         renderGroupedTargetChangelog: fake.returns(spec.renderedMarkdown),
         renderTargetChangelog: fake.returns(spec.renderedMarkdown),

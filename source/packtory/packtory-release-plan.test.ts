@@ -21,8 +21,29 @@ import {
     type ReleaseArtifactDescription,
     type ReleasePackageResolver
 } from '../test-libraries/release-plan-test-support.ts';
+import type { BuildAndPublishResult } from './package-processor.ts';
 import type { ResolveAndLinkFailure } from './packtory-results.ts';
 import type { ResolvedPackage } from './resolved-package.ts';
+
+const previousPublishedAt = new Date('2026-05-01T00:00:00.000Z');
+
+function artifact(filePath: string, content: string): ReleaseArtifactDescription {
+    return { filePath, content, isExecutable: false };
+}
+
+function manifestArtifact(dependencies: Readonly<Record<string, string>>): ReleaseArtifactDescription {
+    return artifact('package/package.json', JSON.stringify({ dependencies }));
+}
+
+function buildResultWithPreviousArtifacts(files: readonly ReleaseArtifactDescription[]): BuildAndPublishResult {
+    return buildResultFor({
+        previousReleaseArtifacts: previousReleaseArtifactsFor({
+            version: '1.0.0',
+            publishedAt: previousPublishedAt,
+            files
+        })
+    });
+}
 
 function registerPlanningTests(): void {
     test('runs dry-run release planning with staged publishing disabled', async function () {
@@ -200,27 +221,13 @@ function registerDependencyAttributionTests(): void {
         const result = await planFor({
             packageNames: [ 'pkg-a' ],
             buildResults: [
-                buildResultFor({
-                    previousReleaseArtifacts: previousReleaseArtifactsFor({
-                        version: '1.0.0',
-                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                        files: [
-                            {
-                                filePath: 'package/package.json',
-                                content: JSON.stringify({ dependencies: { react: '^18.0.0', shared: '^1.0.0' } }),
-                                isExecutable: false
-                            }
-                        ]
-                    })
-                })
+                buildResultWithPreviousArtifacts([
+                    manifestArtifact({ react: '^18.0.0', shared: '^1.0.0' })
+                ])
             ],
             collectContents() {
                 return [
-                    {
-                        filePath: 'package/package.json',
-                        content: JSON.stringify({ dependencies: { react: '^19.0.0', shared: '^1.0.0' } }),
-                        isExecutable: false
-                    }
+                    manifestArtifact({ react: '^19.0.0', shared: '^1.0.0' })
                 ];
             },
             bundleContents: {
@@ -236,7 +243,39 @@ function registerDependencyAttributionTests(): void {
             changelogDependencyNames: [ 'react' ],
             changelogDependencyUpdates: [ { name: 'react', version: '^19.0.0' } ],
             releaseClassification: 'dependency-only',
-            changelogSourceFiles: [ 'source/pkg-a.js', 'source/unused.js' ]
+            changelogSourceFiles: []
+        });
+    });
+
+    test('does not attribute unchanged bundled files for dependency-only releases', async function () {
+        const result = await planFor({
+            packageNames: [ 'pkg-a' ],
+            buildResults: [
+                buildResultWithPreviousArtifacts([
+                    manifestArtifact({ react: '^18.0.0' }),
+                    artifact('readme.md', 'same readme')
+                ])
+            ],
+            collectContents() {
+                return [
+                    manifestArtifact({ react: '^19.0.0' }),
+                    artifact('readme.md', 'same readme')
+                ];
+            },
+            bundleContents: {
+                'pkg-a': [
+                    analyzedBundleResource('/source/pkg-a.js', { targetFilePath: 'package/index.js' }),
+                    analyzedBundleResource('/source/packages/pkg-a/readme.md', { targetFilePath: 'readme.md' })
+                ]
+            }
+        });
+
+        const pkg = expectFirstPackage(result);
+        assert.partialDeepStrictEqual(pkg, {
+            changedArtifactFiles: [ 'package.json' ],
+            changelogDependencyNames: [ 'react' ],
+            releaseClassification: 'dependency-only',
+            changelogSourceFiles: []
         });
     });
 
@@ -244,19 +283,9 @@ function registerDependencyAttributionTests(): void {
         const result = await planFor({
             packageNames: [ 'pkg-a' ],
             buildResults: [
-                buildResultFor({
-                    previousReleaseArtifacts: previousReleaseArtifactsFor({
-                        version: '1.0.0',
-                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                        files: [
-                            {
-                                filePath: 'package/package.json',
-                                content: JSON.stringify({ dependencies: { react: '^18.0.0' } }),
-                                isExecutable: false
-                            }
-                        ]
-                    })
-                })
+                buildResultWithPreviousArtifacts([
+                    manifestArtifact({ react: '^18.0.0' })
+                ])
             ],
             collectContents() {
                 return [ { filePath: 'package/index.js', content: 'new', isExecutable: false } ];
@@ -381,21 +410,15 @@ function registerSourceFileTests(): void {
         const result = await planFor({
             packageNames: [ 'pkg-a' ],
             buildResults: [
-                buildResultFor({
-                    previousReleaseArtifacts: previousReleaseArtifactsFor({
-                        version: '1.0.0',
-                        publishedAt: new Date('2026-05-01T00:00:00.000Z'),
-                        files: [
-                            { filePath: 'package/index.js', content: 'old', isExecutable: false },
-                            { filePath: 'package/unused.js', content: 'unchanged', isExecutable: false }
-                        ]
-                    })
-                })
+                buildResultWithPreviousArtifacts([
+                    artifact('package/index.js', 'old'),
+                    artifact('package/unused.js', 'unchanged')
+                ])
             ],
             collectContents() {
                 return [
-                    { filePath: 'package/index.js', content: 'new', isExecutable: false },
-                    { filePath: 'package/unused.js', content: 'unchanged', isExecutable: false }
+                    artifact('package/index.js', 'new'),
+                    artifact('package/unused.js', 'unchanged')
                 ];
             },
             bundleContents: {

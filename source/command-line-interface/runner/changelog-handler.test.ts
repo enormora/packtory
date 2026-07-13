@@ -7,6 +7,7 @@ import type {
     PrLogEngine,
     PrLogEngineOptions,
     PullRequest,
+    PullRequestChangedFile,
     PullRequestWithLabel
 } from '@pr-log/core';
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
@@ -103,6 +104,10 @@ type EngineOverrides = {
     readonly readPullRequestChangedFiles?: SinonSpy;
 };
 
+function changedFile(path: string): PullRequestChangedFile {
+    return { path, previousPath: undefined, status: 'modified', additions: 1, deletions: 0, changes: 1 };
+}
+
 function createEngine(overrides: EngineOverrides = {}): PrLogEngine {
     const pullRequests: readonly PullRequest[] = [ { id: 1, title: 'Fix package' } ];
     const labeledPullRequests: readonly PullRequestWithLabel[] = [ { id: 1, title: 'Fix package', label: 'bug' } ];
@@ -112,13 +117,16 @@ function createEngine(overrides: EngineOverrides = {}): PrLogEngine {
         resolveChangelogBaseRef: overrides.resolveChangelogBaseRef ?? fake.resolves({ ref: 'old-head' }),
         collectMergedPullRequests: fake.resolves(pullRequests),
         readPullRequestChangedFiles: overrides.readPullRequestChangedFiles ??
-            fake.resolves(new Map([ [ 1, [ 'source/pkg-a.ts' ] ] ])),
+            fake.resolves(new Map([ [ 1, [ changedFile('source/pkg-a.ts') ] ] ])),
         readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
         filterPullRequestsByTargetFiles: fake(function (input: PullRequestFilterInput) {
             return input.pullRequests;
         }),
         resolvePullRequestLabels: overrides.resolvePullRequestLabels ?? fake.resolves(labeledPullRequests),
         resolveVersionNumber: fake.returns('1.0.1'),
+        extractChangelogReleaseSection: fake(function (): never {
+            throw new Error('unexpected changelog section extraction');
+        }),
         renderGroupedTargetChangelog: fake.returns('## pkg-a 1.0.1\n'),
         renderTargetChangelog: fake(function (input: TargetChangelogInput) {
             return `## ${input.targetName} 1.0.1\n`;

@@ -86,6 +86,9 @@ function createPrLogEngineFactory(overrides: Overrides): CommandLineInterfaceRun
         filterPullRequestsByTargetFiles: fake.returns([]),
         resolvePullRequestLabels: fake.resolves([]),
         resolveVersionNumber: fake.returns('1.0.1'),
+        extractChangelogReleaseSection: fake(function (): never {
+            throw new Error('unexpected changelog section extraction');
+        }),
         renderChangelog: fake.returns(''),
         renderGroupedTargetChangelog: fake.returns(''),
         renderTargetChangelog: fake.returns(''),
