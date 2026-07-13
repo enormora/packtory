@@ -28,7 +28,7 @@
         "url": "git+https://github.com/enormora/packtory.git"
     },
     "dependencies": {
-        "@arethetypeswrong/core": "0.18.4",
+        "@arethetypeswrong/core": "0.18.5",
         "@cyclonedx/cyclonedx-library": "10.1.0",
         "@jridgewell/gen-mapping": "0.3.13",
         "@jridgewell/trace-mapping": "0.3.31",
