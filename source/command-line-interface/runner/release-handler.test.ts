@@ -7,7 +7,7 @@ import type { BuildAndPublishResult } from '../../packtory/package-processor.ts'
 import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage, ReleasePlanResult } from '../../packtory/packtory.ts';
 import { createBuildReportFixture } from '../../test-libraries/preview-fixtures.ts';
 import { createGitHubReleaseClientFixture } from '../../test-libraries/runner-test-support.ts';
-import { runReleaseHandler, type ReleaseHandlerDeps } from './release-handler.ts';
+import { runReleaseHandler, type ReleaseHandlerDependencies } from './release-handler.ts';
 
 const validConfig = {
     packages: [
@@ -141,14 +141,14 @@ function createEngine(): PrLogEngine {
 type DependencyOverrides = {
     readonly buildAndPublishAll?: SinonSpy;
     readonly createGitHubReleaseClient?: SinonSpy;
-    readonly flags?: ReleaseHandlerDeps['flags'];
+    readonly flags?: ReleaseHandlerDependencies['flags'];
     readonly log?: SinonSpy;
     readonly packages?: readonly ReleasePlanPackage[];
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
-    readonly readEnvironmentVariable?: ReleaseHandlerDeps['readEnvironmentVariable'];
-    readonly readPackageInfo?: ReleaseHandlerDeps['readPackageInfo'];
+    readonly readEnvironmentVariable?: ReleaseHandlerDependencies['readEnvironmentVariable'];
+    readonly readPackageInfo?: ReleaseHandlerDependencies['readPackageInfo'];
 };
-type CreatedReleaseHandlerDeps = ReleaseHandlerDeps & {
+type CreatedReleaseHandlerDependencies = ReleaseHandlerDependencies & {
     readonly buildAndPublishAll: SinonSpy;
     readonly createGitHubReleaseClient: SinonSpy;
     readonly log: SinonSpy;
@@ -187,7 +187,7 @@ function createDefaultPublish(): SinonSpy {
     });
 }
 
-function createDefaultFlags(): ReleaseHandlerDeps['flags'] {
+function createDefaultFlags(): ReleaseHandlerDependencies['flags'] {
     return {
         githubRelease: false,
         noDryRun: false,
@@ -220,7 +220,7 @@ function createCompleteDependencyOverrides(overrides: DependencyOverrides): Comp
     };
 }
 
-function createDependencies(overrides: DependencyOverrides = {}): CreatedReleaseHandlerDeps {
+function createDependencies(overrides: DependencyOverrides = {}): CreatedReleaseHandlerDependencies {
     const completeOverrides = createCompleteDependencyOverrides(overrides);
     return {
         buildAndPublishAll: completeOverrides.buildAndPublishAll,
@@ -246,10 +246,10 @@ function createDependencies(overrides: DependencyOverrides = {}): CreatedRelease
     };
 }
 
-async function assertNoReleaseWork(deps: CreatedReleaseHandlerDeps): Promise<void> {
-    assert.strictEqual(await runReleaseHandler(deps), 0);
-    assert.strictEqual(deps.log.firstCall.args[0], 'No packages need release.');
-    assert.strictEqual(deps.buildAndPublishAll.callCount, 0);
+async function assertNoReleaseWork(dependencies: CreatedReleaseHandlerDependencies): Promise<void> {
+    assert.strictEqual(await runReleaseHandler(dependencies), 0);
+    assert.strictEqual(dependencies.log.firstCall.args[0], 'No packages need release.');
+    assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
 }
 
 function assertAnnotatedTagCreated(ensureAnnotatedTag: SinonSpy): void {
@@ -261,77 +261,80 @@ function assertAnnotatedTagCreated(ensureAnnotatedTag: SinonSpy): void {
 suite('release-handler', function () {
     suite('plan and flag validation', function () {
         test('prints the release plan when no release action is requested', async function () {
-            const deps = createDependencies();
+            const dependencies = createDependencies();
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.strictEqual(deps.log.firstCall.args[0], 'Release plan:\n- pkg-a: 1.0.0 -> 1.0.1 (changed)');
-            assert.strictEqual(deps.buildAndPublishAll.callCount, 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.strictEqual(dependencies.log.firstCall.args[0], 'Release plan:\n- pkg-a: 1.0.0 -> 1.0.1 (changed)');
+            assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
         });
 
         test('prints unpublished packages in the release plan', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 packages: [ releasePackage({ previousVersion: undefined }) ]
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.strictEqual(deps.log.firstCall.args[0], 'Release plan:\n- pkg-a: unpublished -> 1.0.1 (changed)');
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.strictEqual(
+                dependencies.log.firstCall.args[0],
+                'Release plan:\n- pkg-a: unpublished -> 1.0.1 (changed)'
+            );
         });
 
         test('prints no release work when the plan has no changed packages', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 packages: [ releasePackage({ artifactState: 'unchanged', changed: false }) ]
             });
 
-            await assertNoReleaseWork(deps);
+            await assertNoReleaseWork(dependencies);
         });
 
         test('requires no-dry-run for release writes', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: true, tag: false, push: false, githubRelease: false, noDryRun: false }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
-            assert.strictEqual(deps.log.firstCall.args[0], 'Release writes require --no-dry-run');
-            assert.strictEqual(deps.buildAndPublishAll.callCount, 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.strictEqual(dependencies.log.firstCall.args[0], 'Release writes require --no-dry-run');
+            assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
         });
 
         test('requires tag before push', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: false, tag: false, push: true, githubRelease: false, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
-            assert.strictEqual(deps.log.firstCall.args[0], '--push requires --tag');
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.strictEqual(dependencies.log.firstCall.args[0], '--push requires --tag');
         });
 
         test('requires tag push before GitHub release creation', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: false, tag: true, push: false, githubRelease: true, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
-            assert.strictEqual(deps.log.firstCall.args[0], '--github-release requires --tag --push');
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.strictEqual(dependencies.log.firstCall.args[0], '--github-release requires --tag --push');
         });
 
         test('prints multiple flag issues on separate lines', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: false, tag: false, push: true, githubRelease: true, noDryRun: false }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
             assert.strictEqual(
-                deps.log.firstCall.args[0],
+                dependencies.log.firstCall.args[0],
                 '--push requires --tag\n--github-release requires --tag --push\nRelease writes require --no-dry-run'
             );
         });
 
         test('returns failure when release planning fails', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 planReleaseAgainstLatestPublished: failedReleasePlan()
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
-            assert.match(String(deps.log.lastCall.args[0]), /invalid release plan/u);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.match(String(dependencies.log.lastCall.args[0]), /invalid release plan/u);
         });
     });
 
@@ -342,13 +345,13 @@ suite('release-handler', function () {
             const createGitHubReleaseClient = fake.returns(
                 createGitHubReleaseClientFixture({ createReleaseIfMissing, ensureAnnotatedTag })
             );
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 createGitHubReleaseClient,
                 flags: { publish: true, tag: true, push: true, githubRelease: true, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.deepStrictEqual(deps.buildAndPublishAll.firstCall.args, [
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.deepStrictEqual(dependencies.buildAndPublishAll.firstCall.args, [
                 validConfig,
                 { dryRun: false, stage: false, collectReport: false }
             ]);
@@ -361,66 +364,66 @@ suite('release-handler', function () {
             assert.deepStrictEqual(createReleaseIfMissing.firstCall.args, [
                 { tagName: 'pkg-a@1.0.1', name: 'pkg-a@1.0.1', body: '## pkg-a 1.0.1\n\n* Fix package' }
             ]);
-            assert.strictEqual(deps.log.lastCall.args[0], 'Release completed.');
+            assert.strictEqual(dependencies.log.lastCall.args[0], 'Release completed.');
         });
 
         test('publishes without creating GitHub tags when only publish is requested', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: true, tag: false, push: false, githubRelease: false, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
             assert.deepStrictEqual([
-                deps.buildAndPublishAll.callCount,
-                deps.createGitHubReleaseClient.callCount
+                dependencies.buildAndPublishAll.callCount,
+                dependencies.createGitHubReleaseClient.callCount
             ], [ 1, 0 ]);
-            assert.strictEqual(deps.log.lastCall.args[0], 'Release completed.');
+            assert.strictEqual(dependencies.log.lastCall.args[0], 'Release completed.');
         });
 
         test('does not release current-head packages when only publish is requested', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: true, tag: false, push: false, githubRelease: false, noDryRun: true },
                 packages: [ currentHeadPublishedPackage() ]
             });
 
-            await assertNoReleaseWork(deps);
+            await assertNoReleaseWork(dependencies);
         });
 
         test('reports publish failures', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 buildAndPublishAll: failedPublish(),
                 flags: { publish: true, tag: false, push: false, githubRelease: false, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
-            assert.match(String(deps.log.lastCall.args[0]), /publish failed/u);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.match(String(dependencies.log.lastCall.args[0]), /publish failed/u);
         });
 
         test('does not print staged receipts for release publish partial failures', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 buildAndPublishAll: failedPartialPublish(),
                 flags: { publish: true, tag: false, push: false, githubRelease: false, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
-            assert.doesNotMatch(String(deps.log.lastCall.args[0]), /Staged packages/u);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.doesNotMatch(String(dependencies.log.lastCall.args[0]), /Staged packages/u);
         });
 
         test('creates retry tags after publish is requested for current-head packages', async function () {
             const ensureAnnotatedTag = fake.resolves('existing');
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 createGitHubReleaseClient: fake.returns(createGitHubReleaseClientFixture({ ensureAnnotatedTag })),
                 flags: { publish: true, tag: true, push: true, githubRelease: false, noDryRun: true },
                 packages: [ currentHeadPublishedPackage() ]
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.strictEqual(deps.buildAndPublishAll.callCount, 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
             assertAnnotatedTagCreated(ensureAnnotatedTag);
         });
 
         test('does not create GitHub tags for publish results outside the release plan', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 buildAndPublishAll: fake.resolves({
                     result: Result.ok([ publishResult('other-pkg', '1.0.1') ]),
                     getReport() {
@@ -430,40 +433,40 @@ suite('release-handler', function () {
                 flags: { publish: true, tag: true, push: true, githubRelease: false, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.strictEqual(deps.createGitHubReleaseClient.callCount, 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.strictEqual(dependencies.createGitHubReleaseClient.callCount, 0);
         });
     });
 
     suite('GitHub release publishing', function () {
         test('rejects tagging changed packages without publishing them first', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
             assert.strictEqual(
-                deps.log.lastCall.args[0],
+                dependencies.log.lastCall.args[0],
                 '--tag requires --publish unless registry latest already matches the current Git head'
             );
-            assert.strictEqual(deps.buildAndPublishAll.callCount, 0);
+            assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
         });
 
         test('tags current-head registry packages without publishing during retries', async function () {
             const ensureAnnotatedTag = fake.resolves('existing');
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 createGitHubReleaseClient: fake.returns(createGitHubReleaseClientFixture({ ensureAnnotatedTag })),
                 flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
                 packages: [ currentHeadPublishedPackage({ artifactState: 'changed' }) ]
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.strictEqual(deps.buildAndPublishAll.callCount, 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
             assertAnnotatedTagCreated(ensureAnnotatedTag);
         });
 
         test('does not tag retry packages when registry metadata points at another commit', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
                 packages: [
                     currentHeadPublishedPackage({
@@ -472,13 +475,13 @@ suite('release-handler', function () {
                 ]
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.strictEqual(deps.log.firstCall.args[0], 'No packages need release.');
-            assert.strictEqual(deps.createGitHubReleaseClient.callCount, 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.strictEqual(dependencies.log.firstCall.args[0], 'No packages need release.');
+            assert.strictEqual(dependencies.createGitHubReleaseClient.callCount, 0);
         });
 
         test('does not tag retry packages without registry metadata or a current head', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
                 packages: [
                     currentHeadPublishedPackage({
@@ -488,38 +491,38 @@ suite('release-handler', function () {
                 ]
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
-            assert.strictEqual(deps.log.firstCall.args[0], 'No packages need release.');
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
+            assert.strictEqual(dependencies.log.firstCall.args[0], 'No packages need release.');
         });
 
         test('rejects GitHub tagging when the release plan has no current head', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: true, tag: true, push: true, githubRelease: false, noDryRun: true },
                 packages: [ releasePackage({ currentGitHead: undefined }) ]
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
             assert.strictEqual(
-                deps.log.lastCall.args[0],
+                dependencies.log.lastCall.args[0],
                 'GitHub tag target for "pkg-a@1.0.1" could not be determined'
             );
         });
 
         test('requires a GitHub token when tags are created through the GitHub API', async function () {
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 flags: { publish: true, tag: true, push: true, githubRelease: false, noDryRun: true },
                 readEnvironmentVariable() {
                     return undefined;
                 }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 1);
-            assert.match(String(deps.log.lastCall.args[0]), /GH_TOKEN or GITHUB_TOKEN/u);
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.match(String(dependencies.log.lastCall.args[0]), /GH_TOKEN or GITHUB_TOKEN/u);
         });
 
         test('uses GITHUB_TOKEN when GH_TOKEN is unset', async function () {
             const createGitHubReleaseClient = fake.returns(createGitHubReleaseClientFixture({}));
-            const deps = createDependencies({
+            const dependencies = createDependencies({
                 createGitHubReleaseClient,
                 flags: { publish: true, tag: true, push: true, githubRelease: false, noDryRun: true },
                 readEnvironmentVariable(name) {
@@ -527,7 +530,7 @@ suite('release-handler', function () {
                 }
             });
 
-            assert.strictEqual(await runReleaseHandler(deps), 0);
+            assert.strictEqual(await runReleaseHandler(dependencies), 0);
             assert.deepStrictEqual(createGitHubReleaseClient.firstCall.args, [
                 { owner: 'owner', repo: 'repo', token: 'github-token' }
             ]);

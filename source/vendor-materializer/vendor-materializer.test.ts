@@ -310,7 +310,7 @@ function registerMaterializationTests(): void {
         ]);
     });
 
-    test('deduplicates packages so the same name is materialized at most once even when referenced from multiple deps', async function () {
+    test('deduplicates packages so the same name is materialized at most once even when referenced from multiple dependencies', async function () {
         const truthyReadability = { value: { isReadable: true } } as const;
         const result = await runWith(
             {

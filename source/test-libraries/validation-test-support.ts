@@ -19,12 +19,12 @@ export function withRegistry(extra: ConfigInput): ConfigInput {
 
 export type CycleDependencyKind = 'bundleDependencies' | 'bundlePeerDependencies';
 
-export function packageWithDeps(
+export function packageWithDependencies(
     name: string,
     kind: CycleDependencyKind,
-    deps: readonly string[]
+    dependencies: readonly string[]
 ): ConfigInput {
-    return { ...minimalPackageConfigFactory.build({ name }), [kind]: deps };
+    return { ...minimalPackageConfigFactory.build({ name }), [kind]: dependencies };
 }
 
 export function expectCyclicError(packages: readonly ConfigInput[], expectedPath: string): void {
@@ -37,7 +37,7 @@ export function fooPackage(name = 'foo'): ConfigInput {
 }
 
 export const duplicateCAndMissingBPackages: readonly ConfigInput[] = [
-    packageWithDeps('a', 'bundlePeerDependencies', [ 'b' ]),
+    packageWithDependencies('a', 'bundlePeerDependencies', [ 'b' ]),
     fooPackage('c'),
     fooPackage('c')
 ];

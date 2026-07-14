@@ -24,7 +24,7 @@ export type PlannedRelease = {
     readonly config: unknown;
     readonly packages: readonly ReleasePlanPackage[];
 };
-export type ReleasePreparationDeps = {
+export type ReleasePreparationDependencies = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
     readonly currentDate: () => Date;
     readonly fileManager: {
@@ -39,34 +39,38 @@ export type ReleasePreparationDeps = {
     readonly workingDirectory: string;
 };
 
-function readGitHubToken(deps: Pick<ReleasePreparationDeps, 'readEnvironmentVariable'>): string | undefined {
-    return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
+function readGitHubToken(
+    dependencies: Pick<ReleasePreparationDependencies, 'readEnvironmentVariable'>
+): string | undefined {
+    return dependencies.readEnvironmentVariable('GH_TOKEN') ?? dependencies.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(deps: ReleasePreparationDeps, config: PrLogConfig): PrLogEngine {
-    return deps.createPrLogEngine({
-        githubToken: readGitHubToken(deps),
-        workingDirectory: deps.workingDirectory,
+function createEngine(dependencies: ReleasePreparationDependencies, config: PrLogConfig): PrLogEngine {
+    return dependencies.createPrLogEngine({
+        githubToken: readGitHubToken(dependencies),
+        workingDirectory: dependencies.workingDirectory,
         config
     });
 }
 
 async function planRelease(
-    deps: ReleasePreparationDeps,
+    dependencies: ReleasePreparationDependencies,
     config: unknown
 ): Promise<readonly ReleasePlanPackage[] | undefined> {
-    const outcome = await deps.packtory.planReleaseAgainstLatestPublished(config);
-    deps.spinnerRenderer.stopAll();
+    const outcome = await dependencies.packtory.planReleaseAgainstLatestPublished(config);
+    dependencies.spinnerRenderer.stopAll();
     if (outcome.result.isErr) {
-        printReleasePlanFailure(deps.log, outcome.result.error);
+        printReleasePlanFailure(dependencies.log, outcome.result.error);
         return undefined;
     }
     return outcome.result.value.packages;
 }
 
-export async function loadPlannedRelease(deps: ReleasePreparationDeps): Promise<PlannedRelease | undefined> {
-    const config = await deps.configLoader.load();
-    const packages = await planRelease(deps, config);
+export async function loadPlannedRelease(
+    dependencies: ReleasePreparationDependencies
+): Promise<PlannedRelease | undefined> {
+    const config = await dependencies.configLoader.load();
+    const packages = await planRelease(dependencies, config);
     if (packages === undefined) {
         return undefined;
     }
@@ -82,20 +86,20 @@ function parseRequiredChangelogConfig(config: unknown): ValidChangelogConfig {
 }
 
 async function generateReleaseChangelog(
-    deps: ReleasePreparationDeps,
+    dependencies: ReleasePreparationDependencies,
     config: ValidChangelogConfig,
     packages: readonly ReleasePlanPackage[]
 ): Promise<ReleaseChangelog> {
-    const packageInfo = await deps.readPackageInfo();
+    const packageInfo = await dependencies.readPackageInfo();
     const generationOptions = createChangelogGenerationOptions(config);
-    const engine = createEngine(deps, generationOptions.prLogConfig);
+    const engine = createEngine(dependencies, generationOptions.prLogConfig);
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine: engine,
         explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
-        ignoredAttributionPaths: collectGeneratedAttributionPaths(deps, config),
-        currentDate: deps.currentDate(),
+        ignoredAttributionPaths: collectGeneratedAttributionPaths(dependencies, config),
+        currentDate: dependencies.currentDate(),
         packageTagFormat: generationOptions.packageTagFormat,
         prLogConfig: generationOptions.prLogConfig,
         targetScopedLabelPattern: generationOptions.targetScopedLabelPattern
@@ -104,11 +108,11 @@ async function generateReleaseChangelog(
 }
 
 export async function generateRequiredChangelog(
-    deps: ReleasePreparationDeps,
+    dependencies: ReleasePreparationDependencies,
     config: unknown,
     packages: readonly ReleasePlanPackage[]
 ): Promise<ReleaseChangelog> {
-    return generateReleaseChangelog(deps, parseRequiredChangelogConfig(config), packages);
+    return generateReleaseChangelog(dependencies, parseRequiredChangelogConfig(config), packages);
 }
 
 function formatEmptyChangelogMessage(changelog: GeneratedChangelog): string {
@@ -141,7 +145,7 @@ function reportUnwrittenChangelogs(
 }
 
 export async function prepareReleaseChangelogs(
-    deps: ReleasePreparationDeps,
+    dependencies: ReleasePreparationDependencies,
     planned: PlannedRelease,
     requireWrittenChangelog: boolean
 ): Promise<{
@@ -150,9 +154,9 @@ export async function prepareReleaseChangelogs(
     readonly writtenPaths: readonly string[];
 }> {
     const validConfig = parseRequiredChangelogConfig(planned.config);
-    const changelog = await generateReleaseChangelog(deps, validConfig, planned.packages);
+    const changelog = await generateReleaseChangelog(dependencies, validConfig, planned.packages);
     const writtenFiles = await buildConfiguredChangelogFiles(
-        deps,
+        dependencies,
         changelog.config,
         changelog.engine,
         changelog.changelog
@@ -160,6 +164,6 @@ export async function prepareReleaseChangelogs(
     const writtenPaths = writtenFiles.map(function (file) {
         return file.filePath;
     });
-    reportUnwrittenChangelogs(deps.log, changelog.changelog, writtenPaths, requireWrittenChangelog);
+    reportUnwrittenChangelogs(dependencies.log, changelog.changelog, writtenPaths, requireWrittenChangelog);
     return { changelog, writtenFiles, writtenPaths };
 }

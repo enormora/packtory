@@ -67,11 +67,11 @@ function readCreatedTagSha(response: unknown): string {
     throw new Error('GitHub tag object response did not include a sha');
 }
 
-export function createGitHubReleaseClient(deps: GitHubReleaseClientDependencies): GitHubReleaseClient {
-    const requestHeaders = createGitHubJsonRequestHeaders(deps.token, 'packtory');
+export function createGitHubReleaseClient(dependencies: GitHubReleaseClientDependencies): GitHubReleaseClient {
+    const requestHeaders = createGitHubJsonRequestHeaders(dependencies.token, 'packtory');
     const octokit = new Octokit({
         request: {
-            fetch: deps.fetch
+            fetch: dependencies.fetch
         }
     });
 
@@ -82,8 +82,8 @@ export function createGitHubReleaseClient(deps: GitHubReleaseClientDependencies)
         const response = await resolveGitHubResponse(
             octokit.request('GET /repos/{owner}/{repo}/git/tags/{tag_sha}', {
                 headers: requestHeaders,
-                owner: deps.owner,
-                repo: deps.repo,
+                owner: dependencies.owner,
+                repo: dependencies.repo,
                 tag_sha: ref.object.sha
             })
         ) as { readonly data: RawGitTag; };
@@ -94,8 +94,8 @@ export function createGitHubReleaseClient(deps: GitHubReleaseClientDependencies)
         const response = await resolveOptionalGitHubResponse(
             octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', {
                 headers: requestHeaders,
-                owner: deps.owner,
-                repo: deps.repo,
+                owner: dependencies.owner,
+                repo: dependencies.repo,
                 ref: `tags/${tagName}`
             }),
             missingGitHubResourceStatusCode
@@ -108,8 +108,8 @@ export function createGitHubReleaseClient(deps: GitHubReleaseClientDependencies)
             const existing = await resolveOptionalGitHubResponse(
                 octokit.request('GET /repos/{owner}/{repo}/releases/tags/{tag}', {
                     headers: requestHeaders,
-                    owner: deps.owner,
-                    repo: deps.repo,
+                    owner: dependencies.owner,
+                    repo: dependencies.repo,
                     tag: request.tagName
                 }),
                 missingGitHubResourceStatusCode
@@ -120,8 +120,8 @@ export function createGitHubReleaseClient(deps: GitHubReleaseClientDependencies)
             const created = await resolveOptionalGitHubResponse(
                 octokit.request('POST /repos/{owner}/{repo}/releases', {
                     headers: requestHeaders,
-                    owner: deps.owner,
-                    repo: deps.repo,
+                    owner: dependencies.owner,
+                    repo: dependencies.repo,
                     tag_name: request.tagName,
                     name: request.name,
                     body: request.body
@@ -143,8 +143,8 @@ export function createGitHubReleaseClient(deps: GitHubReleaseClientDependencies)
             const tag = await resolveGitHubResponse(
                 octokit.request('POST /repos/{owner}/{repo}/git/tags', {
                     headers: requestHeaders,
-                    owner: deps.owner,
-                    repo: deps.repo,
+                    owner: dependencies.owner,
+                    repo: dependencies.repo,
                     tag: request.tagName,
                     message: request.message,
                     object: request.targetHead,
@@ -154,8 +154,8 @@ export function createGitHubReleaseClient(deps: GitHubReleaseClientDependencies)
             await resolveGitHubResponse(
                 octokit.request('POST /repos/{owner}/{repo}/git/refs', {
                     headers: requestHeaders,
-                    owner: deps.owner,
-                    repo: deps.repo,
+                    owner: dependencies.owner,
+                    repo: dependencies.repo,
                     ref: `refs/tags/${request.tagName}`,
                     sha: readCreatedTagSha(tag)
                 })

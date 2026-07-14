@@ -5,13 +5,13 @@ import { fake, type SinonSpy } from 'sinon';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
-import { runPackHandler, type PackHandlerDeps } from './pack-handler.ts';
+import { runPackHandler, type PackHandlerDependencies } from './pack-handler.ts';
 
-type PackFlags = PackHandlerDeps['flags'];
+type PackFlags = PackHandlerDependencies['flags'];
 
 type PackOutcome = Awaited<ReturnType<Packtory['packPackage']>>;
 type PackHandlerFixture = {
-    readonly deps: PackHandlerDeps;
+    readonly dependencies: PackHandlerDependencies;
     readonly logSpy: SinonSpy;
     readonly stopAllSpy: SinonSpy;
     readonly packPackageSpy: SinonSpy;
@@ -54,7 +54,7 @@ function setup(
     const packPackageSpy = fake();
     const flags = defaultFlags(overrides);
     return {
-        deps: {
+        dependencies: {
             log(message) {
                 logSpy(stripVTControlCharacters(message));
             },
@@ -71,11 +71,11 @@ function setup(
 
 suite('pack-handler', function () {
     test('returns 0 and logs a success line when the pack outcome is Ok', async function () {
-        const { deps, logSpy } = setup(
+        const { dependencies, logSpy } = setup(
             makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result'])
         );
 
-        const code = await runPackHandler(deps);
+        const code = await runPackHandler(dependencies);
 
         assert.strictEqual(code, 0);
         assert.strictEqual(logSpy.callCount, 1);
@@ -83,12 +83,12 @@ suite('pack-handler', function () {
     });
 
     test('forwards the flag values into packtory.packPackage', async function () {
-        const { deps, packPackageSpy } = setup(
+        const { dependencies, packPackageSpy } = setup(
             makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result']),
             { packageName: 'pkg-b', format: 'tar', outputPath: '/out/pkg-b.tgz', version: '1.2.3' }
         );
 
-        await runPackHandler(deps);
+        await runPackHandler(dependencies);
 
         assert.strictEqual(packPackageSpy.callCount, 1);
         const args = packPackageSpy.firstCall.args as readonly unknown[];
@@ -103,11 +103,11 @@ suite('pack-handler', function () {
     });
 
     async function expectFailure(error: unknown, patterns: readonly RegExp[]): Promise<void> {
-        const { deps, logSpy } = setup(
+        const { dependencies, logSpy } = setup(
             makeOutcome({ isOk: false, isErr: true, error } as unknown as PackOutcome['result'])
         );
 
-        const code = await runPackHandler(deps);
+        const code = await runPackHandler(dependencies);
 
         assert.strictEqual(code, 1);
         const message = logSpy.firstCall.args[0] as string;
@@ -215,11 +215,11 @@ suite('pack-handler', function () {
     });
 
     test('stops spinners both immediately after the call and again in the finally block', async function () {
-        const { deps, stopAllSpy } = setup(
+        const { dependencies, stopAllSpy } = setup(
             makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result'])
         );
 
-        await runPackHandler(deps);
+        await runPackHandler(dependencies);
 
         assert.strictEqual(stopAllSpy.callCount, 2);
     });

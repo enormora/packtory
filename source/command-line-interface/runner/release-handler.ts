@@ -7,7 +7,7 @@ import {
     generateRequiredChangelog,
     loadPlannedRelease,
     type PlannedRelease,
-    type ReleasePreparationDeps
+    type ReleasePreparationDependencies
 } from './release-preparation.ts';
 
 type Logger = (message: string) => void;
@@ -39,9 +39,9 @@ type ReleaseFlags = {
     readonly tag: boolean;
 };
 
-export type ReleaseHandlerDeps = ReleasePreparationDeps & {
+export type ReleaseHandlerDependencies = ReleasePreparationDependencies & {
     readonly createGitHubReleaseClient: (context: GitHubReleaseClientContext) => GitHubReleaseClient;
-    readonly fileManager: ReleasePreparationDeps['fileManager'];
+    readonly fileManager: ReleasePreparationDependencies['fileManager'];
     readonly flags: ReleaseFlags;
     readonly packtory: Packtory;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
@@ -167,12 +167,14 @@ function printReleasePlan(log: Logger, packages: readonly ReleasePlanPackage[]):
     log([ 'Release plan:', ...changedPackages.map(formatPlanPackage) ].join('\n'));
 }
 
-function readGitHubToken(deps: Pick<ReleaseHandlerDeps, 'readEnvironmentVariable'>): string | undefined {
-    return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
+function readGitHubToken(
+    dependencies: Pick<ReleaseHandlerDependencies, 'readEnvironmentVariable'>
+): string | undefined {
+    return dependencies.readEnvironmentVariable('GH_TOKEN') ?? dependencies.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
 async function publishTargets(
-    deps: ReleaseHandlerDeps,
+    dependencies: ReleaseHandlerDependencies,
     planned: PlannedRelease,
     changedTargets: readonly ReleaseTarget[]
 ): Promise<readonly PublishedReleaseTarget[] | undefined> {
@@ -180,14 +182,14 @@ async function publishTargets(
         return [];
     }
     const changedTargetsByName = mapTargetsByName(changedTargets);
-    const outcome = await deps.packtory.buildAndPublishAll(planned.config, {
+    const outcome = await dependencies.packtory.buildAndPublishAll(planned.config, {
         dryRun: false,
         stage: false,
         collectReport: false
     });
-    deps.spinnerRenderer.stopAll();
+    dependencies.spinnerRenderer.stopAll();
     if (outcome.result.isErr) {
-        printPublishFailure(deps.log, outcome.result.error, false);
+        printPublishFailure(dependencies.log, outcome.result.error, false);
         return undefined;
     }
     return outcome.result.value.flatMap(function (result) {
@@ -206,12 +208,15 @@ async function publishTargets(
     });
 }
 
-async function createGitHubClientAsync(deps: ReleaseHandlerDeps): Promise<GitHubReleaseClient> {
-    const token = readGitHubToken(deps);
+async function createGitHubClientAsync(dependencies: ReleaseHandlerDependencies): Promise<GitHubReleaseClient> {
+    const token = readGitHubToken(dependencies);
     if (token === undefined) {
         throw new Error('GH_TOKEN or GITHUB_TOKEN must be set to create release tags or GitHub releases');
     }
-    return deps.createGitHubReleaseClient({ ...parseGitHubRepositoryParts(await deps.readPackageInfo()), token });
+    return dependencies.createGitHubReleaseClient({
+        ...parseGitHubRepositoryParts(await dependencies.readPackageInfo()),
+        token
+    });
 }
 
 async function ensureTags(client: GitHubReleaseClient, targets: readonly PublishedReleaseTarget[]): Promise<void> {
@@ -225,14 +230,14 @@ async function ensureTags(client: GitHubReleaseClient, targets: readonly Publish
 }
 
 async function createGitHubReleases(
-    deps: ReleaseHandlerDeps,
+    dependencies: ReleaseHandlerDependencies,
     client: GitHubReleaseClient,
     planned: PlannedRelease,
     targets: readonly PublishedReleaseTarget[]
 ): Promise<void> {
-    const changelog = await generateRequiredChangelog(deps, planned.config, planned.packages);
+    const changelog = await generateRequiredChangelog(dependencies, planned.config, planned.packages);
     const releaseNotesByPackageName = await collectGitHubReleaseNotes(
-        deps,
+        dependencies,
         changelog.config,
         targets,
         changelog.changelog
@@ -246,32 +251,32 @@ async function createGitHubReleases(
     }
 }
 
-function reportFlagIssues(deps: ReleaseHandlerDeps): number | undefined {
-    const issues = collectFlagIssues(deps.flags);
+function reportFlagIssues(dependencies: ReleaseHandlerDependencies): number | undefined {
+    const issues = collectFlagIssues(dependencies.flags);
     if (issues.length > 0) {
-        deps.log(issues.join('\n'));
+        dependencies.log(issues.join('\n'));
         return 1;
     }
     return undefined;
 }
 
 function resolvePlannedReleaseExitCode(
-    deps: ReleaseHandlerDeps,
+    dependencies: ReleaseHandlerDependencies,
     packages: readonly ReleasePlanPackage[]
 ): number | undefined {
-    if (!hasAction(deps.flags)) {
-        printReleasePlan(deps.log, packages);
+    if (!hasAction(dependencies.flags)) {
+        printReleasePlan(dependencies.log, packages);
         return 0;
     }
-    if (!hasReleaseWork(deps.flags, packages)) {
-        deps.log('No packages need release.');
+    if (!hasReleaseWork(dependencies.flags, packages)) {
+        dependencies.log('No packages need release.');
         return 0;
     }
     return undefined;
 }
 
 async function finishReleaseActions(
-    deps: ReleaseHandlerDeps,
+    dependencies: ReleaseHandlerDependencies,
     planned: PlannedRelease,
     publishedTargets: readonly PublishedReleaseTarget[]
 ): Promise<void> {
@@ -279,50 +284,50 @@ async function finishReleaseActions(
     if (releaseTargets.length === 0) {
         return;
     }
-    if (!deps.flags.tag && !deps.flags.githubRelease) {
+    if (!dependencies.flags.tag && !dependencies.flags.githubRelease) {
         return;
     }
-    const client = await createGitHubClientAsync(deps);
+    const client = await createGitHubClientAsync(dependencies);
     await ensureTags(client, releaseTargets);
-    if (deps.flags.githubRelease) {
-        await createGitHubReleases(deps, client, planned, releaseTargets);
+    if (dependencies.flags.githubRelease) {
+        await createGitHubReleases(dependencies, client, planned, releaseTargets);
     }
 }
 
-async function runMutatingRelease(deps: ReleaseHandlerDeps, planned: PlannedRelease): Promise<number> {
+async function runMutatingRelease(dependencies: ReleaseHandlerDependencies, planned: PlannedRelease): Promise<number> {
     const changedTargets = selectChangedTargets(planned.packages);
-    assertTagRule(deps.flags, changedTargets);
-    const publishedTargets = await publishTargets(deps, planned, changedTargets);
+    assertTagRule(dependencies.flags, changedTargets);
+    const publishedTargets = await publishTargets(dependencies, planned, changedTargets);
     if (publishedTargets === undefined) {
         return 1;
     }
-    await finishReleaseActions(deps, planned, publishedTargets);
-    deps.log(releaseCompletedMessage);
+    await finishReleaseActions(dependencies, planned, publishedTargets);
+    dependencies.log(releaseCompletedMessage);
     return 0;
 }
 
-async function runRelease(deps: ReleaseHandlerDeps): Promise<number> {
-    const flagExitCode = reportFlagIssues(deps);
+async function runRelease(dependencies: ReleaseHandlerDependencies): Promise<number> {
+    const flagExitCode = reportFlagIssues(dependencies);
     if (flagExitCode !== undefined) {
         return flagExitCode;
     }
-    const planned = await loadPlannedRelease(deps);
+    const planned = await loadPlannedRelease(dependencies);
     if (planned === undefined) {
         return 1;
     }
-    return resolvePlannedReleaseExitCode(deps, planned.packages) ?? runMutatingRelease(deps, planned);
+    return resolvePlannedReleaseExitCode(dependencies, planned.packages) ?? runMutatingRelease(dependencies, planned);
 }
 
-function stopSpinnersAndReturn(deps: ReleaseHandlerDeps, exitCode: number): number {
-    deps.spinnerRenderer.stopAll();
+function stopSpinnersAndReturn(dependencies: ReleaseHandlerDependencies, exitCode: number): number {
+    dependencies.spinnerRenderer.stopAll();
     return exitCode;
 }
 
-export async function runReleaseHandler(deps: ReleaseHandlerDeps): Promise<number> {
+export async function runReleaseHandler(dependencies: ReleaseHandlerDependencies): Promise<number> {
     try {
-        return stopSpinnersAndReturn(deps, await runRelease(deps));
+        return stopSpinnersAndReturn(dependencies, await runRelease(dependencies));
     } catch (error: unknown) {
-        deps.log(formatReleaseHandlerError(error));
-        return stopSpinnersAndReturn(deps, 1);
+        dependencies.log(formatReleaseHandlerError(error));
+        return stopSpinnersAndReturn(dependencies, 1);
     }
 }

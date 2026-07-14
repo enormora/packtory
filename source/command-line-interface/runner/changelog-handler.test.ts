@@ -14,7 +14,7 @@ import type { Packtory, ReleasePlanOutcome, ReleasePlanPackage, ReleasePlanResul
 import { createFakeFileManager, type FakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import type { ConfigLoader } from '../config-loader.ts';
-import { runChangelogHandler, type ChangelogHandlerDeps } from './changelog-handler.ts';
+import { runChangelogHandler, type ChangelogHandlerDependencies } from './changelog-handler.ts';
 
 function releasePackage(overrides: Partial<ReleasePlanPackage> = {}): ReleasePlanPackage {
     return {
@@ -154,7 +154,7 @@ function configLoaderReturning(config: unknown): ConfigLoader {
     return { load: fake.resolves(config) };
 }
 
-type ChangelogHandlerDepsSpec = {
+type ChangelogHandlerDependenciesSpec = {
     readonly spies: Spies;
     readonly configLoader?: ConfigLoader;
     readonly fileManager?: FakeFileManager;
@@ -162,7 +162,7 @@ type ChangelogHandlerDepsSpec = {
     readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
 };
 
-function depsWith(spec: ChangelogHandlerDepsSpec): ChangelogHandlerDeps {
+function dependenciesWith(spec: ChangelogHandlerDependenciesSpec): ChangelogHandlerDependencies {
     return {
         log(message) {
             spec.spies.log(message);
@@ -222,7 +222,7 @@ type ReleasePlanFailureLogSpec = {
 async function assertReleasePlanFailureLogged(spec: ReleasePlanFailureLogSpec): Promise<void> {
     const spies = makeSpies(createEngine(), spec.releasePlanOutcome);
 
-    const code = await runChangelogHandler(depsWith({ spies }));
+    const code = await runChangelogHandler(dependenciesWith({ spies }));
 
     assert.strictEqual(code, 1);
     assert.deepStrictEqual(
@@ -253,7 +253,7 @@ suite('changelog-handler', function () {
         test('loads config, plans the release, and renders changelog markdown through the pager', async function () {
             const spies = makeSpies();
 
-            const code = await runChangelogHandler(depsWith({ spies }));
+            const code = await runChangelogHandler(dependenciesWith({ spies }));
 
             assert.strictEqual(code, 0);
             assert.deepStrictEqual(
@@ -290,7 +290,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     configLoader: configLoaderReturning({ packages: [] })
                 })
@@ -310,7 +310,7 @@ suite('changelog-handler', function () {
             });
             const spies = makeSpies(createEngine(), releasePlanOutcome);
 
-            const code = await runChangelogHandler(depsWith({ spies }));
+            const code = await runChangelogHandler(dependenciesWith({ spies }));
 
             assert.strictEqual(code, 1);
             assert.deepStrictEqual(
@@ -333,7 +333,7 @@ suite('changelog-handler', function () {
             };
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     readEnvironmentVariable(name) {
                         return name === 'GITHUB_TOKEN' ? 'github-token' : undefined;
@@ -356,7 +356,7 @@ suite('changelog-handler', function () {
             };
             const spies = makeSpies(engine);
 
-            const code = await runChangelogHandler(depsWith({ spies }));
+            const code = await runChangelogHandler(dependenciesWith({ spies }));
 
             assert.strictEqual(code, 0);
             assert.strictEqual(collectMergedPullRequests.callCount, 1);
@@ -369,7 +369,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies(engine);
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     configLoader: configLoaderReturning({
                         ...validConfig,
@@ -393,7 +393,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     async readPackageInfo() {
                         return { repository: { url: 'https://example.com/owner/repo' } };
@@ -415,7 +415,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     async readPackageInfo() {
                         return {};
@@ -431,7 +431,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     async readPackageInfo() {
                         return { repository: { url: 'https://github.com/owner' } };
@@ -447,7 +447,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     async readPackageInfo() {
                         return { repository: { url: 'https://example.com/https://github.com/owner/repo' } };
@@ -463,7 +463,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     async readPackageInfo() {
                         return { repository: { url: 'https://github.com/owner/repo/extra' } };
@@ -484,7 +484,7 @@ suite('changelog-handler', function () {
             };
             const spies = makeSpies(engine);
 
-            const code = await runChangelogHandler(depsWith({ spies }));
+            const code = await runChangelogHandler(dependenciesWith({ spies }));
 
             assert.strictEqual(code, 0);
             assert.strictEqual(spies.pageOutput.callCount, 0);
@@ -494,7 +494,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     configLoader: {
                         load: fake.rejects(new TypeError('bad config'))
@@ -510,7 +510,7 @@ suite('changelog-handler', function () {
             const spies = makeSpies();
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     configLoader: {
                         async load() {
@@ -538,7 +538,7 @@ suite('changelog-handler', function () {
             } as unknown as Promise<unknown>;
 
             const code = await runChangelogHandler(
-                depsWith({
+                dependenciesWith({
                     spies,
                     configLoader: {
                         async load() {

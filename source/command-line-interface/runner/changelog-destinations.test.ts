@@ -12,7 +12,7 @@ import {
     type ChangelogConfig
 } from './changelog-destinations.ts';
 
-const deps = { workingDirectory: '/repo' } as const;
+const dependencies = { workingDirectory: '/repo' } as const;
 
 type GeneratedChangelogOverrides = {
     readonly packageMarkdownByName?: ReadonlyMap<string, string>;
@@ -70,7 +70,7 @@ async function assertRepositoryReadFailureRethrown(error: Error, messagePattern:
 
     await assert.rejects(
         writeConfiguredChangelogs(
-            { ...deps, fileManager },
+            { ...dependencies, fileManager },
             createChangelogConfig({ changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] } }),
             { updateChangelog: fake.returns('updated') },
             createGeneratedChangelog()
@@ -120,12 +120,12 @@ suite('changelog-destinations', function () {
     suite('collectGeneratedAttributionPaths', function () {
         test('returns no paths when outputs are absent', function () {
             assert.deepStrictEqual(
-                collectGeneratedAttributionPaths(deps, createChangelogConfig({ changelog: undefined })),
+                collectGeneratedAttributionPaths(dependencies, createChangelogConfig({ changelog: undefined })),
                 []
             );
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
-                    deps,
+                    dependencies,
                     createChangelogConfig({ changelog: { prLog: { validLabels: { operations: 'Operations' } } } })
                 ),
                 []
@@ -133,7 +133,7 @@ suite('changelog-destinations', function () {
         });
 
         test('includes repository and in-repository package files', function () {
-            assert.deepStrictEqual(collectGeneratedAttributionPaths(deps, createChangelogConfig()), [
+            assert.deepStrictEqual(collectGeneratedAttributionPaths(dependencies, createChangelogConfig()), [
                 'CHANGELOG.md',
                 'src/pkg-a/docs/CHANGELOG.md'
             ]);
@@ -142,7 +142,7 @@ suite('changelog-destinations', function () {
         test('uses common sourcesFolder for package files', function () {
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
-                    deps,
+                    dependencies,
                     createChangelogConfig({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
                         packages: [ { name: 'pkg-a' } ]
@@ -155,7 +155,7 @@ suite('changelog-destinations', function () {
         test('includes explicit package file paths', function () {
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
-                    deps,
+                    dependencies,
                     createChangelogConfig({
                         changelog: {
                             outputs: [
@@ -179,7 +179,7 @@ suite('changelog-destinations', function () {
         test('ignores github-release outputs', function () {
             assert.deepStrictEqual(
                 collectGeneratedAttributionPaths(
-                    deps,
+                    dependencies,
                     createChangelogConfig({ changelog: { outputs: [ { kind: 'github-release' } ] } })
                 ),
                 []
@@ -189,7 +189,7 @@ suite('changelog-destinations', function () {
         test('reports package-file outputs without sourcesFolder', function () {
             assert.throws(function () {
                 collectGeneratedAttributionPaths(
-                    deps,
+                    dependencies,
                     createChangelogConfig({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
                         commonPackageSettings: undefined,
@@ -218,7 +218,7 @@ suite('changelog-destinations', function () {
             const fileManager = createFakeFileManager();
 
             const writtenPaths = await writeConfiguredChangelogs(
-                { ...deps, fileManager },
+                { ...dependencies, fileManager },
                 createChangelogConfig({ changelog: undefined }),
                 { updateChangelog: fake.returns('updated') },
                 createGeneratedChangelog()
@@ -232,7 +232,7 @@ suite('changelog-destinations', function () {
             const fileManager = createFakeFileManager();
 
             const writtenPaths = await writeConfiguredChangelogs(
-                { ...deps, fileManager },
+                { ...dependencies, fileManager },
                 createChangelogConfig({ changelog: { prLog: { validLabels: { operations: 'Operations' } } } }),
                 { updateChangelog: fake.returns('updated') },
                 createGeneratedChangelog()
@@ -255,7 +255,7 @@ suite('changelog-destinations', function () {
             );
 
             const writtenPaths = await writeConfiguredChangelogs(
-                { ...deps, fileManager },
+                { ...dependencies, fileManager },
                 createChangelogConfig({
                     changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
                 }),
@@ -271,7 +271,7 @@ suite('changelog-destinations', function () {
             const fileManager = createFakeFileManager();
 
             const writtenPaths = await writeConfiguredChangelogs(
-                { ...deps, fileManager },
+                { ...dependencies, fileManager },
                 createChangelogConfig({
                     changelog: { outputs: [ { kind: 'repository-file', path: 'CHANGELOG.md' } ] }
                 }),
@@ -291,7 +291,7 @@ suite('changelog-destinations', function () {
 
             await assert.rejects(
                 writeConfiguredChangelogs(
-                    { ...deps, fileManager },
+                    { ...dependencies, fileManager },
                     createChangelogConfig({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] }
                     }),
@@ -307,7 +307,7 @@ suite('changelog-destinations', function () {
 
             await assert.rejects(
                 writeConfiguredChangelogs(
-                    { ...deps, fileManager },
+                    { ...dependencies, fileManager },
                     createChangelogConfig({
                         changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
                         commonPackageSettings: undefined,
@@ -324,7 +324,7 @@ suite('changelog-destinations', function () {
             const fileManager = createFakeFileManager();
 
             const writtenPaths = await writeConfiguredChangelogs(
-                { ...deps, fileManager },
+                { ...dependencies, fileManager },
                 createChangelogConfig({
                     changelog: { outputs: [ { kind: 'package-file', path: 'CHANGELOG.md' } ] },
                     packages: [ { name: 'pkg-a' } ]
@@ -340,7 +340,7 @@ suite('changelog-destinations', function () {
             const fileManager = createFakeFileManager();
 
             const writtenPaths = await writeConfiguredChangelogs(
-                { ...deps, fileManager },
+                { ...dependencies, fileManager },
                 createChangelogConfig({
                     changelog: {
                         outputs: [
@@ -384,7 +384,7 @@ suite('changelog-destinations', function () {
 
             await assert.rejects(
                 writeConfiguredChangelogs(
-                    { ...deps, fileManager },
+                    { ...dependencies, fileManager },
                     createChangelogConfig({
                         changelog: {
                             outputs: [

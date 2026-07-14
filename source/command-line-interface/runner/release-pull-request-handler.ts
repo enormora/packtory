@@ -16,7 +16,7 @@ import {
     loadPlannedRelease,
     type PlannedRelease,
     prepareReleaseChangelogs,
-    type ReleasePreparationDeps
+    type ReleasePreparationDependencies
 } from './release-preparation.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 import {
@@ -28,7 +28,7 @@ import {
 
 type Logger = (message: string) => void;
 type EnvironmentReader = (name: string) => string | undefined;
-type ReleasePullRequestFileManager = ReleasePreparationDeps['fileManager'] & {
+type ReleasePullRequestFileManager = ReleasePreparationDependencies['fileManager'] & {
     readonly writeFile: (filePath: string, content: string) => Promise<void>;
 };
 
@@ -58,18 +58,18 @@ type GitHubClientContext = {
 };
 
 export type ReleasePullRequestHandlerDependencies = {
-    readonly createPrLogEngine: ReleasePreparationDeps['createPrLogEngine'];
+    readonly createPrLogEngine: ReleasePreparationDependencies['createPrLogEngine'];
     readonly createReleasePullRequestGitHubClient: (context: GitHubClientContext) => ReleasePullRequestGitHubClient;
-    readonly currentDate: ReleasePreparationDeps['currentDate'];
+    readonly currentDate: ReleasePreparationDependencies['currentDate'];
     readonly fileManager: ReleasePullRequestFileManager;
     readonly flags: ReleasePullRequestFlags;
     readonly log: Logger;
-    readonly packtory: ReleasePreparationDeps['packtory'];
+    readonly packtory: ReleasePreparationDependencies['packtory'];
     readonly readEnvironmentVariable: EnvironmentReader;
-    readonly readPackageInfo: ReleasePreparationDeps['readPackageInfo'];
+    readonly readPackageInfo: ReleasePreparationDependencies['readPackageInfo'];
     readonly sleep: (milliseconds: number) => Promise<void>;
-    readonly spinnerRenderer: ReleasePreparationDeps['spinnerRenderer'];
-    readonly configLoader: ReleasePreparationDeps['configLoader'];
+    readonly spinnerRenderer: ReleasePreparationDependencies['spinnerRenderer'];
+    readonly configLoader: ReleasePreparationDependencies['configLoader'];
     readonly workingDirectory: string;
 };
 

@@ -8,7 +8,7 @@ import type { VersionedBundleWithManifest } from '../version-manager/versioned-b
 import { createPackEmitter, type PackEmitterDependencies } from './pack-emitter.ts';
 
 type PackEmitterFixture = {
-    readonly deps: PackEmitterDependencies;
+    readonly dependencies: PackEmitterDependencies;
     readonly fileManager: FakeFileManager;
 };
 
@@ -29,7 +29,7 @@ function createDependencies(overrides: Partial<PackEmitterDependencies['artifact
         buildFolder: overrides.buildFolder ?? fake.resolves(undefined)
     };
     return {
-        deps: { artifactsBuilder, fileManager },
+        dependencies: { artifactsBuilder, fileManager },
         fileManager
     };
 }
@@ -38,8 +38,8 @@ suite('pack-emitter', function () {
     test('writes the zip artifact bytes returned by buildZip to the output path', async function () {
         const zipData = Buffer.from([ 80, 75, 5, 6 ]);
         const buildZip = fake.resolves({ zipData });
-        const { deps, fileManager } = createDependencies({ buildZip });
-        const emitter = createPackEmitter(deps);
+        const { dependencies, fileManager } = createDependencies({ buildZip });
+        const emitter = createPackEmitter(dependencies);
         const bundle = makeBundle();
 
         await emitter.pack({ bundle, format: 'zip', outputPath: '/out/fn.zip', vendorEntries: [], extraFiles: [] });
@@ -60,8 +60,8 @@ suite('pack-emitter', function () {
     test('writes the tarball artifact bytes returned by buildTarball to the output path', async function () {
         const tarData = Buffer.from([ 31, 139, 8, 0 ]);
         const buildTarball = fake.resolves({ tarData });
-        const { deps, fileManager } = createDependencies({ buildTarball });
-        const emitter = createPackEmitter(deps);
+        const { dependencies, fileManager } = createDependencies({ buildTarball });
+        const emitter = createPackEmitter(dependencies);
         const bundle = makeBundle();
 
         await emitter.pack({ bundle, format: 'tar', outputPath: '/out/pkg.tgz', vendorEntries: [], extraFiles: [] });
@@ -81,8 +81,8 @@ suite('pack-emitter', function () {
 
     test('delegates folder writes to buildFolder with the requested output path', async function () {
         const buildFolder = fake.resolves(undefined);
-        const { deps, fileManager } = createDependencies({ buildFolder });
-        const emitter = createPackEmitter(deps);
+        const { dependencies, fileManager } = createDependencies({ buildFolder });
+        const emitter = createPackEmitter(dependencies);
         const bundle = makeBundle();
 
         await emitter.pack({

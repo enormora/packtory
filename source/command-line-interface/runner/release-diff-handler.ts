@@ -10,7 +10,7 @@ import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-render
 
 type Logger = (message: string) => void;
 
-export type ReleaseDiffHandlerDeps = {
+export type ReleaseDiffHandlerDependencies = {
     readonly log: Logger;
     readonly pageOutput: (content: string) => Promise<void>;
     readonly packtory: Packtory;
@@ -19,18 +19,18 @@ export type ReleaseDiffHandlerDeps = {
 };
 
 async function renderDocument(
-    deps: Pick<ReleaseDiffHandlerDeps, 'log' | 'pageOutput'>,
+    dependencies: Pick<ReleaseDiffHandlerDependencies, 'log' | 'pageOutput'>,
     document: ReleaseDiffDocument
 ): Promise<void> {
     if (document.previewable) {
-        await deps.pageOutput(renderTerminalReleaseDiff(document));
+        await dependencies.pageOutput(renderTerminalReleaseDiff(document));
         return;
     }
-    deps.log(renderFailureOnlyTerminalReleaseDiff(document).trimEnd());
+    dependencies.log(renderFailureOnlyTerminalReleaseDiff(document).trimEnd());
 }
 
-async function releaseDiff(deps: ReleaseDiffHandlerDeps): Promise<number> {
-    const { packtory, spinnerRenderer, configLoader } = deps;
+async function releaseDiff(dependencies: ReleaseDiffHandlerDependencies): Promise<number> {
+    const { packtory, spinnerRenderer, configLoader } = dependencies;
     const config = await configLoader.load();
     const outcome = await packtory.diffAgainstLatestPublished(config);
     spinnerRenderer.stopAll();
@@ -39,14 +39,14 @@ async function releaseDiff(deps: ReleaseDiffHandlerDeps): Promise<number> {
         result: outcome.result,
         packages: succeededResultsFrom(outcome.result)
     });
-    await renderDocument(deps, document);
+    await renderDocument(dependencies, document);
     return outcome.result.isErr ? 1 : 0;
 }
 
-export async function runReleaseDiffHandler(deps: ReleaseDiffHandlerDeps): Promise<number> {
+export async function runReleaseDiffHandler(dependencies: ReleaseDiffHandlerDependencies): Promise<number> {
     try {
-        return await releaseDiff(deps);
+        return await releaseDiff(dependencies);
     } finally {
-        deps.spinnerRenderer.stopAll();
+        dependencies.spinnerRenderer.stopAll();
     }
 }
