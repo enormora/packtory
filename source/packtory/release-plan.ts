@@ -157,10 +157,7 @@ function collectReleasePlanChangelogDependencyUpdates(
 }
 
 function shouldAttributeAllBundleSources(releaseClassification: ReleasePlanPackage['releaseClassification']): boolean {
-    return (
-        releaseClassification === releaseAnalysisClassification.dependencyOnly ||
-        releaseClassification === releaseAnalysisClassification.unchanged
-    );
+    return releaseClassification === releaseAnalysisClassification.unchanged;
 }
 
 async function attributedChangelogSourceFiles(input: AttributedChangelogSourceFilesInput): Promise<readonly string[]> {

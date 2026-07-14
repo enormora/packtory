@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import {
     defaultPrLogConfig,
+    type ChangelogEntryInput,
     type FilterPullRequestsByTargetFilesInput,
     type PullRequest,
     type PullRequestWithLabel,
@@ -10,6 +11,7 @@ import {
     type RenderTargetChangelogMarkdownInput,
     type ResolvePullRequestLabelsOptions
 } from '@pr-log/core';
+import { pullRequestChangedFileFactory } from '../test-libraries/pr-log-fixtures.ts';
 import { generateChangelogOutputs, type GenerateChangelogInput } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
@@ -38,9 +40,12 @@ function releasePackage(overrides: Partial<ReleasePlanPackage>): ReleasePlanPack
     };
 }
 
-function renderPullRequests(pullRequests: readonly PullRequestWithLabel[]): string {
+function renderPullRequests(pullRequests: readonly ChangelogEntryInput[]): string {
     return pullRequests
         .map(function (pullRequest) {
+            if (pullRequest.id === undefined) {
+                return `* ${pullRequest.title}`;
+            }
             return `* ${pullRequest.title} ([#${pullRequest.id}](https://github.com/owner/repo/pull/${pullRequest.id}))`;
         })
         .join('\n');
@@ -53,7 +58,9 @@ function createEngine(overrides: Partial<ChangelogEngine>): ChangelogEngine {
         filterPullRequestsByTargetFiles: fake(function (input: FilterPullRequestsByTargetFilesInput) {
             return input.pullRequests;
         }),
-        readPullRequestChangedFiles: fake.resolves(new Map([ [ 1, [ 'source/pkg-a.ts' ] ] ])),
+        readPullRequestChangedFiles: fake.resolves(
+            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ] ])
+        ),
         renderGroupedTargetChangelog: fake(function (input: RenderGroupedTargetChangelogMarkdownInput) {
             return renderPullRequests(input.targets.flatMap(function (target) {
                 return target.mergedPullRequests;
@@ -115,7 +122,9 @@ suite('packtory-changelog dependency updates', function () {
         const engine = createEngine({
             collectMergedPullRequests: fake.resolves([ { id: 1, title: 'Update React to v19' } ]),
             filterPullRequestsByTargetFiles: fake.returns([]),
-            readPullRequestChangedFiles: fake.resolves(new Map([ [ 1, [ 'package-lock.json' ] ] ]))
+            readPullRequestChangedFiles: fake.resolves(
+                new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ] ])
+            )
         });
 
         const changelog = await generateReactDependencyChangelog(engine);
@@ -132,8 +141,8 @@ suite('packtory-changelog dependency updates', function () {
             filterPullRequestsByTargetFiles: fake.returns([ { id: 2, title: 'Fix package' } ]),
             readPullRequestChangedFiles: fake.resolves(
                 new Map([
-                    [ 1, [ 'package-lock.json' ] ],
-                    [ 2, [ 'source/pkg-a.ts' ] ]
+                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ],
+                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ]
                 ])
             )
         });

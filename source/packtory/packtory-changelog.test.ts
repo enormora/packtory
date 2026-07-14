@@ -11,6 +11,7 @@ import {
     type ResolvePullRequestLabelsOptions
 } from '@pr-log/core';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
+import { pullRequestChangedFileFactory } from '../test-libraries/pr-log-fixtures.ts';
 import { generateChangelogOutputs } from './packtory-changelog.ts';
 import type { ReleasePlanPackage } from './packtory-results.ts';
 
@@ -86,8 +87,8 @@ function createEngine(): EngineFixture {
         }),
         readPullRequestChangedFiles: fake.resolves(
             new Map([
-                [ 1, [ 'source/pkg-a.ts' ] ],
-                [ 2, [ 'CHANGELOG.md' ] ]
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
+                [ 2, [ pullRequestChangedFileFactory.build({ path: 'CHANGELOG.md' }) ] ]
             ])
         ),
         renderGroupedTargetChangelog: fake(function (input: RenderGroupedTargetChangelogMarkdownInput) {
@@ -225,8 +226,8 @@ function registerTargetSelectionTests(): void {
                 { id: 2, title: 'Update changelog only' }
             ],
             changedFilesByPullRequest: new Map([
-                [ 1, [ 'source/pkg-a.ts' ] ],
-                [ 2, [ 'CHANGELOG.md' ] ]
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
+                [ 2, [ pullRequestChangedFileFactory.build({ path: 'CHANGELOG.md' }) ] ]
             ]),
             ignoredAttributionPaths: [ 'CHANGELOG.md' ]
         });
@@ -360,9 +361,15 @@ function registerDependencyUpdateTests(): void {
         ]);
         const readPullRequestChangedFiles = fake.resolves(
             new Map([
-                [ 1, [ 'package-lock.json', 'source/index.ts' ] ],
-                [ 2, [ 'package-lock.json' ] ],
-                [ 3, [ 'source/index.ts' ] ]
+                [
+                    1,
+                    [
+                        pullRequestChangedFileFactory.build({ path: 'package-lock.json' }),
+                        pullRequestChangedFileFactory.build({ path: 'source/index.ts' })
+                    ]
+                ],
+                [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ],
+                [ 3, [ pullRequestChangedFileFactory.build({ path: 'source/index.ts' }) ] ]
             ])
         );
         const dependencyEngine = {

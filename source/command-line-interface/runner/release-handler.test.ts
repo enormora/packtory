@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import type { PrLogEngine } from '@pr-log/core';
+import type { PrLogEngine, PullRequestChangedFile } from '@pr-log/core';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
@@ -110,6 +110,10 @@ function failedReleasePlan(): SinonSpy {
     );
 }
 
+function changedFile(path: string): PullRequestChangedFile {
+    return { path, previousPath: undefined, status: 'modified', additions: 1, deletions: 0, changes: 1 };
+}
+
 function createEngine(): PrLogEngine {
     const pullRequest = { id: 1, title: 'Fix package' };
     const releaseNotes = '## pkg-a 1.0.1\n\n* Fix package';
@@ -118,8 +122,13 @@ function createEngine(): PrLogEngine {
         filterPullRequestsByTargetFiles: fake.returns([ pullRequest ]),
         renderChangelog: fake.returns(''),
         renderGroupedTargetChangelog: fake.returns(releaseNotes),
-        readPullRequestChangedFiles: fake.resolves(new Map([ [ pullRequest.id, [ 'src/pkg-a/index.ts' ] ] ])),
+        readPullRequestChangedFiles: fake.resolves(
+            new Map([ [ pullRequest.id, [ changedFile('src/pkg-a/index.ts') ] ] ])
+        ),
         readPullRequestLabels: fake.resolves(new Map([ [ pullRequest.id, [ 'bug' ] ] ])),
+        extractChangelogReleaseSection: fake(function (): never {
+            throw new Error('unexpected changelog section extraction');
+        }),
         renderTargetChangelog: fake.returns(releaseNotes),
         resolveChangelogBaseRef: fake.resolves({ ref: 'old-head' }),
         resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),

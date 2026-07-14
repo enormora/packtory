@@ -10,6 +10,7 @@ import {
     createReleasePullRequestClient,
     createReleasePullRequestConfig
 } from './runner-test-support.ts';
+import { pullRequestChangedFileFactory } from './pr-log-fixtures.ts';
 
 function createReleasePackage(): ReleasePlanPackage {
     return {
@@ -43,7 +44,12 @@ function createReleaseChangelogEngine(overrides: ReleaseChangelogEngineOverrides
         collectMergedPullRequests: fake.resolves([ { id: 1, title: 'Fix package' } ]),
         filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Fix package' } ]),
         readPullRequestLabels: fake.resolves(new Map([ [ 1, [ 'bug' ] ] ])),
-        readPullRequestChangedFiles: fake.resolves(new Map([ [ 1, [ 'src/index.ts' ] ] ])),
+        readPullRequestChangedFiles: fake.resolves(
+            new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'src/index.ts' }) ] ] ])
+        ),
+        extractChangelogReleaseSection: fake(function (): never {
+            throw new Error('unexpected changelog section extraction');
+        }),
         resolveVersionNumber: fake.returns('1.0.1'),
         renderChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),
         renderGroupedTargetChangelog: fake.returns('## 1.0.1\n\n* Fix package (#1)\n'),

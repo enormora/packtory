@@ -1,5 +1,12 @@
 import path from 'node:path';
-import type { PrLogConfig, PrLogEngine, PullRequest, PullRequestWithLabel, TargetChangelogSection } from '@pr-log/core';
+import type {
+    PrLogConfig,
+    PrLogEngine,
+    PullRequest,
+    PullRequestChangedFile,
+    PullRequestWithLabel,
+    TargetChangelogSection
+} from '@pr-log/core';
 import { compareValues } from '../common/sort-values.ts';
 import { releaseAnalysisClassification, type ReleasePlanPackage } from './packtory-results.ts';
 import { isPackageManifestInputPath } from './changelog-source-attribution.ts';
@@ -104,13 +111,15 @@ function pullRequestTitleMentionsDependency(pullRequest: PullRequest, dependency
 function selectManifestDependencyPullRequests(
     packagePlan: ReleasePlanPackage,
     pullRequests: readonly PullRequest[],
-    changedFilesByPullRequest: ReadonlyMap<number, readonly string[]>
+    changedFilesByPullRequest: ReadonlyMap<number, readonly PullRequestChangedFile[]>
 ): readonly PullRequest[] {
     return pullRequests.filter(function (pullRequest) {
         const changedFiles = changedFilesByPullRequest.get(pullRequest.id);
         return (
             changedFiles !== undefined &&
-            changedFiles.some(isPackageManifestInputPath) &&
+            changedFiles.some(function (changedFile) {
+                return isPackageManifestInputPath(changedFile.path);
+            }) &&
             packagePlan.changelogDependencyNames.some(function (dependencyName) {
                 return pullRequestTitleMentionsDependency(pullRequest, dependencyName);
             })

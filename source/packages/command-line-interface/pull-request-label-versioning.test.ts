@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import type { PrLogEngine, PrLogEngineOptions } from '@pr-log/core';
 import type { PacktoryConfig } from '../../config/config.ts';
 import type { VersionProvider } from '../../config/manual-versioning-settings.ts';
+import { pullRequestChangedFileFactory } from '../../test-libraries/pr-log-fixtures.ts';
 import { createPullRequestLabelVersionSourceResolver } from './pull-request-label-versioning.ts';
 
 type ResolveBaseRefInput = Parameters<PrLogEngine['resolveChangelogBaseRef']>[0];
@@ -48,8 +49,8 @@ function createEngine(overrides: Partial<PrLogEngine> = {}): PrLogEngine {
                 [ 1, 2 ]
             );
             return new Map([
-                [ 1, [ 'source/index.ts' ] ],
-                [ 2, [ 'source/index.ts' ] ]
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/index.ts' }) ] ],
+                [ 2, [ pullRequestChangedFileFactory.build({ path: 'source/index.ts' }) ] ]
             ]);
         },
         filterPullRequestsByTargetFiles(input: FilterPullRequestsInput) {
@@ -273,7 +274,7 @@ suite('pull-request-label-version-source', function () {
                     return [ { id: 1, title: 'Fix bug' } ];
                 },
                 async readPullRequestChangedFiles() {
-                    return new Map([ [ 1, [ 'source/index.ts' ] ] ]);
+                    return new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/index.ts' }) ] ] ]);
                 },
                 filterPullRequestsByTargetFiles(input) {
                     return input.pullRequests;
