@@ -125,15 +125,21 @@ function createRenderedMutationAtomics(
 ): ControlledAtomics {
     const remainingRenderedMutations = Array.from(renderedMutations);
     const remainingWaitResults = Array.from(waitResults);
+    let nextRenderedMutationIndex = 0;
+    let nextWaitResultIndex = 0;
     return createControlledAtomics({
         load(typedArray, index, realLoad) {
             if (index === 4) {
-                return remainingRenderedMutations.shift() ?? (renderedMutations.at(-1) ?? 0);
+                const result = remainingRenderedMutations[nextRenderedMutationIndex] ?? (renderedMutations.at(-1) ?? 0);
+                nextRenderedMutationIndex += 1;
+                return result;
             }
             return realLoad(typedArray, index);
         },
         wait() {
-            return remainingWaitResults.shift() ?? (waitResults.at(-1) ?? 'ok');
+            const result = remainingWaitResults[nextWaitResultIndex] ?? (waitResults.at(-1) ?? 'ok');
+            nextWaitResultIndex += 1;
+            return result;
         }
     });
 }

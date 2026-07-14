@@ -52,7 +52,7 @@ function latestPackageResponse(time?: string): Record<string, unknown> {
     return {
         name: 'pkg-a',
         'dist-tags': { latest: latestVersion },
-        ...time !== undefined && { time: { [latestVersion]: time } },
+        ...time === undefined ? {} : { time: { [latestVersion]: time } },
         versions: { [latestVersion]: { dist: { tarball: tarballUrl } } }
     };
 }

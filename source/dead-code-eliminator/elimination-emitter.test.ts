@@ -180,7 +180,7 @@ suite('elimination-emitter', function () {
                     received.push({
                         decision: file.decision,
                         reason: file.reason,
-                        ...file.outputBytes !== undefined && { outputBytes: file.outputBytes }
+                        ...file.outputBytes === undefined ? {} : { outputBytes: file.outputBytes }
                     });
                 }
             }

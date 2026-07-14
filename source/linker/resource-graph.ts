@@ -41,7 +41,7 @@ export function createGraphFromResolvedBundle(bundle: ResolvedBundle): ResourceG
             externalDependencies,
             project: resource.project,
             isExplicitlyIncluded: resource.isExplicitlyIncluded,
-            ...resource.isGeneratedManifest && { isGeneratedManifest: true }
+            ...resource.isGeneratedManifest ? { isGeneratedManifest: true } : {}
         });
     }
 

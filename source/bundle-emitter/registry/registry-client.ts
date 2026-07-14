@@ -119,7 +119,7 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
                 defaultTag: 'latest',
                 ...authOptions,
                 ...publishOptionsFromSettings,
-                ...stage && { stage: true }
+                ...stage ? { stage: true } : {}
             };
             const publishOptionsWithOneTimePassword: PublishOptionsWithOneTimePassword = {
                 ...publishOptions,

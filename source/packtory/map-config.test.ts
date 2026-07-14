@@ -52,7 +52,7 @@ function runMapConfig(
     const baseConfig = {
         registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
         ...options.extraConfig,
-        ...options.commonPackageSettings !== undefined && { commonPackageSettings: options.commonPackageSettings },
+        ...options.commonPackageSettings === undefined ? {} : { commonPackageSettings: options.commonPackageSettings },
         packages: [ packageWithFallback, ...additionalPackages ]
     } as unknown as PacktoryConfig;
     return configToBuildAndPublishOptions(packageName, { [packageName]: packageWithFallback }, baseConfig, {

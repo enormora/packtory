@@ -67,7 +67,7 @@ function createFlattenCollectors(): FlattenCollectors {
             directDependencies,
             isSubstituted: data.isSubstituted,
             isExplicitlyIncluded: data.isExplicitlyIncluded,
-            ...data.isGeneratedManifest && { isGeneratedManifest: true }
+            ...data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
         });
 
         for (const bundleDependencyName of data.bundleDependencies) {
@@ -115,11 +115,12 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
                 });
             }
 
-            for (const [ filePath, data ] of nodeDataByFilePath) {
-                if (data.isExplicitlyIncluded) {
-                    const directDependencies = graph.getAdjacentIds(filePath);
-                    collect(filePath, data, directDependencies);
-                }
+            const includedNodes = Array.from(nodeDataByFilePath).filter(function ([ , data ]) {
+                return data.isExplicitlyIncluded;
+            });
+            for (const [ filePath, data ] of includedNodes) {
+                const directDependencies = graph.getAdjacentIds(filePath);
+                collect(filePath, data, directDependencies);
             }
 
             return {

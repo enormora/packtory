@@ -103,7 +103,7 @@ suite('fake-clock', function () {
         assert.throws(function () {
             clock.setTimeout(function () {
                 return undefined;
-            }, Infinity);
+            }, Number.POSITIVE_INFINITY);
         }, /^TypeError: Invalid delay, must be a finite number$/u);
     });
 });

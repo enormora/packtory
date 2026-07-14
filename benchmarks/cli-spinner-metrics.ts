@@ -250,7 +250,7 @@ export function summarizeWorstPerPackageGaps(
         }
 
         worstP99FrameGapMs = Math.max(worstP99FrameGapMs, calculatePercentile(gaps, spinnerFramePercentile));
-        worstMaxFrameGapMs = Math.max(worstMaxFrameGapMs, Math.max(...gaps));
+        worstMaxFrameGapMs = Math.max(worstMaxFrameGapMs, ...gaps);
     });
 
     return {

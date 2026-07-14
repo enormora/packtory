@@ -149,8 +149,8 @@ export async function publishFixturePackages(params: PublishFixturePackagesParam
         fixturePath: params.fixturePath,
         registryDetails: params.registryDetails,
         packages: params.packages ?? standardFixturePackages(params.fixturePath),
-        ...params.commonPackageSettings !== undefined && { commonPackageSettings: params.commonPackageSettings },
-        ...params.mainPackageJsonOverrides !== undefined && {
+        ...params.commonPackageSettings === undefined ? {} : { commonPackageSettings: params.commonPackageSettings },
+        ...params.mainPackageJsonOverrides === undefined ? {} : {
             mainPackageJsonOverrides: params.mainPackageJsonOverrides
         }
     };

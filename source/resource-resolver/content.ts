@@ -58,9 +58,9 @@ export function combineAllBundleFiles(
             sourceFilePath: localFile.filePath,
             targetFilePath,
             directDependencies: localFile.directDependencies,
-            ...localFile.project !== undefined && { project: localFile.project },
+            ...localFile.project === undefined ? {} : { project: localFile.project },
             isExplicitlyIncluded: false,
-            ...localFile.isGeneratedManifest && { isGeneratedManifest: true }
+            ...localFile.isGeneratedManifest ? { isGeneratedManifest: true } : {}
         };
         return resolvedBundleFile;
     });

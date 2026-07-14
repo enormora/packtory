@@ -74,7 +74,7 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
                         directDependencies: bundleFile.directDependencies,
                         project: bundleFile.project,
                         isExplicitlyIncluded: bundleFile.isExplicitlyIncluded,
-                        ...bundleFile.isGeneratedManifest && { isGeneratedManifest: true }
+                        ...bundleFile.isGeneratedManifest ? { isGeneratedManifest: true } : {}
                     };
                 })
             );

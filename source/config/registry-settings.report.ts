@@ -26,13 +26,13 @@ function redactPublishAuth(auth: PublishAuthStrategy): RedactedAuth {
             type: 'basic',
             username: auth.username,
             password: redactedValue,
-            ...auth.email !== undefined && { email: auth.email }
+            ...auth.email === undefined ? {} : { email: auth.email }
         };
     }
     return {
         type: 'npm-oidc',
-        ...auth.provider !== undefined && { provider: auth.provider },
-        ...auth.idTokenEnvVar !== undefined && { idTokenEnvVar: auth.idTokenEnvVar }
+        ...auth.provider === undefined ? {} : { provider: auth.provider },
+        ...auth.idTokenEnvVar === undefined ? {} : { idTokenEnvVar: auth.idTokenEnvVar }
     };
 }
 
@@ -63,7 +63,7 @@ function redactAuth(auth: NonNullable<RegistrySettings['auth']>): NonNullable<Re
     if (isExpandedRegistryAuth(auth)) {
         return {
             publish: redactPublishAuth(auth.publish),
-            ...auth.metadata !== undefined && { metadata: redactMetadata(auth.metadata) }
+            ...auth.metadata === undefined ? {} : { metadata: redactMetadata(auth.metadata) }
         };
     }
     return redactPublishAuth(auth);
@@ -71,7 +71,7 @@ function redactAuth(auth: NonNullable<RegistrySettings['auth']>): NonNullable<Re
 
 export function redactRegistrySettings(settings: RegistrySettings): RedactedRegistrySettings {
     return {
-        ...settings.registryUrl !== undefined && { registryUrl: settings.registryUrl },
-        ...settings.auth !== undefined && { auth: redactAuth(settings.auth) }
+        ...settings.registryUrl === undefined ? {} : { registryUrl: settings.registryUrl },
+        ...settings.auth === undefined ? {} : { auth: redactAuth(settings.auth) }
     };
 }

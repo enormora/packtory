@@ -41,7 +41,7 @@ function createBuilder(overrides: FactoryOverrides = {}): BuilderFixture {
 function createSibling(name: string, license?: string): SbomSibling {
     return {
         name,
-        packageJson: { name, version: '0.0.1', ...license !== undefined && { license } }
+        packageJson: { name, version: '0.0.1', ...license === undefined ? {} : { license } }
     };
 }
 

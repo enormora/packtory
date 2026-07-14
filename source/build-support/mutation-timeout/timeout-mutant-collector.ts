@@ -14,16 +14,14 @@ function collectTimeoutMutantsForFile(
         return [];
     }
 
-    const timeouts: TimeoutMutant[] = [];
+    const timeoutMutants = fileReport.mutants.filter(function (mutant) {
+        return mutant.status === 'Timeout';
+    });
 
-    for (const mutant of fileReport.mutants) {
-        if (mutant.status === 'Timeout') {
-            const { start } = mutant.location;
-            timeouts.push({ filePath, line: start.line, column: start.column });
-        }
-    }
-
-    return timeouts;
+    return timeoutMutants.map(function (mutant) {
+        const { start } = mutant.location;
+        return { filePath, line: start.line, column: start.column };
+    });
 }
 
 export function collectTimeoutMutants(report: MutationReport): readonly TimeoutMutant[] {

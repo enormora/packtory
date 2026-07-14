@@ -14,7 +14,7 @@ function configWithPackages(
             packages: packages.map(function (pkg) {
                 return {
                     name: pkg.name,
-                    ...pkg.enabled !== undefined && { deadCodeElimination: { enabled: pkg.enabled } }
+                    ...pkg.enabled === undefined ? {} : { deadCodeElimination: { enabled: pkg.enabled } }
                 };
             })
         }

@@ -65,7 +65,7 @@ export function asImplicitExportsBundle<TExpected extends LegacyImplicitBundleEx
     const exportsField = {
         '.': {
             import: `./${mainFile.targetFilePath}`,
-            ...typesMainFile !== undefined && { types: `./${typesMainFile.targetFilePath}` }
+            ...typesMainFile === undefined ? {} : { types: `./${typesMainFile.targetFilePath}` }
         }
     };
     const modernPackageJson = {
@@ -81,7 +81,7 @@ export function asImplicitExportsBundle<TExpected extends LegacyImplicitBundleEx
             content: serializePackageJson(modernPackageJson)
         },
         mainFile,
-        ...typesMainFile !== undefined && { typesMainFile },
+        ...typesMainFile === undefined ? {} : { typesMainFile },
         roots: {
             main: {
                 js: mainFile,

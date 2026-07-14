@@ -54,7 +54,7 @@ export function substituteDependencies(
             bundleDependencies: isSubstituted ? replacements.bundleDependencies : [],
             isSubstituted,
             isExplicitlyIncluded: node.data.isExplicitlyIncluded,
-            ...node.data.isGeneratedManifest && { isGeneratedManifest: true }
+            ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
         });
     });
 

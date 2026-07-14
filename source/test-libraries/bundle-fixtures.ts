@@ -115,10 +115,10 @@ type AnalyzedBundleResourceOverrides = {
 
 function toBundleResourceOverrides(overrides: AnalyzedBundleResourceOverrides): BundleResourceOverrides {
     return {
-        ...overrides.content !== undefined && { content: overrides.content },
-        ...overrides.targetFilePath !== undefined && { targetFilePath: overrides.targetFilePath },
-        ...overrides.directDependencies !== undefined && { directDependencies: overrides.directDependencies },
-        ...overrides.isExplicitlyIncluded !== undefined && { isExplicitlyIncluded: overrides.isExplicitlyIncluded }
+        ...overrides.content === undefined ? {} : { content: overrides.content },
+        ...overrides.targetFilePath === undefined ? {} : { targetFilePath: overrides.targetFilePath },
+        ...overrides.directDependencies === undefined ? {} : { directDependencies: overrides.directDependencies },
+        ...overrides.isExplicitlyIncluded === undefined ? {} : { isExplicitlyIncluded: overrides.isExplicitlyIncluded }
     };
 }
 
@@ -174,7 +174,9 @@ export function versionedBundle(overrides: VersionedBundleOverrides = {}): Versi
         packageType: 'module',
         sideEffectsField: undefined,
         mainFile: transferableFileDescriptionFactory.build(mainFile),
-        ...typesMainFile !== undefined && { typesMainFile: transferableFileDescriptionFactory.build(typesMainFile) },
+        ...typesMainFile === undefined
+            ? {}
+            : { typesMainFile: transferableFileDescriptionFactory.build(typesMainFile) },
         ...rest
     };
 }

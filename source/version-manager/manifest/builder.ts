@@ -70,8 +70,8 @@ export function buildPackageManifest(bundle: VersionedBundle): BundlePackageJson
         ...sideEffectsEntry,
         ...importsEntry,
         ...binEntry,
-        ...!isEmpty(bundle.dependencies) && { dependencies: bundle.dependencies },
-        ...!isEmpty(bundle.peerDependencies) && { peerDependencies: bundle.peerDependencies }
+        ...isEmpty(bundle.dependencies) ? {} : { dependencies: bundle.dependencies },
+        ...isEmpty(bundle.peerDependencies) ? {} : { peerDependencies: bundle.peerDependencies }
     };
 
     return packageJson;
