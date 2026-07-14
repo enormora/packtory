@@ -4,7 +4,7 @@
     "commitMessagePrefix": "⬆️ ",
     "labels": ["renovate", "upgrade"],
     "dependencyDashboard": false,
-    "rebaseStalePrs": true,
+    "rebaseWhen": "behind-base-branch",
     "minimumReleaseAge": "3 days",
     "lockFileMaintenance": {
         "enabled": true,
