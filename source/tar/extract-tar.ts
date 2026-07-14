@@ -86,6 +86,12 @@ async function readEntryContent(
     return { content: result, extractedBytes };
 }
 
+function stableTarHeader(header: TarEntryHeaders): TarEntryHeaders {
+    const contentHeader = { ...header };
+    Reflect.deleteProperty(contentHeader, 'byteOffset');
+    return contentHeader;
+}
+
 async function collectTarEntries(stream: AsyncIterable<TarStreamEntry>, limits: ExtractTarLimits): Promise<TarEntry[]> {
     const entries: TarEntry[] = [];
     let extractedBytes = 0;
@@ -95,7 +101,7 @@ async function collectTarEntries(stream: AsyncIterable<TarStreamEntry>, limits: 
         assertWithinEntryPathLimit(entry, limits);
         const content = await readEntryContent(entry, extractedBytes, limits);
         extractedBytes = content.extractedBytes;
-        entries.push({ header: entry.header, content: content.content });
+        entries.push({ header: stableTarHeader(entry.header), content: content.content });
     }
 
     return entries;
