@@ -18,7 +18,7 @@ type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 type ValidChangelogConfig = NonNullable<ReturnType<typeof parseValidConfig>>;
 
-export type ChangelogHandlerDeps = {
+export type ChangelogHandlerDependencies = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
     readonly currentDate: () => Date;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
@@ -36,44 +36,46 @@ function formatChangelogHandlerError(error: unknown): string {
     return String(error).replace(/^[A-Za-z]*Error: /u, '');
 }
 
-function readGitHubToken(deps: Pick<ChangelogHandlerDeps, 'readEnvironmentVariable'>): string | undefined {
-    return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
+function readGitHubToken(
+    dependencies: Pick<ChangelogHandlerDependencies, 'readEnvironmentVariable'>
+): string | undefined {
+    return dependencies.readEnvironmentVariable('GH_TOKEN') ?? dependencies.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(deps: ChangelogHandlerDeps, config: PrLogConfig): PrLogEngine {
-    return deps.createPrLogEngine({
-        githubToken: readGitHubToken(deps),
-        workingDirectory: deps.workingDirectory,
+function createEngine(dependencies: ChangelogHandlerDependencies, config: PrLogConfig): PrLogEngine {
+    return dependencies.createPrLogEngine({
+        githubToken: readGitHubToken(dependencies),
+        workingDirectory: dependencies.workingDirectory,
         config
     });
 }
 
 async function renderChangelog(
-    deps: ChangelogHandlerDeps,
+    dependencies: ChangelogHandlerDependencies,
     config: ValidChangelogConfig,
     packages: readonly ReleasePlanPackage[]
 ): Promise<void> {
     if (packages.length === 0) {
         return;
     }
-    const packageInfo = await deps.readPackageInfo();
+    const packageInfo = await dependencies.readPackageInfo();
     const generationOptions = createChangelogGenerationOptions(config);
-    const prLogEngine = createEngine(deps, generationOptions.prLogConfig);
+    const prLogEngine = createEngine(dependencies, generationOptions.prLogConfig);
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine,
         explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
-        ignoredAttributionPaths: collectGeneratedAttributionPaths(deps, config),
+        ignoredAttributionPaths: collectGeneratedAttributionPaths(dependencies, config),
         packageTagFormat: generationOptions.packageTagFormat,
-        currentDate: deps.currentDate(),
+        currentDate: dependencies.currentDate(),
         prLogConfig: generationOptions.prLogConfig,
         targetScopedLabelPattern: generationOptions.targetScopedLabelPattern
     });
     if (shouldPageGroupedChangelog(config.changelog?.outputs) && changelog.groupedMarkdown.length > 0) {
-        await deps.pageOutput(changelog.groupedMarkdown);
+        await dependencies.pageOutput(changelog.groupedMarkdown);
     }
-    await writeConfiguredChangelogs(deps, config, prLogEngine, changelog);
+    await writeConfiguredChangelogs(dependencies, config, prLogEngine, changelog);
 }
 
 function resolveReleasePlanExitCode(log: Logger, result: ReleasePlanResult): number {
@@ -84,27 +86,27 @@ function resolveReleasePlanExitCode(log: Logger, result: ReleasePlanResult): num
     return 1;
 }
 
-async function runChangelog(deps: ChangelogHandlerDeps): Promise<number> {
-    const config = await deps.configLoader.load();
-    const outcome = await deps.packtory.planReleaseAgainstLatestPublished(config);
-    deps.spinnerRenderer.stopAll();
+async function runChangelog(dependencies: ChangelogHandlerDependencies): Promise<number> {
+    const config = await dependencies.configLoader.load();
+    const outcome = await dependencies.packtory.planReleaseAgainstLatestPublished(config);
+    dependencies.spinnerRenderer.stopAll();
     const validConfig = parseValidConfig(config);
     if (validConfig !== undefined) {
-        await renderChangelog(deps, validConfig, collectReleasePlanPackages(outcome.result));
+        await renderChangelog(dependencies, validConfig, collectReleasePlanPackages(outcome.result));
     }
-    return resolveReleasePlanExitCode(deps.log, outcome.result);
+    return resolveReleasePlanExitCode(dependencies.log, outcome.result);
 }
 
-function stopSpinnersAndReturn(deps: ChangelogHandlerDeps, exitCode: number): number {
-    deps.spinnerRenderer.stopAll();
+function stopSpinnersAndReturn(dependencies: ChangelogHandlerDependencies, exitCode: number): number {
+    dependencies.spinnerRenderer.stopAll();
     return exitCode;
 }
 
-export async function runChangelogHandler(deps: ChangelogHandlerDeps): Promise<number> {
+export async function runChangelogHandler(dependencies: ChangelogHandlerDependencies): Promise<number> {
     try {
-        return stopSpinnersAndReturn(deps, await runChangelog(deps));
+        return stopSpinnersAndReturn(dependencies, await runChangelog(dependencies));
     } catch (error: unknown) {
-        deps.log(formatChangelogHandlerError(error));
-        return stopSpinnersAndReturn(deps, 1);
+        dependencies.log(formatChangelogHandlerError(error));
+        return stopSpinnersAndReturn(dependencies, 1);
     }
 }

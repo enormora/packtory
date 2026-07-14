@@ -37,7 +37,7 @@ suite('bundle-dependency-grouping', function () {
         );
     });
 
-    test('groupBundleDependencies prefers the peer entry when a name appears in both peers and deps', function () {
+    test('groupBundleDependencies prefers the peer entry when a name appears in both peers and dependencies', function () {
         assert.deepStrictEqual(
             groupBundleDependencies(
                 { linkedBundleDependencies: new Map([ [ 'shared', externalDep('shared') ] ]) },
@@ -48,7 +48,7 @@ suite('bundle-dependency-grouping', function () {
         );
     });
 
-    test('groupBundleDependencies throws when a linked dep is in neither peers nor deps', function () {
+    test('groupBundleDependencies throws when a linked dep is in neither peers nor dependencies', function () {
         try {
             groupBundleDependencies(
                 { linkedBundleDependencies: new Map([ [ 'unknown', externalDep('unknown') ] ]) },

@@ -8,7 +8,7 @@ import { createPrLogConfig } from '../../command-line-interface/runner/changelog
 
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
 
-export type PullRequestLabelVersionSourceDeps = {
+export type PullRequestLabelVersionSourceDependencies = {
     readonly createPrLogEngine: (options: Readonly<PrLogEngineOptions>) => PrLogEngine;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
     readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
@@ -21,14 +21,16 @@ function orderedVersionBumpLevels(): readonly VersionBumpLevel[] {
     return [ 'major', 'minor', 'patch' ];
 }
 
-function readGitHubToken(deps: Pick<PullRequestLabelVersionSourceDeps, 'readEnvironmentVariable'>): string | undefined {
-    return deps.readEnvironmentVariable('GH_TOKEN') ?? deps.readEnvironmentVariable('GITHUB_TOKEN');
+function readGitHubToken(
+    dependencies: Pick<PullRequestLabelVersionSourceDependencies, 'readEnvironmentVariable'>
+): string | undefined {
+    return dependencies.readEnvironmentVariable('GH_TOKEN') ?? dependencies.readEnvironmentVariable('GITHUB_TOKEN');
 }
 
-function createEngine(deps: PullRequestLabelVersionSourceDeps, config: PrLogConfig): PrLogEngine {
-    return deps.createPrLogEngine({
-        githubToken: readGitHubToken(deps),
-        workingDirectory: deps.workingDirectory,
+function createEngine(dependencies: PullRequestLabelVersionSourceDependencies, config: PrLogConfig): PrLogEngine {
+    return dependencies.createPrLogEngine({
+        githubToken: readGitHubToken(dependencies),
+        workingDirectory: dependencies.workingDirectory,
         config
     });
 }
@@ -67,16 +69,16 @@ function selectNextVersion(
 }
 
 export function createPullRequestLabelVersionSourceResolver(
-    deps: PullRequestLabelVersionSourceDeps
+    dependencies: PullRequestLabelVersionSourceDependencies
 ): VersionSourceResolver {
     async function collectLabeledPullRequests(
         input: Parameters<VersionProvider>[0],
         packtoryConfig: PacktoryConfig
     ): Promise<readonly PullRequestWithLabel[]> {
-        const packageInfo = await deps.readPackageInfo();
+        const packageInfo = await dependencies.readPackageInfo();
         const githubRepo = formatGitHubRepositoryName(packageInfo);
         const prLogConfig = createPrLogConfig(packtoryConfig.changelog);
-        const prLogEngine = createEngine(deps, prLogConfig);
+        const prLogEngine = createEngine(dependencies, prLogConfig);
         const baseRef = await prLogEngine.resolveChangelogBaseRef({
             packageName: input.packageName,
             previousVersion: input.currentVersion,

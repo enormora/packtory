@@ -53,7 +53,7 @@ type IssuePackFailure = Extract<
     }
 >;
 
-export type PackHandlerDeps = {
+export type PackHandlerDependencies = {
     readonly log: Logger;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
@@ -171,8 +171,8 @@ function reportOutcome(log: Logger, outcome: PackOutcome, flags: PackFlags): num
     return 0;
 }
 
-export async function runPackHandler(deps: PackHandlerDeps): Promise<number> {
-    const { log, packtory, spinnerRenderer, configLoader, flags } = deps;
+export async function runPackHandler(dependencies: PackHandlerDependencies): Promise<number> {
+    const { log, packtory, spinnerRenderer, configLoader, flags } = dependencies;
     try {
         const outcome = await packtory.packPackage(await configLoader.load(), {
             packageName: flags.packageName,

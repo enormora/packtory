@@ -4,7 +4,7 @@ import { Result } from 'true-myth';
 import {
     expectCyclicError,
     fooPackage,
-    packageWithDeps,
+    packageWithDependencies,
     withRegistry
 } from '../test-libraries/validation-test-support.ts';
 import { validateConfig } from './validation.ts';
@@ -53,8 +53,8 @@ suite('validation package graph', function () {
         test('returns an issue when there is a cycle per bundleDependencies', function () {
             expectCyclicError(
                 [
-                    packageWithDeps('a', 'bundleDependencies', [ 'b' ]),
-                    packageWithDeps('b', 'bundleDependencies', [ 'a' ])
+                    packageWithDependencies('a', 'bundleDependencies', [ 'b' ]),
+                    packageWithDependencies('b', 'bundleDependencies', [ 'a' ])
                 ],
                 'a→b→a'
             );
@@ -63,10 +63,10 @@ suite('validation package graph', function () {
         test('returns an issue when there is a long cycle per bundleDependencies', function () {
             expectCyclicError(
                 [
-                    packageWithDeps('a', 'bundleDependencies', [ 'd' ]),
-                    packageWithDeps('b', 'bundleDependencies', [ 'a' ]),
-                    packageWithDeps('c', 'bundleDependencies', [ 'b' ]),
-                    packageWithDeps('d', 'bundleDependencies', [ 'c' ])
+                    packageWithDependencies('a', 'bundleDependencies', [ 'd' ]),
+                    packageWithDependencies('b', 'bundleDependencies', [ 'a' ]),
+                    packageWithDependencies('c', 'bundleDependencies', [ 'b' ]),
+                    packageWithDependencies('d', 'bundleDependencies', [ 'c' ])
                 ],
                 'a→d→c→b→a'
             );
@@ -75,8 +75,8 @@ suite('validation package graph', function () {
         test('returns an issue when there is a cycle per bundlePeerDependencies', function () {
             expectCyclicError(
                 [
-                    packageWithDeps('a', 'bundlePeerDependencies', [ 'b' ]),
-                    packageWithDeps('b', 'bundlePeerDependencies', [ 'a' ])
+                    packageWithDependencies('a', 'bundlePeerDependencies', [ 'b' ]),
+                    packageWithDependencies('b', 'bundlePeerDependencies', [ 'a' ])
                 ],
                 'a→b→a'
             );
@@ -85,8 +85,8 @@ suite('validation package graph', function () {
         test('returns an issue when there is a cycle per bundleDependencies and bundlePeerDependencies', function () {
             expectCyclicError(
                 [
-                    packageWithDeps('a', 'bundleDependencies', [ 'b' ]),
-                    packageWithDeps('b', 'bundlePeerDependencies', [ 'a' ])
+                    packageWithDependencies('a', 'bundleDependencies', [ 'b' ]),
+                    packageWithDependencies('b', 'bundlePeerDependencies', [ 'a' ])
                 ],
                 'a→b→a'
             );
@@ -95,7 +95,7 @@ suite('validation package graph', function () {
 
     suite('dependency references and package interfaces', function () {
         test('returns an issue when a package depends on itself', function () {
-            expectCyclicError([ packageWithDeps('a', 'bundleDependencies', [ 'a' ]) ], 'a→a');
+            expectCyclicError([ packageWithDependencies('a', 'bundleDependencies', [ 'a' ]) ], 'a→a');
         });
 
         test('returns an issue when a package bundle dependency does not exit', function () {

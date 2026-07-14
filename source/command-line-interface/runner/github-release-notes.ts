@@ -5,7 +5,7 @@ type FileReader = {
     readonly readFile: (filePath: string) => Promise<string>;
 };
 
-export type GitHubReleaseNotesDeps = {
+export type GitHubReleaseNotesDependencies = {
     readonly fileManager: FileReader;
     readonly workingDirectory: string;
 };
@@ -59,27 +59,27 @@ function isMissingFileError(error: unknown): boolean {
 }
 
 function packageChangelogPathFor(
-    deps: Pick<GitHubReleaseNotesDeps, 'workingDirectory'>,
+    dependencies: Pick<GitHubReleaseNotesDependencies, 'workingDirectory'>,
     config: ChangelogConfig,
     packageName: string
 ): string | undefined {
-    const outputPath = collectChangelogOutputFilePaths(deps, config).find(function (entry) {
+    const outputPath = collectChangelogOutputFilePaths(dependencies, config).find(function (entry) {
         return entry.packageName === packageName;
     });
     return outputPath?.filePath;
 }
 
 async function readConfiguredReleaseNotes(
-    deps: GitHubReleaseNotesDeps,
+    dependencies: GitHubReleaseNotesDependencies,
     config: ChangelogConfig,
     target: ReleaseNotesTarget
 ): Promise<string | undefined> {
-    const changelogPath = packageChangelogPathFor(deps, config, target.name);
+    const changelogPath = packageChangelogPathFor(dependencies, config, target.name);
     if (changelogPath === undefined) {
         return undefined;
     }
     try {
-        return extractReleaseNotes(await deps.fileManager.readFile(changelogPath), target);
+        return extractReleaseNotes(await dependencies.fileManager.readFile(changelogPath), target);
     } catch (error: unknown) {
         if (isMissingFileError(error)) {
             return undefined;
@@ -89,11 +89,11 @@ async function readConfiguredReleaseNotes(
 }
 
 async function recoverMissingReleaseNotes(
-    deps: GitHubReleaseNotesDeps,
+    dependencies: GitHubReleaseNotesDependencies,
     config: ChangelogConfig,
     target: ReleaseNotesTarget
 ): Promise<string> {
-    const releaseNotes = await readConfiguredReleaseNotes(deps, config, target);
+    const releaseNotes = await readConfiguredReleaseNotes(dependencies, config, target);
     if (!hasReleaseNotes(releaseNotes)) {
         missingGitHubReleaseNotes(target);
     }
@@ -101,7 +101,7 @@ async function recoverMissingReleaseNotes(
 }
 
 export async function collectGitHubReleaseNotes(
-    deps: GitHubReleaseNotesDeps,
+    dependencies: GitHubReleaseNotesDependencies,
     config: ChangelogConfig,
     targets: readonly ReleaseNotesTarget[],
     changelog: GeneratedChangelog
@@ -109,7 +109,7 @@ export async function collectGitHubReleaseNotes(
     const releaseNotesByPackageName = new Map(changelog.packageMarkdownByName);
     for (const target of targets) {
         if (!hasReleaseNotes(releaseNotesByPackageName.get(target.name))) {
-            releaseNotesByPackageName.set(target.name, await recoverMissingReleaseNotes(deps, config, target));
+            releaseNotesByPackageName.set(target.name, await recoverMissingReleaseNotes(dependencies, config, target));
         }
     }
     return releaseNotesByPackageName;

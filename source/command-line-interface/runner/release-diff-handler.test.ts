@@ -5,7 +5,7 @@ import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts'
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
-import { runReleaseDiffHandler, type ReleaseDiffHandlerDeps } from './release-diff-handler.ts';
+import { runReleaseDiffHandler, type ReleaseDiffHandlerDependencies } from './release-diff-handler.ts';
 
 type ReleaseDiffOutcome = Awaited<ReturnType<Packtory['diffAgainstLatestPublished']>>;
 
@@ -38,7 +38,7 @@ type Spies = {
     readonly stopAll: SinonSpy;
 };
 
-function depsWith(outcome: ReleaseDiffOutcome, spies: Spies): ReleaseDiffHandlerDeps {
+function dependenciesWith(outcome: ReleaseDiffOutcome, spies: Spies): ReleaseDiffHandlerDependencies {
     return {
         log(message) {
             spies.log(message);
@@ -58,7 +58,7 @@ suite('release-diff-handler', function () {
     test('returns 0 on success and pages the inline terminal output', async function () {
         const spies = makeSpies();
 
-        const code = await runReleaseDiffHandler(depsWith(emptyOutcome(), spies));
+        const code = await runReleaseDiffHandler(dependenciesWith(emptyOutcome(), spies));
 
         assert.strictEqual(code, 0);
         assert.strictEqual(spies.pageOutput.callCount, 1);
@@ -66,7 +66,7 @@ suite('release-diff-handler', function () {
 
     test('calls spinnerRenderer.stopAll both immediately after the build (so the spinner stops before paging) and again in the finally block', async function () {
         const spies = makeSpies();
-        await runReleaseDiffHandler(depsWith(emptyOutcome(), spies));
+        await runReleaseDiffHandler(dependenciesWith(emptyOutcome(), spies));
         assert.strictEqual(spies.stopAll.callCount, 2);
     });
 
@@ -104,7 +104,7 @@ suite('release-diff-handler', function () {
             } as unknown as ReleaseDiffOutcome['result']
         });
 
-        const code = await runReleaseDiffHandler(depsWith(outcome, spies));
+        const code = await runReleaseDiffHandler(dependenciesWith(outcome, spies));
 
         assert.strictEqual(code, 1);
         assertDeepSubset(spies, {
@@ -142,7 +142,7 @@ suite('release-diff-handler', function () {
             } as unknown as ReleaseDiffOutcome['result']
         });
 
-        const code = await runReleaseDiffHandler(depsWith(outcome, spies));
+        const code = await runReleaseDiffHandler(dependenciesWith(outcome, spies));
 
         assert.strictEqual(code, 1);
         assertDeepSubset(spies, {

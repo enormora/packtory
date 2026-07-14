@@ -12,7 +12,7 @@ import { createEmptyReport } from './report-persistence.ts';
 
 type Logger = (message: string) => void;
 
-export type PreviewHandlerDeps = {
+export type PreviewHandlerDependencies = {
     readonly log: Logger;
     readonly pageOutput: (content: string) => Promise<void>;
     readonly openFile: (filePath: string) => Promise<boolean>;
@@ -25,38 +25,38 @@ export type PreviewHandlerDeps = {
 };
 
 async function renderOpenedReport(
-    deps: Pick<PreviewHandlerDeps, 'createTemporaryFilePath' | 'fileManager' | 'log' | 'openFile'>,
+    dependencies: Pick<PreviewHandlerDependencies, 'createTemporaryFilePath' | 'fileManager' | 'log' | 'openFile'>,
     document: PreviewDocument
 ): Promise<void> {
-    const filePath = deps.createTemporaryFilePath();
-    await deps.fileManager.writeFile(filePath, renderHtmlReport(document));
-    const opened = await deps.openFile(filePath);
+    const filePath = dependencies.createTemporaryFilePath();
+    await dependencies.fileManager.writeFile(filePath, renderHtmlReport(document));
+    const opened = await dependencies.openFile(filePath);
     if (!opened) {
-        deps.log(filePath);
+        dependencies.log(filePath);
     }
 }
 
 async function renderInlinePreview(
-    deps: Pick<PreviewHandlerDeps, 'log' | 'pageOutput'>,
+    dependencies: Pick<PreviewHandlerDependencies, 'log' | 'pageOutput'>,
     document: PreviewDocument
 ): Promise<void> {
     if (document.previewable) {
-        await deps.pageOutput(renderTerminalPreview(document));
+        await dependencies.pageOutput(renderTerminalPreview(document));
     } else {
-        deps.log(renderFailureOnlyTerminalPreview(document).trimEnd());
+        dependencies.log(renderFailureOnlyTerminalPreview(document).trimEnd());
     }
 }
 
-async function renderDocument(deps: PreviewHandlerDeps, document: PreviewDocument): Promise<void> {
-    if (deps.flags.open) {
-        await renderOpenedReport(deps, document);
+async function renderDocument(dependencies: PreviewHandlerDependencies, document: PreviewDocument): Promise<void> {
+    if (dependencies.flags.open) {
+        await renderOpenedReport(dependencies, document);
         return;
     }
-    await renderInlinePreview(deps, document);
+    await renderInlinePreview(dependencies, document);
 }
 
-async function preview(deps: PreviewHandlerDeps): Promise<number> {
-    const { packtory, spinnerRenderer, configLoader, fileManager } = deps;
+async function preview(dependencies: PreviewHandlerDependencies): Promise<number> {
+    const { packtory, spinnerRenderer, configLoader, fileManager } = dependencies;
     const config = await configLoader.load();
     const outcome = await packtory.buildAndPublishAll(config, { dryRun: true, stage: false, collectReport: true });
     spinnerRenderer.stopAll();
@@ -67,14 +67,14 @@ async function preview(deps: PreviewHandlerDeps): Promise<number> {
         dryRun: true,
         fileManager
     });
-    await renderDocument(deps, document);
+    await renderDocument(dependencies, document);
     return outcome.result.isErr ? 1 : 0;
 }
 
-export async function runPreviewHandler(deps: PreviewHandlerDeps): Promise<number> {
+export async function runPreviewHandler(dependencies: PreviewHandlerDependencies): Promise<number> {
     try {
-        return await preview(deps);
+        return await preview(dependencies);
     } finally {
-        deps.spinnerRenderer.stopAll();
+        dependencies.spinnerRenderer.stopAll();
     }
 }

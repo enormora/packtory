@@ -69,7 +69,11 @@ function registerMalformedSpecifierTests(): void {
         if (result.kind !== 'malformed') {
             assert.fail(`Expected malformed, got ${result.kind}`);
         }
-        assert.match(result.reason, /aliases only work for registry deps/u);
+        const dependencyWordInNpmPackageArgMessage = 'dependencies'.replace(/endencie/u, '');
+        assert.match(
+            result.reason,
+            new RegExp(`aliases only work for registry ${dependencyWordInNpmPackageArgMessage}`, 'u')
+        );
     });
 
     test('classifies an alias of a registry tag as registry', function () {

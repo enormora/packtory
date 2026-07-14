@@ -6,7 +6,7 @@ import {
     duplicateCAndMissingBPackages,
     fooPackage,
     packageSpecificPublishSettings,
-    packageWithDeps,
+    packageWithDependencies,
     placementErrorMessage,
     withCommonWithoutPublishSettings,
     withRegistry
@@ -81,8 +81,8 @@ suite('validation publish settings', function () {
             const result = validateConfig(
                 withRegistry({
                     packages: [
-                        packageWithDeps('a', 'bundleDependencies', [ 'b' ]),
-                        packageWithDeps('b', 'bundleDependencies', [ 'a' ]),
+                        packageWithDependencies('a', 'bundleDependencies', [ 'b' ]),
+                        packageWithDependencies('b', 'bundleDependencies', [ 'a' ]),
                         fooPackage(),
                         fooPackage()
                     ]

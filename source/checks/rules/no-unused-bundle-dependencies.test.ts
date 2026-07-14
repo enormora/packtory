@@ -5,7 +5,7 @@ import type { ExternalDependency } from '../../dependency-scanner/external-depen
 import { analyzedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { noUnusedBundleDependenciesRule } from './no-unused-bundle-dependencies.ts';
 
-function bundleWithLinkedDeps(name: string, linked: readonly string[]): AnalyzedBundle {
+function bundleWithLinkedDependencies(name: string, linked: readonly string[]): AnalyzedBundle {
     return analyzedBundle({
         name,
         linkedBundleDependencies: new Map<string, ExternalDependency>(
@@ -27,7 +27,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('returns no issues when settings are missing', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []) ],
+                bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: undefined,
                 perPackageSettings: new Map(),
                 packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
@@ -38,7 +38,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('returns no issues when the rule is disabled', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []) ],
+                bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: { noUnusedBundleDependencies: { enabled: false } },
                 perPackageSettings: new Map(),
                 packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
@@ -49,7 +49,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('returns no issues when packageConfigs is omitted entirely', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []) ],
+                bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
                 perPackageSettings: new Map()
             });
@@ -59,7 +59,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('returns no issues when no entry exists in packageConfigs for the bundle', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []) ],
+                bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
                 perPackageSettings: new Map(),
                 packageConfigs: {}
@@ -70,7 +70,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('returns no issues when the package declares no bundle dependencies', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []) ],
+                bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
                 perPackageSettings: new Map(),
                 packageConfigs: { a: {} }
@@ -83,7 +83,7 @@ suite('no-unused-bundle-dependencies', function () {
     suite('declared dependency usage', function () {
         test('reports a declared bundleDependency that is never substituted', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []) ],
+                bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
                 perPackageSettings: new Map(),
                 packageConfigs: { a: { bundleDependencies: [ 'unused' ] } }
@@ -94,7 +94,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('reports a declared bundlePeerDependency that is never substituted', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []) ],
+                bundles: [ bundleWithLinkedDependencies('a', []) ],
                 settings: enabled,
                 perPackageSettings: new Map(),
                 packageConfigs: { a: { bundlePeerDependencies: [ 'unused-peer' ] } }
@@ -105,7 +105,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('does not report a declared bundleDependency that was substituted', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', [ 'used' ]) ],
+                bundles: [ bundleWithLinkedDependencies('a', [ 'used' ]) ],
                 settings: enabled,
                 perPackageSettings: new Map(),
                 packageConfigs: { a: { bundleDependencies: [ 'used' ] } }
@@ -116,7 +116,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('reports a mix of unused regular and peer dependencies for the same package', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', [ 'used' ]) ],
+                bundles: [ bundleWithLinkedDependencies('a', [ 'used' ]) ],
                 settings: enabled,
                 perPackageSettings: new Map(),
                 packageConfigs: {
@@ -132,7 +132,7 @@ suite('no-unused-bundle-dependencies', function () {
 
         test('iterates every bundle independently', async function () {
             const result = await noUnusedBundleDependenciesRule.run({
-                bundles: [ bundleWithLinkedDeps('a', []), bundleWithLinkedDeps('b', [ 'used' ]) ],
+                bundles: [ bundleWithLinkedDependencies('a', []), bundleWithLinkedDependencies('b', [ 'used' ]) ],
                 settings: enabled,
                 perPackageSettings: new Map(),
                 packageConfigs: {

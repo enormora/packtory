@@ -428,7 +428,7 @@ Reports declared `bundleDependencies` and `bundlePeerDependencies` whose imports
 
 ### `noDevDependencyImports`
 
-Reports any external dependency reachable from a package's source that is declared only in `mainPackageJson.devDependencies` and not in `dependencies` or `peerDependencies`. Catches dev-only deps that have leaked into runtime imports - a likely break for downstream consumers.
+Reports any external dependency reachable from a package's source that is declared only in `mainPackageJson.devDependencies` and not in `dependencies` or `peerDependencies`. Catches dev-only dependencies that have leaked into runtime imports - a likely break for downstream consumers.
 
 - **Top-level:** `enabled: boolean`.
 - **Per-package:** `{}` only.
