@@ -86,7 +86,7 @@
         "@types/tar-stream": "3.1.4",
         "c8": "11.0.0",
         "dependency-cruiser": "18.0.0",
-        "eslint": "10.6.0",
+        "eslint": "10.7.0",
         "fast-check": "4.9.0",
         "get-port": "7.2.0",
         "jscpd": "5.0.12",
