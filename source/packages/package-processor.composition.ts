@@ -127,7 +127,7 @@ function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): Dead
                     esModuleInterop: true,
                     noLib: true,
                     target: ScriptTarget.ES2022,
-                    moduleResolution: ModuleResolutionKind.Node10
+                    moduleResolution: ModuleResolutionKind.Node16
                 },
                 skipLoadingLibFiles: true,
                 useInMemoryFileSystem: true
