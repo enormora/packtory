@@ -103,7 +103,7 @@ async function startRegistry(server: Server): Promise<RegistryDetails> {
         body: JSON.stringify({
             password,
             readonly: false,
-            cidr_whitelist: [ '0.0.0.0/0' ]
+            cidr_whitelist: [ '0.0.0.0/0', '::1/128' ]
         }),
         headers: { 'content-type': 'application/json', Authorization: `Basic ${btoa(credentials)}` }
     });
