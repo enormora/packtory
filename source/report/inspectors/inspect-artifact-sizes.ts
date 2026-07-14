@@ -36,7 +36,7 @@ export function inspectArtifactSizes(contents: readonly ArtifactDescriptor[]): r
             kind: inferArtifactKind(entry.filePath),
             status,
             badges: rewritten ? [ 'import-path-rewrite' ] : [],
-            ...sourcePath !== undefined && { sourcePath }
+            ...sourcePath === undefined ? {} : { sourcePath }
         };
     });
 }

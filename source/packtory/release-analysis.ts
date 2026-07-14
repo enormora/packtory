@@ -33,13 +33,13 @@ function parseJsonFile(fileContent: string): unknown {
     try {
         return JSON.parse(fileContent) as unknown;
     } catch {
-        return -Infinity;
+        return Number.NEGATIVE_INFINITY;
     }
 }
 
 function packageJsonValueForComparison(index: ReadonlyMap<string, FileDescription>): unknown {
     const packageJsonFile = index.get(packageManifestFilePath);
-    return packageJsonFile === undefined ? -Infinity : parseJsonFile(packageJsonFile.content);
+    return packageJsonFile === undefined ? Number.NEGATIVE_INFINITY : parseJsonFile(packageJsonFile.content);
 }
 
 function includesClassification(
@@ -71,8 +71,12 @@ function hasLatestPublishedAt(
     return analysis.latestPublishedAt !== undefined;
 }
 
+function isChangedPackageAnalysis(analysis: PackageReleaseAnalysis): boolean {
+    return analysis.classification !== releaseAnalysisClassification.unchanged;
+}
+
 function hasInvalidPackageJsonValues(previousValue: unknown, newValue: unknown): boolean {
-    return previousValue === -Infinity || newValue === -Infinity;
+    return previousValue === Number.NEGATIVE_INFINITY || newValue === Number.NEGATIVE_INFINITY;
 }
 
 function normalizePackageJsonForDependencyComparison(value: unknown): unknown {
@@ -201,26 +205,27 @@ export function classifyPackageRelease(
     };
 }
 
+function mostRecentPublishedAt(publishedDates: readonly Date[]): Date | undefined {
+    return publishedDates.reduce<Date | undefined>(function (currentMostRecent, publishedAt) {
+        return currentMostRecent === undefined ? publishedAt : maxDate(currentMostRecent, [ publishedAt ]);
+    }, undefined);
+}
+
 export function summarizeReleaseAnalysis(packageAnalyses: readonly PackageReleaseAnalysis[]): ReleaseAnalysis {
     let classification: PackageReleaseAnalysisClassification = releaseAnalysisClassification.unchanged;
-    let hasPublishedAt = false;
-    let mostRecentPublishedAt = new Date(0);
+    const publishedDates: Date[] = [];
 
-    for (const analysis of packageAnalyses) {
-        if (analysis.classification !== releaseAnalysisClassification.unchanged) {
-            classification = moreSignificantClassification(classification, analysis.classification);
-            if (hasLatestPublishedAt(analysis)) {
-                mostRecentPublishedAt = hasPublishedAt
-                    ? maxDate(mostRecentPublishedAt, [ analysis.latestPublishedAt ])
-                    : analysis.latestPublishedAt;
-                hasPublishedAt = true;
-            }
+    const changedPackageAnalyses = packageAnalyses.filter(isChangedPackageAnalysis);
+    for (const analysis of changedPackageAnalyses) {
+        classification = moreSignificantClassification(classification, analysis.classification);
+        if (hasLatestPublishedAt(analysis)) {
+            publishedDates.push(analysis.latestPublishedAt);
         }
     }
 
     return {
         classification,
-        mostRecentPublishedAt: hasPublishedAt ? mostRecentPublishedAt : undefined,
+        mostRecentPublishedAt: mostRecentPublishedAt(publishedDates),
         packageAnalyses
     };
 }

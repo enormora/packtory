@@ -71,8 +71,8 @@ function createRecordedRequest(
 function createMockRouteResponse(route: MockRoute): Response {
     const responseInit: ResponseInit = {
         status: route.status ?? 200,
-        ...route.headers !== undefined && { headers: route.headers },
-        ...route.statusText !== undefined && { statusText: route.statusText }
+        ...route.headers === undefined ? {} : { headers: route.headers },
+        ...route.statusText === undefined ? {} : { statusText: route.statusText }
     };
 
     return Response.json(route.body, responseInit);

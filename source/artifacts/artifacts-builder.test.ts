@@ -455,7 +455,7 @@ suite('artifacts-builder', function () {
                     path: entry.path,
                     sizeBytes: entry.sizeBytes,
                     kind: entry.kind,
-                    ...entry.sourcePath !== undefined && { sourcePath: entry.sourcePath },
+                    ...entry.sourcePath === undefined ? {} : { sourcePath: entry.sourcePath },
                     status: entry.status,
                     badges: entry.badges
                 };

@@ -359,6 +359,23 @@ function registerReleaseSummaryTests(): void {
         });
     });
 
+    test('summarizeReleaseAnalysis ignores undated changes when finding the latest published timestamp', function () {
+        const result = summarizeReleaseAnalysis([
+            {
+                classification: 'first-publish',
+                name: 'pkg-a'
+            },
+            {
+                classification: 'dependency-only',
+                latestPublishedAt: new Date('2026-05-02T00:00:00.000Z'),
+                latestPublishedVersion: '1.0.0',
+                name: 'pkg-b'
+            }
+        ]);
+
+        assert.deepStrictEqual(result.mostRecentPublishedAt, new Date('2026-05-02T00:00:00.000Z'));
+    });
+
     test('summarizeReleaseAnalysis uses dependency-only when it is the strongest changed classification', function () {
         const result = summarizeReleaseAnalysis([
             {

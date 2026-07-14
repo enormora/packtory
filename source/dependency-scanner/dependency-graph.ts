@@ -117,7 +117,7 @@ export function createDependencyGraph(): DependencyGraph {
                     externalDependencies: node.data.externalDependencies,
                     localFiles: Array.from(node.adjacentNodeIds),
                     project: node.data.project,
-                    ...node.data.isGeneratedManifest && { isGeneratedManifest: true }
+                    ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
                 });
             });
         },
@@ -137,7 +137,7 @@ export function createDependencyGraph(): DependencyGraph {
                     filePath: node.id,
                     directDependencies,
                     project: node.data.project?.getProject(),
-                    ...node.data.isGeneratedManifest && { isGeneratedManifest: true }
+                    ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
                 });
                 for (const externalDependencyName of node.data.externalDependencies) {
                     const externalDependency = externalDependencies.get(externalDependencyName);

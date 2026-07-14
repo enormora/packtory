@@ -201,7 +201,7 @@ export function requireFetchSpy(fetchFunction: typeof globalThis.fetch): SinonSp
 
 export function npmOidcRegistrySettings(options: RegistrySettingsOptions = {}): NpmOidcRegistrySettings {
     return {
-        ...options.registryUrl !== undefined && { registryUrl: options.registryUrl },
+        ...options.registryUrl === undefined ? {} : { registryUrl: options.registryUrl },
         auth: {
             publish: { type: 'npm-oidc', provider: 'env' },
             metadata: 'anonymous'

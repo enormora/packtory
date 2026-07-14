@@ -101,6 +101,19 @@ function detectCyclesForNode<TId extends GraphNodeId, TData>(
     return cycles;
 }
 
+function detectCyclesForUnvisitedNode<TId extends GraphNodeId, TData>(
+    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
+    dependencies: GraphDependencies<TId>,
+    idsWithinCycles: ReadonlySet<TId>,
+    baseNode: GraphNode<TId, TData>
+): readonly (readonly TId[])[] {
+    if (dependencies.visitedHas(idsWithinCycles, baseNode.id)) {
+        return [];
+    }
+
+    return detectCyclesForNode(nodes, dependencies, baseNode, []);
+}
+
 function detectGraphCycles<TId extends GraphNodeId, TData>(
     nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
     dependencies: GraphDependencies<TId>
@@ -109,12 +122,10 @@ function detectGraphCycles<TId extends GraphNodeId, TData>(
     const idsWithinCycles = new Set<TId>();
 
     for (const baseNode of nodes.values()) {
-        if (!dependencies.visitedHas(idsWithinCycles, baseNode.id)) {
-            const cyclesForNode = detectCyclesForNode(nodes, dependencies, baseNode, []);
-            cycles.push(...cyclesForNode);
-            for (const id of cyclesForNode.flat()) {
-                idsWithinCycles.add(id);
-            }
+        const cyclesForNode = detectCyclesForUnvisitedNode(nodes, dependencies, idsWithinCycles, baseNode);
+        cycles.push(...cyclesForNode);
+        for (const id of cyclesForNode.flat()) {
+            idsWithinCycles.add(id);
         }
     }
 

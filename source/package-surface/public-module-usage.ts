@@ -40,12 +40,13 @@ function recordConsumerPublicModuleUsage(
 ): void {
     const specifiers = collectModuleSpecifiers(consumer);
     for (const specifier of specifiers) {
-        for (const target of bundles) {
-            if (target.name !== consumer.name) {
-                const sourceFilePath = resolvePublicModuleSourceFilePath(target, specifier);
-                if (sourceFilePath !== undefined) {
-                    recorder.recordUsage(target.name, sourceFilePath);
-                }
+        const otherBundles = bundles.filter(function (bundle) {
+            return bundle.name !== consumer.name;
+        });
+        for (const target of otherBundles) {
+            const sourceFilePath = resolvePublicModuleSourceFilePath(target, specifier);
+            if (sourceFilePath !== undefined) {
+                recorder.recordUsage(target.name, sourceFilePath);
             }
         }
     }

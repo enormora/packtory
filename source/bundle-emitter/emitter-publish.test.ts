@@ -93,7 +93,7 @@ function publishRequest(params: PublishParams): PublishRequest {
         bundle: params.bundle ?? namedBundle(),
         publishSettings: params.publishSettings,
         stage: params.stage ?? false,
-        ...params.extraFiles !== undefined && { extraFiles: params.extraFiles }
+        ...params.extraFiles === undefined ? {} : { extraFiles: params.extraFiles }
     };
 }
 

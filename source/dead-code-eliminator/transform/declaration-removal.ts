@@ -18,14 +18,13 @@ function processVariableStatement(statement: Statement, survivingNames: Readonly
     if (!TsMorphNode.isVariableStatement(statement)) {
         return false;
     }
-    let mutated = false;
-    for (const declarator of statement.getDeclarations()) {
-        if (!variableDeclarationSurvives(declarator, survivingNames)) {
-            declarator.remove();
-            mutated = true;
-        }
+    const removedDeclarators = statement.getDeclarations().filter(function (declarator) {
+        return !variableDeclarationSurvives(declarator, survivingNames);
+    });
+    for (const declarator of removedDeclarators) {
+        declarator.remove();
     }
-    return mutated;
+    return removedDeclarators.length > 0;
 }
 
 export function processStatement(statement: Statement, survivingNames: ReadonlySet<string>): boolean {

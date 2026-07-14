@@ -111,7 +111,7 @@ function registerDecisionHandlers(state: AggregatorState, subscribe: Subscribe):
                         path: file.path,
                         reason: file.reason,
                         sourceBytes: file.sourceBytes,
-                        ...file.outputBytes !== undefined && { outputBytes: file.outputBytes }
+                        ...file.outputBytes === undefined ? {} : { outputBytes: file.outputBytes }
                     };
                 });
             updatePackage(state, bundle.packageName, function (entry) {
@@ -125,7 +125,7 @@ function registerDecisionHandlers(state: AggregatorState, subscribe: Subscribe):
                             seeds: bundle.seeds
                         }
                     },
-                    ...eliminatedSourceFiles.length > 0 && { eliminatedSourceFiles }
+                    ...eliminatedSourceFiles.length > 0 ? { eliminatedSourceFiles } : {}
                 };
             });
         }

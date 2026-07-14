@@ -31,7 +31,7 @@ function buildInputGraph(
                     directDependencies: new Set(entry.directDependencies)
                 }),
                 project: entry.project,
-                ...entry.isGeneratedManifest === true && { isGeneratedManifest: true }
+                ...entry.isGeneratedManifest === true ? { isGeneratedManifest: true } : {}
             };
         }),
         roots: { main: root },

@@ -1,23 +1,24 @@
 import { bundledDependencyGroups } from '../common/bundled-dependency-groups.ts';
-import type { PackageConfigsByName } from './config.ts';
+import type { PackageConfig, PackageConfigsByName } from './config.ts';
+
+function dependencyIssues(packageConfig: PackageConfig, knownPackageNames: ReadonlySet<string>): readonly string[] {
+    return bundledDependencyGroups().flatMap(function (group) {
+        const dependencyNames = packageConfig[group.propertyName] ?? [];
+        const missingDependencyNames = dependencyNames.filter(function (dependencyName) {
+            return !knownPackageNames.has(dependencyName);
+        });
+
+        return missingDependencyNames.map(function (dependencyName) {
+            return `${group.missingMessagePrefix} "${dependencyName}" referenced in "${packageConfig.name}" ` +
+                'does not exist';
+        });
+    });
+}
 
 export function validateDependenciesExist(packageConfigs: PackageConfigsByName): readonly string[] {
-    const issues: string[] = [];
     const knownPackageNames = new Set(Object.keys(packageConfigs));
 
-    for (const packageConfig of Object.values(packageConfigs)) {
-        for (const group of bundledDependencyGroups()) {
-            const dependencyNames = packageConfig[group.propertyName] ?? [];
-            for (const dependencyName of dependencyNames) {
-                if (!knownPackageNames.has(dependencyName)) {
-                    const message =
-                        `${group.missingMessagePrefix} "${dependencyName}" referenced in "${packageConfig.name}" ` +
-                        'does not exist';
-                    issues.push(message);
-                }
-            }
-        }
-    }
-
-    return issues;
+    return Object.values(packageConfigs).flatMap(function (packageConfig) {
+        return dependencyIssues(packageConfig, knownPackageNames);
+    });
 }

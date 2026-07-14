@@ -70,7 +70,7 @@ export function createVersionedBundle(
         packageJson: {
             name,
             version,
-            ...overrides.dependencies !== undefined && { dependencies: overrides.dependencies }
+            ...overrides.dependencies === undefined ? {} : { dependencies: overrides.dependencies }
         },
         manifestFile: { filePath: 'package.json', content: '{}', isExecutable: false }
     };

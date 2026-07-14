@@ -72,7 +72,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
                         content: '',
                         isExecutable: false
                     },
-                    ...bundle.typesTargetFilePath !== undefined && {
+                    ...bundle.typesTargetFilePath === undefined ? {} : {
                         declarationFile: {
                             sourceFilePath: `/src/${bundle.typesTargetFilePath}`,
                             targetFilePath: bundle.typesTargetFilePath,
@@ -86,7 +86,7 @@ const bundleArbitrary: fc.Arbitrary<VersionedBundle> = fc
             exportsField: {
                 '.': {
                     import: `./${bundle.mainTargetFilePath}`,
-                    ...bundle.typesTargetFilePath !== undefined && { types: `./${bundle.typesTargetFilePath}` }
+                    ...bundle.typesTargetFilePath === undefined ? {} : { types: `./${bundle.typesTargetFilePath}` }
                 }
             },
             mainFile: {

@@ -305,16 +305,6 @@ suite('release-pull-request-ci', function () {
             const createStatus = fake.resolves(undefined);
             const runResults = [
                 {
-                    conclusion: undefined,
-                    databaseId: 1,
-                    url: 'https://github.com/enormora/packtory/actions/runs/1',
-                    jobs: [
-                        { conclusion: 'success', name: 'Successful job', url: 'https://run/success' },
-                        { conclusion: undefined, name: 'Pending job', url: 'https://run/pending' },
-                        { conclusion: 'failure', name: 'Failed job', url: 'https://run/failed' }
-                    ]
-                },
-                {
                     conclusion: 'success',
                     databaseId: 1,
                     url: 'https://github.com/enormora/packtory/actions/runs/1',
@@ -324,10 +314,20 @@ suite('release-pull-request-ci', function () {
                         { conclusion: 'success', name: 'Pending job', url: 'https://run/pending' },
                         { conclusion: 'success', name: 'Failed job', url: 'https://run/failed' }
                     ]
+                },
+                {
+                    conclusion: undefined,
+                    databaseId: 1,
+                    url: 'https://github.com/enormora/packtory/actions/runs/1',
+                    jobs: [
+                        { conclusion: 'success', name: 'Successful job', url: 'https://run/success' },
+                        { conclusion: undefined, name: 'Pending job', url: 'https://run/pending' },
+                        { conclusion: 'failure', name: 'Failed job', url: 'https://run/failed' }
+                    ]
                 }
             ];
             const readWorkflowRunResult = fake(async function () {
-                const result = runResults.shift();
+                const result = runResults.pop();
                 if (result === undefined) {
                     throw new Error('Unexpected workflow run result read');
                 }
