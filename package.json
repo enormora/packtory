@@ -98,7 +98,7 @@
         "tinybench": "6.0.2",
         "tstyche": "7.2.1",
         "typescript": "6.0.3",
-        "verdaccio": "6.7.2"
+        "verdaccio": "6.7.4"
     },
     "engines": {
         "node": "^24 || ^26"
