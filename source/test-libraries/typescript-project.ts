@@ -19,7 +19,7 @@ export function createProject(options: Options = {}): Project {
             esModuleInterop: true,
             noLib: true,
             target: ScriptTarget.ES2022,
-            moduleResolution: ModuleResolutionKind.Node10,
+            moduleResolution: ModuleResolutionKind.Node16,
             resolveJsonModule: true
         },
         skipLoadingLibFiles: true,
