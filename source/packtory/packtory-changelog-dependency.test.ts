@@ -87,6 +87,7 @@ async function generate(
     return generateChangelogOutputs({
         packages,
         prLogEngine: engine,
+        changelogSourceFileRootsByPackageName: new Map(),
         githubRepo: 'owner/repo',
         currentDate: new Date('2026-06-13T00:00:00.000Z'),
         explicitBaseRef: undefined,

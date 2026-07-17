@@ -1,6 +1,6 @@
 import { createFactory } from '@enormora/objectory';
 
-type PullRequestChangedFileShape = {
+export type PullRequestChangedFileShape = {
     readonly path: string;
     readonly previousPath: string | undefined;
     readonly status: string;

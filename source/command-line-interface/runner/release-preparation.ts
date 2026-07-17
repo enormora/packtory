@@ -2,6 +2,7 @@ import type { PrLogConfig, PrLogEngine, PrLogEngineOptions } from '@pr-log/core'
 import type { Packtory, ReleasePlanPackage } from '../../packtory/packtory.ts';
 import { generateChangelogOutputs, type GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import {
+    collectChangelogSourceFileRoots,
     collectGeneratedAttributionPaths,
     createChangelogGenerationOptions,
     parseValidConfig,
@@ -96,6 +97,7 @@ async function generateReleaseChangelog(
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine: engine,
+        changelogSourceFileRootsByPackageName: collectChangelogSourceFileRoots(dependencies, config),
         explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
         ignoredAttributionPaths: collectGeneratedAttributionPaths(dependencies, config),

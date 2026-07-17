@@ -117,6 +117,7 @@ async function render(packages: readonly ReleasePlanPackage[], engine: PrLogEngi
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine: engine,
+        changelogSourceFileRootsByPackageName: new Map(),
         explicitBaseRef: undefined,
         githubRepo: 'owner/repo',
         packageTagFormat: undefined,
@@ -232,6 +233,32 @@ function registerTargetSelectionTests(): void {
             ignoredAttributionPaths: [ 'CHANGELOG.md' ]
         });
     });
+
+    test('does not add deleted source files when no package source root is configured', async function () {
+        const { engine, calls } = createEngine();
+        const readPullRequestChangedFiles = fake.resolves(
+            new Map([
+                [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/removed.ts', status: 'removed' }) ] ]
+            ])
+        );
+        const sourceRootlessEngine = {
+            ...engine,
+            readPullRequestChangedFiles
+        } as unknown as PrLogEngine;
+
+        await render(
+            [
+                releasePackage({
+                    changelogSourceFiles: [],
+                    sourceFiles: [],
+                    changedArtifactFiles: []
+                })
+            ],
+            sourceRootlessEngine
+        );
+
+        assert.deepStrictEqual(calls.filterPullRequestsByTargetFiles.firstCall.args[0].targetSourceFiles, []);
+    });
 }
 
 function registerDependencyUpdateTests(): void {
@@ -334,6 +361,7 @@ function registerDependencyUpdateTests(): void {
         await generateChangelogOutputs({
             packages: [ releasePackage({ releaseClassification: 'dependency-only' }) ],
             prLogEngine: engine,
+            changelogSourceFileRootsByPackageName: new Map(),
             githubRepo: 'owner/repo',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             explicitBaseRef: undefined,
@@ -402,6 +430,7 @@ function registerPackageChangelogTests(): void {
         const changelog = await generateChangelogOutputs({
             packages: [ releasePackage({ changelogSourceFiles: [ 'source/pkg-a.ts' ] }) ],
             prLogEngine: emptyEngine,
+            changelogSourceFileRootsByPackageName: new Map(),
             githubRepo: 'owner/repo',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             explicitBaseRef: undefined,
@@ -460,6 +489,7 @@ function registerAttributionPathTests(): void {
         await generateChangelogOutputs({
             packages: [ releasePackage({ changelogSourceFiles: [ 'source/pkg-a.ts' ] }) ],
             prLogEngine: engine,
+            changelogSourceFileRootsByPackageName: new Map(),
             githubRepo: 'owner/repo',
             currentDate: new Date('2026-06-13T00:00:00.000Z'),
             explicitBaseRef: undefined,
@@ -482,6 +512,7 @@ function registerOptionForwardingTests(): void {
         await generateChangelogOutputs({
             packages: [ releasePackage({ previousVersion: undefined, previousGitHead: undefined }) ],
             prLogEngine: engine,
+            changelogSourceFileRootsByPackageName: new Map(),
             explicitBaseRef: 'release-base',
             githubRepo: 'owner/repo',
             packageTagFormat: 'pkg/{packageName}/v{version}',
