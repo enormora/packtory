@@ -1,8 +1,17 @@
 {
-    "extends": ["config:base", "helpers:pinGitHubActionDigests"],
-    "ignorePaths": ["**/node_modules/**", "**/integration-tests/**"],
+    "extends": [
+        "config:base",
+        "helpers:pinGitHubActionDigests"
+    ],
+    "ignorePaths": [
+        "**/node_modules/**",
+        "**/integration-tests/**"
+    ],
     "commitMessagePrefix": "⬆️ ",
-    "labels": ["renovate", "upgrade"],
+    "labels": [
+        "renovate",
+        "upgrade"
+    ],
     "dependencyDashboard": false,
     "rebaseWhen": "behind-base-branch",
     "minimumReleaseAge": "3 days",
@@ -14,9 +23,13 @@
     "automergeType": "pr",
     "packageRules": [
         {
-            "matchPackagePatterns": ["^@enormora/eslint-config"],
+            "matchPackagePatterns": [
+                "^@enormora/eslint-config"
+            ],
             "groupName": "@enormora/eslint-config",
             "groupSlug": "enormora-eslint-config"
         }
-    ]
+    ],
+    "platformAutomerge": true,
+    "automergeStrategy": "merge-commit"
 }
