@@ -10,6 +10,7 @@ import type {
 import { compareValues } from '../common/sort-values.ts';
 import { releaseAnalysisClassification, type ReleasePlanPackage } from './packtory-results.ts';
 import { isPackageManifestInputPath } from './changelog-source-attribution.ts';
+import { expandChangelogSourceFilesForHistory } from './changelog-source-file-history.ts';
 
 type ChangelogTarget = {
     readonly packagePlan: ReleasePlanPackage;
@@ -55,7 +56,23 @@ function syntheticDependencyPullRequestId(): 0 {
     return 0;
 }
 
+function emptyChangelogSourceFileRoots(): readonly string[] {
+    return new Array<string>();
+}
+
+function changelogSourceFileRootsForPackage(
+    changelogSourceFileRootsByPackageName: ReadonlyMap<string, readonly string[]>,
+    packageName: string
+): readonly string[] {
+    const sourceFileRoots = changelogSourceFileRootsByPackageName.get(packageName);
+    if (sourceFileRoots === undefined) {
+        return emptyChangelogSourceFileRoots();
+    }
+    return sourceFileRoots;
+}
+
 export type GenerateChangelogInput = {
+    readonly changelogSourceFileRootsByPackageName: ReadonlyMap<string, readonly string[]>;
     readonly currentDate: Date;
     readonly explicitBaseRef: string | undefined;
     readonly githubRepo: string;
@@ -174,9 +191,17 @@ async function collectTargetPullRequests(
         githubRepo: input.githubRepo,
         pullRequests
     });
+    const targetSourceFiles = expandChangelogSourceFilesForHistory({
+        changedFilesByPullRequest,
+        packagePlan,
+        sourceFileRoots: changelogSourceFileRootsForPackage(
+            input.changelogSourceFileRootsByPackageName,
+            packagePlan.name
+        )
+    });
     const packagePullRequests = input.prLogEngine.filterPullRequestsByTargetFiles({
         targetName: packagePlan.name,
-        targetSourceFiles: packagePlan.changelogSourceFiles,
+        targetSourceFiles,
         pullRequests,
         changedFilesByPullRequest,
         ignoredAttributionPaths

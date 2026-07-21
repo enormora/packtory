@@ -49,12 +49,27 @@ async function commitMergedPullRequest(
     ]);
 }
 
+async function commitMergedPullRequests(repositoryPath: string): Promise<void> {
+    const pullRequests = [
+        [ 1, 'update-react', 'Update React to v19' ],
+        [ 2, 'move-readme', 'Move package README into source/packages' ],
+        [ 3, 'update-readme', 'Update package README content' ],
+        [ 4, 'update-old-rule', 'Update old rule behavior' ],
+        [ 5, 'rename-old-rule', 'Rename old rule' ],
+        [ 6, 'fix-subsumed-rule', 'Fix subsumed rule behavior' ],
+        [ 7, 'subsume-old-rule', 'Subsume old rule into new rule' ],
+        [ 8, 'remove-legacy-rules', 'Remove legacy rules' ]
+    ] as const;
+
+    for (const [ pullRequestNumber, branchName, title ] of pullRequests) {
+        await commitMergedPullRequest(repositoryPath, pullRequestNumber, branchName, title);
+    }
+}
+
 export async function createChangelogGitRepository(): Promise<string> {
     const repositoryPath = await mkdtemp(path.join(os.tmpdir(), 'packtory-pr-log-'));
     await configureRepository(repositoryPath);
     await commitBase(repositoryPath);
-    await commitMergedPullRequest(repositoryPath, 1, 'update-react', 'Update React to v19');
-    await commitMergedPullRequest(repositoryPath, 2, 'move-readme', 'Move package README into source/packages');
-    await commitMergedPullRequest(repositoryPath, 3, 'update-readme', 'Update package README content');
+    await commitMergedPullRequests(repositoryPath);
     return repositoryPath;
 }

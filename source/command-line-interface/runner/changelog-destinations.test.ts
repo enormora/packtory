@@ -4,6 +4,7 @@ import { fake } from 'sinon';
 import type { GeneratedChangelog } from '../../packtory/packtory-changelog.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import {
+    collectChangelogSourceFileRoots,
     collectGeneratedAttributionPaths,
     createChangelogGenerationOptions,
     parseValidConfig,
@@ -115,6 +116,26 @@ suite('changelog-destinations', function () {
         });
         assert.strictEqual(options.prLogConfig.validLabels.get('bug'), 'Fixed Bugs');
         assert.strictEqual(options.prLogConfig.validLabels.get('operations'), 'Operations');
+    });
+
+    test('collectChangelogSourceFileRoots resolves package source folders relative to the repository', function () {
+        assert.deepStrictEqual(
+            collectChangelogSourceFileRoots(
+                { workingDirectory: '/repo' },
+                createChangelogConfig({
+                    packages: [
+                        { name: 'pkg-a', sourcesFolder: 'packages/pkg-a/src' },
+                        { name: 'pkg-b', sourcesFolder: '/repo/packages/pkg-b/source' },
+                        { name: 'pkg-c', sourcesFolder: '.' }
+                    ]
+                })
+            ),
+            new Map([
+                [ 'pkg-a', [ 'packages/pkg-a/src' ] ],
+                [ 'pkg-b', [ 'packages/pkg-b/source' ] ],
+                [ 'pkg-c', [ '' ] ]
+            ])
+        );
     });
 
     suite('collectGeneratedAttributionPaths', function () {

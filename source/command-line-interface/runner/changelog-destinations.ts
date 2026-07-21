@@ -96,12 +96,32 @@ function resolveRepositoryPath(
     return path.resolve(dependencies.workingDirectory, normalizeConfiguredPath(filePath));
 }
 
+function toRepositoryRelativePath(workingDirectory: string, filePath: string): string {
+    return path.relative(workingDirectory, filePath).split(path.sep).join('/');
+}
+
 function resolvePackageSourcesFolder(packageConfig: PackagePathConfig, config: ChangelogConfig): string {
     const sourcesFolder = packageConfig.sourcesFolder ?? config.commonPackageSettings?.sourcesFolder;
     if (sourcesFolder === undefined) {
         throw new Error(`Config for package "${packageConfig.name}" is missing the sources folder`);
     }
     return sourcesFolder;
+}
+
+export function collectChangelogSourceFileRoots(
+    dependencies: Pick<ChangelogDestinationDependencies, 'workingDirectory'>,
+    config: ChangelogConfig
+): ReadonlyMap<string, readonly string[]> {
+    return new Map(
+        config.packages.map(function (packageConfig) {
+            const sourcesFolder = resolvePackageSourcesFolder(packageConfig, config);
+            const absoluteSourceFolder = resolveRepositoryPath(dependencies, sourcesFolder);
+            return [
+                packageConfig.name,
+                [ toRepositoryRelativePath(dependencies.workingDirectory, absoluteSourceFolder) ]
+            ] as const;
+        })
+    );
 }
 
 function mapPackageConfigByName(config: ChangelogConfig): ReadonlyMap<string, PackagePathConfig> {

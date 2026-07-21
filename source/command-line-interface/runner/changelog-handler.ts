@@ -6,6 +6,7 @@ import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import {
     createChangelogGenerationOptions,
+    collectChangelogSourceFileRoots,
     collectGeneratedAttributionPaths,
     parseValidConfig,
     shouldPageGroupedChangelog,
@@ -64,6 +65,7 @@ async function renderChangelog(
     const changelog = await generateChangelogOutputs({
         packages,
         prLogEngine,
+        changelogSourceFileRootsByPackageName: collectChangelogSourceFileRoots(dependencies, config),
         explicitBaseRef: generationOptions.explicitBaseRef,
         githubRepo: formatGitHubRepositoryName(packageInfo),
         ignoredAttributionPaths: collectGeneratedAttributionPaths(dependencies, config),
