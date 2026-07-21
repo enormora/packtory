@@ -58,7 +58,7 @@ function createPublicModuleIndexBuilder(): PublicModuleIndexBuilder {
 
     function recordPublicSourceFilePath(write: IndexedSpecifierWrite): void {
         const hasPublicSpecifier = sourceFilePathBySpecifier.has(write.specifier);
-        if (write.publicSourceFilePath !== undefined && !hasPublicSpecifier) {
+        if (!hasPublicSpecifier && write.publicSourceFilePath !== undefined) {
             sourceFilePathBySpecifier.set(write.specifier, write.publicSourceFilePath);
         }
     }

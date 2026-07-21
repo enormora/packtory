@@ -35,7 +35,7 @@ function document(overrides: Partial<ReleaseDiffDocument> = {}): ReleaseDiffDocu
 suite('terminal-release-diff-renderer', function () {
     test('renderTerminalReleaseDiff renders the document title with the chip', function () {
         const output = renderTerminalReleaseDiff(document(), { color: false });
-        const [ firstLine ] = output.split('\n');
+        const [ firstLine ] = output.split('\n', 1);
         assert.strictEqual(firstLine, 'Packtory release diff  [vs registry latest]');
     });
 

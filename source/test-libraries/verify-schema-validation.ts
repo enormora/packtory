@@ -123,11 +123,11 @@ function updateLeafValue(
     modification: 'delete' | 'set',
     value: unknown
 ): unknown {
-    if (Array.isArray(current) && typeof pathSegment === 'number') {
+    if (typeof pathSegment === 'number' && Array.isArray(current)) {
         return updateLeafArrayValue(current, pathSegment, modification, value);
     }
 
-    if (isPlainObject(current) && typeof pathSegment === 'string') {
+    if (typeof pathSegment === 'string' && isPlainObject(current)) {
         return updateLeafRecordValue(current, pathSegment, modification, value);
     }
 
@@ -151,7 +151,7 @@ function updateNestedValue(
     }
 
     function updateChild(): unknown {
-        if (Array.isArray(current) && typeof pathSegment === 'number') {
+        if (typeof pathSegment === 'number' && Array.isArray(current)) {
             return setArrayValue(
                 current,
                 pathSegment,
@@ -159,7 +159,7 @@ function updateNestedValue(
             );
         }
 
-        if (isPlainObject(current) && typeof pathSegment === 'string') {
+        if (typeof pathSegment === 'string' && isPlainObject(current)) {
             return setRecordValue(
                 current,
                 pathSegment,
