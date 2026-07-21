@@ -56,9 +56,11 @@ function isHashSpecifier(specifier: string): boolean {
     return specifier.startsWith(hashImportPrefix());
 }
 
+const scopedPackageSegmentCount = 2;
+
 function packageNameFromSpecifier(specifier: string): string {
     if (specifier.startsWith('@')) {
-        const [ scope, name ] = specifier.split('/');
+        const [ scope, name ] = specifier.split('/', scopedPackageSegmentCount);
         if (name === undefined) {
             throw new Error(`Invalid package specifier "${specifier}"`);
         }

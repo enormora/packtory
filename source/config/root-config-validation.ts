@@ -161,7 +161,7 @@ function validateImplicitRootConfiguration(packageConfig: ImplicitPackageConfig)
     const { defaultModuleRoot } = packageConfig;
     const issues: string[] = [];
 
-    if (Object.keys(packageConfig.roots).length > 1 && defaultModuleRoot === undefined) {
+    if (defaultModuleRoot === undefined && Object.keys(packageConfig.roots).length > 1) {
         issues.push(`Package "${packageConfig.name}" must define defaultModuleRoot when multiple roots exist`);
     }
 

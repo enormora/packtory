@@ -453,7 +453,7 @@ suite('spinner-shared-state', function () {
             let slotGeneration = 0;
             const atomics = createControlledAtomics({
                 load(typedArray, index, realLoad) {
-                    if (typedArray.length === 1 && index === 0) {
+                    if (index === 0 && typedArray.length === 1) {
                         slotGeneration += 1;
                         return slotGeneration;
                     }

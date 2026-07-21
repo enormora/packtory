@@ -61,7 +61,7 @@ function recordSpinnerGlyphChange(
 ): SpinnerGlyphState {
     const previousGlyph = previousGlyphByPackage.get(packageName);
 
-    if (!spinnerFrames.has(glyph) || previousGlyph === glyph) {
+    if (previousGlyph === glyph || !spinnerFrames.has(glyph)) {
         return { previousGlyphByPackage, pendingFramePackages };
     }
 
