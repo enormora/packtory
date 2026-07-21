@@ -76,7 +76,7 @@ suite('config error prefixes', function () {
                         }
                     ]
                 },
-                expectedMessages: [ 'at registrySettings.auth: invalid value doesn’t match expected union' ]
+                expectedMessages: [ 'at registrySettings.auth: invalid value: expected string, but got object' ]
             })
         );
     });

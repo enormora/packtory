@@ -141,7 +141,7 @@ suite('versioning-settings', function () {
             checkValidationFailure({
                 schema: versioningSettingsSchema,
                 data: { automatic: true, version: '1' },
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
+                expectedMessages: [ 'unexpected additional property: "version"' ]
             })
         );
     });
@@ -161,7 +161,7 @@ suite('versioning-settings', function () {
             checkValidationFailure({
                 schema: versioningSettingsSchema,
                 data: { automatic: true, minimumVersion: '1', foo: 'bar' },
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
+                expectedMessages: [ 'unexpected additional property: "foo"' ]
             })
         );
 
@@ -197,7 +197,7 @@ suite('versioning-settings', function () {
             checkValidationFailure({
                 schema: versioningSettingsSchema,
                 data: { automatic: false, version: '1', minimumVersion: '2' },
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
+                expectedMessages: [ 'unexpected additional property: "minimumVersion"' ]
             })
         );
 
@@ -233,7 +233,7 @@ suite('versioning-settings', function () {
             checkValidationFailure({
                 schema: versioningSettingsSchema,
                 data: { automatic: false, version: '1', foo: 'bar' },
-                expectedMessages: [ 'invalid value doesn’t match expected union' ]
+                expectedMessages: [ 'unexpected additional property: "foo"' ]
             })
         );
 
