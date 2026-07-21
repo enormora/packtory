@@ -98,7 +98,12 @@ suite('packtory-pack', function () {
         });
 
         test('packs the requested package with resolved bundle metadata when vendoring is disabled', async function () {
-            const { dependencies, fakes } = createDependencies({});
+            const bundlePeerDependency = { name: 'peer' };
+            const { dependencies, fakes } = createDependencies({
+                resolveResult: Result.ok([
+                    makeResolvedPackage({ bundlePeerDependencies: [ bundlePeerDependency ] })
+                ])
+            });
             const runPack = createRunPackValidated(dependencies);
 
             const result = await runPack(validatedConfig, baseOptions, fakes.resolveAndLinkAll);
@@ -109,7 +114,7 @@ suite('packtory-pack', function () {
                 version: '0.0.0',
                 mainPackageJson: { type: 'module' },
                 bundleDependencies: [],
-                bundlePeerDependencies: [],
+                bundlePeerDependencies: [ { ...bundlePeerDependency, version: '0.0.0' } ],
                 additionalPackageJsonAttributes: {},
                 allowMutableSpecifiers: []
             });

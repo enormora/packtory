@@ -44,9 +44,23 @@ export type PackRunDependencies = {
 
 const manifestSchema = z.record(z.string(), z.unknown());
 
+type VersionedDependency = {
+    readonly name: string;
+    readonly version: string;
+};
+
 function shouldPreservePackageJsonArrayOrder(path: readonly string[]): boolean {
     const [ topLevelKey ] = path;
     return topLevelKey === 'imports' || topLevelKey === 'exports';
+}
+
+function versionedDependenciesForPack(
+    dependencies: readonly { readonly name: string; }[],
+    version: string
+): readonly VersionedDependency[] {
+    return dependencies.map(function (dependency) {
+        return { name: dependency.name, version };
+    });
 }
 
 function buildVersionedBundle(
@@ -58,8 +72,8 @@ function buildVersionedBundle(
         bundle: target.analyzedBundle,
         version,
         mainPackageJson: target.resolveOptions.mainPackageJson,
-        bundleDependencies: [],
-        bundlePeerDependencies: [],
+        bundleDependencies: versionedDependenciesForPack(target.resolveOptions.bundleDependencies, version),
+        bundlePeerDependencies: versionedDependenciesForPack(target.resolveOptions.bundlePeerDependencies, version),
         additionalPackageJsonAttributes: target.resolveOptions.additionalPackageJsonAttributes,
         allowMutableSpecifiers: target.resolveOptions.allowMutableSpecifiers
     });

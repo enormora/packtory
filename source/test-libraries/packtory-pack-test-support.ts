@@ -32,6 +32,7 @@ export type FakeVersionedBundle = {
 type ResolvedPackageOverrides = {
     readonly name?: string;
     readonly bundleDependencies?: readonly unknown[];
+    readonly bundlePeerDependencies?: readonly unknown[];
     readonly externalDependencyNames?: readonly string[];
     readonly bundleDependencyNames?: readonly string[];
     readonly sourcesFolder?: string;
@@ -104,7 +105,7 @@ export function makeResolvedPackage(overrides: ResolvedPackageOverrides = {}): R
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: [],
             bundleDependencies: valueOrFallback(overrides.bundleDependencies, []),
-            bundlePeerDependencies: [],
+            bundlePeerDependencies: valueOrFallback(overrides.bundlePeerDependencies, []),
             roots: { main: { js: 'index.js' } },
             surface: { kind: 'implicit' },
             sourcesFolder: valueOrFallback(overrides.sourcesFolder, '/repo')
