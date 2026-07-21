@@ -71,8 +71,9 @@ function expandRenameHistory(
     targetSourceFiles: ReadonlySet<string>,
     changedFiles: readonly PullRequestChangedFile[]
 ): ReadonlySet<string> {
-    const expanded = expandRenamedFiles(targetSourceFiles, changedFiles);
-    return expanded.size === targetSourceFiles.size ? expanded : expandRenameHistory(expanded, changedFiles);
+    return changedFiles.reduce(function (expandedSoFar) {
+        return expandRenamedFiles(expandedSoFar, changedFiles);
+    }, targetSourceFiles);
 }
 
 function addDeletedFilesFromTargetPullRequests(
