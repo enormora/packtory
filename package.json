@@ -93,7 +93,7 @@
         "knip": "6.27.0",
         "mocha": "11.7.6",
         "node-pty": "1.1.0",
-        "rust-just": "1.56.0",
+        "rust-just": "1.57.0",
         "sinon": "22.0.0",
         "tinybench": "6.0.2",
         "tstyche": "7.2.2",
