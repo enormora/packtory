@@ -149,6 +149,120 @@ function registerTargetAttachedDeleteTests(): void {
         assert.deepStrictEqual(result, [ 'source/rules/current-rule.ts', 'source/rules/subsumed-rule.ts' ]);
     });
 
+    test('adds deleted repository source files from derived changelog source roots', function () {
+        const result = expand(
+            packagePlan([ 'source/rules/current-rule.ts' ]),
+            changedFilesByPullRequest([
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'source/rules/current-rule.ts',
+                        status: 'modified'
+                    })
+                ],
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'source/rules/subsumed-rule.ts',
+                        status: 'deleted'
+                    })
+                ]
+            ]),
+            [ 'target/build/source' ]
+        );
+
+        assert.deepStrictEqual(result, [ 'source/rules/current-rule.ts', 'source/rules/subsumed-rule.ts' ]);
+    });
+
+    test('keeps dependency-only root matching limited to configured source roots', function () {
+        const result = expand(
+            packagePlan([ 'source/rules/current-rule.ts' ], 'dependency-only'),
+            changedFilesByPullRequest([
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'source/rules/current-rule.ts',
+                        status: 'modified'
+                    })
+                ],
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'source/rules/subsumed-rule.ts',
+                        status: 'deleted'
+                    })
+                ]
+            ]),
+            [ 'target/build/source' ]
+        );
+
+        assert.deepStrictEqual(result, [ 'source/rules/current-rule.ts' ]);
+    });
+
+    test('does not derive the repository root from root-level changelog source files', function () {
+        const result = expand(
+            packagePlan([ 'README.md' ]),
+            changedFilesByPullRequest([
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'source/rules/removed-rule.ts',
+                        status: 'deleted'
+                    })
+                ]
+            ]),
+            [ 'target/build/source' ]
+        );
+
+        assert.deepStrictEqual(result, [ 'README.md' ]);
+    });
+
+    test('does not derive ancestor folders from nested changelog source files', function () {
+        const result = expand(
+            packagePlan([ 'source/rules/current-rule.ts' ]),
+            changedFilesByPullRequest([
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'source/other/removed-rule.ts',
+                        status: 'deleted'
+                    })
+                ]
+            ]),
+            [ 'target/build/source' ]
+        );
+
+        assert.deepStrictEqual(result, [ 'source/rules/current-rule.ts' ]);
+    });
+
+    test('keeps configured generated source roots for deleted generated files', function () {
+        const result = expand(
+            packagePlan([ 'target/build/source/current-rule.js' ]),
+            changedFilesByPullRequest([
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'target/build/source/current-rule.js',
+                        status: 'modified'
+                    })
+                ],
+                [
+                    1,
+                    pullRequestChangedFileFactory.build({
+                        path: 'target/build/source/subsumed-rule.js',
+                        status: 'deleted'
+                    })
+                ]
+            ]),
+            [ 'target/build/source' ]
+        );
+
+        assert.deepStrictEqual(result, [
+            'target/build/source/current-rule.js',
+            'target/build/source/subsumed-rule.js'
+        ]);
+    });
+
     test('does not add deleted files from pull requests that do not touch selected source files', function () {
         const result = expand(
             packagePlan([ 'source/rules/current-rule.ts' ], 'dependency-only'),

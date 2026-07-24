@@ -24,6 +24,32 @@ function isDeletedFile(file: PullRequestChangedFile): boolean {
     return file.status === 'removed' || file.status === 'deleted';
 }
 
+function sourceRootFromSourceFile(filePath: string): string {
+    return filePath.split('/').slice(0, -1).join('/');
+}
+
+function collectDerivedSourceFileRoots(packagePlan: ReleasePlanPackage): readonly string[] {
+    const sourceFileRoots = new Set<string>();
+    if (packagePlan.releaseClassification !== releaseAnalysisClassification.dependencyOnly) {
+        for (const sourceFile of packagePlan.changelogSourceFiles) {
+            const sourceRoot = sourceRootFromSourceFile(normalizeRepositoryPath(sourceFile));
+            if (sourceRoot !== '') {
+                sourceFileRoots.add(sourceRoot);
+            }
+        }
+    }
+    return Array.from(sourceFileRoots);
+}
+
+function historicalSourceFileRoots(input: ChangelogSourceFileHistoryInput): readonly string[] {
+    return Array.from(
+        new Set([
+            ...input.sourceFileRoots.map(normalizeRepositoryPath),
+            ...collectDerivedSourceFileRoots(input.packagePlan)
+        ])
+    );
+}
+
 function isHistoricalPath(filePath: string, roots: readonly string[]): boolean {
     return roots.some(function (root) {
         return root === '' || filePath.startsWith(`${root}/`);
@@ -115,7 +141,7 @@ function shouldAttributePureDeletes(packagePlan: ReleasePlanPackage): boolean {
 }
 
 export function expandChangelogSourceFilesForHistory(input: ChangelogSourceFileHistoryInput): readonly string[] {
-    const sourceFileRoots = input.sourceFileRoots.map(normalizeRepositoryPath);
+    const sourceFileRoots = historicalSourceFileRoots(input);
     const changedFiles = Array.from(input.changedFilesByPullRequest.values()).flat();
     const renamedSourceFiles = expandRenameHistory(
         new Set(input.packagePlan.changelogSourceFiles.map(normalizeRepositoryPath)),
