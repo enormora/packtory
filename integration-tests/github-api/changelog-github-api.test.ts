@@ -416,6 +416,23 @@ suite('changelog GitHub API integration', function () {
     );
 
     test(
+        'attributes deleted historical repository sources when package source roots point at generated output',
+        withDeterministicGitHubApiServer(
+            historicalRuleScenario(),
+            async function (githubApi) {
+                const changelog = await generateChangelog(
+                    githubApi,
+                    [ rulePackagePlan([ 'source/rules/current-rule.ts' ]) ],
+                    new Map([ [ 'pkg-a', [ 'target/build/source' ] ] ])
+                );
+
+                assert.match(changelog.groupedMarkdown, /Fix subsumed rule behavior/u);
+                assert.match(changelog.groupedMarkdown, /Subsume old rule into new rule/u);
+            }
+        )
+    );
+
+    test(
         'attributes pure deleted source files from substantive releases to the package source root',
         withDeterministicGitHubApiServer(
             historicalRuleScenario(),
