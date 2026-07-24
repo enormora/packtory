@@ -1,5 +1,5 @@
 import { isDefined, pickBy } from 'remeda';
-import { noPublication } from '../bundle-emitter/publication-outcome.ts';
+import { noPublication, publishedToRegistry } from '../bundle-emitter/publication-outcome.ts';
 import type { BundleEmitter } from '../bundle-emitter/emitter.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { SbomFileBuilder } from '../sbom/sbom-file.ts';
@@ -56,6 +56,17 @@ type BuildVersionedBundleForVersionInput = {
     readonly version: string;
     readonly substitutionPublicModuleSourcePaths: ReadonlySet<string> | undefined;
 };
+type PublishRecoveryInput = {
+    readonly dependencies: PublishDependencies;
+    readonly options: DetermineVersionAndPublishOptions;
+    readonly result: BuildAndPublishResult;
+};
+type ConfirmedPublishInput = PublishRecoveryInput & {
+    readonly candidate: Exclude<CurrentHeadPublishedVersion, undefined>;
+    readonly published: PublishedCheckResult;
+};
+const unconfirmedPublishRecovery = Symbol('unconfirmedPublishRecovery');
+type PublishRecoveryAttempt = BuildAndPublishResult | typeof unconfirmedPublishRecovery;
 export type BuildAndPublishResult = {
     readonly status: PublishedReleaseStatus;
     readonly bundle: VersionedBundleWithManifest;
@@ -146,6 +157,115 @@ function isVerifiedFinalizedPublish(
         result.previousReleaseArtifacts.value.version === candidate.version &&
         result.previousReleaseArtifacts.value.gitHead === candidate.gitHead
     );
+}
+
+function hasRecoveredPublishedVersion(
+    candidate: CurrentHeadPublishedVersion,
+    result: BuildAndPublishResult
+): candidate is Exclude<CurrentHeadPublishedVersion, undefined> {
+    if (candidate === undefined) {
+        return false;
+    }
+    return candidate.version === result.bundle.version;
+}
+
+function publishRequest(
+    options: DetermineVersionAndPublishOptions,
+    result: BuildAndPublishResult
+): Parameters<BundleEmitter['publish']>[0] {
+    return pickBy(
+        {
+            bundle: result.bundle,
+            registrySettings: options.buildOptions.registrySettings,
+            publishSettings: options.buildOptions.publishSettings,
+            stage: options.stage,
+            extraFiles: result.extraFiles.length === 0 ? undefined : result.extraFiles
+        },
+        isDefined
+    );
+}
+
+async function findRecoveryCandidate(
+    input: PublishRecoveryInput
+): Promise<CurrentHeadPublishedVersion> {
+    const { dependencies, options } = input;
+    const lookup = {
+        name: options.buildOptions.name,
+        registrySettings: options.buildOptions.registrySettings
+    };
+    return dependencies.bundleEmitter.findCurrentHeadPublishedVersion(lookup);
+}
+
+function confirmPublishedPackage(input: ConfirmedPublishInput): BuildAndPublishResult | undefined {
+    const { candidate, published, result } = input;
+    if (!isVerifiedFinalizedPublish(candidate, published)) {
+        return undefined;
+    }
+    return {
+        ...result,
+        publication: publishedToRegistry,
+        previousReleaseArtifacts: published.previousReleaseArtifacts
+    };
+}
+
+async function confirmPublishedPackageAfterFailure(
+    input: PublishRecoveryInput
+): Promise<BuildAndPublishResult | undefined> {
+    const candidate = await findRecoveryCandidate(input);
+    if (!hasRecoveredPublishedVersion(candidate, input.result)) {
+        return undefined;
+    }
+
+    const published = await checkBundleAlreadyPublished(
+        input.dependencies,
+        input.result.bundle,
+        input.options.buildOptions,
+        input.result.extraFiles
+    );
+
+    return confirmPublishedPackage({ ...input, candidate, published });
+}
+
+async function recoverPublishedPackageAfterFailure(
+    input: PublishRecoveryInput
+): Promise<BuildAndPublishResult | undefined> {
+    if (input.options.stage) {
+        return undefined;
+    }
+    return confirmPublishedPackageAfterFailure(input);
+}
+
+function publishRecoveryAttempt(result: BuildAndPublishResult | undefined): PublishRecoveryAttempt {
+    return result ?? unconfirmedPublishRecovery;
+}
+
+async function attemptPublishRecovery(input: PublishRecoveryInput): Promise<PublishRecoveryAttempt> {
+    return publishRecoveryAttempt(await recoverPublishedPackageAfterFailure(input));
+}
+
+async function publishPreparedResult(
+    dependencies: PublishDependencies,
+    options: DetermineVersionAndPublishOptions,
+    result: BuildAndPublishResult
+): Promise<BuildAndPublishResult> {
+    const publication = await dependencies.bundleEmitter.publish(publishRequest(options, result));
+    return { ...result, publication };
+}
+
+async function publishPreparedResultOrRecover(
+    dependencies: PublishDependencies,
+    options: DetermineVersionAndPublishOptions,
+    result: BuildAndPublishResult
+): Promise<BuildAndPublishResult> {
+    try {
+        return await publishPreparedResult(dependencies, options, result);
+    } catch (publishError: unknown) {
+        const recovery = await attemptPublishRecovery({ dependencies, options, result });
+        if (recovery !== unconfirmedPublishRecovery) {
+            return recovery;
+        }
+        throw publishError;
+    }
 }
 
 async function tryFinalizePublishedCurrentHead(
@@ -399,20 +519,7 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
             packageName: options.buildOptions.name,
             version: result.bundle.version
         });
-        const publication = await dependencies.bundleEmitter.publish(
-            pickBy(
-                {
-                    bundle: result.bundle,
-                    registrySettings: options.buildOptions.registrySettings,
-                    publishSettings: options.buildOptions.publishSettings,
-                    stage: options.stage,
-                    extraFiles: result.extraFiles.length === 0 ? undefined : result.extraFiles
-                },
-                isDefined
-            )
-        );
-
-        return { ...result, publication };
+        return publishPreparedResultOrRecover(dependencies, options, result);
     }
 
     return { buildAndPublish, tryBuildAndPublish };
