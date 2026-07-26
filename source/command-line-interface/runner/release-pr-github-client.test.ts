@@ -56,6 +56,34 @@ const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
                 { conclusion: 'action_required', database_id: 10, event: 'pull_request', head_sha: 'release-head' },
                 { conclusion: 'action_required', event: 'pull_request', head_sha: 'release-head' },
                 { conclusion: 'action_required', database_id: 12, event: 'pull_request', head_sha: 'other-head' },
+                {
+                    conclusion: null,
+                    database_id: 14,
+                    event: 'pull_request',
+                    head_sha: 'release-head',
+                    status: 'waiting'
+                },
+                {
+                    conclusion: null,
+                    database_id: 15,
+                    event: 'pull_request',
+                    head_sha: 'release-head',
+                    status: 'pending'
+                },
+                {
+                    conclusion: null,
+                    database_id: 17,
+                    event: 'pull_request',
+                    head_sha: 'release-head',
+                    status: 'requested'
+                },
+                {
+                    conclusion: null,
+                    database_id: 16,
+                    event: 'workflow_dispatch',
+                    head_sha: 'release-head',
+                    status: 'waiting'
+                },
                 { conclusion: 'success', database_id: 13, event: 'pull_request', head_sha: 'release-head' },
                 { conclusion: 'success', database_id: 11, event: 'workflow_dispatch', head_sha: 'release-head' }
             ]
@@ -70,6 +98,9 @@ const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
         });
     } ],
     [ routeKey('DELETE', '/repos/owner/repo/actions/runs/10'), emptyResponse ],
+    [ routeKey('DELETE', '/repos/owner/repo/actions/runs/14'), emptyResponse ],
+    [ routeKey('DELETE', '/repos/owner/repo/actions/runs/15'), emptyResponse ],
+    [ routeKey('DELETE', '/repos/owner/repo/actions/runs/17'), emptyResponse ],
     [ routeKey('DELETE', `/repos/owner/repo/git/refs/${encodeURIComponent('heads/release/packtory')}`), emptyResponse ],
     [ routeKey('GET', '/repos/owner/repo/actions/runs/11'), function () {
         return jsonResponse({ conclusion: 'success' });
@@ -382,7 +413,12 @@ suite('release-pr-github-client', function () {
                 .map(function (record) {
                     return record.path;
                 }),
-            [ '/repos/owner/repo/actions/runs/10' ]
+            [
+                '/repos/owner/repo/actions/runs/10',
+                '/repos/owner/repo/actions/runs/14',
+                '/repos/owner/repo/actions/runs/15',
+                '/repos/owner/repo/actions/runs/17'
+            ]
         );
         assert.ok(records.some(function (record) {
             return (
