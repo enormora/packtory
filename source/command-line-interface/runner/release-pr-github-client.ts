@@ -161,6 +161,7 @@ type GitHubRestClientConstructor = ReturnType<
 type GitHubRestClientInstance = InstanceType<GitHubRestClientConstructor>;
 
 const missingGitHubResourceStatusCode = 404;
+const approvalWaitingWorkflowRunStatuses: ReadonlySet<string | null> = new Set([ 'pending', 'requested', 'waiting' ]);
 
 function labelNames(labels: readonly RawLabel[]): readonly string[] {
     return labels
@@ -194,6 +195,20 @@ function createGitHubRestClient(
             headers: requestContext.headers
         }
     });
+}
+
+function releasePullRequestRunNeedsApproval(
+    run: RawWorkflowRun,
+    input: DeleteActionRequiredPullRequestRunsInput
+): boolean {
+    return (
+        run.event === 'pull_request' &&
+        run.head_sha === input.headSha &&
+        (
+            run.conclusion === 'action_required' ||
+            approvalWaitingWorkflowRunStatuses.has(run.status)
+        )
+    );
 }
 
 export function createReleasePullRequestGitHubClient(context: GitHubClientContext): ReleasePullRequestGitHubClient {
@@ -365,8 +380,8 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
                     per_page: 100
                 })
             );
-            const blockedRuns = response.data.workflow_runs.filter(function (run) {
-                return run.head_sha === input.headSha && run.conclusion === 'action_required';
+            const blockedRuns = (response.data.workflow_runs as readonly RawWorkflowRun[]).filter(function (run) {
+                return releasePullRequestRunNeedsApproval(run, input);
             });
             const blockedRunIds = blockedRuns
                 .map(readWorkflowRunId)
