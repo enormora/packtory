@@ -2,6 +2,10 @@ function defaultGitHubApiVersion(): string {
     return '2022-11-28';
 }
 
+const missingGitHubResourceStatusCode = 404;
+const missingGitHubReferenceStatusCode = 422;
+const missingGitHubReferenceMessage = 'Reference does not exist';
+
 function readReflectedProperty(value: unknown, property: string): unknown {
     return Reflect.get(new Object(value), property) as unknown;
 }
@@ -65,6 +69,18 @@ function createGitHubRequestError(error: unknown): Error {
     );
 }
 
+function isMissingGitHubResourceError(error: unknown): boolean {
+    return readGitHubErrorStatus(error) === missingGitHubResourceStatusCode;
+}
+
+export function isMissingGitHubReferenceError(error: unknown): boolean {
+    if (isMissingGitHubResourceError(error)) {
+        return true;
+    }
+    return readGitHubErrorStatus(error) === missingGitHubReferenceStatusCode &&
+        readGitHubErrorDetails(error).includes(missingGitHubReferenceMessage);
+}
+
 export function createGitHubJsonRequestHeaders(
     token: string | undefined,
     userAgent: string
@@ -91,16 +107,25 @@ export async function resolveGitHubResponse<T>(request: Promise<T>): Promise<T> 
     }
 }
 
-export async function resolveOptionalGitHubResponse<T>(
+export async function resolveGitHubResponseUnless<T>(
     request: Promise<T>,
-    missingStatusCode: number
+    isAllowedFailure: (error: unknown) => boolean
 ): Promise<T | undefined> {
     try {
         return await request;
     } catch (error) {
-        if (readGitHubErrorStatus(error) === missingStatusCode) {
+        if (isAllowedFailure(error)) {
             return undefined;
         }
         throw createGitHubRequestError(error);
     }
+}
+
+export async function resolveOptionalGitHubResponse<T>(
+    request: Promise<T>,
+    missingStatusCode: number
+): Promise<T | undefined> {
+    return resolveGitHubResponseUnless(request, function (error) {
+        return readGitHubErrorStatus(error) === missingStatusCode;
+    });
 }

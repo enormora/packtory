@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { resolveGitHubResponse, resolveOptionalGitHubResponse } from './github-api-request.ts';
+import {
+    isMissingGitHubReferenceError,
+    resolveGitHubResponse,
+    resolveGitHubResponseUnless,
+    resolveOptionalGitHubResponse
+} from './github-api-request.ts';
 
 type CreateCommitFileAddition = {
     readonly contents: string;
@@ -144,14 +149,14 @@ export function createReleasePullRequestCommitClient(
     }
 
     async function deleteBranchRef(branch: string): Promise<void> {
-        await resolveOptionalGitHubResponse(
+        await resolveGitHubResponseUnless(
             dependencies.git.deleteRef({
                 headers: dependencies.headers,
                 owner: dependencies.owner,
                 repo: dependencies.repo,
                 ref: `heads/${branch}`
             }),
-            missingGitHubResourceStatusCode
+            isMissingGitHubReferenceError
         );
     }
 

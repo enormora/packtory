@@ -17,7 +17,10 @@ import {
     type RecordedRequest,
     type RouteResponse
 } from '../../test-libraries/release-pr-github-client-test-support.ts';
-import { createReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
+import {
+    createReleasePullRequestGitHubClient,
+    type ReleasePullRequestGitHubClient
+} from './release-pr-github-client.ts';
 
 const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
     [ routeKey('GET', '/repos/owner/repo/pulls'), function () {
@@ -135,6 +138,7 @@ const defaultRoutes: ReadonlyMap<string, RouteResponse> = new Map([
         return jsonResponse({ commit: { sha: 'main-head' } });
     } ]
 ]);
+const releaseBranchRefPath = `/repos/owner/repo/git/refs/${encodeURIComponent('heads/release/packtory')}`;
 
 function createFetch(capturedRequests: CapturedRequests): typeof globalThis.fetch {
     return createRecordedRouteFetch(capturedRequests, defaultRoutes);
@@ -143,13 +147,20 @@ function createFetch(capturedRequests: CapturedRequests): typeof globalThis.fetc
 function assertBranchWasDeleted(records: readonly RecordedRequest[]): void {
     assert.strictEqual(
         records.some(function (record) {
-            return (
-                record.method === 'DELETE' &&
-                record.path === `/repos/owner/repo/git/refs/${encodeURIComponent('heads/release/packtory')}`
-            );
+            return record.method === 'DELETE' && record.path === releaseBranchRefPath;
         }),
         true
     );
+}
+
+function createDeleteReleaseBranchClient(
+    capturedRequests: CapturedRequests,
+    response: RouteResponse
+): ReleasePullRequestGitHubClient {
+    return createClient(createRecordedRouteFetch(
+        capturedRequests,
+        new Map([ [ routeKey('DELETE', releaseBranchRefPath), response ] ])
+    ));
 }
 
 function countReleasePullRequestLookups(records: readonly RecordedRequest[]): number {
@@ -228,12 +239,67 @@ suite('release-pr-github-client', function () {
             hasRequestWithBody(capturedRequests.records, 'PATCH', '/repos/owner/repo/pulls/1', '"state":"closed"'),
             true
         );
-        assertBranchWasDeleted(capturedRequests.records);
         assert.strictEqual(
             hasRequestWithBody(capturedRequests.records, 'PUT', '/repos/owner/repo/issues/1/labels', '"release"'),
             true
         );
         assert.strictEqual(readHeader(capturedRequests.records[0]?.headers, 'user-agent'), 'packtory-release-pr');
+    });
+
+    suite('release branch deletion', function () {
+        test('treats not found release branch deletion as a no-op', async function () {
+            const capturedRequests = captureRequests();
+            const client = createDeleteReleaseBranchClient(
+                capturedRequests,
+                function () {
+                    return emptyResponse(404);
+                }
+            );
+
+            await client.deleteBranch('release/packtory');
+            assertBranchWasDeleted(capturedRequests.records);
+        });
+
+        test('treats missing reference release branch deletion as a no-op', async function () {
+            const capturedRequests = captureRequests();
+            const client = createDeleteReleaseBranchClient(
+                capturedRequests,
+                function () {
+                    return jsonResponse({ message: 'Reference does not exist' }, 422);
+                }
+            );
+
+            await client.deleteBranch('release/packtory');
+            assertBranchWasDeleted(capturedRequests.records);
+        });
+
+        test('fails release branch deletion for other GitHub API errors', async function () {
+            const client = createDeleteReleaseBranchClient(
+                captureRequests(),
+                function () {
+                    return jsonResponse({ message: 'Branch cannot be deleted' }, 422);
+                }
+            );
+
+            await assert.rejects(
+                client.deleteBranch('release/packtory'),
+                /GitHub API request failed \(422\) for \/repos\/owner\/repo\/git\/refs\/heads%2Frelease%2Fpacktory/u
+            );
+        });
+
+        test('fails release branch deletion for missing reference messages with other statuses', async function () {
+            const client = createDeleteReleaseBranchClient(
+                captureRequests(),
+                function () {
+                    return jsonResponse({ message: 'Reference does not exist' }, 500);
+                }
+            );
+
+            await assert.rejects(
+                client.deleteBranch('release/packtory'),
+                /GitHub API request failed \(500\) for \/repos\/owner\/repo\/git\/refs\/heads%2Frelease%2Fpacktory/u
+            );
+        });
     });
 
     test('writes statuses and dispatches workflows', async function () {
