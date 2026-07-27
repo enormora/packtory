@@ -94,7 +94,7 @@ packtory <command> [options]
 
 - `release-pr maintain --no-dry-run` prepares changelog updates with the shared release planning logic, creates a GitHub-signed commit on `releasePullRequest.branch` with the GitHub API, creates or updates the release PR, and replaces its labels with `releasePullRequest.label`.
 - Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
-- If release planning produces no changelog content, `maintain` closes the open release PR for that branch and deletes the remote release branch.
+- If release planning produces no changelog content, `maintain` closes the open release PR for that branch and deletes the remote release branch. A missing remote release branch is already clean and does not fail maintenance.
 - Release PR settings live in top-level `releasePullRequest`. Defaults are `branch: 'release/packtory'`, `label: 'release'`, `title: 'Prepare release'`, `commitSubject: 'Release packages'`, `defaultBranch: 'main'`, and `automationAuthor: 'github-actions[bot]'`.
 - The release PR policy derives allowed files from `changelog.outputs`. Repository and package changelog files are allowed. GitHub Release outputs are ignored because they do not write repository files.
 - `release-pr validate` accepts normal PRs without a release label. Release-labeled PRs must match the configured branch, title, author, commit subject, base head, and allowed files. Merge groups must not batch release PRs with other PRs.

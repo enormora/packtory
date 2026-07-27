@@ -4,8 +4,9 @@ import { paginateRest } from '@octokit/plugin-paginate-rest';
 import { restEndpointMethods } from '@octokit/plugin-rest-endpoint-methods';
 import {
     createGitHubJsonRequestHeaders,
+    isMissingGitHubReferenceError,
     resolveGitHubResponse,
-    resolveOptionalGitHubResponse
+    resolveGitHubResponseUnless
 } from './github-api-request.ts';
 import { createReleasePullRequestCommitClient, type CreateCommitOnBranchInput } from './release-pr-branch-commit.ts';
 import {
@@ -160,7 +161,6 @@ type GitHubRestClientConstructor = ReturnType<
 >;
 type GitHubRestClientInstance = InstanceType<GitHubRestClientConstructor>;
 
-const missingGitHubResourceStatusCode = 404;
 const approvalWaitingWorkflowRunStatuses: ReadonlySet<string | null> = new Set([ 'pending', 'requested', 'waiting' ]);
 
 function labelNames(labels: readonly RawLabel[]): readonly string[] {
@@ -394,12 +394,12 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         },
 
         async deleteBranch(branch) {
-            await resolveOptionalGitHubResponse(
+            await resolveGitHubResponseUnless(
                 octokit.rest.git.deleteRef({
                     ...requestContext,
                     ref: `heads/${branch}`
                 }),
-                missingGitHubResourceStatusCode
+                isMissingGitHubReferenceError
             );
         },
 
