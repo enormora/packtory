@@ -1,6 +1,6 @@
 import type zlib from 'node:zlib';
 import type tar from 'tar-stream';
-import { collectGzippedPack } from '../tar/gzipped-pack.ts';
+import { collectPlaceholderGzipPack } from './placeholder-gzip.ts';
 
 type PlaceholderManifest = {
     readonly name: string;
@@ -52,7 +52,7 @@ export function createPlaceholderTarballBuilder(
     return {
         async build(input) {
             const pack = createPack();
-            const result = collectGzippedPack(pack, createGzip());
+            const result = collectPlaceholderGzipPack(pack, createGzip());
             appendFile(pack, 'package/package.json', serializeManifest(input.manifest));
             appendFile(pack, 'package/readme.md', input.readmeContent);
             pack.finalize();
