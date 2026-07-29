@@ -1,6 +1,8 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { Result } from 'true-myth';
+import { configError } from '../../packtory/packtory-results.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import { createConfigLoaderStub, createSpinnerRendererStub } from '../../test-libraries/handler-stub-fixtures.ts';
@@ -17,9 +19,9 @@ function emptyOutcome(overrides: Partial<BuildOutcome> = {}): BuildOutcome {
         getReport() {
             return undefined;
         },
-        result: { isOk: true, isErr: false, value: [] },
+        result: Result.ok([]),
         ...overrides
-    } as unknown as BuildOutcome;
+    };
 }
 
 suite('preview-handler', function () {
@@ -58,8 +60,7 @@ suite('preview-handler', function () {
             },
             packtory: packtoryStub(
                 emptyOutcome({
-                    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the preview-handler only inspects isOk/isErr; full Result shape is irrelevant here
-                    result: { isOk: false, isErr: true, error: { type: 'config', issues: [] } } as never
+                    result: Result.err(configError([]))
                 })
             ),
             spinnerRenderer: createSpinnerRendererStub(),

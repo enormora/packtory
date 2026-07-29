@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { mapResolveFailureToPublishFailure } from './publish-failure-mapping.ts';
@@ -15,7 +14,7 @@ suite('publish-failure-mapping', function () {
     });
 
     test('mapResolveFailureToPublishFailure converts a partial resolve failure into a publish-partial failure with empty succeeded', function () {
-        const failures = [ { message: 'boom' } as never ];
+        const failures = [ new Error('boom') ];
         const mapped = mapResolveFailureToPublishFailure({ type: 'partial', error: { succeeded: [], failures } });
 
         assert.deepStrictEqual(mapped, {

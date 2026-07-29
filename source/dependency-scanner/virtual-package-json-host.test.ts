@@ -7,8 +7,7 @@ import type { MainPackageJson } from '../config/package-json.ts';
 import { createDelegatingFileSystemHost } from '../test-libraries/delegating-file-system-host.ts';
 import { createVirtualPackageJsonHost } from './virtual-package-json-host.ts';
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- MainPackageJson is a complex branded type; tests only need a structurally-compatible literal
-const stubMainPackageJson: MainPackageJson = { name: 'pkg', version: '1.0.0', type: 'module' } as never;
+const stubMainPackageJson: MainPackageJson = { type: 'module' };
 
 suite('virtual-package-json-host', function () {
     test('createVirtualPackageJsonHost reports the virtual package.json as existing', async function () {

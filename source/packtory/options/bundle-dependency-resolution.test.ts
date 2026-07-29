@@ -1,11 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageConfig } from '../../config/config.ts';
+import { packageConfigFixture } from '../../test-libraries/config-fixtures.ts';
 import { resolveBundleDependencies } from './bundle-dependency-resolution.ts';
 
-function pkg(overrides: Partial<PackageConfig>): PackageConfig {
-    return { name: 'pkg-a', ...overrides } as unknown as PackageConfig;
-}
+const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 suite('bundle-dependency-resolution', function () {
     test('resolveBundleDependencies returns empty lists when the package has no declared dependencies', function () {

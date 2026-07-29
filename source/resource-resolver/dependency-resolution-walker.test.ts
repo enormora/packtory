@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { DependencyGraph } from '../dependency-scanner/dependency-graph.ts';
 import type { DependencyScanner } from '../dependency-scanner/scanner.ts';
 import type { ResourceResolveOptions } from './resource-resolve-options.ts';
 import { resolveDependenciesForAllRoots } from './dependency-resolution-walker.ts';
@@ -15,32 +15,44 @@ type TrackingScanner = {
     readonly calls: readonly ScanCall[];
 };
 
-type ScanOptions = {
-    readonly resolveDeclarationFiles: boolean;
-};
-
-function emptyGraph(): never {
+function emptyGraph(): DependencyGraph {
     return {
+        addDependency() {
+            return undefined;
+        },
+        connect() {
+            return undefined;
+        },
+        hasConnection() {
+            return false;
+        },
+        isKnown() {
+            return false;
+        },
+        walk() {
+            return undefined;
+        },
         flatten() {
             return { externalDependencies: new Map(), localFiles: [] };
         }
-    } as never;
+    };
 }
 
 function trackingScanner(): TrackingScanner {
     const calls: ScanCall[] = [];
+    const scanner: DependencyScanner = {
+        async scan(entry, _sourcesFolder, options) {
+            calls.push({ entry, resolveDeclarationFiles: options.resolveDeclarationFiles ?? false });
+            return emptyGraph();
+        }
+    };
     return {
         calls,
-        scanner: {
-            async scan(entry: string, _sourcesFolder: string, options: ScanOptions) {
-                calls.push({ entry, resolveDeclarationFiles: options.resolveDeclarationFiles });
-                return emptyGraph();
-            }
-        } as DependencyScanner
+        scanner
     };
 }
 
-const stubMainPackageJson = { name: 'pkg-a', version: '1.0.0', type: 'module' } as never;
+const stubMainPackageJson = { type: 'module' } as const;
 
 function optionsForRoots(roots: ResourceResolveOptions['roots']): ResourceResolveOptions {
     return {

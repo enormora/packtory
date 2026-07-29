@@ -1,4 +1,13 @@
 import { createFactory } from '@enormora/objectory';
+import type {
+    PackageConfig,
+    PackageConfigsByName,
+    PacktoryConfig,
+    PacktoryConfigWithoutRegistry
+} from '../config/config.ts';
+import { buildPackageGraph } from '../config/package-graph-builder.ts';
+import type { PublishSettings } from '../config/publish-settings.ts';
+import type { ConfigWithGraph, ValidConfigResult, ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 
 type RootShape = { readonly js: string; readonly declarationFile?: string | undefined; };
 
@@ -76,3 +85,52 @@ export const validationPackageConfigFactory = createFactory<ValidationPackageCon
         sourcesFolder: 'src'
     };
 });
+
+export const publicPublishSettings: PublishSettings = { access: 'public' };
+export const publicPublishSettingsAllowingScripts: PublishSettings = { access: 'public', allowScripts: true };
+
+export function packageConfigFixture(overrides: Partial<PackageConfig> = {}): PackageConfig {
+    return {
+        name: 'pkg-a',
+        roots: { main: { js: 'index.js' } },
+        sourcesFolder: 'src',
+        mainPackageJson: { type: 'module' },
+        ...overrides
+    };
+}
+
+export function packageConfigsByNameFixture(packages: readonly PackageConfig[]): PackageConfigsByName {
+    const packageConfigs: Record<string, PackageConfig> = {};
+    for (const packageConfig of packages) {
+        packageConfigs[packageConfig.name] = packageConfig;
+    }
+    return packageConfigs;
+}
+
+function configWithGraph<TConfig extends PacktoryConfigWithoutRegistry>(
+    packtoryConfig: TConfig
+): ConfigWithGraph<TConfig> {
+    const packageConfigs = packageConfigsByNameFixture(packtoryConfig.packages);
+    return {
+        packtoryConfig,
+        packageConfigs,
+        packageGraph: buildPackageGraph(packageConfigs)
+    };
+}
+
+export function validConfigWithoutRegistryFixture(
+    overrides: Partial<PacktoryConfigWithoutRegistry> = {}
+): ValidConfigWithoutRegistryResult {
+    return configWithGraph({
+        packages: [],
+        ...overrides
+    });
+}
+
+export function validConfigFixture(overrides: Partial<PacktoryConfig> = {}): ValidConfigResult {
+    return configWithGraph({
+        registrySettings: { auth: { type: 'bearer-token', token: 'token' } },
+        packages: [],
+        ...overrides
+    });
+}

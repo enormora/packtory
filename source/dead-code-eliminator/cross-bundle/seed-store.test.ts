@@ -1,7 +1,10 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { Project } from 'ts-morph';
+import { linkedBundle } from '../../test-libraries/bundle-fixtures.ts';
 import { bindingId } from '../reachability/binding-id.ts';
+import { extractTopLevelBindings } from '../reachability/binding-extractor.ts';
+import type { FileBindings } from '../reachability/local-seed-gathering.ts';
 import type { ResolvedTarget } from './bundle-index.ts';
 import { createSeedStore, recordSeed, seedAllBindings } from './seed-store.ts';
 
@@ -39,20 +42,35 @@ suite('seed-store', function () {
         assert.deepStrictEqual(Array.from(withSecondBundle.get('pkg-b') ?? new Set()), [ 'seed-b' ]);
     });
 
-    function targetWithBindings(bindings: readonly { readonly name: string; }[]): ResolvedTarget {
+    function fileBindingsWithExports(exportedNames: readonly string[]): FileBindings {
+        const sourceFilePath = '/b/helpers.ts';
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sourceFile = project.createSourceFile(
+            sourceFilePath,
+            exportedNames
+                .map(function (name) {
+                    return `export const ${name} = 1;`;
+                })
+                .join('\n')
+        );
+        return {
+            sourceFilePath,
+            sourceFile,
+            bindings: extractTopLevelBindings(sourceFile)
+        };
+    }
+
+    function targetWithBindings(exportedNames: readonly string[]): ResolvedTarget {
+        const fileBindings = fileBindingsWithExports(exportedNames);
         return {
             bundleName: 'pkg-b',
             sourceFilePath: '/b/helpers.ts',
             indexedBundle: {
-                bundle: { name: 'pkg-b' } as never,
+                bundle: linkedBundle({ name: 'pkg-b' }),
                 bindingsByFilePath: new Map([
                     [
                         '/b/helpers.ts',
-                        {
-                            sourceFilePath: '/b/helpers.ts',
-                            sourceFile: undefined as never,
-                            bindings
-                        } as never
+                        fileBindings
                     ]
                 ])
             }
@@ -61,7 +79,7 @@ suite('seed-store', function () {
 
     test('seedAllBindings records one seed per binding of the resolved target file', function () {
         const store = createSeedStore();
-        const updated = seedAllBindings(store, targetWithBindings([ { name: 'a' }, { name: 'b' } ]));
+        const updated = seedAllBindings(store, targetWithBindings([ 'a', 'b' ]));
         assert.deepStrictEqual(Array.from(updated.get('pkg-b') ?? new Set()), [
             bindingId('/b/helpers.ts', 'a'),
             bindingId('/b/helpers.ts', 'b')
@@ -74,7 +92,7 @@ suite('seed-store', function () {
             bundleName: 'pkg-b',
             sourceFilePath: '/b/missing.ts',
             indexedBundle: {
-                bundle: { name: 'pkg-b' } as never,
+                bundle: linkedBundle({ name: 'pkg-b' }),
                 bindingsByFilePath: new Map()
             }
         };

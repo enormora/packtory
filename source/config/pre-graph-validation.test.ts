@@ -1,17 +1,10 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test inputs use `as never` / `as PacktoryConfigWithoutRegistry` to shape narrow partial configs */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { packageConfigFixture, publicPublishSettings } from '../test-libraries/config-fixtures.ts';
 import type { PackageConfig, PacktoryConfigWithoutRegistry } from './config.ts';
 import { collectPreGraphIssues, packageListToRecord } from './pre-graph-validation.ts';
 
-function pkg(overrides: Partial<PackageConfig>): PackageConfig {
-    return {
-        name: 'pkg-a',
-        roots: { main: { js: 'index.js' } },
-        sourcesFolder: 'src',
-        ...overrides
-    };
-}
+const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 suite('pre-graph-validation', function () {
     test('packageListToRecord indexes packages by name', function () {
@@ -22,15 +15,15 @@ suite('pre-graph-validation', function () {
     });
 
     test('collectPreGraphIssues returns no issues for a well-formed single-package config with publishSettings on the package', function () {
-        const config = {
-            packages: [ pkg({ publishSettings: { access: 'public' } as never }) ]
-        } as PacktoryConfigWithoutRegistry;
+        const config: PacktoryConfigWithoutRegistry = {
+            packages: [ pkg({ publishSettings: publicPublishSettings }) ]
+        };
 
         assert.deepStrictEqual(collectPreGraphIssues(config), []);
     });
 
     test('collectPreGraphIssues reports a missing publishSettings placement', function () {
-        const config = { packages: [ pkg({}) ] } as PacktoryConfigWithoutRegistry;
+        const config: PacktoryConfigWithoutRegistry = { packages: [ pkg({}) ] };
 
         assert.ok(
             collectPreGraphIssues(config).includes(
@@ -43,11 +36,11 @@ suite('pre-graph-validation', function () {
         const config = {
             packages: [
                 pkg({
-                    publishSettings: { access: 'public' } as never,
+                    publishSettings: publicPublishSettings,
                     bundleDependencies: [ 'missing' ]
                 })
             ]
-        } as PacktoryConfigWithoutRegistry;
+        };
 
         assert.ok(
             collectPreGraphIssues(config).includes('Bundle dependency "missing" referenced in "pkg-a" does not exist')
@@ -58,11 +51,11 @@ suite('pre-graph-validation', function () {
         const config = {
             packages: [
                 pkg({
-                    publishSettings: { access: 'public' } as never,
+                    publishSettings: publicPublishSettings,
                     roots: { main: { js: 'index.js' }, extra: { js: 'extra.js' } }
                 })
             ]
-        } as PacktoryConfigWithoutRegistry;
+        };
 
         assert.ok(
             collectPreGraphIssues(config).includes(

@@ -1,11 +1,9 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { fake } from 'sinon';
+import { fake, type SinonSpy } from 'sinon';
 import type { AnalyzedBundle, DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
-import type { ResourceResolver } from '../resource-resolver/resource-resolver.ts';
-import type { VersionManager } from '../version-manager/manager.ts';
+import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import {
     createAnalyzedBundle,
@@ -15,19 +13,50 @@ import {
     createVersionedBundle,
     getCallArgs
 } from '../test-libraries/package-processor-test-support.ts';
-import { createResolveAndBuildOperations, type ResolveAndBuildDependencies } from './package-processor-build.ts';
+import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
+import {
+    createResolveAndBuildOperations,
+    type ResolveAndBuildDependencies,
+    type ResolveAndBuildOperations
+} from './package-processor-build.ts';
+
+type InvalidMainPackageJson = {
+    readonly type: string;
+};
+
+type EmitArguments = Parameters<ProgressBroadcastProvider['emit']>;
 
 type PipelineDependenciesFixture = {
     readonly analyzedBundle: AnalyzedBundle;
+    readonly addVersion: SinonSpy;
     readonly dependencies: ResolveAndBuildDependencies;
+    readonly eliminate: SinonSpy;
+    readonly emit: SinonSpy;
+    readonly linkBundle: SinonSpy;
     readonly linkedBundle: LinkedBundle;
+    readonly resolve: SinonSpy;
+    readonly versionedBundle: VersionedBundleWithManifest;
+};
+
+type PipelineSpies = {
+    readonly analyzedBundle: AnalyzedBundle;
+    readonly addVersion: SinonSpy;
+    readonly eliminate: SinonSpy;
+    readonly emit: SinonSpy;
+    readonly linkBundle: SinonSpy;
+    readonly linkedBundle: LinkedBundle;
+    readonly resolve: SinonSpy;
     readonly versionedBundle: VersionedBundleWithManifest;
 };
 
 function stubDependencies(): ResolveAndBuildDependencies {
     return {
-        deadCodeEliminator: {} as DeadCodeEliminator,
-        linker: {} as ResolveAndBuildDependencies['linker'],
+        deadCodeEliminator: {
+            eliminate: fake.resolves([])
+        },
+        linker: {
+            linkBundle: fake.resolves(createLinkedBundle())
+        },
         progressBroadcaster: {
             emit() {
                 return undefined;
@@ -36,41 +65,90 @@ function stubDependencies(): ResolveAndBuildDependencies {
                 return false;
             }
         },
-        resourceResolver: {} as ResourceResolver,
-        versionManager: {} as VersionManager
+        resourceResolver: {
+            resolve: fake.resolves(createLinkedBundle())
+        },
+        versionManager: {
+            addVersion: fake.returns(createVersionedBundle()),
+            increaseVersion: fake.returns(createVersionedBundle())
+        }
+    };
+}
+
+function createPipelineSpies(): PipelineSpies {
+    const linkedBundle = createLinkedBundle();
+    const analyzedBundle = createAnalyzedBundle();
+    const versionedBundle = createVersionedBundle();
+    const eliminate = fake.resolves([ analyzedBundle ]);
+    const linkBundle = fake.resolves(linkedBundle);
+    const emit = fake(function (): void {
+        return undefined;
+    });
+    const resolve = fake.resolves(createLinkedBundle());
+    const addVersion = fake.returns(versionedBundle);
+    return {
+        addVersion,
+        eliminate,
+        emit,
+        linkBundle,
+        linkedBundle,
+        resolve,
+        analyzedBundle,
+        versionedBundle
     };
 }
 
 function createPipelineDependencies(
     overrides: Partial<ResolveAndBuildDependencies> = {}
 ): PipelineDependenciesFixture {
-    const hasSubscribers = fake(function (eventName: string) {
-        return eventName === 'scanCompleted' || eventName === 'linkingCompleted';
-    });
-    const linkedBundle = createLinkedBundle();
-    const analyzedBundle = createAnalyzedBundle();
-    const versionedBundle = createVersionedBundle();
+    const spies = createPipelineSpies();
     const dependencies: ResolveAndBuildDependencies = {
         deadCodeEliminator: {
-            eliminate: fake.resolves([ analyzedBundle ])
+            eliminate: spies.eliminate
         },
         linker: {
-            linkBundle: fake.resolves(linkedBundle)
+            linkBundle: spies.linkBundle
         },
         progressBroadcaster: {
-            emit: fake(),
-            hasSubscribers
+            emit(...args: EmitArguments) {
+                spies.emit(...args);
+            },
+            hasSubscribers: fake(function (eventName: string) {
+                return eventName === 'scanCompleted' || eventName === 'linkingCompleted';
+            })
         },
         resourceResolver: {
-            resolve: fake.resolves(createLinkedBundle())
+            resolve: spies.resolve
         },
         versionManager: {
-            addVersion: fake.returns(versionedBundle),
-            increaseVersion: fake.returns(versionedBundle)
+            addVersion: spies.addVersion,
+            increaseVersion: fake.returns(spies.versionedBundle)
         },
         ...overrides
     };
-    return { dependencies, analyzedBundle, linkedBundle, versionedBundle };
+    return {
+        dependencies,
+        ...spies
+    };
+}
+
+async function callResolveAndLinkWithMainPackageJson(
+    operations: ResolveAndBuildOperations,
+    mainPackageJson: InvalidMainPackageJson
+): Promise<unknown> {
+    const options: ResolveAndLinkOptions = Object.assign(createResolveOptions(), { mainPackageJson });
+    return operations.resolveAndLink(options);
+}
+
+async function callBuildWithMainPackageJson(
+    operations: ResolveAndBuildOperations,
+    mainPackageJson: InvalidMainPackageJson
+): Promise<unknown> {
+    const options: BuildOptions = Object.assign(
+        createBuildAndPublishOptions(),
+        { mainPackageJson, version: '1.2.3' }
+    );
+    return operations.build(options);
 }
 
 suite('package-processor-build', function () {
@@ -85,7 +163,7 @@ suite('package-processor-build', function () {
         const operations = createResolveAndBuildOperations(stubDependencies());
 
         try {
-            await operations.resolveAndLink({ mainPackageJson: { type: 'commonjs' } } as never);
+            await callResolveAndLinkWithMainPackageJson(operations, { type: 'commonjs' });
             assert.fail('expected resolveAndLink to reject the non-ESM main package json');
         } catch (error) {
             assert.ok(error instanceof Error);
@@ -97,7 +175,7 @@ suite('package-processor-build', function () {
         const operations = createResolveAndBuildOperations(stubDependencies());
 
         try {
-            await operations.build({ mainPackageJson: { type: 'commonjs' } } as never);
+            await callBuildWithMainPackageJson(operations, { type: 'commonjs' });
             assert.fail('expected build to reject the non-ESM main package json');
         } catch (error) {
             assert.ok(error instanceof Error);
@@ -114,17 +192,17 @@ suite('package-processor-build', function () {
 
         assert.deepStrictEqual(result, fixture.linkedBundle);
         assert.deepStrictEqual(
-            (fixture.dependencies.resourceResolver.resolve as never as ReturnType<typeof fake>).firstCall.args[0],
+            fixture.resolve.firstCall.args[0],
             options
         );
         assert.deepStrictEqual(
-            (fixture.dependencies.linker.linkBundle as never as ReturnType<typeof fake>).firstCall.args[0],
+            fixture.linkBundle.firstCall.args[0],
             {
                 bundle: createLinkedBundle(),
                 bundleDependencies: [ ...options.bundleDependencies, ...options.bundlePeerDependencies ]
             }
         );
-        assert.deepStrictEqual(getCallArgs(fixture.dependencies.progressBroadcaster.emit as never), [
+        assert.deepStrictEqual(getCallArgs(fixture.emit), [
             [ 'resolving', { packageName: 'package-a' } ],
             [ 'scanCompleted', { packageName: 'package-a', included: [], excluded: [] } ],
             [ 'linking', { packageName: 'package-a' } ],
@@ -133,15 +211,15 @@ suite('package-processor-build', function () {
     });
 
     test('build analyzes the linked bundle and versions the analyzed output', async function () {
-        const { dependencies, analyzedBundle, versionedBundle } = createPipelineDependencies();
-        const operations = createResolveAndBuildOperations(dependencies);
+        const fixture = createPipelineDependencies();
+        const operations = createResolveAndBuildOperations(fixture.dependencies);
         const options = { ...createBuildAndPublishOptions(), version: '1.2.3' };
 
         const result = await operations.build(options);
 
-        assert.deepStrictEqual(result, versionedBundle);
+        assert.deepStrictEqual(result, fixture.versionedBundle);
         assert.deepStrictEqual(
-            (dependencies.resourceResolver.resolve as never as ReturnType<typeof fake>).firstCall.args[0],
+            fixture.resolve.firstCall.args[0],
             {
                 name: 'package-a',
                 sourcesFolder: '/src',
@@ -158,7 +236,7 @@ suite('package-processor-build', function () {
             }
         );
         assert.deepStrictEqual(
-            (dependencies.deadCodeEliminator.eliminate as never as ReturnType<typeof fake>).firstCall.args[0],
+            fixture.eliminate.firstCall.args[0],
             [
                 {
                     bundle: createLinkedBundle(),
@@ -168,9 +246,9 @@ suite('package-processor-build', function () {
             ]
         );
         assert.deepStrictEqual(
-            (dependencies.versionManager.addVersion as never as ReturnType<typeof fake>).firstCall.args[0],
+            fixture.addVersion.firstCall.args[0],
             {
-                bundle: analyzedBundle,
+                bundle: fixture.analyzedBundle,
                 version: '1.2.3',
                 mainPackageJson: options.mainPackageJson,
                 bundleDependencies: options.bundleDependencies,
@@ -182,8 +260,8 @@ suite('package-processor-build', function () {
     });
 
     test('build passes disabled dead-code transformation settings to the eliminator', async function () {
-        const { dependencies } = createPipelineDependencies();
-        const operations = createResolveAndBuildOperations(dependencies);
+        const fixture = createPipelineDependencies();
+        const operations = createResolveAndBuildOperations(fixture.dependencies);
 
         await operations.build({
             ...createBuildAndPublishOptions(),
@@ -192,7 +270,7 @@ suite('package-processor-build', function () {
         });
 
         assert.deepStrictEqual(
-            (dependencies.deadCodeEliminator.eliminate as never as ReturnType<typeof fake>).firstCall.args[0],
+            fixture.eliminate.firstCall.args[0],
             [
                 {
                     bundle: createLinkedBundle(),
@@ -204,10 +282,11 @@ suite('package-processor-build', function () {
     });
 
     test('build rejects when the dead code eliminator returns no analyzed bundle', async function () {
+        const deadCodeEliminator: DeadCodeEliminator = {
+            eliminate: fake.resolves([])
+        };
         const { dependencies } = createPipelineDependencies({
-            deadCodeEliminator: {
-                eliminate: fake.resolves([])
-            } as unknown as DeadCodeEliminator
+            deadCodeEliminator
         });
         const operations = createResolveAndBuildOperations(dependencies);
 

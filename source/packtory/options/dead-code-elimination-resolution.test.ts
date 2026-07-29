@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
+import { packageConfigFixture, validConfigWithoutRegistryFixture } from '../../test-libraries/config-fixtures.ts';
 import { resolveDeadCodeEliminationByName } from './dead-code-elimination-resolution.ts';
 
 type PackageInput = {
@@ -16,17 +17,15 @@ function validated(
     packages: readonly PackageInput[],
     common?: CommonInput
 ): ValidConfigWithoutRegistryResult {
-    return {
-        packtoryConfig: {
-            commonPackageSettings: common === undefined ? undefined : { deadCodeElimination: common },
-            packages: packages.map(function (pkg) {
-                return {
-                    name: pkg.name,
-                    deadCodeElimination: pkg.enabled === undefined ? undefined : { enabled: pkg.enabled }
-                };
-            })
-        }
-    } as unknown as ValidConfigWithoutRegistryResult;
+    return validConfigWithoutRegistryFixture({
+        commonPackageSettings: common === undefined ? undefined : { deadCodeElimination: common },
+        packages: packages.map(function (pkg) {
+            return packageConfigFixture({
+                name: pkg.name,
+                deadCodeElimination: pkg.enabled === undefined ? undefined : { enabled: pkg.enabled }
+            });
+        })
+    });
 }
 
 suite('dead-code-elimination-resolution', function () {

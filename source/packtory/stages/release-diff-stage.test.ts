@@ -1,14 +1,16 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions, import/max-dependencies -- test stubs cast partial mocks of complex orchestrator types */
+/* eslint-disable import/max-dependencies -- release diff tests cover scheduler, artifacts, SBOM, and result fixtures together */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
-import type { ValidConfigResult } from '../../config/validation.ts';
+import { packageConfigFixture, validConfigFixture } from '../../test-libraries/config-fixtures.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
+import type { ValidConfigResult } from '../../config/validation.ts';
 import { createIteratingScheduler, type IteratingSchedulerCapture } from '../../test-libraries/iterating-scheduler.ts';
 import { buildSbomFixtureContent } from '../../test-libraries/sbom-fixtures.ts';
+import { versionedBundleWithManifest } from '../../test-libraries/bundle-fixtures.ts';
 import type { BuildAndPublishResult } from '../package-processor.ts';
 import type { Scheduler as PackageScheduler } from '../scheduler.ts';
 import type { FileSetDiff, PackageReleaseDiff } from '../../report/release-diff/file-set-diff.ts';
@@ -19,24 +21,22 @@ type ArtifactsBuilderStub = {
 };
 
 function configFor(packageNames: readonly string[]): ValidConfigResult {
-    return {
-        packtoryConfig: {
-            packages: packageNames.map(function (name) {
-                return { name };
-            })
-        }
-    } as unknown as ValidConfigResult;
+    return validConfigFixture({
+        packages: packageNames.map(function (name) {
+            return packageConfigFixture({ name });
+        })
+    });
 }
 
 function buildResultFor(name: string, overrides: Partial<BuildAndPublishResult> = {}): BuildAndPublishResult {
     return {
         status: 'new-version',
         publication: noPublication,
-        bundle: {
+        bundle: versionedBundleWithManifest({
             name,
             version: '1.0.0',
             manifestFile: { filePath: 'package.json', content: `{"name":"${name}","version":"1.0.0"}\n` }
-        } as never,
+        }),
         extraFiles: [],
         previousReleaseArtifacts: Maybe.nothing(),
         ...overrides
@@ -184,10 +184,10 @@ function registerBasicDiffTests(): void {
     test('passes the bundle, the "package" target tag, and the extraFiles to artifactsBuilder.collectContents', async function () {
         const collectContents = fake.returns([]);
         const extraFile: FileDescription = { filePath: 'sbom.cdx.json', content: '{}', isExecutable: false };
-        const bundle = {
+        const bundle = versionedBundleWithManifest({
             name: 'pkg-a',
             version: '1.0.0'
-        } as never;
+        });
 
         await runReleaseDiffStage(
             {
@@ -227,7 +227,7 @@ function registerSchedulerTests(): void {
         const failingScheduler = {
             async runForEachScheduledPackage() {
                 return Result.err({
-                    succeeded: [ undefined ],
+                    succeeded: [],
                     failures: [ failingError ]
                 });
             }
@@ -305,10 +305,13 @@ function registerChangedDiffTests(): void {
             [
                 buildResultFor('pkg-a', {
                     bundle: {
-                        name: 'pkg-a',
-                        version: '1.0.1',
-                        manifestFile: { filePath: 'package.json', content: '{"name":"pkg-a","version":"1.0.1"}\n' }
-                    } as never,
+                        ...versionedBundleWithManifest({ name: 'pkg-a', version: '1.0.1' }),
+                        manifestFile: {
+                            filePath: 'package.json',
+                            content: '{"name":"pkg-a","version":"1.0.1"}\n',
+                            isExecutable: false
+                        }
+                    },
                     previousReleaseArtifacts: Maybe.just({ version: '1.0.0', gitHead: undefined, files: previousFiles })
                 })
             ]

@@ -33,7 +33,7 @@ function validatePreGraphGenerationWithSchema<TConfig extends PacktoryConfigWith
         return Result.err(schemaValidationResult.error.issues);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- callers bind the expected config type for this schema
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- changelog.prLog is pass-through at schema parse time and validated before use
     const packtoryConfig = schemaValidationResult.data as TConfig;
     const packageConfigs = packageListToRecord(packtoryConfig.packages);
 
