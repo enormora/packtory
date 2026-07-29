@@ -105,6 +105,6 @@
     },
     "overrides": {
         "@schema-hub/zod-error-formatter": "0.0.14",
-        "yargs": "18.0.0"
+        "yargs": "18.1.0"
     }
 }
