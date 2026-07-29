@@ -26,10 +26,6 @@ type KnownDeclarationExtension = {
     readonly javascriptExtension: string;
     readonly declarationExtensions: readonly string[];
 };
-type PendingDeclarationState = {
-    readonly pending: readonly string[];
-    readonly declarationPath: string | undefined;
-};
 type ReachableDeclarationContext = {
     readonly packageName: string;
     readonly project: Project;
@@ -42,19 +38,8 @@ const packageFolder = '/node_modules';
 const javascriptExtension = '.js';
 const esmJavascriptExtension = '.mjs';
 const commonJsJavascriptExtension = '.cjs';
+const relativeSpecifierPrefixLength = 2;
 
-const declarationCompilerModes: readonly DeclarationCompilerMode[] = [
-    {
-        label: 'node16-esm',
-        module: ModuleKind.Node16,
-        moduleResolution: ModuleResolutionKind.Node16
-    },
-    {
-        label: 'bundler',
-        module: ModuleKind.ESNext,
-        moduleResolution: ModuleResolutionKind.Bundler
-    }
-];
 const knownDeclarationExtensions: readonly KnownDeclarationExtension[] = [
     {
         javascriptExtension,
@@ -78,12 +63,23 @@ function toPackageRelativeFilePath(packageName: string, filePath: string): strin
     return path.posix.relative(`${packageFolder}/${packageName}`, filePath);
 }
 
-function toCurrentPackageRelativeFilePath(filePath: string): string {
-    return filePath.replace(/^\/node_modules\/[^/]+\//u, '');
-}
-
 function isDeclarationPath(filePath: string): boolean {
     return filePath.endsWith('.d.ts') || filePath.endsWith('.d.mts') || filePath.endsWith('.d.cts');
+}
+
+function declarationCompilerModes(): readonly DeclarationCompilerMode[] {
+    return [
+        {
+            label: 'node16-esm',
+            module: ModuleKind.Node16,
+            moduleResolution: ModuleResolutionKind.Node16
+        },
+        {
+            label: 'bundler',
+            module: ModuleKind.ESNext,
+            moduleResolution: ModuleResolutionKind.Bundler
+        }
+    ];
 }
 
 function collectPackageFiles(publishedPackage: PublishedPackageWithManifest): readonly PackageFile[] {
@@ -107,11 +103,10 @@ function collectDeclarationPaths(packageFiles: readonly PackageFile[]): Readonly
 
 function findDeclarationPathsInValue(value: unknown): readonly string[] {
     if (typeof value === 'string') {
-        return isDeclarationPath(value) ? [ value.replace(/^\.\//u, '') ] : [];
-    }
-
-    if (Array.isArray(value)) {
-        return value.flatMap(findDeclarationPathsInValue);
+        if (!isDeclarationPath(value)) {
+            return [];
+        }
+        return value.startsWith('./') ? [ value.slice(relativeSpecifierPrefixLength) ] : [ value ];
     }
 
     if (typeof value === 'object' && value !== null) {
@@ -159,11 +154,11 @@ function declarationCandidatesForKnownExtension(resolvedPath: string): readonly 
     });
 }
 
-function declarationCandidates(importerPath: string, specifier: string): readonly string[] {
-    if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
-        return [];
-    }
+function isRelativeSpecifier(specifier: string): boolean {
+    return specifier.startsWith('./') || specifier.startsWith('../');
+}
 
+function declarationCandidates(importerPath: string, specifier: string): readonly string[] {
     const resolvedPath = path.posix.normalize(path.posix.join(path.posix.dirname(importerPath), specifier));
     const knownCandidates = declarationCandidatesForKnownExtension(resolvedPath);
     if (knownCandidates !== undefined) {
@@ -181,10 +176,11 @@ function declarationCandidates(importerPath: string, specifier: string): readonl
 }
 
 function collectReferencedDeclarationPaths(
+    packageName: string,
     sourceFile: SourceFile,
     declarationPaths: ReadonlySet<string>
 ): readonly string[] {
-    const currentPackagePath = toCurrentPackageRelativeFilePath(sourceFile.getFilePath());
+    const currentPackagePath = toPackageRelativeFilePath(packageName, sourceFile.getFilePath());
     const specifiers = [
         ...sourceFile.getImportDeclarations(),
         ...sourceFile.getExportDeclarations()
@@ -194,7 +190,8 @@ function collectReferencedDeclarationPaths(
         })
         .filter(function (specifier): specifier is string {
             return specifier !== undefined;
-        });
+        })
+        .filter(isRelativeSpecifier);
 
     return specifiers.flatMap(function (specifier) {
         return declarationCandidates(currentPackagePath, specifier).filter(function (candidate) {
@@ -203,46 +200,24 @@ function collectReferencedDeclarationPaths(
     });
 }
 
-function takePendingDeclaration(
-    pending: readonly string[],
-    reachable: ReadonlySet<string>
-): PendingDeclarationState {
-    let remaining = pending;
-    while (remaining.length > 0) {
-        const [ declarationPath, ...nextRemaining ] = remaining;
-        remaining = nextRemaining;
-        if (declarationPath !== undefined && !reachable.has(declarationPath)) {
-            return { pending: remaining, declarationPath };
-        }
-    }
-
-    return { pending: remaining, declarationPath: undefined };
-}
-
-function pushUnvisitedDeclarations(
-    reachable: ReadonlySet<string>,
-    pending: readonly string[],
-    referencedPaths: readonly string[]
-): readonly string[] {
-    return [
-        ...pending,
-        ...referencedPaths.filter(function (referencedPath) {
-            return !reachable.has(referencedPath);
-        })
-    ];
-}
-
 function recordReachableDeclaration(
     context: ReachableDeclarationContext,
     declarationPath: string
-): readonly string[] {
+): void {
+    if (context.reachable.has(declarationPath)) {
+        return;
+    }
     context.recordReachable(declarationPath);
     const sourceFile = context.project.getSourceFileOrThrow(toPackageFilePath(context.packageName, declarationPath));
-    return pushUnvisitedDeclarations(
-        context.reachable,
-        [],
-        collectReferencedDeclarationPaths(sourceFile, context.declarationPaths)
-    );
+    for (
+        const referencedPath of collectReferencedDeclarationPaths(
+            context.packageName,
+            sourceFile,
+            context.declarationPaths
+        )
+    ) {
+        recordReachableDeclaration(context, referencedPath);
+    }
 }
 
 function reachableExportDeclarationPaths(
@@ -265,13 +240,8 @@ function reachableExportDeclarationPaths(
         }
     };
 
-    let state = takePendingDeclaration(pending, reachable);
-    while (state.declarationPath !== undefined) {
-        const discoveredPaths = recordReachableDeclaration(context, state.declarationPath);
-        state = takePendingDeclaration(
-            pushUnvisitedDeclarations(reachable, state.pending, discoveredPaths),
-            reachable
-        );
+    for (const declarationPath of pending) {
+        recordReachableDeclaration(context, declarationPath);
     }
 
     return reachable;
@@ -363,7 +333,7 @@ export function summarizeDeclarationIntegrity(
     publishedPackage: PublishedPackageWithManifest,
     declarationMode: DeclarationMode
 ): readonly string[] {
-    return declarationCompilerModes.flatMap(function (compilerMode) {
+    return declarationCompilerModes().flatMap(function (compilerMode) {
         const project = createDeclarationProject(publishedPackage, compilerMode);
         const checkedDeclarationPaths = declarationPathsForMode(
             packageName,
