@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import type { Readable } from 'node:stream';
 import { suite, test } from 'mocha';
 import sinon from 'sinon';
+import { throwNonError } from '../test-libraries/non-error-failures.ts';
 import { withPromiseDeadline } from '../test-libraries/promise-with-deadline.ts';
 import { extractTarEntries } from './extract-tar.ts';
 import { createTarballBuilder } from './tarball-builder.ts';
@@ -283,8 +284,7 @@ suite('extract-tar', function () {
 
         test('rejects with an Error when iteration throws a non-Error value', async function () {
             await runWithThrowingStream(function () {
-                // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- This test exercises non-Error rejection normalization.
-                throw 'boom';
+                throwNonError('boom');
             }, /^Error: boom$/u);
         });
 

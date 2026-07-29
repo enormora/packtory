@@ -2,14 +2,17 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Maybe } from 'true-myth';
+import { throwNonError } from '../../test-libraries/non-error-failures.ts';
 import { expectFailure, registryClientFactory } from '../../test-libraries/registry-client-test-support.ts';
+
+function fetchErrorWithStatusCode(statusCode: number): Error & { readonly statusCode: number; } {
+    return Object.assign(new Error('fetch-error'), { statusCode });
+}
 
 suite('registry-client metadata responses', function () {
     test('fetchLatestVersion() returns nothing for 404 and 403 responses', async function () {
         for (const statusCode of [ 404, 403 ]) {
-            const error = new Error('fetch-error');
-            // @ts-expect-error -- intentional shape for npm fetch errors
-            error.statusCode = statusCode;
+            const error = fetchErrorWithStatusCode(statusCode);
             const registryClient = registryClientFactory({ npmFetchJson: fake.rejects(error) });
 
             const result = await registryClient.fetchLatestVersion('the-name', {
@@ -130,8 +133,7 @@ suite('registry-client metadata responses', function () {
     test('fetchLatestVersion() rethrows non-object unexpected errors', async function () {
         const registryClient = registryClientFactory({
             npmFetchJson: fake(async function () {
-                // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- intentional non-object rejection to exercise the isRecord(false) branch
-                throw 'unexpected-failure';
+                throwNonError('unexpected-failure');
             })
         });
 
