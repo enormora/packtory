@@ -12,13 +12,13 @@ suite('registry', function () {
                 return left.localeCompare(right);
             });
         assert.deepStrictEqual(names, [
-            'areTheTypesWrong',
             'maxBundleSize',
             'noDevDependencyImports',
             'noDuplicatedFiles',
             'noSideEffects',
             'noUnusedBundleDependencies',
             'requiredFiles',
+            'typeScriptIntegrity',
             'uniqueTargetPaths'
         ]);
     });

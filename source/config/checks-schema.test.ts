@@ -12,35 +12,43 @@ import { checksPerPackageSchema, checksSchema } from './checks-schema.ts';
 const validNoDuplicatedFilesGlobal = { enabled: true };
 
 suite('checks-schema', function () {
-    suite('areTheTypesWrong check schema', function () {
-        test('top-level schema accepts areTheTypesWrong with enabled', function () {
-            assert.strictEqual(safeParse(checksSchema, { areTheTypesWrong: { enabled: true } }).success, true);
+    suite('typeScriptIntegrity check schema', function () {
+        test('top-level schema accepts typeScriptIntegrity with enabled', function () {
+            assert.strictEqual(safeParse(checksSchema, { typeScriptIntegrity: { enabled: true } }).success, true);
         });
 
-        test('top-level schema accepts an areTheTypesWrong profile override', function () {
+        test('top-level schema accepts the declarations mode', function () {
             assert.strictEqual(
-                safeParse(checksSchema, { areTheTypesWrong: { enabled: true, profile: 'strict' } }).success,
+                safeParse(checksSchema, { typeScriptIntegrity: { enabled: true, declarations: 'exports-graph' } })
+                    .success,
                 true
             );
         });
 
-        test('top-level schema rejects an unknown areTheTypesWrong profile', function () {
+        test('top-level schema rejects an unknown declarations mode', function () {
             assert.strictEqual(
-                safeParse(checksSchema, { areTheTypesWrong: { enabled: true, profile: 'legacy' } }).success,
+                safeParse(checksSchema, { typeScriptIntegrity: { enabled: true, declarations: 'public' } }).success,
                 false
             );
         });
 
-        test('per-package schema accepts an areTheTypesWrong profile override', function () {
+        test('top-level schema rejects the old areTheTypesWrong config', function () {
             assert.strictEqual(
-                safeParse(checksPerPackageSchema, { areTheTypesWrong: { profile: 'node16' } }).success,
+                safeParse(checksSchema, { areTheTypesWrong: { enabled: true } }).success,
+                false
+            );
+        });
+
+        test('per-package schema accepts an empty typeScriptIntegrity object', function () {
+            assert.strictEqual(
+                safeParse(checksPerPackageSchema, { typeScriptIntegrity: {} }).success,
                 true
             );
         });
 
-        test('per-package schema rejects an enabled flag on areTheTypesWrong', function () {
+        test('per-package schema rejects typeScriptIntegrity options', function () {
             assert.strictEqual(
-                safeParse(checksPerPackageSchema, { areTheTypesWrong: { enabled: true } }).success,
+                safeParse(checksPerPackageSchema, { typeScriptIntegrity: { declarations: 'all' } }).success,
                 false
             );
         });

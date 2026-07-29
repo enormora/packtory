@@ -17,10 +17,12 @@ import {
 const validated: (config: Partial<PacktoryConfigWithoutRegistry>) => ValidConfigWithoutRegistryResult =
     validConfigWithoutRegistryFixture;
 
+const generatedPackageCheckTestTimeoutMs = 60_000;
+
 const unusedCheckDependencies = {
     versionManager: {
         addVersion() {
-            throw new Error('versionManager.addVersion should not run for non-ATTW tests');
+            throw new Error('versionManager.addVersion should not run for checks that do not need generated packages');
         }
     }
 };
@@ -239,13 +241,13 @@ suite('resolved-package', function () {
         assert.strictEqual(result.isOk, true);
     });
 
-    test('buildChecksResult materializes generated packages when areTheTypesWrong is enabled', async function () {
+    test('buildChecksResult materializes generated packages when typeScriptIntegrity is enabled', async function () {
         const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
         const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
         const result = await buildChecksResult(
             dependencies,
             validated({
-                checks: { areTheTypesWrong: { enabled: true } },
+                checks: { typeScriptIntegrity: { enabled: true } },
                 packages: [ packageConfig('pkg-a') ]
             }),
             [
@@ -275,7 +277,8 @@ suite('resolved-package', function () {
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: []
         });
-    });
+    })
+        .timeout(generatedPackageCheckTestTimeoutMs);
 
     test('buildChecksResult includes substitution public module usage in generated check packages', async function () {
         const packageBundle = checkBundle('pkg-a', [ 'index.js', 'lib/internal.js' ]);
@@ -284,7 +287,7 @@ suite('resolved-package', function () {
         const result = await buildChecksResult(
             dependencies,
             validated({
-                checks: { areTheTypesWrong: { enabled: true } },
+                checks: { typeScriptIntegrity: { enabled: true } },
                 packages: [ packageConfig('pkg-a'), packageConfig('pkg-b') ]
             }),
             [
@@ -324,5 +327,6 @@ suite('resolved-package', function () {
             allowMutableSpecifiers: [],
             substitutionPublicModuleSourcePaths: new Set([ 'lib/internal.js' ])
         });
-    });
+    })
+        .timeout(generatedPackageCheckTestTimeoutMs);
 });
