@@ -3,6 +3,7 @@ import tar, { type Pack } from 'tar-stream';
 import type { FileDescription } from '../file-manager/file-description.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
 import { validateVendorEntrySource, type VendorEntry } from '../vendor-materializer/vendor-entry.ts';
+import { collectGzippedPack } from './gzipped-pack.ts';
 
 export type TarballBuilder = {
     build: (fileDescriptions: readonly FileDescription[], vendorEntries?: readonly VendorEntry[]) => Promise<Buffer>;
@@ -12,19 +13,6 @@ type TarballBuilderDependencies = {
     readonly createGzip: typeof zlib.createGzip;
     readonly fileManager: Pick<FileManager, 'getRealPath' | 'readFileBytes'>;
 };
-
-const gzipHeaderOperationSystemTypeFieldIndex = 9;
-const gzipHeaderOperationSystemTypeUnknown = 255;
-
-function normalizeGzipHeader(data: Buffer): Buffer {
-    const normalizedData = Buffer.from(data);
-    normalizedData[gzipHeaderOperationSystemTypeFieldIndex] = gzipHeaderOperationSystemTypeUnknown;
-    return normalizedData;
-}
-
-function toBuffer(chunk: Buffer | string): Buffer {
-    return Buffer.from(chunk);
-}
 
 const staticFileModificationTime = new Date(0);
 const executableFileMode = 493;
@@ -76,18 +64,7 @@ export function createTarballBuilder(dependencies: Partial<TarballBuilderDepende
     return {
         async build(fileDescriptions, vendorEntries = []) {
             const pack = await createPack(fileDescriptions, vendorEntries);
-
-            const gzipStream = createGzip({ level: 9 });
-            const tarballStream = pack.pipe(gzipStream);
-            const chunks: Buffer[] = [];
-
-            for await (const chunk of tarballStream as AsyncIterable<unknown>) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- gzip stream yields buffers in this usage
-                chunks.push(toBuffer(chunk as Buffer | string));
-            }
-
-            const tarData = Buffer.concat(chunks);
-            return normalizeGzipHeader(tarData);
+            return collectGzippedPack(pack, createGzip({ level: 9 }));
         }
     };
 }
