@@ -24,6 +24,7 @@ suite('sort-values', function () {
     test('compareValues() keeps mixed primitive types and non-primitives in their relative order', function () {
         assert.strictEqual(compareValues('a', 1), 0);
         assert.strictEqual(compareValues(false, 1), -1);
+        assert.strictEqual(compareValues(1, false), 1);
         assert.strictEqual(compareValues([], 1), 0);
         assert.strictEqual(compareValues(1, []), 0);
         assert.strictEqual(compareValues({}, []), 0);
