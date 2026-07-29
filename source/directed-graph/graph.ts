@@ -19,6 +19,10 @@ type GraphEdge<TId extends GraphNodeId> = {
 
 type Visitor<TId extends GraphNodeId, TData> = (node: Readonly<GraphNode<TId, TData>>) => void;
 
+function attemptSlots(length: number): readonly unknown[] {
+    return Array.from({ length });
+}
+
 export type DirectedGraph<TId extends GraphNodeId, TData> = {
     addNode: (id: TId, data: TData) => void;
     connect: (edge: Readonly<GraphEdge<TId>>) => void;
@@ -48,22 +52,19 @@ function getNode<TId extends GraphNodeId, TData>(
 }
 
 function detectCyclesForNode<TId extends GraphNodeId, TData>(
-    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
+    remainingNodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
     baseNode: GraphNode<TId, TData>,
     visitedIds: readonly TId[]
 ): readonly (readonly TId[])[] {
     const newVisitedIds = [ ...visitedIds, baseNode.id ];
-    const cycles: (readonly TId[])[] = [];
-
-    for (const id of baseNode.adjacentNodeIds) {
-        if (newVisitedIds.includes(id)) {
-            cycles.push([ ...newVisitedIds, id ]);
-        } else {
-            cycles.push(...detectCyclesForNode(nodes, getNode(nodes, id), newVisitedIds));
-        }
-    }
-
-    return cycles;
+    const newRemainingNodes = new Map(remainingNodes);
+    newRemainingNodes.delete(baseNode.id);
+    return Array.from(baseNode.adjacentNodeIds).flatMap(function (id) {
+        const adjacentNode = newRemainingNodes.get(id);
+        return adjacentNode === undefined
+            ? [ [ ...newVisitedIds, id ] ]
+            : detectCyclesForNode(newRemainingNodes, adjacentNode, newVisitedIds);
+    });
 }
 
 function detectCyclesForUnvisitedNode<TId extends GraphNodeId, TData>(
@@ -93,6 +94,12 @@ function detectGraphCycles<TId extends GraphNodeId, TData>(
     }
 
     return cycles;
+}
+
+function countEdges<TId extends GraphNodeId, TData>(nodes: ReadonlyMap<TId, GraphNode<TId, TData>>): number {
+    return Array.from(nodes.values()).reduce(function (edgeCount, node) {
+        return edgeCount + node.adjacentNodeIds.size;
+    }, 0);
 }
 
 type BreadthFirstSearchStep<TId extends GraphNodeId, TData> = {
@@ -144,12 +151,18 @@ function visitGraphBreadthFirstSearch<TId extends GraphNodeId, TData>(
     visitor: Visitor<TId, TData>
 ): void {
     const pendingNodes = createWorklist<GraphNode<TId, TData>>([]);
+    const traversalSlots = attemptSlots(nodes.size + countEdges(nodes) + 1);
     let state: BreadthFirstSearchState<TId, TData> = {
         head: getNode(nodes, startId),
         pendingNodes,
         visited: new Set()
     };
-    while (state.head !== undefined) {
+
+    traversalSlots.forEach(function () {
+        if (state.head === undefined) {
+            return;
+        }
+
         const nextStep: BreadthFirstSearchStep<TId, TData> = visitBreadthFirstSearchNode<TId, TData>({
             nodes,
             head: state.head,
@@ -158,7 +171,7 @@ function visitGraphBreadthFirstSearch<TId extends GraphNodeId, TData>(
             visitor
         });
         state = { ...state, head: nextStep.head, visited: nextStep.visited };
-    }
+    });
 }
 
 function collectCurrentGeneration<TId extends GraphNodeId, TData>(
@@ -243,21 +256,53 @@ function updateTopologicalDiscovery<TId extends GraphNodeId, TData>(
     return decreaseIncomingEdgesPerNodeForAdjacentNodes(nodes, incomingEdgesPerNode, Array.from(currentGeneration));
 }
 
+type TopologicalDiscovery<TId extends GraphNodeId> = {
+    readonly alreadyDiscovered: ReadonlySet<TId>;
+    readonly generations: readonly (readonly TId[])[];
+    readonly incomingEdgesPerNode: ReadonlyMap<TId, number>;
+};
+
+function createTopologicalDiscovery<TId extends GraphNodeId, TData>(
+    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
+): TopologicalDiscovery<TId> {
+    return {
+        alreadyDiscovered: new Set(),
+        generations: [],
+        incomingEdgesPerNode: getIncomingEdgesPerNode(nodes)
+    };
+}
+
+function advanceTopologicalDiscovery<TId extends GraphNodeId, TData>(
+    nodes: ReadonlyMap<TId, GraphNode<TId, TData>>,
+    discovery: TopologicalDiscovery<TId>
+): TopologicalDiscovery<TId> {
+    if (discovery.alreadyDiscovered.size === nodes.size) {
+        return discovery;
+    }
+
+    const currentGeneration = collectCurrentGeneration(
+        nodes,
+        discovery.alreadyDiscovered,
+        discovery.incomingEdgesPerNode
+    );
+    return {
+        alreadyDiscovered: new Set([ ...discovery.alreadyDiscovered, ...currentGeneration ]),
+        generations: [ ...discovery.generations, Array.from(currentGeneration) ],
+        incomingEdgesPerNode: updateTopologicalDiscovery(nodes, discovery.incomingEdgesPerNode, currentGeneration)
+    };
+}
+
 function collectTopologicalGenerationsFromAcyclicGraph<TId extends GraphNodeId, TData>(
     nodes: ReadonlyMap<TId, GraphNode<TId, TData>>
 ): readonly (readonly TId[])[] {
-    let alreadyDiscovered: ReadonlySet<TId> = new Set();
-    const generations: (readonly TId[])[] = [];
-    let incomingEdgesPerNode: ReadonlyMap<TId, number> = getIncomingEdgesPerNode(nodes);
-
-    while (alreadyDiscovered.size < nodes.size) {
-        const currentGeneration = collectCurrentGeneration(nodes, alreadyDiscovered, incomingEdgesPerNode);
-        generations.push(Array.from(currentGeneration));
-        alreadyDiscovered = new Set([ ...alreadyDiscovered, ...currentGeneration ]);
-        incomingEdgesPerNode = updateTopologicalDiscovery(nodes, incomingEdgesPerNode, currentGeneration);
-    }
-
-    return generations;
+    return attemptSlots(nodes.size)
+        .reduce<TopologicalDiscovery<TId>>(
+            function (discovery) {
+                return advanceTopologicalDiscovery(nodes, discovery);
+            },
+            createTopologicalDiscovery(nodes)
+        )
+        .generations;
 }
 
 function collectTopologicalGenerations<TId extends GraphNodeId, TData>(
