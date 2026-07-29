@@ -126,6 +126,57 @@ suite('checks', function () {
         assert.strictEqual(result.value.length, 2);
     });
 
+    test('resolveAndLinkAll checks substitution exports in generated package candidates', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/substitution-type-check');
+        const config: PacktoryConfigWithoutRegistry = {
+            commonPackageSettings: {
+                sourcesFolder: path.join(fixturePath, 'src'),
+                mainPackageJson: await loadPackageJson(fixturePath),
+                publishSettings: { access: 'public' }
+            },
+            checks: { areTheTypesWrong: { enabled: true } },
+            packages: [
+                {
+                    name: 'pkg-a',
+                    roots: {
+                        main: {
+                            js: path.join(fixturePath, 'src/a-entry.js'),
+                            declarationFile: path.join(fixturePath, 'src/a-entry.d.ts')
+                        }
+                    }
+                },
+                {
+                    name: 'pkg-b',
+                    roots: {
+                        main: {
+                            js: path.join(fixturePath, 'src/b-entry.js'),
+                            declarationFile: path.join(fixturePath, 'src/b-entry.d.ts')
+                        }
+                    },
+                    bundleDependencies: [ 'pkg-a' ]
+                }
+            ]
+        };
+
+        const { result } = await resolveAndLinkAll(config);
+
+        if (!result.isErr) {
+            assert.fail('Expected resolveAndLinkAll to fail because a substitution export has no types');
+            return;
+        }
+
+        if (result.error.type === 'checks') {
+            assert.strictEqual(
+                result.error.issues.some(function (issue) {
+                    return issue.includes('pkg-a') && issue.includes('./internal.js') && issue.includes('No types');
+                }),
+                true
+            );
+        } else {
+            assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+        }
+    });
+
     test('resolveAndLinkAll succeeds when the global allowList covers the duplicated file', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
         const baseConfig = await createBaseConfig(fixturePath);

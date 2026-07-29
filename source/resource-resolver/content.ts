@@ -27,6 +27,17 @@ function rejectCodeFile(targetFilePath: string): void {
     }
 }
 
+function rejectGeneratedManifestTarget(targetFilePath: string): void {
+    if (targetFilePath === packageManifestFilePath) {
+        throw new Error(`additionalFiles must not target generated package manifest "${packageManifestFilePath}".`);
+    }
+}
+
+function rejectAdditionalFileTarget(targetFilePath: string): void {
+    rejectGeneratedManifestTarget(targetFilePath);
+    rejectCodeFile(targetFilePath);
+}
+
 type ResolvedBundleFile = {
     readonly sourceFilePath: string;
     readonly targetFilePath: string;
@@ -67,7 +78,7 @@ export function combineAllBundleFiles(
 
     const additionalContents = additionalFiles.map(function (additionalFile): ResolvedBundleFile {
         if (typeof additionalFile === 'string') {
-            rejectCodeFile(additionalFile);
+            rejectAdditionalFileTarget(additionalFile);
             const sourceFilePath = path.join(sourcesFolder, additionalFile);
             const targetFilePath = additionalFile;
             return {
@@ -81,7 +92,7 @@ export function combineAllBundleFiles(
         if (path.isAbsolute(additionalFile.targetFilePath)) {
             throw new Error('The targetFilePath must be relative');
         }
-        rejectCodeFile(additionalFile.targetFilePath);
+        rejectAdditionalFileTarget(additionalFile.targetFilePath);
 
         return {
             sourceFilePath: prependSourcesFolderIfNecessary(sourcesFolder, additionalFile.sourceFilePath),

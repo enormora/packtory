@@ -4,6 +4,7 @@ import { runChecks } from '../checks/check-runner.ts';
 import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import { collectPublicModuleUsage } from '../package-surface/public-module-usage.ts';
 import type { PublishedPackageWithManifest } from '../published-package/published-package.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import type { ResolveAndLinkOptions } from './map-config.ts';
@@ -19,7 +20,7 @@ export type CheckError = {
     readonly issues: readonly string[];
 };
 
-type CheckEvaluationDependencies = {
+export type CheckEvaluationDependencies = {
     readonly versionManager: Pick<VersionManager, 'addVersion'>;
 };
 
@@ -35,11 +36,13 @@ export function createResolvedPackage(
 
 function buildPublishedPackagesForChecks(
     dependencies: CheckEvaluationDependencies,
-    resolvedPackages: readonly ResolvedPackage[]
+    resolvedPackages: readonly ResolvedPackage[],
+    publicModuleUsageByName: ReadonlyMap<string, ReadonlySet<string>>
 ): ReadonlyMap<string, PublishedPackageWithManifest> {
     return new Map(
         resolvedPackages.map(function (resolvedPackage) {
             const { analyzedBundle, resolveOptions } = resolvedPackage;
+            const substitutionPublicModuleSourcePaths = publicModuleUsageByName.get(resolvedPackage.name);
             return [
                 resolvedPackage.name,
                 dependencies.versionManager.addVersion({
@@ -53,7 +56,10 @@ function buildPublishedPackagesForChecks(
                         return { name: bundleDependency.name, version: checkManifestVersion };
                     }),
                     additionalPackageJsonAttributes: resolveOptions.additionalPackageJsonAttributes,
-                    allowMutableSpecifiers: resolveOptions.allowMutableSpecifiers
+                    allowMutableSpecifiers: resolveOptions.allowMutableSpecifiers,
+                    ...substitutionPublicModuleSourcePaths === undefined
+                        ? {}
+                        : { substitutionPublicModuleSourcePaths }
                 })
             ] as const;
         })
@@ -66,7 +72,13 @@ function maybeBuildPublishedPackagesForChecks(
     resolvedPackages: readonly ResolvedPackage[]
 ): ReadonlyMap<string, PublishedPackageWithManifest> | undefined {
     return config.checks?.areTheTypesWrong?.enabled === true
-        ? buildPublishedPackagesForChecks(dependencies, resolvedPackages)
+        ? buildPublishedPackagesForChecks(
+            dependencies,
+            resolvedPackages,
+            collectPublicModuleUsage(resolvedPackages.map(function (resolvedPackage) {
+                return resolvedPackage.analyzedBundle;
+            }))
+        )
         : undefined;
 }
 

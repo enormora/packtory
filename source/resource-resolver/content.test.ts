@@ -145,6 +145,22 @@ function registerLocalFileTests(): void {
             assert.strictEqual((error as Error).message, 'The targetFilePath must be relative');
         }
     });
+
+    test('throws when an object-form additional file targets the generated package manifest', function () {
+        try {
+            combineAllBundleFiles(
+                '/src',
+                [],
+                [ { sourceFilePath: 'manifest-template.json', targetFilePath: 'package.json' } ]
+            );
+            assert.fail('Expected combineAllBundleFiles() should fail but it did not');
+        } catch (error: unknown) {
+            assert.strictEqual(
+                (error as Error).message,
+                'additionalFiles must not target generated package manifest "package.json".'
+            );
+        }
+    });
 }
 
 const additionalCodeFileErrorMessage = [

@@ -6,8 +6,13 @@ import { checkBundle } from '../test-libraries/check-bundle-fixture.ts';
 import { analyzedBundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { validConfigWithoutRegistryFixture } from '../test-libraries/config-fixtures.ts';
 import { createLinkedBundle, createResolveOptions } from '../test-libraries/package-processor-test-support.ts';
-import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
-import { buildChecksResult, createResolvedPackage, type ResolvedPackage } from './resolved-package.ts';
+import type { BuildVersionedBundleOptions, VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
+import {
+    buildChecksResult,
+    createResolvedPackage,
+    type CheckEvaluationDependencies,
+    type ResolvedPackage
+} from './resolved-package.ts';
 
 const validated: (config: Partial<PacktoryConfigWithoutRegistry>) => ValidConfigWithoutRegistryResult =
     validConfigWithoutRegistryFixture;
@@ -98,6 +103,26 @@ function createPublishedPackageWithManifest(packageName: string): VersionedBundl
             version: '0.0.0'
         }
     });
+}
+
+type RecordedPublishedPackageInputs = {
+    readonly addVersionCalls: readonly BuildVersionedBundleOptions[];
+    readonly dependencies: CheckEvaluationDependencies;
+};
+
+function recordPublishedPackageInputs(packageName: string): RecordedPublishedPackageInputs {
+    const addVersionCalls: BuildVersionedBundleOptions[] = [];
+    return {
+        addVersionCalls,
+        dependencies: {
+            versionManager: {
+                addVersion(options: BuildVersionedBundleOptions) {
+                    addVersionCalls.push(options);
+                    return createPublishedPackageWithManifest(packageName);
+                }
+            }
+        }
+    };
 }
 
 suite('resolved-package', function () {
@@ -216,15 +241,7 @@ suite('resolved-package', function () {
 
     test('buildChecksResult materializes generated packages when areTheTypesWrong is enabled', async function () {
         const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
-        const addVersionCalls: unknown[] = [];
-        const dependencies = {
-            versionManager: {
-                addVersion(options: unknown) {
-                    addVersionCalls.push(options);
-                    return createPublishedPackageWithManifest('pkg-a');
-                }
-            }
-        };
+        const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
         const result = await buildChecksResult(
             dependencies,
             validated({
@@ -257,6 +274,55 @@ suite('resolved-package', function () {
             bundlePeerDependencies: [ { name: 'bundle-peer-dependency', version: '0.0.0' } ],
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: []
+        });
+    });
+
+    test('buildChecksResult includes substitution public module usage in generated check packages', async function () {
+        const packageBundle = checkBundle('pkg-a', [ 'index.js', 'lib/internal.js' ]);
+        const consumerBundle = checkBundle('pkg-b', [ 'index.js' ]);
+        const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
+        const result = await buildChecksResult(
+            dependencies,
+            validated({
+                checks: { areTheTypesWrong: { enabled: true } },
+                packages: [ packageConfig('pkg-a'), packageConfig('pkg-b') ]
+            }),
+            [
+                {
+                    name: 'pkg-a',
+                    analyzedBundle: packageBundle,
+                    resolveOptions: {
+                        ...createResolveOptions(),
+                        mainPackageJson: { type: 'module' },
+                        bundleDependencies: [],
+                        bundlePeerDependencies: [],
+                        additionalPackageJsonAttributes: {},
+                        allowMutableSpecifiers: []
+                    }
+                },
+                resolvedPackage('pkg-b', {
+                    ...consumerBundle,
+                    contents: [
+                        analyzedBundleResource('index.js', {
+                            content: 'import "pkg-a/lib/internal.js";\n',
+                            targetFilePath: 'index.js'
+                        })
+                    ]
+                })
+            ]
+        );
+
+        assert.strictEqual(result.isOk, true);
+        assert.strictEqual(addVersionCalls.length, 2);
+        assert.deepStrictEqual(addVersionCalls[0], {
+            bundle: packageBundle,
+            version: '0.0.0',
+            mainPackageJson: { type: 'module' },
+            bundleDependencies: [],
+            bundlePeerDependencies: [],
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: [],
+            substitutionPublicModuleSourcePaths: new Set([ 'lib/internal.js' ])
         });
     });
 });
