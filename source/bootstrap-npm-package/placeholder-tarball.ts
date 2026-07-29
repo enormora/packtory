@@ -1,5 +1,6 @@
 import type zlib from 'node:zlib';
 import type tar from 'tar-stream';
+import { collectPlaceholderGzipPack } from './placeholder-gzip.ts';
 
 type PlaceholderManifest = {
     readonly name: string;
@@ -25,15 +26,7 @@ export type PlaceholderTarballBuilder = {
 
 const staticFileModificationTimeEpochMilliseconds = 0;
 const regularFileMode = 420;
-const gzipHeaderOperatingSystemFieldIndex = 9;
-const gzipHeaderOperatingSystemUnknown = 255;
 const manifestJsonIndent = 2;
-
-function normalizeGzipHeader(data: Buffer): Buffer {
-    const normalized = Buffer.from(data);
-    normalized[gzipHeaderOperatingSystemFieldIndex] = gzipHeaderOperatingSystemUnknown;
-    return normalized;
-}
 
 function serializeManifest(manifest: PlaceholderManifest): string {
     return `${JSON.stringify(manifest, null, manifestJsonIndent)}\n`;
@@ -51,20 +44,6 @@ function appendFile(pack: Readonly<tar.Pack>, name: string, content: string): vo
     );
 }
 
-function toBuffer(chunk: Buffer | string): Buffer {
-    return Buffer.from(chunk);
-}
-
-async function collectGzippedTarball(pack: Readonly<tar.Pack>, createGzip: typeof zlib.createGzip): Promise<Buffer> {
-    const tarballStream = pack.pipe(createGzip());
-    const chunks: Buffer[] = [];
-    for await (const chunk of tarballStream as AsyncIterable<unknown>) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- gzip stream yields buffers in this usage
-        chunks.push(toBuffer(chunk as Buffer | string));
-    }
-    return normalizeGzipHeader(Buffer.concat(chunks));
-}
-
 export function createPlaceholderTarballBuilder(
     dependencies: Readonly<PlaceholderTarballBuilderDependencies>
 ): PlaceholderTarballBuilder {
@@ -73,7 +52,7 @@ export function createPlaceholderTarballBuilder(
     return {
         async build(input) {
             const pack = createPack();
-            const result = collectGzippedTarball(pack, createGzip);
+            const result = collectPlaceholderGzipPack(pack, createGzip());
             appendFile(pack, 'package/package.json', serializeManifest(input.manifest));
             appendFile(pack, 'package/readme.md', input.readmeContent);
             pack.finalize();
