@@ -1,10 +1,6 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { noPublication } from '../../bundle-emitter/publication-outcome.ts';
-import type { PackageConfig, PacktoryConfig } from '../../config/config.ts';
-import { buildPackageGraph } from '../../config/package-graph-builder.ts';
-import type { ValidConfigResult } from '../../config/validation.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import {
     createIteratingScheduler as iteratingScheduler,
@@ -16,54 +12,17 @@ import {
     stubPackageProcessor,
     stubProgressBroadcaster
 } from '../../test-libraries/orchestrator-stub-fixtures.ts';
+import {
+    buildAndPublishResultFixture,
+    emptyPublishConfigFixture,
+    publishableConfigFixture,
+    resolvedPublishPackageFixture,
+    versionedPublishBundleFixture
+} from '../../test-libraries/publish-stage-fixtures.ts';
+import type { PackageProcessor } from '../package-processor.ts';
 import { determineVersionAndPublishAll } from './publish-stage.ts';
 
 suite('publish-stage', function () {
-    function packageConfig(name: string): PackageConfig {
-        return {
-            name,
-            roots: { main: { js: 'index.js' } },
-            sourcesFolder: '/src',
-            mainPackageJson: { type: 'module' },
-            publishSettings: { access: 'public' }
-        };
-    }
-
-    function configWithPackages(packages: readonly PackageConfig[]): ValidConfigResult {
-        const packageConfigs: Readonly<Record<string, PackageConfig>> = Object.fromEntries(
-            packages.map(function (entry) {
-                return [ entry.name, entry ];
-            })
-        );
-        const packtoryConfig: PacktoryConfig = {
-            registrySettings: { registryUrl: 'https://example.com', auth: { type: 'bearer-token', token: 'x' } },
-            packages
-        };
-
-        return { packageConfigs, packtoryConfig, packageGraph: buildPackageGraph(packageConfigs) };
-    }
-
-    function emptyConfig(): ValidConfigResult {
-        return configWithPackages([]);
-    }
-
-    function publishableConfig(name: string): ValidConfigResult {
-        return configWithPackages([ packageConfig(name) ]);
-    }
-
-    function analyzedBundle(name: string): unknown {
-        return {
-            name,
-            analyzedBundle: {
-                name,
-                contents: [],
-                roots: {},
-                surface: { mode: 'implicit', defaultModuleRoot: 'main' }
-            },
-            resolveOptions: {}
-        };
-    }
-
     test('determineVersionAndPublishAll returns Ok([]) when no packages are scheduled', async function () {
         const result = await determineVersionAndPublishAll(
             {
@@ -72,7 +31,7 @@ suite('publish-stage', function () {
                 progressBroadcaster: stubProgressBroadcaster,
                 repositoryFolder: '/'
             },
-            emptyConfig(),
+            emptyPublishConfigFixture(),
             [],
             { dryRun: false, stage: false }
         );
@@ -83,7 +42,7 @@ suite('publish-stage', function () {
     test('determineVersionAndPublishAll forwards a scheduler failure unchanged', async function () {
         const result = await determineVersionAndPublishAll(
             failingDependencies('boom'),
-            emptyConfig(),
+            emptyPublishConfigFixture(),
             [],
             { dryRun: false, stage: false }
         );
@@ -92,7 +51,7 @@ suite('publish-stage', function () {
     });
 
     test('determineVersionAndPublishAll returns a partial failure when no analyzed bundle is found for a scheduled package', async function () {
-        const config = publishableConfig('pkg-orphan');
+        const config = publishableConfigFixture('pkg-orphan');
 
         const result = await determineVersionAndPublishAll(
             {
@@ -117,23 +76,19 @@ suite('publish-stage', function () {
     });
 
     test('determineVersionAndPublishAll exposes the published bundle via selectNext and the version+status via createProgressEvent', async function () {
-        const bundle = {
-            name: 'pkg-a',
-            version: '2.0.0',
-            packageJson: { name: 'pkg-a', version: '2.0.0' }
-        };
-        const buildResult = { bundle, status: 'new-version' as const, publication: noPublication };
-        const processor = {
+        const bundle = versionedPublishBundleFixture('pkg-a', '2.0.0');
+        const published = buildAndPublishResultFixture(bundle);
+        const processor: PackageProcessor = {
             ...stubPackageProcessor,
             async buildAndPublish() {
-                return buildResult;
+                return published;
             },
             async tryBuildAndPublish() {
-                return buildResult;
+                return published;
             }
-        } as never;
+        };
         const capture: IteratingSchedulerCapture = { events: [] as unknown[], selected: [] as unknown[] };
-        const config = publishableConfig('pkg-a');
+        const config = publishableConfigFixture('pkg-a');
 
         await determineVersionAndPublishAll(
             {
@@ -143,7 +98,7 @@ suite('publish-stage', function () {
                 repositoryFolder: '/'
             },
             config,
-            [ analyzedBundle('pkg-a') as never ],
+            [ resolvedPublishPackageFixture('pkg-a') ],
             { dryRun: false, stage: false }
         );
 
@@ -162,13 +117,13 @@ suite('publish-stage', function () {
         broadcaster.consumer.on('packageFailed', function (payload) {
             failures.push(payload);
         });
-        const config = publishableConfig('pkg-a');
-        const processor = {
+        const config = publishableConfigFixture('pkg-a');
+        const processor: PackageProcessor = {
             ...stubPackageProcessor,
             async buildAndPublish() {
                 throw new Error('publish failed');
             }
-        } as never;
+        };
 
         await determineVersionAndPublishAll(
             {
@@ -178,7 +133,7 @@ suite('publish-stage', function () {
                 repositoryFolder: '/'
             },
             config,
-            [ analyzedBundle('pkg-a') as never ],
+            [ resolvedPublishPackageFixture('pkg-a') ],
             { dryRun: false, stage: false }
         );
 

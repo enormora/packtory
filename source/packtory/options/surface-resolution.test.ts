@@ -1,12 +1,11 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- tests narrow PackageConfig to the fields resolveSurface actually reads */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageConfig } from '../../config/config.ts';
+import type { PackageInterface } from '../../config/package-interface.ts';
+import { packageConfigFixture } from '../../test-libraries/config-fixtures.ts';
 import { resolveSurface } from './surface-resolution.ts';
 
-function pkg(overrides: Partial<PackageConfig>): PackageConfig {
-    return { name: 'pkg-a', ...overrides } as unknown as PackageConfig;
-}
+const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 suite('surface-resolution', function () {
     test('resolveSurface returns an implicit surface using the only root when there is a single root', function () {
@@ -37,9 +36,10 @@ suite('surface-resolution', function () {
     });
 
     test('resolveSurface returns an explicit surface when packageInterface is provided', function () {
+        const packageInterface: PackageInterface = { modules: [ { root: 'main', export: '.' } ] };
         const surface = resolveSurface(
             [ 'main' ],
-            pkg({ packageInterface: { modules: [ { root: 'main', export: '.' } ] } as never })
+            pkg({ packageInterface })
         );
 
         assert.strictEqual(surface.mode, 'explicit');

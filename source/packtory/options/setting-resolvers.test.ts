@@ -13,7 +13,7 @@ import {
 } from './setting-resolvers.ts';
 
 function pkg(overrides: Partial<PackageConfig>): PackageConfig {
-    return { name: 'pkg-a', ...overrides } as unknown as PackageConfig;
+    return { name: 'pkg-a', roots: {}, ...overrides };
 }
 
 function config(overrides: Partial<PacktoryConfigWithoutRegistry> = {}): PacktoryConfigWithoutRegistry {

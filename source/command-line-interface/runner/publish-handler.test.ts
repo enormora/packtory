@@ -1,16 +1,18 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
+import { Result } from 'true-myth';
 import { stagedForApproval } from '../../bundle-emitter/publication-outcome.ts';
+import { configError, publishPartialFailure } from '../../packtory/packtory-results.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
-import { createFakeFileManager } from '../../test-libraries/fake-file-manager.ts';
 import {
     buildOutcome,
     configLoaderStub,
+    fileManagerStub,
     packtoryStub,
     spinnerRendererStub
 } from '../../test-libraries/cli-handler-fixtures.ts';
-import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
+import { createBuildResultFixture } from '../../test-libraries/preview-fixtures.ts';
 import { runPublishHandler } from './publish-handler.ts';
 
 type BuildOutcome = Awaited<ReturnType<Packtory['buildAndPublishAll']>>;
@@ -37,7 +39,7 @@ async function captureMessages(
         packtory: packtoryStub(outcome),
         spinnerRenderer: spinnerRendererStub(),
         configLoader: configLoaderStub(),
-        fileManager: createFakeFileManager(),
+        fileManager: fileManagerStub(),
         flags
     });
     return { code, messages };
@@ -48,8 +50,7 @@ suite('publish-handler', function () {
         const { code, messages } = await captureMessages(
             { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
             buildOutcome({
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only isErr/value matter to the handler
-                result: { isOk: true, isErr: false, value: [ { name: 'pkg-a' } ] } as never
+                result: Result.ok([ createBuildResultFixture() ])
             })
         );
 
@@ -63,18 +64,11 @@ suite('publish-handler', function () {
         const { code, messages } = await captureMessages(
             { noDryRun: true, stage: true, reportJson: false, reportHtml: false },
             buildOutcome({
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only handler-visible fields matter here
-                result: {
-                    isOk: true,
-                    isErr: false,
-                    value: [
-                        {
-                            bundle: { name: 'pkg-a', version: '1.0.0' },
-                            publication: stagedForApproval('stage-123'),
-                            status: 'new-version'
-                        }
-                    ]
-                } as never
+                result: Result.ok([
+                    createBuildResultFixture({
+                        publication: stagedForApproval('stage-123')
+                    })
+                ])
             })
         );
 
@@ -91,8 +85,7 @@ suite('publish-handler', function () {
         const { code, messages } = await captureMessages(
             { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
             buildOutcome({
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only isErr/error.type matter to the handler
-                result: { isOk: false, isErr: true, error: { type: 'config', issues: [ 'missing field' ] } } as never
+                result: Result.err(configError([ 'missing field' ]))
             })
         );
 
@@ -106,21 +99,16 @@ suite('publish-handler', function () {
         const { code, messages } = await captureMessages(
             { noDryRun: true, stage: true, reportJson: false, reportHtml: false },
             buildOutcome({
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- only handler-visible fields matter here
-                result: {
-                    isOk: false,
-                    isErr: true,
-                    error: {
-                        type: 'partial',
+                result: Result.err(
+                    publishPartialFailure({
                         succeeded: [
-                            {
-                                bundle: { name: 'pkg-a', version: '1.0.0' },
+                            createBuildResultFixture({
                                 publication: stagedForApproval('stage-123')
-                            }
+                            })
                         ],
                         failures: [ new Error('boom') ]
-                    }
-                } as never
+                    })
+                )
             })
         );
 
@@ -146,7 +134,7 @@ suite('publish-handler', function () {
 
     test('runPublishHandler stops spinners exactly once when the build throws', async function () {
         const stopAllSpy: SinonSpy = fake();
-        const spinner = { stopAll: stopAllSpy } as unknown as TerminalSpinnerRenderer;
+        const spinner = { ...spinnerRendererStub(), stopAll: stopAllSpy };
         const packtory = { buildAndPublishAll: fake.rejects(new Error('boom')) } as unknown as Packtory;
 
         try {
@@ -157,7 +145,7 @@ suite('publish-handler', function () {
                 packtory,
                 spinnerRenderer: spinner,
                 configLoader: configLoaderStub(),
-                fileManager: createFakeFileManager(),
+                fileManager: fileManagerStub(),
                 flags: { noDryRun: true, stage: false, reportJson: false, reportHtml: false }
             });
             assert.fail('Expected runPublishHandler to throw');

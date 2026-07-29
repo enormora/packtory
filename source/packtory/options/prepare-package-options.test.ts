@@ -1,18 +1,18 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageConfigsByName, PacktoryConfigWithoutRegistry } from '../../config/config.ts';
+import { packageConfigFixture, packageConfigsByNameFixture } from '../../test-libraries/config-fixtures.ts';
 import { preparePackageOptions } from './prepare-package-options.ts';
 
 function minimalPackageConfigsByName(): PackageConfigsByName {
-    return {
-        'pkg-a': {
+    return packageConfigsByNameFixture([
+        packageConfigFixture({
             name: 'pkg-a',
             sourcesFolder: '/src',
-            mainPackageJson: { name: 'pkg-a', version: '1.0.0', type: 'module' },
+            mainPackageJson: { type: 'module' },
             roots: { main: { js: 'index.js' } }
-        } as never
-    };
+        })
+    ]);
 }
 
 function minimalPacktoryConfig(): PacktoryConfigWithoutRegistry {

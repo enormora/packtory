@@ -1,16 +1,16 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { ConfigWithGraph } from '../config/validation.ts';
-import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
+import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import { checkBundle } from '../test-libraries/check-bundle-fixture.ts';
 import { analyzedBundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
+import { validConfigWithoutRegistryFixture } from '../test-libraries/config-fixtures.ts';
+import { createLinkedBundle, createResolveOptions } from '../test-libraries/package-processor-test-support.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
 import { buildChecksResult, createResolvedPackage, type ResolvedPackage } from './resolved-package.ts';
 
-function validated(config: Partial<PacktoryConfigWithoutRegistry>): ConfigWithGraph<PacktoryConfigWithoutRegistry> {
-    return { packtoryConfig: { packages: [], ...config } } as unknown as ConfigWithGraph<PacktoryConfigWithoutRegistry>;
-}
+const validated: (config: Partial<PacktoryConfigWithoutRegistry>) => ValidConfigWithoutRegistryResult =
+    validConfigWithoutRegistryFixture;
 
 const unusedCheckDependencies = {
     versionManager: {
@@ -22,13 +22,13 @@ const unusedCheckDependencies = {
 
 function packageConfig(
     name: string,
-    overrides: Readonly<Record<string, unknown>> = {}
+    overrides: Partial<PackageConfig> = {}
 ): PacktoryConfigWithoutRegistry['packages'][number] {
     return { name, roots: {}, ...overrides };
 }
 
 function resolvedPackage(name: string, analyzedBundle: ResolvedPackage['analyzedBundle']): ResolvedPackage {
-    return { name, analyzedBundle, resolveOptions: {} as never };
+    return { name, analyzedBundle, resolveOptions: createResolveOptions() };
 }
 
 function duplicateResolvedPackages(): readonly ResolvedPackage[] {
@@ -42,7 +42,7 @@ function bundleWithExternal(packageName: string, dependencyName: string): Resolv
     return {
         ...checkBundle(packageName, [ 'shared.ts' ]),
         externalDependencies: new Map([ [ dependencyName, { name: dependencyName, referencedFrom: [ '/x' ] } ] ])
-    } as never;
+    };
 }
 
 async function runSinglePackageChecks(
@@ -102,8 +102,8 @@ function createPublishedPackageWithManifest(packageName: string): VersionedBundl
 
 suite('resolved-package', function () {
     test('createResolvedPackage assembles the three fields into a ResolvedPackage', function () {
-        const analyzedBundle = { name: 'pkg-a' } as never;
-        const resolveOptions = { name: 'pkg-a' } as never;
+        const analyzedBundle = checkBundle('pkg-a', []);
+        const resolveOptions = createResolveOptions();
 
         assert.deepStrictEqual(createResolvedPackage('pkg-a', analyzedBundle, resolveOptions), {
             name: 'pkg-a',
@@ -236,12 +236,13 @@ suite('resolved-package', function () {
                     name: 'pkg-a',
                     analyzedBundle,
                     resolveOptions: {
+                        ...createResolveOptions(),
                         mainPackageJson: { type: 'module' },
-                        bundleDependencies: [ { name: 'bundle-dependency' } ],
-                        bundlePeerDependencies: [ { name: 'bundle-peer-dependency' } ],
+                        bundleDependencies: [ createLinkedBundle('bundle-dependency') ],
+                        bundlePeerDependencies: [ createLinkedBundle('bundle-peer-dependency') ],
                         additionalPackageJsonAttributes: {},
                         allowMutableSpecifiers: []
-                    } as never
+                    }
                 }
             ]
         );

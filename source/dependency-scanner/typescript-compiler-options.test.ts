@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test stubs cast partial mocks of complex orchestrator types */
 import { suite, test } from 'mocha';
 import { ModuleKind, ModuleResolutionKind } from 'ts-morph';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { analyzationOptionsToCompilerOptions } from './typescript-compiler-options.ts';
 
-const stubMainPackageJson = { name: 'pkg', version: '1.0.0', type: 'module' } as never;
+const stubMainPackageJson = { type: 'module' } as const;
 
 suite('typescript-compiler-options', function () {
     test('analyzationOptionsToCompilerOptions returns Node16 module resolution and module kinds', function () {

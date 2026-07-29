@@ -1,17 +1,14 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions -- test inputs use `as never` to shape narrow partial configs without spelling out every schema field */
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import {
+    packageConfigFixture,
+    publicPublishSettings,
+    publicPublishSettingsAllowingScripts
+} from '../test-libraries/config-fixtures.ts';
 import type { PackageConfig, PacktoryConfigWithoutRegistry } from './config.ts';
 import { validateAllowScriptsConsistency, validatePublishSettingsArePlaced } from './settings-validation.ts';
 
-function pkg(overrides: Partial<PackageConfig>): PackageConfig {
-    return {
-        name: 'pkg-a',
-        roots: { main: { js: 'index.js' } },
-        sourcesFolder: 'src',
-        ...overrides
-    };
-}
+const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 function config(overrides: Partial<PacktoryConfigWithoutRegistry>): PacktoryConfigWithoutRegistry {
     return { packages: [], ...overrides };
@@ -21,7 +18,7 @@ suite('settings-validation', function () {
     test('validatePublishSettingsArePlaced returns no issues when commonPackageSettings.publishSettings is provided', function () {
         const result = validatePublishSettingsArePlaced(
             config({
-                commonPackageSettings: { publishSettings: { access: 'public' } } as never,
+                commonPackageSettings: { publishSettings: publicPublishSettings },
                 packages: [ pkg({}) ]
             })
         );
@@ -33,8 +30,8 @@ suite('settings-validation', function () {
         const result = validatePublishSettingsArePlaced(
             config({
                 packages: [
-                    pkg({ publishSettings: { access: 'public' } as never }),
-                    pkg({ name: 'pkg-b', publishSettings: { access: 'public' } as never })
+                    pkg({ publishSettings: publicPublishSettings }),
+                    pkg({ name: 'pkg-b', publishSettings: publicPublishSettings })
                 ]
             })
         );
@@ -45,7 +42,7 @@ suite('settings-validation', function () {
     test('validatePublishSettingsArePlaced reports when publishSettings is missing from a package and from commonPackageSettings', function () {
         const result = validatePublishSettingsArePlaced(
             config({
-                packages: [ pkg({ publishSettings: { access: 'public' } as never }), pkg({ name: 'pkg-b' }) ]
+                packages: [ pkg({ publishSettings: publicPublishSettings }), pkg({ name: 'pkg-b' }) ]
             })
         );
 
@@ -64,7 +61,7 @@ suite('settings-validation', function () {
                 packages: [
                     pkg({
                         additionalPackageJsonAttributes: { scripts: { build: 'tsc' } },
-                        publishSettings: { access: 'public' } as never
+                        publishSettings: publicPublishSettings
                     })
                 ]
             })
@@ -81,7 +78,7 @@ suite('settings-validation', function () {
                 packages: [
                     pkg({
                         additionalPackageJsonAttributes: { scripts: { build: 'tsc' } },
-                        publishSettings: { access: 'public', allowScripts: true } as never
+                        publishSettings: publicPublishSettingsAllowingScripts
                     })
                 ]
             })
@@ -94,8 +91,8 @@ suite('settings-validation', function () {
         const result = validateAllowScriptsConsistency(
             config({
                 commonPackageSettings: {
-                    publishSettings: { access: 'public', allowScripts: true }
-                } as never,
+                    publishSettings: publicPublishSettingsAllowingScripts
+                },
                 packages: [ pkg({ additionalPackageJsonAttributes: { scripts: { build: 'tsc' } } }) ]
             })
         );
