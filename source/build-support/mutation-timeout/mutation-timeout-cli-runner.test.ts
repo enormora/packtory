@@ -9,6 +9,7 @@ import {
     timeoutMutant,
     withTemporaryReportDirectory
 } from '../../test-libraries/mutation-report-fixtures.ts';
+import { throwNonError } from '../../test-libraries/non-error-failures.ts';
 import { runMutationTimeoutCheck } from './mutation-timeout-cli-runner.ts';
 
 const checkerScriptPath = fileURLToPath(new URL('./check-mutation-timeouts.entry-point.ts', import.meta.url));
@@ -59,8 +60,7 @@ function createArgvThrowingNonErrorOnReportPath(): readonly string[] {
     const argv = [] as string[];
     Object.defineProperty(argv, '2', {
         get() {
-            // eslint-disable-next-line no-throw-literal, @typescript-eslint/only-throw-error -- this test targets the non-Error catch branch explicitly
-            throw 'boom';
+            return throwNonError('boom');
         }
     });
     return argv;

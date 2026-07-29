@@ -5,6 +5,7 @@ import { Result } from 'true-myth';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { noPublication } from '../bundle-emitter/publication-outcome.ts';
 import { validateConfigWithoutRegistry, type ValidConfigWithoutRegistryResult } from '../config/validation.ts';
+import { rejectWithNonError } from '../test-libraries/non-error-failures.ts';
 import { getErrResult } from '../test-libraries/result-helpers.ts';
 import { createScheduler, type Scheduler as SchedulerType } from './scheduler.ts';
 
@@ -235,8 +236,7 @@ suite('scheduler', function () {
                 return context.packageName;
             },
             async execute() {
-                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors, unicorn/no-useless-promise-resolve-reject -- we intentionally exercise non-Error rejection handling here
-                return Promise.reject('not-an-error');
+                return rejectWithNonError('not-an-error');
             },
             selectNext(params: SelectPackageNameResultParams) {
                 return params.result;
