@@ -1,4 +1,3 @@
-/* eslint-disable sonarjs/no-nested-template-literals -- terminal rendering is intentionally linear and string-heavy */
 import { buildPathTree, pathTreeNodeType, type PathTreeFileNode, type PathTreeNode } from '../../common/path-tree.ts';
 import {
     modifiedFileContentChangeKind,
@@ -36,7 +35,8 @@ function renderDirectoryLine(
     node: Extract<PathTreeNode<AnyFile>, { readonly type: typeof pathTreeNodeType.directory; }>,
     colors: Colors
 ): string {
-    return `${indent(node.depth)}${colors.bold(`▸ ${node.name}/`)}`;
+    const directoryName = colors.bold(`▸ ${node.name}/`);
+    return `${indent(node.depth)}${directoryName}`;
 }
 
 function sizeLabel(sizeBytes: number, colors: Colors): string {
@@ -72,9 +72,10 @@ function renderModifiedAnnotation(file: ModifiedFile, colors: Colors): string {
 function renderModifiedHeading(node: PathTreeFileNode<ModifiedFile>, colors: Colors): string {
     const file = node.item;
     const sizeDelta = `${formatTerminalBytes(file.oldSizeBytes)} -> ${formatTerminalBytes(file.newSizeBytes)}`;
-    return `${indent(node.depth)}${colors.yellow(fileMarker.modified)} ${node.name} ${colors.dim(`(${sizeDelta})`)}${
-        renderModeChangeSuffix(file, colors)
-    }${renderModifiedAnnotation(file, colors)}`;
+    const size = colors.dim(`(${sizeDelta})`);
+    const modeChange = renderModeChangeSuffix(file, colors);
+    const annotation = renderModifiedAnnotation(file, colors);
+    return `${indent(node.depth)}${colors.yellow(fileMarker.modified)} ${node.name} ${size}${modeChange}${annotation}`;
 }
 
 function hasRenderedHunks(
@@ -136,8 +137,9 @@ function renderTreeGroup<T extends AnyFile>(
     const tree = buildPathTree(group.files, function (file) {
         return file.path;
     });
+    const groupTitle = colors.bold(`${group.title} (${group.files.length})`);
     return [
-        `  ${colors.bold(`${group.title} (${group.files.length})`)}`,
+        `  ${groupTitle}`,
         ...tree.flatMap(function (node): readonly string[] {
             if (node.type === pathTreeNodeType.directory) {
                 return [ renderDirectoryLine(node, colors) ];
@@ -158,7 +160,8 @@ function renderHeaderSummary(files: FileSetDiff, unchangedCount: number): string
 }
 
 function renderUnchangedPackage(pkg: PackageReleaseDiff, colors: Colors): string {
-    return colors.dim(`${colors.bold(pkg.name)}  ${pkg.previousVersionLabel}  ·  no changes`);
+    const packageName = colors.bold(pkg.name);
+    return colors.dim(`${packageName}  ${pkg.previousVersionLabel}  ·  no changes`);
 }
 
 function renderFirstPublishPackageLines(pkg: PackageReleaseDiff, colors: Colors): readonly string[] {
@@ -174,8 +177,11 @@ function renderFirstPublishPackageLines(pkg: PackageReleaseDiff, colors: Colors)
 
 function renderChangedPackageLines(pkg: PackageReleaseDiff, colors: Colors): readonly string[] {
     const summary = renderHeaderSummary(pkg.files, pkg.files.unchanged.length);
+    const packageName = colors.bold(pkg.name);
+    const versionTransition = colors.dim(pkg.versionTransition);
+    const summaryLabel = colors.dim(`·  ${summary}`);
     return [
-        `${colors.bold(pkg.name)}  ${colors.dim(pkg.versionTransition)}  ${colors.dim(`·  ${summary}`)}`,
+        `${packageName}  ${versionTransition}  ${summaryLabel}`,
         ...renderTreeGroup(
             { title: 'Added', files: pkg.files.added, renderFileLines: renderAddedFileLines },
             colors

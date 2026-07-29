@@ -1,23 +1,40 @@
-/* eslint-disable complexity -- HTML template literals and diagnostic section dispatch are intentionally inline */
 import type { PreviewPackage } from '../preview/preview-document.ts';
 import { escapeHtml } from './html-escaping.ts';
 import { renderCollapsibleSection } from './html-primitives.ts';
 
+type DiagnosticSection = {
+    readonly title: string;
+    readonly value: unknown;
+};
+
+function hasEntries(value: Readonly<Record<string, unknown>>): boolean {
+    return Object.keys(value).length > 0;
+}
+
+function sectionForDefinedValue(title: string, value: unknown): readonly DiagnosticSection[] {
+    return value === undefined ? [] : [ { title, value } ];
+}
+
+function sectionForRecord(title: string, value: Readonly<Record<string, unknown>>): readonly DiagnosticSection[] {
+    return hasEntries(value) ? [ { title, value } ] : [];
+}
+
+function diagnosticSections(pkg: PreviewPackage): readonly DiagnosticSection[] {
+    return [
+        ...sectionForDefinedValue('Inputs', pkg.diagnostics.inputs),
+        ...sectionForRecord('Decisions', pkg.diagnostics.decisions),
+        ...sectionForDefinedValue('Outputs', pkg.diagnostics.outputs),
+        ...sectionForDefinedValue('Publication', pkg.diagnostics.publication),
+        ...sectionForRecord('Timings (ms)', pkg.diagnostics.timings),
+        ...sectionForDefinedValue('Failure', pkg.diagnostics.failure)
+    ];
+}
+
 export function renderDiagnostics(pkg: PreviewPackage): string {
-    const sections = [
-        pkg.diagnostics.inputs === undefined ? '' : renderCollapsibleSection('Inputs', pkg.diagnostics.inputs),
-        Object.keys(pkg.diagnostics.decisions).length === 0
-            ? ''
-            : renderCollapsibleSection('Decisions', pkg.diagnostics.decisions),
-        pkg.diagnostics.outputs === undefined ? '' : renderCollapsibleSection('Outputs', pkg.diagnostics.outputs),
-        pkg.diagnostics.publication === undefined
-            ? ''
-            : renderCollapsibleSection('Publication', pkg.diagnostics.publication),
-        Object.keys(pkg.diagnostics.timings).length === 0
-            ? ''
-            : renderCollapsibleSection('Timings (ms)', pkg.diagnostics.timings),
-        pkg.diagnostics.failure === undefined ? '' : renderCollapsibleSection('Failure', pkg.diagnostics.failure)
-    ]
+    const sections = diagnosticSections(pkg)
+        .map(function (section) {
+            return renderCollapsibleSection(section.title, section.value);
+        })
         .join('');
     if (sections === '') {
         return '';
