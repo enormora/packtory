@@ -1,7 +1,11 @@
 import assert from 'node:assert';
 import fc from 'fast-check';
 import { suite, test } from 'mocha';
+import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 import { createDirectedGraph, type DirectedGraph } from './graph.ts';
+
+const probeTestTimeoutMs = 10_000;
+const graphProbeTimeoutMs = 500;
 
 type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
 
@@ -174,5 +178,69 @@ suite('graph', function () {
             }),
             { numRuns: 8 }
         );
+    });
+
+    suite('probe guards', function () {
+        test('detectCycles() completes promptly for self-referential graphs', async function () {
+            const result = await runNodeProbe(
+                `
+                import { createDirectedGraph } from './source/directed-graph/graph.ts';
+
+                const graph = createDirectedGraph();
+                graph.addNode('a', 'value');
+                graph.connect({ from: 'a', to: 'a' });
+
+                console.log(JSON.stringify(graph.detectCycles()));
+            `,
+                { timeoutMs: graphProbeTimeoutMs }
+            );
+
+            assert.deepStrictEqual(result, [ [ 'a', 'a' ] ]);
+        })
+            .timeout(probeTestTimeoutMs);
+
+        test('visitBreadthFirstSearch() completes promptly for cyclic graphs', async function () {
+            const result = await runNodeProbe(
+                `
+                import { createDirectedGraph } from './source/directed-graph/graph.ts';
+
+                const graph = createDirectedGraph();
+                graph.addNode('a', 'first');
+                graph.addNode('b', 'second');
+                graph.connect({ from: 'a', to: 'b' });
+                graph.connect({ from: 'b', to: 'a' });
+
+                const visited = [];
+                graph.visitBreadthFirstSearch('a', (node) => {
+                    visited.push(node.id);
+                });
+
+                console.log(JSON.stringify(visited));
+            `,
+                { timeoutMs: graphProbeTimeoutMs }
+            );
+
+            assert.deepStrictEqual(result, [ 'a', 'b' ]);
+        })
+            .timeout(probeTestTimeoutMs);
+
+        test('getTopologicalGenerations() completes promptly for acyclic graphs', async function () {
+            const result = await runNodeProbe(
+                `
+                import { createDirectedGraph } from './source/directed-graph/graph.ts';
+
+                const graph = createDirectedGraph();
+                graph.addNode('a', 'first');
+                graph.addNode('b', 'second');
+                graph.connect({ from: 'a', to: 'b' });
+
+                console.log(JSON.stringify(graph.getTopologicalGenerations()));
+            `,
+                { timeoutMs: graphProbeTimeoutMs }
+            );
+
+            assert.deepStrictEqual(result, [ [ 'a' ], [ 'b' ] ]);
+        })
+            .timeout(probeTestTimeoutMs);
     });
 });
