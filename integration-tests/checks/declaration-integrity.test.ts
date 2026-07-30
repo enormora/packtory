@@ -8,8 +8,6 @@ import {
 import { createDeclarationProjectFactory } from '../../source/checks/rules/type-script-declaration-project.ts';
 import { manifest, publishedPackage } from './published-package-fixtures.ts';
 
-const declarationCheckTimeoutMs = 60_000;
-
 const summarizeDeclarationIntegrity = createDeclarationIntegritySummarizer({
     createDeclarationProjects: createDeclarationProjectFactory({ Project })
 });
@@ -48,8 +46,7 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             'Package "missing-export" failed TypeScript integrity in bundler: index.d.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'."
         ]);
-    })
-        .timeout(declarationCheckTimeoutMs);
+    });
 
     test('checks declarations no export reaches in the "all" mode', function () {
         const issues = checkDeclarations(
@@ -69,8 +66,7 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             'Package "private-declaration" failed TypeScript integrity in bundler: private.d.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'."
         ]);
-    })
-        .timeout(declarationCheckTimeoutMs);
+    });
 
     test('ignores declarations no export reaches in the "exports-graph" mode', function () {
         const issues = checkDeclarations(
@@ -85,8 +81,7 @@ suite('declaration integrity against the real TypeScript compiler', function () 
         );
 
         assert.deepStrictEqual(issues, []);
-    })
-        .timeout(declarationCheckTimeoutMs);
+    });
 
     test('follows declaration imports through known JavaScript extensions', function () {
         const issues = checkDeclarations(
@@ -126,8 +121,7 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             'Package "known-extensions" failed TypeScript integrity in bundler: esm.d.mts:1 TS2305: ' +
             "Module '\"./leaf.js\"' has no exported member 'Missing'."
         ]);
-    })
-        .timeout(declarationCheckTimeoutMs);
+    });
 
     test('follows extensionless and index declaration imports', function () {
         const issues = checkDeclarations(
@@ -165,8 +159,7 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             'Package "extensionless" failed TypeScript integrity in bundler: plain.d.ts:1 TS2305: ' +
             "Module '\"./leaf.js\"' has no exported member 'Missing'."
         ]);
-    })
-        .timeout(declarationCheckTimeoutMs);
+    });
 
     test('follows cyclic declaration imports once', function () {
         const issues = checkDeclarations(
@@ -186,8 +179,7 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             'Package "cyclic-declarations" failed TypeScript integrity in bundler: leaf.d.ts:1 TS2305: ' +
             "Module '\"./index.js\"' has no exported member 'Root'."
         ]);
-    })
-        .timeout(declarationCheckTimeoutMs);
+    });
 
     test('reports a diagnostic message chain without flattening away its line breaks', function () {
         const issues = checkDeclarations(
@@ -219,6 +211,5 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             ]
                 .join('\n')
         ]);
-    })
-        .timeout(declarationCheckTimeoutMs);
+    });
 });

@@ -35,8 +35,7 @@ suite('schema-contracts', function () {
             rootCatchallType: 'never',
             registrySettingsCatchallType: 'never'
         });
-    })
-        .timeout(probeTestTimeoutMs);
+    });
 
     test('versioning schema keeps the automatic and manual branches', async function () {
         const result = await runNodeProbe(
@@ -101,8 +100,7 @@ suite('schema-contracts', function () {
             invalidAutomaticBranchSuccess: false,
             invalidManualBranchSuccess: false
         });
-    })
-        .timeout(probeTestTimeoutMs);
+    });
 
     test('package json schemas keep their runtime structure and forbidden key behavior', async function () {
         const result = await runNodeProbe(
@@ -155,8 +153,7 @@ suite('schema-contracts', function () {
             validMainSuccess: true,
             forbiddenKeySuccesses: [ false, false, false, false, false, false, false, false, false, false, false ]
         });
-    })
-        .timeout(probeTestTimeoutMs);
+    });
 
     test('packtory config schemas keep their union and package tuple structure', async function () {
         const result = await runNodeProbe(
@@ -266,8 +263,7 @@ suite('schema-contracts', function () {
             configIntersectionLeftKeys: [ 'registrySettings' ],
             validWithoutRegistrySuccess: true
         });
-    })
-        .timeout(probeTestTimeoutMs);
+    });
 
     test('schema source modules still validate representative valid and invalid inputs', async function () {
         const result = await runNodeProbe(
@@ -342,6 +338,5 @@ suite('schema-contracts', function () {
             missingConfigRegistrySuccess: true,
             emptyConfigPackagesSuccess: false
         });
-    })
-        .timeout(probeTestTimeoutMs);
+    });
 });

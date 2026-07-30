@@ -27,6 +27,23 @@ function buildExpectedMismatchMessage(configuredUrl: string, ciUrl: string): str
     );
 }
 
+function captureError(runRepositoryCoherenceAssertion: () => void): unknown {
+    try {
+        runRepositoryCoherenceAssertion();
+    } catch (caughtError: unknown) {
+        return caughtError;
+    }
+
+    return undefined;
+}
+
+function assertThrowsMessage(runRepositoryCoherenceAssertion: () => void, expectedMessage: string): void {
+    const error = captureError(runRepositoryCoherenceAssertion);
+
+    assert.ok(error instanceof Error);
+    assert.strictEqual(error.message, expectedMessage);
+}
+
 suite('repository-coherence', function () {
     suite('invalid repository urls', function () {
         test('normalizeRepositoryUrl() returns undefined for undefined input', function () {
@@ -272,63 +289,44 @@ suite('repository-coherence', function () {
         });
 
         test('assertRepositoryCoherence() throws when the manifest repository differs from the CI repository', function () {
-            assert.throws(
+            assertThrowsMessage(
                 function () {
                     assertRepositoryCoherence(
                         { repository: 'https://github.com/foo/forked-package' },
                         'https://github.com/upstream/package'
                     );
                 },
-                function (error: unknown) {
-                    assert.ok(error instanceof Error);
-                    assert.strictEqual(
-                        error.message,
-                        buildExpectedMismatchMessage(
-                            'https://github.com/foo/forked-package',
-                            'https://github.com/upstream/package'
-                        )
-                    );
-                    return true;
-                }
+                buildExpectedMismatchMessage(
+                    'https://github.com/foo/forked-package',
+                    'https://github.com/upstream/package'
+                )
             );
         });
 
         test('assertRepositoryCoherence() throws the missing-repository error when the manifest has no repository', function () {
-            assert.throws(
+            assertThrowsMessage(
                 function () {
                     assertRepositoryCoherence({}, 'https://github.com/enormora/packtory');
                 },
-                function (error: unknown) {
-                    assert.ok(error instanceof Error);
-                    assert.strictEqual(error.message, expectedNoRepositoryDeclaredMessage);
-                    return true;
-                }
+                expectedNoRepositoryDeclaredMessage
             );
         });
 
         test('assertRepositoryCoherence() throws the missing-repository error when the repository is an unsupported value', function () {
-            assert.throws(
+            assertThrowsMessage(
                 function () {
                     assertRepositoryCoherence({ repository: 42 }, 'https://github.com/enormora/packtory');
                 },
-                function (error: unknown) {
-                    assert.ok(error instanceof Error);
-                    assert.strictEqual(error.message, expectedNoRepositoryDeclaredMessage);
-                    return true;
-                }
+                expectedNoRepositoryDeclaredMessage
             );
         });
 
         test('assertRepositoryCoherence() throws the missing-CI error when no CI repository url is provided', function () {
-            assert.throws(
+            assertThrowsMessage(
                 function () {
                     assertRepositoryCoherence({ repository: 'https://github.com/enormora/packtory' }, undefined);
                 },
-                function (error: unknown) {
-                    assert.ok(error instanceof Error);
-                    assert.strictEqual(error.message, expectedNoCiDetectedMessage);
-                    return true;
-                }
+                expectedNoCiDetectedMessage
             );
         });
     });

@@ -105,13 +105,11 @@ function registerScenarioTests<TScenario>(
     scenarios: readonly TScenario[],
     defineScenario: (scenario: TScenario) => ScenarioDefinition
 ): void {
-    const [ scenario, ...remainingScenarios ] = scenarios;
-    if (scenario !== undefined) {
+    scenarios.forEach(function (scenario) {
         const { name, execute } = defineScenario(scenario);
 
         test(name, execute);
-        registerScenarioTests(remainingScenarios, defineScenario);
-    }
+    });
 }
 
 suite('no-duplicated-files', function () {

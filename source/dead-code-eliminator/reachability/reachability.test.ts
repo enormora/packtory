@@ -293,12 +293,11 @@ const index = buildReachabilityIndex({ files, entryPointFilePaths: new Set(['ent
 
 console.log(JSON.stringify(Array.from(index.localReachable).toSorted()));
 `,
-                { timeoutMs: 8000 }
+                { timeoutMs: probeTestTimeoutMs }
             );
 
             assert.deepStrictEqual(result, [ 'entry.ts::helper', 'entry.ts::pub' ]);
-        })
-            .timeout(probeTestTimeoutMs);
+        });
     });
 
     suite('traversal safeguards', function () {

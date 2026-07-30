@@ -11,7 +11,6 @@ import { summarizeResolutionReport } from '../../source/checks/rules/type-script
 import type { PublishedPackageWithManifest } from '../../source/published-package/published-package.ts';
 import { manifest, publishedPackage } from './published-package-fixtures.ts';
 
-const packageResolutionTimeoutMs = 60_000;
 const checkedResolutionKinds: readonly ResolutionKind[] = [ 'node16-esm', 'bundler' ];
 
 const analyzePackageResolution = createPackageResolutionAnalyzer({
@@ -85,8 +84,7 @@ suite('package resolution against the real types checker', function () {
         }));
 
         assert.deepStrictEqual(issues, []);
-    })
-        .timeout(packageResolutionTimeoutMs);
+    });
 
     test('reports resolution problems without exposing the internal checker name', async function () {
         const issues = await checkPackageResolution(typedPackage('broken-package', brokenCommonJsEntrypoint));
@@ -97,8 +95,7 @@ suite('package resolution against the real types checker', function () {
             'Package "broken-package" failed TypeScript integrity: Unexpected module syntax ' +
             'affecting entrypoints "." in resolutions "node16-esm"'
         ]);
-    })
-        .timeout(packageResolutionTimeoutMs);
+    });
 
     test('groups a repeated problem kind of several entrypoints into one summary', async function () {
         const issues = await checkPackageResolution(twoEntrypointPackage(
@@ -116,8 +113,7 @@ suite('package resolution against the real types checker', function () {
             'Package "multi-entrypoint-package" failed TypeScript integrity: Unexpected module syntax (2 findings) ' +
             'affecting entrypoints ".", "./feature" in resolutions "node16-esm"'
         ]);
-    })
-        .timeout(packageResolutionTimeoutMs);
+    });
 
     test('reports only the entrypoints a problem affects', async function () {
         const issues = await checkPackageResolution(twoEntrypointPackage(
@@ -135,8 +131,7 @@ suite('package resolution against the real types checker', function () {
             'Package "mixed-entrypoint-package" failed TypeScript integrity: Unexpected module syntax ' +
             'affecting entrypoints "." in resolutions "node16-esm"'
         ]);
-    })
-        .timeout(packageResolutionTimeoutMs);
+    });
 
     test('reports a package that exposes no declarations', async function () {
         const issues = await checkPackageResolution(publishedPackage(
@@ -146,8 +141,7 @@ suite('package resolution against the real types checker', function () {
         ));
 
         assert.deepStrictEqual(issues, [ 'Package "untyped-package" does not expose TypeScript declarations' ]);
-    })
-        .timeout(packageResolutionTimeoutMs);
+    });
 
     test('fails when the generated package manifest is missing', async function () {
         const packageWithoutManifest = {
@@ -168,6 +162,5 @@ suite('package resolution against the real types checker', function () {
             },
             /File not found: \/node_modules\/throwing-package\/package\.json/u
         );
-    })
-        .timeout(packageResolutionTimeoutMs);
+    });
 });
