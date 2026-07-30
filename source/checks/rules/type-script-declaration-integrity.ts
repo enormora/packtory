@@ -101,37 +101,38 @@ function collectDeclarationPaths(packageFiles: readonly PackageFile[]): Readonly
     );
 }
 
-function findDeclarationPathsInValue(value: unknown): readonly string[] {
+function findPackagePathsInValue(value: unknown): readonly string[] {
     if (typeof value === 'string') {
-        if (!isDeclarationPath(value)) {
-            return [];
-        }
         return value.startsWith('./') ? [ value.slice(relativeSpecifierPrefixLength) ] : [ value ];
     }
 
     if (typeof value === 'object' && value !== null) {
-        return Object.values(value).flatMap(findDeclarationPathsInValue);
+        return Object.values(value).flatMap(findPackagePathsInValue);
     }
 
     return [];
 }
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return Object.prototype.toString.call(value) === '[object Object]';
+}
+
 function parseManifestContent(manifestContent: string): Readonly<Record<string, unknown>> {
     const manifest: unknown = JSON.parse(manifestContent);
-    if (typeof manifest !== 'object' || manifest === null || Array.isArray(manifest)) {
+    if (!isRecord(manifest)) {
         return {};
     }
 
-    return Object.fromEntries(Object.entries(manifest));
+    return manifest;
 }
 
 function exportedDeclarationPaths(manifestContent: string): ReadonlySet<string> {
     const manifest = parseManifestContent(manifestContent);
     const exportsField = manifest.exports;
     const paths = [
-        ...findDeclarationPathsInValue(exportsField),
-        ...findDeclarationPathsInValue(manifest.types),
-        ...findDeclarationPathsInValue(manifest.typings)
+        ...findPackagePathsInValue(exportsField),
+        ...findPackagePathsInValue(manifest.types),
+        ...findPackagePathsInValue(manifest.typings)
     ];
     return new Set(paths);
 }
