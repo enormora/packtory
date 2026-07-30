@@ -16,6 +16,9 @@ function happyDependencies(): CheckDependencies {
         packageProcessor: stubPackageProcessor,
         scheduler: emptyScheduler,
         progressBroadcaster: stubProgressBroadcaster,
+        async runChecks() {
+            return [];
+        },
         versionManager: {
             addVersion() {
                 throw new Error(

@@ -1,4 +1,5 @@
 import { Result } from 'true-myth';
+import type { CheckRunner } from '../checks/check-runner.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
 import type { VersionManager } from '../version-manager/manager.ts';
 import { analyzeResolvedPackages, type PackageAnalysisDependencies } from './stages/package-analysis-stage.ts';
@@ -9,7 +10,10 @@ import { buildChecksResult, type CheckError, type ResolvedPackage } from './reso
 export type InternalResolveAndLinkFailure = CheckError | PartialErrorResult;
 
 type ResolveDependencies = PackageAnalysisDependencies & PackageResolutionDependencies;
-export type CheckDependencies = ResolveDependencies & { readonly versionManager: Pick<VersionManager, 'addVersion'>; };
+export type CheckDependencies = ResolveDependencies & {
+    readonly versionManager: Pick<VersionManager, 'addVersion'>;
+    readonly runChecks: CheckRunner;
+};
 
 export function createResolveAndLinkAllValidated(
     dependencies: CheckDependencies
