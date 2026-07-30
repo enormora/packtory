@@ -1,6 +1,7 @@
 /* eslint-disable import/max-dependencies -- the packtory facade legitimately stitches together validation, resolve+link, publish, release-diff, release-analysis, pack, and report attachment */
 import { Result } from 'true-myth';
 import type { ArtifactsBuilder } from '../artifacts/artifacts-builder.ts';
+import type { CheckRunner } from '../checks/check-runner.ts';
 import { validateConfig, validateConfigWithoutRegistry, type ValidConfigResult } from '../config/validation.ts';
 import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle.ts';
 import type { FileManager } from '../file-manager/file-manager.ts';
@@ -87,6 +88,7 @@ type PacktoryDependencies = {
     readonly fileManager: Pick<FileManager, 'checkReadability' | 'readFile'>;
     readonly repositoryFolder: string;
     readonly versionManager: VersionManager;
+    readonly runChecks: CheckRunner;
     readonly packEmitter: PackEmitter;
     readonly vendorMaterializer: VendorMaterializer;
     readonly readCurrentGitHead: CurrentGitHeadReader;

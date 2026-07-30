@@ -4,7 +4,7 @@ import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
-import { checkBundle } from '../../test-libraries/check-bundle-fixture.ts';
+import { checkBundle } from '../../test-libraries/check-fixtures.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 
 const sharedFilePath = 'shared.ts';

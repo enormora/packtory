@@ -5,11 +5,13 @@ import {
     ancestorInstalledDependencyPathCandidates,
     bundledInstalledDependencyPath,
     installedDependencyManifestPathIn,
+    installedPackageFilePath,
     isInstalledDependencyManifestPath,
     isPackageManifestPath,
     packageManifestAbsolutePathIn,
     packageManifestFilePath,
-    packageManifestPathIn
+    packageManifestPathIn,
+    packageRelativeFilePath
 } from './package-layout.ts';
 
 suite('package-layout', function () {
@@ -31,6 +33,37 @@ suite('package-layout', function () {
     test('bundledInstalledDependencyPath() keeps bundle paths posix-normalized', function () {
         const relativePath = [ 'dist', 'index.js' ].join(path.sep);
         assert.strictEqual(bundledInstalledDependencyPath('shared', relativePath), 'node_modules/shared/dist/index.js');
+    });
+
+    suite('installed package file paths', function () {
+        test('installedPackageFilePath() places a package file below the installed package folder', function () {
+            assert.strictEqual(
+                installedPackageFilePath('shared', 'dist/index.d.ts'),
+                '/node_modules/shared/dist/index.d.ts'
+            );
+            assert.strictEqual(
+                installedPackageFilePath('@scope/shared', 'package.json'),
+                '/node_modules/@scope/shared/package.json'
+            );
+        });
+
+        test('packageRelativeFilePath() strips the installed package folder again', function () {
+            assert.strictEqual(
+                packageRelativeFilePath('shared', '/node_modules/shared/dist/index.d.ts'),
+                'dist/index.d.ts'
+            );
+            assert.strictEqual(
+                packageRelativeFilePath('@scope/shared', '/node_modules/@scope/shared/package.json'),
+                'package.json'
+            );
+        });
+
+        test('packageRelativeFilePath() keeps files outside the installed package folder recognizable', function () {
+            assert.strictEqual(
+                packageRelativeFilePath('shared', '/node_modules/typescript/lib/lib.es5.d.ts'),
+                '../typescript/lib/lib.es5.d.ts'
+            );
+        });
     });
 
     test('isPackageManifestPath() recognizes package manifests by basename', function () {

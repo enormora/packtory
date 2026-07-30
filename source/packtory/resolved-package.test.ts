@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { ValidConfigWithoutRegistryResult } from '../config/validation.ts';
-import { checkBundle } from '../test-libraries/check-bundle-fixture.ts';
+import { checkBundle, fakeCheckRunner } from '../test-libraries/check-fixtures.ts';
 import { analyzedBundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { validConfigWithoutRegistryFixture } from '../test-libraries/config-fixtures.ts';
 import { createLinkedBundle, createResolveOptions } from '../test-libraries/package-processor-test-support.ts';
@@ -17,9 +17,8 @@ import {
 const validated: (config: Partial<PacktoryConfigWithoutRegistry>) => ValidConfigWithoutRegistryResult =
     validConfigWithoutRegistryFixture;
 
-const generatedPackageCheckTestTimeoutMs = 60_000;
-
 const unusedCheckDependencies = {
+    runChecks: fakeCheckRunner(),
     versionManager: {
         addVersion() {
             throw new Error('versionManager.addVersion should not run for checks that do not need generated packages');
@@ -117,6 +116,7 @@ function recordPublishedPackageInputs(packageName: string): RecordedPublishedPac
     return {
         addVersionCalls,
         dependencies: {
+            runChecks: fakeCheckRunner(),
             versionManager: {
                 addVersion(options: BuildVersionedBundleOptions) {
                     addVersionCalls.push(options);
@@ -277,8 +277,7 @@ suite('resolved-package', function () {
             additionalPackageJsonAttributes: {},
             allowMutableSpecifiers: []
         });
-    })
-        .timeout(generatedPackageCheckTestTimeoutMs);
+    });
 
     test('buildChecksResult includes substitution public module usage in generated check packages', async function () {
         const packageBundle = checkBundle('pkg-a', [ 'index.js', 'lib/internal.js' ]);
@@ -327,6 +326,5 @@ suite('resolved-package', function () {
             allowMutableSpecifiers: [],
             substitutionPublicModuleSourcePaths: new Set([ 'lib/internal.js' ])
         });
-    })
-        .timeout(generatedPackageCheckTestTimeoutMs);
+    });
 });

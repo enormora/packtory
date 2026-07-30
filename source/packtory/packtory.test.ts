@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Maybe, Result } from 'true-myth';
+import { fakeCheckRunner } from '../test-libraries/check-fixtures.ts';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import {
     bundleResource,
     linkedBundle,
@@ -111,7 +111,7 @@ function createVersionedBundle(name: string, version = '1.0.0'): BundleFixtureVe
     });
 }
 
-function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): PacktoryConfigWithoutRegistry {
+function createConfigWithoutRegistry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         commonPackageSettings: {
             sourcesFolder: '/src',
@@ -285,6 +285,7 @@ function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): Pack
             },
             fileManager: releasePlanFileReader,
             repositoryFolder: '/',
+            runChecks: fakeCheckRunner(),
             versionManager: {
                 addVersion: fallback(
                     overrides.versionManagerAddVersion,

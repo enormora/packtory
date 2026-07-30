@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { PackageChecksSettings } from '../../config/config.ts';
-import { checkBundle as bundle } from '../../test-libraries/check-bundle-fixture.ts';
+import { checkBundle as bundle } from '../../test-libraries/check-fixtures.ts';
 import { requiredFilesRule } from './required-files.ts';
 
 function packageRequiring(files: readonly string[]): PackageChecksSettings {

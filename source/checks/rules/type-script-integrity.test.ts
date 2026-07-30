@@ -1,351 +1,234 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { fake, type SinonSpy } from 'sinon';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
-import { checkBundle } from '../../test-libraries/check-bundle-fixture.ts';
-import { typeScriptIntegrityRule } from './type-script-integrity.ts';
+import { checkBundle, checkPublishedPackage } from '../../test-libraries/check-fixtures.ts';
+import type { PackageResolutionReport } from './type-script-package-resolution.ts';
+import {
+    createTypeScriptIntegrityRule,
+    type TypeScriptIntegrityDependencies,
+    type TypeScriptIntegrityRule
+} from './type-script-integrity.ts';
 
-const packageCheckTestTimeoutMs = 60_000;
-
-function createPublishedPackage(
-    packageName: string,
-    files: Readonly<Record<string, string>>
-): PublishedPackageWithManifest {
-    const manifestContent = files['package.json'];
-    if (manifestContent === undefined) {
-        throw new Error(`package.json missing for ${packageName}`);
-    }
-
-    return {
-        name: packageName,
-        version: '0.0.0',
-        manifestFile: {
-            filePath: 'package.json',
-            content: manifestContent,
-            isExecutable: false
-        },
-        contents: Object
-            .entries(files)
-            .filter(function ([ filePath ]) {
-                return filePath !== 'package.json';
-            })
-            .map(function ([ filePath, content ]) {
-                return {
-                    directDependencies: new Set<string>(),
-                    fileDescription: {
-                        sourceFilePath: filePath,
-                        targetFilePath: filePath,
-                        content,
-                        isExecutable: false
-                    },
-                    isExplicitlyIncluded: false,
-                    isSubstituted: false
-                };
-            })
-    } as unknown as PublishedPackageWithManifest;
-}
-
-function createManifest(packageName: string): string {
-    return JSON.stringify({
-        name: packageName,
-        version: '0.0.0',
-        type: 'module',
-        exports: {
-            '.': {
-                import: './index.js',
-                types: './index.d.ts'
-            }
-        }
-    });
-}
-
-function createTypedPackage(
-    packageName: string,
-    javascriptSource: string,
-    declarationSource: string
-): PublishedPackageWithManifest {
-    return createPublishedPackage(packageName, {
-        'package.json': createManifest(packageName),
-        'index.js': javascriptSource,
-        'index.d.ts': declarationSource
-    });
-}
-
-function createEsmOnlyPackage(packageName: string): PublishedPackageWithManifest {
-    return createTypedPackage(packageName, 'export const value = 1;\n', 'export declare const value: number;\n');
-}
-
-function createBrokenPackage(packageName: string): PublishedPackageWithManifest {
-    return createTypedPackage(
-        packageName,
-        'module.exports = function value() {};\nmodule.exports.default = module.exports;\n',
-        'declare function value(): void;\nexport default value;\n'
-    );
-}
-
-type EntrypointSources = {
-    readonly javascriptSource: string;
-    readonly declarationSource: string;
+type RuleOverrides = {
+    readonly analyzePackageResolution?: SinonSpy;
+    readonly summarizeDeclarationIntegrity?: SinonSpy;
 };
 
-function createTwoEntrypointPackage(
-    packageName: string,
-    rootEntrypoint: EntrypointSources,
-    featureEntrypoint: EntrypointSources
-): PublishedPackageWithManifest {
-    return createPublishedPackage(packageName, {
-        'package.json': JSON.stringify({
-            name: packageName,
-            version: '0.0.0',
-            type: 'module',
-            exports: {
-                '.': {
-                    import: './index.js',
-                    types: './index.d.ts'
-                },
-                './feature': {
-                    import: './feature.js',
-                    types: './feature.d.ts'
-                }
-            }
-        }),
-        'index.js': rootEntrypoint.javascriptSource,
-        'index.d.ts': rootEntrypoint.declarationSource,
-        'feature.js': featureEntrypoint.javascriptSource,
-        'feature.d.ts': featureEntrypoint.declarationSource
-    });
+const noProblemsReport: PackageResolutionReport = { kind: 'analyzed', entrypoints: [ '.' ], problems: [] };
+
+function ruleFor(overrides: RuleOverrides = {}): TypeScriptIntegrityRule {
+    const {
+        analyzePackageResolution = fake.resolves(noProblemsReport),
+        summarizeDeclarationIntegrity = fake.returns([])
+    } = overrides;
+    const fakeDependencies = {
+        analyzePackageResolution,
+        summarizeDeclarationIntegrity
+    } as unknown as TypeScriptIntegrityDependencies;
+
+    return createTypeScriptIntegrityRule(fakeDependencies);
 }
 
-const brokenCommonJsEntrypoint: EntrypointSources = {
-    javascriptSource: 'module.exports = function value() {};\nmodule.exports.default = module.exports;\n',
-    declarationSource: 'declare function value(): void;\nexport default value;\n'
-};
-
-function createTwoEntrypointBrokenPackage(packageName: string): PublishedPackageWithManifest {
-    return createTwoEntrypointPackage(packageName, brokenCommonJsEntrypoint, {
-        javascriptSource: 'module.exports = function feature() {};\nmodule.exports.default = module.exports;\n',
-        declarationSource: 'declare function feature(): void;\nexport default feature;\n'
-    });
-}
-
-function createMixedEntrypointPackage(packageName: string): PublishedPackageWithManifest {
-    return createTwoEntrypointPackage(packageName, brokenCommonJsEntrypoint, {
-        javascriptSource: 'export const feature = 1;\n',
-        declarationSource: 'export declare const feature: number;\n'
-    });
-}
-
-function createUntypedPackage(packageName: string): PublishedPackageWithManifest {
-    return createPublishedPackage(packageName, {
-        'package.json': JSON.stringify({
-            name: packageName,
-            version: '0.0.0',
-            type: 'module',
-            exports: {
-                '.': './index.js'
-            }
-        }),
-        'index.js': 'export const value = 1;\n'
-    });
-}
-
-function createTs2305Package(packageName: string): PublishedPackageWithManifest {
-    return createPublishedPackage(packageName, {
-        'package.json': createManifest(packageName),
-        'index.js': 'export const value = 1;\n',
-        'index.d.ts': 'import { Missing } from "./internal.js";\nexport declare const value: Missing;\n',
-        'internal.d.ts': 'export declare const present: string;\n'
-    });
-}
-
-function createPrivateBrokenDeclarationPackage(packageName: string): PublishedPackageWithManifest {
-    return createPublishedPackage(packageName, {
-        'package.json': createManifest(packageName),
-        'index.js': 'export const value = 1;\n',
-        'index.d.ts': 'export declare const value: number;\n',
-        'private.d.ts': 'import { Missing } from "./internal.js";\nexport declare const value: Missing;\n',
-        'internal.d.ts': 'export declare const present: string;\n'
-    });
-}
-
-type TypeScriptIntegritySettings = {
+type Settings = {
     readonly typeScriptIntegrity: {
         readonly enabled: boolean;
         readonly declarations?: 'all' | 'exports-graph';
     };
 };
 
-async function runRule(
-    packageName: string,
-    publishedPackage: PublishedPackageWithManifest,
-    settings: TypeScriptIntegritySettings | undefined
-): Promise<readonly string[]> {
-    return await typeScriptIntegrityRule.run({
-        bundles: [ checkBundle(packageName, [ 'index.js', 'index.d.ts' ]) ],
-        publishedPackages: new Map([ [ packageName, publishedPackage ] ]),
-        settings,
+type RunOptions = {
+    readonly rule: TypeScriptIntegrityRule;
+    readonly settings: Settings | undefined;
+    readonly publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
+    readonly bundleNames: readonly string[];
+};
+
+async function runRule(options: RunOptions): Promise<readonly string[]> {
+    return await options.rule.run({
+        bundles: options.bundleNames.map(function (bundleName) {
+            return checkBundle(bundleName, [ 'index.js', 'index.d.ts' ]);
+        }),
+        publishedPackages: options.publishedPackages,
+        settings: options.settings,
         perPackageSettings: new Map(),
         packageConfigs: {}
     });
 }
 
+function publishedPackagesFor(...names: readonly string[]): ReadonlyMap<string, PublishedPackageWithManifest> {
+    return new Map(
+        names.map(function (name) {
+            return [ name, checkPublishedPackage(name, '{"types":"./index.d.ts"}', { 'index.d.ts': 'export {};\n' }) ];
+        })
+    );
+}
+
 suite('type-script-integrity', function () {
-    suite('disabled states', function () {
-        test('returns no issues when the rule is not configured', async function () {
-            const packageName = 'not-configured-package';
-            const issues = await typeScriptIntegrityRule.run({
-                bundles: [ checkBundle(packageName, [ 'index.js', 'index.d.ts' ]) ],
-                settings: undefined,
-                perPackageSettings: new Map(),
-                packageConfigs: {}
-            });
+    test('exposes the rule name and its schemas', function () {
+        const rule = ruleFor();
 
-            assert.deepStrictEqual(issues, []);
-        })
-            .timeout(packageCheckTestTimeoutMs);
-
-        test('returns no issues when the rule is disabled', async function () {
-            const packageName = 'disabled-package';
-            const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
-                typeScriptIntegrity: { enabled: false }
-            });
-
-            assert.deepStrictEqual(issues, []);
-        })
-            .timeout(packageCheckTestTimeoutMs);
+        assert.strictEqual(rule.name, 'typeScriptIntegrity');
+        assert.deepStrictEqual(rule.globalSchema.safeParse({ enabled: true }).success, true);
+        assert.deepStrictEqual(rule.globalSchema.safeParse({ enabled: true, declarations: 'all' }).success, true);
+        assert.deepStrictEqual(
+            rule.globalSchema.safeParse({ enabled: true, declarations: 'exports-graph' }).success,
+            true
+        );
+        assert.deepStrictEqual(rule.globalSchema.safeParse({ enabled: true, declarations: 'nope' }).success, false);
+        assert.deepStrictEqual(rule.perPackageSchema.safeParse({}).success, true);
     });
 
-    suite('package resolution', function () {
-        test('ignores the expected CommonJS-only failure mode for a valid ESM package', async function () {
-            const packageName = 'esm-only-package';
-            const issues = await runRule(packageName, createEsmOnlyPackage(packageName), {
-                typeScriptIntegrity: { enabled: true }
-            });
+    test('checks nothing when the rule is not configured', async function () {
+        const analyzePackageResolution = fake.resolves(noProblemsReport);
+        const summarizeDeclarationIntegrity = fake.returns([]);
 
-            assert.deepStrictEqual(issues, []);
-        })
-            .timeout(packageCheckTestTimeoutMs);
-
-        test('groups repeated package-resolution problem kinds into one finding summary', async function () {
-            const packageName = 'multi-entrypoint-package';
-            const issues = await runRule(packageName, createTwoEntrypointBrokenPackage(packageName), {
-                typeScriptIntegrity: { enabled: true }
-            });
-
-            assert.deepStrictEqual(issues, [
-                'Package "multi-entrypoint-package" failed TypeScript integrity: Missing `export =` (2 findings) affecting entrypoints ".", "./feature" in resolutions "bundler"',
-                'Package "multi-entrypoint-package" failed TypeScript integrity: Unexpected module syntax (2 findings) affecting entrypoints ".", "./feature" in resolutions "node16-esm"'
-            ]);
-        })
-            .timeout(packageCheckTestTimeoutMs);
-
-        test('reports only entrypoints affected by a package-resolution problem', async function () {
-            const packageName = 'mixed-entrypoint-package';
-            const issues = await runRule(packageName, createMixedEntrypointPackage(packageName), {
-                typeScriptIntegrity: { enabled: true }
-            });
-
-            assert.deepStrictEqual(issues, [
-                'Package "mixed-entrypoint-package" failed TypeScript integrity: Missing `export =` affecting entrypoints "." in resolutions "bundler"',
-                'Package "mixed-entrypoint-package" failed TypeScript integrity: Unexpected module syntax affecting entrypoints "." in resolutions "node16-esm"'
-            ]);
-        })
-            .timeout(packageCheckTestTimeoutMs);
-
-        test('returns an issue when the emitted package has no types', async function () {
-            const packageName = 'untyped-package';
-            const issues = await runRule(packageName, createUntypedPackage(packageName), {
-                typeScriptIntegrity: { enabled: true }
-            });
-
-            assert.deepStrictEqual(issues, [ 'Package "untyped-package" does not expose TypeScript declarations' ]);
-        })
-            .timeout(packageCheckTestTimeoutMs);
-
-        test('reports package-resolution problems without exposing the internal checker name', async function () {
-            const packageName = 'broken-package';
-            const issues = await runRule(packageName, createBrokenPackage(packageName), {
-                typeScriptIntegrity: { enabled: true }
-            });
-
-            assert.deepStrictEqual(issues, [
-                'Package "broken-package" failed TypeScript integrity: Missing `export =` affecting entrypoints "." in resolutions "bundler"',
-                'Package "broken-package" failed TypeScript integrity: Unexpected module syntax affecting entrypoints "." in resolutions "node16-esm"'
-            ]);
-            assert.ok(
-                issues.every(function (issue) {
-                    return !issue.includes('Are the Types Wrong');
-                })
-            );
-        })
-            .timeout(packageCheckTestTimeoutMs);
-
-        test('returns a check issue when the generated package manifest is missing', async function () {
-            const packageName = 'throwing-package';
-            const publishedPackage = {
-                ...createEsmOnlyPackage(packageName),
-                manifestFile: {
-                    filePath: 'manifest.json',
-                    content: createManifest(packageName),
-                    isExecutable: false
-                }
-            };
-            const issues = await runRule(packageName, publishedPackage, {
-                typeScriptIntegrity: { enabled: true }
-            });
-
-            assert.deepStrictEqual(issues, [
-                'Package "throwing-package" failed TypeScript integrity: Error: File not found: /node_modules/throwing-package/package.json'
-            ]);
-        })
-            .timeout(packageCheckTestTimeoutMs);
-
-        test('throws when the rule is enabled but the emitted package is missing', async function () {
-            await assert.rejects(async function () {
-                await typeScriptIntegrityRule.run({
-                    bundles: [ checkBundle('missing-package', [ 'index.js' ]) ],
-                    settings: { typeScriptIntegrity: { enabled: true } },
-                    perPackageSettings: new Map(),
-                    packageConfigs: {}
-                });
-            }, /Published package missing/u);
+        const issues = await runRule({
+            rule: ruleFor({ analyzePackageResolution, summarizeDeclarationIntegrity }),
+            settings: undefined,
+            publishedPackages: publishedPackagesFor('pkg'),
+            bundleNames: [ 'pkg' ]
         });
+
+        assert.deepStrictEqual(issues, []);
+        assert.strictEqual(analyzePackageResolution.callCount, 0);
+        assert.strictEqual(summarizeDeclarationIntegrity.callCount, 0);
     });
 
-    suite('declaration integrity', function () {
-        test('reports missing exports in reachable declarations', async function () {
-            const packageName = 'ts2305-package';
-            const issues = await runRule(packageName, createTs2305Package(packageName), {
-                typeScriptIntegrity: { enabled: true }
-            });
+    test('checks nothing when the rule is disabled', async function () {
+        const analyzePackageResolution = fake.resolves(noProblemsReport);
 
-            assert.deepStrictEqual(issues, [
-                'Package "ts2305-package" failed TypeScript integrity in node16-esm: index.d.ts:1 TS2305: Module \'"./internal.js"\' has no exported member \'Missing\'.',
-                'Package "ts2305-package" failed TypeScript integrity in bundler: index.d.ts:1 TS2305: Module \'"./internal.js"\' has no exported member \'Missing\'.'
-            ]);
-        })
-            .timeout(packageCheckTestTimeoutMs);
+        const issues = await runRule({
+            rule: ruleFor({ analyzePackageResolution }),
+            settings: { typeScriptIntegrity: { enabled: false } },
+            publishedPackages: publishedPackagesFor('pkg'),
+            bundleNames: [ 'pkg' ]
+        });
 
-        test('checks every packaged declaration by default', async function () {
-            const packageName = 'private-broken-package';
-            const issues = await runRule(packageName, createPrivateBrokenDeclarationPackage(packageName), {
-                typeScriptIntegrity: { enabled: true }
-            });
+        assert.deepStrictEqual(issues, []);
+        assert.strictEqual(analyzePackageResolution.callCount, 0);
+    });
 
-            assert.deepStrictEqual(issues, [
-                'Package "private-broken-package" failed TypeScript integrity in node16-esm: private.d.ts:1 TS2305: Module \'"./internal.js"\' has no exported member \'Missing\'.',
-                'Package "private-broken-package" failed TypeScript integrity in bundler: private.d.ts:1 TS2305: Module \'"./internal.js"\' has no exported member \'Missing\'.'
-            ]);
-        })
-            .timeout(packageCheckTestTimeoutMs);
+    test('analyzes package resolution for the checked resolution kinds', async function () {
+        const analyzePackageResolution = fake.resolves(noProblemsReport);
+        const publishedPackages = publishedPackagesFor('pkg');
 
-        test('exports-graph declarations mode ignores unreachable private declarations', async function () {
-            const packageName = 'private-broken-package';
-            const issues = await runRule(packageName, createPrivateBrokenDeclarationPackage(packageName), {
-                typeScriptIntegrity: { enabled: true, declarations: 'exports-graph' }
-            });
+        await runRule({
+            rule: ruleFor({ analyzePackageResolution }),
+            settings: { typeScriptIntegrity: { enabled: true } },
+            publishedPackages,
+            bundleNames: [ 'pkg' ]
+        });
 
-            assert.deepStrictEqual(issues, []);
-        })
-            .timeout(packageCheckTestTimeoutMs);
+        assert.deepStrictEqual(analyzePackageResolution.args, [
+            [ publishedPackages.get('pkg'), [ 'node16-esm', 'bundler' ] ]
+        ]);
+    });
+
+    test('summarizes the reported resolution problems', async function () {
+        const issues = await runRule({
+            rule: ruleFor({
+                analyzePackageResolution: fake.resolves({
+                    kind: 'analyzed',
+                    entrypoints: [ '.' ],
+                    problems: [
+                        {
+                            kind: 'CJSResolvesToESM',
+                            shortDescription: 'Missing `export =`',
+                            affectedResolutionKinds: [ 'bundler' ],
+                            affectedEntrypoints: [ '.' ]
+                        }
+                    ]
+                })
+            }),
+            settings: { typeScriptIntegrity: { enabled: true } },
+            publishedPackages: publishedPackagesFor('pkg'),
+            bundleNames: [ 'pkg' ]
+        });
+
+        assert.deepStrictEqual(issues, [
+            'Package "pkg" failed TypeScript integrity: Missing `export =` ' +
+            'affecting entrypoints "." in resolutions "bundler"'
+        ]);
+    });
+
+    test('turns a failing package-resolution analysis into a check issue', async function () {
+        const issues = await runRule({
+            rule: ruleFor({
+                analyzePackageResolution: fake.rejects(new Error('File not found: /node_modules/pkg/package.json'))
+            }),
+            settings: { typeScriptIntegrity: { enabled: true } },
+            publishedPackages: publishedPackagesFor('pkg'),
+            bundleNames: [ 'pkg' ]
+        });
+
+        assert.deepStrictEqual(issues, [
+            'Package "pkg" failed TypeScript integrity: Error: File not found: /node_modules/pkg/package.json'
+        ]);
+    });
+
+    test('checks all packaged declarations by default', async function () {
+        const summarizeDeclarationIntegrity = fake.returns([]);
+        const publishedPackages = publishedPackagesFor('pkg');
+
+        await runRule({
+            rule: ruleFor({ summarizeDeclarationIntegrity }),
+            settings: { typeScriptIntegrity: { enabled: true } },
+            publishedPackages,
+            bundleNames: [ 'pkg' ]
+        });
+
+        assert.deepStrictEqual(summarizeDeclarationIntegrity.args, [
+            [ 'pkg', publishedPackages.get('pkg'), 'all' ]
+        ]);
+    });
+
+    test('checks the configured declarations mode', async function () {
+        const summarizeDeclarationIntegrity = fake.returns([]);
+        const publishedPackages = publishedPackagesFor('pkg');
+
+        await runRule({
+            rule: ruleFor({ summarizeDeclarationIntegrity }),
+            settings: { typeScriptIntegrity: { enabled: true, declarations: 'exports-graph' } },
+            publishedPackages,
+            bundleNames: [ 'pkg' ]
+        });
+
+        assert.deepStrictEqual(summarizeDeclarationIntegrity.args, [
+            [ 'pkg', publishedPackages.get('pkg'), 'exports-graph' ]
+        ]);
+    });
+
+    test('reports resolution issues before declaration issues of every package', async function () {
+        const issues = await runRule({
+            rule: ruleFor({
+                analyzePackageResolution: fake.resolves({ kind: 'missing-declarations' }),
+                summarizeDeclarationIntegrity: fake.returns([ 'declaration issue' ])
+            }),
+            settings: { typeScriptIntegrity: { enabled: true } },
+            publishedPackages: publishedPackagesFor('pkg-a', 'pkg-b'),
+            bundleNames: [ 'pkg-a', 'pkg-b' ]
+        });
+
+        assert.deepStrictEqual(issues, [
+            'Package "pkg-a" does not expose TypeScript declarations',
+            'declaration issue',
+            'Package "pkg-b" does not expose TypeScript declarations',
+            'declaration issue'
+        ]);
+    });
+
+    test('throws when the rule is enabled but a bundle has no emitted package', async function () {
+        await assert.rejects(
+            async function () {
+                await runRule({
+                    rule: ruleFor(),
+                    settings: { typeScriptIntegrity: { enabled: true } },
+                    publishedPackages: undefined,
+                    bundleNames: [ 'pkg' ]
+                });
+            },
+            /Published package missing for "pkg"/u
+        );
     });
 });

@@ -1,6 +1,6 @@
 import { Result } from 'true-myth';
 import { mapToObj } from 'remeda';
-import { runChecks } from '../checks/check-runner.ts';
+import type { CheckRunner } from '../checks/check-runner.ts';
 import type { PacktoryConfigWithoutRegistry } from '../config/config.ts';
 import type { ConfigWithGraph } from '../config/validation.ts';
 import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
@@ -22,6 +22,7 @@ export type CheckError = {
 
 export type CheckEvaluationDependencies = {
     readonly versionManager: Pick<VersionManager, 'addVersion'>;
+    readonly runChecks: CheckRunner;
 };
 
 const checkManifestVersion = '0.0.0';
@@ -105,7 +106,7 @@ export async function buildChecksResult(
         return resolvedPackage.analyzedBundle;
     });
     const publishedPackages = maybeBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages);
-    const checkIssues = await runChecks({
+    const checkIssues = await dependencies.runChecks({
         settings: config.checks ?? {},
         perPackageSettings,
         packageConfigs: effectivePackageConfigs,

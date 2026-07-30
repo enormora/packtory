@@ -47,6 +47,18 @@ export function bundledInstalledDependencyPath(packageName: string, relativePath
     return path.posix.join(installedDependenciesFolderName, packageName, normalizedRelativePath);
 }
 
+function installedPackageFolderPath(packageName: string): string {
+    return path.posix.join(path.posix.sep, installedDependenciesFolderName, packageName);
+}
+
+export function installedPackageFilePath(packageName: string, relativeFilePath: string): string {
+    return path.posix.join(installedPackageFolderPath(packageName), relativeFilePath);
+}
+
+export function packageRelativeFilePath(packageName: string, installedFilePath: string): string {
+    return path.posix.relative(installedPackageFolderPath(packageName), installedFilePath);
+}
+
 export function isPackageManifestPath(filePath: string): boolean {
     return path.basename(filePath) === packageManifestFilePath;
 }
