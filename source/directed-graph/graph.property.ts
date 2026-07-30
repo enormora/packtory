@@ -4,7 +4,6 @@ import { suite, test } from 'mocha';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 import { createDirectedGraph, type DirectedGraph } from './graph.ts';
 
-const probeTestTimeoutMs = 10_000;
 const graphProbeTimeoutMs = 500;
 
 type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
@@ -196,8 +195,7 @@ suite('graph', function () {
             );
 
             assert.deepStrictEqual(result, [ [ 'a', 'a' ] ]);
-        })
-            .timeout(probeTestTimeoutMs);
+        });
 
         test('visitBreadthFirstSearch() completes promptly for cyclic graphs', async function () {
             const result = await runNodeProbe(
@@ -221,8 +219,7 @@ suite('graph', function () {
             );
 
             assert.deepStrictEqual(result, [ 'a', 'b' ]);
-        })
-            .timeout(probeTestTimeoutMs);
+        });
 
         test('getTopologicalGenerations() completes promptly for acyclic graphs', async function () {
             const result = await runNodeProbe(
@@ -240,7 +237,6 @@ suite('graph', function () {
             );
 
             assert.deepStrictEqual(result, [ [ 'a' ], [ 'b' ] ]);
-        })
-            .timeout(probeTestTimeoutMs);
+        });
     });
 });
