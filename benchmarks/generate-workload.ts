@@ -16,7 +16,7 @@ type BenchmarkPackage = NonNullable<PacktoryConfigWithoutRegistry['packages']>[n
 const jsonIndentationSpaces = 4;
 const packagesPerCluster = 3;
 const clusterJavaScriptFileCount = 6;
-const clusterDeclarationFileCount = 5;
+const clusterDeclarationFileCount = 7;
 const clusterSourceMapFileCount = 6;
 const clusterSourceMapVersion = 3;
 
@@ -88,8 +88,10 @@ function createClusterSourceFiles(): Record<string, string> {
         'foo.d.ts': "import { Baz } from './baz.js';\nexport type Foo = string;\n",
         'bar.js': "import { qux } from './qux.js';\nexport const bar = 'bar';\n//# sourceMappingURL=bar.js.map\n",
         'bar.js.map': createSourceMap('bar.js', 'bar.ts'),
+        'bar.d.ts': 'export type Bar = string;\n',
         'baz.d.ts': 'export type Baz = number;\n',
         'qux.js': "export const qux = 'qux';\n//# sourceMappingURL=qux.js.map\n",
+        'qux.d.ts': 'export type Qux = string;\n',
         'qux.js.map': createSourceMap('qux.js', 'qux.ts')
     };
 }

@@ -1,20 +1,21 @@
 import { isDefined, pickBy } from 'remeda';
+import {
+    declarationCompanionCandidates,
+    isDeclarationCompanionFilePath
+} from '../common/declaration-companion-paths.ts';
 import { toImportTarget, type BundleLike, type ExportEntry } from './package-shape.ts';
 
 type SubstitutionBundle = Pick<BundleLike, 'contents' | 'name' | 'roots'>;
 type BundleContent = BundleLike['contents'][number];
 type SubstitutionBundleLookups = {
     readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
+    readonly hasDeclarationRoots: boolean;
     readonly targetFilePaths: ReadonlySet<string>;
     readonly rootSourceFilePaths: ReadonlySet<string>;
 };
 type BundleContentLookups = {
     readonly contentBySourceFilePath: ReadonlyMap<string, BundleContent>;
     readonly targetFilePaths: ReadonlySet<string>;
-};
-type DeclarationCompanionRule = {
-    readonly declarationExtension: string;
-    readonly jsExtension: string;
 };
 
 function collectRootSourceFilePaths(bundle: SubstitutionBundle): ReadonlySet<string> {
@@ -25,6 +26,12 @@ function collectRootSourceFilePaths(bundle: SubstitutionBundle): ReadonlySet<str
     }
 
     return rootSourceFilePaths;
+}
+
+function hasDeclarationRoots(bundle: SubstitutionBundle): boolean {
+    return Object.values(bundle.roots).some(function (root) {
+        return root.declarationFile !== undefined;
+    });
 }
 
 function collectBundleContentLookups(bundle: SubstitutionBundle): BundleContentLookups {
@@ -49,6 +56,7 @@ function createSubstitutionBundleLookups(bundle: SubstitutionBundle): Substituti
 
     return {
         contentBySourceFilePath,
+        hasDeclarationRoots: hasDeclarationRoots(bundle),
         targetFilePaths,
         rootSourceFilePaths: collectRootSourceFilePaths(bundle)
     };
@@ -67,42 +75,71 @@ function findBundleContent(
     return content;
 }
 
-function declarationCompanionTargetPathFor(
-    rule: DeclarationCompanionRule,
-    targetFilePaths: ReadonlySet<string>,
+function declarationCompanionTargetPaths(
     targetFilePath: string
-): string | null | undefined {
-    if (targetFilePath.endsWith(rule.declarationExtension)) {
+): readonly string[] | null | undefined {
+    if (isDeclarationCompanionFilePath(targetFilePath)) {
         return null;
     }
 
-    if (!targetFilePath.endsWith(rule.jsExtension)) {
-        return undefined;
-    }
-
-    const targetPathWithoutExtension = targetFilePath.slice(0, -rule.jsExtension.length);
-    const declarationTargetFilePath = `${targetPathWithoutExtension}${rule.declarationExtension}`;
-    return targetFilePaths.has(declarationTargetFilePath) ? declarationTargetFilePath : undefined;
+    const candidates = declarationCompanionCandidates(targetFilePath);
+    return candidates.length === 0 ? undefined : candidates;
 }
 
 function findDeclarationCompanionTargetPath(
     targetFilePaths: ReadonlySet<string>,
-    targetFilePath: string
+    candidatePaths: readonly string[]
+): string | undefined {
+    return candidatePaths.find(function (candidatePath) {
+        return targetFilePaths.has(candidatePath);
+    });
+}
+
+function rejectMissingTypedDeclarationCompanion(
+    bundleName: string,
+    jsTargetFilePath: string,
+    candidatePaths: readonly string[]
+): never {
+    throw new Error(
+        `Package "${bundleName}" exposes substituted module "./${jsTargetFilePath}" without declaration companion ${
+            candidatePaths.map(toImportTarget).join(' or ')
+        }`
+    );
+}
+
+function existingDeclarationTargetFilePathFor(
+    bundleName: string,
+    lookups: SubstitutionBundleLookups,
+    jsTargetFilePath: string,
+    declarationCandidates: readonly string[]
+): string | undefined {
+    const declarationTargetFilePath = findDeclarationCompanionTargetPath(
+        lookups.targetFilePaths,
+        declarationCandidates
+    );
+    if (declarationTargetFilePath !== undefined) {
+        return declarationTargetFilePath;
+    }
+    if (lookups.hasDeclarationRoots) {
+        rejectMissingTypedDeclarationCompanion(bundleName, jsTargetFilePath, declarationCandidates);
+    }
+    return undefined;
+}
+
+function declarationTargetFilePathFor(
+    bundleName: string,
+    lookups: SubstitutionBundleLookups,
+    jsTargetFilePath: string
 ): string | null | undefined {
-    for (
-        const rule of [
-            { declarationExtension: '.d.mts', jsExtension: '.mjs' },
-            { declarationExtension: '.d.cts', jsExtension: '.cjs' },
-            { declarationExtension: '.d.ts', jsExtension: '.js' }
-        ] as const
-    ) {
-        const declarationTargetPath = declarationCompanionTargetPathFor(rule, targetFilePaths, targetFilePath);
-        if (declarationTargetPath !== undefined) {
-            return declarationTargetPath;
-        }
+    const declarationCandidates = declarationCompanionTargetPaths(jsTargetFilePath);
+    if (declarationCandidates === null) {
+        return null;
+    }
+    if (declarationCandidates === undefined) {
+        return undefined;
     }
 
-    return undefined;
+    return existingDeclarationTargetFilePathFor(bundleName, lookups, jsTargetFilePath, declarationCandidates);
 }
 
 function buildSubstitutionExportEntry(
@@ -116,7 +153,7 @@ function buildSubstitutionExportEntry(
 
     const content = findBundleContent(bundleName, lookups.contentBySourceFilePath, sourceFilePath);
     const jsTargetFilePath = content.fileDescription.targetFilePath;
-    const declarationTargetFilePath = findDeclarationCompanionTargetPath(lookups.targetFilePaths, jsTargetFilePath);
+    const declarationTargetFilePath = declarationTargetFilePathFor(bundleName, lookups, jsTargetFilePath);
     if (declarationTargetFilePath === null) {
         return undefined;
     }

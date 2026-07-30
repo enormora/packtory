@@ -168,7 +168,9 @@ suite('checks', function () {
         if (result.error.type === 'checks') {
             assert.strictEqual(
                 result.error.issues.some(function (issue) {
-                    return issue.includes('pkg-a') && issue.includes('./internal.js') && issue.includes('No types');
+                    return issue.includes('pkg-a') &&
+                        issue.includes('./internal.js') &&
+                        issue.includes('without declaration companion');
                 }),
                 true
             );

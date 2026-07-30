@@ -279,6 +279,32 @@ suite('resolved-package', function () {
         });
     });
 
+    test('buildChecksResult reports generated package errors as check issues', async function () {
+        const result = await buildChecksResult(
+            {
+                runChecks: fakeCheckRunner(),
+                versionManager: {
+                    addVersion() {
+                        throw new Error('Package "pkg-a" exposes substituted module "./internal.js"');
+                    }
+                }
+            },
+            validated({
+                checks: { typeScriptIntegrity: { enabled: true } },
+                packages: [ packageConfig('pkg-a') ]
+            }),
+            [ resolvedPackage('pkg-a', checkBundle('pkg-a', [ 'index.js' ])) ]
+        );
+
+        if (!result.isErr) {
+            assert.fail('expected checks result to fail');
+        }
+        assert.deepStrictEqual(result.error, {
+            type: 'checks',
+            issues: [ 'Package "pkg-a" exposes substituted module "./internal.js"' ]
+        });
+    });
+
     test('buildChecksResult includes substitution public module usage in generated check packages', async function () {
         const packageBundle = checkBundle('pkg-a', [ 'index.js', 'lib/internal.js' ]);
         const consumerBundle = checkBundle('pkg-b', [ 'index.js' ]);

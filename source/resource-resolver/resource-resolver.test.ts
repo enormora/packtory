@@ -75,6 +75,7 @@ function createGraph(params: GraphParams): DependencyGraph {
 }
 
 type Overrides = {
+    readonly readableFiles?: readonly string[];
     readonly scan?: SinonSpy;
     readonly transferableFileDescriptionResponder?: (
         sourceFilePath: string,
@@ -85,11 +86,20 @@ type Overrides = {
 function createResolver(overrides: Overrides = {}): ResolverFixture {
     const scan = overrides.scan ?? fake();
     const responder = overrides.transferableFileDescriptionResponder ?? createTransferableFile;
-    const fileManager = createFakeFileManager({
+    const baseFileManager = createFakeFileManager({
         transferableFileDescriptionResponder(sourceFilePath, targetFilePath) {
             return { value: responder(sourceFilePath, targetFilePath) };
         }
     });
+    const readableFiles = overrides.readableFiles === undefined
+        ? new Set<string>()
+        : new Set(overrides.readableFiles);
+    const fileManager = {
+        ...baseFileManager,
+        async checkReadability(fileOrFolderPath: string) {
+            return { isReadable: readableFiles.has(fileOrFolderPath) };
+        }
+    };
 
     const dependencies: ResourceResolverDependencies = {
         dependencyScanner: { scan },

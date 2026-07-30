@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { content, rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
+import { content, rootWithDeclaration, rootWithSource } from '../test-libraries/package-surface-fixtures.ts';
 import { collectSubstitutionExports } from './substitution-exports.ts';
 
 suite('substitution-exports', function () {
@@ -68,6 +68,19 @@ suite('substitution-exports', function () {
             assert.deepStrictEqual(result['./module.mjs'], { import: './module.mjs', types: './module.d.mts' });
         });
 
+        test('pairs a .mjs substitution with its .d.ts fallback companion when present', function () {
+            const result = collectSubstitutionExports(
+                {
+                    name: 'package-a',
+                    roots: { main: rootWithSource('/src/index.js', 'index.js') },
+                    contents: [ content('/src/module.mjs', 'module.mjs'), content('/src/module.d.ts', 'module.d.ts') ]
+                },
+                new Set([ '/src/module.mjs' ])
+            );
+
+            assert.deepStrictEqual(result['./module.mjs'], { import: './module.mjs', types: './module.d.ts' });
+        });
+
         test('pairs a .cjs substitution with its .d.cts companion when present', function () {
             const result = collectSubstitutionExports(
                 {
@@ -94,11 +107,101 @@ suite('substitution-exports', function () {
             assert.deepStrictEqual(result['./feature.js'], { import: './feature.js' });
         });
 
+        test('throws when a typed package exposes a substitution without a declaration companion', function () {
+            assert.throws(
+                function () {
+                    collectSubstitutionExports(
+                        {
+                            name: 'package-a',
+                            roots: {
+                                main: rootWithDeclaration(
+                                    '/src/index.js',
+                                    'index.js',
+                                    '/src/index.d.ts',
+                                    'index.d.ts'
+                                )
+                            },
+                            contents: [ content('/src/feature.js', 'feature.js') ]
+                        },
+                        new Set([ '/src/feature.js' ])
+                    );
+                },
+                /^Error: Package "package-a" exposes substituted module "\.\/feature\.js" without declaration companion \.\/feature\.d\.ts$/u
+            );
+        });
+
+        test('throws when any root is typed and a substitution has no declaration companion', function () {
+            assert.throws(
+                function () {
+                    collectSubstitutionExports(
+                        {
+                            name: 'package-a',
+                            roots: {
+                                main: rootWithDeclaration(
+                                    '/src/index.js',
+                                    'index.js',
+                                    '/src/index.d.ts',
+                                    'index.d.ts'
+                                ),
+                                worker: rootWithSource('/src/worker.js', 'worker.js')
+                            },
+                            contents: [ content('/src/feature.js', 'feature.js') ]
+                        },
+                        new Set([ '/src/feature.js' ])
+                    );
+                },
+                /^Error: Package "package-a" exposes substituted module "\.\/feature\.js" without declaration companion \.\/feature\.d\.ts$/u
+            );
+        });
+
+        test('lists every declaration candidate for missing .mjs companions', function () {
+            assert.throws(
+                function () {
+                    collectSubstitutionExports(
+                        {
+                            name: 'package-a',
+                            roots: {
+                                main: rootWithDeclaration(
+                                    '/src/index.js',
+                                    'index.js',
+                                    '/src/index.d.ts',
+                                    'index.d.ts'
+                                )
+                            },
+                            contents: [ content('/src/feature.mjs', 'feature.mjs') ]
+                        },
+                        new Set([ '/src/feature.mjs' ])
+                    );
+                },
+                /^Error: Package "package-a" exposes substituted module "\.\/feature\.mjs" without declaration companion \.\/feature\.d\.mts or \.\/feature\.d\.ts$/u
+            );
+        });
+
         test('exposes a non-code substitution target without searching for a declaration companion', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
                     roots: { main: rootWithSource('/src/index.js', 'index.js') },
+                    contents: [ content('/src/data.json', 'data.json') ]
+                },
+                new Set([ '/src/data.json' ])
+            );
+
+            assert.deepStrictEqual(result['./data.json'], { import: './data.json' });
+        });
+
+        test('exposes a non-code substitution target in typed packages', function () {
+            const result = collectSubstitutionExports(
+                {
+                    name: 'package-a',
+                    roots: {
+                        main: rootWithDeclaration(
+                            '/src/index.js',
+                            'index.js',
+                            '/src/index.d.ts',
+                            'index.d.ts'
+                        )
+                    },
                     contents: [ content('/src/data.json', 'data.json') ]
                 },
                 new Set([ '/src/data.json' ])

@@ -53,7 +53,10 @@ export function createResourceResolver(dependencies: ResourceResolverDependencie
     return {
         async resolve(options) {
             const normalized = resolveRootsAndSurface(options);
-            const resolvedDependencies = await resolveDependenciesForAllRoots(dependencyScanner, options);
+            const resolvedDependencies = await resolveDependenciesForAllRoots(
+                { dependencyScanner, fileManager },
+                options
+            );
 
             const bundleFiles = combineAllBundleFiles(
                 options.sourcesFolder,
