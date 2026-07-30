@@ -4,6 +4,9 @@ import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts'
 import type { FileDescription } from '../../file-manager/file-description.ts';
 import { buildFileSetDiff, type ModifiedFile } from './file-set-diff.ts';
 
+type TextContentChange = Extract<ModifiedFile['contentChange'], { readonly kind: 'text'; }>;
+type TextHunk = TextContentChange['hunks'][number];
+
 function file(filePath: string, content: string, isExecutable = false): FileDescription {
     return { filePath, content, isExecutable };
 }
@@ -16,6 +19,26 @@ function singleModifiedEntry(previous: readonly FileDescription[], current: read
         assert.fail('expected modified entry');
     }
     return entry;
+}
+
+function singleTextChange(
+    previous: readonly FileDescription[],
+    current: readonly FileDescription[]
+): TextContentChange {
+    const entry = singleModifiedEntry(previous, current);
+    if (entry.contentChange.kind !== 'text') {
+        assert.fail(`expected text content change but got ${entry.contentChange.kind}`);
+    }
+    return entry.contentChange;
+}
+
+function singleHunk(change: TextContentChange): TextHunk {
+    assert.strictEqual(change.hunks.length, 1);
+    const [ hunk ] = change.hunks;
+    if (hunk === undefined) {
+        assert.fail('expected hunk');
+    }
+    return hunk;
 }
 
 suite('file-set-diff', function () {
@@ -81,14 +104,11 @@ suite('file-set-diff', function () {
     });
 
     test('classifies different text content as modified with text hunks', function () {
-        const entry = singleModifiedEntry(
+        const change = singleTextChange(
             [ file('package.json', '{"name":"p","version":"1.0.0"}\n') ],
             [ file('package.json', '{"name":"p","version":"1.0.1"}\n') ]
         );
-        if (entry.contentChange.kind !== 'text') {
-            assert.fail(`expected text content change but got ${entry.contentChange.kind}`);
-        }
-        assert.ok(entry.contentChange.hunks.length > 0);
+        assert.ok(change.hunks.length > 0);
     });
 
     test('classifies different content with no text-diffable extension as binary modified', function () {
@@ -144,5 +164,49 @@ suite('file-set-diff', function () {
             assert.fail('expected unchanged entry');
         }
         assert.strictEqual(unchanged.sizeBytes, Buffer.byteLength('á', 'utf8'));
+    });
+
+    suite('text hunks', function () {
+        test('builds a single-line content change', function () {
+            const hunk = singleHunk(
+                singleTextChange([ file('src/index.ts', 'one\n') ], [ file('src/index.ts', 'two\n') ])
+            );
+            const addLine = hunk.lines.find(function (line) {
+                return line.type === 'add';
+            });
+            const removeLine = hunk.lines.find(function (line) {
+                return line.type === 'remove';
+            });
+
+            assert.strictEqual(addLine?.text, '+two');
+            assert.strictEqual(removeLine?.text, '-one');
+            assert.match(hunk.header, /^@@ -\d+,\d+ \+\d+,\d+ @@$/u);
+        });
+
+        test('strips no-newline markers', function () {
+            const change = singleTextChange(
+                [ file('src/index.ts', 'one') ],
+                [ file('src/index.ts', 'two') ]
+            );
+            const hunkLines = change.hunks.flatMap(function (hunk) {
+                return hunk.lines;
+            });
+            const hasBackslashMarker = hunkLines.some(function (line) {
+                return line.text.startsWith('\\');
+            });
+
+            assert.strictEqual(hasBackslashMarker, false);
+        });
+
+        test('uses three context lines for distant changes', function () {
+            const previous = [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i' ].join('\n');
+            const current = [ 'A', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'I' ].join('\n');
+            const change = singleTextChange(
+                [ file('lines.txt', previous) ],
+                [ file('lines.txt', current) ]
+            );
+
+            assert.strictEqual(change.hunks.length, 2);
+        });
     });
 });
