@@ -134,7 +134,7 @@ suite('checks', function () {
                 mainPackageJson: await loadPackageJson(fixturePath),
                 publishSettings: { access: 'public' }
             },
-            checks: { areTheTypesWrong: { enabled: true } },
+            checks: { typeScriptIntegrity: { enabled: true } },
             packages: [
                 {
                     name: 'pkg-a',

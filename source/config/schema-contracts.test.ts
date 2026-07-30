@@ -243,7 +243,7 @@ suite('schema-contracts', function () {
                 'packageInterface'
             ],
             checksShapeKeys: [
-                'areTheTypesWrong',
+                'typeScriptIntegrity',
                 'noDuplicatedFiles',
                 'requiredFiles',
                 'maxBundleSize',

@@ -1,16 +1,16 @@
 import { z } from 'zod/mini';
-import { areTheTypesWrongRule } from '../checks/rules/are-the-types-wrong.ts';
 import { maxBundleSizeRule } from '../checks/rules/max-bundle-size.ts';
 import { noDevDependencyImportsRule } from '../checks/rules/no-dev-dependency-imports.ts';
 import { noDuplicatedFilesRule } from '../checks/rules/no-duplicated-files.ts';
 import { noSideEffectsRule } from '../checks/rules/no-side-effects.ts';
 import { noUnusedBundleDependenciesRule } from '../checks/rules/no-unused-bundle-dependencies.ts';
 import { requiredFilesRule } from '../checks/rules/required-files.ts';
+import { typeScriptIntegrityRule } from '../checks/rules/type-script-integrity.ts';
 import { uniqueTargetPathsRule } from '../checks/rules/unique-target-paths.ts';
 
 export const checksSchema = z.readonly(
     z.strictObject({
-        areTheTypesWrong: z.optional(areTheTypesWrongRule.globalSchema),
+        typeScriptIntegrity: z.optional(typeScriptIntegrityRule.globalSchema),
         noDuplicatedFiles: z.optional(noDuplicatedFilesRule.globalSchema),
         requiredFiles: z.optional(requiredFilesRule.globalSchema),
         maxBundleSize: z.optional(maxBundleSizeRule.globalSchema),
@@ -23,7 +23,7 @@ export const checksSchema = z.readonly(
 
 export const checksPerPackageSchema = z.readonly(
     z.strictObject({
-        areTheTypesWrong: z.optional(areTheTypesWrongRule.perPackageSchema),
+        typeScriptIntegrity: z.optional(typeScriptIntegrityRule.perPackageSchema),
         noDuplicatedFiles: z.optional(noDuplicatedFilesRule.perPackageSchema),
         requiredFiles: z.optional(requiredFilesRule.perPackageSchema),
         maxBundleSize: z.optional(maxBundleSizeRule.perPackageSchema),

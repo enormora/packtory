@@ -15,23 +15,26 @@ import {
 import { z } from 'zod/mini';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
 import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+import {
+    summarizeDeclarationIntegrity,
+    type DeclarationMode
+} from './type-script-declaration-integrity.ts';
 
-const ruleName = 'areTheTypesWrong';
-const defaultProfile = 'esm-only';
-const profileValues = [ 'strict', 'node16', 'esm-only' ] as const;
+const ruleName = 'typeScriptIntegrity';
+const checkedResolutionKinds = [ 'node16-esm', 'bundler' ] as const;
+const declarationModeValues = [ 'all', 'exports-graph' ] as const;
+const defaultDeclarationMode = 'all';
+const packageFolder = '/node_modules';
 
-const profileSchema = z.enum(profileValues);
+const declarationModeSchema = z.enum(declarationModeValues);
 
 const globalSchema = z.strictObject({
     enabled: z.boolean(),
-    profile: z.optional(profileSchema)
+    declarations: z.optional(declarationModeSchema)
 });
 
-const perPackageSchema = z.strictObject({
-    profile: z.optional(profileSchema)
-});
+const perPackageSchema = z.strictObject({});
 
-type AreTheTypesWrongProfile = z.infer<typeof profileSchema>;
 type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
 type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
@@ -43,21 +46,8 @@ type ProblemSummaryInput = {
     readonly requiredResolutionKinds: readonly ResolutionKind[];
 };
 
-const requiredResolutionKindsByProfile: Readonly<Record<AreTheTypesWrongProfile, readonly ResolutionKind[]>> = {
-    strict: [ 'node10', 'node16-cjs', 'node16-esm', 'bundler' ],
-    node16: [ 'node16-cjs', 'node16-esm', 'bundler' ],
-    'esm-only': [ 'node16-esm', 'bundler' ]
-};
-
-function resolveProfile(
-    globalConfig: GlobalConfig,
-    perPackageConfig: PerPackageConfig | undefined
-): AreTheTypesWrongProfile {
-    return perPackageConfig?.profile ?? globalConfig.profile ?? defaultProfile;
-}
-
 function toPackageFilePath(packageName: string, filePath: string): string {
-    return `/node_modules/${packageName}/${filePath}`;
+    return `${packageFolder}/${packageName}/${filePath}`;
 }
 
 function createInMemoryPackage(publishedPackage: Readonly<PublishedPackageWithManifest>): Package {
@@ -147,7 +137,7 @@ function formatProblemSummary(input: ProblemSummaryInput): string {
     const entrypointList = formatQuotedList('affecting entrypoints', entrypoints);
     const resolutionList = formatQuotedList('in resolutions', resolutionKinds);
     return (
-        `Package "${packageName}" failed the Are the Types Wrong check: ` +
+        `Package "${packageName}" failed TypeScript integrity: ` +
         `${problemInfo.shortDescription}${findings}${entrypointList}${resolutionList}`
     );
 }
@@ -168,10 +158,6 @@ function summarizeProblems(
     return summaries;
 }
 
-function requiredResolutionKindsForProfile(profile: AreTheTypesWrongProfile): readonly ResolutionKind[] {
-    return requiredResolutionKindsByProfile[profile];
-}
-
 function filterActiveProblems(
     analysis: Analysis,
     requiredResolutionKinds: readonly ResolutionKind[]
@@ -183,54 +169,48 @@ function filterActiveProblems(
     });
 }
 
-function summarizeAnalysis(
-    packageName: string,
-    analysis: Analysis,
-    profile: AreTheTypesWrongProfile
-): readonly string[] {
-    const requiredResolutionKinds = requiredResolutionKindsForProfile(profile);
-    const activeProblems = filterActiveProblems(analysis, requiredResolutionKinds);
-    return summarizeProblems(packageName, analysis, activeProblems, requiredResolutionKinds);
+function summarizeAnalysis(packageName: string, analysis: Analysis): readonly string[] {
+    const activeProblems = filterActiveProblems(analysis, checkedResolutionKinds);
+    return summarizeProblems(packageName, analysis, activeProblems, checkedResolutionKinds);
 }
 
-function summarizeCheckResult(
-    packageName: string,
-    profile: AreTheTypesWrongProfile,
-    result: CheckResult
-): readonly string[] {
+function summarizeCheckResult(packageName: string, result: CheckResult): readonly string[] {
     if (result.types === false) {
         return [ `Package "${packageName}" does not expose TypeScript declarations` ];
     }
-    return summarizeAnalysis(packageName, result, profile);
+    return summarizeAnalysis(packageName, result);
 }
 
-async function summarizePublishedPackage(
+async function summarizePackageResolution(
     packageName: string,
-    profile: AreTheTypesWrongProfile,
     publishedPackage: PublishedPackageWithManifest
 ): Promise<readonly string[]> {
     try {
         const result = await checkPackage(createInMemoryPackage(publishedPackage));
-        return summarizeCheckResult(packageName, profile, result);
+        return summarizeCheckResult(packageName, result);
     } catch (error) {
-        return [ `Package "${packageName}" failed the Are the Types Wrong check: ${String(error)}` ];
+        return [ `Package "${packageName}" failed TypeScript integrity: ${String(error)}` ];
     }
 }
 
 async function runForPackage(
     packageName: string,
     publishedPackage: PublishedPackageWithManifest,
-    profile: AreTheTypesWrongProfile
+    declarationMode: DeclarationMode
 ): Promise<readonly string[]> {
-    return summarizePublishedPackage(packageName, profile, publishedPackage);
+    return [
+        ...await summarizePackageResolution(packageName, publishedPackage),
+        ...summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode)
+    ];
 }
 
 async function run(params: RunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.areTheTypesWrong;
+    const globalConfig = params.settings?.typeScriptIntegrity;
     if (globalConfig?.enabled !== true) {
         return [];
     }
 
+    const declarationMode = globalConfig.declarations ?? defaultDeclarationMode;
     const issuesByBundle = await Promise.all(
         params.bundles.map(async function (bundle) {
             const publishedPackage = params.publishedPackages?.get(bundle.name);
@@ -238,14 +218,13 @@ async function run(params: RunParams): Promise<readonly string[]> {
                 throw new Error(`Published package missing for "${bundle.name}"`);
             }
 
-            const profile = resolveProfile(globalConfig, params.perPackageSettings.get(bundle.name)?.areTheTypesWrong);
-            return runForPackage(bundle.name, publishedPackage, profile);
+            return runForPackage(bundle.name, publishedPackage, declarationMode);
         })
     );
     return issuesByBundle.flat();
 }
 
-export const areTheTypesWrongRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
+export const typeScriptIntegrityRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {
     name: ruleName,
     globalSchema,
     perPackageSchema,

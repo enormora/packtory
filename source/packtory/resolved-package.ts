@@ -71,7 +71,7 @@ function maybeBuildPublishedPackagesForChecks(
     config: PacktoryConfigWithoutRegistry,
     resolvedPackages: readonly ResolvedPackage[]
 ): ReadonlyMap<string, PublishedPackageWithManifest> | undefined {
-    return config.checks?.areTheTypesWrong?.enabled === true
+    return config.checks?.typeScriptIntegrity?.enabled === true
         ? buildPublishedPackagesForChecks(
             dependencies,
             resolvedPackages,

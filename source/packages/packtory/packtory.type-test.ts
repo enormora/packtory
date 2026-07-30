@@ -309,10 +309,11 @@ describe('PacktoryConfig - exposed structure', function () {
         expect<NoDuplicates['enabled']>().type.toBe<boolean>();
     });
 
-    test('checks.areTheTypesWrong is toggled at the top level via `enabled`', function () {
+    test('checks.typeScriptIntegrity is toggled at the top level via `enabled`', function () {
         type Checks = NonNullable<PacktoryConfig['checks']>;
-        type AreTheTypesWrong = NonNullable<Checks['areTheTypesWrong']>;
-        expect<AreTheTypesWrong['enabled']>().type.toBe<boolean>();
+        type TypeScriptIntegrity = NonNullable<Checks['typeScriptIntegrity']>;
+        expect<TypeScriptIntegrity['enabled']>().type.toBe<boolean>();
+        expect<TypeScriptIntegrity['declarations']>().type.toBe<'all' | 'exports-graph' | undefined>();
     });
 
     test('PackageConfig.checks.noDuplicatedFiles carries the per-package allowList', function () {
@@ -321,10 +322,10 @@ describe('PacktoryConfig - exposed structure', function () {
         expect<NoDuplicates['allowList']>().type.toBe<readonly string[] | undefined>();
     });
 
-    test('PackageConfig.checks.areTheTypesWrong carries the per-package profile override', function () {
+    test('PackageConfig.checks.typeScriptIntegrity accepts no per-package options', function () {
         type PackageChecks = NonNullable<PackageConfig['checks']>;
-        type AreTheTypesWrong = NonNullable<PackageChecks['areTheTypesWrong']>;
-        expect<AreTheTypesWrong['profile']>().type.toBe<'esm-only' | 'node16' | 'strict' | undefined>();
+        type TypeScriptIntegrity = NonNullable<PackageChecks['typeScriptIntegrity']>;
+        expect<TypeScriptIntegrity>().type.toBe<Readonly<Record<string, never>>>();
     });
 });
 

@@ -18,7 +18,9 @@ function happyDependencies(): CheckDependencies {
         progressBroadcaster: stubProgressBroadcaster,
         versionManager: {
             addVersion() {
-                throw new Error('versionManager.addVersion should not run when no ATTW check is configured');
+                throw new Error(
+                    'versionManager.addVersion should not run when no generated package check is configured'
+                );
             }
         }
     };
