@@ -5,7 +5,7 @@
             "clusterCount": 1,
             "packageCount": 3,
             "jsFileCount": 6,
-            "declarationFileCount": 5,
+            "declarationFileCount": 7,
             "sourceMapFileCount": 6,
             "maxImportFanOut": 2
         },
@@ -13,7 +13,7 @@
             "clusterCount": 2,
             "packageCount": 6,
             "jsFileCount": 12,
-            "declarationFileCount": 10,
+            "declarationFileCount": 14,
             "sourceMapFileCount": 12,
             "maxImportFanOut": 2
         },
@@ -21,7 +21,7 @@
             "clusterCount": 4,
             "packageCount": 12,
             "jsFileCount": 24,
-            "declarationFileCount": 20,
+            "declarationFileCount": 28,
             "sourceMapFileCount": 24,
             "maxImportFanOut": 2
         }

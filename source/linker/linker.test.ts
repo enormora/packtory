@@ -2,10 +2,71 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
-import { createBundleLinker } from './linker.ts';
+import type { ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
+import { createBundleLinker, type BundleLinker } from './linker.ts';
+
+type LinkedBundleResult = Awaited<ReturnType<BundleLinker['linkBundle']>>;
 
 function compareText(left: string, right: string): number {
     return left.localeCompare(right);
+}
+
+function testFileDescription(
+    sourceFilePath: string,
+    targetFilePath: string,
+    content: string
+): ResolvedBundle['contents'][number]['fileDescription'] {
+    return {
+        content,
+        isExecutable: false,
+        sourceFilePath,
+        targetFilePath
+    };
+}
+
+function testResource(
+    sourceFilePath: string,
+    targetFilePath: string,
+    content: string,
+    directDependencies: readonly string[]
+): ResolvedBundle['contents'][number] {
+    return {
+        fileDescription: testFileDescription(sourceFilePath, targetFilePath, content),
+        directDependencies: new Set(directDependencies),
+        isExplicitlyIncluded: false
+    };
+}
+
+function testRootWithDeclaration(): ResolvedBundle['roots'][string] {
+    return {
+        js: testFileDescription('/src/index.js', 'index.js', ''),
+        declarationFile: testFileDescription('/src/index.d.ts', 'index.d.ts', '')
+    };
+}
+
+async function linkTestBundle(
+    root: ResolvedBundle['roots'][string],
+    contents: ResolvedBundle['contents']
+): Promise<LinkedBundleResult> {
+    const linker = createBundleLinker();
+    return await linker.linkBundle({
+        bundle: {
+            name: 'package-a',
+            contents,
+            roots: { main: root },
+            surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+            externalDependencies: new Map()
+        },
+        bundleDependencies: []
+    });
+}
+
+function sourceFilePathsOf(
+    contents: LinkedBundleResult['contents']
+): readonly string[] {
+    return contents.map(function (content) {
+        return content.fileDescription.sourceFilePath;
+    });
 }
 
 suite('linker', function () {
@@ -197,6 +258,37 @@ suite('linker', function () {
         assert.strictEqual(result.contents.length, 2);
         assert.strictEqual(result.contents[0]?.isSubstituted, true);
         assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
+    });
+
+    test('linkBundle() keeps declaration companions for non-root js files', async function () {
+        const root = testRootWithDeclaration();
+        const result = await linkTestBundle(root, [
+            testResource('/src/index.js', 'index.js', 'import "./public.js";', [ '/src/public.js' ]),
+            testResource('/src/index.d.ts', 'index.d.ts', 'export declare const root: string;', []),
+            testResource('/src/public.js', 'public.js', 'export const publicValue = "value";', []),
+            testResource('/src/public.d.ts', 'public.d.ts', 'export declare const publicValue: string;', [])
+        ]);
+
+        assert.deepStrictEqual(
+            sourceFilePathsOf(result.contents),
+            [ '/src/index.js', '/src/public.js', '/src/index.d.ts', '/src/public.d.ts' ]
+        );
+    });
+
+    test('linkBundle() keeps declaration roots that are not js companions', async function () {
+        const root = {
+            js: testFileDescription('/src/index.js', 'index.js', ''),
+            declarationFile: testFileDescription('/src/types/root.d.ts', 'types/root.d.ts', '')
+        };
+        const result = await linkTestBundle(root, [
+            testResource('/src/index.js', 'index.js', 'export {};', []),
+            testResource('/src/types/root.d.ts', 'types/root.d.ts', 'export {};', [])
+        ]);
+
+        assert.deepStrictEqual(
+            sourceFilePathsOf(result.contents),
+            [ '/src/index.js', '/src/types/root.d.ts' ]
+        );
     });
 
     test('linkBundle() tolerates explicit roots that share transitive files', async function () {

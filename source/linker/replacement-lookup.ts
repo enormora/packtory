@@ -12,7 +12,7 @@ export type Replacements = {
     readonly bundleDependencies: readonly string[];
 };
 
-function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
+export function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
     return bundle.contents.some(function (content) {
         return content.fileDescription.sourceFilePath === file;
     });

@@ -12,7 +12,8 @@ export const expectedFirstPackageVersion = {
                         types: './entry1.d.ts'
                     },
                     './qux.js': {
-                        import: './qux.js'
+                        import: './qux.js',
+                        types: './qux.d.ts'
                     }
                 },
                 name: 'first',
@@ -46,6 +47,11 @@ export const expectedFirstPackageVersion = {
             isExecutable: false,
             content: 'export type Baz = number;\n',
             filePath: 'package/baz.d.ts'
+        },
+        {
+            isExecutable: false,
+            content: 'export declare const qux: string;\n',
+            filePath: 'package/qux.d.ts'
         }
     ]
 } as const;
@@ -87,6 +93,11 @@ export const expectedSecondPackageFirstRunVersion = {
             isExecutable: false,
             content: "export declare const foo: import('first/foo.d.ts').Foo;\n",
             filePath: 'package/entry2.d.ts'
+        },
+        {
+            isExecutable: false,
+            content: 'export declare const bar: string;\n',
+            filePath: 'package/bar.d.ts'
         }
     ]
 } as const;
@@ -128,6 +139,11 @@ export const expectedSecondPackageSecondRunVersion = {
             isExecutable: false,
             content: "export declare const foo: import('first/foo.d.ts').Foo;\n",
             filePath: 'package/entry2.d.ts'
+        },
+        {
+            isExecutable: false,
+            content: 'export declare const bar: string;\n',
+            filePath: 'package/bar.d.ts'
         }
     ]
 } as const;

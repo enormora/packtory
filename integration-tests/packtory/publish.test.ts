@@ -316,6 +316,41 @@ suite('publish', function () {
 
     suite('publish cases 2', function () {
         test(
+            'rejects typed substitution exports without declaration companions',
+            checkWithRegistry(async function (registryDetails) {
+                const fixturePathValue = getFixturePath('substitution-type-check');
+                const packages = createPackageConfigList(
+                    createPackageConfig(fixturePathValue, 'pkg-a', 'a-entry'),
+                    createPackageConfig(fixturePathValue, 'pkg-b', 'b-entry', { bundleDependencies: [ 'pkg-a' ] })
+                );
+                const result = await publishFixturePackages({
+                    fixturePath: fixturePathValue,
+                    registryDetails,
+                    packages
+                });
+
+                if (result.isOk) {
+                    assert.fail('Expected publish to fail');
+                }
+                if (result.error.type !== 'partial') {
+                    assert.fail(`Expected partial failure, got ${result.error.type}`);
+                }
+                const failureMessages = result.error.failures.map(function (failure) {
+                    return failure.message;
+                });
+                assert.ok(
+                    failureMessages.some(function (message) {
+                        return message.includes('Package "pkg-a"') &&
+                            message.includes('./internal.js') &&
+                            message.includes('internal.d.ts');
+                    }),
+                    `Expected a missing declaration companion failure, got: ${failureMessages.join(' | ')}`
+                );
+                await assertPackageNotPublished('pkg-a', registryDetails);
+            })
+        );
+
+        test(
             'produces byte-identical SBOMs across two unchanged publish runs',
             checkWithRegistry(async function (registryDetails) {
                 const fixturePathValue = getFixturePath('multiple-packages-with-substitution');

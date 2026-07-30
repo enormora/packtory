@@ -25,6 +25,8 @@ export type CheckEvaluationDependencies = {
     readonly runChecks: CheckRunner;
 };
 
+type StaticCheckInputs = Pick<Parameters<CheckRunner>[0], 'bundles' | 'packageConfigs' | 'perPackageSettings'>;
+
 const checkManifestVersion = '0.0.0';
 
 export function createResolvedPackage(
@@ -83,15 +85,29 @@ function maybeBuildPublishedPackagesForChecks(
         : undefined;
 }
 
-export async function buildChecksResult(
+function checkPackageIssue(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+function tryBuildPublishedPackagesForChecks(
     dependencies: CheckEvaluationDependencies,
-    validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,
+    config: PacktoryConfigWithoutRegistry,
     resolvedPackages: readonly ResolvedPackage[]
-): Promise<Result<readonly ResolvedPackage[], CheckError>> {
-    const { packtoryConfig: config } = validated;
+): Result<ReadonlyMap<string, PublishedPackageWithManifest> | undefined, CheckError> {
+    try {
+        return Result.ok(maybeBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages));
+    } catch (error) {
+        return Result.err({ type: 'checks', issues: [ checkPackageIssue(error) ] });
+    }
+}
+
+function createStaticCheckInputs(
+    config: PacktoryConfigWithoutRegistry,
+    resolvedPackages: readonly ResolvedPackage[]
+): StaticCheckInputs {
     const perPackageSettings = new Map<string, (typeof config.packages)[number]['checks']>();
     const commonMainPackageJson = config.commonPackageSettings?.mainPackageJson;
-    const effectivePackageConfigs = mapToObj(config.packages, function (packageConfig) {
+    const packageConfigs = mapToObj(config.packages, function (packageConfig) {
         perPackageSettings.set(packageConfig.name, packageConfig.checks);
 
         return [
@@ -105,13 +121,27 @@ export async function buildChecksResult(
     const bundles = resolvedPackages.map(function (resolvedPackage) {
         return resolvedPackage.analyzedBundle;
     });
-    const publishedPackages = maybeBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages);
+
+    return { bundles, packageConfigs, perPackageSettings };
+}
+
+export async function buildChecksResult(
+    dependencies: CheckEvaluationDependencies,
+    validated: ConfigWithGraph<PacktoryConfigWithoutRegistry>,
+    resolvedPackages: readonly ResolvedPackage[]
+): Promise<Result<readonly ResolvedPackage[], CheckError>> {
+    const { packtoryConfig: config } = validated;
+    const checkInputs = createStaticCheckInputs(config, resolvedPackages);
+    const publishedPackagesResult = tryBuildPublishedPackagesForChecks(dependencies, config, resolvedPackages);
+    if (publishedPackagesResult.isErr) {
+        return Result.err(publishedPackagesResult.error);
+    }
     const checkIssues = await dependencies.runChecks({
         settings: config.checks ?? {},
-        perPackageSettings,
-        packageConfigs: effectivePackageConfigs,
-        bundles,
-        publishedPackages
+        perPackageSettings: checkInputs.perPackageSettings,
+        packageConfigs: checkInputs.packageConfigs,
+        bundles: checkInputs.bundles,
+        publishedPackages: publishedPackagesResult.value
     });
 
     if (checkIssues.length > 0) {
