@@ -1,9 +1,10 @@
+import { structuredPatch } from 'diff';
 import { isTextDiffablePath } from '../../common/code-files.ts';
 import { areFileDescriptionEqual } from '../../file-manager/equal.ts';
-import { fileDescriptionByPath } from '../../file-manager/file-description-by-path.ts';
 import type { FileDescription } from '../../file-manager/file-description.ts';
-import type { PreviewDiffHunk } from '../preview/preview-document-diff.ts';
-import { buildFileHunks } from './file-hunks.ts';
+import { toPreviewDiffHunk, type PreviewDiffHunk } from '../preview/preview-document-diff.ts';
+
+const diffContextLines = 3;
 
 export const modifiedFileContentChangeKind = {
     binary: 'binary',
@@ -78,6 +79,23 @@ export type PackageReleaseDiffStateView = Pick<PackageReleaseDiff, 'files' | 'st
 
 function sizeOf(content: string): number {
     return Buffer.byteLength(content);
+}
+
+function fileDescriptionByPath(files: readonly FileDescription[]): ReadonlyMap<string, FileDescription> {
+    const filesByPath = new Map<string, FileDescription>();
+
+    for (const file of files) {
+        filesByPath.set(file.filePath, file);
+    }
+
+    return filesByPath;
+}
+
+function buildFileHunks(path: string, previousContent: string, newContent: string): readonly PreviewDiffHunk[] {
+    const patch = structuredPatch(path, path, previousContent, newContent, undefined, undefined, {
+        context: diffContextLines
+    });
+    return patch.hunks.map(toPreviewDiffHunk);
 }
 
 function classifyContentChange(previous: FileDescription, current: FileDescription): ModifiedFileContentChange {
