@@ -55,10 +55,6 @@ export function installedPackageFilePath(packageName: string, relativeFilePath: 
     return path.posix.join(installedPackageFolderPath(packageName), relativeFilePath);
 }
 
-export function packageRelativeFilePath(packageName: string, installedFilePath: string): string {
-    return path.posix.relative(installedPackageFolderPath(packageName), installedFilePath);
-}
-
 export function isPackageManifestPath(filePath: string): boolean {
     return path.basename(filePath) === packageManifestFilePath;
 }

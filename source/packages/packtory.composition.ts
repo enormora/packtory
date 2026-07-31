@@ -4,12 +4,14 @@ import {
     problemAffectsResolutionKind,
     problemKindInfo
 } from '@arethetypeswrong/core/problems';
+import { RealFileSystemHost } from '@ts-morph/common';
 import { Project } from 'ts-morph';
 import { createCheckRunner, type CheckRunner } from '../checks/check-runner.ts';
 import { createAllRules } from '../checks/rules/registry.ts';
 import { createDeclarationIntegritySummarizer } from '../checks/rules/type-script-declaration-integrity.ts';
 import { createDeclarationProjectFactory } from '../checks/rules/type-script-declaration-project.ts';
 import { createPackageResolutionAnalyzer } from '../checks/rules/type-script-package-resolution.ts';
+import { createFileSystemAdapters } from '../dependency-scanner/typescript-file-host.ts';
 import { createPacktory, type Packtory } from '../packtory/packtory.ts';
 import { createScheduler } from '../packtory/scheduler.ts';
 import type { ProgressBroadcaster } from '../progress/progress-broadcaster.ts';
@@ -23,7 +25,8 @@ export type PacktoryComposition = {
     readonly progressBroadcaster: ProgressBroadcaster;
 };
 
-function buildCheckRunner(): CheckRunner {
+function buildCheckRunner(repositoryFolder: string): CheckRunner {
+    const fileSystemAdapters = createFileSystemAdapters({ fileSystemHost: new RealFileSystemHost() });
     const rules = createAllRules({
         analyzePackageResolution: createPackageResolutionAnalyzer({
             Package,
@@ -33,7 +36,11 @@ function buildCheckRunner(): CheckRunner {
             problemAffectsEntrypointResolution
         }),
         summarizeDeclarationIntegrity: createDeclarationIntegritySummarizer({
-            createDeclarationProjects: createDeclarationProjectFactory({ Project })
+            createDeclarationProjects: createDeclarationProjectFactory({
+                Project,
+                fileSystemHost: fileSystemAdapters.fileSystemHostWithoutFilter,
+                packageResolutionBaseFolder: repositoryFolder
+            })
         })
     });
 
@@ -56,7 +63,7 @@ export function buildPacktoryComposition(options: PackageProcessorCompositionOpt
             fileManager: parts.fileManager,
             repositoryFolder: parts.repositoryFolder,
             versionManager: parts.versionManager,
-            runChecks: buildCheckRunner(),
+            runChecks: buildCheckRunner(parts.repositoryFolder),
             packEmitter: parts.packEmitter,
             vendorMaterializer: parts.vendorMaterializer,
             readCurrentGitHead: parts.readCurrentGitHead,

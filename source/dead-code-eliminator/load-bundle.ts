@@ -77,9 +77,6 @@ function entryRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
         }
 
         paths.add(root.js.sourceFilePath);
-        if (root.declarationFile !== undefined) {
-            paths.add(root.declarationFile.sourceFilePath);
-        }
     }
     return paths;
 }

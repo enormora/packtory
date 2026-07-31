@@ -10,8 +10,7 @@ import {
     isPackageManifestPath,
     packageManifestAbsolutePathIn,
     packageManifestFilePath,
-    packageManifestPathIn,
-    packageRelativeFilePath
+    packageManifestPathIn
 } from './package-layout.ts';
 
 suite('package-layout', function () {
@@ -44,24 +43,6 @@ suite('package-layout', function () {
             assert.strictEqual(
                 installedPackageFilePath('@scope/shared', 'package.json'),
                 '/node_modules/@scope/shared/package.json'
-            );
-        });
-
-        test('packageRelativeFilePath() strips the installed package folder again', function () {
-            assert.strictEqual(
-                packageRelativeFilePath('shared', '/node_modules/shared/dist/index.d.ts'),
-                'dist/index.d.ts'
-            );
-            assert.strictEqual(
-                packageRelativeFilePath('@scope/shared', '/node_modules/@scope/shared/package.json'),
-                'package.json'
-            );
-        });
-
-        test('packageRelativeFilePath() keeps files outside the installed package folder recognizable', function () {
-            assert.strictEqual(
-                packageRelativeFilePath('shared', '/node_modules/typescript/lib/lib.es5.d.ts'),
-                '../typescript/lib/lib.es5.d.ts'
             );
         });
     });
