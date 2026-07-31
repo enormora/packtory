@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, stub, type SinonSpy, type SinonStub } from 'sinon';
-import { ModuleKind, ModuleResolutionKind, ScriptTarget } from 'ts-morph';
+import { ModuleKind, ModuleResolutionKind, ScriptKind, ScriptTarget } from 'ts-morph';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import {
     createDeclarationProjectFactory,
@@ -32,7 +32,12 @@ type FakeSourceFile = {
 };
 
 function createFakeSourceFile(overrides: FakeSourceFileOverrides = {}): FakeSourceFile {
-    const { filePath = '/node_modules/pkg/index.d.ts', imports = [], exports = [], line = 1 } = overrides;
+    const {
+        filePath = '/workspace/.packtory-type-integrity/node_modules/pkg/index.d.ts',
+        imports = [],
+        exports = [],
+        line = 1
+    } = overrides;
     return {
         getFilePath: fake.returns(filePath),
         getImportDeclarations: fake.returns(imports),
@@ -84,7 +89,12 @@ function declarationProjectsFor(
     projectConstructor: SinonStub,
     packageFiles: readonly { readonly filePath: string; readonly content: string; }[] = []
 ): readonly DeclarationProject[] {
-    const fakeDependencies = { Project: projectConstructor } as unknown as DeclarationProjectDependencies;
+    const fileSystemHost = {};
+    const fakeDependencies = {
+        Project: projectConstructor,
+        fileSystemHost,
+        packageResolutionBaseFolder: '/workspace'
+    } as unknown as DeclarationProjectDependencies;
     return createDeclarationProjectFactory(fakeDependencies)('pkg', packageFiles);
 }
 
@@ -104,7 +114,7 @@ const commonCompilerOptions = {
 };
 
 suite('type-script-declaration-project', function () {
-    test('creates one in-memory project per checked compiler mode', function () {
+    test('creates one project per checked compiler mode', function () {
         const TSMorphProject = createFakeProjectConstructor();
 
         const projects = declarationProjectsFor(TSMorphProject);
@@ -120,11 +130,12 @@ suite('type-script-declaration-project', function () {
             firstCall: {
                 args: [
                     {
-                        useInMemoryFileSystem: true,
+                        fileSystem: {},
                         skipAddingFilesFromTsConfig: true,
                         compilerOptions: {
                             module: ModuleKind.Node16,
                             moduleResolution: ModuleResolutionKind.Node16,
+                            resolveJsonModule: true,
                             ...commonCompilerOptions
                         }
                     }
@@ -133,11 +144,12 @@ suite('type-script-declaration-project', function () {
             secondCall: {
                 args: [
                     {
-                        useInMemoryFileSystem: true,
+                        fileSystem: {},
                         skipAddingFilesFromTsConfig: true,
                         compilerOptions: {
                             module: ModuleKind.ESNext,
                             moduleResolution: ModuleResolutionKind.Bundler,
+                            resolveJsonModule: true,
                             ...commonCompilerOptions
                         }
                     }
@@ -156,10 +168,24 @@ suite('type-script-declaration-project', function () {
         ]);
 
         assert.deepStrictEqual(createSourceFile.args, [
-            [ '/node_modules/pkg/package.json', '{}' ],
-            [ '/node_modules/pkg/nested/index.d.ts', 'export declare const value: number;' ],
-            [ '/node_modules/pkg/package.json', '{}' ],
-            [ '/node_modules/pkg/nested/index.d.ts', 'export declare const value: number;' ]
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/package.json',
+                '{}',
+                { scriptKind: ScriptKind.JSON }
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/nested/index.d.ts',
+                'export declare const value: number;'
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/package.json',
+                '{}',
+                { scriptKind: ScriptKind.JSON }
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/nested/index.d.ts',
+                'export declare const value: number;'
+            ]
         ]);
     });
 
@@ -174,13 +200,18 @@ suite('type-script-declaration-project', function () {
         const specifiers = firstProject(declarationProjectsFor(TSMorphProject)).moduleSpecifiersOf('nested/index.d.ts');
 
         assert.deepStrictEqual(specifiers, [ './leaf.js', './other.js' ]);
-        assert.deepStrictEqual(getSourceFileOrThrow.args, [ [ '/node_modules/pkg/nested/index.d.ts' ] ]);
+        assert.deepStrictEqual(getSourceFileOrThrow.args, [
+            [ '/workspace/.packtory-type-integrity/node_modules/pkg/nested/index.d.ts' ]
+        ]);
     });
 
     test('listDiagnostics() reports package-relative paths, lines, codes and messages', function () {
         const getPreEmitDiagnostics = fake.returns([
             createFakeDiagnostic({
-                sourceFile: createFakeSourceFile({ filePath: '/node_modules/pkg/nested/index.d.ts', line: 7 }),
+                sourceFile: createFakeSourceFile({
+                    filePath: '/workspace/.packtory-type-integrity/node_modules/pkg/nested/index.d.ts',
+                    line: 7
+                }),
                 start: 42,
                 code: 2305,
                 messageText: 'Module has no exported member'

@@ -1,15 +1,22 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { RealFileSystemHost } from '@ts-morph/common';
 import { Project } from 'ts-morph';
 import {
     createDeclarationIntegritySummarizer,
     type DeclarationMode
 } from '../../source/checks/rules/type-script-declaration-integrity.ts';
 import { createDeclarationProjectFactory } from '../../source/checks/rules/type-script-declaration-project.ts';
+import { createFileSystemAdapters } from '../../source/dependency-scanner/typescript-file-host.ts';
 import { manifest, publishedPackage } from './published-package-fixtures.ts';
 
+const fileSystemAdapters = createFileSystemAdapters({ fileSystemHost: new RealFileSystemHost() });
 const summarizeDeclarationIntegrity = createDeclarationIntegritySummarizer({
-    createDeclarationProjects: createDeclarationProjectFactory({ Project })
+    createDeclarationProjects: createDeclarationProjectFactory({
+        Project,
+        fileSystemHost: fileSystemAdapters.fileSystemHostWithoutFilter,
+        packageResolutionBaseFolder: process.cwd()
+    })
 });
 
 function checkDeclarations(
@@ -211,5 +218,25 @@ suite('declaration integrity against the real TypeScript compiler', function () 
             ]
                 .join('\n')
         ]);
+    });
+
+    test('resolves installed dependency declarations imported by shipped declarations', function () {
+        const issues = checkDeclarations(
+            'external-types',
+            {
+                types: './index.d.ts',
+                dependencies: { 'type-fest': '5.8.0' }
+            },
+            {
+                'index.d.ts': [
+                    'import type { PackageJson } from "type-fest";',
+                    'export type Manifest = PackageJson;'
+                ]
+                    .join('\n')
+            },
+            'all'
+        );
+
+        assert.deepStrictEqual(issues, []);
     });
 });

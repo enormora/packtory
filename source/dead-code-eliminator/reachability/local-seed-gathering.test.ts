@@ -61,6 +61,17 @@ suite('local-seed-gathering', function () {
         assert.strictEqual(seeds.has('/lib.ts::foo'), false);
     });
 
+    test('gatherLocalSeeds adds exported bindings from declaration files outside entry points', function () {
+        const seeds = gatherSeedsForSingleBinding(
+            'export declare const foo: string;',
+            '/private.d.ts',
+            new Set([ '/index.ts' ]),
+            true
+        );
+
+        assert.strictEqual(seeds.has('/private.d.ts::foo'), true);
+    });
+
     test('gatherLocalSeeds ignores non-exported bindings of entry-point files', function () {
         const seeds = gatherSeedsForSingleBinding('const foo = 1;', '/index.ts', new Set([ '/index.ts' ]), false);
 

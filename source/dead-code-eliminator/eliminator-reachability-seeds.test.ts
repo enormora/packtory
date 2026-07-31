@@ -42,7 +42,7 @@ suite('eliminator reachability seeds', function () {
             assert.strictEqual(emittedMap.fileDescription.content, validMapContent);
         });
 
-        test('eliminate honours a root declaration file when seeding reachability', async function () {
+        test('eliminate keeps exported bindings from retained declaration files', async function () {
             const eliminator = createTestEliminator();
             const declarationContent = 'export type Public = number;\nexport type Private = string;';
             const declarationFile = {
@@ -194,6 +194,50 @@ suite('eliminator reachability seeds', function () {
             assertDefined(runtimeHelper);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('used'), true);
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('unused'), false);
+        });
+
+        test('eliminate keeps type exports imported by retained declaration files', async function () {
+            const eliminator = createTestEliminator();
+            const entryResource = {
+                ...bundleResource('/src/index.js', { content: 'export const live = 1;\n', targetFilePath: 'index.js' }),
+                isSubstituted: false
+            };
+            const privateDeclarationResource = {
+                ...bundleResource('/src/private.d.ts', {
+                    content: 'import type { Imported } from "./types.js";\nexport type Private = Imported;\n',
+                    targetFilePath: 'private.d.ts'
+                }),
+                isSubstituted: false
+            };
+            const typesDeclarationResource = {
+                ...bundleResource('/src/types.d.ts', {
+                    content: 'export type Imported = string;\nexport type Other = number;\n',
+                    targetFilePath: 'types.d.ts'
+                }),
+                isSubstituted: false
+            };
+            const bundle = linkedBundle({
+                name: 'pkg',
+                contents: [ entryResource, privateDeclarationResource, typesDeclarationResource ],
+                roots: {
+                    main: {
+                        js: {
+                            content: '',
+                            isExecutable: false,
+                            sourceFilePath: '/src/index.js',
+                            targetFilePath: 'index.js'
+                        }
+                    }
+                },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+            });
+            const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
+            const emittedTypes = analyzed?.contents.find(function (resource) {
+                return resource.fileDescription.sourceFilePath === '/src/types.d.ts';
+            });
+            assertDefined(emittedTypes);
+            assert.strictEqual(emittedTypes.fileDescription.content.includes('Imported'), true);
+            assert.deepStrictEqual(emittedTypes.analysis.survivingBindings, new Set([ 'Imported', 'Other' ]));
         });
 
         test('eliminate drops a producer binding whose only consumer-side reference is in unreachable code', async function () {
