@@ -152,4 +152,111 @@ suite('packtory-changelog dependency updates', function () {
 
         assert.strictEqual(changelog.groupedMarkdown, reactDependencyMarkdown);
     });
+
+    test('renders dependency updates for substantive package changes', async function () {
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves([
+                { id: 1, title: 'Add feature' },
+                { id: 2, title: 'Update React to v19' }
+            ]),
+            filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Add feature' } ]),
+            readPullRequestChangedFiles: fake.resolves(
+                new Map([
+                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
+                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ]
+                ])
+            ),
+            resolvePullRequestLabels: fake(async function (options: ResolvePullRequestLabelsOptions) {
+                return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {
+                    return {
+                        ...pullRequest,
+                        label: pullRequest.id === 2 ? 'upgrade' : 'bug'
+                    };
+                });
+            })
+        });
+
+        const changelog = await generate(
+            [
+                releasePackage({
+                    releaseClassification: 'substantive',
+                    changelogDependencyNames: [ '@scope/pkg', 'react' ],
+                    changelogDependencyUpdates: [
+                        { name: '@scope/pkg', version: '1.2.3' },
+                        { name: 'react', version: '19.0.0' }
+                    ]
+                })
+            ],
+            engine
+        );
+
+        assert.strictEqual(
+            changelog.groupedMarkdown,
+            [
+                '* Add feature ([#1](https://github.com/owner/repo/pull/1))',
+                '* Update @scope/pkg to 1.2.3',
+                '* Update React to v19 ([#2](https://github.com/owner/repo/pull/2))'
+            ]
+                .join('\n')
+        );
+    });
+
+    test('keeps manifest dependency pull requests without current dependency versions', async function () {
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves([
+                { id: 1, title: 'Add feature' },
+                { id: 2, title: 'Remove React' }
+            ]),
+            filterPullRequestsByTargetFiles: fake.returns([ { id: 1, title: 'Add feature' } ]),
+            readPullRequestChangedFiles: fake.resolves(
+                new Map([
+                    [ 1, [ pullRequestChangedFileFactory.build({ path: 'source/pkg-a.ts' }) ] ],
+                    [ 2, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ]
+                ])
+            )
+        });
+
+        const changelog = await generate(
+            [
+                releasePackage({
+                    releaseClassification: 'substantive',
+                    changelogDependencyNames: [ 'react' ],
+                    changelogDependencyUpdates: []
+                })
+            ],
+            engine
+        );
+
+        assert.strictEqual(
+            changelog.groupedMarkdown,
+            [
+                '* Add feature ([#1](https://github.com/owner/repo/pull/1))',
+                '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
+            ]
+                .join('\n')
+        );
+    });
+
+    test('renders substantive dependency updates without attributed pull requests', async function () {
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves([]),
+            filterPullRequestsByTargetFiles: fake.returns([]),
+            readPullRequestChangedFiles: fake.resolves(new Map()),
+            resolvePullRequestLabels: fake.resolves([])
+        });
+
+        const changelog = await generate(
+            [
+                releasePackage({
+                    releaseClassification: 'substantive'
+                })
+            ],
+            engine
+        );
+
+        assert.partialDeepStrictEqual(changelog, {
+            groupedMarkdown: '* Update @scope/pkg to 1.2.3',
+            packageNamesWithoutChangelogEntries: []
+        });
+    });
 });
