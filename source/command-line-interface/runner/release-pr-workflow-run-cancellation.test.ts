@@ -28,13 +28,20 @@ suite('release-pr-workflow-run-cancellation', function () {
                             workflow_runs: [
                                 { database_id: 21, event: 'workflow_dispatch', status: 'in_progress' },
                                 { database_id: 22, event: 'workflow_dispatch', status: 'pending' },
-                                { database_id: 23, event: 'workflow_dispatch', status: 'completed' },
-                                { database_id: 24, event: 'pull_request', status: 'waiting' }
+                                { database_id: 23, event: 'workflow_dispatch', status: 'queued' },
+                                { database_id: 24, event: 'workflow_dispatch', status: 'requested' },
+                                { database_id: 25, event: 'workflow_dispatch', status: 'waiting' },
+                                { event: 'workflow_dispatch', status: 'waiting' },
+                                { database_id: 26, event: 'workflow_dispatch', status: 'completed' },
+                                { database_id: 27, event: 'pull_request', status: 'waiting' }
                             ]
                         });
                     } ],
                     [ routeKey('POST', '/repos/owner/repo/actions/runs/21/cancel'), emptyResponse ],
-                    [ routeKey('POST', '/repos/owner/repo/actions/runs/22/cancel'), emptyResponse ]
+                    [ routeKey('POST', '/repos/owner/repo/actions/runs/22/cancel'), emptyResponse ],
+                    [ routeKey('POST', '/repos/owner/repo/actions/runs/23/cancel'), emptyResponse ],
+                    [ routeKey('POST', '/repos/owner/repo/actions/runs/24/cancel'), emptyResponse ],
+                    [ routeKey('POST', '/repos/owner/repo/actions/runs/25/cancel'), emptyResponse ]
                 ])
             )
         );
@@ -54,7 +61,10 @@ suite('release-pr-workflow-run-cancellation', function () {
                 }),
             [
                 '/repos/owner/repo/actions/runs/21/cancel',
-                '/repos/owner/repo/actions/runs/22/cancel'
+                '/repos/owner/repo/actions/runs/22/cancel',
+                '/repos/owner/repo/actions/runs/23/cancel',
+                '/repos/owner/repo/actions/runs/24/cancel',
+                '/repos/owner/repo/actions/runs/25/cancel'
             ]
         );
         assert.ok(records.some(function (record) {
