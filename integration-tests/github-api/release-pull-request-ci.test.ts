@@ -26,6 +26,7 @@ const repositoryWorkflowRunsPath = '/repos/owner/repo/actions/runs';
 const dispatchPath = '/repos/owner/repo/actions/workflows/101/dispatches';
 const runPath = '/repos/owner/repo/actions/runs/8';
 const jobsPath = '/repos/owner/repo/actions/runs/8/jobs';
+const staleRunCancelPath = '/repos/owner/repo/actions/runs/7/cancel';
 
 type StatusRequestBody = {
     readonly context: string;
@@ -73,6 +74,7 @@ function workflowRunsBody(requests: readonly DeterministicGitHubApiRequest[]): R
         database_id: 7,
         event: 'workflow_dispatch',
         head_sha: 'release-head',
+        status: 'in_progress',
         workflow_id: 101
     };
     if (workflowRunsAfterDispatch(requests) < 2) {
@@ -129,6 +131,15 @@ function dispatchRoute(): DeterministicGitHubApiScenario['restRoutes'][number] {
         path: dispatchPath,
         search: '',
         response: { status: noContentStatus, body: {} }
+    };
+}
+
+function cancelStaleRunRoute(): DeterministicGitHubApiScenario['restRoutes'][number] {
+    return {
+        method: 'POST',
+        path: staleRunCancelPath,
+        search: '',
+        response: { status: acceptedStatus, body: {} }
     };
 }
 
@@ -236,6 +247,7 @@ const releaseCiScenario: DeterministicGitHubApiScenario = {
                 return { status: okStatus, body: workflowRunsBody(requests) };
             }
         },
+        cancelStaleRunRoute(),
         dispatchRoute(),
         {
             method: 'GET',
@@ -359,8 +371,9 @@ suite('release-pull-request-ci GitHub API integration', function () {
         withDeterministicGitHubApiServer(releaseCiScenario, async function (server) {
             assert.strictEqual(await runReleaseCi(server, [ 'Node.js v24.x', 'Mutation testing' ]), true);
 
+            assert.strictEqual(countRequests(server.requests(), 'POST', staleRunCancelPath), 1);
             assert.strictEqual(countRequests(server.requests(), 'POST', dispatchPath), 1);
-            assert.strictEqual(countRequests(server.requests(), 'GET', workflowRunsPath), 3);
+            assert.strictEqual(countRequests(server.requests(), 'GET', workflowRunsPath), 4);
             assert.deepStrictEqual(
                 statusesFor(server.requests(), 'Node.js v24.x').map(function (status) {
                     return {

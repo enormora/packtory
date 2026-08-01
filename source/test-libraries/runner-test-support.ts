@@ -101,6 +101,7 @@ function createReleasePullRequestClientFixture(
 ): ReleasePullRequestGitHubClientFixture {
     let workflowRunLookupCount = 0;
     return {
+        cancelActiveDispatchedWorkflowRuns: fake.resolves(undefined),
         closeOpenReleasePullRequests: fake.resolves(undefined),
         createCommitOnBranch: fake.resolves('signed-release-head'),
         createOrUpdateReleasePullRequest: fake.resolves(1),
