@@ -305,6 +305,10 @@ async function createFailedWorkflowStatuses(input: FailedWorkflowStatusesInput):
 
 async function dispatchWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
     await createPendingWorkflowStatuses(input);
+    await input.client.cancelActiveDispatchedWorkflowRuns({
+        branch: input.config.branch,
+        workflowFile: input.ciConfig.workflowFile
+    });
     const baseline = await findDispatchedWorkflowRun(input);
     await input.client.dispatchWorkflow({
         ref: input.config.branch,

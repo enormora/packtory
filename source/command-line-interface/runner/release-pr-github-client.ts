@@ -12,13 +12,16 @@ import { createReleasePullRequestCommitClient, type CreateCommitOnBranchInput } 
 import {
     findWorkflowRunIdInRuns,
     observedWorkflowRunIds,
-    readWorkflowRunId,
     selectReleaseWorkflow,
     workflowMatchesIdentifier,
     type ReleaseWorkflow,
     type ReleaseWorkflowRun,
     type WorkflowRunLookupResult
 } from './release-pr-workflow-runs.ts';
+import {
+    cancelActiveDispatchedWorkflowRuns,
+    deleteActionRequiredPullRequestRuns
+} from './release-pr-workflow-run-cancellation.ts';
 
 export type PullRequestDetails = {
     readonly author: string;
@@ -80,6 +83,10 @@ type CreateStatusInput = {
     readonly state: 'error' | 'failure' | 'pending' | 'success';
     readonly targetUrl: string | undefined;
 };
+type CancelActiveDispatchedWorkflowRunsInput = {
+    readonly branch: string;
+    readonly workflowFile: string;
+};
 type DeleteActionRequiredPullRequestRunsInput = {
     readonly branch: string;
     readonly headSha: string;
@@ -98,6 +105,7 @@ type ReleasePullRequestUpdateInput = {
     readonly title: string;
 };
 export type ReleasePullRequestGitHubClient = {
+    readonly cancelActiveDispatchedWorkflowRuns: (input: CancelActiveDispatchedWorkflowRunsInput) => Promise<void>;
     readonly closeOpenReleasePullRequests: (input: CloseOpenReleasePullRequestsInput) => Promise<void>;
     readonly createCommitOnBranch: (input: CreateCommitOnBranchInput) => Promise<string>;
     readonly createOrUpdateReleasePullRequest: (input: CreateOrUpdateReleasePullRequestInput) => Promise<number>;
@@ -161,8 +169,6 @@ type GitHubRestClientConstructor = ReturnType<
 >;
 type GitHubRestClientInstance = InstanceType<GitHubRestClientConstructor>;
 
-const approvalWaitingWorkflowRunStatuses: ReadonlySet<string | null> = new Set([ 'pending', 'requested', 'waiting' ]);
-
 function labelNames(labels: readonly RawLabel[]): readonly string[] {
     return labels
         .map(function (label) {
@@ -195,20 +201,6 @@ function createGitHubRestClient(
             headers: requestContext.headers
         }
     });
-}
-
-function releasePullRequestRunNeedsApproval(
-    run: RawWorkflowRun,
-    input: DeleteActionRequiredPullRequestRunsInput
-): boolean {
-    return (
-        run.event === 'pull_request' &&
-        run.head_sha === input.headSha &&
-        (
-            run.conclusion === 'action_required' ||
-            approvalWaitingWorkflowRunStatuses.has(run.status)
-        )
-    );
 }
 
 export function createReleasePullRequestGitHubClient(context: GitHubClientContext): ReleasePullRequestGitHubClient {
@@ -310,6 +302,17 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
     }
 
     return {
+        async cancelActiveDispatchedWorkflowRuns(input) {
+            const workflow = await resolveRawWorkflow(input.workflowFile);
+            await cancelActiveDispatchedWorkflowRuns({
+                branch: input.branch,
+                cancelWorkflowRun: octokit.rest.actions.cancelWorkflowRun,
+                listWorkflowRuns: octokit.rest.actions.listWorkflowRuns,
+                requestContext,
+                workflow
+            });
+        },
+
         async closeOpenReleasePullRequests(input) {
             const pullRequests = await resolveGitHubResponse(
                 octokit.rest.pulls.list({
@@ -372,25 +375,13 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         },
 
         async deleteActionRequiredPullRequestRuns(input) {
-            const response = await resolveGitHubResponse(
-                octokit.rest.actions.listWorkflowRunsForRepo({
-                    ...requestContext,
-                    branch: input.branch,
-                    event: 'pull_request',
-                    per_page: 100
-                })
-            );
-            const blockedRuns = (response.data.workflow_runs as readonly RawWorkflowRun[]).filter(function (run) {
-                return releasePullRequestRunNeedsApproval(run, input);
+            await deleteActionRequiredPullRequestRuns({
+                branch: input.branch,
+                deleteWorkflowRun: octokit.rest.actions.deleteWorkflowRun,
+                headSha: input.headSha,
+                listWorkflowRunsForRepo: octokit.rest.actions.listWorkflowRunsForRepo,
+                requestContext
             });
-            const blockedRunIds = blockedRuns
-                .map(readWorkflowRunId)
-                .filter(isDefined);
-            for (const runId of blockedRunIds) {
-                await resolveGitHubResponse(
-                    octokit.rest.actions.deleteWorkflowRun({ ...requestContext, run_id: runId })
-                );
-            }
         },
 
         async deleteBranch(branch) {
