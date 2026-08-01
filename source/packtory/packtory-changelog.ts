@@ -17,6 +17,7 @@ type ChangelogTarget = {
     readonly manifestDependencyPullRequests: readonly PullRequestWithLabel[];
     readonly pullRequests: readonly PullRequestWithLabel[];
 };
+type ChangelogDependencyUpdate = ReleasePlanPackage['changelogDependencyUpdates'][number];
 
 type CollectedPullRequests = {
     readonly manifestDependencyPullRequests: readonly PullRequestWithLabel[];
@@ -40,16 +41,20 @@ function dependencyUpdateLabel(): string {
     return 'upgrade';
 }
 
+function dependencyUpdateTitleFor(update: ChangelogDependencyUpdate | undefined): string {
+    if (update === undefined) {
+        throw new Error('Expected a dependency update');
+    }
+    return `Update ${update.name} to ${update.version}`;
+}
+
 function dependencyUpdateTitle(packagePlan: ReleasePlanPackage): string {
     if (packagePlan.changelogDependencyUpdates.length !== 1) {
         return 'Update dependencies';
     }
 
     const update = packagePlan.changelogDependencyUpdates[0];
-    if (update === undefined) {
-        throw new Error('Expected a dependency update');
-    }
-    return `Update ${update.name} to ${update.version}`;
+    return dependencyUpdateTitleFor(update);
 }
 
 function syntheticDependencyPullRequestId(): 0 {
@@ -144,7 +149,7 @@ function selectManifestDependencyPullRequests(
     });
 }
 
-function mergePullRequests(pullRequests: readonly PullRequest[]): readonly PullRequest[] {
+function mergePullRequests<T extends PullRequest>(pullRequests: readonly T[]): readonly T[] {
     const pullRequestsById = new Map(
         pullRequests.map(function (pullRequest) {
             return [ pullRequest.id, pullRequest ] as const;
@@ -249,20 +254,50 @@ function isDependencyOnlyTarget(target: ChangelogTarget): boolean {
     return target.packagePlan.releaseClassification === releaseAnalysisClassification.dependencyOnly;
 }
 
-function isSubstitutionOnlyDependencyTarget(target: ChangelogTarget): boolean {
-    return (
-        isDependencyOnlyTarget(target) &&
-        target.packagePlan.changelogDependencyUpdates.length > 0 &&
-        target.manifestDependencyPullRequests.length === 0
+function syntheticDependencyPullRequestFor(update: ChangelogDependencyUpdate | undefined): PullRequestWithLabel {
+    return {
+        id: syntheticDependencyPullRequestId(),
+        title: dependencyUpdateTitleFor(update),
+        label: dependencyUpdateLabel()
+    };
+}
+
+function manifestPullRequestsForUpdate(
+    target: ChangelogTarget,
+    update: ChangelogDependencyUpdate
+): readonly PullRequestWithLabel[] {
+    return target.manifestDependencyPullRequests.filter(function (pullRequest) {
+        return pullRequestTitleMentionsDependency(pullRequest, update.name);
+    });
+}
+
+function dependencyUpdatePullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
+    return mergePullRequests(
+        target.packagePlan.changelogDependencyUpdates.flatMap(function (update) {
+            const manifestPullRequests = manifestPullRequestsForUpdate(target, update);
+            return manifestPullRequests.length > 0
+                ? manifestPullRequests
+                : [ syntheticDependencyPullRequestFor(update) ];
+        })
     );
 }
 
-function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
-    if (!isDependencyOnlyTarget(target)) {
-        return target.pullRequests;
-    }
+function nonManifestPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
+    const manifestPullRequestIds = new Set(
+        target.manifestDependencyPullRequests.map(function (pullRequest) {
+            return pullRequest.id;
+        })
+    );
+    return target.pullRequests.filter(function (pullRequest) {
+        return !manifestPullRequestIds.has(pullRequest.id);
+    });
+}
 
-    if (isSubstitutionOnlyDependencyTarget(target)) {
+function dependencyOnlyChangelogPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
+    if (
+        target.packagePlan.changelogDependencyUpdates.length > 0 &&
+        target.manifestDependencyPullRequests.length === 0
+    ) {
         return [
             {
                 id: syntheticDependencyPullRequestId(),
@@ -276,8 +311,24 @@ function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequest
         ? target.manifestDependencyPullRequests
         : target.pullRequests;
     return pullRequests.map(function (pullRequest) {
-        return { ...pullRequest, title: dependencyUpdateTitle(target.packagePlan), label: dependencyUpdateLabel() };
+        return {
+            ...pullRequest,
+            title: dependencyUpdateTitle(target.packagePlan),
+            label: dependencyUpdateLabel()
+        };
     });
+}
+
+function changelogPullRequestsFor(target: ChangelogTarget): readonly PullRequestWithLabel[] {
+    if (isDependencyOnlyTarget(target)) {
+        return dependencyOnlyChangelogPullRequestsFor(target);
+    }
+
+    if (target.packagePlan.changelogDependencyUpdates.length === 0) {
+        return target.pullRequests;
+    }
+
+    return [ ...nonManifestPullRequestsFor(target), ...dependencyUpdatePullRequestsFor(target) ];
 }
 
 function prLogConfigForRendering(config: PrLogConfig): PrLogConfig {
@@ -300,7 +351,7 @@ function createTargetSection(target: ChangelogTarget): TargetChangelogSection {
 }
 
 function hasChangelogEntries(target: ChangelogTarget): boolean {
-    return target.pullRequests.length > 0 || isSubstitutionOnlyDependencyTarget(target);
+    return target.pullRequests.length > 0 || target.packagePlan.changelogDependencyUpdates.length > 0;
 }
 
 function removeSyntheticDependencyPullRequestLinks(markdown: string, githubRepo: string): string {
