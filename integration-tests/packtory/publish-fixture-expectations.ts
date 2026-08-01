@@ -11,6 +11,9 @@ export const expectedFirstPackageVersion = {
                         import: './entry1.js',
                         types: './entry1.d.ts'
                     },
+                    './foo.d.ts': {
+                        types: './foo.d.ts'
+                    },
                     './qux.js': {
                         import: './qux.js',
                         types: './qux.d.ts'

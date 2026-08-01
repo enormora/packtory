@@ -179,7 +179,7 @@ suite('type-script-integrity', function () {
         });
 
         assert.deepStrictEqual(summarizeDeclarationIntegrity.args, [
-            [ 'pkg', publishedPackages.get('pkg'), 'all' ]
+            [ 'pkg', publishedPackages.get('pkg'), 'all', publishedPackages ]
         ]);
     });
 
@@ -195,7 +195,7 @@ suite('type-script-integrity', function () {
         });
 
         assert.deepStrictEqual(summarizeDeclarationIntegrity.args, [
-            [ 'pkg', publishedPackages.get('pkg'), 'exports-graph' ]
+            [ 'pkg', publishedPackages.get('pkg'), 'exports-graph', publishedPackages ]
         ]);
     });
 
@@ -218,17 +218,33 @@ suite('type-script-integrity', function () {
         ]);
     });
 
-    test('throws when the rule is enabled but a bundle has no emitted package', async function () {
-        await assert.rejects(
-            async function () {
-                await runRule({
-                    rule: ruleFor(),
-                    settings: { typeScriptIntegrity: { enabled: true } },
-                    publishedPackages: undefined,
-                    bundleNames: [ 'pkg' ]
-                });
-            },
-            /Published package missing for "pkg"/u
-        );
+    suite('published packages', function () {
+        test('throws when the rule is enabled but no emitted packages are present', async function () {
+            await assert.rejects(
+                async function () {
+                    await runRule({
+                        rule: ruleFor(),
+                        settings: { typeScriptIntegrity: { enabled: true } },
+                        publishedPackages: undefined,
+                        bundleNames: [ 'pkg' ]
+                    });
+                },
+                /Published packages missing for TypeScript integrity/u
+            );
+        });
+
+        test('throws when one checked bundle has no emitted package', async function () {
+            await assert.rejects(
+                async function () {
+                    await runRule({
+                        rule: ruleFor(),
+                        settings: { typeScriptIntegrity: { enabled: true } },
+                        publishedPackages: publishedPackagesFor('pkg-a'),
+                        bundleNames: [ 'pkg-a', 'pkg-b' ]
+                    });
+                },
+                /Published package missing for "pkg-b"/u
+            );
+        });
     });
 });

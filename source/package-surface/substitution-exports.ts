@@ -75,17 +75,6 @@ function findBundleContent(
     return content;
 }
 
-function declarationCompanionTargetPaths(
-    targetFilePath: string
-): readonly string[] | null | undefined {
-    if (isDeclarationCompanionFilePath(targetFilePath)) {
-        return null;
-    }
-
-    const candidates = declarationCompanionCandidates(targetFilePath);
-    return candidates.length === 0 ? undefined : candidates;
-}
-
 function findDeclarationCompanionTargetPath(
     targetFilePaths: ReadonlySet<string>,
     candidatePaths: readonly string[]
@@ -130,12 +119,9 @@ function declarationTargetFilePathFor(
     bundleName: string,
     lookups: SubstitutionBundleLookups,
     jsTargetFilePath: string
-): string | null | undefined {
-    const declarationCandidates = declarationCompanionTargetPaths(jsTargetFilePath);
-    if (declarationCandidates === null) {
-        return null;
-    }
-    if (declarationCandidates === undefined) {
+): string | undefined {
+    const declarationCandidates = declarationCompanionCandidates(jsTargetFilePath);
+    if (declarationCandidates.length === 0) {
         return undefined;
     }
 
@@ -153,10 +139,13 @@ function buildSubstitutionExportEntry(
 
     const content = findBundleContent(bundleName, lookups.contentBySourceFilePath, sourceFilePath);
     const jsTargetFilePath = content.fileDescription.targetFilePath;
-    const declarationTargetFilePath = declarationTargetFilePathFor(bundleName, lookups, jsTargetFilePath);
-    if (declarationTargetFilePath === null) {
-        return undefined;
+    if (isDeclarationCompanionFilePath(jsTargetFilePath)) {
+        return [
+            `./${jsTargetFilePath}`,
+            { types: toImportTarget(jsTargetFilePath) }
+        ];
     }
+    const declarationTargetFilePath = declarationTargetFilePathFor(bundleName, lookups, jsTargetFilePath);
     return [
         `./${jsTargetFilePath}`,
         pickBy(

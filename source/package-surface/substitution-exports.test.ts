@@ -230,7 +230,7 @@ suite('substitution-exports', function () {
             assert.deepStrictEqual(result['./data.json'], { import: './data.json' });
         });
 
-        test('omits a substitution whose target is a .d.ts declaration', function () {
+        test('exposes a substitution whose target is a .d.ts declaration as types-only', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
@@ -240,10 +240,10 @@ suite('substitution-exports', function () {
                 new Set([ '/src/types.d.ts' ])
             );
 
-            assert.deepStrictEqual(result, {});
+            assert.deepStrictEqual(result['./types.d.ts'], { types: './types.d.ts' });
         });
 
-        test('omits a substitution whose target is a .d.mts declaration', function () {
+        test('exposes a substitution whose target is a .d.mts declaration as types-only', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
@@ -253,10 +253,10 @@ suite('substitution-exports', function () {
                 new Set([ '/src/types.d.mts' ])
             );
 
-            assert.deepStrictEqual(result, {});
+            assert.deepStrictEqual(result['./types.d.mts'], { types: './types.d.mts' });
         });
 
-        test('omits a substitution whose target is a .d.cts declaration', function () {
+        test('exposes a substitution whose target is a .d.cts declaration as types-only', function () {
             const result = collectSubstitutionExports(
                 {
                     name: 'package-a',
@@ -266,7 +266,7 @@ suite('substitution-exports', function () {
                 new Set([ '/src/types.d.cts' ])
             );
 
-            assert.deepStrictEqual(result, {});
+            assert.deepStrictEqual(result['./types.d.cts'], { types: './types.d.cts' });
         });
 
         test('skips a substitution path that matches one root js source path among multiple roots', function () {

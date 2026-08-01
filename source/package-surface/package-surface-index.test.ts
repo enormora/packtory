@@ -177,6 +177,23 @@ suite('package-surface-index', function () {
             assertImplicitDuplicateMappings(index);
         });
 
+        test('indexPublicModules maps declaration companions to their JavaScript package specifier', function () {
+            const index = indexPublicModules({
+                name: 'package-a',
+                roots: { main: rootWithSource('/src/index.js', 'index.js') },
+                contents: [
+                    content('/src/feature.js', 'feature.js'),
+                    content('/src/feature.d.ts', 'feature.d.ts'),
+                    content('/src/types.d.ts', 'types.d.ts')
+                ],
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+            });
+
+            assert.strictEqual(index.specifierBySourceFilePath.get('/src/feature.d.ts'), 'package-a/feature.js');
+            assert.strictEqual(index.specifierBySourceFilePath.get('/src/types.d.ts'), 'package-a/types.d.ts');
+            assert.strictEqual(index.sourceFilePathBySpecifier.get('package-a/feature.js'), '/src/feature.js');
+        });
+
         test('indexPublicModules keeps the first same-length explicit specifier', function () {
             const index = indexPublicModules({
                 name: 'package-a',

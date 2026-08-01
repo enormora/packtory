@@ -1,3 +1,6 @@
+import {
+    declarationCompanionCandidates
+} from '../common/declaration-companion-paths.ts';
 import type { BundleLike, ExplicitSurface, ImplicitSurface, RootFileDescription } from './package-shape.ts';
 import { getEntryRootIds, getRoot } from './root-registry.ts';
 import { toPackageSpecifier } from './specifier-syntax.ts';
@@ -161,10 +164,19 @@ function indexExplicitPublicModules(bundle: ExplicitModuleBundle): PublicModuleI
     return publicModuleIndex.build();
 }
 
-function indexImplicitPublicModules(bundle: ImplicitModuleBundle): PublicModuleIndex {
-    const publicModuleIndex = createPublicModuleIndexBuilder();
-    const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
+function declarationCompanionSpecifier(bundle: ImplicitModuleBundle, targetFilePath: string): string | undefined {
+    const companion = bundle.contents.find(function (entry) {
+        const candidatePaths = declarationCompanionCandidates(entry.fileDescription.targetFilePath);
+        return candidatePaths.includes(targetFilePath);
+    });
+    if (companion === undefined) {
+        return undefined;
+    }
+    return toPackageSpecifier(bundle.name, `./${companion.fileDescription.targetFilePath}`);
+}
 
+function recordImplicitRootModules(bundle: ImplicitModuleBundle, publicModuleIndex: PublicModuleIndexBuilder): void {
+    const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
     publicModuleIndex.recordFirstIndexedPublicSpecifier({
         publicSourceFilePath: defaultRoot.js.sourceFilePath,
         sourceFilePaths: rootSourceFilePaths(defaultRoot),
@@ -179,12 +191,35 @@ function indexImplicitPublicModules(bundle: ImplicitModuleBundle): PublicModuleI
             });
         }
     }
-    for (const entry of bundle.contents) {
+}
+
+function recordImplicitContentModule(
+    bundle: ImplicitModuleBundle,
+    publicModuleIndex: PublicModuleIndexBuilder,
+    entry: ImplicitModuleBundle['contents'][number]
+): void {
+    const companionSpecifier = declarationCompanionSpecifier(bundle, entry.fileDescription.targetFilePath);
+    if (companionSpecifier === undefined) {
         publicModuleIndex.recordFirstIndexedPublicSpecifier({
             publicSourceFilePath: entry.fileDescription.sourceFilePath,
             sourceFilePaths: [ entry.fileDescription.sourceFilePath ],
             specifier: toPackageSpecifier(bundle.name, `./${entry.fileDescription.targetFilePath}`)
         });
+    } else {
+        publicModuleIndex.recordFirstIndexedPublicSpecifier({
+            publicSourceFilePath: undefined,
+            sourceFilePaths: [ entry.fileDescription.sourceFilePath ],
+            specifier: companionSpecifier
+        });
+    }
+}
+
+function indexImplicitPublicModules(bundle: ImplicitModuleBundle): PublicModuleIndex {
+    const publicModuleIndex = createPublicModuleIndexBuilder();
+
+    recordImplicitRootModules(bundle, publicModuleIndex);
+    for (const entry of bundle.contents) {
+        recordImplicitContentModule(bundle, publicModuleIndex, entry);
     }
 
     return publicModuleIndex.build();
