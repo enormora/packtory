@@ -25,13 +25,15 @@ function checkDeclarations(
     files: Readonly<Record<string, string>>,
     declarationMode: DeclarationMode
 ): readonly string[] {
+    const packageUnderCheck = publishedPackage(packageName, manifest(packageName, manifestFields), {
+        'index.js': 'export const value = 1;\n',
+        ...files
+    });
     return summarizeDeclarationIntegrity(
         packageName,
-        publishedPackage(packageName, manifest(packageName, manifestFields), {
-            'index.js': 'export const value = 1;\n',
-            ...files
-        }),
-        declarationMode
+        packageUnderCheck,
+        declarationMode,
+        new Map([ [ packageName, packageUnderCheck ] ])
     );
 }
 
@@ -235,6 +237,59 @@ suite('declaration integrity against the real TypeScript compiler', function () 
                     .join('\n')
             },
             'all'
+        );
+
+        assert.deepStrictEqual(issues, []);
+    });
+
+    test('resolves generated dependency declaration subpaths imported by shipped declarations', function () {
+        const producer = publishedPackage(
+            '@scope/core',
+            manifest('@scope/core', {
+                exports: {
+                    '.': { types: './index.d.ts', import: './index.js' },
+                    './lib/version-number.js': {
+                        types: './lib/version-number.d.ts',
+                        import: './lib/version-number.js'
+                    },
+                    './lib/type-only.d.ts': {
+                        types: './lib/type-only.d.ts'
+                    }
+                }
+            }),
+            {
+                'index.js': 'export const value = 1;\n',
+                'index.d.ts': 'export declare const value: number;\n',
+                'lib/version-number.js': 'export const version = "1.0.0";\n',
+                'lib/version-number.d.ts': 'export type VersionNumber = string;\n',
+                'lib/type-only.d.ts': 'export type TypeOnly = number;\n'
+            }
+        );
+        const consumer = publishedPackage(
+            'consumer',
+            manifest('consumer', {
+                types: './index.d.ts',
+                dependencies: { '@scope/core': '0.0.0' }
+            }),
+            {
+                'index.js': 'export const value = 1;\n',
+                'index.d.ts': [
+                    'import type { VersionNumber } from "@scope/core/lib/version-number.js";',
+                    'import type { TypeOnly } from "@scope/core/lib/type-only.d.ts";',
+                    'export type ConsumerVersion = VersionNumber | TypeOnly;'
+                ]
+                    .join('\n')
+            }
+        );
+
+        const issues = summarizeDeclarationIntegrity(
+            'consumer',
+            consumer,
+            'all',
+            new Map([
+                [ '@scope/core', producer ],
+                [ 'consumer', consumer ]
+            ])
         );
 
         assert.deepStrictEqual(issues, []);

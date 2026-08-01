@@ -41,6 +41,21 @@ suite('replacement-lookup', function () {
         assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
     });
 
+    test('findAllPathReplacements maps declaration companions to the JavaScript package subpath', function () {
+        const bundle = linkedBundle({
+            name: 'pkg-b',
+            contents: [
+                analyzedBundleResource('/b/helpers.js', { targetFilePath: 'helpers.js' }),
+                analyzedBundleResource('/b/helpers.d.ts', { targetFilePath: 'helpers.d.ts' })
+            ]
+        });
+
+        const result = findAllPathReplacements([ '/b/helpers.d.ts' ], [ bundle ]);
+
+        assert.strictEqual(result.importPathReplacements.get('/b/helpers.d.ts'), 'pkg-b/helpers.js');
+        assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
+    });
+
     test('findAllPathReplacements throws when a bundle owns the file but does not expose it', function () {
         const bundle = linkedBundle({
             name: 'pkg-b',

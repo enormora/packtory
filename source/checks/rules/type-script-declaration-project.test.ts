@@ -6,7 +6,8 @@ import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts'
 import {
     createDeclarationProjectFactory,
     type DeclarationProject,
-    type DeclarationProjectDependencies
+    type DeclarationProjectDependencies,
+    type ResolutionPackageFiles
 } from './type-script-declaration-project.ts';
 
 type FakeModuleSpecifier = {
@@ -87,7 +88,8 @@ function createFakeProjectConstructor(overrides: FakeProjectOverrides = {}): Sin
 
 function declarationProjectsFor(
     projectConstructor: SinonStub,
-    packageFiles: readonly { readonly filePath: string; readonly content: string; }[] = []
+    packageFiles: readonly { readonly filePath: string; readonly content: string; }[] = [],
+    resolutionPackages: readonly ResolutionPackageFiles[] = []
 ): readonly DeclarationProject[] {
     const fileSystemHost = {};
     const fakeDependencies = {
@@ -95,7 +97,7 @@ function declarationProjectsFor(
         fileSystemHost,
         packageResolutionBaseFolder: '/workspace'
     } as unknown as DeclarationProjectDependencies;
-    return createDeclarationProjectFactory(fakeDependencies)('pkg', packageFiles);
+    return createDeclarationProjectFactory(fakeDependencies)('pkg', packageFiles, resolutionPackages);
 }
 
 function firstProject(projects: readonly DeclarationProject[]): DeclarationProject {
@@ -185,6 +187,82 @@ suite('type-script-declaration-project', function () {
             [
                 '/workspace/.packtory-type-integrity/node_modules/pkg/nested/index.d.ts',
                 'export declare const value: number;'
+            ]
+        ]);
+    });
+
+    test('adds resolution package files below their installed package folders', function () {
+        const createSourceFile = fake();
+        const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+        declarationProjectsFor(
+            TSMorphProject,
+            [ { filePath: 'package.json', content: '{"name":"pkg"}' } ],
+            [
+                {
+                    packageName: '@scope/dependency',
+                    packageFiles: [
+                        { filePath: 'package.json', content: '{"name":"@scope/dependency"}' },
+                        { filePath: 'lib/index.d.ts', content: 'export type Dependency = string;' }
+                    ]
+                }
+            ]
+        );
+
+        assert.deepStrictEqual(createSourceFile.args, [
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/package.json',
+                '{"name":"pkg"}',
+                { scriptKind: ScriptKind.JSON }
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/@scope/dependency/package.json',
+                '{"name":"@scope/dependency"}',
+                { scriptKind: ScriptKind.JSON }
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/@scope/dependency/lib/index.d.ts',
+                'export type Dependency = string;'
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/package.json',
+                '{"name":"pkg"}',
+                { scriptKind: ScriptKind.JSON }
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/@scope/dependency/package.json',
+                '{"name":"@scope/dependency"}',
+                { scriptKind: ScriptKind.JSON }
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/@scope/dependency/lib/index.d.ts',
+                'export type Dependency = string;'
+            ]
+        ]);
+    });
+
+    test('adds each virtual package file once per project', function () {
+        const createSourceFile = fake();
+        const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+        declarationProjectsFor(
+            TSMorphProject,
+            [
+                { filePath: 'package.json', content: '{"name":"pkg"}' },
+                { filePath: 'package.json', content: '{"name":"pkg"}' }
+            ]
+        );
+
+        assert.deepStrictEqual(createSourceFile.args, [
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/package.json',
+                '{"name":"pkg"}',
+                { scriptKind: ScriptKind.JSON }
+            ],
+            [
+                '/workspace/.packtory-type-integrity/node_modules/pkg/package.json',
+                '{"name":"pkg"}',
+                { scriptKind: ScriptKind.JSON }
             ]
         ]);
     });

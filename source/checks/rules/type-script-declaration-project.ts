@@ -16,6 +16,11 @@ export type PackageFile = {
     readonly content: string;
 };
 
+export type ResolutionPackageFiles = {
+    readonly packageName: string;
+    readonly packageFiles: readonly PackageFile[];
+};
+
 export type DeclarationDiagnostic = {
     readonly declarationPath: string;
     readonly line: number;
@@ -31,7 +36,8 @@ export type DeclarationProject = {
 
 export type DeclarationProjectsFactory = (
     packageName: string,
-    packageFiles: readonly PackageFile[]
+    packageFiles: readonly PackageFile[],
+    resolutionPackages: readonly ResolutionPackageFiles[]
 ) => readonly DeclarationProject[];
 
 export type DeclarationProjectDependencies = {
@@ -44,6 +50,11 @@ type DeclarationCompilerMode = {
     readonly label: string;
     readonly module: ModuleKind;
     readonly moduleResolution: ModuleResolutionKind;
+};
+
+type CreatedFilePathSet = {
+    readonly add: (filePath: string) => unknown;
+    readonly has: (filePath: string) => boolean;
 };
 
 function declarationCompilerModes(): readonly DeclarationCompilerMode[] {
@@ -138,9 +149,30 @@ export function createDeclarationProjectFactory(
 ): DeclarationProjectsFactory {
     const { Project, fileSystemHost, packageResolutionBaseFolder } = dependencies;
 
+    function addPackageFiles(
+        project: TSMorphProject,
+        packageName: string,
+        packageFiles: readonly PackageFile[],
+        createdFilePaths: CreatedFilePathSet
+    ): void {
+        const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
+        for (const packageFile of packageFiles) {
+            const filePath = declarationProjectPackageFilePath(packageFolder, packageFile.filePath);
+            if (!createdFilePaths.has(filePath)) {
+                createdFilePaths.add(filePath);
+                if (path.basename(packageFile.filePath) === 'package.json') {
+                    project.createSourceFile(filePath, packageFile.content, { scriptKind: ScriptKind.JSON });
+                } else {
+                    project.createSourceFile(filePath, packageFile.content);
+                }
+            }
+        }
+    }
+
     function createProjectForMode(
         packageName: string,
         packageFiles: readonly PackageFile[],
+        resolutionPackages: readonly ResolutionPackageFiles[],
         compilerMode: DeclarationCompilerMode
     ): DeclarationProject {
         const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
@@ -157,22 +189,24 @@ export function createDeclarationProjectFactory(
                 target: ScriptTarget.ESNext
             }
         });
+        const createdFilePaths = new Set<string>();
 
-        for (const packageFile of packageFiles) {
-            const filePath = declarationProjectPackageFilePath(packageFolder, packageFile.filePath);
-            if (path.basename(packageFile.filePath) === 'package.json') {
-                project.createSourceFile(filePath, packageFile.content, { scriptKind: ScriptKind.JSON });
-            } else {
-                project.createSourceFile(filePath, packageFile.content);
-            }
+        addPackageFiles(project, packageName, packageFiles, createdFilePaths);
+        for (const resolutionPackage of resolutionPackages) {
+            addPackageFiles(
+                project,
+                resolutionPackage.packageName,
+                resolutionPackage.packageFiles,
+                createdFilePaths
+            );
         }
 
         return createModeProject(project, packageFolder, compilerMode.label);
     }
 
-    return function createDeclarationProjects(packageName, packageFiles) {
+    return function createDeclarationProjects(packageName, packageFiles, resolutionPackages) {
         return declarationCompilerModes().map(function (compilerMode) {
-            return createProjectForMode(packageName, packageFiles, compilerMode);
+            return createProjectForMode(packageName, packageFiles, resolutionPackages, compilerMode);
         });
     };
 }

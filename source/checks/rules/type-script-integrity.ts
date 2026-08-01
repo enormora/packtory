@@ -54,11 +54,12 @@ export function createTypeScriptIntegrityRule(
     async function runForPackage(
         packageName: string,
         publishedPackage: Readonly<PublishedPackageWithManifest>,
+        publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>,
         declarationMode: DeclarationMode
     ): Promise<readonly string[]> {
         return [
             ...await summarizePackageResolution(packageName, publishedPackage),
-            ...summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode)
+            ...summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode, publishedPackages)
         ];
     }
 
@@ -69,14 +70,18 @@ export function createTypeScriptIntegrityRule(
         }
 
         const declarationMode = globalConfig.declarations ?? defaultDeclarationMode;
+        const { publishedPackages } = params;
+        if (publishedPackages === undefined) {
+            throw new Error('Published packages missing for TypeScript integrity');
+        }
         const issuesByBundle = await Promise.all(
             params.bundles.map(async function (bundle) {
-                const publishedPackage = params.publishedPackages?.get(bundle.name);
+                const publishedPackage = publishedPackages.get(bundle.name);
                 if (publishedPackage === undefined) {
                     throw new Error(`Published package missing for "${bundle.name}"`);
                 }
 
-                return await runForPackage(bundle.name, publishedPackage, declarationMode);
+                return await runForPackage(bundle.name, publishedPackage, publishedPackages, declarationMode);
             })
         );
         return issuesByBundle.flat();

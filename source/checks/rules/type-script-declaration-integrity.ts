@@ -4,7 +4,8 @@ import type {
     DeclarationDiagnostic,
     DeclarationProject,
     DeclarationProjectsFactory,
-    PackageFile
+    PackageFile,
+    ResolutionPackageFiles
 } from './type-script-declaration-project.ts';
 import { reachableDeclarationPaths } from './type-script-declaration-reachability.ts';
 import { declarationRootsFromManifest } from './type-script-declaration-roots.ts';
@@ -14,7 +15,8 @@ export type DeclarationMode = 'all' | 'exports-graph';
 export type DeclarationIntegritySummarizer = (
     packageName: string,
     publishedPackage: Readonly<PublishedPackageWithManifest>,
-    declarationMode: DeclarationMode
+    declarationMode: DeclarationMode,
+    resolutionPackages: ReadonlyMap<string, PublishedPackageWithManifest>
 ) => readonly string[];
 
 export type DeclarationIntegrityDependencies = {
@@ -44,6 +46,23 @@ function collectDeclarationPaths(packageFiles: readonly PackageFile[]): Readonly
             })
             .filter(isDeclarationPath)
     );
+}
+
+function collectResolutionPackageFiles(
+    packageName: string,
+    publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>
+): readonly ResolutionPackageFiles[] {
+    return Array
+        .from(publishedPackages)
+        .filter(function ([ candidateName ]) {
+            return candidateName !== packageName;
+        })
+        .map(function ([ candidateName, publishedPackage ]) {
+            return {
+                packageName: candidateName,
+                packageFiles: collectPackageFiles(publishedPackage)
+            };
+        });
 }
 
 function checkedDeclarationPaths(
@@ -79,12 +98,13 @@ export function createDeclarationIntegritySummarizer(
 ): DeclarationIntegritySummarizer {
     const { createDeclarationProjects } = dependencies;
 
-    return function summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode) {
+    return function summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode, resolutionPackages) {
         const packageFiles = collectPackageFiles(publishedPackage);
         const declarationPaths = collectDeclarationPaths(packageFiles);
         const rootPaths = declarationRootsFromManifest(publishedPackage.manifestFile.content);
+        const resolutionPackageFiles = collectResolutionPackageFiles(packageName, resolutionPackages);
 
-        return createDeclarationProjects(packageName, packageFiles).flatMap(function (project) {
+        return createDeclarationProjects(packageName, packageFiles, resolutionPackageFiles).flatMap(function (project) {
             const checkedPaths = checkedDeclarationPaths(project, declarationPaths, rootPaths, declarationMode);
 
             return project

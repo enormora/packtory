@@ -50,7 +50,8 @@ function summarize(options: SummarizeOptions): readonly string[] {
     return summarizeDeclarationIntegrity(
         'pkg',
         checkPublishedPackage('pkg', options.manifestContent, options.files),
-        options.declarationMode
+        options.declarationMode,
+        new Map()
     );
 }
 
@@ -70,7 +71,21 @@ suite('type-script-declaration-integrity', function () {
         summarizeDeclarationIntegrity(
             'pkg',
             checkPublishedPackage('pkg', '{"types":"./index.d.ts"}', { 'index.d.ts': 'export {};\n' }),
-            'all'
+            'all',
+            new Map([
+                [
+                    'pkg',
+                    checkPublishedPackage('pkg', '{"types":"./index.d.ts"}', {
+                        'index.d.ts': 'export {};\n'
+                    })
+                ],
+                [
+                    'dependency',
+                    checkPublishedPackage('dependency', '{"types":"./index.d.ts"}', {
+                        'index.d.ts': 'export type Dependency = string;\n'
+                    })
+                ]
+            ])
         );
 
         assert.deepStrictEqual(createDeclarationProjects.args, [ [
@@ -78,6 +93,15 @@ suite('type-script-declaration-integrity', function () {
             [
                 { filePath: 'package.json', content: '{"types":"./index.d.ts"}' },
                 { filePath: 'index.d.ts', content: 'export {};\n' }
+            ],
+            [
+                {
+                    packageName: 'dependency',
+                    packageFiles: [
+                        { filePath: 'package.json', content: '{"types":"./index.d.ts"}' },
+                        { filePath: 'index.d.ts', content: 'export type Dependency = string;\n' }
+                    ]
+                }
             ]
         ] ]);
     });
