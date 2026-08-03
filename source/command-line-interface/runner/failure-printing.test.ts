@@ -60,7 +60,7 @@ suite('failure-printing', function () {
         assert.match(message, /- check X/u);
     });
 
-    test('printPublishFailure summarises partial failures when type is partial', function () {
+    test('printPublishFailure summarises partial failures with recursive cause messages when type is partial', function () {
         const sink = captureLogger();
         const failure: PublishFailure = {
             type: 'partial',
@@ -68,13 +68,19 @@ suite('failure-printing', function () {
                 { bundle: { name: 'pkg-a', version: '1.0.0' }, publication: stagedForApproval('stage-a') },
                 { bundle: { name: 'pkg-b', version: '1.0.0' }, publication: noPublication }
             ] as never,
-            failures: [ { message: 'pkg-c failed' } ] as never
+            failures: [
+                new Error('pkg-c failed', {
+                    cause: new Error('registry failed', { cause: new Error('connection reset') })
+                })
+            ] as never
         };
 
         printPublishFailure(sink.log, failure, true);
 
         assert.ok((sink.messages[0] ?? '').includes('package(s) failed'));
         assert.ok((sink.messages[0] ?? '').includes('- pkg-c failed'));
+        assert.ok((sink.messages[0] ?? '').includes('  Caused by: registry failed'));
+        assert.ok((sink.messages[0] ?? '').includes('    Caused by: connection reset'));
         assert.deepStrictEqual(sink.messages[1], 'Staged packages:\n- pkg-a@1.0.0: stage-a');
     });
 

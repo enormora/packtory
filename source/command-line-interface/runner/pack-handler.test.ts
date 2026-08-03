@@ -203,13 +203,22 @@ suite('pack-handler', function () {
             );
         });
 
-        test('summarises partial resolve failures with one line per failure', async function () {
+        test('summarises partial resolve failures with recursive cause messages', async function () {
             await expectFailure(
                 {
                     type: 'partial',
-                    error: { succeeded: [], failures: [ new Error('resolve A'), new Error('resolve B') ] }
+                    error: {
+                        succeeded: [],
+                        failures: [
+                            new Error('resolve A', { cause: new Error('read failed') }),
+                            new Error('resolve B')
+                        ]
+                    }
                 },
-                [ /2 package\(s\) failed to resolve/u, /- resolve A\n- resolve B/u ]
+                [
+                    /2 package\(s\) failed to resolve/u,
+                    /- resolve A\n {2}Caused by: read failed\n- resolve B/u
+                ]
             );
         });
     });

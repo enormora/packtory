@@ -1,5 +1,4 @@
 import type { PackOutcome, Packtory } from '../../packtory/packtory.ts';
-import { partialFailureMessages } from '../../packtory/partial-result.ts';
 import {
     checksErrorType,
     configErrorType,
@@ -10,6 +9,7 @@ import {
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { getErrorSymbol, getSuccessSymbol } from './runner-symbols.ts';
+import { formatTerminalErrorBullet } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 const issuePrefixByType = {
@@ -73,9 +73,7 @@ function formatBulletedLines(header: string, details: readonly string[]): string
 function formatPartialResolveFailure(error: PartialPackFailure): string {
     return formatBulletedLines(
         `${getErrorSymbol()} ${error.error.failures.length} package(s) failed to resolve`,
-        partialFailureMessages(error.error).map(function (message) {
-            return `- ${message}`;
-        })
+        error.error.failures.map(formatTerminalErrorBullet)
     );
 }
 
