@@ -306,7 +306,10 @@ suite('changelog-handler', function () {
         test('returns 1 and still renders succeeded changed packages for partial release-plan failures', async function () {
             const releasePlanOutcome = partialFailureOutcome({
                 succeeded: [ releasePackage() ],
-                failures: [ new Error('pkg-b failed'), new Error('pkg-c failed') ]
+                failures: [
+                    new Error('pkg-b failed', { cause: new Error('source map failed') }),
+                    new Error('pkg-c failed')
+                ]
             });
             const spies = makeSpies(createEngine(), releasePlanOutcome);
 
@@ -315,7 +318,7 @@ suite('changelog-handler', function () {
             assert.strictEqual(code, 1);
             assert.deepStrictEqual(
                 { pageOutput: spies.pageOutput.callCount, logArgs: spies.log.firstCall.args },
-                { pageOutput: 1, logArgs: [ 'pkg-b failed\npkg-c failed' ] }
+                { pageOutput: 1, logArgs: [ '- pkg-b failed\n  Caused by: source map failed\n- pkg-c failed' ] }
             );
         });
     });

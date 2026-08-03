@@ -8,9 +8,9 @@ import {
     type PublishFailure
 } from '../../packtory/packtory-results.ts';
 import type { BuildAndPublishResult } from '../../packtory/package-processor.ts';
-import { partialFailureMessages } from '../../packtory/partial-result.ts';
 import type { PartialError } from '../../packtory/scheduler.ts';
 import { getErrorSymbol, getSuccessSymbol, getWarningSymbol } from './runner-symbols.ts';
+import { formatTerminalErrorBullet } from './terminal-error-chain.ts';
 
 type PublishPartialError = PartialError<BuildAndPublishResult>;
 type StagedResult = BuildAndPublishResult & {
@@ -90,9 +90,7 @@ function printPartialErrorSummary(log: Logger, error: PublishPartialError, stage
     const successCount = green(String(error.succeeded.length));
     const summary = `${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ` +
         `${successCount} succeeded`;
-    const details = partialFailureMessages(error).map(function (message) {
-        return `- ${message}`;
-    });
+    const details = error.failures.map(formatTerminalErrorBullet);
     log([ summary, ...details ].join('\n'));
     if (stage) {
         printStagedPackageList(log, error.succeeded);
