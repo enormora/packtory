@@ -62,22 +62,22 @@ type CreatePackagePlanInput = {
     readonly resolvedPackagesByName: ReadonlyMap<string, ResolvedPackage>;
 };
 
-async function createPackagePlan(args: CreatePackagePlanInput): Promise<ReleasePlanPackage> {
-    const packageName = args.buildResult.bundle.name;
-    const resolvedPackage = args.resolvedPackagesByName.get(packageName);
+async function createPackagePlan(input: CreatePackagePlanInput): Promise<ReleasePlanPackage> {
+    const packageName = input.buildResult.bundle.name;
+    const resolvedPackage = input.resolvedPackagesByName.get(packageName);
     if (resolvedPackage === undefined) {
         throw new Error(`Resolved package "${packageName}" is missing`);
     }
-    const releaseArtifactFiles = args.artifactsBuilder.collectContents(
-        args.buildResult.bundle,
+    const releaseArtifactFiles = input.artifactsBuilder.collectContents(
+        input.buildResult.bundle,
         'package',
-        args.buildResult.extraFiles
+        input.buildResult.extraFiles
     );
-    return createReleasePlanPackage(args, resolvedPackage.analyzedBundle, args.buildResult, {
+    return createReleasePlanPackage(input, resolvedPackage.analyzedBundle, input.buildResult, {
         changelogSourceOptions: resolvedPackage.resolveOptions,
-        currentGitHead: args.currentGitHead,
+        currentGitHead: input.currentGitHead,
         releaseArtifactFiles,
-        releaseClassification: classifyPackageRelease(args.buildResult, releaseArtifactFiles).classification
+        releaseClassification: classifyPackageRelease(input.buildResult, releaseArtifactFiles).classification
     });
 }
 

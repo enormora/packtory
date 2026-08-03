@@ -75,12 +75,12 @@ function typescriptProjectAnalyzerFactory(overrides: Overrides = {}): Typescript
     return createTypescriptProjectAnalyzer(fakeDependencies);
 }
 
-function expectedProjectConstruction(args: ExpectedProjectConstructionArgs): unknown[] {
+function expectedProjectConstruction(input: ExpectedProjectConstructionArgs): unknown[] {
     return [
         {
             compilerOptions: {
                 allowJs: true,
-                module: args.module,
+                module: input.module,
                 esModuleInterop: true,
                 maxNodeModuleJsDepth: 1,
                 noEmit: true,
@@ -89,9 +89,9 @@ function expectedProjectConstruction(args: ExpectedProjectConstructionArgs): unk
                 resolveJsonModule: true,
                 skipLibCheck: true,
                 resolvePackageJsonImports: true,
-                ...args.extra
+                ...input.extra
             },
-            fileSystem: args.fileSystem
+            fileSystem: input.fileSystem
         }
     ];
 }

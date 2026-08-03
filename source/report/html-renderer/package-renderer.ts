@@ -6,28 +6,33 @@ import { renderEliminatedFiles } from './eliminated-files-renderer.ts';
 import { escapeHtml } from './html-escaping.ts';
 import { renderBadge } from './html-primitives.ts';
 
-function renderPackageBadges(pkg: PreviewPackage): string {
+function renderPackageBadges(previewPackage: PreviewPackage): string {
     return [
-        renderBadge(pkg.hasChanges ? 'changed' : 'unchanged', pkg.hasChanges ? 'status-changed' : 'status-unchanged'),
-        ...pkg.versionTransition === undefined ? [] : [ renderBadge(pkg.versionTransition, 'secondary') ]
+        renderBadge(
+            previewPackage.hasChanges ? 'changed' : 'unchanged',
+            previewPackage.hasChanges ? 'status-changed' : 'status-unchanged'
+        ),
+        ...previewPackage.versionTransition === undefined
+            ? []
+            : [ renderBadge(previewPackage.versionTransition, 'secondary') ]
     ]
         .join('');
 }
 
-export function renderPackage(pkg: PreviewPackage): string {
-    const badges = renderPackageBadges(pkg);
-    const summary = `<span class="package-title">${escapeHtml(pkg.name)}</span>` +
+export function renderPackage(previewPackage: PreviewPackage): string {
+    const badges = renderPackageBadges(previewPackage);
+    const summary = `<span class="package-title">${escapeHtml(previewPackage.name)}</span>` +
         `<span class="package-summary">${badges}</span>`;
 
-    return `<details class="package"${pkg.openByDefault ? ' open' : ''}>
+    return `<details class="package"${previewPackage.openByDefault ? ' open' : ''}>
         <summary>${summary}</summary>
-        ${renderFailureBanner(pkg)}
+        ${renderFailureBanner(previewPackage)}
         <section class="package-block">
             <h3>Artifacts</h3>
-            <ul class="tree">${pkg.tree.map(renderArtifactNode).join('')}</ul>
+            <ul class="tree">${previewPackage.tree.map(renderArtifactNode).join('')}</ul>
         </section>
-        ${renderEliminatedFiles(pkg)}
-        ${renderPackageDiffs(pkg)}
-        ${renderDiagnostics(pkg)}
+        ${renderEliminatedFiles(previewPackage)}
+        ${renderPackageDiffs(previewPackage)}
+        ${renderDiagnostics(previewPackage)}
     </details>`;
 }

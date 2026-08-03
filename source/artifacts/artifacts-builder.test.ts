@@ -322,8 +322,8 @@ suite('artifacts-builder', function () {
                 ]
             );
 
-            const args = tarballBuilder.build.firstCall.args as readonly unknown[];
-            const vendorArgs = args[1];
+            const buildArguments = tarballBuilder.build.firstCall.args as readonly unknown[];
+            const vendorArgs = buildArguments[1];
             assert.deepStrictEqual(vendorArgs, [
                 {
                     sourceAbsolutePath: '/host/node_modules/pkg/index.js',

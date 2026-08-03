@@ -67,15 +67,15 @@ export function createDependencyScanner(
 ): DependencyScanner {
     const { sourceMapFileLocator, typescriptProjectAnalyzer } = dependencyScannerDependencies;
 
-    async function getDependencyNodeData(args: DependencyNodeDataInput): Promise<DependencyGraphNodeData> {
-        const sourceMapFilePath = args.options.includeSourceMapFiles && isCodeFile(args.sourceFilePath)
-            ? await sourceMapFileLocator.locate(args.sourceFilePath, args.sourcesFolder)
+    async function getDependencyNodeData(input: DependencyNodeDataInput): Promise<DependencyGraphNodeData> {
+        const sourceMapFilePath = input.options.includeSourceMapFiles && isCodeFile(input.sourceFilePath)
+            ? await sourceMapFileLocator.locate(input.sourceFilePath, input.sourcesFolder)
             : Maybe.nothing<string>();
 
         return {
             sourceMapFilePath,
-            externalDependencies: args.externalDependencies,
-            project: args.project
+            externalDependencies: input.externalDependencies,
+            project: input.project
         };
     }
 

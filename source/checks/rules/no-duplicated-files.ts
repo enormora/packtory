@@ -4,7 +4,7 @@ import {
     type CheckRuleDefinition,
     pathAllowListGlobalSchema,
     pathAllowListPerPackageSchema,
-    type RuleRunParams
+    type RuleRunInput
 } from '../rule.ts';
 import { duplicateMessage, hasMultipleOwners } from './duplicate-detection.ts';
 import { collectFileOwnership, type OwnerInfo } from './file-ownership.ts';
@@ -24,12 +24,12 @@ function perPackageSchema(): typeof pathAllowListPerPackageSchema {
 type RuleName = ReturnType<typeof ruleName>;
 type GlobalConfig = Readonly<z.infer<ReturnType<typeof globalSchema>>>;
 type PerPackageConfig = Readonly<z.infer<ReturnType<typeof perPackageSchema>>>;
-type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
+type RunInput = RuleRunInput<RuleName, GlobalConfig, PerPackageConfig>;
 
 function everyOwnerConsents(
     filePath: string,
     owners: readonly OwnerInfo[],
-    perPackageSettings: RunParams['perPackageSettings']
+    perPackageSettings: RunInput['perPackageSettings']
 ): boolean {
     return owners.every(function (owner) {
         const allowList = perPackageSettings.get(owner.bundleName)?.noDuplicatedFiles?.allowList;
@@ -39,7 +39,7 @@ function everyOwnerConsents(
 
 function findDuplicateIssues(
     bundles: readonly AnalyzedBundle[],
-    perPackageSettings: RunParams['perPackageSettings'],
+    perPackageSettings: RunInput['perPackageSettings'],
     globalConfig: GlobalConfig
 ): readonly string[] {
     const globallyAllowed = new Set(globalConfig.allowList);
@@ -58,12 +58,12 @@ function findDuplicateIssues(
     });
 }
 
-async function run(params: RunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.noDuplicatedFiles;
+async function run(input: RunInput): Promise<readonly string[]> {
+    const globalConfig = input.settings?.noDuplicatedFiles;
     if (globalConfig?.enabled !== true) {
         return [];
     }
-    return findDuplicateIssues(params.bundles, params.perPackageSettings, globalConfig);
+    return findDuplicateIssues(input.bundles, input.perPackageSettings, globalConfig);
 }
 
 export const noDuplicatedFilesRule: CheckRuleDefinition<RuleName, GlobalConfig, PerPackageConfig> = {

@@ -81,11 +81,11 @@ function createReleasePackage(overrides: Partial<ReleasePlanPackage> = {}): Rele
     };
 }
 
-function createEngine(spec: EngineSpec): PrLogEngine {
+function createEngine(input: EngineSpec): PrLogEngine {
     return {
-        collectMergedPullRequests: fake.resolves(spec.pullRequests),
+        collectMergedPullRequests: fake.resolves(input.pullRequests),
         filterPullRequestsByTargetFiles: fake(function () {
-            return spec.pullRequests;
+            return input.pullRequests;
         }),
         readPullRequestChangedFiles: fake.resolves(
             new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'src/pkg-a/index.ts' }) ] ] ])
@@ -95,14 +95,14 @@ function createEngine(spec: EngineSpec): PrLogEngine {
             throw new Error('unexpected changelog section extraction');
         }),
         renderChangelog: fake.returns(''),
-        renderGroupedTargetChangelog: fake.returns(spec.renderedMarkdown),
-        renderTargetChangelog: fake.returns(spec.renderedMarkdown),
+        renderGroupedTargetChangelog: fake.returns(input.renderedMarkdown),
+        renderTargetChangelog: fake.returns(input.renderedMarkdown),
         resolveChangelogBaseRef: fake.resolves({ ref: 'old-head' }),
         resolveLatestSemverChangelogBaseRef: fake.resolves({ ref: 'latest-semver' }),
-        resolvePullRequestLabels: fake.resolves(spec.labeledPullRequests),
+        resolvePullRequestLabels: fake.resolves(input.labeledPullRequests),
         resolveVersionNumber: fake.returns('1.0.1'),
-        updateChangelog: fake(function (input: ChangelogUpdateInput) {
-            return `updated:\n${input.generatedChangelogMarkdown}`;
+        updateChangelog: fake(function (changelogUpdate: ChangelogUpdateInput) {
+            return `updated:\n${changelogUpdate.generatedChangelogMarkdown}`;
         })
     };
 }
@@ -155,28 +155,28 @@ function mergeDependencySpec(overrides: Partial<DependencySpec>): DependencySpec
 }
 
 function createDependencies(overrides: Partial<DependencySpec> = {}): CreatedReleasePreparationDependencies {
-    const spec = mergeDependencySpec(overrides);
+    const input = mergeDependencySpec(overrides);
 
     return {
-        createPrLogEngine: spec.createPrLogEngine,
+        createPrLogEngine: input.createPrLogEngine,
         currentDate() {
             return new Date('2026-06-13T00:00:00.000Z');
         },
-        fileManager: spec.fileManager,
-        log: spec.log,
-        packtory: spec.packtory,
-        readEnvironmentVariable: spec.readEnvironmentVariable,
+        fileManager: input.fileManager,
+        log: input.log,
+        packtory: input.packtory,
+        readEnvironmentVariable: input.readEnvironmentVariable,
         async readPackageInfo() {
             return { repository: { url: 'https://github.com/owner/repo' } };
         },
         spinnerRenderer: {
             stopAll() {
-                spec.stopAll();
+                input.stopAll();
             }
         },
         configLoader: { load: fake.resolves(validConfig) },
         workingDirectory: '/repo',
-        stopAll: spec.stopAll
+        stopAll: input.stopAll
     };
 }
 

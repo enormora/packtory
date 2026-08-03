@@ -194,32 +194,32 @@ export function packageProcessorCheckingStage(expectedStage: boolean): PackagePr
 }
 
 export function previousReleaseArtifactsFor(
-    spec: PreviousReleaseArtifactsSpec
+    input: PreviousReleaseArtifactsSpec
 ): BuildAndPublishResult['previousReleaseArtifacts'] {
     return Maybe.just({
-        version: spec.version,
-        publishedAt: spec.publishedAt,
-        gitHead: spec.gitHead,
-        files: spec.files
+        version: input.version,
+        publishedAt: input.publishedAt,
+        gitHead: input.gitHead,
+        files: input.files
     });
 }
 
-export function createReleaseTestDependencies(spec: ReleaseTestDependencySpec): ReleaseTestDependencies {
+export function createReleaseTestDependencies(input: ReleaseTestDependencySpec): ReleaseTestDependencies {
     return {
         artifactsBuilder: {
-            collectContents: spec.collectContents ??
+            collectContents: input.collectContents ??
                 function () {
                     return [];
                 }
         },
-        fileManager: spec.fileManager ?? defaultReleasePlanFileReader,
-        packageProcessor: spec.packageProcessor ?? packageProcessorWith(spec.buildResults ?? []),
+        fileManager: input.fileManager ?? defaultReleasePlanFileReader,
+        packageProcessor: input.packageProcessor ?? packageProcessorWith(input.buildResults ?? []),
         progressBroadcaster: releaseProgressBroadcaster,
         async readCurrentGitHead() {
-            return spec.currentGitHead;
+            return input.currentGitHead;
         },
-        repositoryFolder: spec.repositoryFolder ?? '/',
-        scheduler: createIteratingScheduler(spec.packageNames)
+        repositoryFolder: input.repositoryFolder ?? '/',
+        scheduler: createIteratingScheduler(input.packageNames)
     };
 }
 

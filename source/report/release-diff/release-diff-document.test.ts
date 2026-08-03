@@ -54,13 +54,13 @@ suite('release-diff-document', function () {
     });
 
     test('forwards the package list into the document verbatim', function () {
-        const pkg = releaseDiffPackage({ name: 'pkg-x', state: 'first-publish' });
+        const packageDiff = releaseDiffPackage({ name: 'pkg-x', state: 'first-publish' });
         const document = buildReleaseDiffDocument({
             report: buildReport(),
             result: successResult,
-            packages: [ pkg ]
+            packages: [ packageDiff ]
         });
         assert.strictEqual(document.packages.length, 1);
-        assert.strictEqual(document.packages[0], pkg);
+        assert.strictEqual(document.packages[0], packageDiff);
     });
 });

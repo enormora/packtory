@@ -149,23 +149,23 @@ type ReportedOperationArgs<TValidated, TResult, TReport, TOutcome> = {
 };
 
 async function createReportedOutcome<TValidated, TResult, TReport, TOutcome>(
-    args: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>,
+    operation: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>,
     getReport: () => TReport
 ): Promise<TOutcome> {
-    const validation = args.validate(args.config);
+    const validation = operation.validate(operation.config);
     const result = validation.isErr
-        ? args.createValidationErrorResult(validation.error)
-        : await args.runValidated(validation.value);
+        ? operation.createValidationErrorResult(validation.error)
+        : await operation.runValidated(validation.value);
 
-    return args.createOutcome(result, getReport);
+    return operation.createOutcome(result, getReport);
 }
 
 async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(
-    args: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>
+    operation: ReportedOperationArgs<TValidated, TResult, TReport, TOutcome>
 ): Promise<TOutcome> {
-    const reporting = args.attachReporting();
+    const reporting = operation.attachReporting();
     try {
-        return await createReportedOutcome(args, reporting.getReport);
+        return await createReportedOutcome(operation, reporting.getReport);
     } finally {
         reporting.dispose();
     }

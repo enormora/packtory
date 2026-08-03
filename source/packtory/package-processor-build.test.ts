@@ -110,8 +110,8 @@ function createPipelineDependencies(
             linkBundle: spies.linkBundle
         },
         progressBroadcaster: {
-            emit(...args: EmitArguments) {
-                spies.emit(...args);
+            emit(...emitArguments: EmitArguments) {
+                spies.emit(...emitArguments);
             },
             hasSubscribers: fake(function (eventName: string) {
                 return eventName === 'scanCompleted' || eventName === 'linkingCompleted';

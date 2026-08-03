@@ -4,11 +4,11 @@ import type { PackageConfig } from '../../config/config.ts';
 import { packageConfigFixture } from '../../test-libraries/config-fixtures.ts';
 import { resolveBundleDependencies } from './bundle-dependency-resolution.ts';
 
-const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
+const packageConfig: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 suite('bundle-dependency-resolution', function () {
     test('resolveBundleDependencies returns empty lists when the package has no declared dependencies', function () {
-        assert.deepStrictEqual(resolveBundleDependencies(pkg({}), []), {
+        assert.deepStrictEqual(resolveBundleDependencies(packageConfig({}), []), {
             bundleDependencies: [],
             bundlePeerDependencies: []
         });
@@ -18,7 +18,7 @@ suite('bundle-dependency-resolution', function () {
         const bundleA = { name: 'pkg-b', payload: 'b' };
         const bundleB = { name: 'pkg-c', payload: 'c' };
 
-        const result = resolveBundleDependencies(pkg({ bundleDependencies: [ 'pkg-b', 'pkg-c' ] }), [
+        const result = resolveBundleDependencies(packageConfig({ bundleDependencies: [ 'pkg-b', 'pkg-c' ] }), [
             bundleA,
             bundleB
         ]);
@@ -29,14 +29,14 @@ suite('bundle-dependency-resolution', function () {
     test('resolveBundleDependencies maps each declared peer dependency name to the matching bundle', function () {
         const peer = { name: 'pkg-peer', payload: 'p' };
 
-        const result = resolveBundleDependencies(pkg({ bundlePeerDependencies: [ 'pkg-peer' ] }), [ peer ]);
+        const result = resolveBundleDependencies(packageConfig({ bundlePeerDependencies: [ 'pkg-peer' ] }), [ peer ]);
 
         assert.deepStrictEqual(result.bundlePeerDependencies, [ peer ]);
     });
 
     test('resolveBundleDependencies throws when a declared dependency has no matching bundle', function () {
         try {
-            resolveBundleDependencies(pkg({ bundleDependencies: [ 'missing' ] }), []);
+            resolveBundleDependencies(packageConfig({ bundleDependencies: [ 'missing' ] }), []);
             assert.fail('Expected resolveBundleDependencies() to throw but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'Dependent bundle "missing" not found');

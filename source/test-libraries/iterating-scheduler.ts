@@ -1,12 +1,12 @@
 import { Result } from 'true-myth';
 import type { Scheduler as PackageScheduler } from '../packtory/scheduler.ts';
 
-type IterateParams = {
+type IterateInput = {
     readonly config: IteratingSchedulerConfig;
     readonly createOptions: (context: unknown) => unknown;
     readonly execute: (options: unknown) => Promise<unknown>;
-    readonly selectNext: (params: SelectNextInput) => unknown;
-    readonly createProgressEvent?: (params: ProgressEventInput) => unknown;
+    readonly selectNext: (input: SelectNextInput) => unknown;
+    readonly createProgressEvent?: (input: ProgressEventInput) => unknown;
 };
 
 type IteratingSchedulerConfig = {
@@ -32,7 +32,7 @@ export type IteratingSchedulerCapture = {
     readonly emitScheduledEvents?: boolean | undefined;
 };
 
-type IterateRunParams = IterateParams & { readonly emitScheduledEvents?: boolean; };
+type IterateRunInput = IterateInput & { readonly emitScheduledEvents?: boolean; };
 
 function createUnknownList(): unknown[] {
     return [];
@@ -62,27 +62,27 @@ export function createIteratingScheduler(
     capture?: IteratingSchedulerCapture
 ): PackageScheduler {
     const value = {
-        async runForEachScheduledPackage(params: IterateRunParams) {
+        async runForEachScheduledPackage(input: IterateRunInput) {
             const state = {
                 existing: createUnknownList(),
                 failures: createErrorList(),
                 results: createUnknownList()
             };
             if (capture !== undefined) {
-                Object.assign(capture, { emitScheduledEvents: params.emitScheduledEvents });
+                Object.assign(capture, { emitScheduledEvents: input.emitScheduledEvents });
             }
             function recordPackageSuccess(packageName: string, options: unknown, result: unknown): void {
                 state.results.push(result);
-                const selected = params.selectNext({ result, options });
+                const selected = input.selectNext({ result, options });
                 state.existing.push(selected);
                 recordCapturedSelection(capture, selected);
-                const event = params.createProgressEvent?.({ packageName, result, options });
+                const event = input.createProgressEvent?.({ packageName, result, options });
                 recordCapturedEvent(capture, event);
             }
             const runPackage = async function (packageName: string): Promise<void> {
-                const options = params.createOptions({ packageName, existing: state.existing, config: params.config });
+                const options = input.createOptions({ packageName, existing: state.existing, config: input.config });
                 try {
-                    const result = await params.execute(options);
+                    const result = await input.execute(options);
                     recordPackageSuccess(packageName, options, result);
                 } catch (error) {
                     state.failures.push(error as Error);

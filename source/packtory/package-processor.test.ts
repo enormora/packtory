@@ -89,7 +89,7 @@ suite('package-processor', function () {
             {
                 bundle: { ...linkedBundle, contents: [], sideEffectsField: undefined },
                 version: '3.4.5',
-                mainPackageJson: { type: 'module', dependencies: { dep: '^1.0.0' } },
+                mainPackageJson: { type: 'module', dependencies: { dependency: '^1.0.0' } },
                 bundleDependencies: [ createVersionedBundle('bundle-dependency', '1.0.0') ],
                 bundlePeerDependencies: [ createVersionedBundle('peer-dependency', '2.0.0') ],
                 additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },

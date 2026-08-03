@@ -19,10 +19,10 @@ function configWithPackages(
     ...packages: readonly { readonly name: string; readonly enabled?: boolean; }[]
 ): ValidConfigWithoutRegistryResult {
     return validConfigWithoutRegistryFixture({
-        packages: packages.map(function (pkg) {
+        packages: packages.map(function (packageEntry) {
             return packageConfigFixture({
-                name: pkg.name,
-                ...pkg.enabled === undefined ? {} : { deadCodeElimination: { enabled: pkg.enabled } }
+                name: packageEntry.name,
+                ...packageEntry.enabled === undefined ? {} : { deadCodeElimination: { enabled: packageEntry.enabled } }
             });
         })
     });

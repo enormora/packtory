@@ -50,8 +50,8 @@ export function renderTerminalReleaseDiff(
     if (issuesSection !== undefined) {
         sections.push(issuesSection);
     }
-    for (const pkg of document.packages) {
-        sections.push(renderReleaseDiffPackage(pkg, colors));
+    for (const packageDiff of document.packages) {
+        sections.push(renderReleaseDiffPackage(packageDiff, colors));
     }
 
     return `${sections.join('\n\n')}\n`;

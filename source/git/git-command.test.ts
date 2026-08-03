@@ -26,9 +26,9 @@ function createFakeGitCommandChildProcess(
 
 suite('git-command', function () {
     test('createGitCommandRunner resolves stdout and stderr from the executor', async function () {
-        const runner = createGitCommandRunner(async function (command, args) {
+        const runner = createGitCommandRunner(async function (command, commandArguments) {
             assert.strictEqual(command, 'git');
-            assert.deepStrictEqual(args, [ 'status', '--short' ]);
+            assert.deepStrictEqual(commandArguments, [ 'status', '--short' ]);
             return { stdout: Buffer.from('stdout'), stderr: 'stderr' };
         });
 
@@ -41,8 +41,8 @@ suite('git-command', function () {
     test('createGitCommandRunner copies readonly args before calling execFile', async function () {
         const sourceArgs = [ 'rev-parse', 'HEAD' ] as const;
         let receivedArgs: readonly string[] = [];
-        const runner = createGitCommandRunner(async function (_command, args) {
-            receivedArgs = args;
+        const runner = createGitCommandRunner(async function (_command, commandArguments) {
+            receivedArgs = commandArguments;
             return { stdout: '', stderr: '' };
         });
 
@@ -72,10 +72,10 @@ suite('git-command', function () {
 
     test('createChildProcessGitCommandExecutor resolves stdout and stderr from the child callback', async function () {
         const sourceArgs = [ 'status', '--short' ] as const;
-        const executeGitCommand = createChildProcessGitCommandExecutor(function (command, args, callback) {
+        const executeGitCommand = createChildProcessGitCommandExecutor(function (command, commandArguments, callback) {
             assert.strictEqual(command, 'git');
-            assert.deepStrictEqual(args, [ 'status', '--short' ]);
-            assert.notStrictEqual(args, sourceArgs);
+            assert.deepStrictEqual(commandArguments, [ 'status', '--short' ]);
+            assert.notStrictEqual(commandArguments, sourceArgs);
             callback(null, 'stdout', 'stderr');
             return createFakeGitCommandChildProcess(function (listener) {
                 assert.strictEqual(typeof listener, 'function');

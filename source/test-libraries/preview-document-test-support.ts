@@ -171,19 +171,19 @@ export function workspaceFileManager(readFile: (filePath: string) => Promise<str
 }
 
 export function requireSinglePackage(document: PreviewDocument): PreviewPackage {
-    const [ pkg ] = document.packages;
-    if (pkg === undefined) {
+    const [ previewPackage ] = document.packages;
+    if (previewPackage === undefined) {
         assert.fail('expected preview package');
     }
-    return pkg;
+    return previewPackage;
 }
 
 export function requirePackageAt(document: PreviewDocument, index: number): PreviewPackage {
-    const pkg = document.packages[index];
-    if (pkg === undefined) {
+    const previewPackage = document.packages[index];
+    if (previewPackage === undefined) {
         assert.fail(`expected preview package at index ${String(index)}`);
     }
-    return pkg;
+    return previewPackage;
 }
 
 export function requireTreeNodeAt(

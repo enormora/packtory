@@ -15,9 +15,9 @@ type BackendOverrides = {
     readonly shutdown?: SinonSpy;
 };
 
-function wrapVoid(spy: SinonSpy): (...args: readonly unknown[]) => void {
-    return function (...args: readonly unknown[]): void {
-        spy(...args);
+function wrapVoid(spy: SinonSpy): (...callArguments: readonly unknown[]) => void {
+    return function (...callArguments: readonly unknown[]): void {
+        spy(...callArguments);
     };
 }
 

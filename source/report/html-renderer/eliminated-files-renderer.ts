@@ -2,12 +2,12 @@ import type { PreviewPackage } from '../preview/preview-document.ts';
 import { escapeHtml } from './html-escaping.ts';
 import { formatBytes } from './html-primitives.ts';
 
-export function renderEliminatedFiles(pkg: PreviewPackage): string {
-    if (pkg.eliminatedSourceFiles.length === 0) {
+export function renderEliminatedFiles(previewPackage: PreviewPackage): string {
+    if (previewPackage.eliminatedSourceFiles.length === 0) {
         return '';
     }
     let items = '';
-    for (const file of pkg.eliminatedSourceFiles) {
+    for (const file of previewPackage.eliminatedSourceFiles) {
         items += `<li><code>${escapeHtml(file.path)}</code> <span class="tree-meta">${
             escapeHtml(formatBytes(file.sourceBytes))
         }</span></li>`;

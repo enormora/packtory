@@ -3,9 +3,9 @@ import { clearTimeout as clearTimer, setTimeout as setTimer } from 'node:timers'
 export type Clock = {
     readonly getCurrentTimeInMilliseconds: () => number;
     readonly setTimeout: <Arguments extends readonly unknown[]>(
-        handler: (...args: Arguments) => void,
+        handler: (...timerArguments: Arguments) => void,
         delayInMilliseconds: number,
-        ...args: Arguments
+        ...timerArguments: Arguments
     ) => ReturnType<typeof globalThis.setTimeout>;
     readonly clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
 };

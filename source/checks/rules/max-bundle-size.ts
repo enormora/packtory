@@ -1,6 +1,6 @@
 import { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
-import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+import type { CheckRuleDefinition, RuleRunInput } from '../rule.ts';
 
 function ruleName(): 'maxBundleSize' {
     return 'maxBundleSize';
@@ -25,7 +25,7 @@ function perPackageSchema(): z.ZodMiniType<PerPackageConfig> {
     });
 }
 
-type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
+type RunInput = RuleRunInput<RuleName, GlobalConfig, PerPackageConfig>;
 
 function bundleSizeBytes(bundle: AnalyzedBundle): number {
     let total = 0;
@@ -46,14 +46,14 @@ function checkBundle(bundle: AnalyzedBundle, threshold: number | undefined): rea
     return [ `Package "${bundle.name}" exceeds the maximum bundle size: ${size} bytes (limit: ${threshold} bytes)` ];
 }
 
-async function run(params: RunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.maxBundleSize;
+async function run(input: RunInput): Promise<readonly string[]> {
+    const globalConfig = input.settings?.maxBundleSize;
     if (globalConfig?.enabled !== true) {
         return [];
     }
 
-    return params.bundles.flatMap(function (bundle) {
-        const override = params.perPackageSettings.get(bundle.name)?.maxBundleSize?.bytes;
+    return input.bundles.flatMap(function (bundle) {
+        const override = input.perPackageSettings.get(bundle.name)?.maxBundleSize?.bytes;
         return checkBundle(bundle, override ?? globalConfig.bytes);
     });
 }

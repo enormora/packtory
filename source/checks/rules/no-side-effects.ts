@@ -4,7 +4,7 @@ import {
     pathAllowListGlobalSchema,
     pathAllowListPerPackageSchema,
     type CheckRuleDefinition,
-    type RuleRunParams
+    type RuleRunInput
 } from '../rule.ts';
 
 const ruleName = 'noSideEffects';
@@ -14,7 +14,7 @@ const perPackageSchema = pathAllowListPerPackageSchema;
 
 type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type NoSideEffectsRunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type NoSideEffectsRunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 type SideEffectStatement = {
     readonly line: number;
@@ -29,7 +29,7 @@ function isAllowedFor(
     sourceFilePath: string,
     bundleName: string,
     globalAllowList: ReadonlySet<string>,
-    perPackageSettings: NoSideEffectsRunParams['perPackageSettings']
+    perPackageSettings: NoSideEffectsRunInput['perPackageSettings']
 ): boolean {
     if (globalAllowList.has(sourceFilePath)) {
         return true;
@@ -51,7 +51,7 @@ function reportResource(bundleName: string, resource: AnalyzedBundleResource): s
 function findSideEffectsInBundle(
     bundle: AnalyzedBundle,
     globalAllowList: ReadonlySet<string>,
-    perPackageSettings: NoSideEffectsRunParams['perPackageSettings']
+    perPackageSettings: NoSideEffectsRunInput['perPackageSettings']
 ): readonly string[] {
     return bundle.contents.flatMap(function (resource) {
         if (resource.analysis.sideEffectStatements.length === 0) {
@@ -64,14 +64,14 @@ function findSideEffectsInBundle(
     });
 }
 
-async function run(params: NoSideEffectsRunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.noSideEffects;
+async function run(input: NoSideEffectsRunInput): Promise<readonly string[]> {
+    const globalConfig = input.settings?.noSideEffects;
     if (globalConfig?.enabled !== true) {
         return [];
     }
     const globalAllowList = new Set(globalConfig.allowList);
-    return params.bundles.flatMap(function (bundle) {
-        return findSideEffectsInBundle(bundle, globalAllowList, params.perPackageSettings);
+    return input.bundles.flatMap(function (bundle) {
+        return findSideEffectsInBundle(bundle, globalAllowList, input.perPackageSettings);
     });
 }
 

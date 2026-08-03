@@ -62,7 +62,7 @@ type ControlledAtomicsOverrides = {
         index: number,
         realLoad: SpinnerSharedAtomics['load']
     ) => number;
-    readonly wait?: (args: ControlledWaitArgs) => WaitResult;
+    readonly wait?: (input: ControlledWaitArgs) => WaitResult;
 };
 type ControlledWaitArgs = {
     readonly typedArray: Int32Array;

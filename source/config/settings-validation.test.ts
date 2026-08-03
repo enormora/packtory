@@ -8,7 +8,7 @@ import {
 import type { PackageConfig, PacktoryConfigWithoutRegistry } from './config.ts';
 import { validateAllowScriptsConsistency, validatePublishSettingsArePlaced } from './settings-validation.ts';
 
-const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
+const packageConfig: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 function config(overrides: Partial<PacktoryConfigWithoutRegistry>): PacktoryConfigWithoutRegistry {
     return { packages: [], ...overrides };
@@ -19,7 +19,7 @@ suite('settings-validation', function () {
         const result = validatePublishSettingsArePlaced(
             config({
                 commonPackageSettings: { publishSettings: publicPublishSettings },
-                packages: [ pkg({}) ]
+                packages: [ packageConfig({}) ]
             })
         );
 
@@ -30,8 +30,8 @@ suite('settings-validation', function () {
         const result = validatePublishSettingsArePlaced(
             config({
                 packages: [
-                    pkg({ publishSettings: publicPublishSettings }),
-                    pkg({ name: 'pkg-b', publishSettings: publicPublishSettings })
+                    packageConfig({ publishSettings: publicPublishSettings }),
+                    packageConfig({ name: 'pkg-b', publishSettings: publicPublishSettings })
                 ]
             })
         );
@@ -42,7 +42,10 @@ suite('settings-validation', function () {
     test('validatePublishSettingsArePlaced reports when publishSettings is missing from a package and from commonPackageSettings', function () {
         const result = validatePublishSettingsArePlaced(
             config({
-                packages: [ pkg({ publishSettings: publicPublishSettings }), pkg({ name: 'pkg-b' }) ]
+                packages: [
+                    packageConfig({ publishSettings: publicPublishSettings }),
+                    packageConfig({ name: 'pkg-b' })
+                ]
             })
         );
 
@@ -50,7 +53,7 @@ suite('settings-validation', function () {
     });
 
     test('validateAllowScriptsConsistency returns no issues when no package contributes a scripts attribute', function () {
-        const result = validateAllowScriptsConsistency(config({ packages: [ pkg({}) ] }));
+        const result = validateAllowScriptsConsistency(config({ packages: [ packageConfig({}) ] }));
 
         assert.deepStrictEqual(result, []);
     });
@@ -59,7 +62,7 @@ suite('settings-validation', function () {
         const result = validateAllowScriptsConsistency(
             config({
                 packages: [
-                    pkg({
+                    packageConfig({
                         additionalPackageJsonAttributes: { scripts: { build: 'tsc' } },
                         publishSettings: publicPublishSettings
                     })
@@ -76,7 +79,7 @@ suite('settings-validation', function () {
         const result = validateAllowScriptsConsistency(
             config({
                 packages: [
-                    pkg({
+                    packageConfig({
                         additionalPackageJsonAttributes: { scripts: { build: 'tsc' } },
                         publishSettings: publicPublishSettingsAllowingScripts
                     })
@@ -93,7 +96,7 @@ suite('settings-validation', function () {
                 commonPackageSettings: {
                     publishSettings: publicPublishSettingsAllowingScripts
                 },
-                packages: [ pkg({ additionalPackageJsonAttributes: { scripts: { build: 'tsc' } } }) ]
+                packages: [ packageConfig({ additionalPackageJsonAttributes: { scripts: { build: 'tsc' } } }) ]
             })
         );
 

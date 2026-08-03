@@ -131,19 +131,19 @@ function createConfigWithRegistry(overrides: Record<string, unknown> = {}): Reco
     };
 }
 
-type CreateProgressEvent = (params: ProgressEventInput) => ProgressEvent;
+type CreateProgressEvent = (input: ProgressEventInput) => ProgressEvent;
 
-type StageParams = {
+type StageInput = {
     readonly createOptions: (context: StageCreateOptionsInput) => unknown;
     readonly execute: (options: unknown) => Promise<unknown>;
-    readonly selectNext: (params: SelectNextInput) => unknown;
+    readonly selectNext: (input: SelectNextInput) => unknown;
     readonly createProgressEvent?: CreateProgressEvent | undefined;
     readonly config: SchedulerConfig;
 };
 
 type SchedulerOverrides = {
-    readonly resolveStage?: (params: StageParams) => Promise<Result<readonly unknown[], unknown>>;
-    readonly publishStage?: (params: StageParams) => Promise<Result<readonly unknown[], unknown>>;
+    readonly resolveStage?: (input: StageInput) => Promise<Result<readonly unknown[], unknown>>;
+    readonly publishStage?: (input: StageInput) => Promise<Result<readonly unknown[], unknown>>;
 };
 
 type PacktoryFactoryOverrides = SchedulerOverrides & {
@@ -156,11 +156,11 @@ type PacktoryFactoryOverrides = SchedulerOverrides & {
     readonly versionManagerAddVersion?: SinonSpy;
 };
 
-type ScheduledStageParams = StageParams & {
+type ScheduledStageInput = StageInput & {
     readonly emitScheduledEvents?: boolean;
 };
 
-type DefaultRunStage = (params: StageParams) => Promise<Result<unknown[], never>>;
+type DefaultRunStage = (input: StageInput) => Promise<Result<unknown[], never>>;
 
 type PacktoryUnderTest = {
     readonly packtory: Packtory;
@@ -218,19 +218,19 @@ function createBuildAndPublishSpy(): SinonSpy {
 }
 
 function createDefaultRunStage(): DefaultRunStage {
-    return async function (params: StageParams): Promise<Result<unknown[], never>> {
+    return async function (input: StageInput): Promise<Result<unknown[], never>> {
         const existing: unknown[] = [];
         const results: unknown[] = [];
 
-        for (const packageConfig of params.config.packtoryConfig.packages) {
-            const options = params.createOptions({
+        for (const packageConfig of input.config.packtoryConfig.packages) {
+            const options = input.createOptions({
                 packageName: packageConfig.name,
                 existing,
-                config: params.config
+                config: input.config
             });
-            const result = await params.execute(options);
-            params.createProgressEvent?.({ packageName: packageConfig.name, result, options });
-            existing.push(params.selectNext({ result, options }));
+            const result = await input.execute(options);
+            input.createProgressEvent?.({ packageName: packageConfig.name, result, options });
+            existing.push(input.selectNext({ result, options }));
             results.push(result);
         }
 
@@ -239,14 +239,14 @@ function createDefaultRunStage(): DefaultRunStage {
 }
 
 async function runScheduledStage(
-    params: ScheduledStageParams,
+    input: ScheduledStageInput,
     overrides: SchedulerOverrides,
     defaultRunStage: DefaultRunStage
 ): Promise<Result<readonly unknown[], unknown>> {
-    if (params.emitScheduledEvents === false) {
-        return overrides.publishStage === undefined ? defaultRunStage(params) : overrides.publishStage(params);
+    if (input.emitScheduledEvents === false) {
+        return overrides.publishStage === undefined ? defaultRunStage(input) : overrides.publishStage(input);
     }
-    return overrides.resolveStage === undefined ? defaultRunStage(params) : overrides.resolveStage(params);
+    return overrides.resolveStage === undefined ? defaultRunStage(input) : overrides.resolveStage(input);
 }
 
 function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): PacktoryUnderTest {
@@ -257,8 +257,8 @@ function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): Pack
 
     const scheduler = {
         runForEachScheduledPackage: fake(
-            async function (params: ScheduledStageParams) {
-                return runScheduledStage(params, overrides, defaultRunStage);
+            async function (input: ScheduledStageInput) {
+                return runScheduledStage(input, overrides, defaultRunStage);
             }
         )
     };

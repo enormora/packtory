@@ -189,73 +189,73 @@ suite('repository-coherence', function () {
 
     suite('CI repository urls', function () {
         test('getCiRepositoryUrl() returns undefined when no env vars are set', function () {
-            const env: CiEnvironment = {
+            const environment: CiEnvironment = {
                 githubServerUrl: undefined,
                 githubRepository: undefined,
                 gitlabProjectUrl: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(env), undefined);
+            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
         });
 
         test('getCiRepositoryUrl() returns the GitHub Actions repository url when both GHA env vars are set', function () {
-            const env: CiEnvironment = {
+            const environment: CiEnvironment = {
                 githubServerUrl: 'https://github.com',
                 githubRepository: 'enormora/packtory',
                 gitlabProjectUrl: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(env), 'https://github.com/enormora/packtory');
+            assert.strictEqual(getCiRepositoryUrl(environment), 'https://github.com/enormora/packtory');
         });
 
         test('getCiRepositoryUrl() returns the GitLab CI repository url when only the GitLab var is set', function () {
-            const env: CiEnvironment = {
+            const environment: CiEnvironment = {
                 githubServerUrl: undefined,
                 githubRepository: undefined,
                 gitlabProjectUrl: 'https://gitlab.com/enormora/packtory'
             };
 
-            assert.strictEqual(getCiRepositoryUrl(env), 'https://gitlab.com/enormora/packtory');
+            assert.strictEqual(getCiRepositoryUrl(environment), 'https://gitlab.com/enormora/packtory');
         });
 
         test('getCiRepositoryUrl() prefers GitHub Actions over GitLab when both are set', function () {
-            const env: CiEnvironment = {
+            const environment: CiEnvironment = {
                 githubServerUrl: 'https://github.com',
                 githubRepository: 'enormora/packtory',
                 gitlabProjectUrl: 'https://gitlab.com/some/other'
             };
 
-            assert.strictEqual(getCiRepositoryUrl(env), 'https://github.com/enormora/packtory');
+            assert.strictEqual(getCiRepositoryUrl(environment), 'https://github.com/enormora/packtory');
         });
 
         test('getCiRepositoryUrl() returns undefined when only GITHUB_SERVER_URL is set', function () {
-            const env: CiEnvironment = {
+            const environment: CiEnvironment = {
                 githubServerUrl: 'https://github.com',
                 githubRepository: undefined,
                 gitlabProjectUrl: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(env), undefined);
+            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
         });
 
         test('getCiRepositoryUrl() returns undefined when only GITHUB_REPOSITORY is set', function () {
-            const env: CiEnvironment = {
+            const environment: CiEnvironment = {
                 githubServerUrl: undefined,
                 githubRepository: 'enormora/packtory',
                 gitlabProjectUrl: undefined
             };
 
-            assert.strictEqual(getCiRepositoryUrl(env), undefined);
+            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
         });
 
         test('getCiRepositoryUrl() treats empty env values as not set', function () {
-            const env: CiEnvironment = {
+            const environment: CiEnvironment = {
                 githubServerUrl: '',
                 githubRepository: '',
                 gitlabProjectUrl: ''
             };
 
-            assert.strictEqual(getCiRepositoryUrl(env), undefined);
+            assert.strictEqual(getCiRepositoryUrl(environment), undefined);
         });
     });
 
@@ -333,13 +333,13 @@ suite('repository-coherence', function () {
 
     suite('CI environment reads', function () {
         test('readCiEnvironment() reads GitHub Actions, GitLab CI, and missing env vars from the given env', function () {
-            const env: CiEnvironment = readCiEnvironment({
+            const environment: CiEnvironment = readCiEnvironment({
                 GITHUB_SERVER_URL: 'https://github.com',
                 GITHUB_REPOSITORY: 'enormora/packtory',
                 CI_PROJECT_URL: 'https://gitlab.com/some/other'
             });
 
-            assert.deepStrictEqual(env, {
+            assert.deepStrictEqual(environment, {
                 githubServerUrl: 'https://github.com',
                 githubRepository: 'enormora/packtory',
                 gitlabProjectUrl: 'https://gitlab.com/some/other'
@@ -347,9 +347,9 @@ suite('repository-coherence', function () {
         });
 
         test('readCiEnvironment() returns undefined values when env vars are absent', function () {
-            const env: CiEnvironment = readCiEnvironment({});
+            const environment: CiEnvironment = readCiEnvironment({});
 
-            assert.deepStrictEqual(env, {
+            assert.deepStrictEqual(environment, {
                 githubServerUrl: undefined,
                 githubRepository: undefined,
                 gitlabProjectUrl: undefined

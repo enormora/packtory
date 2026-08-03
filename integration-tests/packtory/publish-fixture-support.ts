@@ -47,14 +47,14 @@ type PublishConfig = PacktoryConfig & {
         readonly mainPackageJson: NonNullable<CommonPackageSettings['mainPackageJson']>;
     };
 };
-type CreatePublishConfigParams = {
+type CreatePublishConfigInput = {
     readonly fixturePath: string;
     readonly registryDetails: RegistryDetails;
     readonly packages: PackageConfigList;
     readonly commonPackageSettings?: Partial<CommonPackageSettings>;
     readonly mainPackageJsonOverrides?: Partial<NonNullable<CommonPackageSettings['mainPackageJson']>>;
 };
-type PublishFixturePackagesParams = {
+type PublishFixturePackagesInput = {
     readonly fixturePath: string;
     readonly registryDetails: RegistryDetails;
     readonly packages?: PackageConfigList;
@@ -65,7 +65,7 @@ type PublishFixturePackagesParams = {
 
 function createRegistrySettings(
     registryDetails: RegistryDetails,
-    authMode: PublishFixturePackagesParams['authMode'] = 'bearer'
+    authMode: PublishFixturePackagesInput['authMode'] = 'bearer'
 ): NonNullable<PublishConfig['registrySettings']> {
     if (authMode === 'basic') {
         return {
@@ -125,8 +125,8 @@ export function getFixturePath(name: string): string {
     return path.join(process.cwd(), `integration-tests/fixtures/${name}`);
 }
 
-async function createPublishConfig(params: CreatePublishConfigParams): Promise<PublishConfig> {
-    const { fixturePath, registryDetails, packages, commonPackageSettings, mainPackageJsonOverrides } = params;
+async function createPublishConfig(input: CreatePublishConfigInput): Promise<PublishConfig> {
+    const { fixturePath, registryDetails, packages, commonPackageSettings, mainPackageJsonOverrides } = input;
     const baseMainPackageJson = await loadPackageJson(fixturePath);
     const mergedMainPackageJson = { ...baseMainPackageJson, ...mainPackageJsonOverrides };
     const mergedCommonPackageSettings: PublishConfig['commonPackageSettings'] = {
@@ -144,18 +144,18 @@ async function createPublishConfig(params: CreatePublishConfigParams): Promise<P
     };
 }
 
-export async function publishFixturePackages(params: PublishFixturePackagesParams): Promise<PublishAllResult> {
-    const configParams = {
-        fixturePath: params.fixturePath,
-        registryDetails: params.registryDetails,
-        packages: params.packages ?? standardFixturePackages(params.fixturePath),
-        ...params.commonPackageSettings === undefined ? {} : { commonPackageSettings: params.commonPackageSettings },
-        ...params.mainPackageJsonOverrides === undefined ? {} : {
-            mainPackageJsonOverrides: params.mainPackageJsonOverrides
+export async function publishFixturePackages(input: PublishFixturePackagesInput): Promise<PublishAllResult> {
+    const configInput = {
+        fixturePath: input.fixturePath,
+        registryDetails: input.registryDetails,
+        packages: input.packages ?? standardFixturePackages(input.fixturePath),
+        ...input.commonPackageSettings === undefined ? {} : { commonPackageSettings: input.commonPackageSettings },
+        ...input.mainPackageJsonOverrides === undefined ? {} : {
+            mainPackageJsonOverrides: input.mainPackageJsonOverrides
         }
     };
-    const config = await createPublishConfig(configParams);
-    const registrySettings = createRegistrySettings(params.registryDetails, params.authMode ?? 'basic');
+    const config = await createPublishConfig(configInput);
+    const registrySettings = createRegistrySettings(input.registryDetails, input.authMode ?? 'basic');
 
     const outcome = await buildAndPublishAll({ ...config, registrySettings }, { dryRun: false, stage: false });
     return outcome.result;
