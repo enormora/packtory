@@ -1,13 +1,20 @@
-const relativeSpecifierPrefix = './';
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+export function isPackageManifestRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+export function parsePackageManifest(manifestContent: string): Readonly<Record<string, unknown>> {
+    const manifest: unknown = JSON.parse(manifestContent);
+    if (!isPackageManifestRecord(manifest)) {
+        return {};
+    }
+
+    return manifest;
 }
 
 function packagePathsIn(value: unknown): readonly string[] {
     if (typeof value === 'string') {
-        return value.startsWith(relativeSpecifierPrefix)
-            ? [ value.slice(relativeSpecifierPrefix.length) ]
+        return value.startsWith('./')
+            ? [ value.slice('./'.length) ]
             : [ value ];
     }
 
@@ -18,17 +25,8 @@ function packagePathsIn(value: unknown): readonly string[] {
     return [];
 }
 
-function parseManifestContent(manifestContent: string): Readonly<Record<string, unknown>> {
-    const manifest: unknown = JSON.parse(manifestContent);
-    if (!isRecord(manifest)) {
-        return {};
-    }
-
-    return manifest;
-}
-
 export function declarationRootsFromManifest(manifestContent: string): ReadonlySet<string> {
-    const manifest = parseManifestContent(manifestContent);
+    const manifest = parsePackageManifest(manifestContent);
     return new Set([
         ...packagePathsIn(manifest.exports),
         ...packagePathsIn(manifest.types),

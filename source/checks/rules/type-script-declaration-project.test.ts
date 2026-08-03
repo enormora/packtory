@@ -115,6 +115,40 @@ const commonCompilerOptions = {
     target: ScriptTarget.ESNext
 };
 
+const consumerEntrypointFilePath =
+    '/workspace/.packtory-type-integrity/node_modules/pkg/.packtory-consumer-entrypoints.ts';
+const javaScriptImportFilePath = '/workspace/.packtory-type-integrity/node_modules/pkg/.packtory-javascript-imports.ts';
+
+function createdSourceFiles(createSourceFile: SinonSpy, expectedFilePath: string): readonly unknown[][] {
+    return createSourceFile.args.filter(function ([ filePath ]) {
+        return filePath === expectedFilePath;
+    });
+}
+
+function assertConsumerEntrypointSources(createSourceFile: SinonSpy, sources: readonly string[]): void {
+    assert.deepStrictEqual(
+        createdSourceFiles(createSourceFile, consumerEntrypointFilePath),
+        sources.flatMap(function (source) {
+            return [
+                [ consumerEntrypointFilePath, source ],
+                [ consumerEntrypointFilePath, source ]
+            ];
+        })
+    );
+}
+
+function assertJavaScriptImportSources(createSourceFile: SinonSpy, sources: readonly string[]): void {
+    assert.deepStrictEqual(
+        createdSourceFiles(createSourceFile, javaScriptImportFilePath),
+        sources.flatMap(function (source) {
+            return [
+                [ javaScriptImportFilePath, source ],
+                [ javaScriptImportFilePath, source ]
+            ];
+        })
+    );
+}
+
 suite('type-script-declaration-project', function () {
     test('creates one project per checked compiler mode', function () {
         const TSMorphProject = createFakeProjectConstructor();
@@ -265,6 +299,181 @@ suite('type-script-declaration-project', function () {
                 { scriptKind: ScriptKind.JSON }
             ]
         ]);
+    });
+
+    suite('public consumer entrypoints', function () {
+        test('adds a public consumer import file for root package types', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            const projects = declarationProjectsFor(TSMorphProject, [
+                { filePath: 'package.json', content: '{"types":"./index.d.ts"}' },
+                { filePath: 'index.d.ts', content: 'export declare const value: number;' }
+            ]);
+
+            assert.deepStrictEqual(firstProject(projects).publicEntrypointPaths, [
+                '.packtory-consumer-entrypoints.ts'
+            ]);
+            assertConsumerEntrypointSources(createSourceFile, [ 'import "pkg";\n' ]);
+        });
+
+        test('adds public consumer imports for explicit package exports', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            declarationProjectsFor(TSMorphProject, [
+                {
+                    filePath: 'package.json',
+                    content: JSON.stringify({
+                        exports: {
+                            '.': { types: './index.d.ts', import: './index.js' },
+                            './feature.js': { types: './feature.d.ts', import: './feature.js' },
+                            './private/*.js': { types: './private/*.d.ts', import: './private/*.js' },
+                            './blocked.js': null
+                        }
+                    })
+                }
+            ]);
+
+            assertConsumerEntrypointSources(createSourceFile, [
+                [
+                    'import "pkg";',
+                    'import "pkg/feature.js";',
+                    ''
+                ]
+                    .join('\n')
+            ]);
+        });
+
+        test('adds a public consumer import file for string package exports', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            declarationProjectsFor(TSMorphProject, [
+                { filePath: 'package.json', content: '{"exports":"./index.js"}' }
+            ]);
+
+            assertConsumerEntrypointSources(createSourceFile, [ 'import "pkg";\n' ]);
+        });
+
+        test('adds a public consumer import file for array package exports', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            declarationProjectsFor(TSMorphProject, [
+                { filePath: 'package.json', content: '{"exports":["./index.js"]}' }
+            ]);
+
+            assertConsumerEntrypointSources(createSourceFile, [ 'import "pkg";\n' ]);
+        });
+
+        test('adds a public consumer import file for conditional root exports', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            declarationProjectsFor(TSMorphProject, [
+                { filePath: 'package.json', content: '{"exports":{"types":"./index.d.ts","import":"./index.js"}}' }
+            ]);
+
+            assertConsumerEntrypointSources(createSourceFile, [ 'import "pkg";\n' ]);
+        });
+
+        test('adds public consumer imports for each legacy package root field', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            declarationProjectsFor(TSMorphProject, [
+                { filePath: 'package.json', content: '{"typings":"./index.d.ts"}' }
+            ]);
+            declarationProjectsFor(TSMorphProject, [
+                { filePath: 'package.json', content: '{"main":"./index.js"}' }
+            ]);
+
+            assertConsumerEntrypointSources(createSourceFile, [
+                'import "pkg";\n',
+                'import "pkg";\n'
+            ]);
+        });
+
+        test('finds the manifest by file name', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            declarationProjectsFor(TSMorphProject, [
+                { filePath: 'index.d.ts', content: 'export declare const value: number;' },
+                { filePath: 'nested/package.json', content: '{"types":"./wrong.d.ts"}' },
+                { filePath: 'package.json', content: '{"types":"./index.d.ts"}' }
+            ]);
+
+            assertConsumerEntrypointSources(createSourceFile, [ 'import "pkg";\n' ]);
+        });
+
+        test('does not add a public consumer import file without public entrypoints', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            const checkedProjects = [
+                declarationProjectsFor(TSMorphProject, []),
+                declarationProjectsFor(TSMorphProject, [ { filePath: 'package.json', content: 'null' } ]),
+                declarationProjectsFor(TSMorphProject, [ { filePath: 'package.json', content: '{"exports":{}}' } ]),
+                declarationProjectsFor(TSMorphProject, [
+                    { filePath: 'package.json', content: '{"exports":{".":null,"./blocked.js":null}}' }
+                ]),
+                declarationProjectsFor(TSMorphProject, [
+                    {
+                        filePath: 'package.json',
+                        content: '{"exports":{"import":"./index.js","./private/*.js":"./private/*.js"}}'
+                    }
+                ])
+            ];
+
+            assert.deepStrictEqual(
+                checkedProjects.map(function (projects) {
+                    return firstProject(projects).publicEntrypointPaths;
+                }),
+                [ [], [], [], [], [] ]
+            );
+            assert.deepStrictEqual(createdSourceFiles(createSourceFile, consumerEntrypointFilePath), []);
+        });
+
+        test('adds public consumer imports for package specifiers used by JavaScript files', function () {
+            const createSourceFile = fake();
+            const TSMorphProject = createFakeProjectConstructor({ createSourceFile });
+
+            const projects = declarationProjectsFor(TSMorphProject, [
+                { filePath: 'package.json', content: '{"types":"./index.d.ts"}' },
+                {
+                    filePath: 'index.js',
+                    content: [
+                        'import "@scope/core/public.js";',
+                        'import "@scope/core/public.js";',
+                        'import "./local.js";',
+                        'import "../parent.js";',
+                        'import "/absolute.js";',
+                        'import "#internal";',
+                        'import "node:path";',
+                        'export { value } from "dependency";',
+                        'export const value = 1;'
+                    ]
+                        .join('\n')
+                },
+                { filePath: 'index.d.ts', content: 'import "declaration-only";\n' },
+                { filePath: 'index.js.map', content: 'import "source-map-only";\n' }
+            ]);
+
+            assert.deepStrictEqual(firstProject(projects).publicEntrypointPaths, [
+                '.packtory-consumer-entrypoints.ts',
+                '.packtory-javascript-imports.ts'
+            ]);
+            assertJavaScriptImportSources(createSourceFile, [
+                [
+                    'import "@scope/core/public.js";',
+                    'import "dependency";',
+                    ''
+                ]
+                    .join('\n')
+            ]);
+        });
     });
 
     test('moduleSpecifiersOf() reads import and export specifiers of the installed declaration', function () {
