@@ -85,6 +85,18 @@ type Overrides = {
 
 function createResolver(overrides: Overrides = {}): ResolverFixture {
     const scan = overrides.scan ?? fake();
+    const scanEntries = fake(async function (
+        entries: readonly string[],
+        sourcesFolder: string,
+        options: Parameters<ResourceResolverDependencies['dependencyScanner']['scanEntries']>[2]
+    ) {
+        const [ entry ] = entries;
+        if (entry === undefined) {
+            throw new Error('Expected at least one scanner entry');
+        }
+        const result: unknown = await scan(entry, sourcesFolder, options);
+        return result as DependencyGraph;
+    });
     const responder = overrides.transferableFileDescriptionResponder ?? createTransferableFile;
     const baseFileManager = createFakeFileManager({
         transferableFileDescriptionResponder(sourceFilePath, targetFilePath) {
@@ -102,7 +114,7 @@ function createResolver(overrides: Overrides = {}): ResolverFixture {
     };
 
     const dependencies: ResourceResolverDependencies = {
-        dependencyScanner: { scan },
+        dependencyScanner: { scan, scanEntries },
         fileManager
     };
 
@@ -133,8 +145,9 @@ function configureScanForJsAndDeclarationGraphs(
 
 function generatedManifestFixture(graph: DependencyGraph): GeneratedManifestFixture {
     const scan = fake.resolves(graph);
+    const scanEntries = fake.resolves(graph);
     const fileDescriptionCalls: FileDescriptionCall[] = [];
-    const dependencyScanner: ResourceResolverDependencies['dependencyScanner'] = { scan };
+    const dependencyScanner: ResourceResolverDependencies['dependencyScanner'] = { scan, scanEntries };
     const fileManager = createFakeFileManager({
         transferableFileDescriptionResponder(sourceFilePath, targetFilePath) {
             if (targetFilePath === 'package.json') {

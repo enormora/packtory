@@ -46,27 +46,38 @@ async function findReadableDeclarationCompanion(
 async function scanDeclarationGraph(
     dependencies: DependencyResolutionDependencies,
     options: ResourceResolveOptions,
-    entryFile: string,
+    entryFiles: readonly string[],
     scannedDeclarationFiles: DeclarationScanTracker
 ): Promise<DependencyFiles> {
-    if (scannedDeclarationFiles.has(entryFile)) {
+    const pendingEntryFiles = entryFiles.filter(function (entryFile) {
+        return !scannedDeclarationFiles.has(entryFile);
+    });
+    if (pendingEntryFiles.length === 0) {
         return emptyDependencyFiles();
     }
-    scannedDeclarationFiles.record(entryFile);
-
-    const declarationDependencyGraph = await dependencies.dependencyScanner.scan(entryFile, options.sourcesFolder, {
-        includeSourceMapFiles: options.includeSourceMapFiles,
-        resolveDeclarationFiles: true,
-        mainPackageJson: options.mainPackageJson
+    pendingEntryFiles.forEach(function (entryFile) {
+        scannedDeclarationFiles.record(entryFile);
     });
-    return declarationDependencyGraph.flatten(entryFile);
+
+    const declarationDependencyGraph = await dependencies.dependencyScanner.scanEntries(
+        pendingEntryFiles,
+        options.sourcesFolder,
+        {
+            includeSourceMapFiles: options.includeSourceMapFiles,
+            resolveDeclarationFiles: true,
+            mainPackageJson: options.mainPackageJson
+        }
+    );
+    return pendingEntryFiles.reduce(function (result, entryFile) {
+        return mergeDependencyFiles(result, declarationDependencyGraph.flatten(entryFile));
+    }, emptyDependencyFiles());
 }
 
-async function resolveDeclarationCompanionDependencies(
+async function collectDeclarationCompanionEntries(
     context: RootResolutionContext,
     jsDependencies: DependencyFiles
-): Promise<DependencyFiles> {
-    let result = emptyDependencyFiles();
+): Promise<readonly string[]> {
+    const companions: string[] = [];
     const nonRootLocalFiles = jsDependencies.localFiles.filter(function (localFile) {
         return !context.rootJsSourceFilePaths.has(localFile.filePath);
     });
@@ -76,19 +87,11 @@ async function resolveDeclarationCompanionDependencies(
             localFile.filePath
         );
         if (declarationCompanion !== undefined) {
-            result = mergeDependencyFiles(
-                result,
-                await scanDeclarationGraph(
-                    context.dependencies,
-                    context.options,
-                    declarationCompanion,
-                    context.scannedDeclarationFiles
-                )
-            );
+            companions.push(declarationCompanion);
         }
     }
 
-    return result;
+    return companions;
 }
 
 function createDeclarationScanTracker(): DeclarationScanTracker {
@@ -119,18 +122,22 @@ async function resolveJsDependencies(
 
 async function resolveRootDeclarationDependencies(
     context: RootResolutionContext,
-    root: ResolvedRootsAndSurface['roots'][string]
+    root: ResolvedRootsAndSurface['roots'][string],
+    jsDependencies: DependencyFiles
 ): Promise<DependencyFiles> {
+    const entryFiles: string[] = [];
     if (root.declarationFile !== undefined) {
-        return await scanDeclarationGraph(
-            context.dependencies,
-            context.options,
-            root.declarationFile,
-            context.scannedDeclarationFiles
-        );
+        entryFiles.push(root.declarationFile);
     }
-
-    return emptyDependencyFiles();
+    if (context.packageHasDeclarationRoots) {
+        entryFiles.push(...await collectDeclarationCompanionEntries(context, jsDependencies));
+    }
+    return scanDeclarationGraph(
+        context.dependencies,
+        context.options,
+        entryFiles,
+        context.scannedDeclarationFiles
+    );
 }
 
 async function resolveDependenciesForRoot(
@@ -138,17 +145,8 @@ async function resolveDependenciesForRoot(
     root: ResolvedRootsAndSurface['roots'][string]
 ): Promise<DependencyFiles> {
     const jsDependencies = await resolveJsDependencies(context, root);
-    const declarationDependencies = await resolveRootDeclarationDependencies(context, root);
-    let dependencyFiles = mergeDependencyFiles(jsDependencies, declarationDependencies);
-
-    if (context.packageHasDeclarationRoots) {
-        dependencyFiles = mergeDependencyFiles(
-            dependencyFiles,
-            await resolveDeclarationCompanionDependencies(context, jsDependencies)
-        );
-    }
-
-    return dependencyFiles;
+    const declarationDependencies = await resolveRootDeclarationDependencies(context, root, jsDependencies);
+    return mergeDependencyFiles(jsDependencies, declarationDependencies);
 }
 
 export async function resolveDependenciesForAllRoots(

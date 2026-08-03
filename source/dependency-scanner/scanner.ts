@@ -25,6 +25,11 @@ export type DependencyScannerDependencies = {
 
 export type DependencyScanner = {
     scan: (entryPointFile: string, folder: string, options: ScanOptionsInput) => Promise<DependencyGraph>;
+    scanEntries: (
+        entryPointFiles: readonly string[],
+        folder: string,
+        options: ScanOptionsInput
+    ) => Promise<DependencyGraph>;
 };
 
 type ScannableLocalReferenceKinds = {
@@ -140,32 +145,53 @@ export function createDependencyScanner(
         }
     }
 
+    async function scanEntryReferences(
+        entryPointFiles: readonly string[],
+        context: ScanContext
+    ): Promise<void> {
+        for (const entryPointFile of entryPointFiles) {
+            if (!context.graph.isKnown(entryPointFile)) {
+                await scanDependenciesOfReference(
+                    context,
+                    { kind: moduleReferenceKind.localCode, filePath: entryPointFile }
+                );
+            }
+        }
+    }
+
+    async function scanEntries(
+        entryPointFiles: readonly string[],
+        folder: string,
+        options: ScanOptionsInput
+    ): Promise<DependencyGraph> {
+        const { resolveDeclarationFiles = false, includeSourceMapFiles = false, mainPackageJson } = options;
+        const scanOptions = {
+            includeSourceMapFiles,
+            resolveDeclarationFiles,
+            mainPackageJson
+        };
+
+        const graph = createDependencyGraph();
+        const project = typescriptProjectAnalyzer.analyzeProject(folder, {
+            resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
+            mainPackageJson: scanOptions.mainPackageJson
+        });
+
+        await scanEntryReferences(entryPointFiles, {
+            folder,
+            graph,
+            options: scanOptions,
+            project
+        });
+
+        return graph;
+    }
+
     return {
         async scan(entryPointFile, folder, options) {
-            const { resolveDeclarationFiles = false, includeSourceMapFiles = false, mainPackageJson } = options;
-            const scanOptions = {
-                includeSourceMapFiles,
-                resolveDeclarationFiles,
-                mainPackageJson
-            };
+            return scanEntries([ entryPointFile ], folder, options);
+        },
 
-            const graph = createDependencyGraph();
-            const project = typescriptProjectAnalyzer.analyzeProject(folder, {
-                resolveDeclarationFiles: scanOptions.resolveDeclarationFiles,
-                mainPackageJson: scanOptions.mainPackageJson
-            });
-
-            await scanDependenciesOfReference(
-                {
-                    folder,
-                    graph,
-                    options: scanOptions,
-                    project
-                },
-                { kind: moduleReferenceKind.localCode, filePath: entryPointFile }
-            );
-
-            return graph;
-        }
+        scanEntries
     };
 }
