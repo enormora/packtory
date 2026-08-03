@@ -34,15 +34,16 @@ function createPreviewSummary(totalPackages: number): PreviewSummary {
 
 export function summarizePackages(packages: readonly PackageForSummary[]): PreviewSummary {
     return packages.reduce(
-        function (summary, pkg) {
+        function (summary, previewPackage) {
             return {
                 totalPackages: summary.totalPackages,
-                changedPackages: summary.changedPackages + (pkg.hasChanges ? 1 : 0),
-                unchangedPackages: summary.unchangedPackages + (!pkg.hasChanges && pkg.failure === undefined ? 1 : 0),
-                failedPackages: summary.failedPackages + (pkg.failure === undefined ? 0 : 1),
-                emittedArtifacts: summary.emittedArtifacts + pkg.artifactCounts.emitted,
-                changedArtifacts: summary.changedArtifacts + pkg.artifactCounts.changed,
-                eliminatedSourceFiles: summary.eliminatedSourceFiles + pkg.eliminatedSourceFiles.length
+                changedPackages: summary.changedPackages + (previewPackage.hasChanges ? 1 : 0),
+                unchangedPackages: summary.unchangedPackages +
+                    (!previewPackage.hasChanges && previewPackage.failure === undefined ? 1 : 0),
+                failedPackages: summary.failedPackages + (previewPackage.failure === undefined ? 0 : 1),
+                emittedArtifacts: summary.emittedArtifacts + previewPackage.artifactCounts.emitted,
+                changedArtifacts: summary.changedArtifacts + previewPackage.artifactCounts.changed,
+                eliminatedSourceFiles: summary.eliminatedSourceFiles + previewPackage.eliminatedSourceFiles.length
             };
         },
         createPreviewSummary(packages.length)

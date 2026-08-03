@@ -6,11 +6,11 @@ export type CiEnvironment = {
     readonly gitlabProjectUrl: string | undefined;
 };
 
-export function readCiEnvironment(env: Readonly<Record<string, string | undefined>>): CiEnvironment {
+export function readCiEnvironment(environment: Readonly<Record<string, string | undefined>>): CiEnvironment {
     return {
-        githubServerUrl: env.GITHUB_SERVER_URL,
-        githubRepository: env.GITHUB_REPOSITORY,
-        gitlabProjectUrl: env.CI_PROJECT_URL
+        githubServerUrl: environment.GITHUB_SERVER_URL,
+        githubRepository: environment.GITHUB_REPOSITORY,
+        gitlabProjectUrl: environment.CI_PROJECT_URL
     };
 }
 
@@ -18,13 +18,13 @@ function isDefinedValue(value: string | undefined): value is string {
     return value !== undefined && value !== '';
 }
 
-export function getCiRepositoryUrl(env: CiEnvironment): string | undefined {
-    if (isDefinedValue(env.githubServerUrl) && isDefinedValue(env.githubRepository)) {
-        return `${env.githubServerUrl}/${env.githubRepository}`;
+export function getCiRepositoryUrl(environment: CiEnvironment): string | undefined {
+    if (isDefinedValue(environment.githubServerUrl) && isDefinedValue(environment.githubRepository)) {
+        return `${environment.githubServerUrl}/${environment.githubRepository}`;
     }
 
-    if (isDefinedValue(env.gitlabProjectUrl)) {
-        return env.gitlabProjectUrl;
+    if (isDefinedValue(environment.gitlabProjectUrl)) {
+        return environment.gitlabProjectUrl;
     }
 
     return undefined;

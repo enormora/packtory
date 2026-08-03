@@ -5,7 +5,7 @@ import {
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
     type RulePackageConfig,
-    type RuleRunParams
+    type RuleRunInput
 } from '../rule.ts';
 
 function ruleName(): 'noDevDependencyImports' {
@@ -23,7 +23,7 @@ function perPackageSchema(): typeof emptyPerPackageSchema {
 type RuleName = ReturnType<typeof ruleName>;
 type GlobalConfig = Readonly<z.infer<ReturnType<typeof globalSchema>>>;
 type PerPackageConfig = Readonly<z.infer<ReturnType<typeof perPackageSchema>>>;
-type RunParams = RuleRunParams<RuleName, GlobalConfig, PerPackageConfig>;
+type RunInput = RuleRunInput<RuleName, GlobalConfig, PerPackageConfig>;
 
 function findLeakedDevDependencies(
     bundle: AnalyzedBundle,
@@ -50,14 +50,14 @@ function findLeakedDevDependencies(
         });
 }
 
-async function run(params: RunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.noDevDependencyImports;
+async function run(input: RunInput): Promise<readonly string[]> {
+    const globalConfig = input.settings?.noDevDependencyImports;
     if (globalConfig?.enabled !== true) {
         return [];
     }
 
-    return params.bundles.flatMap(function (bundle) {
-        return findLeakedDevDependencies(bundle, params.packageConfigs?.[bundle.name]);
+    return input.bundles.flatMap(function (bundle) {
+        return findLeakedDevDependencies(bundle, input.packageConfigs?.[bundle.name]);
     });
 }
 

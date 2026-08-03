@@ -133,13 +133,13 @@ function registerLifecycleTests(): void {
 
         broadcaster.provider.emit('stageTimed', { packageName: 'pkg-a', stage: 'build', durationMs: 5 });
 
-        const pkg = aggregator.build().packages['pkg-a'];
-        if (pkg === undefined) {
+        const packageReport = aggregator.build().packages['pkg-a'];
+        if (packageReport === undefined) {
             assert.fail('expected pkg-a in report');
         }
-        assert.strictEqual(Object.hasOwn(pkg, 'inputs'), false);
-        assert.strictEqual(Object.hasOwn(pkg, 'outputs'), false);
-        assert.strictEqual(Object.hasOwn(pkg, 'failure'), false);
+        assert.strictEqual(Object.hasOwn(packageReport, 'inputs'), false);
+        assert.strictEqual(Object.hasOwn(packageReport, 'outputs'), false);
+        assert.strictEqual(Object.hasOwn(packageReport, 'failure'), false);
     });
 
     test('build() reports schemaVersion 1 on an empty aggregator', function () {

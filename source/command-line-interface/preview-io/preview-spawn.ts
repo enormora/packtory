@@ -14,10 +14,18 @@ export type SpawnOptions = {
     readonly detached?: boolean;
 };
 
-export type SpawnFunction = (command: string, args: readonly string[], options: SpawnOptions) => SpawnedProcess;
+export type SpawnFunction = (
+    command: string,
+    commandArguments: readonly string[],
+    options: SpawnOptions
+) => SpawnedProcess;
 
-export function defaultSpawnProcess(command: string, args: readonly string[], options: SpawnOptions): SpawnedProcess {
-    return spawn(command, Array.from(args), {
+export function defaultSpawnProcess(
+    command: string,
+    commandArguments: readonly string[],
+    options: SpawnOptions
+): SpawnedProcess {
+    return spawn(command, Array.from(commandArguments), {
         ...options,
         stdio: options.stdio === 'ignore' ? 'ignore' : Array.from(options.stdio)
     });
@@ -26,11 +34,11 @@ export function defaultSpawnProcess(command: string, args: readonly string[], op
 export async function spawnForCompletion(
     spawnProcess: SpawnFunction,
     command: string,
-    args: readonly string[],
+    commandArguments: readonly string[],
     content: string
 ): Promise<boolean> {
     return new Promise<boolean>(function (resolve) {
-        const child = spawnProcess(command, args, { stdio: [ 'pipe', 'inherit', 'inherit' ] });
+        const child = spawnProcess(command, commandArguments, { stdio: [ 'pipe', 'inherit', 'inherit' ] });
         if (child.stdin === null) {
             resolve(false);
             return;

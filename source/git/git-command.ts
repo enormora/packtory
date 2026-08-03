@@ -6,12 +6,12 @@ type GitCommandResult = {
     readonly stdout: string;
     readonly stderr: string;
 };
-export type GitCommandRunner = (command: string, args: readonly string[]) => Promise<GitCommandResult>;
+export type GitCommandRunner = (command: string, commandArguments: readonly string[]) => Promise<GitCommandResult>;
 type GitCommandExecutorResult = {
     readonly stdout: Readonly<Buffer> | string;
     readonly stderr: Readonly<Buffer> | string;
 };
-type GitCommandExecutor = (command: string, args: readonly string[]) => Promise<GitCommandExecutorResult>;
+type GitCommandExecutor = (command: string, commandArguments: readonly string[]) => Promise<GitCommandExecutorResult>;
 type GitCommandChildProcess = {
     readonly once: (eventName: 'close', listener: () => void) => GitCommandChildProcess;
 };
@@ -22,7 +22,7 @@ type ExecFileCallback = (
 ) => void;
 type SpawnGitCommand = (
     command: string,
-    args: readonly string[],
+    commandArguments: readonly string[],
     callback: ExecFileCallback
 ) => GitCommandChildProcess;
 type Deferred<T> = {
@@ -41,9 +41,9 @@ function toGitCommandResult(result: GitCommandExecutorResult): GitCommandResult 
 }
 
 export function createGitCommandRunner(executeGitCommand: GitCommandExecutor): GitCommandRunner {
-    return async function (command, args) {
+    return async function (command, commandArguments) {
         try {
-            return toGitCommandResult(await executeGitCommand(command, Array.from(args)));
+            return toGitCommandResult(await executeGitCommand(command, Array.from(commandArguments)));
         } catch (error: unknown) {
             throw toGitCommandError(error);
         }
@@ -79,7 +79,7 @@ async function runUntilOutputOrClose(
 }
 
 export function createChildProcessGitCommandExecutor(spawnGitCommand: SpawnGitCommand): GitCommandExecutor {
-    return async function (command, args) {
+    return async function (command, commandArguments) {
         const output = Promise.withResolvers<GitCommandExecutorResult>();
         const closed = Promise.withResolvers<never>();
         const callback: ExecFileCallback = function (error, stdout, stderr) {
@@ -89,7 +89,7 @@ export function createChildProcessGitCommandExecutor(spawnGitCommand: SpawnGitCo
             undefined,
             new Error('Child process closed before reporting output')
         );
-        const childProcess = spawnGitCommand(command, Array.from(args), callback);
+        const childProcess = spawnGitCommand(command, Array.from(commandArguments), callback);
         childProcess.once('close', rejectClosedChildProcess);
         return await runUntilOutputOrClose(output, closed);
     };
@@ -97,8 +97,8 @@ export function createChildProcessGitCommandExecutor(spawnGitCommand: SpawnGitCo
 
 export function spawnChildProcessGitCommand(
     command: string,
-    args: readonly string[],
+    commandArguments: readonly string[],
     callback: ExecFileCallback
 ): GitCommandChildProcess {
-    return execFile(command, Array.from(args), callback);
+    return execFile(command, Array.from(commandArguments), callback);
 }

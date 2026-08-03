@@ -116,7 +116,7 @@ function registerMaterializationTests(): void {
             ],
             realPaths: [
                 { value: '/repo/node_modules/root' },
-                { value: '/repo/node_modules/dep' },
+                { value: '/repo/node_modules/dependency' },
                 { value: '/repo/node_modules/peer' }
             ],
             listings: [
@@ -125,7 +125,12 @@ function registerMaterializationTests(): void {
                 { value: [ { name: 'peer.js', isDirectory: false, isSymbolicLink: false } ] }
             ],
             fileReads: [
-                { value: JSON.stringify({ dependencies: { dep: '1.0.0' }, peerDependencies: { peer: '1.0.0' } }) },
+                {
+                    value: JSON.stringify({
+                        dependencies: { dependency: '1.0.0' },
+                        peerDependencies: { peer: '1.0.0' }
+                    })
+                },
                 { value: '{}' },
                 { value: '{}' }
             ]
@@ -139,10 +144,10 @@ function registerMaterializationTests(): void {
             })
         );
 
-        assert.deepStrictEqual(result.packageNames, [ 'root', 'dep', 'peer' ]);
+        assert.deepStrictEqual(result.packageNames, [ 'root', 'dependency', 'peer' ]);
         assert.deepStrictEqual(targetRelativePaths(result), [
             'node_modules/root/index.js',
-            'node_modules/dep/lib.js',
+            'node_modules/dependency/lib.js',
             'node_modules/peer/peer.js'
         ]);
     });
@@ -161,8 +166,8 @@ function registerMaterializationTests(): void {
                     { value: '/repo/node_modules/root' },
                     { value: '/repo/node_modules/1dep' },
                     { value: '/repo/node_modules/a1dep' },
-                    { value: '/repo/node_modules/@a1scope/dep' },
-                    { value: '/repo/node_modules/@1scope/dep' }
+                    { value: '/repo/node_modules/@a1scope/dependency' },
+                    { value: '/repo/node_modules/@1scope/dependency' }
                 ],
                 listings: [
                     { value: [ { name: 'index.js', isDirectory: false, isSymbolicLink: false } ] },
@@ -177,8 +182,8 @@ function registerMaterializationTests(): void {
                             dependencies: {
                                 '1dep': '1.0.0',
                                 a1dep: '1.0.0',
-                                '@a1scope/dep': '1.0.0',
-                                '@1scope/dep': '1.0.0'
+                                '@a1scope/dependency': '1.0.0',
+                                '@1scope/dependency': '1.0.0'
                             }
                         })
                     },
@@ -191,7 +196,13 @@ function registerMaterializationTests(): void {
             { initialDependencyNames: [ 'root' ], projectFolder: '/repo' }
         );
 
-        assert.deepStrictEqual(result.packageNames, [ 'root', '1dep', 'a1dep', '@a1scope/dep', '@1scope/dep' ]);
+        assert.deepStrictEqual(result.packageNames, [
+            'root',
+            '1dep',
+            'a1dep',
+            '@a1scope/dependency',
+            '@1scope/dependency'
+        ]);
     });
 
     test('skips nested node_modules when walking files (nested packages are visited as separate closure entries instead)', async function () {

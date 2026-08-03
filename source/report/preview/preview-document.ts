@@ -48,7 +48,7 @@ export type PreviewDocument = {
     readonly report: BuildReport;
 };
 
-type PreviewDocumentParams = {
+type PreviewDocumentInput = {
     readonly report: BuildReport;
     readonly result: PublishAllResult;
     readonly dryRun: boolean;
@@ -129,24 +129,24 @@ async function buildPreviewPackage(
     };
 }
 
-export async function buildPreviewDocument(params: PreviewDocumentParams): Promise<PreviewDocument> {
-    const readWorkspaceFile = params.fileManager.readFile;
-    const bundleArtifactIndex = buildBundleArtifactIndex(getSucceededResults(params.result));
+export async function buildPreviewDocument(input: PreviewDocumentInput): Promise<PreviewDocument> {
+    const readWorkspaceFile = input.fileManager.readFile;
+    const bundleArtifactIndex = buildBundleArtifactIndex(getSucceededResults(input.result));
     const packages = await Promise.all(
-        Object.entries(params.report.packages).map(async function ([ packageName, packageReport ]) {
+        Object.entries(input.report.packages).map(async function ([ packageName, packageReport ]) {
             return buildPreviewPackage(packageName, packageReport, bundleArtifactIndex, readWorkspaceFile);
         })
     );
 
     return {
         title: 'Packtory preview',
-        modeLabel: params.dryRun ? 'Dry run' : 'Publish',
-        previewable: isPreviewableResult(params.result),
-        resultType: getResultType(params.result),
+        modeLabel: input.dryRun ? 'Dry run' : 'Publish',
+        previewable: isPreviewableResult(input.result),
+        resultType: getResultType(input.result),
         summary: summarizePackages(packages),
         packages,
-        issues: getIssues(params.result),
-        report: params.report
+        issues: getIssues(input.result),
+        report: input.report
     };
 }
 

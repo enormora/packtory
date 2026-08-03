@@ -6,22 +6,22 @@ type EliminatedSourceFile = PreviewPackage['eliminatedSourceFiles'][number];
 type ChangedArtifact = PreviewPackage['changedArtifacts'][number];
 type DiffHunk = ChangedArtifact['diff'][number];
 
-function renderPackageHeader(pkg: PreviewPackage, colors: Colors): string {
-    if (pkg.versionTransition === undefined) {
-        return colors.bold(pkg.name);
+function renderPackageHeader(previewPackage: PreviewPackage, colors: Colors): string {
+    if (previewPackage.versionTransition === undefined) {
+        return colors.bold(previewPackage.name);
     }
-    return `${colors.bold(pkg.name)} ${colors.dim(pkg.versionTransition)}`;
+    return `${colors.bold(previewPackage.name)} ${colors.dim(previewPackage.versionTransition)}`;
 }
 
-function renderFailureLine(pkg: PreviewPackage, colors: Colors): string | undefined {
-    if (pkg.failure === undefined) {
+function renderFailureLine(previewPackage: PreviewPackage, colors: Colors): string | undefined {
+    if (previewPackage.failure === undefined) {
         return undefined;
     }
-    return `${colors.red('  failure')} ${pkg.failure.stage}: ${pkg.failure.message}`;
+    return `${colors.red('  failure')} ${previewPackage.failure.stage}: ${previewPackage.failure.message}`;
 }
 
-function renderTreeLines(pkg: PreviewPackage, colors: Colors): readonly string[] {
-    return pkg.tree.map(function (node) {
+function renderTreeLines(previewPackage: PreviewPackage, colors: Colors): readonly string[] {
+    return previewPackage.tree.map(function (node) {
         return renderArtifactNode(node, colors);
     });
 }
@@ -31,13 +31,13 @@ function renderEliminatedSourceFile(file: EliminatedSourceFile, colors: Colors):
     return `    - ${file.path} ${size}`;
 }
 
-function renderEliminatedSourceFiles(pkg: PreviewPackage, colors: Colors): readonly string[] {
-    if (pkg.eliminatedSourceFiles.length === 0) {
+function renderEliminatedSourceFiles(previewPackage: PreviewPackage, colors: Colors): readonly string[] {
+    if (previewPackage.eliminatedSourceFiles.length === 0) {
         return [];
     }
     return [
         `  ${colors.bold('Eliminated source files')}`,
-        ...pkg.eliminatedSourceFiles.map(function (file) {
+        ...previewPackage.eliminatedSourceFiles.map(function (file) {
             return renderEliminatedSourceFile(file, colors);
         })
     ];
@@ -61,25 +61,25 @@ function renderChangedArtifact(artifact: ChangedArtifact, colors: Colors): reado
     ];
 }
 
-function renderChangedArtifacts(pkg: PreviewPackage, colors: Colors): readonly string[] {
-    if (pkg.changedArtifacts.length === 0) {
+function renderChangedArtifacts(previewPackage: PreviewPackage, colors: Colors): readonly string[] {
+    if (previewPackage.changedArtifacts.length === 0) {
         return [];
     }
     return [
         `  ${colors.bold('Diffs')}`,
-        ...pkg.changedArtifacts.flatMap(function (artifact) {
+        ...previewPackage.changedArtifacts.flatMap(function (artifact) {
             return renderChangedArtifact(artifact, colors);
         })
     ];
 }
 
-export function renderPackage(pkg: PreviewPackage, colors: Colors): string {
+export function renderPackage(previewPackage: PreviewPackage, colors: Colors): string {
     const lines = [
-        renderPackageHeader(pkg, colors),
-        renderFailureLine(pkg, colors),
-        ...renderTreeLines(pkg, colors),
-        ...renderEliminatedSourceFiles(pkg, colors),
-        ...renderChangedArtifacts(pkg, colors)
+        renderPackageHeader(previewPackage, colors),
+        renderFailureLine(previewPackage, colors),
+        ...renderTreeLines(previewPackage, colors),
+        ...renderEliminatedSourceFiles(previewPackage, colors),
+        ...renderChangedArtifacts(previewPackage, colors)
     ]
         .filter(function (line): line is string {
             return line !== undefined;

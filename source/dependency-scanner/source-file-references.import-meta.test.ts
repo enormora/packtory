@@ -113,16 +113,16 @@ suite('source-file-references import.meta and package assets', function () {
     });
 
     suite('import.meta.resolve references', function () {
-        function expectImportMetaResolveReferences(args: ImportMetaResolveExpectation): void {
+        function expectImportMetaResolveReferences(expectation: ImportMetaResolveExpectation): void {
             const project = createProject({
-                withFiles: [ { filePath: 'main.ts', content: args.mainContent } ]
+                withFiles: [ { filePath: 'main.ts', content: expectation.mainContent } ]
             });
-            const extraFiles = args.extraFiles ?? [];
+            const extraFiles = expectation.extraFiles ?? [];
             for (const file of extraFiles) {
                 project.createSourceFile(file.filePath, file.content);
             }
             const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
-            assert.deepStrictEqual(result, args.expected);
+            assert.deepStrictEqual(result, expectation.expected);
         }
 
         suite('resolved references', function () {

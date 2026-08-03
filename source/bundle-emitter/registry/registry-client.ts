@@ -51,7 +51,7 @@ export type RegistryClient = {
     ) => Promise<Maybe<PackageReleaseMetadata>>;
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
     fetchStagedVersions: (packageName: string, config: RegistrySettings) => Promise<readonly string[]>;
-    publishPackage: (...args: PublishPackageArguments) => Promise<PublicationOutcome>;
+    publishPackage: (...publishArguments: PublishPackageArguments) => Promise<PublicationOutcome>;
     fetchTarball: (tarballUrl: string, config: RegistrySettings) => Promise<Buffer>;
 };
 

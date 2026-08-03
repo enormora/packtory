@@ -37,8 +37,8 @@ export function renderTerminalPreview(document: PreviewDocument, options: Termin
         renderTitle(document, colors),
         colors.dim(renderSummary(document)),
         renderIssues(document.issues, colors),
-        ...document.packages.map(function (pkg) {
-            return renderPackage(pkg, colors);
+        ...document.packages.map(function (previewPackage) {
+            return renderPackage(previewPackage, colors);
         })
     ]
         .filter(function (section): section is string {
@@ -52,11 +52,13 @@ export function renderFailureOnlyTerminalPreview(
     options: TerminalPreviewRendererOptions = {}
 ): string {
     const colors = createColors(options.color);
-    const failedPackageLines = document.packages.flatMap(function (pkg): readonly string[] {
-        if (pkg.failure === undefined) {
+    const failedPackageLines = document.packages.flatMap(function (previewPackage): readonly string[] {
+        if (previewPackage.failure === undefined) {
             return [];
         }
-        return [ `${colors.bold(pkg.name)} ${pkg.failure.stage}: ${pkg.failure.message}` ];
+        return [
+            `${colors.bold(previewPackage.name)} ${previewPackage.failure.stage}: ${previewPackage.failure.message}`
+        ];
     });
     const lines = [
         ...renderFailureDocumentHeader(document, colors),

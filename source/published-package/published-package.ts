@@ -52,12 +52,14 @@ export type ArtifactPublishPackage = Pick<
     'binField' | 'contents' | 'manifestFile' | 'name' | 'packageJson'
 >;
 
-export function explicitBinTargetPaths(pkg: Pick<ArtifactSourcePackage, 'binField'>): ReadonlySet<string> {
-    if (pkg.binField === undefined) {
+export function explicitBinTargetPaths(sourcePackage: Pick<ArtifactSourcePackage, 'binField'>): ReadonlySet<string> {
+    if (sourcePackage.binField === undefined) {
         return new Set<string>();
     }
 
-    const targets = isString(pkg.binField) ? [ pkg.binField ] : Object.values(pkg.binField).filter(isString);
+    const targets = isString(sourcePackage.binField)
+        ? [ sourcePackage.binField ]
+        : Object.values(sourcePackage.binField).filter(isString);
     return new Set(
         targets.map(function (target) {
             return target.replace(/^\.\//u, '');

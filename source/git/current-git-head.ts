@@ -1,6 +1,6 @@
 type GitCommandRunner = (
     command: string,
-    args: readonly string[]
+    commandArguments: readonly string[]
 ) => Promise<{ readonly stdout: string; readonly stderr: string; }>;
 
 export type CurrentGitHeadReader = () => Promise<string | undefined>;

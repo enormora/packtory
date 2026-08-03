@@ -344,15 +344,15 @@ export function createPublishOperations(dependencies: PublishDependencies): Publ
         return { versionedBundle, currentVersion, version };
     }
 
-    function emitVersionDetermined(args: VersionDeterminedInput): void {
+    function emitVersionDetermined(input: VersionDeterminedInput): void {
         if (!dependencies.progressBroadcaster.hasSubscribers('versionDetermined')) {
             return;
         }
         dependencies.progressBroadcaster.emit('versionDetermined', {
-            packageName: args.options.name,
-            previousVersion: args.currentVersion.isJust ? args.currentVersion.value : undefined,
-            chosenVersion: args.chosenVersion,
-            trigger: inferVersionTrigger(args.currentVersion, args.options, args.didBump)
+            packageName: input.options.name,
+            previousVersion: input.currentVersion.isJust ? input.currentVersion.value : undefined,
+            chosenVersion: input.chosenVersion,
+            trigger: inferVersionTrigger(input.currentVersion, input.options, input.didBump)
         });
     }
 

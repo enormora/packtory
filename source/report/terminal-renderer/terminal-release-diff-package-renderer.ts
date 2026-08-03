@@ -159,56 +159,56 @@ function renderHeaderSummary(files: FileSetDiff, unchangedCount: number): string
     return parts.join(', ');
 }
 
-function renderUnchangedPackage(pkg: PackageReleaseDiff, colors: Colors): string {
-    const packageName = colors.bold(pkg.name);
-    return colors.dim(`${packageName}  ${pkg.previousVersionLabel}  ·  no changes`);
+function renderUnchangedPackage(packageDiff: PackageReleaseDiff, colors: Colors): string {
+    const packageName = colors.bold(packageDiff.name);
+    return colors.dim(`${packageName}  ${packageDiff.previousVersionLabel}  ·  no changes`);
 }
 
-function renderFirstPublishPackageLines(pkg: PackageReleaseDiff, colors: Colors): readonly string[] {
+function renderFirstPublishPackageLines(packageDiff: PackageReleaseDiff, colors: Colors): readonly string[] {
     return [
-        `${colors.bold(pkg.name)}  ${colors.dim(pkg.versionTransition)}`,
+        `${colors.bold(packageDiff.name)}  ${colors.dim(packageDiff.versionTransition)}`,
         `  ${colors.yellow('[first publish]')}  ${colors.dim('showing all bundled files as added')}`,
         ...renderTreeGroup(
-            { title: 'Added', files: pkg.files.added, renderFileLines: renderAddedFileLines },
+            { title: 'Added', files: packageDiff.files.added, renderFileLines: renderAddedFileLines },
             colors
         )
     ];
 }
 
-function renderChangedPackageLines(pkg: PackageReleaseDiff, colors: Colors): readonly string[] {
-    const summary = renderHeaderSummary(pkg.files, pkg.files.unchanged.length);
-    const packageName = colors.bold(pkg.name);
-    const versionTransition = colors.dim(pkg.versionTransition);
+function renderChangedPackageLines(packageDiff: PackageReleaseDiff, colors: Colors): readonly string[] {
+    const summary = renderHeaderSummary(packageDiff.files, packageDiff.files.unchanged.length);
+    const packageName = colors.bold(packageDiff.name);
+    const versionTransition = colors.dim(packageDiff.versionTransition);
     const summaryLabel = colors.dim(`·  ${summary}`);
     return [
         `${packageName}  ${versionTransition}  ${summaryLabel}`,
         ...renderTreeGroup(
-            { title: 'Added', files: pkg.files.added, renderFileLines: renderAddedFileLines },
+            { title: 'Added', files: packageDiff.files.added, renderFileLines: renderAddedFileLines },
             colors
         ),
         ...renderTreeGroup(
-            { title: 'Removed', files: pkg.files.removed, renderFileLines: renderRemovedFileLines },
+            { title: 'Removed', files: packageDiff.files.removed, renderFileLines: renderRemovedFileLines },
             colors
         ),
         ...renderTreeGroup(
-            { title: 'Modified', files: pkg.files.modified, renderFileLines: renderModifiedFileLines },
+            { title: 'Modified', files: packageDiff.files.modified, renderFileLines: renderModifiedFileLines },
             colors
         )
     ];
 }
 
-function renderPackageLines(pkg: PackageReleaseDiff, colors: Colors): readonly string[] {
-    if (pkg.state === packageReleaseDiffState.unchanged) {
-        return [ renderUnchangedPackage(pkg, colors) ];
+function renderPackageLines(packageDiff: PackageReleaseDiff, colors: Colors): readonly string[] {
+    if (packageDiff.state === packageReleaseDiffState.unchanged) {
+        return [ renderUnchangedPackage(packageDiff, colors) ];
     }
 
-    if (pkg.state === packageReleaseDiffState.firstPublish) {
-        return renderFirstPublishPackageLines(pkg, colors);
+    if (packageDiff.state === packageReleaseDiffState.firstPublish) {
+        return renderFirstPublishPackageLines(packageDiff, colors);
     }
 
-    return renderChangedPackageLines(pkg, colors);
+    return renderChangedPackageLines(packageDiff, colors);
 }
 
-export function renderReleaseDiffPackage(pkg: PackageReleaseDiff, colors: Colors): string {
-    return renderPackageLines(pkg, colors).join('\n');
+export function renderReleaseDiffPackage(packageDiff: PackageReleaseDiff, colors: Colors): string {
+    return renderPackageLines(packageDiff, colors).join('\n');
 }

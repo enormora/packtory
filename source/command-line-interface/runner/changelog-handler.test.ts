@@ -80,8 +80,10 @@ type PartialFailureOutcomeSpec = {
     readonly failures: readonly Error[];
 };
 
-function partialFailureOutcome(spec: PartialFailureOutcomeSpec): ReleasePlanOutcome {
-    return releasePlanOutcomeFrom(Result.err({ type: 'partial', succeeded: spec.succeeded, failures: spec.failures }));
+function partialFailureOutcome(input: PartialFailureOutcomeSpec): ReleasePlanOutcome {
+    return releasePlanOutcomeFrom(
+        Result.err({ type: 'partial', succeeded: input.succeeded, failures: input.failures })
+    );
 }
 
 type PullRequestFilterInput = {
@@ -162,27 +164,27 @@ type ChangelogHandlerDependenciesSpec = {
     readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
 };
 
-function dependenciesWith(spec: ChangelogHandlerDependenciesSpec): ChangelogHandlerDependencies {
+function dependenciesWith(input: ChangelogHandlerDependenciesSpec): ChangelogHandlerDependencies {
     return {
         log(message) {
-            spec.spies.log(message);
+            input.spies.log(message);
         },
-        pageOutput: spec.spies.pageOutput,
+        pageOutput: input.spies.pageOutput,
         packtory: {
-            planReleaseAgainstLatestPublished: spec.spies.planReleaseAgainstLatestPublished
+            planReleaseAgainstLatestPublished: input.spies.planReleaseAgainstLatestPublished
         } as unknown as Packtory,
-        fileManager: spec.fileManager ?? createFakeFileManager(),
-        spinnerRenderer: spinnerRendererCapturing(spec.spies.stopAll),
-        configLoader: spec.configLoader ?? configLoaderReturning(validConfig),
-        createPrLogEngine: spec.spies.createPrLogEngine,
+        fileManager: input.fileManager ?? createFakeFileManager(),
+        spinnerRenderer: spinnerRendererCapturing(input.spies.stopAll),
+        configLoader: input.configLoader ?? configLoaderReturning(validConfig),
+        createPrLogEngine: input.spies.createPrLogEngine,
         currentDate() {
             return new Date('2026-06-13T00:00:00.000Z');
         },
-        readEnvironmentVariable: spec.readEnvironmentVariable ??
+        readEnvironmentVariable: input.readEnvironmentVariable ??
             function (name) {
                 return name === 'GH_TOKEN' ? 'gh-token' : undefined;
             },
-        readPackageInfo: spec.readPackageInfo ??
+        readPackageInfo: input.readPackageInfo ??
             async function () {
                 return { repository: { url: 'git+https://github.com/Owner/Repo.git' } };
             },
@@ -219,15 +221,15 @@ type ReleasePlanFailureLogSpec = {
     readonly expectedLog: string;
 };
 
-async function assertReleasePlanFailureLogged(spec: ReleasePlanFailureLogSpec): Promise<void> {
-    const spies = makeSpies(createEngine(), spec.releasePlanOutcome);
+async function assertReleasePlanFailureLogged(input: ReleasePlanFailureLogSpec): Promise<void> {
+    const spies = makeSpies(createEngine(), input.releasePlanOutcome);
 
     const code = await runChangelogHandler(dependenciesWith({ spies }));
 
     assert.strictEqual(code, 1);
     assert.deepStrictEqual(
         { createPrLogEngine: spies.createPrLogEngine.callCount, logArgs: spies.log.firstCall.args },
-        { createPrLogEngine: 0, logArgs: [ spec.expectedLog ] }
+        { createPrLogEngine: 0, logArgs: [ input.expectedLog ] }
     );
 }
 

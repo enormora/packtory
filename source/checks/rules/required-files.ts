@@ -2,7 +2,7 @@ import { unique } from 'remeda';
 import { z } from 'zod/mini';
 import type { AnalyzedBundle } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { nonEmptyStringSchema } from '../../config/base-validations.ts';
-import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+import type { CheckRuleDefinition, RuleRunInput } from '../rule.ts';
 
 const ruleName = 'requiredFiles';
 
@@ -19,7 +19,7 @@ const perPackageSchema = z.strictObject({
 
 type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function effectiveRequiredFiles(
     globalConfig: GlobalConfig,
@@ -39,16 +39,16 @@ function findMissingFiles(bundle: AnalyzedBundle, requiredFiles: readonly string
     });
 }
 
-async function run(params: RunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.requiredFiles;
+async function run(input: RunInput): Promise<readonly string[]> {
+    const globalConfig = input.settings?.requiredFiles;
     if (globalConfig?.enabled !== true) {
         return [];
     }
 
-    return params.bundles.flatMap(function (bundle) {
+    return input.bundles.flatMap(function (bundle) {
         const requiredFiles = effectiveRequiredFiles(
             globalConfig,
-            params.perPackageSettings.get(bundle.name)?.requiredFiles
+            input.perPackageSettings.get(bundle.name)?.requiredFiles
         );
         return findMissingFiles(bundle, requiredFiles).map(function (file) {
             return `Package "${bundle.name}" is missing required file "${file}"`;

@@ -129,11 +129,14 @@ function readGitHubToken(
 function parseGitHubRepositoryName(repositoryName: string): GitHubRepositoryNameParts {
     const ownerSeparatorIndex = repositoryName.indexOf('/');
     const owner = repositoryName.slice(0, ownerSeparatorIndex);
-    const repo = repositoryName.slice(ownerSeparatorIndex + 1);
-    if (!repositoryName.includes('/') || owner.length === 0 || repo.length === 0 || repo.includes('/')) {
+    const repositoryPathSegment = repositoryName.slice(ownerSeparatorIndex + 1);
+    if (
+        !repositoryName.includes('/') || owner.length === 0 || repositoryPathSegment.length === 0 ||
+        repositoryPathSegment.includes('/')
+    ) {
         throw new Error('GITHUB_REPOSITORY must use owner/repo format');
     }
-    return { owner, repo };
+    return { owner, repo: repositoryPathSegment };
 }
 
 async function readGitHubRepository(
@@ -141,8 +144,8 @@ async function readGitHubRepository(
 ): Promise<GitHubRepository> {
     const repositoryName = dependencies.readEnvironmentVariable('GITHUB_REPOSITORY');
     if (repositoryName !== undefined) {
-        const { owner, repo } = parseGitHubRepositoryName(repositoryName);
-        return { name: repositoryName, owner, repo };
+        const { owner, repo: repositoryPathSegment } = parseGitHubRepositoryName(repositoryName);
+        return { name: repositoryName, owner, repo: repositoryPathSegment };
     }
     const packageInfo = await dependencies.readPackageInfo();
     const repository = parseGitHubRepositoryParts(packageInfo);

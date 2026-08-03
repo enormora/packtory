@@ -5,11 +5,11 @@ import type { PackageInterface } from '../../config/package-interface.ts';
 import { packageConfigFixture } from '../../test-libraries/config-fixtures.ts';
 import { resolveSurface } from './surface-resolution.ts';
 
-const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
+const packageConfig: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 suite('surface-resolution', function () {
     test('resolveSurface returns an implicit surface using the only root when there is a single root', function () {
-        const surface = resolveSurface([ 'main' ], pkg({}));
+        const surface = resolveSurface([ 'main' ], packageConfig({}));
 
         if (surface.mode !== 'implicit') {
             assert.fail('expected implicit surface');
@@ -18,7 +18,7 @@ suite('surface-resolution', function () {
     });
 
     test('resolveSurface returns an implicit surface honouring defaultModuleRoot when multiple roots exist', function () {
-        const surface = resolveSurface([ 'main', 'feature' ], pkg({ defaultModuleRoot: 'feature' }));
+        const surface = resolveSurface([ 'main', 'feature' ], packageConfig({ defaultModuleRoot: 'feature' }));
 
         if (surface.mode !== 'implicit') {
             assert.fail('expected implicit surface');
@@ -28,7 +28,7 @@ suite('surface-resolution', function () {
 
     test('resolveSurface throws when multiple roots exist without a defaultModuleRoot', function () {
         try {
-            resolveSurface([ 'main', 'feature' ], pkg({}));
+            resolveSurface([ 'main', 'feature' ], packageConfig({}));
             assert.fail('Expected resolveSurface() to throw but it did not');
         } catch (error: unknown) {
             assert.strictEqual((error as Error).message, 'Config for package "pkg-a" is missing defaultModuleRoot');
@@ -39,7 +39,7 @@ suite('surface-resolution', function () {
         const packageInterface: PackageInterface = { modules: [ { root: 'main', export: '.' } ] };
         const surface = resolveSurface(
             [ 'main' ],
-            pkg({ packageInterface })
+            packageConfig({ packageInterface })
         );
 
         assert.strictEqual(surface.mode, 'explicit');

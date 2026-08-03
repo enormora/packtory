@@ -9,8 +9,8 @@ function bundleWithExternals(name: string, externals: readonly string[]): Analyz
     return analyzedBundle({
         name,
         externalDependencies: new Map<string, ExternalDependency>(
-            externals.map(function (dep) {
-                return [ dep, { name: dep, referencedFrom: [ `/${name}/index.js` ] } ];
+            externals.map(function (dependencyName) {
+                return [ dependencyName, { name: dependencyName, referencedFrom: [ `/${name}/index.js` ] } ];
             })
         )
     });

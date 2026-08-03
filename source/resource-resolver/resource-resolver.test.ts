@@ -17,7 +17,7 @@ type TransferableFile = {
     readonly content: string;
     readonly isExecutable: boolean;
 };
-type GraphParams = {
+type GraphInput = {
     readonly rootFile: string;
     readonly additionalLocalFiles?: readonly string[];
     readonly externalDependencyName?: string;
@@ -47,8 +47,8 @@ function createTransferableFile(sourceFilePath: string, targetFilePath = sourceF
     };
 }
 
-function createGraph(params: GraphParams): DependencyGraph {
-    const { rootFile, additionalLocalFiles = [], externalDependencyName } = params;
+function createGraph(input: GraphInput): DependencyGraph {
+    const { rootFile, additionalLocalFiles = [], externalDependencyName } = input;
     const graph = createDependencyGraph();
     const project = {
         getProject() {

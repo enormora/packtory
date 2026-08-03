@@ -48,7 +48,7 @@ type ConfigWithVersioning<TVersioning> = {
     };
     readonly packages: readonly [
         {
-            readonly name: 'pkg';
+            readonly name: 'package-a';
             readonly roots: { readonly main: { readonly js: 'index.js'; }; };
             readonly versioning: TVersioning;
         }
@@ -143,7 +143,7 @@ describe('PacktoryConfig - accepted shapes', function () {
                 readonly auth: { readonly type: 'bearer-token'; readonly token: 'any-token'; };
             };
             readonly packages: readonly [
-                { readonly name: 'pkg'; readonly roots: { readonly main: { readonly js: 'index.js'; }; }; }
+                { readonly name: 'package-a'; readonly roots: { readonly main: { readonly js: 'index.js'; }; }; }
             ];
         }>();
     });
@@ -183,16 +183,16 @@ describe('PacktoryConfig - accepted shapes', function () {
                     { readonly kind: 'repository-file'; readonly path: 'CHANGELOG.md'; },
                     {
                         readonly kind: 'package-file';
-                        readonly paths: { readonly pkg: 'packages/pkg/CHANGELOG.md'; };
+                        readonly paths: { readonly 'package-a': 'packages/package-a/CHANGELOG.md'; };
                     }
                 ];
-                readonly packageTagFormat: 'pkg/{packageName}/v{version}';
+                readonly packageTagFormat: 'package/{packageName}/v{version}';
                 readonly targetScopedLabelPattern: 'scope:{targetName}:{label}';
             };
             readonly commonPackageSettings: { readonly sourcesFolder: 'src'; readonly includeSourceMapFiles: true; };
             readonly packages: readonly [
                 {
-                    readonly name: 'pkg';
+                    readonly name: 'package-a';
                     readonly roots: {
                         readonly main: {
                             readonly js: 'index.js';
@@ -229,7 +229,9 @@ describe('PacktoryConfig - accepted shapes', function () {
 describe('PacktoryConfig - rejected shapes', function () {
     test('accepts a configuration without registrySettings (read-only ops do not require auth)', function () {
         expect<{
-            readonly packages: readonly [{ readonly name: 'pkg'; readonly roots: Readonly<Record<string, never>>; }];
+            readonly packages: readonly [
+                { readonly name: 'package-a'; readonly roots: Readonly<Record<string, never>>; }
+            ];
         }>()
             .type
             .toBeAssignableTo<PacktoryConfig>();
@@ -246,7 +248,9 @@ describe('PacktoryConfig - rejected shapes', function () {
     test('accepts a registrySettings without auth (publish fails fast at runtime instead)', function () {
         expect<{
             readonly registrySettings: { readonly registryUrl: 'https://registry.example'; };
-            readonly packages: readonly [{ readonly name: 'pkg'; readonly roots: Readonly<Record<string, never>>; }];
+            readonly packages: readonly [
+                { readonly name: 'package-a'; readonly roots: Readonly<Record<string, never>>; }
+            ];
         }>()
             .type
             .toBeAssignableTo<PacktoryConfig>();
@@ -263,7 +267,7 @@ describe('PacktoryConfig - rejected shapes', function () {
             readonly registrySettings: {
                 readonly auth: { readonly type: 'bearer-token'; readonly token: 'tok'; };
             };
-            readonly packages: readonly [{ readonly name: 'pkg'; }];
+            readonly packages: readonly [{ readonly name: 'package-a'; }];
         }>();
     });
 });

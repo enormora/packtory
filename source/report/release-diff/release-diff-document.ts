@@ -20,7 +20,7 @@ export type ReleaseDiffDocument = {
     readonly report: BuildReport;
 };
 
-type ReleaseDiffDocumentParams = {
+type ReleaseDiffDocumentInput = {
     readonly report: BuildReport;
     readonly result: ReleaseDiffAllResult;
     readonly packages: readonly PackageReleaseDiff[];
@@ -29,8 +29,8 @@ type ReleaseDiffDocumentParams = {
 function countFailedPackages(report: BuildReport): number {
     let failedPackages = 0;
 
-    for (const pkg of Object.values(report.packages)) {
-        if (pkg.failure !== undefined) {
+    for (const packageReport of Object.values(report.packages)) {
+        if (packageReport.failure !== undefined) {
             failedPackages += 1;
         }
     }
@@ -38,8 +38,8 @@ function countFailedPackages(report: BuildReport): number {
     return failedPackages;
 }
 
-export function buildReleaseDiffDocument(params: ReleaseDiffDocumentParams): ReleaseDiffDocument {
-    const { report, result, packages } = params;
+export function buildReleaseDiffDocument(input: ReleaseDiffDocumentInput): ReleaseDiffDocument {
+    const { report, result, packages } = input;
     const failedPackages = countFailedPackages(report);
     return {
         title: 'Packtory release diff',

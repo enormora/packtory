@@ -15,7 +15,7 @@ type LoginWebOptions = {
     readonly authType: 'web';
 };
 
-type LoginWebFunction = (opener: LoginWebOpener, opts: LoginWebOptions) => Promise<WebLoginResult>;
+type LoginWebFunction = (opener: LoginWebOpener, options: LoginWebOptions) => Promise<WebLoginResult>;
 type OpenInBrowser = (loginUrl: string) => Promise<void>;
 
 export type WebLoginDependencies = {

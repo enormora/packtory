@@ -19,7 +19,7 @@ const latestReleaseMetadata = {
 } as const;
 type CurrentVersionRequest = Parameters<BundleEmitter['determineCurrentVersion']>[0];
 type BundlePublishedCheckResult = Awaited<ReturnType<BundleEmitter['checkBundleAlreadyPublished']>>;
-type CurrentVersionParams = {
+type CurrentVersionInput = {
     readonly stage: boolean;
     readonly versioning: CurrentVersionRequest['versioning'];
     readonly registrySettings?: CurrentVersionRequest['registrySettings'];
@@ -94,36 +94,36 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
     return createBundleEmitter(dependencies);
 }
 
-function currentVersionRequest(params: CurrentVersionParams): CurrentVersionRequest {
+function currentVersionRequest(input: CurrentVersionInput): CurrentVersionRequest {
     return {
         name: 'the-name',
-        registrySettings: params.registrySettings ?? registrySettings,
-        stage: params.stage,
-        versioning: params.versioning
+        registrySettings: input.registrySettings ?? registrySettings,
+        stage: input.stage,
+        versioning: input.versioning
     };
 }
 
 async function determineCurrentVersion(
     emitter: BundleEmitter,
-    params: CurrentVersionParams
+    input: CurrentVersionInput
 ): Promise<Maybe<string>> {
-    return emitter.determineCurrentVersion(currentVersionRequest(params));
+    return emitter.determineCurrentVersion(currentVersionRequest(input));
 }
 
 async function expectCurrentVersionFailure(
     emitter: BundleEmitter,
-    params: CurrentVersionParams,
+    input: CurrentVersionInput,
     matcher: RegExp
 ): Promise<void> {
     await assert.rejects(async function () {
-        await determineCurrentVersion(emitter, params);
+        await determineCurrentVersion(emitter, input);
     }, matcher);
 }
 
-function buildSbomWithDependency(params: SbomDependency): string {
+function buildSbomWithDependency(input: SbomDependency): string {
     return buildSbomFixtureContent({
-        packtoryVersion: params.packtoryVersion,
-        dependencyComponents: [ { name: params.dependencyName, version: params.dependencyVersion } ]
+        packtoryVersion: input.packtoryVersion,
+        dependencyComponents: [ { name: input.dependencyName, version: input.dependencyVersion } ]
     });
 }
 

@@ -17,7 +17,7 @@ const latestReleaseMetadata = {
     tarballUrl: 'https://registry.example.test/package.tgz'
 } as const;
 type PublishRequest = Parameters<BundleEmitter['publish']>[0];
-type PublishParams = {
+type PublishInput = {
     readonly bundle?: PublishRequest['bundle'];
     readonly publishSettings: PublishRequest['publishSettings'];
     readonly stage?: boolean;
@@ -87,18 +87,18 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
     return createBundleEmitter(dependencies);
 }
 
-function publishRequest(params: PublishParams): PublishRequest {
+function publishRequest(input: PublishInput): PublishRequest {
     return {
         registrySettings,
-        bundle: params.bundle ?? namedBundle(),
-        publishSettings: params.publishSettings,
-        stage: params.stage ?? false,
-        ...params.extraFiles === undefined ? {} : { extraFiles: params.extraFiles }
+        bundle: input.bundle ?? namedBundle(),
+        publishSettings: input.publishSettings,
+        stage: input.stage ?? false,
+        ...input.extraFiles === undefined ? {} : { extraFiles: input.extraFiles }
     };
 }
 
-async function publishBundle(emitter: BundleEmitter, params: PublishParams): Promise<void> {
-    await emitter.publish(publishRequest(params));
+async function publishBundle(emitter: BundleEmitter, input: PublishInput): Promise<void> {
+    await emitter.publish(publishRequest(input));
 }
 
 function createPublishScenario(ciRepositoryUrl: string | undefined): PublishScenario {

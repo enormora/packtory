@@ -29,10 +29,10 @@ suite('preview-document package state', function () {
                 })
             });
 
-            const pkg = requireSinglePackage(document);
-            assert.deepStrictEqual(pkg.eliminatedSourceFiles, [ eliminatedUnusedFile ]);
+            const previewPackage = requireSinglePackage(document);
+            assert.deepStrictEqual(previewPackage.eliminatedSourceFiles, [ eliminatedUnusedFile ]);
             assert.strictEqual(
-                pkg.tree.some(function (entry) {
+                previewPackage.tree.some(function (entry) {
                     return entry.path === eliminatedUnusedFile.path;
                 }),
                 false
@@ -141,11 +141,11 @@ suite('preview-document package state', function () {
             });
 
             assert.strictEqual(document.modeLabel, 'Publish');
-            const pkg = requireSinglePackage(document);
-            if (pkg.failure === undefined) {
+            const previewPackage = requireSinglePackage(document);
+            if (previewPackage.failure === undefined) {
                 assert.fail('expected package failure');
             }
-            assert.partialDeepStrictEqual(pkg, {
+            assert.partialDeepStrictEqual(previewPackage, {
                 failure: {
                     message: 'boom'
                 },

@@ -6,9 +6,9 @@ suite('current-git-head', function () {
     test('reads and trims the current git head', async function () {
         const reader = createCurrentGitHeadReader({
             repositoryFolder: '/repo',
-            async runGitCommand(command, args) {
+            async runGitCommand(command, commandArguments) {
                 assert.strictEqual(command, 'git');
-                assert.deepStrictEqual(args, [ '-C', '/repo', 'rev-parse', '--verify', 'HEAD' ]);
+                assert.deepStrictEqual(commandArguments, [ '-C', '/repo', 'rev-parse', '--verify', 'HEAD' ]);
                 return { stdout: 'abcdef123456\n', stderr: '' };
             }
         });

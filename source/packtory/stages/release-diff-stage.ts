@@ -134,8 +134,8 @@ export async function runReleaseDiffStage(
             }
             return classifyDiff(dependencies.artifactsBuilder, options.packageName, options.buildResult);
         },
-        selectNext(params) {
-            return params.options.packageName;
+        selectNext(input) {
+            return input.options.packageName;
         },
         emitScheduledEvents: false
     });

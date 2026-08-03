@@ -205,8 +205,8 @@ function registerMetadataTests(): void {
             }
         });
 
-        const pkg = expectFirstPackage(result);
-        assert.partialDeepStrictEqual(pkg, {
+        const packagePlan = expectFirstPackage(result);
+        assert.partialDeepStrictEqual(packagePlan, {
             previousGitHead: 'old-head',
             currentGitHead: 'current-head',
             latestRegistryMetadata: {
@@ -238,8 +238,8 @@ function registerDependencyAttributionTests(): void {
             }
         });
 
-        const pkg = expectFirstPackage(result);
-        assert.partialDeepStrictEqual(pkg, {
+        const packagePlan = expectFirstPackage(result);
+        assert.partialDeepStrictEqual(packagePlan, {
             changelogDependencyNames: [ 'react' ],
             changelogDependencyUpdates: [ { name: 'react', version: '^19.0.0' } ],
             releaseClassification: 'dependency-only',
@@ -270,8 +270,8 @@ function registerDependencyAttributionTests(): void {
             }
         });
 
-        const pkg = expectFirstPackage(result);
-        assert.partialDeepStrictEqual(pkg, {
+        const packagePlan = expectFirstPackage(result);
+        assert.partialDeepStrictEqual(packagePlan, {
             changedArtifactFiles: [ 'package.json' ],
             changelogDependencyNames: [ 'react' ],
             releaseClassification: 'dependency-only',
@@ -429,11 +429,11 @@ function registerSourceFileTests(): void {
             }
         });
 
-        const pkg = expectFirstPackage(result);
+        const packagePlan = expectFirstPackage(result);
         assert.deepStrictEqual(
             {
-                releaseClassification: pkg.releaseClassification,
-                changelogSourceFiles: pkg.changelogSourceFiles
+                releaseClassification: packagePlan.releaseClassification,
+                changelogSourceFiles: packagePlan.changelogSourceFiles
             },
             {
                 releaseClassification: 'substantive',

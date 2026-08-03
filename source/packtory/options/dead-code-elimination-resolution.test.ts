@@ -19,10 +19,10 @@ function validated(
 ): ValidConfigWithoutRegistryResult {
     return validConfigWithoutRegistryFixture({
         commonPackageSettings: common === undefined ? undefined : { deadCodeElimination: common },
-        packages: packages.map(function (pkg) {
+        packages: packages.map(function (packageEntry) {
             return packageConfigFixture({
-                name: pkg.name,
-                deadCodeElimination: pkg.enabled === undefined ? undefined : { enabled: pkg.enabled }
+                name: packageEntry.name,
+                deadCodeElimination: packageEntry.enabled === undefined ? undefined : { enabled: packageEntry.enabled }
             });
         })
     });

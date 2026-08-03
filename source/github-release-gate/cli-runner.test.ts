@@ -60,18 +60,18 @@ function minutesBefore(timestamp: number, minutes: number): string {
     return date.toISOString();
 }
 
-async function expectReleaseAnalysisFailure(spec: ReleaseAnalysisFailureExpectation): Promise<void> {
+async function expectReleaseAnalysisFailure(input: ReleaseAnalysisFailureExpectation): Promise<void> {
     await assert.rejects(async function () {
         await runGitHubReleaseGate({
             analyzeReleaseAgainstLatestPublished: fake.resolves({
                 getReport: fake(),
-                result: spec.result
+                result: input.result
             }),
             fetch,
             fileManager: createFakeFileManager(),
             getEnvironmentVariable: createEnvironmentVariableReader(
                 createBaseEnvironment({
-                    GITHUB_API_BASE_URL: spec.apiBaseUrl,
+                    GITHUB_API_BASE_URL: input.apiBaseUrl,
                     QUIET_PERIOD_MINUTES: '0'
                 })
             ),
@@ -83,7 +83,7 @@ async function expectReleaseAnalysisFailure(spec: ReleaseAnalysisFailureExpectat
                 return undefined;
             }
         });
-    }, spec.expectedError);
+    }, input.expectedError);
 }
 
 suite('github-release-gate-cli-runner', function () {

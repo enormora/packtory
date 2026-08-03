@@ -34,7 +34,7 @@ type ScheduledPackageContext = {
     readonly config: unknown;
 };
 
-type ScheduledPackageParams = {
+type ScheduledPackageInput = {
     readonly config: ScheduledPackageConfig;
     readonly createOptions: (context: ScheduledPackageContext) => unknown;
     readonly execute: (options: unknown) => Promise<unknown>;
@@ -109,19 +109,19 @@ function staged<TFirst, TSecond>(
 function publishThenRunStage(succeededPublish: readonly BuildAndPublishResult[]): PackageScheduler {
     let invocations = 0;
     return {
-        async runForEachScheduledPackage(params: ScheduledPackageParams) {
+        async runForEachScheduledPackage(input: ScheduledPackageInput) {
             invocations += 1;
             if (invocations === 1) {
                 return Result.ok(succeededPublish);
             }
             const stageResults: unknown[] = [];
-            for (const pkg of params.config.packtoryConfig.packages) {
-                const options = params.createOptions({
-                    packageName: pkg.name,
+            for (const packageConfig of input.config.packtoryConfig.packages) {
+                const options = input.createOptions({
+                    packageName: packageConfig.name,
                     existing: [],
-                    config: params.config
+                    config: input.config
                 });
-                const result = await params.execute(options);
+                const result = await input.execute(options);
                 if (result !== undefined) {
                     stageResults.push(result);
                 }
@@ -131,8 +131,8 @@ function publishThenRunStage(succeededPublish: readonly BuildAndPublishResult[])
     } as unknown as PackageScheduler;
 }
 
-async function assertDerivedTransition(spec: DerivedTransitionSpec): Promise<void> {
-    const diff = createDiff(publishThenRunStage([ spec.buildResult ]));
+async function assertDerivedTransition(input: DerivedTransitionSpec): Promise<void> {
+    const diff = createDiff(publishThenRunStage([ input.buildResult ]));
 
     const result = await diff(configFor([ 'pkg-a' ]), okResolve);
 
@@ -144,9 +144,9 @@ async function assertDerivedTransition(spec: DerivedTransitionSpec): Promise<voi
         assert.fail('expected a release diff entry');
     }
     assert.partialDeepStrictEqual(entry, {
-        state: spec.expectedState,
-        versionTransition: spec.expectedVersionTransition,
-        previousVersionLabel: spec.expectedPreviousVersionLabel
+        state: input.expectedState,
+        versionTransition: input.expectedVersionTransition,
+        previousVersionLabel: input.expectedPreviousVersionLabel
     });
 }
 

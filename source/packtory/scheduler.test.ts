@@ -29,10 +29,10 @@ type PackageExecutionSnapshots = {
     readonly createOptions: SinonSpy;
     readonly execute: SinonSpy;
 };
-type SelectStringResultParams = {
+type SelectStringResultInput = {
     readonly result: string;
 };
-type SelectPackageNameResultParams = {
+type SelectPackageNameResultInput = {
     readonly result: PackageNameResult;
 };
 
@@ -108,8 +108,8 @@ suite('scheduler', function () {
             config,
             createOptions,
             execute,
-            selectNext(params: SelectStringResultParams) {
-                return params.result;
+            selectNext(input: SelectStringResultInput) {
+                return input.result;
             }
         });
 
@@ -136,14 +136,14 @@ suite('scheduler', function () {
             async execute(packageName) {
                 return { packageName };
             },
-            selectNext(params) {
-                return params.result.packageName;
+            selectNext(input) {
+                return input.result.packageName;
             },
             emitScheduledEvents: false,
-            createProgressEvent(params) {
+            createProgressEvent(input) {
                 return {
                     version: '1.0.0',
-                    status: params.result.packageName === 'package-a' ? 'initial-version' : 'new-version',
+                    status: input.result.packageName === 'package-a' ? 'initial-version' : 'new-version',
                     publication: noPublication
                 };
             }
@@ -178,12 +178,12 @@ suite('scheduler', function () {
                 return { packageName: context.packageName };
             },
             execute,
-            selectNext(params) {
-                return params.result;
+            selectNext(input) {
+                return input.result;
             },
-            createProgressEvent(params) {
+            createProgressEvent(input) {
                 return {
-                    version: params.result,
+                    version: input.result,
                     status: 'new-version',
                     publication: noPublication
                 };
@@ -238,8 +238,8 @@ suite('scheduler', function () {
             async execute() {
                 return rejectWithNonError('not-an-error');
             },
-            selectNext(params: SelectPackageNameResultParams) {
-                return params.result;
+            selectNext(input: SelectPackageNameResultInput) {
+                return input.result;
             }
         });
 

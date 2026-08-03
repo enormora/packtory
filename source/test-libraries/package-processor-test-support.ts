@@ -222,7 +222,7 @@ export function createResolveOptions(): ResolveAndLinkOptions {
         roots: { main: { js: '/src/index.js' } } as const,
         includeSourceMapFiles: true,
         additionalFiles: [ { sourceFilePath: '/src/readme.md', targetFilePath: 'readme.md' } ],
-        mainPackageJson: { type: 'module' as const, dependencies: { dep: '^1.0.0' } },
+        mainPackageJson: { type: 'module' as const, dependencies: { dependency: '^1.0.0' } },
         additionalChangelogSourceFiles: { packageFiles: [], sharedFiles: [] },
         additionalPackageJsonAttributes: { publishConfig: { access: 'public' } },
         allowMutableSpecifiers: [],

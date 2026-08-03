@@ -27,10 +27,10 @@ function classifyStateCounts(packages: readonly PackageReleaseDiffStateView[]): 
     let changedPackages = 0;
     let firstPublishPackages = 0;
     let unchangedPackages = 0;
-    for (const pkg of packages) {
-        if (pkg.state === packageReleaseDiffState.changed) {
+    for (const packageDiff of packages) {
+        if (packageDiff.state === packageReleaseDiffState.changed) {
             changedPackages += 1;
-        } else if (pkg.state === packageReleaseDiffState.firstPublish) {
+        } else if (packageDiff.state === packageReleaseDiffState.firstPublish) {
             firstPublishPackages += 1;
         } else {
             unchangedPackages += 1;
@@ -43,10 +43,10 @@ function aggregateFileCounts(packages: readonly PackageReleaseDiffStateView[]): 
     let addedFiles = 0;
     let removedFiles = 0;
     let modifiedFiles = 0;
-    for (const pkg of packages) {
-        addedFiles += pkg.files.added.length;
-        removedFiles += pkg.files.removed.length;
-        modifiedFiles += pkg.files.modified.length;
+    for (const packageDiff of packages) {
+        addedFiles += packageDiff.files.added.length;
+        removedFiles += packageDiff.files.removed.length;
+        modifiedFiles += packageDiff.files.modified.length;
     }
     return { addedFiles, removedFiles, modifiedFiles };
 }

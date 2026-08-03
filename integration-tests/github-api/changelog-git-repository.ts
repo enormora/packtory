@@ -5,9 +5,9 @@ import path from 'node:path';
 
 const gitExecutable = '/usr/bin/git';
 
-async function git(workingDirectory: string, args: readonly string[]): Promise<void> {
+async function git(workingDirectory: string, commandArguments: readonly string[]): Promise<void> {
     await new Promise<void>(function (resolve, reject) {
-        execFile(gitExecutable, args, {
+        execFile(gitExecutable, commandArguments, {
             cwd: workingDirectory,
             timeout: 5000
         }, function (error) {

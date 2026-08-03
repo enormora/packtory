@@ -192,19 +192,19 @@ function getRenderedMutationWaitAttemptBudget(timeoutMs: number): number {
     return Math.min(maximumRenderedMutationWaitAttempts, Math.max(Math.ceil(timeoutMs), 1));
 }
 
-function waitForRenderedMutationStep(args: RenderedMutationWaitStepArgs): RenderedMutationWaitStep {
-    const waitStatus = args.atomics.wait(
-        args.headerInt32,
+function waitForRenderedMutationStep(input: RenderedMutationWaitStepArgs): RenderedMutationWaitStep {
+    const waitStatus = input.atomics.wait(
+        input.headerInt32,
         headerRenderedMutationIndex,
-        args.expectedMutation,
-        args.timeoutMs
+        input.expectedMutation,
+        input.timeoutMs
     );
-    const current = args.atomics.load(args.headerInt32, headerRenderedMutationIndex);
+    const current = input.atomics.load(input.headerInt32, headerRenderedMutationIndex);
 
     return {
         current,
-        remainingMs: args.deadline - args.now(),
-        timedOutWithoutProgress: waitStatus === 'timed-out' && current === args.expectedMutation
+        remainingMs: input.deadline - input.now(),
+        timedOutWithoutProgress: waitStatus === 'timed-out' && current === input.expectedMutation
     };
 }
 
@@ -272,68 +272,68 @@ type FinishedRenderedMutationBudget = {
 type RenderedMutationBudget = FinishedRenderedMutationBudget | PendingRenderedMutationBudget;
 
 function initialRenderedMutationWaitState(
-    args: WaitForRenderedMutationWithinBudgetArgs,
+    input: WaitForRenderedMutationWithinBudgetArgs,
     deadline: number
 ): RenderedMutationWaitState {
     return Float64Array.of(
-        args.atomics.load(args.headerInt32, headerRenderedMutationIndex),
-        deadline - args.now()
+        input.atomics.load(input.headerInt32, headerRenderedMutationIndex),
+        deadline - input.now()
     );
 }
 
-function advanceRenderedMutationWait(args: AdvanceRenderedMutationWaitArgs): RenderedMutationWaitIteration {
-    const currentResult = getRenderedMutationWaitResult(args.current, args.remainingMs, args.mutation);
+function advanceRenderedMutationWait(input: AdvanceRenderedMutationWaitArgs): RenderedMutationWaitIteration {
+    const currentResult = getRenderedMutationWaitResult(input.current, input.remainingMs, input.mutation);
     if (currentResult !== undefined) {
         return { result: currentResult };
     }
 
     const step = waitForRenderedMutationStep({
-        atomics: args.atomics,
-        headerInt32: args.headerInt32,
-        now: args.now,
-        deadline: args.deadline,
-        expectedMutation: args.current,
-        timeoutMs: Math.min(args.remainingMs, args.timeoutMs)
+        atomics: input.atomics,
+        headerInt32: input.headerInt32,
+        now: input.now,
+        deadline: input.deadline,
+        expectedMutation: input.current,
+        timeoutMs: Math.min(input.remainingMs, input.timeoutMs)
     });
-    const stepResult = getRenderedMutationWaitStepResult(args.current, args.remainingMs, step, args.mutation);
+    const stepResult = getRenderedMutationWaitStepResult(input.current, input.remainingMs, step, input.mutation);
     if (stepResult !== undefined) {
         return { result: stepResult };
     }
 
     return {
-        nextCurrent: args.atomics.load(args.headerInt32, headerRenderedMutationIndex),
+        nextCurrent: input.atomics.load(input.headerInt32, headerRenderedMutationIndex),
         nextRemainingMs: step.remainingMs
     };
 }
 
-function waitForRenderedMutationWithinBudget(args: WaitForRenderedMutationWithinBudgetArgs): boolean {
-    const deadline = args.now() + args.timeoutMs;
-    const maximumAttempts = getRenderedMutationWaitAttemptBudget(args.timeoutMs);
+function waitForRenderedMutationWithinBudget(input: WaitForRenderedMutationWithinBudgetArgs): boolean {
+    const deadline = input.now() + input.timeoutMs;
+    const maximumAttempts = getRenderedMutationWaitAttemptBudget(input.timeoutMs);
 
     const budget = Array.from({ length: maximumAttempts }).reduce<RenderedMutationBudget>(function (currentBudget) {
         if (currentBudget.type !== 'pending') {
             return currentBudget;
         }
         const iteration = advanceRenderedMutationWait({
-            atomics: args.atomics,
-            headerInt32: args.headerInt32,
-            now: args.now,
+            atomics: input.atomics,
+            headerInt32: input.headerInt32,
+            now: input.now,
             deadline,
-            mutation: args.mutation,
+            mutation: input.mutation,
             current: Number(currentBudget.state[0]),
             remainingMs: Number(currentBudget.state[1]),
-            timeoutMs: args.timeoutMs
+            timeoutMs: input.timeoutMs
         });
         if (!isPendingRenderedMutationWaitIteration(iteration)) {
             return { type: 'finished', result: renderedMutationWaitIterationResult(iteration) };
         }
         return { type: 'pending', state: Float64Array.of(iteration.nextCurrent, iteration.nextRemainingMs) };
-    }, { type: 'pending', state: initialRenderedMutationWaitState(args, deadline) });
+    }, { type: 'pending', state: initialRenderedMutationWaitState(input, deadline) });
 
     if (budget.type === 'finished') {
         return budget.result;
     }
-    return getRenderedMutationWaitResult(Number(budget.state[0]), Number(budget.state[1]), args.mutation) ?? false;
+    return getRenderedMutationWaitResult(Number(budget.state[0]), Number(budget.state[1]), input.mutation) ?? false;
 }
 
 function writeStringIntoSlot(views: Views, slotIndex: number, slice: SlotStringSlice, value: string): void {

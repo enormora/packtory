@@ -53,8 +53,8 @@ export type ReleaseArtifactDescription = {
 };
 type ReleasePlanPartialFailure = Extract<ReleasePlanFailure, { readonly type: typeof partialFailureType; }>;
 
-export function createPlanner(spec: ReleasePlannerSpec): ReleasePlanner {
-    return createPlanReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(spec));
+export function createPlanner(input: ReleasePlannerSpec): ReleasePlanner {
+    return createPlanReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(input));
 }
 
 export function resolvedPackagesFor(
@@ -69,20 +69,20 @@ export function resolvedPackagesFor(
     });
 }
 
-export async function planFor(spec: ReleasePlanSpec): Promise<ReleasePlanResult> {
-    const validated = validatedReleaseConfigFor(spec.packageNames);
+export async function planFor(input: ReleasePlanSpec): Promise<ReleasePlanResult> {
+    const validated = validatedReleaseConfigFor(input.packageNames);
     const plan = createPlanner({
-        packageNames: spec.packageNames,
-        buildResults: spec.buildResults,
-        collectContents: spec.collectContents,
-        currentGitHead: spec.currentGitHead,
-        fileManager: spec.fileManager,
-        repositoryFolder: spec.repositoryFolder
+        packageNames: input.packageNames,
+        buildResults: input.buildResults,
+        collectContents: input.collectContents,
+        currentGitHead: input.currentGitHead,
+        fileManager: input.fileManager,
+        repositoryFolder: input.repositoryFolder
     });
 
     return plan(validated, async function () {
         return Result.ok<readonly ResolvedPackage[], ResolveAndLinkFailure>(
-            resolvedPackagesFor(validated, spec.bundleContents)
+            resolvedPackagesFor(validated, input.bundleContents)
         );
     });
 }
@@ -119,9 +119,9 @@ export function expectPartialFailure(result: ReleasePlanResult): ReleasePlanPart
 }
 
 export function expectFirstPackage(result: ReleasePlanResult): ReleasePlanPackage {
-    const [ pkg ] = expectPlan(result).packages;
-    if (pkg === undefined) {
+    const [ packagePlan ] = expectPlan(result).packages;
+    if (packagePlan === undefined) {
         assert.fail('Expected a package plan');
     }
-    return pkg;
+    return packagePlan;
 }

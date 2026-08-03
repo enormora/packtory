@@ -75,8 +75,8 @@ function consentMap(
     );
 }
 
-async function runRule(args: DuplicateRuleRunArgs): Promise<readonly string[]> {
-    return await noDuplicatedFilesRule.run(args);
+async function runRule(input: DuplicateRuleRunArgs): Promise<readonly string[]> {
+    return await noDuplicatedFilesRule.run(input);
 }
 
 async function runWithConsent(
