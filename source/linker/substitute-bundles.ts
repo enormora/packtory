@@ -6,37 +6,28 @@ import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from '.
 
 type ResourceGraphNode = Parameters<Parameters<ResourceGraph['traverse']>[0]>[0];
 type OutstandingConnection = { readonly from: string; readonly to: string; };
-type OutstandingConnectionRecorder = {
-    readonly record: (connection: OutstandingConnection) => void;
-};
-type SubstitutionOwnership = {
-    readonly isOwnedBySubstitutionSource: (sourceFilePath: string) => boolean;
+type OutstandingConnectionSink = {
+    readonly push: (connection: OutstandingConnection) => unknown;
 };
 
-function createSubstitutionOwnership(
-    bundleDependencies: readonly BundleSubstitutionSource[],
-    bundlePeerDependencies: readonly BundleSubstitutionSource[]
-): SubstitutionOwnership {
-    const substitutionSources = [ ...bundleDependencies, ...bundlePeerDependencies ];
-
-    return {
-        isOwnedBySubstitutionSource(sourceFilePath) {
-            return substitutionSources.some(function (bundle) {
-                return ownsSourcePath(sourceFilePath, bundle);
-            });
-        }
-    };
+function isSubstitutionSourcePath(
+    sourceFilePath: string,
+    substitutionSources: readonly BundleSubstitutionSource[]
+): boolean {
+    return substitutionSources.some(function (bundle) {
+        return ownsSourcePath(sourceFilePath, bundle);
+    });
 }
 
-function recordOutstandingConnections(
-    recorder: OutstandingConnectionRecorder,
+function recordUnreplacedConnections(
+    outstandingConnections: OutstandingConnectionSink,
     fromNodeId: string,
     directDependencies: readonly string[],
     replacedPaths: Pick<Replacements['importPathReplacements'], 'has'>
 ): void {
     for (const file of directDependencies) {
         if (!replacedPaths.has(file)) {
-            recorder.record({ from: fromNodeId, to: file });
+            outstandingConnections.push({ from: fromNodeId, to: file });
         }
     }
 }
@@ -74,27 +65,22 @@ export function substituteDependencies(
 ): SubstitutedResourceGraph {
     const substitutedGraph = createSubstitutedResourceGraph();
     const outstandingConnections: OutstandingConnection[] = [];
-    const recorder: OutstandingConnectionRecorder = {
-        record(connection) {
-            outstandingConnections.push(connection);
-        }
-    };
     const visited = new Set<string>();
-    const ownership = createSubstitutionOwnership(bundleDependencies, bundlePeerDependencies);
+    const substitutionSources = [ ...bundleDependencies, ...bundlePeerDependencies ];
 
     function substituteNode(node: ResourceGraphNode): void {
         if (visited.has(node.id)) {
             return;
         }
         visited.add(node.id);
-        if (ownership.isOwnedBySubstitutionSource(node.id)) {
+        if (isSubstitutionSourcePath(node.id, substitutionSources)) {
             return;
         }
 
         const directDependencies = Array.from(node.adjacentNodeIds);
         const replacements = findAllPathReplacements(directDependencies, bundleDependencies, bundlePeerDependencies);
-        recordOutstandingConnections(
-            recorder,
+        recordUnreplacedConnections(
+            outstandingConnections,
             node.id,
             directDependencies,
             replacements.importPathReplacements
