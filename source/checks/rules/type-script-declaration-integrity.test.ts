@@ -12,11 +12,13 @@ type FakeProjectParts = {
     readonly modeLabel: string;
     readonly diagnostics: readonly DeclarationDiagnostic[];
     readonly specifiers: Readonly<Record<string, readonly string[]>>;
+    readonly publicEntrypointPaths: readonly string[];
 };
 
 function fakeProject(parts: FakeProjectParts): DeclarationProject {
     return {
         modeLabel: parts.modeLabel,
+        publicEntrypointPaths: parts.publicEntrypointPaths,
         moduleSpecifiersOf(declarationPath) {
             return parts.specifiers[declarationPath] ?? [];
         },
@@ -33,6 +35,14 @@ function diagnostic(declarationPath: string): DeclarationDiagnostic {
         code: 2305,
         message: "Module '\"./internal.js\"' has no exported member 'Missing'."
     };
+}
+
+function projectWith(
+    modeLabel: string,
+    diagnostics: readonly DeclarationDiagnostic[],
+    specifiers: Readonly<Record<string, readonly string[]>> = {}
+): DeclarationProject {
+    return fakeProject({ modeLabel, diagnostics, specifiers, publicEntrypointPaths: [] });
 }
 
 type SummarizeOptions = {
@@ -111,8 +121,8 @@ suite('type-script-declaration-integrity', function () {
             manifestContent: '{"types":"./index.d.ts"}',
             files: brokenIndexFiles,
             projects: [
-                fakeProject({ modeLabel: 'node16-esm', diagnostics: [ diagnostic('index.d.ts') ], specifiers: {} }),
-                fakeProject({ modeLabel: 'bundler', diagnostics: [ diagnostic('index.d.ts') ], specifiers: {} })
+                projectWith('node16-esm', [ diagnostic('index.d.ts') ]),
+                projectWith('bundler', [ diagnostic('index.d.ts') ])
             ],
             declarationMode: 'all'
         });
@@ -135,7 +145,8 @@ suite('type-script-declaration-integrity', function () {
                     diagnostics: [
                         { declarationPath: 'index.d.ts', line: 7, code: 2430, message: 'incompatible\n  details' }
                     ],
-                    specifiers: {}
+                    specifiers: {},
+                    publicEntrypointPaths: []
                 })
             ],
             declarationMode: 'all'
@@ -153,8 +164,9 @@ suite('type-script-declaration-integrity', function () {
             projects: [
                 fakeProject({
                     modeLabel: 'node16-esm',
-                    diagnostics: [ diagnostic('../../typescript/lib/lib.es5.d.ts'), diagnostic('index.js') ],
-                    specifiers: {}
+                    diagnostics: [ diagnostic('../../typescript/lib/lib.es5.d.ts'), diagnostic('package.json') ],
+                    specifiers: {},
+                    publicEntrypointPaths: []
                 })
             ],
             declarationMode: 'all'
@@ -168,7 +180,7 @@ suite('type-script-declaration-integrity', function () {
             manifestContent: '{"types":"./index.d.ts"}',
             files: brokenIndexFiles,
             projects: [
-                fakeProject({ modeLabel: 'node16-esm', diagnostics: [ diagnostic('internal.d.ts') ], specifiers: {} })
+                projectWith('node16-esm', [ diagnostic('internal.d.ts') ])
             ],
             declarationMode: 'all'
         });
@@ -188,7 +200,7 @@ suite('type-script-declaration-integrity', function () {
                 'internal.d.ts': 'export declare const present: string;\n'
             },
             projects: [
-                fakeProject({ modeLabel: 'node16-esm', diagnostics: [ diagnostic('private.d.ts') ], specifiers: {} })
+                projectWith('node16-esm', [ diagnostic('private.d.ts') ])
             ],
             declarationMode: 'exports-graph'
         });
@@ -208,7 +220,8 @@ suite('type-script-declaration-integrity', function () {
                 fakeProject({
                     modeLabel: 'node16-esm',
                     diagnostics: [ diagnostic('reachable.d.ts') ],
-                    specifiers: { 'index.d.ts': [ './reachable.js' ] }
+                    specifiers: { 'index.d.ts': [ './reachable.js' ] },
+                    publicEntrypointPaths: []
                 })
             ],
             declarationMode: 'exports-graph'
@@ -216,6 +229,27 @@ suite('type-script-declaration-integrity', function () {
 
         assert.deepStrictEqual(issues, [
             'Package "pkg" failed TypeScript integrity in node16-esm: reachable.d.ts:1 TS2305: ' +
+            "Module '\"./internal.js\"' has no exported member 'Missing'."
+        ]);
+    });
+
+    test('reports generated public consumer entrypoint diagnostics in the "exports-graph" mode', function () {
+        const issues = summarize({
+            manifestContent: '{"exports":{".":{"types":"./index.d.ts"}}}',
+            files: { 'index.d.ts': 'export declare const value: number;\n' },
+            projects: [
+                fakeProject({
+                    modeLabel: 'node16-esm',
+                    diagnostics: [ diagnostic('.packtory-consumer-entrypoints.ts') ],
+                    specifiers: {},
+                    publicEntrypointPaths: [ '.packtory-consumer-entrypoints.ts' ]
+                })
+            ],
+            declarationMode: 'exports-graph'
+        });
+
+        assert.deepStrictEqual(issues, [
+            'Package "pkg" failed TypeScript integrity in node16-esm: .packtory-consumer-entrypoints.ts:1 TS2305: ' +
             "Module '\"./internal.js\"' has no exported member 'Missing'."
         ]);
     });

@@ -294,4 +294,116 @@ suite('declaration integrity against the real TypeScript compiler', function () 
 
         assert.deepStrictEqual(issues, []);
     });
+
+    suite('dependency exports', function () {
+        test('rejects generated dependency declaration subpaths hidden by package exports', function () {
+            const producer = publishedPackage(
+                '@scope/core',
+                manifest('@scope/core', {
+                    exports: {
+                        '.': { types: './index.d.ts', import: './index.js' },
+                        './protocol.js': {
+                            types: './protocol.d.ts',
+                            import: './protocol.js'
+                        }
+                    }
+                }),
+                {
+                    'index.js': 'export const value = 1;\n',
+                    'index.d.ts': 'export declare const value: number;\n',
+                    'protocol.js': 'export const protocol = 1;\n',
+                    'protocol.d.ts': 'export type Protocol = string;\n',
+                    'protocol/assertion-reference.d.ts': 'export type CompositeAssertionReference = string;\n'
+                }
+            );
+            const consumer = publishedPackage(
+                'consumer',
+                manifest('consumer', {
+                    types: './index.d.ts',
+                    dependencies: { '@scope/core': '0.0.0' }
+                }),
+                {
+                    'index.js': 'export const value = 1;\n',
+                    'index.d.ts': [
+                        'import type { CompositeAssertionReference } from "@scope/core/protocol/assertion-reference.js";',
+                        'export type ConsumerReference = CompositeAssertionReference;'
+                    ]
+                        .join('\n')
+                }
+            );
+
+            const issues = summarizeDeclarationIntegrity(
+                'consumer',
+                consumer,
+                'all',
+                new Map([
+                    [ '@scope/core', producer ],
+                    [ 'consumer', consumer ]
+                ])
+            );
+
+            assert.deepStrictEqual(issues, [
+                'Package "consumer" failed TypeScript integrity in node16-esm: index.d.ts:1 TS2307: ' +
+                "Cannot find module '@scope/core/protocol/assertion-reference.js' or its corresponding type declarations.",
+                'Package "consumer" failed TypeScript integrity in bundler: index.d.ts:1 TS2307: ' +
+                "Cannot find module '@scope/core/protocol/assertion-reference.js' or its corresponding type declarations."
+            ]);
+        });
+
+        test('rejects generated dependency JavaScript subpaths hidden by package exports', function () {
+            const producer = publishedPackage(
+                '@scope/core',
+                manifest('@scope/core', {
+                    exports: {
+                        '.': { types: './index.d.ts', import: './index.js' },
+                        './protocol.js': {
+                            types: './protocol.d.ts',
+                            import: './protocol.js'
+                        }
+                    }
+                }),
+                {
+                    'index.js': 'export const value = 1;\n',
+                    'index.d.ts': 'export declare const value: number;\n',
+                    'protocol.js': 'export const protocol = 1;\n',
+                    'protocol.d.ts': 'export type Protocol = string;\n',
+                    'protocol/assertion-reference.js': 'export const assertionReference = 1;\n'
+                }
+            );
+            const consumer = publishedPackage(
+                'consumer',
+                manifest('consumer', {
+                    types: './index.d.ts',
+                    dependencies: { '@scope/core': '0.0.0' }
+                }),
+                {
+                    'index.js': [
+                        'import { assertionReference } from "@scope/core/protocol/assertion-reference.js";',
+                        'export const value = assertionReference;'
+                    ]
+                        .join('\n'),
+                    'index.d.ts': 'export declare const value: number;\n'
+                }
+            );
+
+            const issues = summarizeDeclarationIntegrity(
+                'consumer',
+                consumer,
+                'all',
+                new Map([
+                    [ '@scope/core', producer ],
+                    [ 'consumer', consumer ]
+                ])
+            );
+
+            assert.deepStrictEqual(issues, [
+                'Package "consumer" failed TypeScript integrity in node16-esm: ' +
+                '.packtory-javascript-imports.ts:1 TS2882: ' +
+                "Cannot find module or type declarations for side-effect import of '@scope/core/protocol/assertion-reference.js'.",
+                'Package "consumer" failed TypeScript integrity in bundler: ' +
+                '.packtory-javascript-imports.ts:1 TS2882: ' +
+                "Cannot find module or type declarations for side-effect import of '@scope/core/protocol/assertion-reference.js'."
+            ]);
+        });
+    });
 });

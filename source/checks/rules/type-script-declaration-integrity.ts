@@ -23,6 +23,13 @@ export type DeclarationIntegrityDependencies = {
     readonly createDeclarationProjects: DeclarationProjectsFactory;
 };
 
+type CheckedDeclarationPathInput = {
+    readonly project: DeclarationProject;
+    readonly declarationPaths: ReadonlySet<string>;
+    readonly rootPaths: ReadonlySet<string>;
+    readonly declarationMode: DeclarationMode;
+};
+
 function collectPackageFiles(publishedPackage: Readonly<PublishedPackageWithManifest>): readonly PackageFile[] {
     return [
         {
@@ -65,21 +72,21 @@ function collectResolutionPackageFiles(
         });
 }
 
-function checkedDeclarationPaths(
-    project: DeclarationProject,
-    declarationPaths: ReadonlySet<string>,
-    rootPaths: ReadonlySet<string>,
-    declarationMode: DeclarationMode
-): ReadonlySet<string> {
+function checkedDeclarationPaths(input: CheckedDeclarationPathInput): ReadonlySet<string> {
+    const { project, declarationPaths, rootPaths, declarationMode } = input;
+    const { publicEntrypointPaths } = project;
     if (declarationMode === 'all') {
-        return declarationPaths;
+        return new Set([ ...declarationPaths, ...publicEntrypointPaths ]);
     }
 
-    return reachableDeclarationPaths({
-        declarationPaths,
-        rootPaths,
-        moduleSpecifiersOf: project.moduleSpecifiersOf
-    });
+    return new Set([
+        ...reachableDeclarationPaths({
+            declarationPaths,
+            rootPaths,
+            moduleSpecifiersOf: project.moduleSpecifiersOf
+        }),
+        ...publicEntrypointPaths
+    ]);
 }
 
 function formatDeclarationDiagnostic(
@@ -105,7 +112,12 @@ export function createDeclarationIntegritySummarizer(
         const resolutionPackageFiles = collectResolutionPackageFiles(packageName, resolutionPackages);
 
         return createDeclarationProjects(packageName, packageFiles, resolutionPackageFiles).flatMap(function (project) {
-            const checkedPaths = checkedDeclarationPaths(project, declarationPaths, rootPaths, declarationMode);
+            const checkedPaths = checkedDeclarationPaths({
+                project,
+                declarationPaths,
+                rootPaths,
+                declarationMode
+            });
 
             return project
                 .listDiagnostics()
