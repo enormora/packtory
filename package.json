@@ -55,6 +55,7 @@
         "remeda": "2.39.0",
         "semver": "7.8.5",
         "spdx-expression-parse": "5.0.0",
+        "ssri": "14.0.0",
         "tar-stream": "3.2.0",
         "true-myth": "9.4.0",
         "ts-morph": "28.0.0",
@@ -83,6 +84,7 @@
         "@types/semver": "7.7.1",
         "@types/sinon": "22.0.0",
         "@types/spdx-expression-parse": "4.0.0",
+        "@types/ssri": "7.1.5",
         "@types/tar-stream": "3.1.4",
         "c8": "12.0.0",
         "dependency-cruiser": "18.1.0",
@@ -101,7 +103,7 @@
         "verdaccio": "6.9.0"
     },
     "engines": {
-        "node": "^24 || ^26"
+        "node": "^24.15.0 || >=26.0.0"
     },
     "overrides": {
         "@schema-hub/zod-error-formatter": "0.0.14",

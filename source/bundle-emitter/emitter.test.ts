@@ -11,9 +11,11 @@ import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter
 
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
 const publishedAt = new Date('2026-05-20T00:00:00.000Z');
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 const latestReleaseMetadata = {
     version: '1.2.3',
     tarballUrl: 'https://registry.example.test/package.tgz',
+    tarballIntegrity: emptyTarballIntegrity,
     publishedAt,
     gitHead: undefined
 } as const;
@@ -146,6 +148,7 @@ async function runSbomComparison(previousSbom: string, currentSbom: string): Pro
         Maybe.just({
             version: latestReleaseMetadata.version,
             tarballUrl: latestReleaseMetadata.tarballUrl,
+            tarballIntegrity: latestReleaseMetadata.tarballIntegrity,
             publishedAt,
             gitHead: undefined
         })
@@ -183,7 +186,11 @@ function assertDifferentContentsResult(
     }
     assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value, 1);
     assert.deepStrictEqual(collectContents.firstCall.args, [ bundle, 'package', undefined ]);
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [ latestReleaseMetadata.tarballUrl, registrySettings ]);
+    assert.deepStrictEqual(fetchTarball.firstCall.args, [
+        latestReleaseMetadata.tarballUrl,
+        latestReleaseMetadata.tarballIntegrity,
+        registrySettings
+    ]);
 }
 
 function assertMatchingContentsResult(
@@ -197,7 +204,11 @@ function assertMatchingContentsResult(
     }
     assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value);
     assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [ latestReleaseMetadata.tarballUrl, registrySettings ]);
+    assert.deepStrictEqual(fetchTarball.firstCall.args, [
+        latestReleaseMetadata.tarballUrl,
+        latestReleaseMetadata.tarballIntegrity,
+        registrySettings
+    ]);
 }
 
 suite('emitter', function () {

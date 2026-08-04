@@ -20,7 +20,11 @@ export async function fetchPublishedArtifacts(
     if (latestVersion.isNothing) {
         return Maybe.nothing();
     }
-    const tarball = await registryClient.fetchTarball(latestVersion.value.tarballUrl, registrySettings);
+    const tarball = await registryClient.fetchTarball(
+        latestVersion.value.tarballUrl,
+        latestVersion.value.tarballIntegrity,
+        registrySettings
+    );
     const files = await extractPackageTarball(tarball);
     return Maybe.just({
         version: latestVersion.value.version,

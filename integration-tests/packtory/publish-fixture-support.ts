@@ -188,8 +188,8 @@ export async function fetchPublishedPackage(
         assert.fail(`Expected package "${packageName}" to be published`);
     }
 
-    const { version, tarballUrl } = versionDetails.value;
-    const tarballData = await registryClient.fetchTarball(tarballUrl, registrySettings);
+    const { version, tarballUrl, tarballIntegrity } = versionDetails.value;
+    const tarballData = await registryClient.fetchTarball(tarballUrl, tarballIntegrity, registrySettings);
     const files = await extractPackageTarball(tarballData);
     const manifestFile = findManifestFile(files, packageName);
 

@@ -12,12 +12,15 @@ import {
 } from '../../test-libraries/registry-client-test-support.ts';
 import type { PackageVersionDetails } from './package-metadata-fetcher.ts';
 
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
+
 function expectLatestVersion(result: Maybe<PackageVersionDetails>): void {
     assert.deepStrictEqual(
         result,
         Maybe.just({
             version: '1',
             tarballUrl: 'https://registry.example.test/pkg.tgz',
+            tarballIntegrity: emptyTarballIntegrity,
             gitHead: undefined
         })
     );

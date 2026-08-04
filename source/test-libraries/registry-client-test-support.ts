@@ -128,12 +128,19 @@ type PackageInfo = {
 
 const packageInfo = { name: 'the-name', version: '1.0.0' } as const;
 const bearerTokenAuth = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 
 type LatestVersionResponse = {
     readonly name: '';
     readonly 'dist-tags': { readonly latest: '1'; };
     readonly versions: {
-        readonly 1: { readonly dist: { readonly tarball: 'https://registry.example.test/pkg.tgz'; }; };
+        readonly 1: {
+            readonly dist: {
+                readonly tarball: 'https://registry.example.test/pkg.tgz';
+                readonly integrity: string | undefined;
+                readonly shasum: string | undefined;
+            };
+        };
     };
 };
 
@@ -150,7 +157,7 @@ function latestVersionResponse(): LatestVersionResponse {
     return {
         name: '',
         'dist-tags': { latest: '1' },
-        versions: { 1: { dist: { tarball: 'https://registry.example.test/pkg.tgz' } } }
+        versions: { 1: { dist: { tarball: 'https://registry.example.test/pkg.tgz', ...emptyTarballIntegrity } } }
     };
 }
 

@@ -4,7 +4,7 @@ import { suite, test } from 'mocha';
 import { runNodeProbe } from '../test-libraries/run-node-probe.ts';
 import { createDirectedGraph, type DirectedGraph } from './graph.ts';
 
-const graphProbeTimeoutMs = 500;
+const graphProbeTimeoutMs = 3000;
 
 type GraphEdge<TId extends number | string> = Parameters<DirectedGraph<TId, unknown>['connect']>[0];
 

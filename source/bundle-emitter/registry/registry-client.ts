@@ -14,6 +14,7 @@ import {
     type PackageVersionDetails
 } from './package-metadata-fetcher.ts';
 import { buildPublishOptionsForPublishSettings, remapPublishError } from './publish-settings-bridge.ts';
+import type { TarballIntegrity } from './tarball-integrity.ts';
 
 type PublishManifest = Readonly<Record<string, unknown>> & {
     readonly name: string;
@@ -52,7 +53,7 @@ export type RegistryClient = {
     fetchLatestVersion: (packageName: string, config: RegistrySettings) => Promise<Maybe<PackageVersionDetails>>;
     fetchStagedVersions: (packageName: string, config: RegistrySettings) => Promise<readonly string[]>;
     publishPackage: (...publishArguments: PublishPackageArguments) => Promise<PublicationOutcome>;
-    fetchTarball: (tarballUrl: string, config: RegistrySettings) => Promise<Buffer>;
+    fetchTarball: (tarballUrl: string, tarballIntegrity: TarballIntegrity, config: RegistrySettings) => Promise<Buffer>;
 };
 
 function isStageIdRecord(response: unknown): response is Readonly<Record<'stageId', unknown>> {
@@ -108,8 +109,8 @@ export function createRegistryClient(dependencies: Readonly<RegistryClientDepend
     const oidcExchanger = createOidcTokenExchanger({ fetch: fetchImplementation, clock, resolveIdToken });
 
     return {
-        async fetchTarball(tarballUrl, registrySettings) {
-            return fetchPackageTarball(npmFetch, tarballUrl, registrySettings);
+        async fetchTarball(tarballUrl, tarballIntegrity, registrySettings) {
+            return fetchPackageTarball(npmFetch, tarballUrl, tarballIntegrity, registrySettings);
         },
 
         async publishPackage(...[ manifest, tarData, registrySettings, publishSettings, stage ]) {

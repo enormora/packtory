@@ -33,10 +33,11 @@ guarantees on top.
 
 ### Comparison
 
-| Feature                                           | Defends against                                          | Default | Configure                                      |
-| ------------------------------------------------- | -------------------------------------------------------- | ------- | ---------------------------------------------- |
-| [Provenance](#provenance-attestations)            | Account compromise, package misattribution               | off     | `publishSettings.provenance: { type: 'auto' }` |
-| [Tarball origin pinning](#tarball-origin-pinning) | Credential exfiltration via a tampered registry response | on      | always on; not configurable                    |
+| Feature                                                     | Defends against                                          | Default | Configure                                      |
+| ----------------------------------------------------------- | -------------------------------------------------------- | ------- | ---------------------------------------------- |
+| [Provenance](#provenance-attestations)                      | Account compromise, package misattribution               | off     | `publishSettings.provenance: { type: 'auto' }` |
+| [Tarball origin pinning](#tarball-origin-pinning)           | Credential exfiltration via a tampered registry response | on      | always on; not configurable                    |
+| [Tarball digest verification](#tarball-digest-verification) | Tampered latest-version tarballs after metadata lookup   | on      | always on; not configurable                    |
 
 ## Quickstart
 
@@ -185,6 +186,22 @@ set). The protocol and port are part of the comparison, so an `https` to
 `http` downgrade or a port change is rejected. The error names both
 origins so the mismatch is immediately diagnosable.
 
+## Tarball digest verification
+
+**Threat:** an attacker or broken registry serves tarball bytes that do
+not match the digest metadata returned for the latest package version.
+Packtory uses registry tarballs for automatic version comparison,
+release planning, release analysis, and `release-diff`, so bad bytes
+could otherwise corrupt those decisions.
+**Default:** on. Not configurable.
+
+When the latest version metadata provides `dist.integrity` or
+`dist.shasum`, packtory verifies the downloaded tarball before
+extracting it. `dist.integrity` is checked with strict SRI rules.
+`dist.shasum` is checked as SHA-1 hex. If both fields are present, both
+must match. Missing digest fields keep the existing compatibility path,
+but malformed or mismatched provided metadata fails the command.
+
 ## CLI error reference
 
 ### Tarball origin
@@ -196,6 +213,17 @@ origins so the mismatch is immediately diagnosable.
 - `Registry returned an invalid tarball URL: "<value>"` — the registry
   response carried a non-URL `dist.tarball`. Almost always a registry
   bug or a tampered response.
+
+### Tarball digest
+
+- `Downloaded tarball failed dist.integrity verification: <reason>`
+  The downloaded bytes do not match the registry's SRI metadata, or the
+  metadata is not valid strict SRI. Investigate the registry mirror or
+  proxy before retrying.
+- `Downloaded tarball failed dist.shasum verification: expected <digest>, got <digest>`
+  The downloaded bytes do not match the registry's legacy SHA-1 digest.
+- `Registry returned invalid dist.shasum "<value>"`
+  The registry returned a malformed SHA-1 digest for the latest version.
 
 ### Provenance, auto mode
 
