@@ -228,6 +228,15 @@ suite('substitute-bundles', function () {
         assert.deepStrictEqual(result, substitutedEntryResult('first-package'));
     });
 
+    test('substitutes peer dependency files without carrying their source nodes forward', function () {
+        const inputGraph = buildEntryFooGraph();
+        const substitutedGraph = substituteDependencies(inputGraph, [], [ bundleSource('peer-package', '/foo.js') ]);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
+
+        assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
+        assert.deepStrictEqual(result, substitutedEntryResult('peer-package'));
+    });
+
     test('substitutes multiple matching files in the given dependencies', function () {
         const project = createProject({
             withFiles: [

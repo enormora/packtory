@@ -6,6 +6,8 @@ import type { ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
 import { createBundleLinker, type BundleLinker } from './linker.ts';
 
 type LinkedBundleResult = Awaited<ReturnType<BundleLinker['linkBundle']>>;
+type LinkBundleOptions = Parameters<BundleLinker['linkBundle']>[0];
+type BundleSubstitutionSource = LinkBundleOptions['bundleDependencies'][number];
 
 function compareText(left: string, right: string): number {
     return left.localeCompare(right);
@@ -21,6 +23,37 @@ function testFileDescription(
         isExecutable: false,
         sourceFilePath,
         targetFilePath
+    };
+}
+
+function sourceTargetFilePath(sourceFilePath: string): string {
+    return sourceFilePath.replace(/^\/src\//u, '');
+}
+
+function testSubstitutionResource(sourceFilePath: string): BundleSubstitutionSource['contents'][number] {
+    const targetFilePath = sourceTargetFilePath(sourceFilePath);
+    return {
+        fileDescription: testFileDescription(sourceFilePath, targetFilePath, ''),
+        directDependencies: new Set(),
+        isSubstituted: false,
+        isExplicitlyIncluded: false
+    };
+}
+
+function testBundleDependency(
+    sourceFilePaths: readonly [string, ...(readonly string[])]
+): BundleSubstitutionSource {
+    const rootSourceFilePath = sourceFilePaths[0];
+    const rootTargetFilePath = sourceTargetFilePath(rootSourceFilePath);
+    return {
+        name: 'bundle-dependency',
+        roots: {
+            main: {
+                js: testFileDescription(rootSourceFilePath, rootTargetFilePath, '')
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+        contents: sourceFilePaths.map(testSubstitutionResource)
     };
 }
 
@@ -215,51 +248,48 @@ suite('linker', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 externalDependencies: new Map()
             },
-            bundleDependencies: [
-                {
-                    name: 'bundle-dependency',
-                    roots: {
-                        main: {
-                            js: {
-                                content: '',
-                                isExecutable: false,
-                                sourceFilePath: '/src/dep.js',
-                                targetFilePath: 'dep.js'
-                            }
-                        }
-                    },
-                    surface: { mode: 'implicit', defaultModuleRoot: 'main' },
-                    contents: [
-                        {
-                            fileDescription: {
-                                content: '',
-                                isExecutable: false,
-                                sourceFilePath: '/src/dep.js',
-                                targetFilePath: 'dep.js'
-                            },
-                            directDependencies: new Set(),
-                            isSubstituted: false,
-                            isExplicitlyIncluded: false
-                        },
-                        {
-                            fileDescription: {
-                                content: '',
-                                isExecutable: false,
-                                sourceFilePath: '/src/dep.d.ts',
-                                targetFilePath: 'dep.d.ts'
-                            },
-                            directDependencies: new Set(),
-                            isSubstituted: false,
-                            isExplicitlyIncluded: false
-                        }
-                    ]
-                }
-            ],
+            bundleDependencies: [ testBundleDependency([ '/src/dep.js', '/src/dep.d.ts' ]) ],
             bundlePeerDependencies: []
         });
 
         assert.strictEqual(result.contents.length, 2);
         assert.strictEqual(result.contents[0]?.isSubstituted, true);
+        assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
+    });
+
+    test('linkBundle() excludes local declaration companions for substituted dependency sources', async function () {
+        const project = createProject({
+            withFiles: [
+                { filePath: '/src/index.js', content: 'import "./dep.js";' },
+                { filePath: '/src/dep.js', content: 'export const dep = 1;' },
+                { filePath: '/src/dep.d.ts', content: 'export declare const dep: number;' }
+            ]
+        });
+        const linker = createBundleLinker();
+        const root = {
+            js: testFileDescription('/src/index.js', 'index.js', '')
+        };
+
+        const result = await linker.linkBundle({
+            bundle: {
+                name: 'package-a',
+                contents: [
+                    {
+                        ...testResource('/src/index.js', 'index.js', 'import "./dep.js";', [ '/src/dep.js' ]),
+                        project
+                    },
+                    testResource('/src/dep.js', 'dep.js', 'export const dep = 1;', []),
+                    testResource('/src/dep.d.ts', 'dep.d.ts', 'export declare const dep: number;', [])
+                ],
+                roots: { main: root },
+                surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+                externalDependencies: new Map()
+            },
+            bundleDependencies: [ testBundleDependency([ '/src/dep.js' ]) ],
+            bundlePeerDependencies: []
+        });
+
+        assert.deepStrictEqual(sourceFilePathsOf(result.contents), [ '/src/index.js' ]);
         assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
     });
 

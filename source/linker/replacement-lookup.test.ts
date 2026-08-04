@@ -1,10 +1,48 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
-import { explicitPackageSurface } from '../package-surface/surface.ts';
+import { explicitPackageSurface, implicitPackageSurface } from '../package-surface/surface.ts';
 import { analyzedBundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import { findAllPathReplacements } from './replacement-lookup.ts';
+
+function targetFileDescription(
+    sourceFilePath: string,
+    targetFilePath: string
+): BundleSubstitutionSource['roots'][string]['js'] {
+    return {
+        sourceFilePath,
+        targetFilePath,
+        content: '',
+        isExecutable: false
+    };
+}
+
+function declarationRoot(
+    jsSourceFilePath: string,
+    jsTargetFilePath: string,
+    declarationSourceFilePath: string,
+    declarationTargetFilePath: string
+): BundleSubstitutionSource['roots'][string] {
+    return {
+        js: targetFileDescription(jsSourceFilePath, jsTargetFilePath),
+        declarationFile: targetFileDescription(declarationSourceFilePath, declarationTargetFilePath)
+    };
+}
+
+function peerEntryRoot(): BundleSubstitutionSource['roots'][string] {
+    return declarationRoot('/b/entry.js', 'entry.js', '/b/entry.d.ts', 'entry.d.ts');
+}
+
+function peerDeclarationRoot(targetFilePath: string): BundleSubstitutionSource['roots'][string] {
+    const stem = targetFilePath.replace(/\.js$/u, '');
+    return declarationRoot(
+        `/b/${targetFilePath}`,
+        targetFilePath,
+        `/b/${stem}.d.ts`,
+        `${stem}.d.ts`
+    );
+}
 
 function exposingBundle(name: string, sourceFilePath: string, targetFilePath: string): BundleSubstitutionSource {
     const bundle = linkedBundle({
@@ -12,7 +50,7 @@ function exposingBundle(name: string, sourceFilePath: string, targetFilePath: st
         contents: [ analyzedBundleResource(sourceFilePath, { targetFilePath }) ],
         roots: {
             main: {
-                js: { sourceFilePath, targetFilePath, content: '', isExecutable: false }
+                js: targetFileDescription(sourceFilePath, targetFilePath)
             }
         },
         surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
@@ -36,22 +74,58 @@ function peerBundleWithEntryDeclaration(entryDeclarationContent: string): Bundle
             analyzedBundleResource('/b/internal.d.ts', { targetFilePath: 'internal.d.ts' })
         ],
         roots: {
-            main: {
-                js: {
-                    sourceFilePath: '/b/entry.js',
-                    targetFilePath: 'entry.js',
-                    content: '',
-                    isExecutable: false
-                },
-                declarationFile: {
-                    sourceFilePath: '/b/entry.d.ts',
-                    targetFilePath: 'entry.d.ts',
-                    content: '',
-                    isExecutable: false
-                }
-            }
+            main: peerEntryRoot()
         },
         surface: explicitPackageSurface({ modules: [ { root: 'main', export: './entry.js' } ] })
+    });
+}
+
+function peerBundleWithCircularDeclarations(): BundleSubstitutionSource {
+    return linkedBundle({
+        name: 'pkg-b',
+        contents: [
+            analyzedBundleResource('/b/entry.d.ts', {
+                targetFilePath: 'entry.d.ts',
+                content: 'export type { Internal } from "./internal.js";\n'
+            }),
+            analyzedBundleResource('/b/internal.d.ts', {
+                targetFilePath: 'internal.d.ts',
+                content: 'export type { Entry } from "./entry.js";\n'
+            })
+        ],
+        roots: {
+            main: peerEntryRoot()
+        },
+        surface: explicitPackageSurface({ modules: [ { root: 'main', export: './entry.js' } ] })
+    });
+}
+
+function peerBundleWithDuplicateDeclarationExports(): BundleSubstitutionSource {
+    return linkedBundle({
+        name: 'pkg-b',
+        contents: [
+            analyzedBundleResource('/b/short.js', { targetFilePath: 'short.js' }),
+            analyzedBundleResource('/b/short.d.ts', {
+                targetFilePath: 'short.d.ts',
+                content: 'export type { Internal } from "./internal.js";\n'
+            }),
+            analyzedBundleResource('/b/longer.js', { targetFilePath: 'longer.js' }),
+            analyzedBundleResource('/b/longer.d.ts', {
+                targetFilePath: 'longer.d.ts',
+                content: 'export type { Internal } from "./internal.js";\n'
+            }),
+            analyzedBundleResource('/b/internal.d.ts', { targetFilePath: 'internal.d.ts' })
+        ],
+        roots: {
+            short: peerDeclarationRoot('short.js'),
+            longer: peerDeclarationRoot('longer.js')
+        },
+        surface: explicitPackageSurface({
+            modules: [
+                { root: 'short', export: './short.js' },
+                { root: 'longer', export: './longer/subpath.js' }
+            ]
+        })
     });
 }
 
@@ -110,6 +184,18 @@ suite('replacement-lookup', function () {
         }
     });
 
+    test('findAllPathReplacements ignores owned source maps that are not exposed', function () {
+        const bundle = linkedBundle({
+            name: 'pkg-b',
+            contents: [ analyzedBundleResource('/b/index.js.map', { targetFilePath: 'index.js.map' }) ],
+            surface: explicitPackageSurface({ modules: [ { root: 'main', export: '.' } ] })
+        });
+
+        const result = findAllPathReplacements([ '/b/index.js.map' ], [ bundle ], []);
+
+        assert.strictEqual(result.importPathReplacements.has('/b/index.js.map'), false);
+    });
+
     test('findAllPathReplacements returns one bundle dependency entry per matched file', function () {
         const bundleB = exposingBundle('pkg-b', '/b/helpers.ts', 'helpers.ts');
         const bundleC = exposingBundle('pkg-c', '/c/helpers.ts', 'helpers.ts');
@@ -119,29 +205,86 @@ suite('replacement-lookup', function () {
         assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b', 'pkg-c' ]);
     });
 
-    test('findAllPathReplacements maps peer internals to a reachable exported module', function () {
-        const bundle = peerBundleWithEntryDeclaration("export type { Internal } from './internal.js';\n");
+    suite('peer dependencies', function () {
+        test('findAllPathReplacements maps peer internals to a reachable exported module', function () {
+            const content = [
+                "export * as types from './internal.js';",
+                "export type { External } from 'external-package';"
+            ]
+                .join(
+                    '\n'
+                );
+            const bundle = peerBundleWithEntryDeclaration(content);
 
-        const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
-        assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
-        assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
-    });
+            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
+            assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
+        });
 
-    test('findAllPathReplacements rejects peer internals that no exported module reaches', function () {
-        const bundle = peerBundleWithEntryDeclaration(
-            "export declare const value: import('./internal.js').Internal;\n"
-        );
+        test('findAllPathReplacements maps peer internals through named declaration exports', function () {
+            const content = [
+                'export type { Internal } from "./internal.js";',
+                'export type { External } from "external-package";'
+            ]
+                .join(
+                    '\n'
+                );
+            const bundle = peerBundleWithEntryDeclaration(content);
 
-        try {
-            findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
-            assert.fail('expected findAllPathReplacements to throw');
-        } catch (error) {
-            assert.ok(error instanceof Error);
-            assert.strictEqual(
-                error.message,
-                'Package "pkg-b" does not expose "/b/internal.d.ts" for cross-package substitution'
+            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+
+            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
+        });
+
+        test('findAllPathReplacements tolerates circular peer declaration exports', function () {
+            const bundle = peerBundleWithCircularDeclarations();
+
+            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+
+            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
+        });
+
+        test('findAllPathReplacements keeps the shortest peer module that reaches an internal declaration', function () {
+            const bundle = peerBundleWithDuplicateDeclarationExports();
+
+            const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+
+            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/short.js');
+        });
+
+        test('findAllPathReplacements maps implicit peer modules through existing package subpaths', function () {
+            const bundle = linkedBundle({
+                name: 'pkg-b',
+                contents: [ analyzedBundleResource('/b/feature.js', { targetFilePath: 'feature.js' }) ],
+                roots: {
+                    main: {
+                        js: targetFileDescription('/b/index.js', 'index.js')
+                    }
+                },
+                surface: implicitPackageSurface('main')
+            });
+
+            const result = findAllPathReplacements([ '/b/feature.js' ], [], [ bundle ]);
+
+            assert.strictEqual(result.importPathReplacements.get('/b/feature.js'), 'pkg-b/feature.js');
+        });
+
+        test('findAllPathReplacements rejects peer internals that no exported module reaches', function () {
+            const bundle = peerBundleWithEntryDeclaration(
+                "export declare const value: import('./internal.js').Internal;\n"
             );
-        }
+
+            try {
+                findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+                assert.fail('expected findAllPathReplacements to throw');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.strictEqual(
+                    error.message,
+                    'Package "pkg-b" does not expose "/b/internal.d.ts" for cross-package substitution'
+                );
+            }
+        });
     });
 });

@@ -39,6 +39,13 @@ suite('substituted-resource-graph', function () {
             isSubstituted: false,
             isExplicitlyIncluded: true
         });
+        graph.add('/unreachable.txt', {
+            fileDescription: createFileDescription('/unreachable.txt', 'unreachable.txt'),
+            externalDependencies: [],
+            bundleDependencies: [],
+            isSubstituted: false,
+            isExplicitlyIncluded: false
+        });
         graph.connect('/entry.js', '/shared.js');
         graph.connect('/shared.js', '/entry.js');
 

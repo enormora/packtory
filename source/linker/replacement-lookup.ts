@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { ts as typescript } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import { rootSourceFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
@@ -38,11 +39,6 @@ type SpecifierRecord = {
     readonly set: (key: string, value: string) => unknown;
 };
 
-const exportedModuleSpecifierExpression =
-    /\bexport\s+\*\s+(?:as\s+\S+\s+)?from\s+(?<quote>['"])(?<specifier>\S+?)\k<quote>/gu;
-const exportedNamedModuleSpecifierExpression =
-    /\bexport\s+(?:type\s+)?\{.*?\}\s+from\s+(?<quote>['"])(?<specifier>\S+?)\k<quote>/gsu;
-
 function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     const contentBySourcePath = new Map<string, BundleSubstitutionSource['contents'][number]>();
     const sourcePathByTargetPath = new Map<string, string>();
@@ -54,10 +50,22 @@ function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
 }
 
 function exportedModuleSpecifiers(content: string): readonly string[] {
-    return [ exportedModuleSpecifierExpression, exportedNamedModuleSpecifierExpression ].flatMap(function (expression) {
-        return Array.from(content.matchAll(expression), function (match) {
-            return match.groups?.specifier ?? '';
-        });
+    const sourceFile = typescript.createSourceFile(
+        'module.ts',
+        content,
+        typescript.ScriptTarget.Latest,
+        false,
+        typescript.ScriptKind.TS
+    );
+    return sourceFile.statements.flatMap(function (statement) {
+        if (
+            typescript.isExportDeclaration(statement) &&
+            statement.moduleSpecifier !== undefined &&
+            typescript.isStringLiteral(statement.moduleSpecifier)
+        ) {
+            return [ statement.moduleSpecifier.text ];
+        }
+        return [];
     });
 }
 
