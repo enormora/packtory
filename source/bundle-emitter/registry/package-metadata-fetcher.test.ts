@@ -1,59 +1,52 @@
 import assert from 'node:assert';
+import { createHash } from 'node:crypto';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { RegistrySettings } from '../../config/registry-settings.ts';
+import { fakeNpmFetch, registryTarballBytes } from '../../test-libraries/registry-fetch-fixtures.ts';
 import {
     fetchLatestPackageReleaseMetadata,
     fetchLatestPackageVersion,
-    fetchPackageTarball,
     fetchStagedPackageVersions,
     type NpmFetch
 } from './package-metadata-fetcher.ts';
-
-type FakeNpmFetch = Readonly<SinonSpy> & {
-    readonly json: Readonly<SinonSpy> & { readonly stream: Readonly<SinonSpy>; };
-    readonly pickRegistry: Readonly<SinonSpy>;
-};
+import type { TarballIntegrity } from './tarball-integrity.ts';
 
 const settings: RegistrySettings = { auth: { type: 'bearer-token', token: 'tok' } };
 const latestVersion = '1.2.3';
 const tarballUrl = 'https://registry.npmjs.org/pkg-a/-/pkg-a-1.2.3.tgz';
+const matchingIntegrity = `sha512-${createHash('sha512').update(registryTarballBytes).digest('base64')}`;
+const matchingShasum = [ '9ef2570c89e65b9f', 'e47687b0b49e122e', '59354bef' ].join('');
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 
-function fakeNpmFetch(
-    json: Readonly<SinonSpy>,
-    buffer: Readonly<SinonSpy> = fake.resolves(Buffer.from([]))
-): NpmFetch {
-    const npmFetch: FakeNpmFetch = Object.assign(fake.resolves({ buffer }), {
-        json: Object.assign(json, { stream: fake() }),
-        pickRegistry: fake()
-    });
-    return npmFetch as unknown as NpmFetch;
-}
-
-function fakeNpmFetchWithContentLength(contentLength: string | null): NpmFetch {
-    const npmFetch: FakeNpmFetch = Object.assign(
-        fake.resolves({
-            buffer: fake.resolves(Buffer.from('tarball-bytes')),
-            headers: {
-                get: fake(function (name: string) {
-                    return name === 'content-length' ? contentLength : null;
-                })
-            }
-        }),
-        {
-            json: Object.assign(fake(), { stream: fake() }),
-            pickRegistry: fake()
-        }
-    );
-    return npmFetch as unknown as NpmFetch;
-}
-
-function latestPackageResponse(time?: string): Record<string, unknown> {
+function latestPackageResponse(time?: string, dist: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         name: 'pkg-a',
         'dist-tags': { latest: latestVersion },
         ...time === undefined ? {} : { time: { [latestVersion]: time } },
-        versions: { [latestVersion]: { dist: { tarball: tarballUrl } } }
+        versions: { [latestVersion]: { dist: { tarball: tarballUrl, ...dist } } }
+    };
+}
+
+function expectedVersionDetails(tarballIntegrity: TarballIntegrity = emptyTarballIntegrity): Record<string, unknown> {
+    return {
+        version: latestVersion,
+        tarballUrl,
+        tarballIntegrity,
+        gitHead: undefined
+    };
+}
+
+function expectedReleaseMetadata(
+    publishedAt: Date | undefined,
+    tarballIntegrity: TarballIntegrity = emptyTarballIntegrity
+): Record<string, unknown> {
+    return {
+        version: latestVersion,
+        tarballUrl,
+        tarballIntegrity,
+        publishedAt,
+        gitHead: undefined
     };
 }
 
@@ -97,11 +90,90 @@ suite('package-metadata-fetcher', function () {
                 settings
             );
 
-            assert.deepStrictEqual(result.unwrapOr({ version: '', tarballUrl: '', gitHead: undefined }), {
-                version: latestVersion,
-                tarballUrl,
-                gitHead: undefined
-            });
+            assert.deepStrictEqual(
+                result.unwrapOr({
+                    version: '',
+                    tarballUrl: '',
+                    tarballIntegrity: emptyTarballIntegrity,
+                    gitHead: undefined
+                }),
+                expectedVersionDetails()
+            );
+        });
+
+        test('fetchLatestPackageVersion returns latest tarball digest metadata', async function () {
+            const result = await fetchLatestPackageVersion(
+                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, {
+                    integrity: matchingIntegrity,
+                    shasum: matchingShasum
+                }))),
+                'pkg-a',
+                settings
+            );
+
+            assert.deepStrictEqual(
+                result.unwrapOr({
+                    version: '',
+                    tarballUrl: '',
+                    tarballIntegrity: emptyTarballIntegrity,
+                    gitHead: undefined
+                }),
+                expectedVersionDetails({ integrity: matchingIntegrity, shasum: matchingShasum })
+            );
+        });
+
+        test('fetchLatestPackageVersion ignores malformed digest metadata on non-latest versions', async function () {
+            const result = await fetchLatestPackageVersion(
+                fakeNpmFetch(
+                    fake.resolves({
+                        name: 'pkg-a',
+                        'dist-tags': { latest: latestVersion },
+                        versions: {
+                            [latestVersion]: { dist: { tarball: tarballUrl, integrity: matchingIntegrity } },
+                            '0.0.1': {
+                                dist: {
+                                    tarball: 'https://registry.npmjs.org/pkg-a/-/pkg-a-0.0.1.tgz',
+                                    integrity: 42
+                                }
+                            }
+                        }
+                    })
+                ),
+                'pkg-a',
+                settings
+            );
+
+            assert.deepStrictEqual(
+                result.unwrapOr({
+                    version: '',
+                    tarballUrl: '',
+                    tarballIntegrity: emptyTarballIntegrity,
+                    gitHead: undefined
+                }),
+                expectedVersionDetails({ integrity: matchingIntegrity, shasum: undefined })
+            );
+        });
+
+        test('fetchLatestPackageVersion throws when latest digest metadata is not a string', async function () {
+            await expectError(
+                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { integrity: { length: 1 } }))),
+                'Registry returned invalid dist.integrity for package "pkg-a" version "1.2.3"'
+            );
+            await expectError(
+                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { shasum: { length: 1 } }))),
+                'Registry returned invalid dist.shasum for package "pkg-a" version "1.2.3"'
+            );
+        });
+
+        test('fetchLatestPackageVersion throws when latest digest metadata is empty', async function () {
+            await expectError(
+                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { integrity: '' }))),
+                'Registry returned invalid dist.integrity for package "pkg-a" version "1.2.3"'
+            );
+            await expectError(
+                fakeNpmFetch(fake.resolves(latestPackageResponse(undefined, { shasum: '' }))),
+                'Registry returned invalid dist.shasum for package "pkg-a" version "1.2.3"'
+            );
         });
 
         test('fetchLatestPackageVersion returns Nothing when the registry has no latest dist-tag', async function () {
@@ -152,15 +224,36 @@ suite('package-metadata-fetcher', function () {
                 result.unwrapOr({
                     version: '',
                     tarballUrl: '',
+                    tarballIntegrity: emptyTarballIntegrity,
                     publishedAt: undefined,
                     gitHead: undefined
                 }),
-                {
-                    version: latestVersion,
-                    tarballUrl,
-                    publishedAt: new Date('2026-05-19T10:00:00.000Z'),
+                expectedReleaseMetadata(new Date('2026-05-19T10:00:00.000Z'))
+            );
+        });
+
+        test('fetchLatestPackageReleaseMetadata returns latest tarball digest metadata', async function () {
+            const result = await fetchLatestPackageReleaseMetadata(
+                fakeNpmFetch(fake.resolves(latestPackageResponse('2026-05-19T10:00:00.000Z', {
+                    integrity: matchingIntegrity,
+                    shasum: matchingShasum
+                }))),
+                'pkg-a',
+                settings
+            );
+
+            assert.deepStrictEqual(
+                result.unwrapOr({
+                    version: '',
+                    tarballUrl: '',
+                    tarballIntegrity: emptyTarballIntegrity,
+                    publishedAt: undefined,
                     gitHead: undefined
-                }
+                }),
+                expectedReleaseMetadata(
+                    new Date('2026-05-19T10:00:00.000Z'),
+                    { integrity: matchingIntegrity, shasum: matchingShasum }
+                )
             );
         });
 
@@ -177,7 +270,13 @@ suite('package-metadata-fetcher', function () {
                 settings
             );
 
-            const fallback = { version: '', tarballUrl: '', publishedAt: undefined, gitHead: undefined };
+            const fallback = {
+                version: '',
+                tarballUrl: '',
+                tarballIntegrity: emptyTarballIntegrity,
+                publishedAt: undefined,
+                gitHead: undefined
+            };
             assert.strictEqual(result.unwrapOr(fallback).gitHead, 'abcdef123456');
         });
 
@@ -192,15 +291,11 @@ suite('package-metadata-fetcher', function () {
                 result.unwrapOr({
                     version: '',
                     tarballUrl: '',
+                    tarballIntegrity: emptyTarballIntegrity,
                     publishedAt: undefined,
                     gitHead: undefined
                 }),
-                {
-                    version: latestVersion,
-                    tarballUrl,
-                    publishedAt: undefined,
-                    gitHead: undefined
-                }
+                expectedReleaseMetadata(undefined)
             );
         });
 
@@ -287,82 +382,6 @@ suite('package-metadata-fetcher', function () {
                 /^Error: Staged package listing exceeded 1000 pages$/u
             );
             assert.strictEqual(json.callCount, 1000);
-        });
-    });
-
-    suite('package tarballs', function () {
-        test('fetchPackageTarball returns the buffered tarball contents', async function () {
-            const buffer = fake.resolves(Buffer.from('tarball-bytes'));
-
-            const result = await fetchPackageTarball(fakeNpmFetch(fake(), buffer), tarballUrl, settings);
-
-            assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
-        });
-
-        test('fetchPackageTarball rejects tarballs whose content-length exceeds the download limit', async function () {
-            try {
-                await fetchPackageTarball(fakeNpmFetchWithContentLength('268435457'), tarballUrl, settings);
-                assert.fail('Expected fetchPackageTarball() to throw but it did not');
-            } catch (error: unknown) {
-                assert.strictEqual(
-                    (error as Error).message,
-                    'Refusing to download tarball larger than 268435456 bytes'
-                );
-            }
-        });
-
-        test('fetchPackageTarball accepts tarballs whose content-length is exactly the download limit', async function () {
-            const result = await fetchPackageTarball(fakeNpmFetchWithContentLength('268435456'), tarballUrl, settings);
-
-            assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
-        });
-
-        test('fetchPackageTarball rejects a tarball URL whose host differs from the configured registry', async function () {
-            const buffer = fake.resolves(Buffer.from('tarball-bytes'));
-            const expectedMessage =
-                'Refusing to download tarball from "https://attacker.example" because it differs from the configured ' +
-                'registry origin "https://registry.npmjs.org". A tampered registry response could redirect the request and ' +
-                'exfiltrate publish credentials.';
-
-            try {
-                await fetchPackageTarball(
-                    fakeNpmFetch(fake(), buffer),
-                    'https://attacker.example/pkg-a-1.2.3.tgz',
-                    settings
-                );
-                assert.fail('Expected fetchPackageTarball() to throw but it did not');
-            } catch (error: unknown) {
-                assert.strictEqual((error as Error).message, expectedMessage);
-            }
-            assert.strictEqual(buffer.callCount, 0);
-        });
-
-        test('fetchPackageTarball accepts a tarball URL whose host matches a custom configured registry', async function () {
-            const customSettings: RegistrySettings = {
-                registryUrl: 'https://registry.example.test/',
-                auth: { type: 'bearer-token', token: 'tok' }
-            };
-            const buffer = fake.resolves(Buffer.from('tarball-bytes'));
-
-            const result = await fetchPackageTarball(
-                fakeNpmFetch(fake(), buffer),
-                'https://registry.example.test/pkg-a/-/pkg-a-1.2.3.tgz',
-                customSettings
-            );
-
-            assert.deepStrictEqual(result, Buffer.from('tarball-bytes'));
-        });
-
-        test('fetchPackageTarball rejects a malformed tarball URL', async function () {
-            const buffer = fake.resolves(Buffer.from('tarball-bytes'));
-
-            try {
-                await fetchPackageTarball(fakeNpmFetch(fake(), buffer), 'not-a-url', settings);
-                assert.fail('Expected fetchPackageTarball() to throw but it did not');
-            } catch (error: unknown) {
-                assert.strictEqual((error as Error).message, 'Registry returned an invalid tarball URL: "not-a-url"');
-            }
-            assert.strictEqual(buffer.callCount, 0);
         });
     });
 });

@@ -9,6 +9,8 @@ import {
     registryClientFactory
 } from '../../test-libraries/registry-client-test-support.ts';
 
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
+
 suite('registry-client metadata no retry', function () {
     test('metadata using inherited publish auth does not retry on a 401 challenge', async function () {
         const error = errorWithStatus('auth required', 401);
@@ -79,13 +81,17 @@ suite('registry-client metadata no retry', function () {
         ) as unknown as FakeNpmFetch;
         const registryClient = registryClientFactory({ npmFetch });
 
-        const result = await registryClient.fetchTarball('https://registry.example.test/pkg.tgz', {
-            registryUrl: 'https://registry.example.test/',
-            auth: {
-                publish: { type: 'basic', username: 'reader', password: 'reader-secret' },
-                metadata: 'auto'
+        const result = await registryClient.fetchTarball(
+            'https://registry.example.test/pkg.tgz',
+            emptyTarballIntegrity,
+            {
+                registryUrl: 'https://registry.example.test/',
+                auth: {
+                    publish: { type: 'basic', username: 'reader', password: 'reader-secret' },
+                    metadata: 'auto'
+                }
             }
-        });
+        );
 
         assert.deepStrictEqual(result, Buffer.from([ 1, 2, 3 ]));
         assertDeepSubset(npmFetch, {

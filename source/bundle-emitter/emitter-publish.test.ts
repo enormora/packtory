@@ -12,9 +12,11 @@ import { createBundleEmitter, type BundleEmitter, type BundleEmitterDependencies
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
 const publishedOutcome = { type: 'published' } as const;
 const publishedAt = new Date('2026-05-20T00:00:00.000Z');
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 const latestReleaseMetadata = {
     version: '1.2.3',
-    tarballUrl: 'https://registry.example.test/package.tgz'
+    tarballUrl: 'https://registry.example.test/package.tgz',
+    tarballIntegrity: emptyTarballIntegrity
 } as const;
 type PublishRequest = Parameters<BundleEmitter['publish']>[0];
 type PublishInput = {
@@ -171,6 +173,7 @@ suite('emitter publish', function () {
             Maybe.just({
                 version: latestReleaseMetadata.version,
                 tarballUrl: latestReleaseMetadata.tarballUrl,
+                tarballIntegrity: latestReleaseMetadata.tarballIntegrity,
                 publishedAt,
                 gitHead: 'old'
             })
