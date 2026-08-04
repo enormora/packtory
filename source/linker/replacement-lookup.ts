@@ -1,6 +1,8 @@
 import path from 'node:path';
+import { isDefined } from 'remeda';
 import { ts as typescript } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
+import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
 import { rootSourceFilePaths } from '../package-surface/package-surface-index.ts';
 import { getPublicModuleSpecifierForSourcePath } from '../package-surface/public-specifiers.ts';
 import { getRoot } from '../package-surface/root-registry.ts';
@@ -10,6 +12,12 @@ import type { BundleSubstitutionSource } from './linked-bundle.ts';
 type Replacement = {
     readonly targetPath: string;
     readonly packageName: string;
+};
+type ExplicitBundleSubstitutionSource = BundleSubstitutionSource & {
+    readonly surface: ExplicitPackageSurface;
+};
+type ImplicitBundleSubstitutionSource = BundleSubstitutionSource & {
+    readonly surface: ImplicitPackageSurface;
 };
 
 export type Replacements = {
@@ -39,6 +47,18 @@ type SpecifierRecord = {
     readonly set: (key: string, value: string) => unknown;
 };
 
+function isExplicitBundleSubstitutionSource(
+    bundle: BundleSubstitutionSource
+): bundle is ExplicitBundleSubstitutionSource {
+    return bundle.surface.mode === 'explicit';
+}
+
+function isImplicitBundleSubstitutionSource(
+    bundle: BundleSubstitutionSource
+): bundle is ImplicitBundleSubstitutionSource {
+    return bundle.surface.mode === 'implicit';
+}
+
 function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     const contentBySourcePath = new Map<string, BundleSubstitutionSource['contents'][number]>();
     const sourcePathByTargetPath = new Map<string, string>();
@@ -49,24 +69,27 @@ function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     return { contentBySourcePath, sourcePathByTargetPath };
 }
 
+function exportModuleSpecifier(statement: Readonly<typescript.Statement>): string | undefined {
+    if (!typescript.isExportDeclaration(statement)) {
+        return undefined;
+    }
+    const { moduleSpecifier } = statement;
+    if (moduleSpecifier === undefined) {
+        return undefined;
+    }
+    if (!typescript.isStringLiteral(moduleSpecifier)) {
+        return undefined;
+    }
+    return moduleSpecifier.text;
+}
+
 function exportedModuleSpecifiers(content: string): readonly string[] {
     const sourceFile = typescript.createSourceFile(
-        'module.ts',
         content,
-        typescript.ScriptTarget.Latest,
-        false,
-        typescript.ScriptKind.TS
+        content,
+        typescript.ScriptTarget.Latest
     );
-    return sourceFile.statements.flatMap(function (statement) {
-        if (
-            typescript.isExportDeclaration(statement) &&
-            statement.moduleSpecifier !== undefined &&
-            typescript.isStringLiteral(statement.moduleSpecifier)
-        ) {
-            return [ statement.moduleSpecifier.text ];
-        }
-        return [];
-    });
+    return sourceFile.statements.map(exportModuleSpecifier).filter(isDefined);
 }
 
 function exportedTargetPath(currentTargetFilePath: string, specifier: string): string | undefined {
@@ -86,11 +109,13 @@ function enqueueExportedSourceFilePaths(
     if (targetPath === undefined) {
         return;
     }
-    for (const candidate of [ targetPath, ...declarationCompanionCandidates(targetPath) ]) {
-        const sourcePath = lookup.sourcePathByTargetPath.get(candidate);
-        if (sourcePath !== undefined) {
-            pending.push(sourcePath);
-        }
+    const sourcePaths = [ targetPath, ...declarationCompanionCandidates(targetPath) ]
+        .map(function (candidate) {
+            return lookup.sourcePathByTargetPath.get(candidate);
+        })
+        .filter(isDefined);
+    for (const sourcePath of sourcePaths) {
+        pending.push(sourcePath);
     }
 }
 
@@ -132,12 +157,12 @@ function recordShortestSpecifier(
 }
 
 function getExplicitPublicModuleSpecifierForSourcePath(
-    bundle: BundleSubstitutionSource,
+    bundle: ExplicitBundleSubstitutionSource,
     sourceFilePath: string
 ): string | undefined {
     const lookup = createContentLookup(bundle);
     const specifiersBySourcePath = new Map<string, string>();
-    const moduleEntries = bundle.surface.mode === 'explicit' ? bundle.surface.packageInterface.modules ?? [] : [];
+    const moduleEntries = bundle.surface.packageInterface.modules ?? [];
     for (const moduleEntry of moduleEntries) {
         const root = getRoot(bundle, moduleEntry.root);
         const rootPaths = rootSourceFilePaths(root);
@@ -152,12 +177,9 @@ function getExplicitPublicModuleSpecifierForSourcePath(
 }
 
 function getImplicitPublicModuleSpecifierForSourcePath(
-    bundle: BundleSubstitutionSource,
+    bundle: ImplicitBundleSubstitutionSource,
     sourceFilePath: string
 ): string | undefined {
-    if (bundle.surface.mode !== 'implicit') {
-        return undefined;
-    }
     const lookup = createContentLookup(bundle);
     const specifiersBySourcePath = new Map<string, string>();
     const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
@@ -184,11 +206,15 @@ function getExistingPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
     sourceFilePath: string
 ): string | undefined {
-    if (bundle.surface.mode === 'implicit') {
+    if (isImplicitBundleSubstitutionSource(bundle)) {
         return getImplicitPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
     }
 
-    return getExplicitPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
+    if (isExplicitBundleSubstitutionSource(bundle)) {
+        return getExplicitPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
+    }
+
+    throw new Error(`Unsupported package surface mode: ${bundle.surface.mode}`);
 }
 
 function findReplacementInBundles(
