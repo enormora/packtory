@@ -76,14 +76,14 @@ function findPackage(packages: readonly ResolvedPackage[], name: string): Resolv
 }
 
 function findResource(
-    pkg: ResolvedPackage,
+    resolvedPackage: ResolvedPackage,
     targetFilePath: string
 ): ResolvedPackage['analyzedBundle']['contents'][number] {
-    const match = pkg.analyzedBundle.contents.find(function (resource) {
+    const match = resolvedPackage.analyzedBundle.contents.find(function (resource) {
         return resource.fileDescription.targetFilePath === targetFilePath;
     });
     if (match === undefined) {
-        assert.fail(`Expected to find target file "${targetFilePath}" in bundle "${pkg.name}"`);
+        assert.fail(`Expected to find target file "${targetFilePath}" in bundle "${resolvedPackage.name}"`);
     }
     return match;
 }
@@ -112,8 +112,8 @@ suite('dead-code-elimination', function () {
         const config = await singlePackageConfig(fixturePath);
         const result = await resolveAndLinkAll(config);
         const packages = expectOk(result);
-        const pkg = findPackage(packages, 'pkg');
-        const helpers = findResource(pkg, 'shared/helpers.js');
+        const resolvedPackage = findPackage(packages, 'pkg');
+        const helpers = findResource(resolvedPackage, 'shared/helpers.js');
 
         assert.ok(helpers.fileDescription.content.includes('used'), 'used() should remain');
         assert.strictEqual(
@@ -128,14 +128,14 @@ suite('dead-code-elimination', function () {
         const config = await singlePackageConfig(fixturePath);
         const result = await resolveAndLinkAll(config);
         const packages = expectOk(result);
-        const pkg = findPackage(packages, 'pkg');
-        const entry = findResource(pkg, 'pkg/index.js');
+        const resolvedPackage = findPackage(packages, 'pkg');
+        const entry = findResource(resolvedPackage, 'pkg/index.js');
 
         assert.ok(
             entry.fileDescription.content.includes('unusedHelper'),
             'unusedHelper must be kept because the file has top-level side effects'
         );
-        assert.deepStrictEqual(pkg.analyzedBundle.sideEffectsField, [ './pkg/index.js' ]);
+        assert.deepStrictEqual(resolvedPackage.analyzedBundle.sideEffectsField, [ './pkg/index.js' ]);
     });
 
     test('preserves a binding in pkg-producer that pkg-consumer imports across bundles', async function () {

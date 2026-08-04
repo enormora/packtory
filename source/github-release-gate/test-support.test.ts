@@ -18,7 +18,7 @@ import { withDeadline } from '../test-libraries/with-deadline.ts';
 
 type EntryPointScriptCall = {
     readonly execFile: {
-        readonly args: readonly string[];
+        readonly commandArguments: readonly string[];
         readonly cwd: string;
         readonly encoding: 'utf8';
         readonly file: string;
@@ -197,10 +197,10 @@ suite('github-release-gate-test-support', function () {
         let calls: EntryPointScriptCall | null = null;
         const dependencies: EntryPointScriptDependencies = {
             cwd: '/workspace',
-            execFile(file, args, options, callback) {
+            execFile(file, commandArguments, options, callback) {
                 calls = {
                     execFile: {
-                        args,
+                        commandArguments,
                         cwd: options.cwd,
                         encoding: options.encoding,
                         file,
@@ -238,7 +238,7 @@ suite('github-release-gate-test-support', function () {
         assert.deepStrictEqual(observedReadFile, { encoding: 'utf8', path: scriptOutputPath });
         assert.deepStrictEqual(calls, {
             execFile: {
-                args: [ '--experimental-strip-types', '--enable-source-maps', '/entry.ts' ],
+                commandArguments: [ '--experimental-strip-types', '--enable-source-maps', '/entry.ts' ],
                 cwd: '/workspace',
                 encoding: 'utf8',
                 file: '/node',

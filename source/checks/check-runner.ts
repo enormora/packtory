@@ -7,7 +7,7 @@ export type CheckRunnerDependencies = {
     readonly rules: AllCheckRules;
 };
 
-type CheckRunnerParams = {
+type CheckRunnerInput = {
     readonly bundles: readonly AnalyzedBundle[];
     readonly publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
     readonly settings: ChecksSettings | undefined;
@@ -15,13 +15,13 @@ type CheckRunnerParams = {
     readonly packageConfigs: PackageConfigsByName;
 };
 
-export type CheckRunner = (params: CheckRunnerParams) => Promise<readonly string[]>;
+export type CheckRunner = (input: CheckRunnerInput) => Promise<readonly string[]>;
 
 export function createCheckRunner(dependencies: CheckRunnerDependencies): CheckRunner {
-    return async function runChecks(params) {
+    return async function runChecks(input) {
         const issues = await Promise.all(
             dependencies.rules.map(async function (rule) {
-                return await rule.run(params);
+                return await rule.run(input);
             })
         );
         return issues.flat();

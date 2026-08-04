@@ -7,7 +7,7 @@ import type { ResourceResolveOptions } from './resource-resolve-options.ts';
 import { resolveDependenciesForAllRoots } from './dependency-resolution-walker.ts';
 
 type ScanCall = {
-    readonly entry: string;
+    readonly entries: readonly string[];
     readonly resolveDeclarationFiles: boolean;
 };
 
@@ -61,7 +61,11 @@ function trackingScanner(): TrackingScanner {
     const calls: ScanCall[] = [];
     const scanner: DependencyScanner = {
         async scan(entry, _sourcesFolder, options) {
-            calls.push({ entry, resolveDeclarationFiles: options.resolveDeclarationFiles ?? false });
+            calls.push({ entries: [ entry ], resolveDeclarationFiles: options.resolveDeclarationFiles ?? false });
+            return emptyGraph();
+        },
+        async scanEntries(entries, _sourcesFolder, options) {
+            calls.push({ entries, resolveDeclarationFiles: options.resolveDeclarationFiles ?? false });
             return emptyGraph();
         }
     };
@@ -71,13 +75,22 @@ function trackingScanner(): TrackingScanner {
     };
 }
 
-function scannerWithGraphs(entries: readonly (readonly [string, DependencyGraph])[]): TrackingScanner {
-    const graphs = new Map(entries);
+function scannerWithGraphs(graphEntries: readonly (readonly [string, DependencyGraph])[]): TrackingScanner {
+    const graphs = new Map(graphEntries);
     const calls: ScanCall[] = [];
     const scanner: DependencyScanner = {
         async scan(entry, _sourcesFolder, options) {
-            calls.push({ entry, resolveDeclarationFiles: options.resolveDeclarationFiles ?? false });
+            calls.push({ entries: [ entry ], resolveDeclarationFiles: options.resolveDeclarationFiles ?? false });
             return graphs.get(entry) ?? emptyGraph();
+        },
+        async scanEntries(entryFiles, _sourcesFolder, options) {
+            calls.push({ entries: entryFiles, resolveDeclarationFiles: options.resolveDeclarationFiles ?? false });
+            return {
+                ...emptyGraph(),
+                flatten(entry) {
+                    return (graphs.get(entry) ?? emptyGraph()).flatten(entry);
+                }
+            };
         }
     };
     return {
@@ -129,8 +142,8 @@ suite('dependency-resolution-walker', function () {
 
         assert.deepStrictEqual(
             calls
-                .map(function (call) {
-                    return call.entry;
+                .flatMap(function (call) {
+                    return call.entries;
                 })
                 .toSorted(function (left, right) {
                     return left.localeCompare(right);
@@ -147,8 +160,8 @@ suite('dependency-resolution-walker', function () {
         );
 
         assert.deepStrictEqual(calls, [
-            { entry: '/src/index.js', resolveDeclarationFiles: false },
-            { entry: '/src/index.d.ts', resolveDeclarationFiles: true }
+            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/src/index.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 
@@ -167,9 +180,8 @@ suite('dependency-resolution-walker', function () {
         });
 
         assert.deepStrictEqual(calls, [
-            { entry: '/src/index.js', resolveDeclarationFiles: false },
-            { entry: '/src/index.d.ts', resolveDeclarationFiles: true },
-            { entry: '/src/internal.d.ts', resolveDeclarationFiles: true }
+            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/src/index.d.ts', '/src/internal.d.ts' ], resolveDeclarationFiles: true }
         ]);
         assert.deepStrictEqual(indexFile?.directDependencies, new Set([ '/src/internal.js' ]));
         const internalDeclarationFile = result.localFiles.find(function (localFile) {
@@ -189,9 +201,9 @@ suite('dependency-resolution-walker', function () {
         );
 
         assert.deepStrictEqual(calls, [
-            { entry: '/src/index.js', resolveDeclarationFiles: false },
-            { entry: '/src/shared.d.ts', resolveDeclarationFiles: true },
-            { entry: '/src/other.js', resolveDeclarationFiles: false }
+            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/src/shared.d.ts' ], resolveDeclarationFiles: true },
+            { entries: [ '/src/other.js' ], resolveDeclarationFiles: false }
         ]);
     });
 
@@ -206,8 +218,8 @@ suite('dependency-resolution-walker', function () {
         );
 
         assert.deepStrictEqual(calls, [
-            { entry: '/src/index.js', resolveDeclarationFiles: false },
-            { entry: '/src/types.d.ts', resolveDeclarationFiles: true }
+            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/src/types.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 
@@ -221,7 +233,7 @@ suite('dependency-resolution-walker', function () {
             optionsForRoots({ main: { js: '/src/index.js' } })
         );
 
-        assert.deepStrictEqual(calls, [ { entry: '/src/index.js', resolveDeclarationFiles: false } ]);
+        assert.deepStrictEqual(calls, [ { entries: [ '/src/index.js' ], resolveDeclarationFiles: false } ]);
     });
 
     test('resolveDependenciesForAllRoots scans companions when any root has declarations', async function () {
@@ -239,10 +251,10 @@ suite('dependency-resolution-walker', function () {
         );
 
         assert.deepStrictEqual(calls, [
-            { entry: '/src/index.js', resolveDeclarationFiles: false },
-            { entry: '/src/index.d.ts', resolveDeclarationFiles: true },
-            { entry: '/src/other.js', resolveDeclarationFiles: false },
-            { entry: '/src/internal.d.ts', resolveDeclarationFiles: true }
+            { entries: [ '/src/index.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/src/index.d.ts' ], resolveDeclarationFiles: true },
+            { entries: [ '/src/other.js' ], resolveDeclarationFiles: false },
+            { entries: [ '/src/internal.d.ts' ], resolveDeclarationFiles: true }
         ]);
     });
 });

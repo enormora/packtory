@@ -11,15 +11,17 @@ import { createBundleEmitter, type BundleEmitterDependencies, type BundleEmitter
 
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
 const publishedAt = new Date('2026-05-20T00:00:00.000Z');
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 const latestReleaseMetadata = {
     version: '1.2.3',
     tarballUrl: 'https://registry.example.test/package.tgz',
+    tarballIntegrity: emptyTarballIntegrity,
     publishedAt,
     gitHead: undefined
 } as const;
 type CurrentVersionRequest = Parameters<BundleEmitter['determineCurrentVersion']>[0];
 type BundlePublishedCheckResult = Awaited<ReturnType<BundleEmitter['checkBundleAlreadyPublished']>>;
-type CurrentVersionParams = {
+type CurrentVersionInput = {
     readonly stage: boolean;
     readonly versioning: CurrentVersionRequest['versioning'];
     readonly registrySettings?: CurrentVersionRequest['registrySettings'];
@@ -94,36 +96,36 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
     return createBundleEmitter(dependencies);
 }
 
-function currentVersionRequest(params: CurrentVersionParams): CurrentVersionRequest {
+function currentVersionRequest(input: CurrentVersionInput): CurrentVersionRequest {
     return {
         name: 'the-name',
-        registrySettings: params.registrySettings ?? registrySettings,
-        stage: params.stage,
-        versioning: params.versioning
+        registrySettings: input.registrySettings ?? registrySettings,
+        stage: input.stage,
+        versioning: input.versioning
     };
 }
 
 async function determineCurrentVersion(
     emitter: BundleEmitter,
-    params: CurrentVersionParams
+    input: CurrentVersionInput
 ): Promise<Maybe<string>> {
-    return emitter.determineCurrentVersion(currentVersionRequest(params));
+    return emitter.determineCurrentVersion(currentVersionRequest(input));
 }
 
 async function expectCurrentVersionFailure(
     emitter: BundleEmitter,
-    params: CurrentVersionParams,
+    input: CurrentVersionInput,
     matcher: RegExp
 ): Promise<void> {
     await assert.rejects(async function () {
-        await determineCurrentVersion(emitter, params);
+        await determineCurrentVersion(emitter, input);
     }, matcher);
 }
 
-function buildSbomWithDependency(params: SbomDependency): string {
+function buildSbomWithDependency(input: SbomDependency): string {
     return buildSbomFixtureContent({
-        packtoryVersion: params.packtoryVersion,
-        dependencyComponents: [ { name: params.dependencyName, version: params.dependencyVersion } ]
+        packtoryVersion: input.packtoryVersion,
+        dependencyComponents: [ { name: input.dependencyName, version: input.dependencyVersion } ]
     });
 }
 
@@ -146,6 +148,7 @@ async function runSbomComparison(previousSbom: string, currentSbom: string): Pro
         Maybe.just({
             version: latestReleaseMetadata.version,
             tarballUrl: latestReleaseMetadata.tarballUrl,
+            tarballIntegrity: latestReleaseMetadata.tarballIntegrity,
             publishedAt,
             gitHead: undefined
         })
@@ -183,7 +186,11 @@ function assertDifferentContentsResult(
     }
     assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value, 1);
     assert.deepStrictEqual(collectContents.firstCall.args, [ bundle, 'package', undefined ]);
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [ latestReleaseMetadata.tarballUrl, registrySettings ]);
+    assert.deepStrictEqual(fetchTarball.firstCall.args, [
+        latestReleaseMetadata.tarballUrl,
+        latestReleaseMetadata.tarballIntegrity,
+        registrySettings
+    ]);
 }
 
 function assertMatchingContentsResult(
@@ -197,7 +204,11 @@ function assertMatchingContentsResult(
     }
     assertPreviousReleaseArtifacts(result.previousReleaseArtifacts.value);
     assert.deepStrictEqual(collectContents.firstCall.args[1], 'package');
-    assert.deepStrictEqual(fetchTarball.firstCall.args, [ latestReleaseMetadata.tarballUrl, registrySettings ]);
+    assert.deepStrictEqual(fetchTarball.firstCall.args, [
+        latestReleaseMetadata.tarballUrl,
+        latestReleaseMetadata.tarballIntegrity,
+        registrySettings
+    ]);
 }
 
 suite('emitter', function () {

@@ -10,7 +10,7 @@ type ImportsPackageJson = {
     readonly imports: Readonly<Record<string, string>>;
 };
 
-type BuildPackageParams = {
+type BuildPackageInput = {
     readonly sourcesFolder: string;
     readonly mainPackageJson: ImportsPackageJson;
     readonly name: string;
@@ -19,16 +19,16 @@ type BuildPackageParams = {
     readonly bundleDependencies: readonly BuiltPackage[];
 };
 
-async function buildPackage(params: BuildPackageParams): Promise<BuiltPackage> {
+async function buildPackage(input: BuildPackageInput): Promise<BuiltPackage> {
     return packageProcessor.build({
-        name: params.name,
-        version: params.version,
-        sourcesFolder: params.sourcesFolder,
-        roots: { main: { js: path.join(params.sourcesFolder, params.entryFileName) } },
-        mainPackageJson: params.mainPackageJson,
+        name: input.name,
+        version: input.version,
+        sourcesFolder: input.sourcesFolder,
+        roots: { main: { js: path.join(input.sourcesFolder, input.entryFileName) } },
+        mainPackageJson: input.mainPackageJson,
         includeSourceMapFiles: false,
         additionalFiles: [],
-        bundleDependencies: params.bundleDependencies,
+        bundleDependencies: input.bundleDependencies,
         bundlePeerDependencies: [],
         additionalPackageJsonAttributes: {},
         allowMutableSpecifiers: [],

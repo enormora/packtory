@@ -61,14 +61,14 @@ function createSpinnerRenderer(
     const stopAll = overrides.stopAll ?? fake();
 
     return {
-        add(...args) {
-            add(...args);
+        add(...commandArguments) {
+            add(...commandArguments);
         },
-        stop(...args) {
-            stop(...args);
+        stop(...commandArguments) {
+            stop(...commandArguments);
         },
-        updateMessage(...args) {
-            updateMessage(...args);
+        updateMessage(...commandArguments) {
+            updateMessage(...commandArguments);
         },
         stopAll() {
             stopAll();
@@ -254,12 +254,12 @@ export async function expectCommandLoadsConfig(command: 'preview' | 'publish'): 
     assert.strictEqual(buildAndPublishAll.firstCall.args[0], 'the-config');
 }
 
-export async function expectHelp(args: readonly string[]): Promise<string> {
+export async function expectHelp(commandArguments: readonly string[]): Promise<string> {
     const log = fake();
     const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
     const runner = createRunner({ buildAndPublishAll, log });
 
-    const exitCode = await runner.run([ 'foo', 'bar', ...args ]);
+    const exitCode = await runner.run([ 'foo', 'bar', ...commandArguments ]);
 
     assert.strictEqual(exitCode, 0);
     return String(log.firstCall.args[0]);

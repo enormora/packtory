@@ -3,9 +3,9 @@ import { suite, test } from 'mocha';
 import { checkBundle, fakeCheckRules } from '../test-libraries/check-fixtures.ts';
 import { createCheckRunner, type CheckRunner } from './check-runner.ts';
 
-type CheckRunnerParams = Parameters<CheckRunner>[0];
+type CheckRunnerInput = Parameters<CheckRunner>[0];
 
-function checkParams(overrides: Partial<CheckRunnerParams> = {}): CheckRunnerParams {
+function checkInput(overrides: Partial<CheckRunnerInput> = {}): CheckRunnerInput {
     return {
         settings: {},
         publishedPackages: undefined,
@@ -18,14 +18,14 @@ function checkParams(overrides: Partial<CheckRunnerParams> = {}): CheckRunnerPar
 
 suite('check-runner', function () {
     test('does not invoke any rule when settings are empty', async function () {
-        const issues = await createCheckRunner({ rules: fakeCheckRules() })(checkParams());
+        const issues = await createCheckRunner({ rules: fakeCheckRules() })(checkInput());
 
         assert.deepStrictEqual(issues, []);
     });
 
     test('dispatches an enabled rule with the provided bundles and aggregates its issues', async function () {
         const issues = await createCheckRunner({ rules: fakeCheckRules() })(
-            checkParams({ settings: { noDuplicatedFiles: { enabled: true } } })
+            checkInput({ settings: { noDuplicatedFiles: { enabled: true } } })
         );
 
         assert.deepStrictEqual(issues, [ 'File "shared.ts" is included in multiple packages: a, b' ]);
@@ -34,7 +34,7 @@ suite('check-runner', function () {
     test('threads per-package settings through to the rule for cross-package consent decisions', async function () {
         const consent = { noDuplicatedFiles: { allowList: [ 'shared.ts' ] } };
         const issues = await createCheckRunner({ rules: fakeCheckRules() })(
-            checkParams({
+            checkInput({
                 settings: { noDuplicatedFiles: { enabled: true } },
                 perPackageSettings: new Map([
                     [ 'a', consent ],
@@ -48,7 +48,7 @@ suite('check-runner', function () {
 
     test('aggregates the issues of every configured rule', async function () {
         const issues = await createCheckRunner({ rules: fakeCheckRules() })(
-            checkParams({
+            checkInput({
                 settings: {
                     noDuplicatedFiles: { enabled: true },
                     requiredFiles: { enabled: true, files: [ 'readme.md' ] }

@@ -108,6 +108,45 @@ suite('scanner', function () {
                 }
             });
         });
+
+        test('scanEntries() reuses one analyzed project for all entry points', async function () {
+            const getReferencedModules = fake.returns([]);
+            const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
+            const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+
+            await dependencyScanner.scanEntries([ '/foo/first.js', '/foo/second.js' ], '/foo', {
+                mainPackageJson: defaultMainPackageJson
+            });
+
+            assert.strictEqual(analyzeProject.callCount, 1);
+            assert.deepStrictEqual(
+                getReferencedModules.getCalls().map(function (call) {
+                    return String(call.firstArg);
+                }),
+                [ '/foo/first.js', '/foo/second.js' ]
+            );
+        });
+
+        test('scanEntries() skips entry points that were already found through another entry point', async function () {
+            const getReferencedModules = stub()
+                .onFirstCall()
+                .returns([ localCode('/foo/second.js') ])
+                .onSecondCall()
+                .returns([]);
+            const analyzeProject = createFakeAnalyzeProject({ getReferencedModules });
+            const dependencyScanner = dependencyScannerFactory({ analyzeProject });
+
+            await dependencyScanner.scanEntries([ '/foo/first.js', '/foo/second.js' ], '/foo', {
+                mainPackageJson: defaultMainPackageJson
+            });
+
+            assert.deepStrictEqual(
+                getReferencedModules.getCalls().map(function (call) {
+                    return String(call.firstArg);
+                }),
+                [ '/foo/first.js', '/foo/second.js' ]
+            );
+        });
     });
 
     suite('source maps', function () {

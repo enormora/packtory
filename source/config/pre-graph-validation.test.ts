@@ -4,26 +4,26 @@ import { packageConfigFixture, publicPublishSettings } from '../test-libraries/c
 import type { PackageConfig, PacktoryConfigWithoutRegistry } from './config.ts';
 import { collectPreGraphIssues, packageListToRecord } from './pre-graph-validation.ts';
 
-const pkg: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
+const packageConfig: (overrides: Partial<PackageConfig>) => PackageConfig = packageConfigFixture;
 
 suite('pre-graph-validation', function () {
     test('packageListToRecord indexes packages by name', function () {
-        const packageA = pkg({ name: 'a' });
-        const packageB = pkg({ name: 'b' });
+        const packageA = packageConfig({ name: 'a' });
+        const packageB = packageConfig({ name: 'b' });
 
         assert.deepStrictEqual(packageListToRecord([ packageA, packageB ]), { a: packageA, b: packageB });
     });
 
     test('collectPreGraphIssues returns no issues for a well-formed single-package config with publishSettings on the package', function () {
         const config: PacktoryConfigWithoutRegistry = {
-            packages: [ pkg({ publishSettings: publicPublishSettings }) ]
+            packages: [ packageConfig({ publishSettings: publicPublishSettings }) ]
         };
 
         assert.deepStrictEqual(collectPreGraphIssues(config), []);
     });
 
     test('collectPreGraphIssues reports a missing publishSettings placement', function () {
-        const config: PacktoryConfigWithoutRegistry = { packages: [ pkg({}) ] };
+        const config: PacktoryConfigWithoutRegistry = { packages: [ packageConfig({}) ] };
 
         assert.ok(
             collectPreGraphIssues(config).includes(
@@ -35,7 +35,7 @@ suite('pre-graph-validation', function () {
     test('collectPreGraphIssues reports a missing bundle dependency target', function () {
         const config = {
             packages: [
-                pkg({
+                packageConfig({
                     publishSettings: publicPublishSettings,
                     bundleDependencies: [ 'missing' ]
                 })
@@ -50,7 +50,7 @@ suite('pre-graph-validation', function () {
     test('collectPreGraphIssues reports a root configuration violation', function () {
         const config = {
             packages: [
-                pkg({
+                packageConfig({
                     publishSettings: publicPublishSettings,
                     roots: { main: { js: 'index.js' }, extra: { js: 'extra.js' } }
                 })

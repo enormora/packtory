@@ -7,7 +7,7 @@ import type { SpawnedProcess, SpawnOptions } from './preview-spawn.ts';
 
 type FakeSpawnResult = {
     readonly command: string;
-    readonly args: readonly string[];
+    readonly commandArguments: readonly string[];
     readonly options: SpawnOptions;
     readonly child: FakeSpawnedProcess;
 };
@@ -102,9 +102,9 @@ function previewIoFactory(overrides: PreviewIoFactoryOverrides = {}): PreviewIoF
             openedFiles.push(filePath);
             await openFile(filePath);
         },
-        spawnProcess(command, args, options) {
+        spawnProcess(command, commandArguments, options) {
             const child = createFakeSpawnedProcess(overrides.stdinMode);
-            const result = { command, args, options, child };
+            const result = { command, commandArguments, options, child };
             calls.push(result);
             overrides.spawnHook?.(result);
             return child;
@@ -173,7 +173,7 @@ suite('preview-io-shared', function () {
             );
             assert.deepStrictEqual(
                 calls.map(function (call) {
-                    return [ call.command, call.args ];
+                    return [ call.command, call.commandArguments ];
                 }),
                 [ [ 'sh', [ '-lc', 'bat' ] ] ]
             );
@@ -201,7 +201,7 @@ suite('preview-io-shared', function () {
             assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'pager fallback'), true);
             assert.deepStrictEqual(
                 calls.map(function (call) {
-                    return [ call.command, call.args ];
+                    return [ call.command, call.commandArguments ];
                 }),
                 [
                     [ '/bin/bash', [ '-lc', 'bat' ] ],
@@ -216,7 +216,7 @@ suite('preview-io-shared', function () {
             assert.strictEqual(await withPromiseDeadline(io.pagePreviewOutput('content'), 'default less pager'), true);
             assert.deepStrictEqual(
                 calls.map(function (call) {
-                    return [ call.command, call.args ];
+                    return [ call.command, call.commandArguments ];
                 }),
                 [ [ 'sh', [ '-lc', 'less -R' ] ] ]
             );
@@ -231,7 +231,7 @@ suite('preview-io-shared', function () {
             );
             assert.deepStrictEqual(
                 calls.map(function (call) {
-                    return call.args;
+                    return call.commandArguments;
                 }),
                 [ [ '-lc', 'less -R' ] ]
             );

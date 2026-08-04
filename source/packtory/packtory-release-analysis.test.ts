@@ -49,8 +49,8 @@ type PartialFailureMarker = {
 };
 type ReleaseAnalysisPartialFailure = Extract<ReleaseAnalysisFailure, PartialFailureMarker>;
 
-function createAnalyzer(spec: AnalyzerSpec): ReleaseAnalyzer {
-    return createAnalyzeReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(spec));
+function createAnalyzer(input: AnalyzerSpec): ReleaseAnalyzer {
+    return createAnalyzeReleaseAgainstLatestPublishedValidated(createReleaseTestDependencies(input));
 }
 
 function expectPartialFailure(result: ReleaseAnalysisResult): ReleaseAnalysisPartialFailure {
@@ -73,11 +73,11 @@ function publishedBuildResultFor(status: BuildAndPublishResult['status'] = 'new-
     });
 }
 
-async function analyzePublishedBuildResult(spec: AnalyzePublishedBuildResultSpec): Promise<ReleaseAnalysisResult> {
+async function analyzePublishedBuildResult(input: AnalyzePublishedBuildResultSpec): Promise<ReleaseAnalysisResult> {
     const analyze = createAnalyzer({
         packageNames: [ 'pkg-a' ],
-        buildResults: [ publishedBuildResultFor(spec.status) ],
-        collectContents: spec.collectContents
+        buildResults: [ publishedBuildResultFor(input.status) ],
+        collectContents: input.collectContents
     });
     const validated = validatedReleaseConfigFor([ 'pkg-a' ]);
 

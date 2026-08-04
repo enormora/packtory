@@ -23,8 +23,8 @@ function spinnerRendererCapturing(stopAll: SinonSpy): TerminalSpinnerRenderer {
 
 function packtoryStub(outcome: Readonly<PackOutcome>, spy: SinonSpy): Packtory {
     return {
-        async packPackage(...args: readonly unknown[]) {
-            spy(...args);
+        async packPackage(...packageArguments: readonly unknown[]) {
+            spy(...packageArguments);
             return outcome;
         }
     } as unknown as Packtory;
@@ -91,8 +91,8 @@ suite('pack-handler', function () {
         await runPackHandler(dependencies);
 
         assert.strictEqual(packPackageSpy.callCount, 1);
-        const args = packPackageSpy.firstCall.args as readonly unknown[];
-        const options = args[1];
+        const packageArguments = packPackageSpy.firstCall.args as readonly unknown[];
+        const options = packageArguments[1];
         assert.deepStrictEqual(options, {
             packageName: 'pkg-b',
             format: 'tar',

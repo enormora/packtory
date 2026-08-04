@@ -12,12 +12,14 @@ import { createBundleEmitter, type BundleEmitter, type BundleEmitterDependencies
 const registrySettings = { auth: { type: 'bearer-token', token: 'the-token' } } as const;
 const publishedOutcome = { type: 'published' } as const;
 const publishedAt = new Date('2026-05-20T00:00:00.000Z');
+const emptyTarballIntegrity = { integrity: undefined, shasum: undefined } as const;
 const latestReleaseMetadata = {
     version: '1.2.3',
-    tarballUrl: 'https://registry.example.test/package.tgz'
+    tarballUrl: 'https://registry.example.test/package.tgz',
+    tarballIntegrity: emptyTarballIntegrity
 } as const;
 type PublishRequest = Parameters<BundleEmitter['publish']>[0];
-type PublishParams = {
+type PublishInput = {
     readonly bundle?: PublishRequest['bundle'];
     readonly publishSettings: PublishRequest['publishSettings'];
     readonly stage?: boolean;
@@ -87,18 +89,18 @@ function emitterFactory(overrides: Overrides = {}): BundleEmitter {
     return createBundleEmitter(dependencies);
 }
 
-function publishRequest(params: PublishParams): PublishRequest {
+function publishRequest(input: PublishInput): PublishRequest {
     return {
         registrySettings,
-        bundle: params.bundle ?? namedBundle(),
-        publishSettings: params.publishSettings,
-        stage: params.stage ?? false,
-        ...params.extraFiles === undefined ? {} : { extraFiles: params.extraFiles }
+        bundle: input.bundle ?? namedBundle(),
+        publishSettings: input.publishSettings,
+        stage: input.stage ?? false,
+        ...input.extraFiles === undefined ? {} : { extraFiles: input.extraFiles }
     };
 }
 
-async function publishBundle(emitter: BundleEmitter, params: PublishParams): Promise<void> {
-    await emitter.publish(publishRequest(params));
+async function publishBundle(emitter: BundleEmitter, input: PublishInput): Promise<void> {
+    await emitter.publish(publishRequest(input));
 }
 
 function createPublishScenario(ciRepositoryUrl: string | undefined): PublishScenario {
@@ -171,6 +173,7 @@ suite('emitter publish', function () {
             Maybe.just({
                 version: latestReleaseMetadata.version,
                 tarballUrl: latestReleaseMetadata.tarballUrl,
+                tarballIntegrity: latestReleaseMetadata.tarballIntegrity,
                 publishedAt,
                 gitHead: 'old'
             })

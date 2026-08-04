@@ -19,22 +19,22 @@ type CodeFileSpec = {
     readonly extraResources?: readonly LinkedBundleResource[];
 };
 
-export function bundleForCodeFile(spec: CodeFileSpec): LinkedBundle {
+export function bundleForCodeFile(input: CodeFileSpec): LinkedBundle {
     const root = {
         js: {
-            content: spec.content,
+            content: input.content,
             isExecutable: false,
-            sourceFilePath: spec.sourceFilePath,
-            targetFilePath: spec.targetFilePath
+            sourceFilePath: input.sourceFilePath,
+            targetFilePath: input.targetFilePath
         }
     } as const;
     const codeResource = {
-        ...bundleResource(spec.sourceFilePath, { content: spec.content, targetFilePath: spec.targetFilePath }),
+        ...bundleResource(input.sourceFilePath, { content: input.content, targetFilePath: input.targetFilePath }),
         isSubstituted: false
     };
     return linkedBundle({
-        name: spec.name,
-        contents: [ codeResource, ...spec.extraResources ?? [] ],
+        name: input.name,
+        contents: [ codeResource, ...input.extraResources ?? [] ],
         roots: { main: root },
         surface: { mode: 'implicit', defaultModuleRoot: 'main' }
     });

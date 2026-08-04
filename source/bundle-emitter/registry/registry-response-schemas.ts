@@ -3,7 +3,9 @@ import { safeParse } from '../../common/schema-validation.ts';
 
 const packageVersionDetailsSchema = z.object({
     dist: z.object({
-        tarball: z.string()
+        tarball: z.string(),
+        integrity: z.optional(z.unknown()),
+        shasum: z.optional(z.unknown())
     }),
     gitHead: z.optional(z.string())
 });
@@ -35,7 +37,17 @@ export type AbbreviatedPackageResponse = {
         readonly latest?: string | undefined;
     };
     readonly versions: Readonly<
-        Record<string, { readonly dist: { readonly tarball: string; }; readonly gitHead?: string | undefined; }>
+        Record<
+            string,
+            {
+                readonly dist: {
+                    readonly tarball: string;
+                    readonly integrity?: unknown;
+                    readonly shasum?: unknown;
+                };
+                readonly gitHead?: string | undefined;
+            }
+        >
     >;
 };
 
@@ -46,7 +58,17 @@ export type FullPackageResponse = {
     };
     readonly time?: Readonly<Record<string, string>> | undefined;
     readonly versions: Readonly<
-        Record<string, { readonly dist: { readonly tarball: string; }; readonly gitHead?: string | undefined; }>
+        Record<
+            string,
+            {
+                readonly dist: {
+                    readonly tarball: string;
+                    readonly integrity?: unknown;
+                    readonly shasum?: unknown;
+                };
+                readonly gitHead?: string | undefined;
+            }
+        >
     >;
 };
 

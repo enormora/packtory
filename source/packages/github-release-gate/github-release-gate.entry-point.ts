@@ -9,7 +9,7 @@ import {
     type GitHubReleaseGateRunnerDependencies
 } from '../../github-release-gate/cli-runner.ts';
 
-type UnknownFunction = (...args: readonly unknown[]) => unknown;
+type UnknownFunction = (...inputArguments: readonly unknown[]) => unknown;
 
 type ConfigModule = Readonly<Record<PropertyKey, unknown>>;
 

@@ -5,14 +5,14 @@ import {
     emptyPerPackageSchema,
     enabledOnlyGlobalSchema,
     type CheckRuleDefinition,
-    type RuleRunParams
+    type RuleRunInput
 } from '../rule.ts';
 
 const ruleName = 'uniqueTargetPaths';
 
 type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
     const sourcesByTarget = groupBy(bundle.contents, function (resource) {
@@ -34,13 +34,13 @@ function findCollidingTargetPaths(bundle: AnalyzedBundle): readonly string[] {
     });
 }
 
-async function run(params: RunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.uniqueTargetPaths;
+async function run(input: RunInput): Promise<readonly string[]> {
+    const globalConfig = input.settings?.uniqueTargetPaths;
     if (globalConfig?.enabled !== true) {
         return [];
     }
 
-    return params.bundles.flatMap(findCollidingTargetPaths);
+    return input.bundles.flatMap(findCollidingTargetPaths);
 }
 
 export const uniqueTargetPathsRule: CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig> = {

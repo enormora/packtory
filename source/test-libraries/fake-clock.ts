@@ -37,9 +37,9 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
         },
 
         setTimeout<Arguments extends readonly unknown[]>(
-            handler: (...args: Arguments) => void,
+            handler: (...timerArguments: Arguments) => void,
             delayInMilliseconds: number,
-            ...args: Arguments
+            ...timerArguments: Arguments
         ) {
             if (delayInMilliseconds < 0) {
                 throw new Error(`Invalid delay ${delayInMilliseconds}, must be greater than or equal to 0`);
@@ -54,7 +54,7 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
             handlers.set(currentHandlerIndex, {
                 executionTimestamp,
                 handler() {
-                    handler(...args);
+                    handler(...timerArguments);
                 }
             });
 

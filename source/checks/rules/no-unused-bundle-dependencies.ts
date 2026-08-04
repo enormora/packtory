@@ -6,14 +6,14 @@ import {
     enabledOnlyGlobalSchema,
     type CheckRuleDefinition,
     type RulePackageConfig,
-    type RuleRunParams
+    type RuleRunInput
 } from '../rule.ts';
 
 const ruleName = 'noUnusedBundleDependencies';
 
 type GlobalConfig = Readonly<z.infer<typeof enabledOnlyGlobalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof emptyPerPackageSchema>>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
 function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | undefined): readonly string[] {
     const issues: string[] = [];
 
@@ -31,14 +31,14 @@ function checkBundle(bundle: AnalyzedBundle, packageConfig: RulePackageConfig | 
     return issues;
 }
 
-async function run(params: RunParams): Promise<readonly string[]> {
-    const globalConfig = params.settings?.noUnusedBundleDependencies;
+async function run(input: RunInput): Promise<readonly string[]> {
+    const globalConfig = input.settings?.noUnusedBundleDependencies;
     if (globalConfig?.enabled !== true) {
         return [];
     }
 
-    return params.bundles.flatMap(function (bundle) {
-        return checkBundle(bundle, params.packageConfigs?.[bundle.name]);
+    return input.bundles.flatMap(function (bundle) {
+        return checkBundle(bundle, input.packageConfigs?.[bundle.name]);
     });
 }
 

@@ -99,9 +99,9 @@ function collectBundleDependencies(
         pendingDependencyNames: createWorklist(target.analyzedBundle.linkedBundleDependencies.keys())
     };
 
-    function appendBundleDependency(pkg: ResolvedPackage): void {
-        const versioned = buildVersionedBundle(versionManager, pkg, fallbackVersion);
-        closure.packageNames.add(pkg.name);
+    function appendBundleDependency(resolvedPackage: ResolvedPackage): void {
+        const versioned = buildVersionedBundle(versionManager, resolvedPackage, fallbackVersion);
+        closure.packageNames.add(resolvedPackage.name);
         closure.extraFiles.push({
             filePath: bundledInstalledDependencyPath(versioned.name, versioned.manifestFile.filePath),
             content: versioned.manifestFile.content,
@@ -114,8 +114,8 @@ function collectBundleDependencies(
                 isExecutable: entry.fileDescription.isExecutable
             });
         }
-        closure.peerRequirements.set(pkg.name, Object.keys(versioned.peerDependencies));
-        closure.pendingDependencyNames.scheduleAll(pkg.analyzedBundle.linkedBundleDependencies.keys());
+        closure.peerRequirements.set(resolvedPackage.name, Object.keys(versioned.peerDependencies));
+        closure.pendingDependencyNames.scheduleAll(resolvedPackage.analyzedBundle.linkedBundleDependencies.keys());
     }
 
     for (
@@ -123,9 +123,11 @@ function collectBundleDependencies(
         dependencyName !== undefined;
         dependencyName = closure.pendingDependencyNames.takeNext()
     ) {
-        const pkg = closure.packageNames.has(dependencyName) ? undefined : resolvedByName.get(dependencyName);
-        if (pkg !== undefined) {
-            appendBundleDependency(pkg);
+        const resolvedPackage = closure.packageNames.has(dependencyName)
+            ? undefined
+            : resolvedByName.get(dependencyName);
+        if (resolvedPackage !== undefined) {
+            appendBundleDependency(resolvedPackage);
         }
     }
 

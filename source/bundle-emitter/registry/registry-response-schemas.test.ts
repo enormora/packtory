@@ -6,6 +6,29 @@ import {
     parseOidcExchangeResponse
 } from './registry-response-schemas.ts';
 
+function digestMetadataResponse(): Record<string, unknown> {
+    return {
+        name: 'pkg-a',
+        'dist-tags': { latest: '1.0.0' },
+        versions: {
+            '1.0.0': {
+                dist: {
+                    tarball: 'https://example.com/pkg-a-1.0.0.tgz',
+                    integrity: 'sha512-the-digest',
+                    shasum: 'the-shasum'
+                }
+            },
+            '0.0.1': {
+                dist: {
+                    tarball: 'https://example.com/pkg-a-0.0.1.tgz',
+                    integrity: 42,
+                    shasum: false
+                }
+            }
+        }
+    };
+}
+
 suite('registry-response-schemas', function () {
     suite('package metadata responses', function () {
         test('parseAbbreviatedPackageResponse returns the data when the response matches the schema', function () {
@@ -21,6 +44,13 @@ suite('registry-response-schemas', function () {
                     versions: { '1.0.0': { dist: { tarball: 'https://example.com/pkg-a-1.0.0.tgz' } } }
                 }
             );
+        });
+
+        test('package metadata parsers keep optional digest metadata without validating it', function () {
+            const response = digestMetadataResponse();
+
+            assert.deepStrictEqual(parseAbbreviatedPackageResponse(response), response);
+            assert.deepStrictEqual(parseFullPackageResponse(response), response);
         });
 
         test('parseAbbreviatedPackageResponse returns undefined when the response is missing required fields', function () {

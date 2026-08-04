@@ -76,8 +76,8 @@ export async function resolvePackages(
                 };
             }
         ),
-        selectNext(params) {
-            return params.result.linkedBundle;
+        selectNext(input) {
+            return input.result.linkedBundle;
         },
         emitScheduledEvents: true
     });

@@ -40,7 +40,7 @@ type EntryPointScriptExecFileError = {
 };
 type EntryPointScriptExecFile = (
     file: string,
-    args: readonly string[],
+    commandArguments: readonly string[],
     options: EntryPointScriptExecFileOptions,
     callback: (error: EntryPointScriptExecFileError | null, stdout: string, stderr: string) => void
 ) => void;
@@ -210,8 +210,8 @@ export async function runEntryPointScript(
     environmentVariables: FakeEnvironment,
     dependencies: Readonly<EntryPointScriptDependencies> = {
         cwd: process.cwd(),
-        execFile(file, args, options, callback) {
-            execFile(file, args, options, callback);
+        execFile(file, commandArguments, options, callback) {
+            execFile(file, commandArguments, options, callback);
         },
         async mkdtemp(prefix) {
             return await mkdtemp(prefix);

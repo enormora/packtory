@@ -33,7 +33,7 @@ export type RulePackageConfig = {
     readonly mainPackageJson?: MainPackageJsonShape | undefined;
 };
 
-export type RuleRunParams<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
+export type RuleRunInput<TName extends string, TGlobal extends RuleGlobalConfig, TPerPackage> = {
     readonly bundles: readonly AnalyzedBundle[];
     readonly publishedPackages?: ReadonlyMap<string, PublishedPackageWithManifest> | undefined;
     readonly settings: Readonly<Partial<Readonly<Record<TName, TGlobal | undefined>>>> | undefined;
@@ -48,5 +48,5 @@ export type CheckRuleDefinition<TName extends string, TGlobal extends RuleGlobal
     readonly name: TName;
     readonly globalSchema: ZodMiniType<TGlobal>;
     readonly perPackageSchema: ZodMiniType<TPerPackage>;
-    readonly run: (params: RuleRunParams<TName, TGlobal, TPerPackage>) => Promise<readonly string[]>;
+    readonly run: (input: RuleRunInput<TName, TGlobal, TPerPackage>) => Promise<readonly string[]>;
 };

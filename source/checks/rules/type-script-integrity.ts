@@ -1,7 +1,7 @@
 import type { ResolutionKind } from '@arethetypeswrong/core';
 import { z } from 'zod/mini';
 import type { PublishedPackageWithManifest } from '../../published-package/published-package.ts';
-import type { CheckRuleDefinition, RuleRunParams } from '../rule.ts';
+import type { CheckRuleDefinition, RuleRunInput } from '../rule.ts';
 import type { DeclarationIntegritySummarizer, DeclarationMode } from './type-script-declaration-integrity.ts';
 import type { PackageResolutionAnalyzer } from './type-script-package-resolution.ts';
 import { summarizeResolutionReport } from './type-script-resolution-summary.ts';
@@ -20,7 +20,7 @@ const perPackageSchema = z.strictObject({});
 
 type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
-type RunParams = RuleRunParams<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
 export type TypeScriptIntegrityRule = CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
@@ -63,19 +63,19 @@ export function createTypeScriptIntegrityRule(
         ];
     }
 
-    async function run(params: RunParams): Promise<readonly string[]> {
-        const globalConfig = params.settings?.typeScriptIntegrity;
+    async function run(input: RunInput): Promise<readonly string[]> {
+        const globalConfig = input.settings?.typeScriptIntegrity;
         if (globalConfig?.enabled !== true) {
             return [];
         }
 
         const declarationMode = globalConfig.declarations ?? defaultDeclarationMode;
-        const { publishedPackages } = params;
+        const { publishedPackages } = input;
         if (publishedPackages === undefined) {
             throw new Error('Published packages missing for TypeScript integrity');
         }
         const issuesByBundle = await Promise.all(
-            params.bundles.map(async function (bundle) {
+            input.bundles.map(async function (bundle) {
                 const publishedPackage = publishedPackages.get(bundle.name);
                 if (publishedPackage === undefined) {
                     throw new Error(`Published package missing for "${bundle.name}"`);

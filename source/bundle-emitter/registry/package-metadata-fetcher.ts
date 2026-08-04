@@ -15,6 +15,7 @@ import {
     type AbbreviatedPackageResponse,
     type FullPackageResponse
 } from './registry-response-schemas.ts';
+import { assertTarballIntegrity, type TarballIntegrity } from './tarball-integrity.ts';
 import { assertTarballOriginMatchesRegistry } from './validate-tarball-host.ts';
 
 const notFoundStatusCode = 404;
@@ -25,12 +26,14 @@ const maxDownloadedTarballBytes = 268_435_456;
 export type PackageVersionDetails = {
     readonly version: string;
     readonly tarballUrl: string;
+    readonly tarballIntegrity: TarballIntegrity;
     readonly gitHead: string | undefined;
 };
 
 export type PackageReleaseMetadata = {
     readonly publishedAt?: Date | undefined;
     readonly tarballUrl: string;
+    readonly tarballIntegrity: TarballIntegrity;
     readonly version: string;
     readonly gitHead: string | undefined;
 };
@@ -101,6 +104,11 @@ function parseStagedPackageListResponse(response: unknown): StagedPackageListRes
 type PackageMetadataRequest<TPackageResponse extends Record<string, unknown>> = {
     readonly headers: Readonly<Record<string, string>> | undefined;
     readonly parsePackageResponse: (response: unknown) => TPackageResponse | undefined;
+};
+
+type PackageVersionDist = {
+    readonly integrity?: unknown;
+    readonly shasum?: unknown;
 };
 
 const abbreviatedPackageMetadataRequest: PackageMetadataRequest<AbbreviatedPackageResponse> = {
@@ -178,6 +186,30 @@ async function fetchAndParsePackageMetadata<TPackageResponse extends Record<stri
     }
 }
 
+function readTarballDigestField(
+    value: unknown,
+    fieldName: 'dist.integrity' | 'dist.shasum',
+    packageName: string,
+    version: string
+): string | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    if (typeof value === 'string' && value.length > 0) {
+        return value;
+    }
+
+    throw new Error(`Registry returned invalid ${fieldName} for package "${packageName}" version "${version}"`);
+}
+
+function readTarballIntegrity(dist: PackageVersionDist, packageName: string, version: string): TarballIntegrity {
+    return {
+        integrity: readTarballDigestField(dist.integrity, 'dist.integrity', packageName, version),
+        shasum: readTarballDigestField(dist.shasum, 'dist.shasum', packageName, version)
+    };
+}
+
 function extractLatestVersionDetails(
     packageResponse: AbbreviatedPackageResponse,
     packageName: string
@@ -194,7 +226,12 @@ function extractLatestVersionDetails(
         );
     }
 
-    return Maybe.just({ version: latestVersion, tarballUrl: versionData.dist.tarball, gitHead: versionData.gitHead });
+    return Maybe.just({
+        version: latestVersion,
+        tarballUrl: versionData.dist.tarball,
+        tarballIntegrity: readTarballIntegrity(versionData.dist, packageName, latestVersion),
+        gitHead: versionData.gitHead
+    });
 }
 
 export async function fetchLatestPackageVersion(
@@ -239,6 +276,7 @@ export async function fetchLatestPackageReleaseMetadata(
     return Maybe.just({
         version: latestVersion.value.version,
         tarballUrl: latestVersion.value.tarballUrl,
+        tarballIntegrity: latestVersion.value.tarballIntegrity,
         publishedAt: publishedAtTimestamp === undefined ? undefined : parseTimestamp(publishedAtTimestamp),
         gitHead: latestVersion.value.gitHead
     });
@@ -287,6 +325,7 @@ export async function fetchStagedPackageVersions(
 export async function fetchPackageTarball(
     npmFetch: NpmFetch,
     tarballUrl: string,
+    tarballIntegrity: TarballIntegrity,
     registrySettings: Readonly<RegistrySettings>
 ): Promise<Buffer> {
     assertTarballOriginMatchesRegistry(tarballUrl, registrySettings);
@@ -297,5 +336,6 @@ export async function fetchPackageTarball(
     assertContentLengthWithinDownloadLimit(response);
     const tarball = await response.buffer();
     assertDownloadedTarballSize(tarball.length);
+    assertTarballIntegrity(tarball, tarballIntegrity);
     return tarball;
 }

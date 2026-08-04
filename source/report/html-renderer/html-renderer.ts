@@ -17,8 +17,8 @@ function renderIssues(document: PreviewDocument): string {
 
 function renderPackages(document: PreviewDocument): string {
     let result = '';
-    for (const pkg of document.packages) {
-        result += renderPackage(pkg);
+    for (const previewPackage of document.packages) {
+        result += renderPackage(previewPackage);
     }
     return result;
 }

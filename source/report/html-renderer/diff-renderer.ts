@@ -22,12 +22,12 @@ function renderArtifactDiff(artifact: ChangedPreviewArtifact): string {
     return `<details class="diff" open><summary>${escapeHtml(artifact.path)}</summary>${hunks}</details>`;
 }
 
-export function renderPackageDiffs(pkg: PreviewPackage): string {
-    if (pkg.changedArtifacts.length === 0) {
+export function renderPackageDiffs(previewPackage: PreviewPackage): string {
+    if (previewPackage.changedArtifacts.length === 0) {
         return '';
     }
     let sections = '';
-    for (const artifact of pkg.changedArtifacts) {
+    for (const artifact of previewPackage.changedArtifacts) {
         sections += renderArtifactDiff(artifact);
     }
     return `<section class="package-block"><h3>Changed files</h3>${sections}</section>`;

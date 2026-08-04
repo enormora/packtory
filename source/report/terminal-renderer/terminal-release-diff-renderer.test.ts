@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createPackageReleaseDiff as pkg } from '../../test-libraries/release-diff-fixtures.ts';
+import { createPackageReleaseDiff } from '../../test-libraries/release-diff-fixtures.ts';
 import type { ReleaseDiffDocument } from '../release-diff/release-diff-document.ts';
 import { renderFailureOnlyTerminalReleaseDiff, renderTerminalReleaseDiff } from './terminal-release-diff-renderer.ts';
 
@@ -118,7 +118,10 @@ suite('terminal-release-diff-renderer', function () {
     test('renderTerminalReleaseDiff renders each package section in order separated by blank lines', function () {
         const output = renderTerminalReleaseDiff(
             document({
-                packages: [ pkg({ name: 'pkg-a', state: 'unchanged' }), pkg({ name: 'pkg-b', state: 'unchanged' }) ]
+                packages: [
+                    createPackageReleaseDiff({ name: 'pkg-a', state: 'unchanged' }),
+                    createPackageReleaseDiff({ name: 'pkg-b', state: 'unchanged' })
+                ]
             }),
             { color: false }
         );

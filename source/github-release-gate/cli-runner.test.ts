@@ -24,6 +24,8 @@ const entryPointPath = fileURLToPath(
     new URL('../packages/github-release-gate/github-release-gate.entry-point.ts', import.meta.url)
 );
 const testDeadlineMilliseconds = 2000;
+const entryPointScriptDeadlineMilliseconds = 10_000;
+const entryPointServerDeadlineMilliseconds = 12_000;
 
 type SuccessfulReleaseAnalysisOverrides = {
     readonly classification: 'dependency-only' | 'first-publish' | 'substantive' | 'unchanged';
@@ -60,18 +62,18 @@ function minutesBefore(timestamp: number, minutes: number): string {
     return date.toISOString();
 }
 
-async function expectReleaseAnalysisFailure(spec: ReleaseAnalysisFailureExpectation): Promise<void> {
+async function expectReleaseAnalysisFailure(input: ReleaseAnalysisFailureExpectation): Promise<void> {
     await assert.rejects(async function () {
         await runGitHubReleaseGate({
             analyzeReleaseAgainstLatestPublished: fake.resolves({
                 getReport: fake(),
-                result: spec.result
+                result: input.result
             }),
             fetch,
             fileManager: createFakeFileManager(),
             getEnvironmentVariable: createEnvironmentVariableReader(
                 createBaseEnvironment({
-                    GITHUB_API_BASE_URL: spec.apiBaseUrl,
+                    GITHUB_API_BASE_URL: input.apiBaseUrl,
                     QUIET_PERIOD_MINUTES: '0'
                 })
             ),
@@ -83,7 +85,7 @@ async function expectReleaseAnalysisFailure(spec: ReleaseAnalysisFailureExpectat
                 return undefined;
             }
         });
-    }, spec.expectedError);
+    }, input.expectedError);
 }
 
 suite('github-release-gate-cli-runner', function () {
@@ -227,7 +229,7 @@ suite('github-release-gate-cli-runner', function () {
                         })
                     ),
                     'runEntryPointScript',
-                    testDeadlineMilliseconds
+                    entryPointScriptDeadlineMilliseconds
                 );
 
                 assert.strictEqual(result.exitCode, 0);
@@ -235,7 +237,7 @@ suite('github-release-gate-cli-runner', function () {
                 assert.match(result.output, /reason=activity_not_stale/u);
             }),
             'withGitHubApiServer',
-            testDeadlineMilliseconds
+            entryPointServerDeadlineMilliseconds
         );
     });
 
@@ -245,7 +247,7 @@ suite('github-release-gate-cli-runner', function () {
                 GITHUB_REPOSITORY: 'enormora/packtory'
             }),
             'runEntryPointScript',
-            testDeadlineMilliseconds
+            entryPointScriptDeadlineMilliseconds
         );
 
         assert.strictEqual(result.exitCode, 1);

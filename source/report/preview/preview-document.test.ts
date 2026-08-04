@@ -45,8 +45,8 @@ suite('preview-document', function () {
         });
 
         assert.deepStrictEqual(
-            document.packages.map(function (pkg) {
-                return [ pkg.name, pkg.versionTransition ];
+            document.packages.map(function (previewPackage) {
+                return [ previewPackage.name, previewPackage.versionTransition ];
             }),
             [
                 [ 'pkg-a', '1.0.0 -> 1.0.1' ],
@@ -69,10 +69,10 @@ suite('preview-document', function () {
             )
         });
 
-        const pkg = requireSinglePackage(document);
+        const previewPackage = requireSinglePackage(document);
         assert.strictEqual(requireTreeNodeAt(document, 0, 0).path, 'package.json');
         assert.deepStrictEqual(
-            pkg
+            previewPackage
                 .tree
                 .filter(function (entry) {
                     return entry.type === 'file' && entry.artifact.diff !== undefined;

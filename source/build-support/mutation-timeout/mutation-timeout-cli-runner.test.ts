@@ -38,13 +38,13 @@ async function withDefaultReport<T>(report: unknown, action: (directory: string)
 }
 
 async function runCheckerCli(
-    args: readonly string[],
+    extraArguments: readonly string[],
     cwd: string
 ): Promise<{ readonly exitCode: number; readonly standardError: string; }> {
     return new Promise(function (resolve) {
         execFile(
             process.execPath,
-            [ '--experimental-strip-types', '--enable-source-maps', checkerScriptPath, ...args ],
+            [ '--experimental-strip-types', '--enable-source-maps', checkerScriptPath, ...extraArguments ],
             { cwd, encoding: 'utf8' },
             function (error, _standardOutput, standardError) {
                 resolve({

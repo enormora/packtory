@@ -39,7 +39,7 @@ suite('manager', function () {
                 versionedBundle({
                     name: 'bundle-dependency',
                     version: '4.5.6',
-                    mainFile: { sourceFilePath: '/src/dep.js', targetFilePath: 'dep.js' }
+                    mainFile: { sourceFilePath: '/src/dependency.js', targetFilePath: 'dependency.js' }
                 })
             ],
             bundlePeerDependencies: [],
@@ -103,7 +103,7 @@ suite('manager', function () {
 
         const result = manager.increaseVersion(
             standardVersionedBundle({
-                dependencies: { dep: '^1.0.0' },
+                dependencies: { dependency: '^1.0.0' },
                 peerDependencies: { react: '^19.0.0' }
             })
         );
@@ -120,7 +120,7 @@ suite('manager', function () {
                     }
                 },
                 type: 'module',
-                dependencies: { dep: '^1.0.0' },
+                dependencies: { dependency: '^1.0.0' },
                 peerDependencies: { react: '^19.0.0' }
             },
             manifestFile: {
@@ -129,7 +129,7 @@ suite('manager', function () {
                 content: [
                     '{',
                     '    "dependencies": {',
-                    '        "dep": "^1.0.0"',
+                    '        "dependency": "^1.0.0"',
                     '    },',
                     '    "exports": {',
                     '        ".": {',

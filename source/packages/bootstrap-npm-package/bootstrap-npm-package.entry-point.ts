@@ -32,7 +32,7 @@ declare module 'npm-profile' {
         opener: (url: string) => Promise<void>,
         authUrl: string,
         doneUrl: string,
-        opts: WebAuthOpenerOptions
+        options: WebAuthOpenerOptions
     ): Promise<WebAuthOpenerResult>;
 }
 
@@ -105,9 +105,9 @@ const bootstrapCommand = command({
     args: {
         packageName: positional({ type: string, displayName: 'package-name' })
     },
-    async handler(args) {
+    async handler(commandInput) {
         const runner = createComposedRunner();
-        const input: BootstrapInput = { packageName: args.packageName, hostname: os.hostname() };
+        const input: BootstrapInput = { packageName: commandInput.packageName, hostname: os.hostname() };
         await runner.run(input);
     }
 });

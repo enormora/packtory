@@ -5,7 +5,7 @@ import { safeParse } from '../../common/schema-validation.ts';
 import type { PackageChecksSettings } from '../../config/config.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource } from '../../dead-code-eliminator/analyzed-bundle.ts';
 import { analyzedBundle, analyzedBundleResource } from '../../test-libraries/bundle-fixtures.ts';
-import type { RuleRunParams } from '../rule.ts';
+import type { RuleRunInput } from '../rule.ts';
 import { noSideEffectsRule } from './no-side-effects.ts';
 
 type NoSideEffectsGlobalConfig = {
@@ -15,7 +15,7 @@ type NoSideEffectsGlobalConfig = {
 type NoSideEffectsPerPackageConfig = {
     readonly allowList?: readonly string[] | undefined;
 };
-type NoSideEffectsRunParams = RuleRunParams<
+type NoSideEffectsRunInput = RuleRunInput<
     'noSideEffects',
     NoSideEffectsGlobalConfig,
     NoSideEffectsPerPackageConfig
@@ -52,7 +52,7 @@ function consentMap(
 }
 
 async function runWithInitSideEffect(
-    settings: NoSideEffectsRunParams['settings'],
+    settings: NoSideEffectsRunInput['settings'],
     perPackageSettings: ReadonlyMap<string, PackageChecksSettings>
 ): Promise<readonly string[]> {
     return await noSideEffectsRule.run({

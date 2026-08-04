@@ -17,7 +17,7 @@ export type Scheduler = {
         TOptions,
         TConfig extends { readonly packages: readonly PackageConfig[]; }
     >(
-        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>
+        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>
     ) => Promise<Result<readonly TResult[], PartialError<TResult>>>;
 };
 
@@ -105,10 +105,10 @@ type ProgressEventInput<TResult, TOptions> = {
 };
 
 type CreateProgressEvent<TResult, TOptions> = (
-    params: ProgressEventInput<TResult, TOptions>
+    input: ProgressEventInput<TResult, TOptions>
 ) => ProgressEventReturnValue;
 
-type RunForEachScheduledPackageParams<
+type RunForEachScheduledPackageInput<
     TResult,
     TNext,
     TOptions,
@@ -117,7 +117,7 @@ type RunForEachScheduledPackageParams<
     readonly config: ConfigWithGraph<TConfig>;
     readonly createOptions: (context: PackageExecutionContext<TNext, TConfig>) => TOptions;
     readonly execute: (options: TOptions) => Promise<TResult>;
-    readonly selectNext: (params: SelectNextInput<TResult, TOptions>) => TNext;
+    readonly selectNext: (input: SelectNextInput<TResult, TOptions>) => TNext;
     readonly createProgressEvent?: CreateProgressEvent<TResult, TOptions> | undefined;
     readonly emitScheduledEvents?: boolean;
 };
@@ -147,12 +147,12 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         packageNames: readonly string[],
         config: ConfigWithGraph<TConfig>,
         existingItems: readonly TNext[],
-        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>
+        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>
     ): Promise<Result<readonly PackageSuccess<TResult, TOptions>[], PartialError<TResult>>> {
         const executePackage = async function (packageName: string): Promise<PackageSuccess<TResult, TOptions>> {
-            const options = params.createOptions({ packageName, existing: existingItems, config });
-            const result = await executeAndReportError(packageName, options, params.execute);
-            const progressEvent = params.createProgressEvent?.({ packageName, result, options });
+            const options = input.createOptions({ packageName, existing: existingItems, config });
+            const result = await executeAndReportError(packageName, options, input.execute);
+            const progressEvent = input.createProgressEvent?.({ packageName, result, options });
             if (progressEvent !== undefined) {
                 progressBroadcastProvider.emit('done', { packageName, ...progressEvent });
             }
@@ -196,7 +196,7 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         nextItems: ResultCollector<TNext>,
         succeededResults: ResultCollector<TResult>,
         succeeded: readonly PackageSuccess<TResult, TOptions>[],
-        selectNext: (params: SelectNextInput<TResult, TOptions>) => TNext
+        selectNext: (input: SelectNextInput<TResult, TOptions>) => TNext
     ): void {
         for (const entry of succeeded) {
             nextItems.push(selectNext({ result: entry.result, options: entry.options }));
@@ -211,18 +211,18 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
         TConfig extends { readonly packages: readonly PackageConfig[]; }
     >(
         config: ConfigWithGraph<TConfig>,
-        params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>
+        input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>
     ): Promise<Result<readonly TResult[], PartialError<TResult>>> {
         const nextItems: TNext[] = [];
         const succeededResults: TResult[] = [];
 
         for (const generation of getExecutionPlan(config)) {
-            const generationResult = await runForGeneration(generation, config, nextItems, params);
+            const generationResult = await runForGeneration(generation, config, nextItems, input);
             if (generationResult.isErr) {
                 return failGeneration(succeededResults, generationResult.error);
             }
 
-            appendGenerationSuccesses(nextItems, succeededResults, generationResult.value, params.selectNext);
+            appendGenerationSuccesses(nextItems, succeededResults, generationResult.value, input.selectNext);
         }
 
         return Result.ok(succeededResults);
@@ -234,13 +234,13 @@ export function createScheduler(dependencies: SchedulerDependencies): Scheduler 
             TNext,
             TOptions,
             TConfig extends { readonly packages: readonly PackageConfig[]; }
-        >(params: RunForEachScheduledPackageParams<TResult, TNext, TOptions, TConfig>) {
-            const { config } = params;
-            if (shouldEmitScheduledEvents(params.emitScheduledEvents)) {
+        >(input: RunForEachScheduledPackageInput<TResult, TNext, TOptions, TConfig>) {
+            const { config } = input;
+            if (shouldEmitScheduledEvents(input.emitScheduledEvents)) {
                 emitScheduledEventForAllPackages(config);
             }
 
-            return runExecutionPlan(config, params);
+            return runExecutionPlan(config, input);
         }
     };
 }

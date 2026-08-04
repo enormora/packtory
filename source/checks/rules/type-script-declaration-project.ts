@@ -10,6 +10,7 @@ import {
     type Project as TSMorphProject,
     type SourceFile
 } from 'ts-morph';
+import { isPackageManifestRecord, parsePackageManifest } from './type-script-declaration-roots.ts';
 
 export type PackageFile = {
     readonly filePath: string;
@@ -30,6 +31,7 @@ export type DeclarationDiagnostic = {
 
 export type DeclarationProject = {
     readonly modeLabel: string;
+    readonly publicEntrypointPaths: readonly string[];
     readonly moduleSpecifiersOf: (declarationPath: string) => readonly string[];
     readonly listDiagnostics: () => readonly DeclarationDiagnostic[];
 };
@@ -70,6 +72,93 @@ function declarationCompilerModes(): readonly DeclarationCompilerMode[] {
             moduleResolution: ModuleResolutionKind.Bundler
         }
     ];
+}
+
+function isPackageExportKey(key: string): boolean {
+    return key === '.' || key.startsWith('./');
+}
+
+function hasConditionalRootExports(exportKeys: readonly string[]): boolean {
+    return exportKeys.length > 0 && !exportKeys.some(isPackageExportKey);
+}
+
+function publicExportSubpaths(exportsField: unknown): readonly string[] {
+    if (typeof exportsField === 'string' || Array.isArray(exportsField)) {
+        return [ '.' ];
+    }
+
+    if (!isPackageManifestRecord(exportsField)) {
+        return [];
+    }
+
+    const exportKeys = Object.keys(exportsField);
+    const subpaths = exportKeys.filter(function (key) {
+        return isPackageExportKey(key) && !key.includes('*') && exportsField[key] !== null;
+    });
+    if (subpaths.length > 0) {
+        return subpaths;
+    }
+
+    return hasConditionalRootExports(exportKeys) ? [ '.' ] : [];
+}
+
+function publicEntrypointSpecifiers(packageName: string, manifestContent: string): readonly string[] {
+    const manifest = parsePackageManifest(manifestContent);
+    const exportSubpaths = publicExportSubpaths(manifest.exports);
+    if (exportSubpaths.length > 0) {
+        return exportSubpaths.map(function (subpath) {
+            return subpath === '.' ? packageName : `${packageName}/${subpath.slice('./'.length)}`;
+        });
+    }
+
+    return manifest.types !== undefined || manifest.typings !== undefined || manifest.main !== undefined
+        ? [ packageName ]
+        : [];
+}
+
+function importSource(specifiers: Iterable<string>): string {
+    return Array
+        .from(new Set(specifiers), function (specifier) {
+            return `import ${JSON.stringify(specifier)};`;
+        })
+        .join('\n');
+}
+
+function publicEntrypointSource(packageName: string, packageFiles: readonly PackageFile[]): string {
+    const manifestFile = packageFiles.find(function (packageFile) {
+        return packageFile.filePath === 'package.json';
+    });
+    const specifiers = manifestFile === undefined ? [] : publicEntrypointSpecifiers(packageName, manifestFile.content);
+
+    return importSource(specifiers);
+}
+
+function isJavaScriptPath(filePath: string): boolean {
+    return /\.(?:cjs|js|mjs)$/u.test(filePath);
+}
+
+function isPackageImportSpecifier(specifier: string): boolean {
+    return !specifier.startsWith('./') &&
+        !specifier.startsWith('../') &&
+        !specifier.startsWith('/') &&
+        !specifier.startsWith('#') &&
+        !specifier.startsWith('node:');
+}
+
+function javaScriptPackageImportSource(packageFiles: readonly PackageFile[]): string {
+    const specifiers = packageFiles
+        .filter(function (packageFile) {
+            return isJavaScriptPath(packageFile.filePath);
+        })
+        .flatMap(function (packageFile) {
+            return typescript.preProcessFile(packageFile.content).importedFiles;
+        })
+        .map(function (importedFile) {
+            return importedFile.fileName;
+        })
+        .filter(isPackageImportSpecifier);
+
+    return importSource(specifiers);
 }
 
 function moduleSpecifiersIn(sourceFile: Readonly<SourceFile>): readonly string[] {
@@ -122,10 +211,12 @@ function isDeclarationDiagnostic(diagnostic: DeclarationDiagnostic | undefined):
 function createModeProject(
     project: Readonly<TSMorphProject>,
     packageFolder: string,
-    modeLabel: string
+    modeLabel: string,
+    publicEntrypointPaths: readonly string[]
 ): DeclarationProject {
     return {
         modeLabel,
+        publicEntrypointPaths,
 
         moduleSpecifiersOf(declarationPath) {
             return moduleSpecifiersIn(
@@ -169,14 +260,8 @@ export function createDeclarationProjectFactory(
         }
     }
 
-    function createProjectForMode(
-        packageName: string,
-        packageFiles: readonly PackageFile[],
-        resolutionPackages: readonly ResolutionPackageFiles[],
-        compilerMode: DeclarationCompilerMode
-    ): DeclarationProject {
-        const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
-        const project = new Project({
+    function createCompilerProject(compilerMode: DeclarationCompilerMode): TSMorphProject {
+        return new Project({
             fileSystem: fileSystemHost,
             skipAddingFilesFromTsConfig: true,
             compilerOptions: {
@@ -189,9 +274,50 @@ export function createDeclarationProjectFactory(
                 target: ScriptTarget.ESNext
             }
         });
+    }
+
+    function addGeneratedFile(
+        project: TSMorphProject,
+        packageFolder: string,
+        filePath: string,
+        source: string
+    ): readonly string[] {
+        if (source.length === 0) {
+            return [];
+        }
+
+        project.createSourceFile(
+            declarationProjectPackageFilePath(packageFolder, filePath),
+            `${source}\n`
+        );
+        return [ filePath ];
+    }
+
+    function createProjectForMode(
+        packageName: string,
+        packageFiles: readonly PackageFile[],
+        resolutionPackages: readonly ResolutionPackageFiles[],
+        compilerMode: DeclarationCompilerMode
+    ): DeclarationProject {
+        const packageFolder = declarationProjectPackageFolder(packageResolutionBaseFolder, packageName);
+        const project = createCompilerProject(compilerMode);
         const createdFilePaths = new Set<string>();
 
         addPackageFiles(project, packageName, packageFiles, createdFilePaths);
+        const publicEntrypointPaths = [
+            ...addGeneratedFile(
+                project,
+                packageFolder,
+                '.packtory-consumer-entrypoints.ts',
+                publicEntrypointSource(packageName, packageFiles)
+            ),
+            ...addGeneratedFile(
+                project,
+                packageFolder,
+                '.packtory-javascript-imports.ts',
+                javaScriptPackageImportSource(packageFiles)
+            )
+        ];
         for (const resolutionPackage of resolutionPackages) {
             addPackageFiles(
                 project,
@@ -201,7 +327,7 @@ export function createDeclarationProjectFactory(
             );
         }
 
-        return createModeProject(project, packageFolder, compilerMode.label);
+        return createModeProject(project, packageFolder, compilerMode.label, publicEntrypointPaths);
     }
 
     return function createDeclarationProjects(packageName, packageFiles, resolutionPackages) {

@@ -97,15 +97,15 @@ export async function determineVersionAndPublishAll(
                 return dependencies.packageProcessor.buildAndPublish(processorOptions);
             }
         ),
-        selectNext(params) {
-            return params.result.bundle;
+        selectNext(input) {
+            return input.result.bundle;
         },
         emitScheduledEvents: false,
-        createProgressEvent(params) {
+        createProgressEvent(input) {
             return {
-                version: params.result.bundle.packageJson.version,
-                status: params.result.status,
-                publication: params.result.publication
+                version: input.result.bundle.packageJson.version,
+                status: input.result.status,
+                publication: input.result.publication
             };
         }
     });
