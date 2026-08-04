@@ -1,1 +1,2 @@
-export declare const foo: import('./foo.js').Foo;
+export type { Foo } from './foo.js';
+export declare const foo: Foo;

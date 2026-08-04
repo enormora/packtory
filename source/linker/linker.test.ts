@@ -57,7 +57,8 @@ async function linkTestBundle(
             surface: { mode: 'implicit', defaultModuleRoot: 'main' },
             externalDependencies: new Map()
         },
-        bundleDependencies: []
+        bundleDependencies: [],
+        bundlePeerDependencies: []
     });
 }
 
@@ -117,7 +118,8 @@ suite('linker', function () {
                 surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                 externalDependencies: new Map()
             },
-            bundleDependencies: []
+            bundleDependencies: [],
+            bundlePeerDependencies: []
         });
 
         assertDeepSubset(result, {
@@ -252,7 +254,8 @@ suite('linker', function () {
                         }
                     ]
                 }
-            ]
+            ],
+            bundlePeerDependencies: []
         });
 
         assert.strictEqual(result.contents.length, 2);
@@ -366,7 +369,8 @@ suite('linker', function () {
                 },
                 externalDependencies: new Map()
             },
-            bundleDependencies: []
+            bundleDependencies: [],
+            bundlePeerDependencies: []
         });
 
         assert.strictEqual(result.contents.length, 3);

@@ -64,7 +64,8 @@ suite('package-processor', function () {
                     surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                     externalDependencies: new Map()
                 },
-                bundleDependencies: [ ...options.bundleDependencies, ...options.bundlePeerDependencies ]
+                bundleDependencies: options.bundleDependencies,
+                bundlePeerDependencies: options.bundlePeerDependencies
             }
         ]);
         assert.deepStrictEqual(getCallArgs(emit), [

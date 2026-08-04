@@ -8,6 +8,7 @@ import { ownsSourcePath } from './replacement-lookup.ts';
 type LinkBundleOptions = {
     readonly bundle: ResolvedBundle;
     readonly bundleDependencies: readonly BundleSubstitutionSource[];
+    readonly bundlePeerDependencies: readonly BundleSubstitutionSource[];
 };
 
 export type BundleLinker = {
@@ -44,7 +45,7 @@ function declarationCompanionRoots(
             return [];
         }
         return declarationCompanionCandidates(content.fileDescription.sourceFilePath).filter(function (candidate) {
-            return sourceFilePaths.has(candidate);
+            return sourceFilePaths.has(candidate) && !isSubstitutedBundleSourcePath(candidate, bundleDependencies);
         });
     });
 }
@@ -59,12 +60,13 @@ function flattenRootFilePaths(
 export function createBundleLinker(): BundleLinker {
     return {
         async linkBundle(options) {
-            const { bundle, bundleDependencies } = options;
+            const { bundle, bundleDependencies, bundlePeerDependencies } = options;
+            const substitutionSources = [ ...bundleDependencies, ...bundlePeerDependencies ];
             const resourceGraph = createGraphFromResolvedBundle(bundle);
-            const substitutedGraph = substituteDependencies(resourceGraph, bundleDependencies);
+            const substitutedGraph = substituteDependencies(resourceGraph, bundleDependencies, bundlePeerDependencies);
 
             return {
-                ...substitutedGraph.flatten(flattenRootFilePaths(bundle, bundleDependencies)),
+                ...substitutedGraph.flatten(flattenRootFilePaths(bundle, substitutionSources)),
                 name: bundle.name,
                 exportPackageJson: bundle.exportPackageJson,
                 roots: bundle.roots,
