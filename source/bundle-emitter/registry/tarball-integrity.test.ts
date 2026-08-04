@@ -104,6 +104,22 @@ suite('tarball-integrity', function () {
             }, /^Error: Registry returned invalid dist\.shasum "not-a-shasum"$/u);
         });
 
+        test('rejects dist.shasum metadata with leading extra characters', function () {
+            const shasum = `x${matchingShasum}`;
+
+            assert.throws(function () {
+                assertTarballIntegrity(tarball, { integrity: undefined, shasum });
+            }, /^Error: Registry returned invalid dist\.shasum "x9ef2570c89e65b9fe47687b0b49e122e59354bef"$/u);
+        });
+
+        test('rejects dist.shasum metadata with trailing extra characters', function () {
+            const shasum = `${matchingShasum}x`;
+
+            assert.throws(function () {
+                assertTarballIntegrity(tarball, { integrity: undefined, shasum });
+            }, /^Error: Registry returned invalid dist\.shasum "9ef2570c89e65b9fe47687b0b49e122e59354befx"$/u);
+        });
+
         test('rejects when dist.integrity matches but dist.shasum does not', function () {
             assert.throws(function () {
                 assertTarballIntegrity(tarball, { integrity: matchingIntegrity, shasum: mismatchingShasum });
