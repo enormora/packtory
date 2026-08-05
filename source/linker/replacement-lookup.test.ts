@@ -80,6 +80,23 @@ function peerBundleWithEntryDeclaration(entryDeclarationContent: string): Bundle
     });
 }
 
+function peerBundleWithEntryJavaScriptExport(entryDeclarationContent: string): BundleSubstitutionSource {
+    return linkedBundle({
+        name: 'pkg-b',
+        contents: [
+            analyzedBundleResource('/b/entry.d.ts', {
+                targetFilePath: 'entry.d.ts',
+                content: entryDeclarationContent
+            }),
+            analyzedBundleResource('/b/internal.js', { targetFilePath: 'internal.js' })
+        ],
+        roots: {
+            main: peerEntryRoot()
+        },
+        surface: explicitPackageSurface({ modules: [ { root: 'main', export: './entry.js' } ] })
+    });
+}
+
 function peerBundleWithCircularDeclarations(): BundleSubstitutionSource {
     return linkedBundle({
         name: 'pkg-b',
@@ -284,6 +301,16 @@ suite('replacement-lookup', function () {
             const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
             assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
+        });
+
+        test('findAllPathReplacements maps peer internals through JavaScript declaration exports', function () {
+            const bundle = peerBundleWithEntryJavaScriptExport(
+                'export { internal } from "./internal.js";\n'
+            );
+
+            const result = findAllPathReplacements([ '/b/internal.js' ], [], [ bundle ]);
+
+            assert.strictEqual(result.importPathReplacements.get('/b/internal.js'), 'pkg-b/entry.js');
         });
 
         test('findAllPathReplacements rejects peer internals reached only by a non-relative export', function () {

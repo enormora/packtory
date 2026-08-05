@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { isDefined } from 'remeda';
+import { isDefined, omit } from 'remeda';
 import { ts as typescript } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
@@ -12,12 +12,6 @@ import type { BundleSubstitutionSource } from './linked-bundle.ts';
 type Replacement = {
     readonly targetPath: string;
     readonly packageName: string;
-};
-type ExplicitBundleSubstitutionSource = BundleSubstitutionSource & {
-    readonly surface: ExplicitPackageSurface;
-};
-type ImplicitBundleSubstitutionSource = BundleSubstitutionSource & {
-    readonly surface: ImplicitPackageSurface;
 };
 
 export type Replacements = {
@@ -47,18 +41,6 @@ type SpecifierRecord = {
     readonly set: (key: string, value: string) => unknown;
 };
 
-function isExplicitBundleSubstitutionSource(
-    bundle: BundleSubstitutionSource
-): bundle is ExplicitBundleSubstitutionSource {
-    return bundle.surface.mode === 'explicit';
-}
-
-function isImplicitBundleSubstitutionSource(
-    bundle: BundleSubstitutionSource
-): bundle is ImplicitBundleSubstitutionSource {
-    return bundle.surface.mode === 'implicit';
-}
-
 function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     const contentBySourcePath = new Map<string, BundleSubstitutionSource['contents'][number]>();
     const sourcePathByTargetPath = new Map<string, string>();
@@ -69,15 +51,20 @@ function createContentLookup(bundle: BundleSubstitutionSource): ContentLookup {
     return { contentBySourcePath, sourcePathByTargetPath };
 }
 
+type PossibleModuleSpecifierStatement = Readonly<typescript.Statement> & {
+    readonly moduleSpecifier?: typescript.Node;
+};
+
+function hasModuleSpecifier(statement: Readonly<typescript.Statement>): statement is PossibleModuleSpecifierStatement {
+    return Object.hasOwn(statement, 'moduleSpecifier');
+}
+
 function exportModuleSpecifier(statement: Readonly<typescript.Statement>): string | undefined {
-    if (!typescript.isExportDeclaration(statement)) {
+    if (!hasModuleSpecifier(statement)) {
         return undefined;
     }
     const { moduleSpecifier } = statement;
-    if (moduleSpecifier === undefined) {
-        return undefined;
-    }
-    if (!typescript.isStringLiteral(moduleSpecifier)) {
+    if (moduleSpecifier === undefined || !typescript.isStringLiteral(moduleSpecifier)) {
         return undefined;
     }
     return moduleSpecifier.text;
@@ -157,12 +144,13 @@ function recordShortestSpecifier(
 }
 
 function getExplicitPublicModuleSpecifierForSourcePath(
-    bundle: ExplicitBundleSubstitutionSource,
+    bundle: BundleSubstitutionSource,
+    surface: ExplicitPackageSurface,
     sourceFilePath: string
 ): string | undefined {
     const lookup = createContentLookup(bundle);
     const specifiersBySourcePath = new Map<string, string>();
-    const moduleEntries = bundle.surface.packageInterface.modules ?? [];
+    const moduleEntries = surface.packageInterface.modules ?? [];
     for (const moduleEntry of moduleEntries) {
         const root = getRoot(bundle, moduleEntry.root);
         const rootPaths = rootSourceFilePaths(root);
@@ -177,26 +165,26 @@ function getExplicitPublicModuleSpecifierForSourcePath(
 }
 
 function getImplicitPublicModuleSpecifierForSourcePath(
-    bundle: ImplicitBundleSubstitutionSource,
+    bundle: BundleSubstitutionSource,
+    surface: ImplicitPackageSurface,
     sourceFilePath: string
 ): string | undefined {
     const lookup = createContentLookup(bundle);
     const specifiersBySourcePath = new Map<string, string>();
-    const defaultRoot = getRoot(bundle, bundle.surface.defaultModuleRoot);
+    const defaultRoot = getRoot(bundle, surface.defaultModuleRoot);
     recordShortestSpecifier(
         specifiersBySourcePath,
         publicExportedSourceFilePaths(rootSourceFilePaths(defaultRoot), lookup),
         bundle.name
     );
 
-    for (const [ rootId, root ] of Object.entries(bundle.roots)) {
-        if (rootId !== bundle.surface.defaultModuleRoot) {
-            recordShortestSpecifier(
-                specifiersBySourcePath,
-                publicExportedSourceFilePaths(rootSourceFilePaths(root), lookup),
-                toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`)
-            );
-        }
+    const secondaryRoots = omit(bundle.roots, [ surface.defaultModuleRoot ]);
+    for (const root of Object.values(secondaryRoots)) {
+        recordShortestSpecifier(
+            specifiersBySourcePath,
+            publicExportedSourceFilePaths(rootSourceFilePaths(root), lookup),
+            toPackageSpecifier(bundle.name, `./${root.js.targetFilePath}`)
+        );
     }
 
     return specifiersBySourcePath.get(sourceFilePath) ?? getPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
@@ -206,15 +194,12 @@ function getExistingPublicModuleSpecifierForSourcePath(
     bundle: BundleSubstitutionSource,
     sourceFilePath: string
 ): string | undefined {
-    if (isImplicitBundleSubstitutionSource(bundle)) {
-        return getImplicitPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
+    const { surface } = bundle;
+    if (surface.mode === 'implicit') {
+        return getImplicitPublicModuleSpecifierForSourcePath(bundle, surface, sourceFilePath);
     }
 
-    if (isExplicitBundleSubstitutionSource(bundle)) {
-        return getExplicitPublicModuleSpecifierForSourcePath(bundle, sourceFilePath);
-    }
-
-    throw new Error(`Unsupported package surface mode: ${bundle.surface.mode}`);
+    return getExplicitPublicModuleSpecifierForSourcePath(bundle, surface, sourceFilePath);
 }
 
 function findReplacementInBundles(
