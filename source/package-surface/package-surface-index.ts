@@ -85,7 +85,7 @@ function createPublicModuleIndexBuilder(): PublicModuleIndexBuilder {
     };
 }
 
-function rootSourceFilePaths(root: RootFileDescription): readonly string[] {
+export function rootSourceFilePaths(root: RootFileDescription): readonly string[] {
     if (root.declarationFile === undefined) {
         return [ root.js.sourceFilePath ];
     }

@@ -79,7 +79,8 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
         dependencies.progressBroadcaster.emit('linking', { packageName: options.name });
         const linkedBundle = await dependencies.linker.linkBundle({
             bundle: resolvedBundle,
-            bundleDependencies: [ ...options.bundleDependencies, ...options.bundlePeerDependencies ]
+            bundleDependencies: options.bundleDependencies,
+            bundlePeerDependencies: options.bundlePeerDependencies
         });
         maybeEmitLinkingCompleted(dependencies, options.name, linkedBundle);
         return linkedBundle;

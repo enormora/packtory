@@ -199,7 +199,8 @@ suite('package-processor-build', function () {
             fixture.linkBundle.firstCall.args[0],
             {
                 bundle: createLinkedBundle(),
-                bundleDependencies: [ ...options.bundleDependencies, ...options.bundlePeerDependencies ]
+                bundleDependencies: options.bundleDependencies,
+                bundlePeerDependencies: options.bundlePeerDependencies
             }
         );
         assert.deepStrictEqual(getCallArgs(fixture.emit), [

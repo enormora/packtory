@@ -51,5 +51,9 @@ suite('pack', function () {
                 peerDependencies: { second: '1.2.3' }
             }
         );
+        assert.strictEqual(
+            await readFile(path.join(outputPath, 'entry3.d.ts'), 'utf8'),
+            "export declare const foo: import('second').Foo;\n"
+        );
     });
 });
