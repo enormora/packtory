@@ -46,11 +46,12 @@ suite('release-pr-workflow-run-cancellation', function () {
             )
         );
 
-        await client.cancelActiveDispatchedWorkflowRuns({
+        const activeRunIds = await client.cancelActiveDispatchedWorkflowRuns({
             branch: 'release/packtory',
             workflowFile: 'ci.yml'
         });
 
+        assert.deepStrictEqual(activeRunIds, [ 21, 22, 23, 24, 25 ]);
         assert.deepStrictEqual(
             records
                 .filter(function (record) {

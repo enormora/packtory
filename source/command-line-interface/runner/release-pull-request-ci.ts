@@ -66,6 +66,7 @@ type RunConfiguredGitHubActionsCiInput = {
 
 const workflowRunLookupAttempts = 30;
 const workflowRunCompletionAttempts = 120;
+const staleWorkflowRunCancellationAttempts = 30;
 const workflowPollIntervalMilliseconds = 10_000;
 
 function createRetryAttempts(count: number): readonly number[] {
@@ -303,13 +304,26 @@ async function createFailedWorkflowStatuses(input: FailedWorkflowStatusesInput):
     }
 }
 
+async function waitForActiveDispatchedWorkflowRunsToCancel(input: WaitForDispatchedWorkflowRunInput): Promise<void> {
+    for (const attempt of createRetryAttempts(staleWorkflowRunCancellationAttempts)) {
+        const activeRunIds = await input.client.cancelActiveDispatchedWorkflowRuns({
+            branch: input.config.branch,
+            workflowFile: input.ciConfig.workflowFile
+        });
+        if (activeRunIds.length === 0) {
+            return;
+        }
+        if (isLastAttempt(attempt, staleWorkflowRunCancellationAttempts)) {
+            throw new Error(`Active release workflow runs did not cancel: ${formatObservedRunIds(activeRunIds)}`);
+        }
+        await input.sleep(workflowPollIntervalMilliseconds);
+    }
+}
+
 async function dispatchWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
-    await createPendingWorkflowStatuses(input);
-    await input.client.cancelActiveDispatchedWorkflowRuns({
-        branch: input.config.branch,
-        workflowFile: input.ciConfig.workflowFile
-    });
+    await waitForActiveDispatchedWorkflowRunsToCancel(input);
     const baseline = await findDispatchedWorkflowRun(input);
+    await createPendingWorkflowStatuses(input);
     await input.client.dispatchWorkflow({
         ref: input.config.branch,
         workflowFile: input.ciConfig.workflowFile
