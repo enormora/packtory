@@ -8,7 +8,7 @@ import {
 import { collectReleaseOutputFiles, releaseCommitFilePath } from './release-output-files.ts';
 import { runConfiguredGitHubActionsCi } from './release-pull-request-ci.ts';
 import {
-    parseReleasePullRequestConfigContainer,
+    parseCommandLineInterfacePacktoryConfig,
     resolveReleasePullRequestConfig,
     type ReleasePullRequestConfig
 } from './release-pull-request-config.ts';
@@ -179,7 +179,7 @@ function parseReleasePullRequestConfig(
     if (parsedConfig === undefined) {
         throw new Error('The loaded config is invalid for release PR management');
     }
-    const releasePullRequestConfigContainer = parseReleasePullRequestConfigContainer(rawConfig);
+    const releasePullRequestConfigContainer = parseCommandLineInterfacePacktoryConfig(rawConfig);
     if (releasePullRequestConfigContainer === undefined) {
         throw new Error('The loaded config is invalid for release PR management');
     }

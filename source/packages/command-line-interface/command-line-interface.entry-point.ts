@@ -8,7 +8,6 @@ import { createPrLogEngine } from '@pr-log/core';
 import { createClock } from '../../common/clock.ts';
 import { createLineSpinnerRenderer } from '../../command-line-interface/spinner/line-spinner-renderer.ts';
 import { createOneTimePasswordPrompt } from '../../command-line-interface/one-time-password-prompt.ts';
-import type { PacktoryConfig as PublicPacktoryConfig } from '../../config/config.ts';
 import { createFileManager } from '../../file-manager/file-manager.ts';
 import { createCommandLineInterfaceRunner } from '../../command-line-interface/runner/runner.ts';
 import {
@@ -19,6 +18,9 @@ import { createWorkerSpinnerBackend } from '../../command-line-interface/spinner
 import { createConfigLoader } from '../../command-line-interface/config-loader.ts';
 import { createDefaultPreviewIo } from '../../command-line-interface/preview-io/preview-io.ts';
 import { createGitHubReleaseClient } from '../../command-line-interface/runner/github-release-client.ts';
+import type {
+    CommandLineInterfacePacktoryConfig
+} from '../../command-line-interface/runner/release-pull-request-config.ts';
 import { createReleasePullRequestGitHubClient } from '../../command-line-interface/runner/release-pr-github-client.ts';
 import { readCiEnvironment } from '../../bundle-emitter/repository-coherence.ts';
 import { buildPacktoryComposition } from '../packtory.composition.ts';
@@ -154,4 +156,4 @@ async function crash(error: unknown): Promise<void> {
 main().catch(crash);
 
 // eslint-disable-next-line unicorn/no-exports-in-scripts -- public CLI package types are re-exported from this entry point
-export type PacktoryConfig = PublicPacktoryConfig;
+export type PacktoryConfig = CommandLineInterfacePacktoryConfig;

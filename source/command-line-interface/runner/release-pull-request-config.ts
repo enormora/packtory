@@ -1,5 +1,6 @@
 import { z } from 'zod/mini';
 import { safeParse } from '../../common/schema-validation.ts';
+import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
 import { releasePullRequestSettingsSchema, type ReleasePullRequestSettings } from './release-pull-request-settings.ts';
 
 type GitHubActionsCiConfig = {
@@ -19,14 +20,17 @@ export type ReleasePullRequestConfig = {
     readonly title: string;
 };
 
-type ReleasePullRequestConfigContainer = {
-    readonly releasePullRequest?: ReleasePullRequestSettings | undefined;
-};
-type StringReleasePullRequestSetting = Exclude<keyof ReleasePullRequestConfig, 'githubActionsCi'>;
-
 const releasePullRequestConfigContainerSchema = z.readonly(
     z.object({ releasePullRequest: z.optional(releasePullRequestSettingsSchema) })
 );
+const commandLineInterfacePacktoryConfigSchema = z.intersection(
+    packtoryConfigSchema,
+    releasePullRequestConfigContainerSchema
+);
+
+export type ReleasePullRequestConfigContainer = z.infer<typeof releasePullRequestConfigContainerSchema>;
+export type CommandLineInterfacePacktoryConfig = Readonly<z.infer<typeof commandLineInterfacePacktoryConfigSchema>>;
+type StringReleasePullRequestSetting = Exclude<keyof ReleasePullRequestConfig, 'githubActionsCi'>;
 
 const defaultReleasePullRequestConfig: ReleasePullRequestConfig = {
     automationAuthor: 'github-actions[bot]',
@@ -73,7 +77,9 @@ export function resolveReleasePullRequestConfig(config: ReleasePullRequestConfig
     };
 }
 
-export function parseReleasePullRequestConfigContainer(config: unknown): ReleasePullRequestConfigContainer | undefined {
-    const result = safeParse(releasePullRequestConfigContainerSchema, config);
+export function parseCommandLineInterfacePacktoryConfig(
+    config: unknown
+): CommandLineInterfacePacktoryConfig | undefined {
+    const result = safeParse(commandLineInterfacePacktoryConfigSchema, config);
     return result.success ? result.data : undefined;
 }
