@@ -271,7 +271,7 @@ suite('replacement-lookup', function () {
         assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b', 'pkg-c' ]);
     });
 
-    suite('peer dependencies', function () {
+    suite('peer dependency exports', function () {
         test('findAllPathReplacements maps peer internals to a reachable exported module', function () {
             const content = [
                 "export * as types from './internal.js';",
@@ -312,7 +312,9 @@ suite('replacement-lookup', function () {
 
             assert.strictEqual(result.importPathReplacements.get('/b/internal.js'), 'pkg-b/entry.js');
         });
+    });
 
+    suite('peer dependency rejections', function () {
         test('findAllPathReplacements rejects peer internals reached only by a non-relative export', function () {
             const bundle = peerBundleWithEntryDeclaration(
                 'export type { Internal } from "internal.d.ts";\n'
@@ -323,6 +325,28 @@ suite('replacement-lookup', function () {
             }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
         });
 
+        test('findAllPathReplacements rejects peer internals reached only by an import', function () {
+            const bundle = peerBundleWithEntryDeclaration(
+                'import "./internal.js";\n'
+            );
+
+            assert.throws(function () {
+                findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
+        });
+
+        test('findAllPathReplacements rejects peer internals reached only by a local export', function () {
+            const bundle = peerBundleWithEntryDeclaration(
+                'export type { Internal };\n'
+            );
+
+            assert.throws(function () {
+                findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
+            }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.d\.ts" for cross-package substitution$/u);
+        });
+    });
+
+    suite('peer dependency traversal', function () {
         test('findAllPathReplacements tolerates circular peer declaration exports', function () {
             const bundle = peerBundleWithCircularDeclarations();
 
@@ -354,7 +378,9 @@ suite('replacement-lookup', function () {
 
             assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/feature.js');
         });
+    });
 
+    suite('peer dependency hidden internals', function () {
         test('findAllPathReplacements rejects peer internals that no exported module reaches', function () {
             const bundle = peerBundleWithEntryDeclaration(
                 "export declare const value: import('./internal.js').Internal;\n"

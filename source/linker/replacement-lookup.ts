@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { isDefined, omit } from 'remeda';
+import { isDefined } from 'remeda';
 import { ts as typescript } from 'ts-morph';
 import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
@@ -55,19 +55,21 @@ type PossibleModuleSpecifierStatement = Readonly<typescript.Statement> & {
     readonly moduleSpecifier?: typescript.Node;
 };
 
-function hasModuleSpecifier(statement: Readonly<typescript.Statement>): statement is PossibleModuleSpecifierStatement {
-    return Object.hasOwn(statement, 'moduleSpecifier');
+function exportDeclarationModuleSpecifier(
+    statement: Readonly<typescript.Statement>
+): PossibleModuleSpecifierStatement | undefined {
+    if (!typescript.isExportDeclaration(statement)) {
+        return undefined;
+    }
+    return statement;
 }
 
-function exportModuleSpecifier(statement: Readonly<typescript.Statement>): string | undefined {
-    if (!hasModuleSpecifier(statement)) {
-        return undefined;
-    }
+function moduleSpecifierText(statement: PossibleModuleSpecifierStatement): string | undefined {
     const { moduleSpecifier } = statement;
-    if (moduleSpecifier === undefined || !typescript.isStringLiteral(moduleSpecifier)) {
+    if (moduleSpecifier === undefined) {
         return undefined;
     }
-    return moduleSpecifier.text;
+    return typescript.isStringLiteral(moduleSpecifier) ? moduleSpecifier.text : undefined;
 }
 
 function exportedModuleSpecifiers(content: string): readonly string[] {
@@ -76,7 +78,12 @@ function exportedModuleSpecifiers(content: string): readonly string[] {
         content,
         typescript.ScriptTarget.Latest
     );
-    return sourceFile.statements.map(exportModuleSpecifier).filter(isDefined);
+    return sourceFile
+        .statements
+        .map(exportDeclarationModuleSpecifier)
+        .filter(isDefined)
+        .map(moduleSpecifierText)
+        .filter(isDefined);
 }
 
 function exportedTargetPath(currentTargetFilePath: string, specifier: string): string | undefined {
@@ -178,8 +185,7 @@ function getImplicitPublicModuleSpecifierForSourcePath(
         bundle.name
     );
 
-    const secondaryRoots = omit(bundle.roots, [ surface.defaultModuleRoot ]);
-    for (const root of Object.values(secondaryRoots)) {
+    for (const root of Object.values(bundle.roots)) {
         recordShortestSpecifier(
             specifiersBySourcePath,
             publicExportedSourceFilePaths(rootSourceFilePaths(root), lookup),
