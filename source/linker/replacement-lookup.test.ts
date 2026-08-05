@@ -381,6 +381,23 @@ suite('replacement-lookup', function () {
     });
 
     suite('peer dependency hidden internals', function () {
+        test('findAllPathReplacements rejects explicit peer internals when the surface exposes no modules', function () {
+            const bundle = linkedBundle({
+                name: 'pkg-b',
+                contents: [ analyzedBundleResource('/b/internal.js', { targetFilePath: 'internal.js' }) ],
+                roots: {
+                    main: {
+                        js: targetFileDescription('/b/entry.js', 'entry.js')
+                    }
+                },
+                surface: explicitPackageSurface({ bins: [ { root: 'main', name: 'pkg-b' } ] })
+            });
+
+            assert.throws(function () {
+                findAllPathReplacements([ '/b/internal.js' ], [], [ bundle ]);
+            }, /^Error: Package "pkg-b" does not expose "\/b\/internal\.js" for cross-package substitution$/u);
+        });
+
         test('findAllPathReplacements rejects peer internals that no exported module reaches', function () {
             const bundle = peerBundleWithEntryDeclaration(
                 "export declare const value: import('./internal.js').Internal;\n"
