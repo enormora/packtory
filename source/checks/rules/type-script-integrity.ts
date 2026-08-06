@@ -21,6 +21,27 @@ const perPackageSchema = z.strictObject({});
 type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
 type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
+type CheckBundle = RunInput['bundles'][number];
+type BinOnlyBundle = CheckBundle & {
+    readonly surface: Extract<CheckBundle['surface'], { readonly mode: 'explicit'; }> & {
+        readonly packageInterface: {
+            readonly bins?: NonNullable<
+                Extract<
+                    CheckBundle['surface'],
+                    { readonly mode: 'explicit'; }
+                >['packageInterface']['bins']
+            >;
+            readonly modules?: undefined;
+        };
+    };
+};
+type PackageIntegrityInput = {
+    readonly bundle: CheckBundle;
+    readonly packageName: string;
+    readonly publishedPackage: Readonly<PublishedPackageWithManifest>;
+    readonly publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>;
+    readonly declarationMode: DeclarationMode;
+};
 
 export type TypeScriptIntegrityRule = CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig>;
 
@@ -33,6 +54,18 @@ export type TypeScriptIntegrityDependencies = {
     readonly analyzePackageResolution: PackageResolutionAnalyzer;
     readonly summarizeDeclarationIntegrity: DeclarationIntegritySummarizer;
 };
+
+function isBinOnlyPackage(bundle: CheckBundle): bundle is BinOnlyBundle {
+    return bundle.surface.mode === 'explicit' &&
+        bundle.surface.packageInterface.modules === undefined;
+}
+
+function binOnlyPackageHasDeclarations(bundle: BinOnlyBundle): boolean {
+    const binEntries = bundle.surface.packageInterface.bins;
+    return binEntries?.some(function (entry) {
+        return bundle.roots[entry.root]?.declarationFile !== undefined;
+    }) === true;
+}
 
 export function createTypeScriptIntegrityRule(
     dependencies: TypeScriptIntegrityDependencies
@@ -51,12 +84,14 @@ export function createTypeScriptIntegrityRule(
         }
     }
 
-    async function runForPackage(
-        packageName: string,
-        publishedPackage: Readonly<PublishedPackageWithManifest>,
-        publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>,
-        declarationMode: DeclarationMode
-    ): Promise<readonly string[]> {
+    async function runForPackage(input: PackageIntegrityInput): Promise<readonly string[]> {
+        const { bundle, packageName, publishedPackage, publishedPackages, declarationMode } = input;
+        if (isBinOnlyPackage(bundle)) {
+            return binOnlyPackageHasDeclarations(bundle)
+                ? summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode, publishedPackages)
+                : [];
+        }
+
         return [
             ...await summarizePackageResolution(packageName, publishedPackage),
             ...summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode, publishedPackages)
@@ -81,7 +116,13 @@ export function createTypeScriptIntegrityRule(
                     throw new Error(`Published package missing for "${bundle.name}"`);
                 }
 
-                return await runForPackage(bundle.name, publishedPackage, publishedPackages, declarationMode);
+                return await runForPackage({
+                    bundle,
+                    packageName: bundle.name,
+                    publishedPackage,
+                    publishedPackages,
+                    declarationMode
+                });
             })
         );
         return issuesByBundle.flat();

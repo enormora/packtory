@@ -52,6 +52,28 @@ suite('explicit-exports', function () {
         assert.deepStrictEqual(buildExplicitExportsField(bundle, surface), {});
     });
 
+    test('returns an empty record when an explicit surface declares no entries', function () {
+        const surface: ExplicitSurface = {
+            mode: 'explicit',
+            packageInterface: {}
+        };
+
+        assert.deepStrictEqual(buildExplicitExportsField(mainOnlyBundle, surface), {});
+    });
+
+    test('emits a type-only root export when a bin-only package root has a declaration file', function () {
+        const bundle = {
+            name: 'package-a',
+            roots: { cli: rootWithDeclaration('', 'cli.js', '', 'cli.d.ts') }
+        };
+        const surface: ExplicitSurface = {
+            mode: 'explicit',
+            packageInterface: { bins: [ { root: 'cli', name: 'package-a' } ] }
+        };
+
+        assert.deepStrictEqual(buildExplicitExportsField(bundle, surface), { '.': { types: './cli.d.ts' } });
+    });
+
     test('includes the package.json export when exportPackageJson is true', function () {
         const result = buildExplicitExportsField({ ...mainOnlyBundle, exportPackageJson: true }, rootSurface);
 

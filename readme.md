@@ -277,6 +277,7 @@ The configuration for `packtory` is an object with the following properties:
      - A map of root ids to source files, e.g. `{ main: { js: 'file.js', declarationFile: 'file.d.ts' } }`.
      - `js` is required. `declarationFile` is optional.
      - Roots seed scanning, linking, and dead-code analysis. They are internal build anchors, not automatically the full published API.
+     - On bin-only packages, `declarationFile` can describe package-level types for TypeScript annotations such as `import("pkg").Type`; it does not make the bin a runtime module API.
 
    - **`defaultModuleRoot`** (Optional in single-root packages, required in implicit multi-root packages):
      - Selects which root becomes the package root export `"."` when `packageInterface` is not configured.
@@ -285,6 +286,7 @@ The configuration for `packtory` is an object with the following properties:
      - Switches packtory into explicit package-surface mode.
      - `modules` declares the published module exports with `{ root, export }`.
      - `bins` declares published executables with `{ root, name }`.
+     - Packages with `bins` and no `modules` are supported as bin-only packages. If their bin root has a `declarationFile`, packtory emits a type-only `"."` export.
      - If omitted, packtory derives `exports` implicitly from roots and cross-package substitution needs.
 
    - **`includeSourceMapFiles`** (Optional, Boolean, Default: `false`):
@@ -358,6 +360,7 @@ Checks the emitted package contents and generated `package.json`, before publish
 - **Top-level:** `enabled: boolean`, `declarations?: 'all' | 'exports-graph'`.
 - **Per-package:** `{}`.
 - If `declarations` is omitted, packtory checks every packaged declaration file. Use `exports-graph` to check only declaration files reachable from package export declarations.
+- Untyped bin-only packages do not need TypeScript declarations. Typed bin-only packages run declaration integrity checks without runtime package-resolution analysis.
 
 ### `noDuplicatedFiles`
 
