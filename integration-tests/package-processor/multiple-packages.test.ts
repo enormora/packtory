@@ -171,18 +171,6 @@ suite('multiple-packages', function () {
                         isExplicitlyIncluded: false,
                         isSubstituted: false,
                         analysis: bindingAnalysis('Baz')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: 'export declare const qux: string;\n',
-                            isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/qux.d.ts'),
-                            targetFilePath: 'qux.d.ts'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('qux')
                     }
                 ],
                 dependencies: {},
@@ -287,18 +275,6 @@ suite('multiple-packages', function () {
                         isExplicitlyIncluded: false,
                         isSubstituted: true,
                         analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: 'export declare const bar: string;\n',
-                            isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/bar.d.ts'),
-                            targetFilePath: 'bar.d.ts'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('bar')
                     }
                 ],
                 dependencies: { first: '1.2.3' },

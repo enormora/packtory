@@ -157,7 +157,7 @@ For `import.meta.resolve` the classifier reuses the same `external-package` / `l
 
 ### Source maps and declarations
 
-If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If a root declares a `.d.ts`, a _second_ scan is performed with `resolveDeclarationFiles: true` so the type graph is captured alongside the JavaScript graph.
+If `includeSourceMapFiles: true`, the scanner also locates the paired `.map` for every code file (`source-map-file-locator.ts`) and adds it to the graph as a leaf. If a root declares a `.d.ts`, a declaration scan is performed with `resolveDeclarationFiles: true` so the rooted type graph is captured alongside the JavaScript graph. Declaration companions for arbitrary JavaScript dependencies are not scanned at this stage.
 
 ### Bridging TypeScript's exports strictness for JS-only dependencies
 
@@ -176,6 +176,8 @@ Given the current bundle's resource graph and the already-built `LinkedBundle`s 
 > _Is the file on the other end owned by some sibling bundle?_
 
 If yes, the import is replaced. The path becomes `<siblingName>/<targetFilePath>`. The matched source file is removed from the current bundle's graph (it'll be shipped by the sibling), and the sibling name is recorded as a `bundleDependency`.
+
+When a rewritten cross-package import targets a sibling JavaScript file, packtory records that exact sibling source path. After the first link pass, typed sibling packages promote only the readable declaration companions for those substituted JavaScript files, then the final link and analysis run from that narrowed file set. This keeps implicit substitution exports typed when the companion exists without bundling unrelated declaration files.
 
 ```mermaid
 flowchart LR

@@ -111,7 +111,8 @@ function substitutedEntryResult(packageName: string): unknown {
             }
         ],
         externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ])
+        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ]),
+        substitutedSourceFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
     };
 }
 
@@ -135,7 +136,8 @@ function buildEntryFooGraph(): ResourceGraph {
 const passthroughResult = {
     contents: [ entryWithFooImport, fooFileResult ],
     externalDependencies: new Map(),
-    linkedBundleDependencies: new Map()
+    linkedBundleDependencies: new Map(),
+    substitutedSourceFilePathsByPackageName: new Map()
 } as const;
 
 suite('substitute-bundles', function () {
@@ -292,6 +294,10 @@ suite('substitute-bundles', function () {
             linkedBundleDependencies: new Map([
                 [ 'first-package', { name: 'first-package', referencedFrom: [ '/foo.js' ] } ],
                 [ 'second-package', { name: 'second-package', referencedFrom: [ '/foo.js' ] } ]
+            ]),
+            substitutedSourceFilePathsByPackageName: new Map([
+                [ 'first-package', new Set([ '/bar.js' ]) ],
+                [ 'second-package', new Set([ '/baz.js' ]) ]
             ])
         });
     });

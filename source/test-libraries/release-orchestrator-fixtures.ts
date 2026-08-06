@@ -130,6 +130,9 @@ function packageProcessorFor(
         async resolveAndLink() {
             throw new Error('resolveAndLink() should not be called in release tests');
         },
+        async resolveAndLinkWithPromotedDeclarationCompanions() {
+            throw new Error('resolveAndLinkWithPromotedDeclarationCompanions() should not be called in release tests');
+        },
         async tryBuildAndPublish() {
             const result = buildResults[invocation];
             invocation += 1;
@@ -185,6 +188,9 @@ export function packageProcessorCheckingStage(expectedStage: boolean): PackagePr
         },
         async resolveAndLink() {
             throw new Error('resolveAndLink() should not be called in release tests');
+        },
+        async resolveAndLinkWithPromotedDeclarationCompanions() {
+            throw new Error('resolveAndLinkWithPromotedDeclarationCompanions() should not be called in release tests');
         },
         async tryBuildAndPublish(options) {
             assert.strictEqual(options.stage, expectedStage);

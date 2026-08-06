@@ -143,6 +143,81 @@ function configureScanForJsAndDeclarationGraphs(
     return scan;
 }
 
+function configureScanForThreeGraphs(
+    firstGraph: DependencyGraph,
+    secondGraph: DependencyGraph,
+    thirdGraph: DependencyGraph
+): SinonSpy {
+    const scan = stub();
+    scan.onFirstCall().resolves(firstGraph);
+    scan.onSecondCall().resolves(secondGraph);
+    scan.onThirdCall().resolves(thirdGraph);
+    return scan;
+}
+
+function configureScanForFourGraphs(
+    firstGraph: DependencyGraph,
+    secondGraph: DependencyGraph,
+    thirdGraph: DependencyGraph,
+    fourthGraph: DependencyGraph
+): SinonSpy {
+    const graphs = [ firstGraph, secondGraph, thirdGraph, fourthGraph ];
+    let index = 0;
+    return fake(async function (): Promise<DependencyGraph> {
+        const graph = graphs[index];
+        index += 1;
+        if (graph === undefined) {
+            throw new Error('Unexpected scan call');
+        }
+        return graph;
+    });
+}
+
+function typedBaseResolveOptions(): typeof baseResolveOptions & {
+    readonly roots: { readonly main: { readonly js: '/src/index.js'; readonly declarationFile: '/src/index.d.ts'; }; };
+} {
+    return {
+        ...baseResolveOptions,
+        roots: { main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' } }
+    };
+}
+
+function hasContentSourcePath(result: ResolvedBundle, sourceFilePath: string): boolean {
+    return result.contents.some(function (entry) {
+        return entry.fileDescription.sourceFilePath === sourceFilePath;
+    });
+}
+
+function assertPromotedDeclarationScan(scan: SinonSpy, sourceFilePath: string): void {
+    assertDeepSubset(scan, {
+        callCount: 3,
+        thirdCall: {
+            args: [
+                sourceFilePath,
+                '/src',
+                {
+                    includeSourceMapFiles: false,
+                    resolveDeclarationFiles: true,
+                    mainPackageJson: { type: 'module' }
+                }
+            ]
+        }
+    });
+}
+
+function assertFourthPromotedDeclarationScan(scan: SinonSpy, sourceFilePath: string): void {
+    assert.strictEqual(scan.callCount, 4);
+    assert.deepStrictEqual(scan.getCall(3).args, [
+        sourceFilePath,
+        '/src',
+        {
+            includeSourceMapFiles: false,
+            resolveDeclarationFiles: true,
+            mainPackageJson: { type: 'module' }
+        }
+    ]);
+}
+
 function generatedManifestFixture(graph: DependencyGraph): GeneratedManifestFixture {
     const scan = fake.resolves(graph);
     const scanEntries = fake.resolves(graph);
@@ -310,6 +385,86 @@ suite('resource-resolver', function () {
                 js: createTransferableFile('/src/index.js', 'index.js'),
                 declarationFile: createTransferableFile('/src/index.d.ts', 'index.d.ts')
             }
+        });
+    });
+
+    suite('promoted declaration companions', function () {
+        test('scans readable companions for typed packages', async function () {
+            const promotedDeclarationGraph = createGraph({ rootFile: '/src/feature.d.ts' });
+            const scan = configureScanForThreeGraphs(
+                createGraph({ rootFile: '/src/index.js' }),
+                createGraph({ rootFile: '/src/index.d.ts' }),
+                promotedDeclarationGraph
+            );
+            const { resolver } = createResolver({ readableFiles: [ '/src/feature.d.ts' ], scan });
+
+            const result = await resolver.resolveWithPromotedDeclarationCompanions(
+                typedBaseResolveOptions(),
+                new Set([ '/src/feature.js' ])
+            );
+
+            assertPromotedDeclarationScan(scan, '/src/feature.d.ts');
+            assert.strictEqual(hasContentSourcePath(result, '/src/feature.d.ts'), true);
+        });
+
+        test('uses the first readable companion candidate', async function () {
+            const scan = configureScanForThreeGraphs(
+                createGraph({ rootFile: '/src/index.js' }),
+                createGraph({ rootFile: '/src/index.d.ts' }),
+                createGraph({ rootFile: '/src/module.d.ts' })
+            );
+            const { resolver } = createResolver({ readableFiles: [ '/src/module.d.ts' ], scan });
+
+            await resolver.resolveWithPromotedDeclarationCompanions(
+                typedBaseResolveOptions(),
+                new Set([ '/src/module.mjs' ])
+            );
+
+            assert.deepStrictEqual(scan.thirdCall.args[0], '/src/module.d.ts');
+        });
+
+        test('skips unreadable companions', async function () {
+            const scan = configureScanForJsAndDeclarationGraphs(
+                createGraph({ rootFile: '/src/index.js' }),
+                createGraph({ rootFile: '/src/index.d.ts' })
+            );
+            const { resolver } = createResolver({ scan });
+
+            await resolver.resolveWithPromotedDeclarationCompanions(
+                typedBaseResolveOptions(),
+                new Set([ '/src/feature.js' ])
+            );
+
+            assert.strictEqual(scan.callCount, 2);
+        });
+
+        test('ignores promoted source paths for untyped packages', async function () {
+            const scan = fake.resolves(createGraph({ rootFile: '/src/index.js' }));
+            const { resolver } = createResolver({ readableFiles: [ '/src/feature.d.ts' ], scan });
+
+            await resolver.resolveWithPromotedDeclarationCompanions(baseResolveOptions, new Set([ '/src/feature.js' ]));
+
+            assert.strictEqual(scan.callCount, 1);
+        });
+
+        test('scans promoted companions when one root among many has declarations', async function () {
+            const scan = configureScanForFourGraphs(
+                createGraph({ rootFile: '/src/index.js' }),
+                createGraph({ rootFile: '/src/index.d.ts' }),
+                createGraph({ rootFile: '/src/other.js' }),
+                createGraph({ rootFile: '/src/feature.d.ts' })
+            );
+            const { resolver } = createResolver({ readableFiles: [ '/src/feature.d.ts' ], scan });
+
+            await resolver.resolveWithPromotedDeclarationCompanions({
+                ...baseResolveOptions,
+                roots: {
+                    main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' },
+                    other: { js: '/src/other.js' }
+                }
+            }, new Set([ '/src/feature.js' ]));
+
+            assertFourthPromotedDeclarationScan(scan, '/src/feature.d.ts');
         });
     });
 

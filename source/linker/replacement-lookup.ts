@@ -17,6 +17,7 @@ type Replacement = {
 export type Replacements = {
     readonly importPathReplacements: ReadonlyMap<string, string>;
     readonly bundleDependencies: readonly string[];
+    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
 export function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
@@ -245,6 +246,21 @@ function findReplacement(
     return findReplacementInBundles(file, bundlePeerDependencies, getExistingPublicModuleSpecifierForSourcePath);
 }
 
+function withSubstitutedSourcePath(
+    substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
+    packageName: string,
+    file: string
+): ReadonlyMap<string, ReadonlySet<string>> {
+    if (declarationCompanionCandidates(file).length === 0) {
+        return substitutedSourceFilePathsByPackageName;
+    }
+
+    const existing = substitutedSourceFilePathsByPackageName.get(packageName) ?? [];
+    const updated = new Map(substitutedSourceFilePathsByPackageName);
+    updated.set(packageName, new Set([ ...existing, file ]));
+    return updated;
+}
+
 export function findAllPathReplacements(
     files: readonly string[],
     bundleDependencies: readonly BundleSubstitutionSource[],
@@ -252,17 +268,24 @@ export function findAllPathReplacements(
 ): Replacements {
     const importPathReplacements = new Map<string, string>();
     const matchedBundleDependencies: string[] = [];
+    let substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
 
     for (const file of files) {
         const replacement = findReplacement(file, bundleDependencies, bundlePeerDependencies);
         if (replacement !== undefined) {
             importPathReplacements.set(file, replacement.targetPath);
             matchedBundleDependencies.push(replacement.packageName);
+            substitutedSourceFilePathsByPackageName = withSubstitutedSourcePath(
+                substitutedSourceFilePathsByPackageName,
+                replacement.packageName,
+                file
+            );
         }
     }
 
     return {
         importPathReplacements,
-        bundleDependencies: matchedBundleDependencies
+        bundleDependencies: matchedBundleDependencies,
+        substitutedSourceFilePathsByPackageName
     };
 }

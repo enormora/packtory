@@ -13,6 +13,7 @@ export type LinkedBundle = {
     readonly surface: PackageSurface;
     readonly exportPackageJson?: true | undefined;
     readonly linkedBundleDependencies: ExternalDependencies;
+    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
     readonly externalDependencies: ExternalDependencies;
 };
 

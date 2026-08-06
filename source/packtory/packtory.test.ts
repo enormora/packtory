@@ -62,6 +62,7 @@ type TestDeadCodeEliminator = TestEliminator;
 
 type TestPackageProcessor = {
     readonly resolveAndLink: SinonSpy;
+    readonly resolveAndLinkWithPromotedDeclarationCompanions: SinonSpy;
     readonly tryBuildAndPublish: SinonSpy;
     readonly buildAndPublish: SinonSpy;
     readonly build: () => Promise<never>;
@@ -264,6 +265,7 @@ function createPacktoryUnderTest(overrides: PacktoryFactoryOverrides = {}): Pack
     };
     const packageProcessor: TestPackageProcessor = {
         resolveAndLink,
+        resolveAndLinkWithPromotedDeclarationCompanions: resolveAndLink,
         tryBuildAndPublish,
         buildAndPublish,
         async build() {

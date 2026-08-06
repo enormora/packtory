@@ -66,7 +66,9 @@ function stubDependencies(): ResolveAndBuildDependencies {
             }
         },
         resourceResolver: {
-            resolve: fake.resolves(createLinkedBundle())
+            resolve: fake.resolves(createLinkedBundle()),
+            resolveWithPromotedDeclarations: fake.resolves(createLinkedBundle()),
+            resolveWithPromotedDeclarationCompanions: fake.resolves(createLinkedBundle())
         },
         versionManager: {
             addVersion: fake.returns(createVersionedBundle()),
@@ -118,7 +120,9 @@ function createPipelineDependencies(
             })
         },
         resourceResolver: {
-            resolve: spies.resolve
+            resolve: spies.resolve,
+            resolveWithPromotedDeclarations: spies.resolve,
+            resolveWithPromotedDeclarationCompanions: fake.resolves(createLinkedBundle())
         },
         versionManager: {
             addVersion: spies.addVersion,
@@ -280,6 +284,32 @@ suite('package-processor-build', function () {
                 }
             ]
         );
+    });
+
+    test('resolveAndLinkWithPromotedDeclarationCompanions resolves with substituted source paths', async function () {
+        const resolveWithPromotedDeclarationCompanions = fake.resolves(createLinkedBundle());
+        const fixture = createPipelineDependencies({
+            resourceResolver: {
+                resolve: fake.resolves(createLinkedBundle()),
+                resolveWithPromotedDeclarations: fake.resolves(createLinkedBundle()),
+                resolveWithPromotedDeclarationCompanions
+            }
+        });
+        const operations = createResolveAndBuildOperations(fixture.dependencies);
+        const options: ResolveAndLinkOptions = {
+            ...createResolveOptions(),
+            roots: { main: { js: '/src/index.js', declarationFile: '/src/index.d.ts' } }
+        };
+
+        await operations.resolveAndLinkWithPromotedDeclarationCompanions(
+            options,
+            new Set([ '/src/feature.js' ])
+        );
+
+        assert.deepStrictEqual(resolveWithPromotedDeclarationCompanions.firstCall.args, [
+            options,
+            new Set([ '/src/feature.js' ])
+        ]);
     });
 
     test('build rejects when the dead code eliminator returns no analyzed bundle', async function () {

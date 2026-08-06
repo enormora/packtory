@@ -52,6 +52,7 @@ function addNodeWithReplacements(
         fileDescription: { ...node.data.fileDescription, content },
         externalDependencies: node.data.externalDependencies,
         bundleDependencies: isSubstituted ? replacements.bundleDependencies : [],
+        substitutedSourceFilePathsByPackageName: replacements.substitutedSourceFilePathsByPackageName,
         isSubstituted,
         isExplicitlyIncluded: node.data.isExplicitlyIncluded,
         ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
