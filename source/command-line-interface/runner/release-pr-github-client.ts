@@ -105,7 +105,9 @@ type ReleasePullRequestUpdateInput = {
     readonly title: string;
 };
 export type ReleasePullRequestGitHubClient = {
-    readonly cancelActiveDispatchedWorkflowRuns: (input: CancelActiveDispatchedWorkflowRunsInput) => Promise<void>;
+    readonly cancelActiveDispatchedWorkflowRuns: (
+        input: CancelActiveDispatchedWorkflowRunsInput
+    ) => Promise<readonly number[]>;
     readonly closeOpenReleasePullRequests: (input: CloseOpenReleasePullRequestsInput) => Promise<void>;
     readonly createCommitOnBranch: (input: CreateCommitOnBranchInput) => Promise<string>;
     readonly createOrUpdateReleasePullRequest: (input: CreateOrUpdateReleasePullRequestInput) => Promise<number>;
@@ -304,7 +306,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
     return {
         async cancelActiveDispatchedWorkflowRuns(input) {
             const workflow = await resolveRawWorkflow(input.workflowFile);
-            await cancelActiveDispatchedWorkflowRuns({
+            return cancelActiveDispatchedWorkflowRuns({
                 branch: input.branch,
                 cancelWorkflowRun: octokit.rest.actions.cancelWorkflowRun,
                 listWorkflowRuns: octokit.rest.actions.listWorkflowRuns,
