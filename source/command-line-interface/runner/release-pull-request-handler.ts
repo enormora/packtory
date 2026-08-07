@@ -175,12 +175,9 @@ function parseReleasePullRequestConfig(
     dependencies: Pick<ReleasePullRequestHandlerDependencies, 'workingDirectory'>,
     rawConfig: unknown
 ): LoadedReleasePullRequestConfig {
-    const parsedConfig = parseValidConfig(rawConfig);
-    if (parsedConfig === undefined) {
-        throw new Error('The loaded config is invalid for release PR management');
-    }
     const releasePullRequestConfigContainer = parseCommandLineInterfacePacktoryConfig(rawConfig);
-    if (releasePullRequestConfigContainer === undefined) {
+    const parsedConfig = parseValidConfig(rawConfig);
+    if (releasePullRequestConfigContainer === undefined || parsedConfig === undefined) {
         throw new Error('The loaded config is invalid for release PR management');
     }
     const config = resolveReleasePullRequestConfig(releasePullRequestConfigContainer);
