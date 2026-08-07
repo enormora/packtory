@@ -22,25 +22,8 @@ type GlobalConfig = Readonly<z.infer<typeof globalSchema>>;
 type PerPackageConfig = Readonly<z.infer<typeof perPackageSchema>>;
 type RunInput = RuleRunInput<typeof ruleName, GlobalConfig, PerPackageConfig>;
 type CheckBundle = RunInput['bundles'][number];
-type BinOnlyBundle = CheckBundle & {
-    readonly surface: Extract<CheckBundle['surface'], { readonly mode: 'explicit'; }> & {
-        readonly packageInterface: {
-            readonly bins?: NonNullable<
-                Extract<
-                    CheckBundle['surface'],
-                    { readonly mode: 'explicit'; }
-                >['packageInterface']['bins']
-            >;
-            readonly modules?: undefined;
-        };
-    };
-};
-type PackageIntegrityInput = {
-    readonly bundle: CheckBundle;
-    readonly packageName: string;
-    readonly publishedPackage: Readonly<PublishedPackageWithManifest>;
-    readonly publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>;
-    readonly declarationMode: DeclarationMode;
+type ExplicitBundle = CheckBundle & {
+    readonly surface: Extract<CheckBundle['surface'], { readonly mode: 'explicit'; }>;
 };
 
 export type TypeScriptIntegrityRule = CheckRuleDefinition<typeof ruleName, GlobalConfig, PerPackageConfig>;
@@ -55,14 +38,13 @@ export type TypeScriptIntegrityDependencies = {
     readonly summarizeDeclarationIntegrity: DeclarationIntegritySummarizer;
 };
 
-function isBinOnlyPackage(bundle: CheckBundle): bundle is BinOnlyBundle {
+function isBinOnlyPackage(bundle: CheckBundle): bundle is ExplicitBundle {
     return bundle.surface.mode === 'explicit' &&
         bundle.surface.packageInterface.modules === undefined;
 }
 
-function binOnlyPackageHasDeclarations(bundle: BinOnlyBundle): boolean {
-    const binEntries = bundle.surface.packageInterface.bins;
-    return binEntries?.some(function (entry) {
+function hasBinDeclarations(bundle: ExplicitBundle): boolean {
+    return bundle.surface.packageInterface.bins?.some(function (entry) {
         return bundle.roots[entry.root]?.declarationFile !== undefined;
     }) === true;
 }
@@ -84,17 +66,22 @@ export function createTypeScriptIntegrityRule(
         }
     }
 
-    async function runForPackage(input: PackageIntegrityInput): Promise<readonly string[]> {
-        const { bundle, packageName, publishedPackage, publishedPackages, declarationMode } = input;
+    async function runForPackage(
+        bundle: CheckBundle,
+        publishedPackage: Readonly<PublishedPackageWithManifest>,
+        publishedPackages: ReadonlyMap<string, PublishedPackageWithManifest>,
+        declarationMode: DeclarationMode
+    ): Promise<readonly string[]> {
+        const { name } = bundle;
         if (isBinOnlyPackage(bundle)) {
-            return binOnlyPackageHasDeclarations(bundle)
-                ? summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode, publishedPackages)
+            return hasBinDeclarations(bundle)
+                ? summarizeDeclarationIntegrity(name, publishedPackage, declarationMode, publishedPackages)
                 : [];
         }
 
         return [
-            ...await summarizePackageResolution(packageName, publishedPackage),
-            ...summarizeDeclarationIntegrity(packageName, publishedPackage, declarationMode, publishedPackages)
+            ...await summarizePackageResolution(name, publishedPackage),
+            ...summarizeDeclarationIntegrity(name, publishedPackage, declarationMode, publishedPackages)
         ];
     }
 
@@ -116,13 +103,7 @@ export function createTypeScriptIntegrityRule(
                     throw new Error(`Published package missing for "${bundle.name}"`);
                 }
 
-                return await runForPackage({
-                    bundle,
-                    packageName: bundle.name,
-                    publishedPackage,
-                    publishedPackages,
-                    declarationMode
-                });
+                return await runForPackage(bundle, publishedPackage, publishedPackages, declarationMode);
             })
         );
         return issuesByBundle.flat();
