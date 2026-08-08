@@ -37,6 +37,7 @@ export function createLinkedBundle(name = 'package-a'): LinkedBundle {
         roots: { main: { js: createTransferableFile('/entry.js') } } as const,
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map(),
+        substitutedSourceFilePathsByPackageName: new Map(),
         externalDependencies: new Map()
     };
 }
@@ -178,7 +179,11 @@ export function createProcessor(overrides: ProcessorOverrides = {}): ProcessorCo
     const spies = createProcessorSpies(overrides);
     const dependencies = {
         progressBroadcaster: { emit: spies.emit, hasSubscribers: spies.hasSubscribers },
-        resourceResolver: { resolve: spies.resolve },
+        resourceResolver: {
+            resolve: spies.resolve,
+            resolveWithPromotedDeclarations: spies.resolve,
+            resolveWithPromotedDeclarationCompanions: spies.resolve
+        },
         linker: { linkBundle: spies.linkBundle },
         bundleEmitter: {
             determineCurrentVersion: spies.determineCurrentVersion,

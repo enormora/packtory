@@ -96,11 +96,6 @@ export const expectedSecondPackageFirstRunVersion = {
             isExecutable: false,
             content: "export type { Foo } from 'first/foo.d.ts';\nexport declare const foo: Foo;\n",
             filePath: 'package/entry2.d.ts'
-        },
-        {
-            isExecutable: false,
-            content: 'export declare const bar: string;\n',
-            filePath: 'package/bar.d.ts'
         }
     ]
 } as const;
@@ -142,11 +137,6 @@ export const expectedSecondPackageSecondRunVersion = {
             isExecutable: false,
             content: "export type { Foo } from 'first/foo.d.ts';\nexport declare const foo: Foo;\n",
             filePath: 'package/entry2.d.ts'
-        },
-        {
-            isExecutable: false,
-            content: 'export declare const bar: string;\n',
-            filePath: 'package/bar.d.ts'
         }
     ]
 } as const;

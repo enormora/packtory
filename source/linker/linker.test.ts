@@ -255,6 +255,12 @@ suite('linker', function () {
         assert.strictEqual(result.contents.length, 2);
         assert.strictEqual(result.contents[0]?.isSubstituted, true);
         assert.deepStrictEqual(Array.from(result.linkedBundleDependencies.keys()), [ 'bundle-dependency' ]);
+        assert.deepStrictEqual(
+            result.substitutedSourceFilePathsByPackageName,
+            new Map([
+                [ 'bundle-dependency', new Set([ '/src/dep.js' ]) ]
+            ])
+        );
     });
 
     test('linkBundle() excludes local declaration companions for substituted dependency sources', async function () {

@@ -33,6 +33,10 @@ export type PackageProcessorDependencies = {
 
 export type PackageProcessor = {
     resolveAndLink: (options: ResolveAndLinkOptions) => Promise<Awaited<ReturnType<BundleLinker['linkBundle']>>>;
+    resolveAndLinkWithPromotedDeclarationCompanions: (
+        options: ResolveAndLinkOptions,
+        substitutedSourceFilePaths: ReadonlySet<string>
+    ) => Promise<Awaited<ReturnType<BundleLinker['linkBundle']>>>;
     build: (options: BuildOptions) => Promise<Awaited<ReturnType<VersionManager['addVersion']>>>;
     buildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;
     tryBuildAndPublish: (options: DetermineVersionAndPublishOptions) => Promise<BuildAndPublishResult>;

@@ -54,7 +54,7 @@ suite('package-processor', function () {
         const result = await processor.resolveAndLink(options);
 
         assert.strictEqual(result, linkedBundle);
-        assert.deepStrictEqual(resolve.firstCall.args, [ options ]);
+        assert.deepStrictEqual(resolve.firstCall.args, [ options, [] ]);
         assert.deepStrictEqual(linkBundle.firstCall.args, [
             {
                 bundle: {
