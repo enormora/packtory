@@ -63,6 +63,9 @@ type BuildResultOverrides = Partial<BuildAndPublishResult> & {
     readonly version?: string;
 };
 
+type ReleasePackageProcessorOperation = Exclude<keyof PackageProcessor, 'tryBuildAndPublish'>;
+type ReleasePackageProcessorOperations = Pick<PackageProcessor, ReleasePackageProcessorOperation>;
+
 const noPublicationOutcome = { type: 'none' } as const;
 
 const releaseProgressBroadcaster: ProgressBroadcaster = {
@@ -90,6 +93,21 @@ const defaultReleasePlanFileReader: ReleasePlanFileReader = {
     },
     async readFile() {
         return '';
+    }
+};
+
+const releasePackageProcessorOperations: ReleasePackageProcessorOperations = {
+    async build() {
+        throw new Error('build() should not be called in release tests');
+    },
+    async buildAndPublish() {
+        throw new Error('buildAndPublish() should not be called in release dry runs');
+    },
+    async resolveAndLink() {
+        throw new Error('resolveAndLink() should not be called in release tests');
+    },
+    async resolveAndLinkWithPromotedDeclarationCompanions() {
+        throw new Error('resolveAndLinkWithPromotedDeclarationCompanions() should not be called in release tests');
     }
 };
 
@@ -121,18 +139,7 @@ function packageProcessorFor(
     let invocation = 0;
 
     return {
-        async build() {
-            throw new Error('build() should not be called in release tests');
-        },
-        async buildAndPublish() {
-            throw new Error('buildAndPublish() should not be called in release dry runs');
-        },
-        async resolveAndLink() {
-            throw new Error('resolveAndLink() should not be called in release tests');
-        },
-        async resolveAndLinkWithPromotedDeclarationCompanions() {
-            throw new Error('resolveAndLinkWithPromotedDeclarationCompanions() should not be called in release tests');
-        },
+        ...releasePackageProcessorOperations,
         async tryBuildAndPublish() {
             const result = buildResults[invocation];
             invocation += 1;
@@ -180,18 +187,7 @@ export function buildResultFor(overrides: BuildResultOverrides = {}): BuildAndPu
 
 export function packageProcessorCheckingStage(expectedStage: boolean): PackageProcessor {
     return {
-        async build() {
-            throw new Error('build() should not be called in release tests');
-        },
-        async buildAndPublish() {
-            throw new Error('buildAndPublish() should not be called in release dry runs');
-        },
-        async resolveAndLink() {
-            throw new Error('resolveAndLink() should not be called in release tests');
-        },
-        async resolveAndLinkWithPromotedDeclarationCompanions() {
-            throw new Error('resolveAndLinkWithPromotedDeclarationCompanions() should not be called in release tests');
-        },
+        ...releasePackageProcessorOperations,
         async tryBuildAndPublish(options) {
             assert.strictEqual(options.stage, expectedStage);
             return buildResultFor();
