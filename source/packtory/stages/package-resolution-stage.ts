@@ -75,7 +75,8 @@ function hasPromotionCandidates(promotedSourcePathsByPackageName: ReadonlyMap<st
 async function resolvePackagesWithPromotions(
     dependencies: PackageResolutionDependencies,
     config: ValidConfigWithoutRegistryResult,
-    promotedSourcePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>
+    promotedSourcePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
+    emitScheduledEvents: boolean
 ): Promise<Result<readonly LinkedPackage[], PartialError<LinkedPackage>>> {
     return dependencies.scheduler.runForEachScheduledPackage<
         LinkedPackage,
@@ -109,7 +110,7 @@ async function resolvePackagesWithPromotions(
         selectNext(input) {
             return input.result.linkedBundle;
         },
-        emitScheduledEvents: true
+        emitScheduledEvents
     });
 }
 
@@ -117,7 +118,7 @@ export async function resolvePackages(
     dependencies: PackageResolutionDependencies,
     config: ValidConfigWithoutRegistryResult
 ): Promise<Result<readonly LinkedPackage[], PartialError<LinkedPackage>>> {
-    const firstPassResult = await resolvePackagesWithPromotions(dependencies, config, new Map());
+    const firstPassResult = await resolvePackagesWithPromotions(dependencies, config, new Map(), true);
     if (firstPassResult.isErr) {
         return firstPassResult;
     }
@@ -127,5 +128,5 @@ export async function resolvePackages(
         return firstPassResult;
     }
 
-    return await resolvePackagesWithPromotions(dependencies, config, promotedSourcePathsByPackageName);
+    return await resolvePackagesWithPromotions(dependencies, config, promotedSourcePathsByPackageName, false);
 }

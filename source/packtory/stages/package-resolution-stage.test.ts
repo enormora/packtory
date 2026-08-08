@@ -147,6 +147,7 @@ suite('package-resolution-stage', function () {
     });
 
     test('resolvePackages reruns resolution with promoted source paths after substitutions are observed', async function () {
+        const capture: IteratingSchedulerCapture = { events: [] as unknown[], selected: [] as unknown[] };
         const promotionCalls: {
             readonly packageName: string;
             readonly sourceFilePaths: ReadonlySet<string>;
@@ -170,7 +171,7 @@ suite('package-resolution-stage', function () {
                         return linkedBundle(options.name, new Map());
                     }
                 },
-                scheduler: iteratingScheduler([ 'pkg-a', 'pkg-b' ]),
+                scheduler: iteratingScheduler([ 'pkg-a', 'pkg-b' ], capture),
                 progressBroadcaster: stubProgressBroadcaster
             },
             configWithoutRegistry([ packageConfig('pkg-a'), packageConfig('pkg-b') ])
@@ -180,6 +181,7 @@ suite('package-resolution-stage', function () {
         assert.deepStrictEqual(promotionCalls, [
             { packageName: 'pkg-a', sourceFilePaths: new Set([ '/src/pkg-a/internal.js' ]) }
         ]);
+        assert.strictEqual(capture.emitScheduledEvents, false);
     });
 
     test('resolvePackages does not rerun resolution for empty substitution records', async function () {
