@@ -1,4 +1,4 @@
-import type { PositionAtom } from './declaration-remover.ts';
+import type { PositionAtom } from './text-transform-map.ts';
 
 function findAtomFor(atoms: readonly PositionAtom[], offset: number): PositionAtom | undefined {
     return atoms.find(function (atom) {

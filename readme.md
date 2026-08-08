@@ -472,6 +472,7 @@ Within each bundle, the analyzer:
 2. Seeds reachability with: every binding exported from any public root file, plus every binding referenced by any impure top-level statement, plus every binding another bundle in the same publish run actually depends on. Once a sibling bundle depends on a public file, packtory keeps the whole public file live, not only the currently imported names.
 3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
 4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
+5. Repairs import declarations in transformed files. Dead default, namespace, named, and aliased import bindings are removed. Runtime imports with no surviving specifiers become bare imports so module evaluation is preserved. Type-only imports with no surviving specifiers are removed, with `export {};` inserted when needed to preserve module status.
 
 Files whose top-level statements are impure are left fully intact. The static side-effect classifier identifies impure top-level statements: expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), variable initializers that contain calls or property accesses, and bare imports of asset extensions (`.css`, `.scss`, `.sass`, `.less`).
 
@@ -496,7 +497,7 @@ The same static analysis also drives, regardless of any `checks` configuration:
 
 ### Source maps
 
-When a `.map` file is paired with a code file the analyzer transforms, packtory recomposes the source map so the published map still points back to the original sources at the new line and column numbers. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Malformed source maps that cannot be parsed are passed through unchanged rather than dropped.
+When a `.map` file is paired with a code file the analyzer transforms, packtory recomposes the source map from the full text transform so the published map still points back to the original sources at the new line and column numbers. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Malformed source maps that cannot be parsed are passed through unchanged rather than dropped.
 
 ## Example Use-Cases
 

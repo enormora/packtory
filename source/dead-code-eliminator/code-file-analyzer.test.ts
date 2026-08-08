@@ -71,7 +71,7 @@ suite('code-file-analyzer', function () {
     });
 
     test('buildAnalyzedResource leaves the content unchanged when transformations are disabled', function () {
-        const loaded = loadedCodeResource('a.ts', 'export const foo = 1;\n');
+        const loaded = loadedCodeResource('a.ts', 'import { dead } from "./b";\nexport const foo = 1;\n');
 
         const result = buildAnalyzedResource(loaded, baseContext);
 
@@ -79,7 +79,7 @@ suite('code-file-analyzer', function () {
             transforms: [],
             resource: {
                 fileDescription: {
-                    content: 'export const foo = 1;\n'
+                    content: 'import { dead } from "./b";\nexport const foo = 1;\n'
                 }
             }
         });
@@ -94,7 +94,10 @@ suite('code-file-analyzer', function () {
     });
 
     test('buildAnalyzedResource leaves the content unchanged when transformations are enabled but the file has side effects', function () {
-        const loaded = loadedCodeResource('a.ts', 'console.log(1);\nexport const foo = 1;\n');
+        const loaded = loadedCodeResource(
+            'a.ts',
+            'import { dead } from "./b";\nconsole.log(1);\nexport const foo = 1;\n'
+        );
 
         const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
 
@@ -102,7 +105,7 @@ suite('code-file-analyzer', function () {
             transforms: [],
             resource: {
                 fileDescription: {
-                    content: 'console.log(1);\nexport const foo = 1;\n'
+                    content: 'import { dead } from "./b";\nconsole.log(1);\nexport const foo = 1;\n'
                 }
             }
         });

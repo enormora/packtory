@@ -1,8 +1,9 @@
 import assert from 'node:assert';
+import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
 import { TraceMap, eachMapping } from '@jridgewell/trace-mapping';
 import { suite, test } from 'mocha';
-import type { PositionAtom } from './declaration-remover.ts';
-import { recomposeSourceMap } from './source-map-composer.ts';
+import { recomposeSourceMap as recomposeSourceMapWithTransform } from './source-map-composer.ts';
+import { buildTextTransformMap, type PositionAtom } from './text-transform-map.ts';
 
 type Mapping = {
     readonly generatedLine: number;
@@ -11,6 +12,24 @@ type Mapping = {
     readonly originalColumn: number | null;
     readonly source: string | null;
 };
+
+type LegacyRecomposeInput = {
+    readonly originalMap: string;
+    readonly originalCode: string;
+    readonly transformedCode: string;
+    readonly atoms: readonly PositionAtom[];
+};
+
+function recomposeSourceMap(input: LegacyRecomposeInput): string {
+    return recomposeSourceMapWithTransform({
+        originalMap: input.originalMap,
+        textTransform: {
+            originalCode: input.originalCode,
+            transformedCode: input.transformedCode,
+            atoms: input.atoms
+        }
+    });
+}
 
 function listMappings(mapJson: string): readonly Mapping[] {
     const traceMap = new TraceMap(mapJson);
@@ -25,6 +44,19 @@ function listMappings(mapJson: string): readonly Mapping[] {
         });
     });
     return result;
+}
+
+function singleMappingMap(generatedColumn: number, originalCode: string): string {
+    const map = new GenMapping({ file: 'index.ts' });
+    addMapping(map, {
+        generated: { line: 1, column: generatedColumn },
+        source: 'index.ts',
+        original: { line: 1, column: generatedColumn }
+    });
+    return JSON.stringify({
+        ...toEncodedMap(map),
+        sourcesContent: [ originalCode ]
+    });
 }
 
 const originalCode = 'function dead() { return 1; }\nexport function live() { return 2; }';
@@ -291,6 +323,40 @@ suite('source-map-composer', function () {
             // Should not crash and produce a valid map.
             const parsed = JSON.parse(result) as { readonly version: number; };
             assert.strictEqual(parsed.version, 3);
+        });
+    });
+
+    suite('text edit mappings', function () {
+        test('recomposeSourceMap shifts mappings inside a partially repaired import', function () {
+            const editedOriginalCode = 'import { dead, live } from "./other";\nexport const api = live;';
+            const editedTransformedCode = 'import { live } from "./other";\nexport const api = live;';
+            const originalLiveColumn = editedOriginalCode.indexOf('live');
+            const transformedLiveColumn = editedTransformedCode.indexOf('live');
+            const result = recomposeSourceMapWithTransform({
+                originalMap: singleMappingMap(originalLiveColumn, editedOriginalCode),
+                textTransform: buildTextTransformMap(editedOriginalCode, editedTransformedCode)
+            });
+
+            assert.deepStrictEqual(listMappings(result), [
+                {
+                    generatedLine: 1,
+                    generatedColumn: transformedLiveColumn,
+                    originalLine: 1,
+                    originalColumn: originalLiveColumn,
+                    source: 'index.ts'
+                }
+            ]);
+        });
+
+        test('recomposeSourceMap does not map an inserted module marker', function () {
+            const markerOriginalCode = 'import type { Dead } from "./types";\ntype Local = Dead;';
+            const markerTransformedCode = 'export {};\n';
+            const result = recomposeSourceMapWithTransform({
+                originalMap: singleMappingMap(0, markerOriginalCode),
+                textTransform: buildTextTransformMap(markerOriginalCode, markerTransformedCode)
+            });
+
+            assert.deepStrictEqual(listMappings(result), []);
         });
     });
 });

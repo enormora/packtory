@@ -18,9 +18,11 @@ function mapResource(targetFilePath: string, content: string): AnalyzedBundleRes
 }
 
 const transformRecord: TransformRecord = {
-    originalCode: 'export const removed = 1;\n',
-    transformedCode: '',
-    atoms: []
+    textTransform: {
+        originalCode: 'export const removed = 1;\n',
+        transformedCode: '',
+        atoms: []
+    }
 };
 
 suite('source-map-recomposition', function () {
