@@ -265,7 +265,7 @@ survivingNames   = shouldTransform ? reachable ∩ fileBindings : fileBindings
 
 If a file has any impure top-level statement, **packtory keeps the file as-is**. Removing declarations from a file that runs side effects could change those side effects' meaning, so the conservative choice is to leave it alone.
 
-For pure files, the declaration remover walks top-level statements, captures the byte ranges of survivors (`PositionAtom`s), and removes the rest via ts-morph. Combined declarations are split so each declarator can be removed independently.
+For pure files, the declaration remover walks top-level statements and removes dead declarations via ts-morph. Combined declarations are split so each declarator can be removed independently. The same pass repairs stale import declarations: dead default, namespace, named, and aliased import bindings are removed; runtime imports with no surviving specifiers become bare imports; type-only imports with no surviving specifiers are removed. If removing the last type-only import would turn a module into a script, `export {};` is inserted.
 
 ### 6.4 Cross-bundle seeding
 
@@ -320,14 +320,14 @@ When a `.map` file is paired with a code file the analyzer transformed, packtory
 Algorithm:
 
 ```text
-recomposeSourceMap(originalMap, originalCode, transformedCode, atoms):
+recomposeSourceMap(originalMap, textTransform):
     trace ← TraceMap(originalMap)
-    origIdx ← line-column index over originalCode
-    newIdx  ← line-column index over transformedCode
+    origIdx ← line-column index over textTransform.originalCode
+    newIdx  ← line-column index over textTransform.transformedCode
     gen ← new GenMapping()
     for each (genLine, genCol, src, origLine, origCol) in trace:
         oldOffset ← lineColumnToOffset(origIdx, genLine, genCol)
-        newOffset ← translateGeneratedOffset(oldOffset, atoms)
+        newOffset ← translateGeneratedOffset(oldOffset, textTransform.atoms)
         if newOffset is undefined:        # the position was deleted
             skip
         newPos ← offsetToLineColumn(newIdx, newOffset)
@@ -335,7 +335,7 @@ recomposeSourceMap(originalMap, originalCode, transformedCode, atoms):
     return JSON with re-encoded mappings
 ```
 
-`PositionAtom`s describe the surviving byte ranges from the removal pass: `(originalStart, originalEnd, newStart)`. `translateGeneratedOffset` is a binary search over those atoms.
+The text transform map is derived from the original and transformed code after all declaration removals, import repairs, and module marker insertions. Its atoms describe unchanged byte ranges: `(originalStart, originalEnd, newStart)`.
 
 Malformed source maps are passed through unchanged rather than dropped. Files with no `.map` are a no-op.
 

@@ -4,7 +4,8 @@ import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
 import { bindingId } from './reachability/binding-id.ts';
 import { classifySideEffects } from './side-effect-classifier.ts';
-import { applyRemovalPlan, type PositionAtom } from './transform/declaration-remover.ts';
+import { applyRemovalPlan } from './transform/declaration-remover.ts';
+import type { PositionAtom, TextTransformMap } from './transform/text-transform-map.ts';
 
 export type AnalysisContext = {
     readonly reachable: ReadonlySet<string>;
@@ -13,9 +14,7 @@ export type AnalysisContext = {
 };
 
 export type TransformRecord = {
-    readonly originalCode: string;
-    readonly transformedCode: string;
-    readonly atoms: readonly PositionAtom[];
+    readonly textTransform: TextTransformMap;
 };
 
 export type AnalyzedResourceOutput = {
@@ -92,6 +91,6 @@ export function buildAnalyzedResource(loaded: LoadedResource, context: AnalysisC
             fileDescription: { ...loaded.resource.fileDescription, content: transformedCode },
             analysis
         },
-        transforms: [ { originalCode, transformedCode, atoms } ]
+        transforms: [ { textTransform: { originalCode, transformedCode, atoms } } ]
     };
 }

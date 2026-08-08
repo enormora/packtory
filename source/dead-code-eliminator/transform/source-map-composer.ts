@@ -1,7 +1,6 @@
 import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
 import { eachMapping, TraceMap, type EachMapping } from '@jridgewell/trace-mapping';
 import { translateGeneratedOffset } from './atom-translator.ts';
-import type { PositionAtom } from './declaration-remover.ts';
 import {
     buildLineIndex,
     lineColumnToOffset,
@@ -9,12 +8,11 @@ import {
     type LineColumn,
     type LineIndex
 } from './line-index.ts';
+import type { TextTransformMap } from './text-transform-map.ts';
 
 export type RecomposeInput = {
     readonly originalMap: string;
-    readonly originalCode: string;
-    readonly transformedCode: string;
-    readonly atoms: readonly PositionAtom[];
+    readonly textTransform: TextTransformMap;
 };
 
 function omitNull<T>(value: T | null | undefined): T | undefined {
@@ -34,13 +32,13 @@ function translateMapping(
     mapping: EachMapping,
     originalIndex: LineIndex,
     transformedIndex: LineIndex,
-    atoms: readonly PositionAtom[]
+    textTransform: TextTransformMap
 ): TranslatedMapping | undefined {
     if (mapping.source === null) {
         return undefined;
     }
     const oldOffset = lineColumnToOffset(originalIndex, mapping.generatedLine, mapping.generatedColumn);
-    const newOffset = translateGeneratedOffset(oldOffset, atoms);
+    const newOffset = translateGeneratedOffset(oldOffset, textTransform.atoms);
     if (newOffset === undefined) {
         return undefined;
     }
@@ -84,11 +82,11 @@ export function recomposeSourceMap(input: RecomposeInput): string {
     if (traceMap === null) {
         return input.originalMap;
     }
-    const originalIndex = buildLineIndex(input.originalCode);
-    const transformedIndex = buildLineIndex(input.transformedCode);
+    const originalIndex = buildLineIndex(input.textTransform.originalCode);
+    const transformedIndex = buildLineIndex(input.textTransform.transformedCode);
     const mappingsBuilder = new GenMapping();
     eachMapping(traceMap, function (mapping) {
-        const translated = translateMapping(mapping, originalIndex, transformedIndex, input.atoms);
+        const translated = translateMapping(mapping, originalIndex, transformedIndex, input.textTransform);
         if (translated !== undefined) {
             appendMapping(mappingsBuilder, translated);
         }

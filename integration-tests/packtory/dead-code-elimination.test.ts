@@ -5,6 +5,7 @@ import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry
 import { loadPackageJson } from '../load-package-json.ts';
 import type { PacktoryConfigWithoutRegistry } from '../../source/config/config.ts';
 import type { ResolvedPackage } from '../../source/packtory/resolved-package.ts';
+import { runEmittedPackageApi } from './emitted-package-probe.ts';
 
 async function singlePackageConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
     return {
@@ -121,6 +122,18 @@ suite('dead-code-elimination', function () {
             false,
             'unused() should be removed by DCE'
         );
+    });
+
+    test('repairs stale imports so emitted ESM instantiates after DCE', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
+        const config = await singlePackageConfig(fixturePath);
+        const result = await resolveAndLinkAll(config);
+        const packages = expectOk(result);
+        const resolvedPackage = findPackage(packages, 'pkg');
+        const entry = findResource(resolvedPackage, 'pkg/index.js');
+
+        assert.strictEqual(entry.fileDescription.content.includes('unused'), false);
+        assert.strictEqual(await runEmittedPackageApi(resolvedPackage, 'pkg/index.js'), 'helper-used-result');
     });
 
     test('keeps a side-effecting file untouched and lists it in sideEffectsField', async function () {

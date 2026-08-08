@@ -25,9 +25,7 @@ export function recomposePairedSourceMaps(
         }
         const recomposed = recomposeSourceMap({
             originalMap: resource.fileDescription.content,
-            originalCode: transform.originalCode,
-            transformedCode: transform.transformedCode,
-            atoms: transform.atoms
+            textTransform: transform.textTransform
         });
         return {
             ...resource,

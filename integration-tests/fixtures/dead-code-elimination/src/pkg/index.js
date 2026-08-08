@@ -1,4 +1,4 @@
-import { used } from '../shared/helpers.js';
+import { used, unused } from '../shared/helpers.js';
 
 function internalHelper() {
     return 'helper';
