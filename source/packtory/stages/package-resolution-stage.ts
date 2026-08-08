@@ -48,9 +48,34 @@ function emitInputsResolved(
     });
 }
 
-export async function resolvePackages(
+function collectPromotedSourcePathsByPackageName(
+    linkedPackages: readonly LinkedPackage[]
+): ReadonlyMap<string, ReadonlySet<string>> {
+    const promotedSourcePathsByPackageName = new Map<string, Set<string>>();
+    for (const linkedPackage of linkedPackages) {
+        for (
+            const [ packageName, sourceFilePaths ] of linkedPackage.linkedBundle.substitutedSourceFilePathsByPackageName
+        ) {
+            const existing = promotedSourcePathsByPackageName.get(packageName) ?? new Set<string>();
+            for (const sourceFilePath of sourceFilePaths) {
+                existing.add(sourceFilePath);
+            }
+            promotedSourcePathsByPackageName.set(packageName, existing);
+        }
+    }
+    return promotedSourcePathsByPackageName;
+}
+
+function hasPromotionCandidates(promotedSourcePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>): boolean {
+    return Array.from(promotedSourcePathsByPackageName.values()).some(function (sourceFilePaths) {
+        return sourceFilePaths.size > 0;
+    });
+}
+
+async function resolvePackagesWithPromotions(
     dependencies: PackageResolutionDependencies,
-    config: ValidConfigWithoutRegistryResult
+    config: ValidConfigWithoutRegistryResult,
+    promotedSourcePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>
 ): Promise<Result<readonly LinkedPackage[], PartialError<LinkedPackage>>> {
     return dependencies.scheduler.runForEachScheduledPackage<
         LinkedPackage,
@@ -68,7 +93,12 @@ export async function resolvePackages(
             dependencies.progressBroadcaster.provider,
             'resolveAndLink',
             async function (resolveOptions) {
-                const linkedBundle = await dependencies.packageProcessor.resolveAndLink(resolveOptions);
+                const promotedSourcePaths = promotedSourcePathsByPackageName.get(resolveOptions.name) ?? new Set();
+                const linkedBundle = promotedSourcePaths.size === 0
+                    ? await dependencies.packageProcessor.resolveAndLink(resolveOptions)
+                    : await dependencies
+                        .packageProcessor
+                        .resolveAndLinkWithPromotedDeclarationCompanions(resolveOptions, promotedSourcePaths);
                 return {
                     name: resolveOptions.name,
                     linkedBundle,
@@ -81,4 +111,21 @@ export async function resolvePackages(
         },
         emitScheduledEvents: true
     });
+}
+
+export async function resolvePackages(
+    dependencies: PackageResolutionDependencies,
+    config: ValidConfigWithoutRegistryResult
+): Promise<Result<readonly LinkedPackage[], PartialError<LinkedPackage>>> {
+    const firstPassResult = await resolvePackagesWithPromotions(dependencies, config, new Map());
+    if (firstPassResult.isErr) {
+        return firstPassResult;
+    }
+
+    const promotedSourcePathsByPackageName = collectPromotedSourcePathsByPackageName(firstPassResult.value);
+    if (!hasPromotionCandidates(promotedSourcePathsByPackageName)) {
+        return firstPassResult;
+    }
+
+    return await resolvePackagesWithPromotions(dependencies, config, promotedSourcePathsByPackageName);
 }

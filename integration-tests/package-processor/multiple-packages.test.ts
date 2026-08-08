@@ -171,18 +171,6 @@ suite('multiple-packages', function () {
                         isExplicitlyIncluded: false,
                         isSubstituted: false,
                         analysis: bindingAnalysis('Baz')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: 'export declare const qux: string;\n',
-                            isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/qux.d.ts'),
-                            targetFilePath: 'qux.d.ts'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('qux')
                     }
                 ],
                 dependencies: {},
@@ -228,14 +216,14 @@ suite('multiple-packages', function () {
                             path.join(fixture, 'src/entry2.js.map')
                         ]),
                         fileDescription: {
-                            content: "import { bar } from './bar.js';\n//# sourceMappingURL=entry2.js.map\n",
+                            content: "export { bar } from './bar.js';\n//# sourceMappingURL=entry2.js.map\n",
                             isExecutable: false,
                             sourceFilePath: path.join(fixture, 'src/entry2.js'),
                             targetFilePath: 'entry2.js'
                         },
                         isExplicitlyIncluded: false,
                         isSubstituted: false,
-                        analysis: bindingAnalysis('bar')
+                        analysis: emptyAnalysis
                     },
                     {
                         directDependencies: new Set([ path.join(fixture, 'src/bar.js.map') ]),
@@ -282,28 +270,16 @@ suite('multiple-packages', function () {
                             isExecutable: false,
                             sourceFilePath: path.join(fixture, 'src/entry2.d.ts'),
                             targetFilePath: 'entry2.d.ts',
-                            content: "export declare const foo: import('first/foo.d.ts').Foo;\n"
+                            content: "export type { Foo } from 'first/foo.d.ts';\nexport declare const foo: Foo;\n"
                         },
                         isExplicitlyIncluded: false,
                         isSubstituted: true,
                         analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: 'export declare const bar: string;\n',
-                            isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/bar.d.ts'),
-                            targetFilePath: 'bar.d.ts'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: false,
-                        analysis: bindingAnalysis('bar')
                     }
                 ],
                 dependencies: { first: '1.2.3' },
                 mainFile: {
-                    content: "import { bar } from './bar.js';\n//# sourceMappingURL=entry2.js.map\n",
+                    content: "export { bar } from './bar.js';\n//# sourceMappingURL=entry2.js.map\n",
                     isExecutable: false,
                     sourceFilePath: path.join(fixture, 'src/entry2.js'),
                     targetFilePath: 'entry2.js'
@@ -316,7 +292,7 @@ suite('multiple-packages', function () {
                     isExecutable: false,
                     sourceFilePath: path.join(fixture, 'src/entry2.d.ts'),
                     targetFilePath: 'entry2.d.ts',
-                    content: "export declare const foo: import('./foo.js').Foo;\n"
+                    content: "export type { Foo } from './foo.js';\nexport declare const foo: Foo;\n"
                 },
                 version: '2.3.4'
             })
@@ -361,7 +337,7 @@ suite('multiple-packages', function () {
                             sourceFilePath: path.join(fixture, 'src/foo.js'),
                             targetFilePath: 'foo.js',
                             content:
-                                "import { bar } from 'second/bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
+                                "import { bar } from 'second';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
                         },
                         isExplicitlyIncluded: false,
                         isSubstituted: true,
@@ -404,18 +380,6 @@ suite('multiple-packages', function () {
                         isExplicitlyIncluded: false,
                         isSubstituted: true,
                         analysis: bindingAnalysis('foo')
-                    },
-                    {
-                        directDependencies: new Set(),
-                        fileDescription: {
-                            content: "import { Baz } from 'first/baz.d.ts';\nexport type Foo = string;\n",
-                            isExecutable: false,
-                            sourceFilePath: path.join(fixture, 'src/foo.d.ts'),
-                            targetFilePath: 'foo.d.ts'
-                        },
-                        isExplicitlyIncluded: false,
-                        isSubstituted: true,
-                        analysis: bindingAnalysis('Baz', 'Foo')
                     }
                 ],
                 dependencies: { first: '1.2.3' },

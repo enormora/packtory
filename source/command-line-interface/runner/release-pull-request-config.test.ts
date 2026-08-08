@@ -1,9 +1,16 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import {
-    parseReleasePullRequestConfigContainer,
+    parseCommandLineInterfacePacktoryConfig,
     resolveReleasePullRequestConfig
 } from './release-pull-request-config.ts';
+
+const packageAConfig = {
+    name: 'package-a',
+    sourcesFolder: 'source',
+    mainPackageJson: { type: 'module' },
+    roots: { main: { js: 'index.js' } }
+} as const;
 
 suite('release-pull-request-config', function () {
     test('uses defaults when release pull request settings are absent', function () {
@@ -41,7 +48,7 @@ suite('release-pull-request-config', function () {
 
     test('parses release pull request settings from CLI config', function () {
         assert.deepStrictEqual(
-            parseReleasePullRequestConfigContainer({
+            parseCommandLineInterfacePacktoryConfig({
                 releasePullRequest: {
                     branch: 'release/pkg',
                     githubActionsCi: {
@@ -50,24 +57,40 @@ suite('release-pull-request-config', function () {
                         requiredStatusContexts: [ 'Node.js v24.x' ]
                     }
                 },
-                packages: []
-            }),
+                packages: [ packageAConfig ]
+            })
+                ?.releasePullRequest,
             {
-                releasePullRequest: {
-                    branch: 'release/pkg',
-                    githubActionsCi: {
-                        trigger: 'workflow-dispatch',
-                        workflowFile: 'ci.yml',
-                        requiredStatusContexts: [ 'Node.js v24.x' ]
-                    }
+                branch: 'release/pkg',
+                githubActionsCi: {
+                    trigger: 'workflow-dispatch',
+                    workflowFile: 'ci.yml',
+                    requiredStatusContexts: [ 'Node.js v24.x' ]
                 }
             }
         );
     });
 
+    test('validates full CLI config with release pull request settings', function () {
+        const result = parseCommandLineInterfacePacktoryConfig({
+            packages: [ packageAConfig ],
+            releasePullRequest: {
+                branch: 'release/pkg',
+                githubActionsCi: {
+                    trigger: 'workflow-dispatch',
+                    workflowFile: 'ci.yml',
+                    requiredStatusContexts: [ 'Node.js v24.x' ]
+                }
+            }
+        });
+
+        assert.notStrictEqual(result, undefined);
+    });
+
     test('rejects release CI without status contexts', function () {
         assert.strictEqual(
-            parseReleasePullRequestConfigContainer({
+            parseCommandLineInterfacePacktoryConfig({
+                packages: [ packageAConfig ],
                 releasePullRequest: {
                     githubActionsCi: {
                         trigger: 'workflow-dispatch',

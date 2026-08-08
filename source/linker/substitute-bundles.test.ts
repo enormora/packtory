@@ -111,7 +111,8 @@ function substitutedEntryResult(packageName: string): unknown {
             }
         ],
         externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ])
+        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ]),
+        substitutedSourceFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
     };
 }
 
@@ -124,16 +125,25 @@ function buildEntryFooProject(): Project {
     });
 }
 
+function buildEntryFooGraph(): ResourceGraph {
+    const project = buildEntryFooProject();
+    return buildInputGraph([
+        { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
+        { source: '/foo.js', content: 'true', project }
+    ]);
+}
+
 const passthroughResult = {
     contents: [ entryWithFooImport, fooFileResult ],
     externalDependencies: new Map(),
-    linkedBundleDependencies: new Map()
+    linkedBundleDependencies: new Map(),
+    substitutedSourceFilePathsByPackageName: new Map()
 } as const;
 
 suite('substitute-bundles', function () {
     test('doesn’t substitute anything when the given dependencies are empty', function () {
         const inputGraph = buildInputGraph(entryFooSetup);
-        const substitutedGraph = substituteDependencies(inputGraph, []);
+        const substitutedGraph = substituteDependencies(inputGraph, [], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, passthroughResult);
@@ -141,7 +151,7 @@ suite('substitute-bundles', function () {
 
     test('doesn’t substitute anything when the given dependencies has only files that don’t match', function () {
         const inputGraph = buildInputGraph(entryFooSetup);
-        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('first-package', '/bar.js') ]);
+        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('first-package', '/bar.js') ], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, passthroughResult);
@@ -196,32 +206,37 @@ suite('substitute-bundles', function () {
                     mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
                     manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
                 })
-            ]);
+            ], []);
         }, /^Error: Package "hidden-package" does not expose "\/foo\.js" for cross-package substitution$/u);
     });
 
     test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', function () {
-        const project = buildEntryFooProject();
-        const inputGraph = buildInputGraph([
-            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
-            { source: '/foo.js', content: 'true', project }
-        ]);
-        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('the-package', '/foo.js') ]);
+        const inputGraph = buildEntryFooGraph();
+        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('the-package', '/foo.js') ], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, substitutedEntryResult('the-package'));
     });
 
     test('substitutes a file which matches an already substituted file from a dependency', function () {
-        const project = buildEntryFooProject();
-        const inputGraph = buildInputGraph([
-            { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
-            { source: '/foo.js', content: 'true', project }
-        ]);
-        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('first-package', '/foo.js', true) ]);
+        const inputGraph = buildEntryFooGraph();
+        const substitutedGraph = substituteDependencies(
+            inputGraph,
+            [ bundleSource('first-package', '/foo.js', true) ],
+            []
+        );
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, substitutedEntryResult('first-package'));
+    });
+
+    test('substitutes peer dependency files without carrying their source nodes forward', function () {
+        const inputGraph = buildEntryFooGraph();
+        const substitutedGraph = substituteDependencies(inputGraph, [], [ bundleSource('peer-package', '/foo.js') ]);
+        const result = substitutedGraph.flatten([ '/entry.js' ]);
+
+        assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
+        assert.deepStrictEqual(result, substitutedEntryResult('peer-package'));
     });
 
     test('substitutes multiple matching files in the given dependencies', function () {
@@ -247,7 +262,7 @@ suite('substitute-bundles', function () {
         const substitutedGraph = substituteDependencies(inputGraph, [
             bundleSource('first-package', '/bar.js'),
             bundleSource('second-package', '/baz.js')
-        ]);
+        ], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(result, {
@@ -279,6 +294,10 @@ suite('substitute-bundles', function () {
             linkedBundleDependencies: new Map([
                 [ 'first-package', { name: 'first-package', referencedFrom: [ '/foo.js' ] } ],
                 [ 'second-package', { name: 'second-package', referencedFrom: [ '/foo.js' ] } ]
+            ]),
+            substitutedSourceFilePathsByPackageName: new Map([
+                [ 'first-package', new Set([ '/bar.js' ]) ],
+                [ 'second-package', new Set([ '/baz.js' ]) ]
             ])
         });
     });
@@ -297,7 +316,7 @@ suite('substitute-bundles', function () {
             { source: '/package.json', content: '{"name":"test"}', isGeneratedManifest: true }
         ]);
 
-        const substitutedGraph = substituteDependencies(inputGraph, []);
+        const substitutedGraph = substituteDependencies(inputGraph, [], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.deepStrictEqual(

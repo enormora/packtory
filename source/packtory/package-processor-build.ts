@@ -11,6 +11,7 @@ import type { BuildOptions, ResolveAndLinkOptions } from './map-config.ts';
 
 type LinkedBundle = Awaited<ReturnType<BundleLinker['linkBundle']>>;
 type VersionedBundleWithManifest = Awaited<ReturnType<VersionManager['addVersion']>>;
+type ResolvedBundle = Awaited<ReturnType<ResourceResolver['resolve']>>;
 type MainPackageTypeField = { readonly type?: string | undefined; };
 export type ResolveAndBuildDependencies = {
     readonly deadCodeEliminator: DeadCodeEliminator;
@@ -68,21 +69,63 @@ async function analyzeOne(
 export type ResolveAndBuildOperations = {
     readonly build: (options: BuildOptions) => Promise<VersionedBundleWithManifest>;
     readonly resolveAndLink: (options: ResolveAndLinkOptions) => Promise<LinkedBundle>;
+    readonly resolveAndLinkWithPromotedDeclarationCompanions: (
+        options: ResolveAndLinkOptions,
+        substitutedSourceFilePaths: ReadonlySet<string>
+    ) => Promise<LinkedBundle>;
 };
 
 export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDependencies): ResolveAndBuildOperations {
-    async function resolveAndLink(options: ResolveAndLinkOptions): Promise<LinkedBundle> {
-        assertEsmMainPackageJson(options.mainPackageJson);
-        dependencies.progressBroadcaster.emit('resolving', { packageName: options.name });
-        const resolvedBundle = await dependencies.resourceResolver.resolve(options);
+    async function linkResolvedBundle(
+        options: ResolveAndLinkOptions,
+        resolvedBundle: ResolvedBundle
+    ): Promise<LinkedBundle> {
         maybeEmitScanCompleted(dependencies, options.name, resolvedBundle);
         dependencies.progressBroadcaster.emit('linking', { packageName: options.name });
         const linkedBundle = await dependencies.linker.linkBundle({
             bundle: resolvedBundle,
-            bundleDependencies: [ ...options.bundleDependencies, ...options.bundlePeerDependencies ]
+            bundleDependencies: options.bundleDependencies,
+            bundlePeerDependencies: options.bundlePeerDependencies
         });
         maybeEmitLinkingCompleted(dependencies, options.name, linkedBundle);
         return linkedBundle;
+    }
+
+    async function resolveAndLinkResolvedBundle(
+        options: ResolveAndLinkOptions,
+        resolveBundle: () => Promise<ResolvedBundle>
+    ): Promise<LinkedBundle> {
+        assertEsmMainPackageJson(options.mainPackageJson);
+        dependencies.progressBroadcaster.emit('resolving', { packageName: options.name });
+        return await linkResolvedBundle(options, await resolveBundle());
+    }
+
+    async function resolveAndLinkWithPromotedDeclarations(
+        options: ResolveAndLinkOptions,
+        promotedDeclarationEntryFiles: readonly string[]
+    ): Promise<LinkedBundle> {
+        return await resolveAndLinkResolvedBundle(options, async function () {
+            return await dependencies.resourceResolver.resolveWithPromotedDeclarations(
+                options,
+                promotedDeclarationEntryFiles
+            );
+        });
+    }
+
+    async function resolveAndLink(options: ResolveAndLinkOptions): Promise<LinkedBundle> {
+        return await resolveAndLinkWithPromotedDeclarations(options, []);
+    }
+
+    async function resolveAndLinkWithPromotedDeclarationCompanions(
+        options: ResolveAndLinkOptions,
+        substitutedSourceFilePaths: ReadonlySet<string>
+    ): Promise<LinkedBundle> {
+        return await resolveAndLinkResolvedBundle(options, async function () {
+            return await dependencies.resourceResolver.resolveWithPromotedDeclarationCompanions(
+                options,
+                substitutedSourceFilePaths
+            );
+        });
     }
 
     async function build(options: BuildOptions): Promise<VersionedBundleWithManifest> {
@@ -129,5 +172,5 @@ export function createResolveAndBuildOperations(dependencies: ResolveAndBuildDep
         });
     }
 
-    return { build, resolveAndLink };
+    return { build, resolveAndLink, resolveAndLinkWithPromotedDeclarationCompanions };
 }

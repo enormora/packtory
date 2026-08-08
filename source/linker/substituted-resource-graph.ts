@@ -7,6 +7,7 @@ import type { ResourceGraphNodeData } from './resource-graph.ts';
 
 type SubstitutedResourceGraphNodeData = ResourceGraphNodeData & {
     readonly bundleDependencies: readonly string[];
+    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
     readonly isSubstituted: boolean;
 };
 
@@ -43,12 +44,59 @@ type FlattenCollectors = {
     ) => void;
     readonly contents: readonly LinkedBundleResource[];
     readonly linkedBundleDependencies: ReadonlyMap<string, ExternalDependency>;
+    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
     readonly externalDependencies: ReadonlyMap<string, ExternalDependency>;
 };
+
+type MutableExternalDependencyRecord = {
+    readonly get: (key: string) => ExternalDependency | undefined;
+    readonly set: (key: string, value: ExternalDependency) => unknown;
+};
+
+function collectLinkedBundleDependencies(
+    linkedBundleDependencies: MutableExternalDependencyRecord,
+    bundleDependencies: readonly string[],
+    filePath: string
+): void {
+    for (const bundleDependencyName of bundleDependencies) {
+        const bundleDependency = linkedBundleDependencies.get(bundleDependencyName);
+        linkedBundleDependencies.set(
+            bundleDependencyName,
+            addOrCreateReference(bundleDependencyName, filePath, bundleDependency)
+        );
+    }
+}
+
+function collectSubstitutedSourceFilePaths(
+    target: ReadonlyMap<string, ReadonlySet<string>>,
+    source: ReadonlyMap<string, ReadonlySet<string>>
+): readonly (readonly [string, ReadonlySet<string>])[] {
+    const result = new Map(target);
+    for (const [ packageName, sourceFilePaths ] of source) {
+        const existing = result.get(packageName) ?? [];
+        result.set(packageName, new Set([ ...existing, ...sourceFilePaths ]));
+    }
+    return Array.from(result);
+}
+
+function collectExternalDependencies(
+    externalDependencies: MutableExternalDependencyRecord,
+    dependencyNames: readonly string[],
+    filePath: string
+): void {
+    for (const externalDependencyName of dependencyNames) {
+        const externalDependency = externalDependencies.get(externalDependencyName);
+        externalDependencies.set(
+            externalDependencyName,
+            addOrCreateReference(externalDependencyName, filePath, externalDependency)
+        );
+    }
+}
 
 function createFlattenCollectors(): FlattenCollectors {
     const contents: LinkedBundleResource[] = [];
     const linkedBundleDependencies = new Map<string, ExternalDependency>();
+    const substitutedSourceFilePathsByPackageName = new Map<string, Set<string>>();
     const externalDependencies = new Map<string, ExternalDependency>();
     const visited = new Set<string>();
 
@@ -70,24 +118,25 @@ function createFlattenCollectors(): FlattenCollectors {
             ...data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
         });
 
-        for (const bundleDependencyName of data.bundleDependencies) {
-            const bundleDependency = linkedBundleDependencies.get(bundleDependencyName);
-            linkedBundleDependencies.set(
-                bundleDependencyName,
-                addOrCreateReference(bundleDependencyName, filePath, bundleDependency)
-            );
+        collectLinkedBundleDependencies(linkedBundleDependencies, data.bundleDependencies, filePath);
+        for (
+            const [ packageName, sourceFilePaths ] of collectSubstitutedSourceFilePaths(
+                substitutedSourceFilePathsByPackageName,
+                data.substitutedSourceFilePathsByPackageName
+            )
+        ) {
+            substitutedSourceFilePathsByPackageName.set(packageName, new Set(sourceFilePaths));
         }
-
-        for (const externalDependencyName of data.externalDependencies) {
-            const externalDependency = externalDependencies.get(externalDependencyName);
-            externalDependencies.set(
-                externalDependencyName,
-                addOrCreateReference(externalDependencyName, filePath, externalDependency)
-            );
-        }
+        collectExternalDependencies(externalDependencies, data.externalDependencies, filePath);
     }
 
-    return { collect, contents, linkedBundleDependencies, externalDependencies };
+    return {
+        collect,
+        contents,
+        linkedBundleDependencies,
+        substitutedSourceFilePathsByPackageName,
+        externalDependencies
+    };
 }
 
 export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
@@ -107,7 +156,13 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
         },
 
         flatten(rootFilePaths) {
-            const { collect, contents, linkedBundleDependencies, externalDependencies } = createFlattenCollectors();
+            const {
+                collect,
+                contents,
+                linkedBundleDependencies,
+                substitutedSourceFilePathsByPackageName,
+                externalDependencies
+            } = createFlattenCollectors();
 
             for (const rootFilePath of rootFilePaths) {
                 graph.visitBreadthFirstSearch(rootFilePath, function (node) {
@@ -126,6 +181,7 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
             return {
                 contents,
                 linkedBundleDependencies,
+                substitutedSourceFilePathsByPackageName,
                 externalDependencies
             };
         }

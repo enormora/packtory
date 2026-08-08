@@ -3,6 +3,7 @@ import type { DeadCodeEliminator } from '../dead-code-eliminator/analyzed-bundle
 import type { PackageProcessor } from '../packtory/package-processor.ts';
 import type { ProgressBroadcaster } from '../packtory/packtory-results.ts';
 import type { Scheduler as PackageScheduler } from '../packtory/scheduler.ts';
+import { createLinkedBundle } from './package-processor-test-support.ts';
 
 const emptyEliminatorValue = {
     async eliminate() {
@@ -12,7 +13,10 @@ const emptyEliminatorValue = {
 
 const stubProcessorValue = {
     async resolveAndLink() {
-        return undefined;
+        return createLinkedBundle();
+    },
+    async resolveAndLinkWithPromotedDeclarationCompanions() {
+        return createLinkedBundle();
     },
     async build() {
         return undefined;

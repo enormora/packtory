@@ -239,7 +239,7 @@ suite('publish', function () {
                 });
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/foo.js').content,
-                    "import { bar } from 'second/bar.js';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
+                    "import { bar } from 'second';\nexport const foo = 'foo';\n//# sourceMappingURL=foo.js.map\n"
                 );
                 assert.strictEqual(
                     getPublishedFile(publishedPackage, 'package/entry3.d.ts').content,

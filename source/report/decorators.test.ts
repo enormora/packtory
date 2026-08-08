@@ -32,15 +32,19 @@ type PackageFailedPayload = {
     readonly stage: string;
 };
 
+function processorMethod<TMethod>(override: TMethod | undefined): TMethod {
+    return override ?? (fake.resolves({}) as TMethod);
+}
+
 function createPlainProcessor(overrides: Partial<PackageProcessor> = {}): PackageProcessor {
     return {
-        resolveAndLink: overrides.resolveAndLink ??
-            fake.resolves({} as never),
-        build: overrides.build ?? fake.resolves({} as never),
-        buildAndPublish: overrides.buildAndPublish ??
-            fake.resolves({} as never),
-        tryBuildAndPublish: overrides.tryBuildAndPublish ??
-            fake.resolves({} as never)
+        resolveAndLink: processorMethod(overrides.resolveAndLink),
+        resolveAndLinkWithPromotedDeclarationCompanions: processorMethod(
+            overrides.resolveAndLinkWithPromotedDeclarationCompanions
+        ),
+        build: processorMethod(overrides.build),
+        buildAndPublish: processorMethod(overrides.buildAndPublish),
+        tryBuildAndPublish: processorMethod(overrides.tryBuildAndPublish)
     };
 }
 
@@ -75,19 +79,39 @@ function expectPayload(received: readonly StagePayload[]): StagePayload {
 }
 
 function registerStageTimingTests(): void {
-    test('withStageTimings emits a stageTimed event on resolveAndLink', async function () {
+    test('withStageTimings emits stageTimed events for resolveAndLink operations', async function () {
         const { broadcaster, received } = createStagePayloadCollector();
+        const promotedSentinel = { sentinel: 'promoted-resolve' };
 
-        const wrapped = withStageTimings(createPlainProcessor(), broadcaster.provider);
+        const wrapped = withStageTimings(
+            createPlainProcessor({
+                resolveAndLinkWithPromotedDeclarationCompanions: fake.resolves(
+                    promotedSentinel
+                ) as unknown as PackageProcessor['resolveAndLinkWithPromotedDeclarationCompanions']
+            }),
+            broadcaster.provider
+        );
         await wrapped.resolveAndLink({ name: 'pkg-a' } as unknown as Parameters<PackageProcessor['resolveAndLink']>[0]);
+        const promotedResult = await wrapped.resolveAndLinkWithPromotedDeclarationCompanions(
+            { name: 'pkg-b' } as unknown as Parameters<
+                PackageProcessor['resolveAndLinkWithPromotedDeclarationCompanions']
+            >[0],
+            new Set([ '/src/feature.js' ])
+        );
 
-        assert.strictEqual(received.length, 1);
-        const payload = expectPayload(received);
-        assert.partialDeepStrictEqual(payload, {
+        assert.strictEqual(received.length, 2);
+        assert.partialDeepStrictEqual(received[0], {
             packageName: 'pkg-a',
             stage: 'resolveAndLink'
         });
-        assert.ok(typeof payload.durationMs === 'number' && payload.durationMs >= 0);
+        assert.partialDeepStrictEqual(received[1], {
+            packageName: 'pkg-b',
+            stage: 'resolveAndLink'
+        });
+        assert.ok(received.every(function (payload) {
+            return typeof payload.durationMs === 'number' && payload.durationMs >= 0;
+        }));
+        assert.strictEqual(promotedResult, promotedSentinel);
     });
 
     test('withStageTimings emits stage "publish" for buildAndPublish using buildOptions.name', async function () {

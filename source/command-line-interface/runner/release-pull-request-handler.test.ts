@@ -175,6 +175,21 @@ suite('release-pull-request-handler', function () {
                 assert.strictEqual(log.lastCall.args[0], 'The loaded config is invalid for release PR management');
             });
 
+            test('maintain rejects non-object pr-log settings', async function () {
+                const { dependencies, log } = createDependencies({
+                    configLoader: {
+                        load: fake.resolves({
+                            ...createReleasePullRequestConfig(),
+                            changelog: { prLog: null }
+                        })
+                    },
+                    flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined }
+                });
+
+                assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
+                assert.strictEqual(log.lastCall.args[0], 'The loaded config is invalid for release PR management');
+            });
+
             test('maintain creates an unauthenticated GitHub client when no token is set', async function () {
                 const createReleasePullRequestGitHubClient = fake.returns(createReleasePullRequestClient({}));
                 const { dependencies } = createDependencies({

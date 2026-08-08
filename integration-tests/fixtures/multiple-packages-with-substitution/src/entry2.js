@@ -1,2 +1,2 @@
-import { bar } from './bar.js';
+export { bar } from './bar.js';
 //# sourceMappingURL=entry2.js.map

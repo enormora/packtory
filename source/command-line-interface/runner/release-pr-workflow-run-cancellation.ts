@@ -77,7 +77,7 @@ function releasePullRequestRunNeedsApproval(run: RawWorkflowRun, headSha: string
 
 export async function cancelActiveDispatchedWorkflowRuns(
     input: CancelActiveDispatchedWorkflowRunsInput
-): Promise<void> {
+): Promise<readonly number[]> {
     const response = await resolveGitHubResponse(
         input.listWorkflowRuns({
             ...input.requestContext,
@@ -101,6 +101,7 @@ export async function cancelActiveDispatchedWorkflowRuns(
             })
         );
     }
+    return activeRunIds;
 }
 
 export async function deleteActionRequiredPullRequestRuns(

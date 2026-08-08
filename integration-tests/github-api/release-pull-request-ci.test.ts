@@ -77,12 +77,19 @@ function workflowRunsBody(requests: readonly DeterministicGitHubApiRequest[]): R
         status: 'in_progress',
         workflow_id: 101
     };
-    if (workflowRunsAfterDispatch(requests) < 2) {
+    const canceledOldRun = { ...oldRun, conclusion: 'cancelled', status: 'completed' };
+    if (countRequests(requests, 'POST', staleRunCancelPath) === 0) {
         return { workflow_runs: [ oldRun ] };
+    }
+    if (dispatchIndex(requests) === -1) {
+        return { workflow_runs: [ canceledOldRun ] };
+    }
+    if (workflowRunsAfterDispatch(requests) < 2) {
+        return { workflow_runs: [ canceledOldRun ] };
     }
     return {
         workflow_runs: [
-            oldRun,
+            canceledOldRun,
             {
                 database_id: 8,
                 event: 'workflow_dispatch',
@@ -373,7 +380,7 @@ suite('release-pull-request-ci GitHub API integration', function () {
 
             assert.strictEqual(countRequests(server.requests(), 'POST', staleRunCancelPath), 1);
             assert.strictEqual(countRequests(server.requests(), 'POST', dispatchPath), 1);
-            assert.strictEqual(countRequests(server.requests(), 'GET', workflowRunsPath), 4);
+            assert.strictEqual(countRequests(server.requests(), 'GET', workflowRunsPath), 5);
             assert.deepStrictEqual(
                 statusesFor(server.requests(), 'Node.js v24.x').map(function (status) {
                     return {

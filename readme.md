@@ -112,7 +112,7 @@ npx packtory release --publish --tag --push --github-release --no-dry-run
 
 Release PR commits are authored through the GitHub credential from `GH_TOKEN` or `GITHUB_TOKEN`, so GitHub can mark them verified when the credential supports signed API commits. This allows release PRs to merge into branches that require signed commits without local Git signing setup.
 
-The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory dispatches the configured workflow on the release branch, waits for the fresh run, and mirrors the configured job names back as commit statuses. Leave it unset when your release branch update already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human update, or another CI system.
+The optional `releasePullRequest.githubActionsCi` config enables the GitHub Actions `GITHUB_TOKEN` workaround: Packtory cancels stale dispatched runs, dispatches the configured workflow on the release branch, waits for the fresh run, and mirrors the configured job names back as commit statuses. Leave it unset when your release branch update already triggers normal PR or push workflows, for example through a GitHub App token, a PAT, a human update, or another CI system.
 
 For more details about the CLI application have a look at the [full documentation](./source/packages/command-line-interface/readme.md).
 
@@ -277,6 +277,7 @@ The configuration for `packtory` is an object with the following properties:
      - A map of root ids to source files, e.g. `{ main: { js: 'file.js', declarationFile: 'file.d.ts' } }`.
      - `js` is required. `declarationFile` is optional.
      - Roots seed scanning, linking, and dead-code analysis. They are internal build anchors, not automatically the full published API.
+     - On bin-only packages, `declarationFile` can describe package-level types for TypeScript annotations such as `import("pkg").Type`; it does not make the bin a runtime module API.
 
    - **`defaultModuleRoot`** (Optional in single-root packages, required in implicit multi-root packages):
      - Selects which root becomes the package root export `"."` when `packageInterface` is not configured.
@@ -285,6 +286,7 @@ The configuration for `packtory` is an object with the following properties:
      - Switches packtory into explicit package-surface mode.
      - `modules` declares the published module exports with `{ root, export }`.
      - `bins` declares published executables with `{ root, name }`.
+     - Packages with `bins` and no `modules` are supported as bin-only packages. If their bin root has a `declarationFile`, packtory emits a type-only `"."` export.
      - If omitted, packtory derives `exports` implicitly from roots and cross-package substitution needs.
 
    - **`includeSourceMapFiles`** (Optional, Boolean, Default: `false`):
@@ -358,6 +360,7 @@ Checks the emitted package contents and generated `package.json`, before publish
 - **Top-level:** `enabled: boolean`, `declarations?: 'all' | 'exports-graph'`.
 - **Per-package:** `{}`.
 - If `declarations` is omitted, packtory checks every packaged declaration file. Use `exports-graph` to check only declaration files reachable from package export declarations.
+- Untyped bin-only packages do not need TypeScript declarations. Typed bin-only packages run declaration integrity checks without runtime package-resolution analysis.
 
 ### `noDuplicatedFiles`
 

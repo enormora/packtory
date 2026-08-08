@@ -54,7 +54,7 @@ suite('package-processor', function () {
         const result = await processor.resolveAndLink(options);
 
         assert.strictEqual(result, linkedBundle);
-        assert.deepStrictEqual(resolve.firstCall.args, [ options ]);
+        assert.deepStrictEqual(resolve.firstCall.args, [ options, [] ]);
         assert.deepStrictEqual(linkBundle.firstCall.args, [
             {
                 bundle: {
@@ -64,7 +64,8 @@ suite('package-processor', function () {
                     surface: { mode: 'implicit', defaultModuleRoot: 'main' },
                     externalDependencies: new Map()
                 },
-                bundleDependencies: [ ...options.bundleDependencies, ...options.bundlePeerDependencies ]
+                bundleDependencies: options.bundleDependencies,
+                bundlePeerDependencies: options.bundlePeerDependencies
             }
         ]);
         assert.deepStrictEqual(getCallArgs(emit), [

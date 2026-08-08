@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import type { PackageConfig, PacktoryConfigWithoutRegistry } from '../../config/config.ts';
 import { buildPackageGraph } from '../../config/package-graph-builder.ts';
 import type { ValidConfigWithoutRegistryResult } from '../../config/validation.ts';
+import type { LinkedBundle } from '../../linker/linked-bundle.ts';
 import { createProgressBroadcaster } from '../../progress/progress-broadcaster.ts';
 import {
     createIteratingScheduler as iteratingScheduler,
@@ -21,6 +22,10 @@ type InputsResolvedPayload = {
     readonly roots: Readonly<Record<string, string>>;
     readonly sourceFileCount: number;
     readonly siblingVersions: Readonly<Record<string, string>>;
+};
+
+type ResolutionInput = {
+    readonly name: string;
 };
 
 function packageConfig(name: string): PackageConfig {
@@ -57,6 +62,25 @@ function emptyConfig(): ValidConfigWithoutRegistryResult {
 
 function configWithPackage(name: string): ValidConfigWithoutRegistryResult {
     return configWithoutRegistry([ packageConfig(name) ]);
+}
+
+function linkedBundle(
+    name: string,
+    substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>
+): LinkedBundle {
+    return {
+        name,
+        contents: [],
+        roots: {
+            main: {
+                js: { content: '', isExecutable: false, sourceFilePath: '/src/index.js', targetFilePath: 'index.js' }
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+        linkedBundleDependencies: new Map(),
+        substitutedSourceFilePathsByPackageName,
+        externalDependencies: new Map()
+    };
 }
 
 suite('package-resolution-stage', function () {
@@ -120,6 +144,65 @@ suite('package-resolution-stage', function () {
         );
 
         assert.strictEqual(capture.emitScheduledEvents, true);
+    });
+
+    test('resolvePackages reruns resolution with promoted source paths after substitutions are observed', async function () {
+        const promotionCalls: {
+            readonly packageName: string;
+            readonly sourceFilePaths: ReadonlySet<string>;
+        }[] = [];
+        let resolveAndLinkCallCount = 0;
+        async function resolveAndLink(options: ResolutionInput): Promise<LinkedBundle> {
+            resolveAndLinkCallCount += 1;
+            const substitutions = options.name === 'pkg-b'
+                ? new Map([ [ 'pkg-a', new Set([ '/src/pkg-a/internal.js' ]) ] ])
+                : new Map();
+            return linkedBundle(options.name, substitutions);
+        }
+
+        await resolvePackages(
+            {
+                packageProcessor: {
+                    ...stubPackageProcessor,
+                    resolveAndLink,
+                    async resolveAndLinkWithPromotedDeclarationCompanions(options, sourceFilePaths) {
+                        promotionCalls.push({ packageName: options.name, sourceFilePaths });
+                        return linkedBundle(options.name, new Map());
+                    }
+                },
+                scheduler: iteratingScheduler([ 'pkg-a', 'pkg-b' ]),
+                progressBroadcaster: stubProgressBroadcaster
+            },
+            configWithoutRegistry([ packageConfig('pkg-a'), packageConfig('pkg-b') ])
+        );
+
+        assert.strictEqual(resolveAndLinkCallCount, 3);
+        assert.deepStrictEqual(promotionCalls, [
+            { packageName: 'pkg-a', sourceFilePaths: new Set([ '/src/pkg-a/internal.js' ]) }
+        ]);
+    });
+
+    test('resolvePackages does not rerun resolution for empty substitution records', async function () {
+        let resolveAndLinkCallCount = 0;
+        async function resolveAndLink(options: ResolutionInput): Promise<LinkedBundle> {
+            resolveAndLinkCallCount += 1;
+            const substitutions = new Map([ [ 'pkg-a', new Set<string>() ] ]);
+            return linkedBundle(options.name, substitutions);
+        }
+
+        await resolvePackages(
+            {
+                packageProcessor: {
+                    ...stubPackageProcessor,
+                    resolveAndLink
+                },
+                scheduler: iteratingScheduler([ 'pkg-a' ]),
+                progressBroadcaster: stubProgressBroadcaster
+            },
+            configWithPackage('pkg-a')
+        );
+
+        assert.strictEqual(resolveAndLinkCallCount, 1);
     });
 
     test('resolvePackages emits resolveAndLink package failures to subscribers', async function () {

@@ -223,7 +223,7 @@ suite('substitute-bundles', function () {
                 function (importCount, replacementFlags) {
                     const scenario = createSubstitutionScenario(importCount, replacementFlags);
                     const graph = createSubstitutionGraph(scenario.importPaths);
-                    const substituted = substituteDependencies(graph, scenario.bundleDependencies);
+                    const substituted = substituteDependencies(graph, scenario.bundleDependencies, []);
                     const result = substituted.flatten([ '/entry.js' ]);
 
                     assertSubstitutionResult({ result, ...scenario });
