@@ -52,6 +52,7 @@ export async function buildConfig() {
             }
         },
         checks: {
+            typeScriptIntegrity: { enabled: true, declarations: 'all' },
             noDuplicatedFiles: { enabled: true, allowList: [ sharedLicensePath ] },
             requiredFiles: { enabled: true, files: [ 'LICENSE', 'readme.md' ] },
             maxBundleSize: { enabled: true, bytes: 1_050_000 },
