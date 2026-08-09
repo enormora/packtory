@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { applyRemovalPlan, type PositionAtom } from './declaration-remover.ts';
+import { applyRemovalPlan } from './declaration-remover.ts';
+import type { PositionAtom } from './atom-translator.ts';
 
 type TransformResult = {
     readonly text: string;
@@ -93,12 +94,12 @@ suite('declaration-remover', function () {
             assert.strictEqual(text.includes('LiveInterface'), true);
         });
 
-        test('does not affect imports, exports, or other non-declaration statements', function () {
+        test('repairs imports but does not affect re-exports or other non-declaration statements', function () {
             const content = [ 'import { x } from "./other";', 'export { something } from "./other";' ].join('\n');
             const { text, mutated } = transform(content, new Set<string>());
-            assert.strictEqual(text.includes('import'), true);
+            assert.strictEqual(text.includes('import "./other";'), true);
             assert.strictEqual(text.includes('export'), true);
-            assert.strictEqual(mutated, false);
+            assert.strictEqual(mutated, true);
         });
 
         test('returns true if any statement was mutated', function () {
@@ -124,9 +125,12 @@ suite('declaration-remover', function () {
             assert.strictEqual(atoms.length, 1);
         });
 
-        test('captures one atom per surviving variable declarator when at least one is removed', function () {
+        test('captures atoms that map surviving variable text when at least one declarator is removed', function () {
             const { atoms } = transform('export const a = 1, b = 2;', new Set([ 'a' ]));
-            assert.strictEqual(atoms.length, 1);
+            assert.deepStrictEqual(atoms, [
+                { originalStart: 0, originalEnd: 18, newStart: 0 },
+                { originalStart: 25, originalEnd: 26, newStart: 18 }
+            ]);
         });
 
         test('captures a single atom covering the whole variable statement when every declarator survives', function () {
@@ -139,21 +143,136 @@ suite('declaration-remover', function () {
     });
 
     suite('source map atom capture', function () {
-        test('captures an atom for non-declaration top-level statements (imports, re-exports)', function () {
+        test('captures atoms for non-declaration top-level statements (imports, re-exports)', function () {
             const content = [ 'import { x } from "./other";', 'export { something } from "./other";' ].join('\n');
-            const { atoms } = transform(content, new Set<string>());
-            assert.strictEqual(atoms.length, 2);
+            const { atoms } = transform(content, new Set([ 'x' ]));
+            assert.ok(atoms.length > 0);
         });
 
         test('captures atoms whose newStart reflects the post-removal position', function () {
             const { atoms } = transform('function dead() {}\nexport function live() {}', new Set([ 'live' ]));
-            assert.strictEqual(atoms.length, 1);
-            const [ atom ] = atoms;
+            const atom = atoms.find(function (entry) {
+                return entry.originalStart === 20;
+            });
             assertDefined(atom);
             assert.partialDeepStrictEqual(atom, {
-                originalStart: 19,
-                newStart: 0
+                originalStart: 20,
+                newStart: 1
             });
+        });
+    });
+
+    suite('runtime import repair', function () {
+        test('removes dead named imports while preserving live named imports', function () {
+            const { text } = transform(
+                'import { live, dead } from "./other";\nexport const api = live;',
+                new Set([ 'live', 'api' ])
+            );
+
+            assert.strictEqual(text.includes('live'), true);
+            assert.strictEqual(text.includes('dead'), false);
+            assert.strictEqual(text.includes('import { live } from "./other";'), true);
+        });
+
+        test('repairs default, namespace, named, and aliased imports', function () {
+            const { text } = transform(
+                [
+                    'import defaultBinding, { dead, source as alias } from "./named";',
+                    'import * as namespaceBinding from "./namespace";',
+                    'export const api = [defaultBinding, alias, namespaceBinding];'
+                ]
+                    .join('\n'),
+                new Set([ 'defaultBinding', 'alias', 'namespaceBinding', 'api' ])
+            );
+
+            assert.strictEqual(
+                text,
+                [
+                    'import defaultBinding, { source as alias } from "./named";',
+                    'import * as namespaceBinding from "./namespace";',
+                    'export const api = [defaultBinding, alias, namespaceBinding];'
+                ]
+                    .join('\n')
+            );
+            assert.strictEqual(text.includes('dead'), false);
+        });
+
+        test('converts all-dead runtime imports to bare imports', function () {
+            const { text } = transform('import defaultBinding, { dead } from "./other";\n', new Set<string>());
+
+            assert.strictEqual(text, 'import "./other";\n');
+        });
+
+        test('converts all-dead default imports to bare imports', function () {
+            const { text } = transform('import defaultBinding from "./other";\n', new Set<string>());
+
+            assert.strictEqual(text, 'import "./other";\n');
+        });
+
+        test('converts all-dead namespace imports to bare imports', function () {
+            const { text } = transform('import * as namespaceBinding from "./other";\n', new Set<string>());
+
+            assert.strictEqual(text, 'import "./other";\n');
+        });
+
+        test('preserves leading trivia when converting a runtime import to a bare import', function () {
+            const { text } = transform('// lead\nimport dead from "./other";\n', new Set<string>());
+
+            assert.strictEqual(text, '// lead\nimport "./other";\n');
+        });
+
+        test('leaves bare imports unchanged', function () {
+            const { text, mutated } = transform('import "./other";\n', new Set<string>());
+
+            assert.strictEqual(text, 'import "./other";\n');
+            assert.strictEqual(mutated, false);
+        });
+    });
+
+    suite('type-only import repair', function () {
+        test('removes stale type-only imports', function () {
+            const { text } = transform(
+                'import type { Dead } from "./types";\nexport const api = 1;',
+                new Set([ 'api' ])
+            );
+
+            assert.strictEqual(text, 'export const api = 1;');
+        });
+
+        test('removes stale inline type-only imports', function () {
+            const { text } = transform('import { type Dead } from "./types";\ntype Local = Dead;', new Set<string>());
+
+            assert.strictEqual(text, 'export {};\n');
+        });
+
+        test('inserts a module marker when the last type-only import is removed', function () {
+            const { text } = transform('import type { Dead } from "./types";\ntype Local = Dead;', new Set<string>());
+
+            assert.strictEqual(text, 'export {};\n');
+        });
+
+        test('inserts a module marker before a surviving non-export statement', function () {
+            const { text } = transform('import type { Dead } from "./types";\nfoo;', new Set<string>());
+
+            assert.strictEqual(text, 'export {};\nfoo;');
+        });
+
+        test('does not insert a module marker when an export declaration remains', function () {
+            const { text } = transform(
+                'import type { Dead } from "./types";\nexport { live } from "./live";',
+                new Set<string>()
+            );
+
+            assert.strictEqual(text, 'export { live } from "./live";');
+        });
+
+        test('does not insert a module marker when an export assignment remains', function () {
+            const { text } = transform(
+                'import type { Dead } from "./types";\nexport default 1;',
+                new Set<string>()
+            );
+
+            assert.strictEqual(text, 'export default 1;');
         });
     });
 });

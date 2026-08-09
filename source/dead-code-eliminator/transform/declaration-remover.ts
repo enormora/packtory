@@ -1,15 +1,9 @@
 import type { SourceFile } from 'ts-morph';
-import { processStatement } from './declaration-removal.ts';
-import { captureSurvivorsForStatement } from './survivor-capture.ts';
+import { buildTextTransformMap, type PositionAtom } from './atom-translator.ts';
+import { processStatement, repairImportDeclarations } from './declaration-removal.ts';
 
 export type RemovalPlan = {
     readonly survivingNames: ReadonlySet<string>;
-};
-
-export type PositionAtom = {
-    readonly originalStart: number;
-    readonly originalEnd: number;
-    readonly newStart: number;
 };
 
 export type RemovalResult = {
@@ -18,22 +12,17 @@ export type RemovalResult = {
 };
 
 export function applyRemovalPlan(sourceFile: SourceFile, plan: RemovalPlan): RemovalResult {
+    const originalCode = sourceFile.getFullText();
     const statements = sourceFile.getStatements();
-    const survivors = statements.flatMap(function (statement) {
-        return captureSurvivorsForStatement(statement, plan.survivingNames);
-    });
     let mutated = false;
     for (const statement of statements) {
         if (processStatement(statement, plan.survivingNames)) {
             mutated = true;
         }
     }
-    const atoms = survivors.map(function (survivor) {
-        return {
-            originalStart: survivor.originalStart,
-            originalEnd: survivor.originalEnd,
-            newStart: survivor.node.getStart()
-        };
-    });
-    return { mutated, atoms };
+    if (repairImportDeclarations(sourceFile, plan.survivingNames)) {
+        mutated = true;
+    }
+    const transformedCode = sourceFile.getFullText();
+    return { mutated, atoms: buildTextTransformMap(originalCode, transformedCode).atoms };
 }
