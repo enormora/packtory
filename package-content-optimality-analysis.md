@@ -10,7 +10,7 @@ Stage model:
 
 - Resource resolver scans JavaScript roots, declared `.d.ts` roots, promoted declaration companions, static imports, dynamic literal imports, `import.meta.resolve()`, local `.json`, local `.wasm`, generated `package.json`, and opted-in source maps. Code membership is source-relative under `sourcesFolder`; explicit `additionalFiles` are appended after local graph files.
 - Linker rewrites direct references to configured bundle dependencies, removes files owned by substituted bundles, and roots declaration companions for non-substituted bundled JavaScript files.
-- DCE computes reachable top-level bindings, transforms code files with no detected top-level side effects, and recomputes dependency maps from the transformed code. It currently preserves every input resource.
+- DCE computes reachable top-level bindings, transforms code files with no detected top-level side effects, prunes pure dead runtime code files and paired maps, and recomputes dependency maps from the transformed surviving code.
 - Version manager builds `exports`, `bin`, `imports`, `dependencies`, `peerDependencies`, `sideEffects`, `type`, and the generated `package.json`.
 - Artifact collection emits the generated manifest once, all non-generated bundle contents, explicit extra files, vendored entries, and executable bin mode.
 
@@ -52,11 +52,11 @@ The emitted package should contain:
 ### Dead-Code Elimination
 
 - **Addressed:** Dead import specifiers are repaired during DCE. Runtime imports with no surviving specifiers are preserved as bare imports, stale type-only imports are removed, and module status is preserved with `export {};` when needed.
-- **Non-optimal:** DCE is symbol-level, not file-level. The `dead-local-import` probe emitted `b.js` as an empty file after the only importing binding was removed. The `pure-empty-file` probe emitted empty `pure.js`.
+- **Addressed:** DCE prunes pure runtime code files that have no surviving behavior and are no longer reached by surviving imports. Paired maps are pruned with their removed code file.
 - **Addressed:** Dependency metadata is recomputed after DCE. Dead external imports no longer generate stale `dependencies` or `peerDependencies`.
 - **Addressed:** Dead sibling dynamic imports no longer manifest stale linked bundle dependencies or substituted source-path records.
 - **Conservative justified:** Side-effecting files stay untouched. The `side-effecting-file` probe kept `side.js` and generated `sideEffects: ["./side.js"]`.
-- **Unknown:** A non-root transitive side-effecting file imported only through a dead binding needs a focused fixture. A correct file-pruning pass must retain it if its module evaluation can still occur or if purity is not proven.
+- **Addressed:** Non-root side-effecting files are retained even when no public root reaches them, because their module evaluation is not proven removable.
 
 ### Manifest Generation
 
@@ -77,9 +77,9 @@ The emitted package should contain:
 
 | Scenario                                                              | Result                                                        | Classification                                                         | Evidence                                   |
 | --------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------ |
-| Dead binding in file A is the only importer of file B                 | `b.js` emitted empty                                          | Non-optimal                                                            | `dead-local-import` probe                  |
+| Dead binding in file A is the only importer of file B                 | `b.js` pruned                                                 | Addressed                                                              | DCE resource pruning tests                 |
 | Dead code is the only importer of an external package                 | External dependency metadata removed                          | Addressed                                                              | DCE dependency metadata tests              |
-| Pure file has no surviving bindings after DCE                         | `pure.js` emitted empty                                       | Non-optimal                                                            | `pure-empty-file` probe                    |
+| Pure file has no surviving bindings after DCE                         | `pure.js` pruned unless it is a root or explicit resource     | Addressed                                                              | DCE resource pruning tests                 |
 | DCE-dead sibling import should not seed or manifest bundle dependency | Linked dependency metadata removed                            | Addressed                                                              | DCE dependency metadata tests              |
 | Typed root `.d.ts` graph is retained                                  | `entry.d.ts` and `types.d.ts` emitted                         | Contract-optimal                                                       | `typed-root` probe                         |
 | JS-only package with companion declarations does not ship them        | `a.d.ts` not emitted                                          | Contract-optimal                                                       | `js-only-companion` probe                  |
@@ -106,11 +106,9 @@ The emitted package should contain:
    - Implemented: DCE rebuilds `directDependencies`, `externalDependencies`, `linkedBundleDependencies`, and substituted source path maps from surviving static imports, re-exports, dynamic literal imports, and `import.meta.resolve()` calls.
    - Covered by unit tests for dead and surviving local, external, sibling, type-only, runtime bare, disabled-DCE, and `import.meta.resolve()` cases, plus an integration fixture for dead external and sibling imports.
 
-3. **Add file-level pruning after symbol DCE.**
-   - Impact: high byte impact. Removes empty pure files and their paired maps.
-   - Fix shape: traverse from public roots, private runtime roots, explicit resources, generated manifest resources, surviving import edges, retained side-effect edges, and typed roots. Drop pure code files with no surviving behavior and drop their source maps.
-   - False-drop risk: high. Must preserve files whose module evaluation is required even if no binding survives.
-   - Proof gaps: add fixtures for empty pure files, dead local imports, source-map pair removal, reachable assets, assets reached only from dead code, and transitive side-effect files.
+3. **Addressed: prune pure runtime code files after symbol DCE.**
+   - Implemented: DCE traverses from public roots, explicit resources, generated manifests, declarations, assets, surviving dependency edges, files with surviving runtime behavior, and side-effecting files. Pure runtime code files outside that retained set are dropped with their paired maps.
+   - Covered by unit tests for dead local imports, paired map removal, empty root preservation, surviving bare imports, side-effecting files, and disabled transformations, plus an integration fixture for a dead local import.
 
 4. **Preserve explicit `additionalFiles` across bundle substitution ownership.**
    - Impact: medium correctness impact for real packages. Fixes the missing `LICENSE` in `@packtory/github-release-gate` and `@packtory/cli`.

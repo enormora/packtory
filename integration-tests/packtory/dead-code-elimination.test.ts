@@ -80,6 +80,12 @@ function mapKeys(map: ReadonlyMap<string, unknown>): readonly string[] {
     return Array.from(map.keys());
 }
 
+function targetPaths(resolvedPackage: ResolvedPackage): readonly string[] {
+    return resolvedPackage.analyzedBundle.contents.map(function (resource) {
+        return resource.fileDescription.targetFilePath;
+    });
+}
+
 function findResource(
     resolvedPackage: ResolvedPackage,
     targetFilePath: string
@@ -148,6 +154,16 @@ suite('dead-code-elimination', function () {
 
         assert.strictEqual(entry.fileDescription.content.includes('unused'), false);
         assert.strictEqual(await runEmittedPackageApi(resolvedPackage, 'pkg/index.js'), 'helper-used-result');
+    });
+
+    test('prunes pure files reached only by code removed by DCE', async function () {
+        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination');
+        const config = await singlePackageConfig(fixturePath);
+        const result = await resolveAndLinkAll(config);
+        const packages = expectOk(result);
+        const resolvedPackage = findPackage(packages, 'pkg');
+
+        assert.strictEqual(targetPaths(resolvedPackage).includes('dead-local.js'), false);
     });
 
     test('keeps a side-effecting file untouched and lists it in sideEffectsField', async function () {
