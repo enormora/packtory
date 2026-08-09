@@ -6,6 +6,44 @@ import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
 
+type BuiltPackage = Awaited<ReturnType<typeof packageProcessor.build>>;
+type SharedAdditionalFileSubstitutionFixture = {
+    readonly sourcesFolder: string;
+    readonly licenseSourcePath: string;
+    readonly mainPackageJson: Awaited<ReturnType<typeof loadPackageJson>>;
+};
+
+async function loadSharedAdditionalFileSubstitutionFixture(): Promise<SharedAdditionalFileSubstitutionFixture> {
+    const fixture = path.join(process.cwd(), 'integration-tests/fixtures/shared-additional-file-substitution');
+    return {
+        sourcesFolder: path.join(fixture, 'src'),
+        licenseSourcePath: path.join(fixture, 'LICENSE'),
+        mainPackageJson: await loadPackageJson(fixture)
+    };
+}
+
+async function buildSharedLicensePackage(
+    fixture: SharedAdditionalFileSubstitutionFixture,
+    packageName: string,
+    rootFileName: string,
+    bundleDependencies: readonly BuiltPackage[]
+): Promise<BuiltPackage> {
+    return packageProcessor.build({
+        name: packageName,
+        version: '1.0.0',
+        sourcesFolder: fixture.sourcesFolder,
+        roots: { main: { js: path.join(fixture.sourcesFolder, rootFileName) } },
+        mainPackageJson: fixture.mainPackageJson,
+        includeSourceMapFiles: false,
+        additionalFiles: [ { sourceFilePath: fixture.licenseSourcePath, targetFilePath: 'LICENSE' } ],
+        bundleDependencies,
+        bundlePeerDependencies: [],
+        additionalPackageJsonAttributes: {},
+        allowMutableSpecifiers: [],
+        deadCodeElimination: { enabled: false }
+    });
+}
+
 suite('additional-files', function () {
     test('includes additional files in the bundle contents', async function () {
         const fixture = path.join(process.cwd(), 'integration-tests/fixtures/additional-files');
@@ -100,5 +138,29 @@ suite('additional-files', function () {
                 typesMainFile: undefined
             })
         );
+    });
+
+    test('keeps shared additional files when another package substitutes bundle dependency sources', async function () {
+        const fixture = await loadSharedAdditionalFileSubstitutionFixture();
+        const producerBundle = await buildSharedLicensePackage(fixture, 'producer', 'producer.js', []);
+        const consumerBundle = await buildSharedLicensePackage(fixture, 'consumer', 'consumer.js', [ producerBundle ]);
+        const consumerLicense = consumerBundle.contents.find(function (content) {
+            return content.fileDescription.targetFilePath === 'LICENSE';
+        });
+        const substitutedSharedSource = consumerBundle.contents.find(function (content) {
+            return content.fileDescription.sourceFilePath === path.join(fixture.sourcesFolder, 'shared.js');
+        });
+
+        assert.notStrictEqual(consumerLicense, undefined);
+        assert.partialDeepStrictEqual(consumerLicense, {
+            fileDescription: {
+                content: 'Shared license text.\n',
+                isExecutable: false,
+                sourceFilePath: fixture.licenseSourcePath,
+                targetFilePath: 'LICENSE'
+            },
+            isExplicitlyIncluded: true
+        });
+        assert.strictEqual(substitutedSharedSource, undefined);
     });
 });
