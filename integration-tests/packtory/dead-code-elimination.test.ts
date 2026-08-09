@@ -76,6 +76,10 @@ function findPackage(packages: readonly ResolvedPackage[], name: string): Resolv
     return match;
 }
 
+function mapKeys(map: ReadonlyMap<string, unknown>): readonly string[] {
+    return Array.from(map.keys());
+}
+
 function findResource(
     resolvedPackage: ResolvedPackage,
     targetFilePath: string
@@ -105,6 +109,16 @@ function assertSharedDeclarationIssue(
     }
     assert.ok(issue.includes('shared/util.js'));
     assert.ok(issue.includes('"sharedValue"'), 'message should name the shared declaration');
+}
+
+function assertDeadDependencyMetadataRemoved(consumer: ResolvedPackage): void {
+    const entry = findResource(consumer, 'pkg-consumer/index.js');
+
+    assert.strictEqual(entry.fileDescription.content.includes('common-tags'), false);
+    assert.strictEqual(entry.fileDescription.content.includes('pkg-producer'), false);
+    assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.externalDependencies), []);
+    assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.linkedBundleDependencies), []);
+    assert.deepStrictEqual(mapKeys(consumer.analyzedBundle.substitutedSourceFilePathsByPackageName), []);
 }
 
 suite('dead-code-elimination', function () {
@@ -168,6 +182,19 @@ suite('dead-code-elimination', function () {
             false,
             'unconsumedExport should be removed since neither pkg-producer entry nor pkg-consumer references it'
         );
+    });
+
+    test('removes metadata for external and sibling imports removed by DCE', async function () {
+        const fixturePath = path.join(
+            process.cwd(),
+            'integration-tests/fixtures/dead-code-elimination-dead-dependencies'
+        );
+        const config = await consumerProducerConfig(fixturePath);
+        const result = await resolveAndLinkAll(config);
+        const packages = expectOk(result);
+        const consumer = findPackage(packages, 'pkg-consumer');
+
+        assertDeadDependencyMetadataRemoved(consumer);
     });
 
     test('the smart noDuplicatedFiles rule reports shared declarations using symbol names', async function () {

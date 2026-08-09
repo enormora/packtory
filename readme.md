@@ -473,6 +473,7 @@ Within each bundle, the analyzer:
 3. Walks the symbol graph (TypeScript-compiler-backed reference resolution, so shadowing and import aliases resolve correctly) until no new reachable bindings are found.
 4. Removes every top-level named declaration whose name is not in the reachable set. For combined `const a = 1, b = 2;` declarations, only the dead declarators are removed; the surviving ones stay in place.
 5. Repairs import declarations in transformed files. Dead default, namespace, named, and aliased import bindings are removed. Runtime imports with no surviving specifiers become bare imports so module evaluation is preserved. Type-only imports with no surviving specifiers are removed, with `export {};` inserted when needed to preserve module status.
+6. Recomputes dependency metadata from the transformed code. External packages and sibling bundle dependencies that only appeared in removed code are no longer emitted into `dependencies`, `peerDependencies`, check inputs, or vendored package roots.
 
 Files whose top-level statements are impure are left fully intact. The static side-effect classifier identifies impure top-level statements: expression statements (`console.log(...)`, IIFEs, `Object.freeze(...)`), top-level `await`, decorated classes, classes with impure static initializers or static blocks, control-flow statements (`if`, `for`, `while`, `try`), variable initializers that contain calls or property accesses, and bare imports of asset extensions (`.css`, `.scss`, `.sass`, `.less`).
 

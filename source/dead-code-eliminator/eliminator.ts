@@ -1,6 +1,7 @@
-import type { SourceFile } from 'ts-morph';
+import path from 'node:path';
+import { getImportMetaResolveLiterals } from '../dependency-scanner/source-file-references.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
-import type { AnalyzedBundle, DeadCodeEliminator } from './analyzed-bundle.ts';
+import type { AnalyzedBundle, AnalyzedBundleResource, DeadCodeEliminator } from './analyzed-bundle.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import { buildCrossBundleSeeds, type CrossBundleInput } from './cross-bundle/cross-bundle-seeds.ts';
 import { maybeEmitElimination } from './elimination-emitter.ts';
@@ -8,8 +9,226 @@ import { loadBundle, type CreateProject, type LoadedBundle } from './load-bundle
 import { buildMapPathTransformIndex, recomposePairedSourceMaps } from './source-map-recomposition.ts';
 import { computeSideEffectsField } from './side-effects-field.ts';
 
+type Dependency = {
+    readonly name: string;
+    readonly referencedFrom: readonly [string, ...(readonly string[])];
+};
+
+type Dependencies = ReadonlyMap<string, Dependency>;
+
+type MetadataBundle = {
+    readonly externalDependencies: Dependencies;
+    readonly linkedBundleDependencies: Dependencies;
+    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+};
+
+type LoadedSourceFile = NonNullable<LoadedBundle['loaded'][number]['sourceFile']>;
+
+type SourceFileByPath = ReadonlyMap<string, LoadedSourceFile>;
+
+type ReferencedPackages = {
+    readonly externalDependencies: Dependencies;
+    readonly linkedBundleDependencies: Dependencies;
+    readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+};
+
+type ExternalDependencyRecorder = {
+    readonly get: (key: string) => Dependency | undefined;
+    readonly set: (key: string, value: Dependency) => unknown;
+};
+
+const codeFileExtensions = new Set([ '.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx' ]);
+const scopedPackageSegmentCount = 2;
+
+function packageNameFromSpecifier(specifier: string): string {
+    if (!specifier.startsWith('@')) {
+        return specifier.split('/', 1)[0] ?? specifier;
+    }
+    const [ scope, name ] = specifier.split('/', scopedPackageSegmentCount);
+    if (name === undefined) {
+        throw new Error(`Invalid package specifier "${specifier}"`);
+    }
+    return `${scope}/${name}`;
+}
+
+function isRelativeOrAbsoluteSpecifier(specifier: string): boolean {
+    return specifier.startsWith('.') || path.isAbsolute(specifier);
+}
+
+function collectImportSpecifiers(sourceFile: LoadedSourceFile): readonly string[] {
+    return [
+        ...sourceFile.getImportStringLiterals(),
+        ...getImportMetaResolveLiterals(sourceFile)
+    ]
+        .map(function (literal) {
+            return literal.getLiteralValue();
+        });
+}
+
+function isCodeFilePath(filePath: string): boolean {
+    return codeFileExtensions.has(path.extname(filePath));
+}
+
+function packageNamesFor(
+    resource: AnalyzedBundleResource,
+    sourceFilesByPath: SourceFileByPath
+): ReadonlySet<string> {
+    const names = new Set<string>();
+    for (const [ sourceFilePath, sourceFile ] of sourceFilesByPath) {
+        if (sourceFilePath === resource.fileDescription.sourceFilePath) {
+            for (const specifier of collectImportSpecifiers(sourceFile)) {
+                if (!isRelativeOrAbsoluteSpecifier(specifier) && !specifier.startsWith('#')) {
+                    names.add(packageNameFromSpecifier(specifier));
+                }
+            }
+        }
+    }
+    return names;
+}
+
+function localCandidates(sourceFilePath: string, specifier: string): readonly string[] {
+    const resolved = path.resolve(path.dirname(sourceFilePath), specifier);
+    const candidates = [ resolved ];
+    if (sourceFilePath.endsWith('.d.ts')) {
+        candidates.push(resolved.replace(/\.js$/u, '.d.ts'));
+    }
+    candidates.push(
+        `${resolved}.js`,
+        `${resolved}.jsx`,
+        `${resolved}.ts`,
+        `${resolved}.tsx`,
+        `${resolved}.json`
+    );
+    return candidates;
+}
+
+function survivingLocalPaths(
+    resource: AnalyzedBundleResource,
+    sourceFilesByPath: SourceFileByPath
+): ReadonlySet<string> {
+    const paths = new Set<string>();
+    for (const [ sourceFilePath, sourceFile ] of sourceFilesByPath) {
+        if (sourceFilePath === resource.fileDescription.sourceFilePath) {
+            for (const specifier of collectImportSpecifiers(sourceFile)) {
+                if (isRelativeOrAbsoluteSpecifier(specifier)) {
+                    for (const candidate of localCandidates(resource.fileDescription.sourceFilePath, specifier)) {
+                        paths.add(candidate);
+                    }
+                }
+            }
+        }
+    }
+    return paths;
+}
+
+function recomputeDirectDependencies(
+    resource: AnalyzedBundleResource,
+    sourceFilesByPath: SourceFileByPath
+): AnalyzedBundleResource {
+    if (!isCodeFilePath(resource.fileDescription.targetFilePath)) {
+        return resource;
+    }
+
+    const survivingPaths = survivingLocalPaths(resource, sourceFilesByPath);
+    return {
+        ...resource,
+        directDependencies: new Set(
+            Array.from(resource.directDependencies).filter(function (dependency) {
+                return survivingPaths.has(dependency) || dependency.endsWith('.map');
+            })
+        )
+    };
+}
+
+function referencedPackagesByPath(
+    contents: readonly AnalyzedBundleResource[],
+    sourceFilesByPath: SourceFileByPath
+): ReadonlyMap<string, ReadonlySet<string>> {
+    return new Map(contents.map(function (resource) {
+        return [ resource.fileDescription.sourceFilePath, packageNamesFor(resource, sourceFilesByPath) ];
+    }));
+}
+
+function addReference(dependencies: ExternalDependencyRecorder, dependencyName: string, referencedFrom: string): void {
+    const dependency = dependencies.get(dependencyName);
+    dependencies.set(dependencyName, {
+        name: dependencyName,
+        referencedFrom: dependency === undefined ? [ referencedFrom ] : [ ...dependency.referencedFrom, referencedFrom ]
+    });
+}
+
+function recomputeDependencies(
+    dependencies: Dependencies,
+    packagesByPath: ReadonlyMap<string, ReadonlySet<string>>,
+    preservedReferencePaths: ReadonlySet<string>
+): Dependencies {
+    const recomputed = new Map<string, Dependency>();
+    for (const dependency of dependencies.values()) {
+        for (const reference of dependency.referencedFrom) {
+            if (
+                preservedReferencePaths.has(reference) ||
+                packagesByPath.get(reference)?.has(dependency.name) === true
+            ) {
+                addReference(recomputed, dependency.name, reference);
+            }
+        }
+    }
+    return recomputed;
+}
+
+function declarationSourcePaths(contents: readonly AnalyzedBundleResource[]): ReadonlySet<string> {
+    const paths = new Set<string>();
+    for (const resource of contents) {
+        if (resource.fileDescription.targetFilePath.endsWith('.d.ts')) {
+            paths.add(resource.fileDescription.sourceFilePath);
+        }
+    }
+    return paths;
+}
+
+function filterSubstitutedSourcePaths(
+    substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
+    linkedBundleDependencies: Dependencies
+): ReadonlyMap<string, ReadonlySet<string>> {
+    return new Map(
+        Array.from(substitutedSourceFilePathsByPackageName).filter(function ([ packageName ]) {
+            return linkedBundleDependencies.has(packageName);
+        })
+    );
+}
+
+function recomputeDependencyMetadata(
+    bundle: MetadataBundle,
+    contents: readonly AnalyzedBundleResource[],
+    sourceFilesByPath: SourceFileByPath
+): ReferencedPackages & { readonly contents: readonly AnalyzedBundleResource[]; } {
+    const recomputedContents = contents.map(function (resource) {
+        return recomputeDirectDependencies(resource, sourceFilesByPath);
+    });
+    const packagesByPath = referencedPackagesByPath(recomputedContents, sourceFilesByPath);
+    const preservedReferencePaths = declarationSourcePaths(recomputedContents);
+    const linkedBundleDependencies = recomputeDependencies(
+        bundle.linkedBundleDependencies,
+        packagesByPath,
+        preservedReferencePaths
+    );
+    return {
+        contents: recomputedContents,
+        externalDependencies: recomputeDependencies(
+            bundle.externalDependencies,
+            packagesByPath,
+            preservedReferencePaths
+        ),
+        linkedBundleDependencies,
+        substitutedSourceFilePathsByPackageName: filterSubstitutedSourcePaths(
+            bundle.substitutedSourceFilePathsByPackageName,
+            linkedBundleDependencies
+        )
+    };
+}
+
 function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
-    const sourceFiles: SourceFile[] = [];
+    const sourceFiles: LoadedSourceFile[] = [];
 
     for (const entry of loaded.loaded) {
         if (entry.sourceFile !== undefined) {
@@ -23,6 +242,16 @@ function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
         fileBindings: loaded.fileBindings,
         localReachable: loaded.reachability.localReachable
     };
+}
+
+function indexSourceFiles(loaded: LoadedBundle): SourceFileByPath {
+    const result = new Map<string, LoadedSourceFile>();
+    for (const entry of loaded.loaded) {
+        if (entry.sourceFile !== undefined) {
+            result.set(entry.resource.fileDescription.sourceFilePath, entry.sourceFile);
+        }
+    }
+    return result;
 }
 
 function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet<string> | undefined): AnalyzedBundle {
@@ -39,10 +268,15 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
         return output.resource;
     });
     const finalContents = recomposePairedSourceMaps(contents, transformsByMapPath);
+    const dependencyMetadata = recomputeDependencyMetadata(
+        loaded.input.bundle,
+        finalContents,
+        indexSourceFiles(loaded)
+    );
     return {
         ...loaded.input.bundle,
-        contents: finalContents,
-        sideEffectsField: computeSideEffectsField(finalContents)
+        ...dependencyMetadata,
+        sideEffectsField: computeSideEffectsField(dependencyMetadata.contents)
     };
 }
 

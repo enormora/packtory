@@ -313,7 +313,13 @@ The same classifier serves three purposes:
 
 A user-provided `sideEffects` in `additionalPackageJsonAttributes` always wins.
 
-### 6.6 Source-map recomposition
+### 6.6 Dependency metadata recomputation
+
+After declaration removal, DCE walks the transformed code and rebuilds the dependency metadata that later stages consume. Local `directDependencies`, external package dependencies, linked sibling bundle dependencies, and substituted source-path records are kept only when a surviving static import, re-export, dynamic literal import, or `import.meta.resolve('<static-string>')` still references them.
+
+Runtime imports converted to bare imports still count, because the target module must continue to evaluate. Removed type-only imports and imports inside removed declarations no longer seed manifest `dependencies`, `peerDependencies`, `noDevDependencyImports`, `noUnusedBundleDependencies`, or vendoring roots.
+
+### 6.7 Source-map recomposition
 
 When a `.map` file is paired with a code file the analyzer transformed, packtory rebuilds the map so the published version still maps back to the _original_ sources at the new line/column positions.
 
