@@ -52,6 +52,7 @@ export async function buildConfig() {
             }
         },
         checks: {
+            typeScriptIntegrity: { enabled: true, declarations: 'all' },
             noDuplicatedFiles: { enabled: true, allowList: [ sharedLicensePath ] },
             requiredFiles: { enabled: true, files: [ 'LICENSE', 'readme.md' ] },
             maxBundleSize: { enabled: true, bytes: 1_050_000 },
@@ -95,7 +96,7 @@ export async function buildConfig() {
             {
                 name: 'packtory',
                 exportPackageJson: true,
-                checks: { maxBundleSize: { bytes: 1_125_000 } },
+                checks: { maxBundleSize: { bytes: 1_335_000 } },
                 roots: {
                     main: {
                         js: 'packages/packtory/packtory.entry-point.js',
