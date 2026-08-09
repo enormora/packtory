@@ -1,11 +1,10 @@
-const declarationCodeFilePattern = /\.d\.[cm]?ts$/;
-const codeFilePattern = /(?:\.d\.[cm]?ts|\.[cm]?[jt]sx?)$/;
+const codeFilePattern = /(?:\.d\.ts|\.[cm]?[jt]sx?)$/;
 export function isCodeFile(targetFilePath: string): boolean {
     return codeFilePattern.test(targetFilePath);
 }
 
 export function isDeclarationCodeFile(targetFilePath: string): boolean {
-    return declarationCodeFilePattern.test(targetFilePath);
+    return targetFilePath.endsWith('.d.ts');
 }
 
 const textDiffablePatterns: readonly RegExp[] = [

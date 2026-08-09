@@ -37,9 +37,9 @@ type ExternalDependencyRecorder = {
     readonly set: (key: string, value: Dependency) => unknown;
 };
 
-const declarationCodeFilePattern = /\.d\.[cm]?ts$/;
 const scopedPackageSegmentCount = 2;
 const codeFileExtensions = new Set([ '.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx' ]);
+const declarationCodeFileExtensions = [ '.d.ts', '.d.cts', '.d.mts' ];
 
 function packageNameFromSpecifier(specifier: string): string {
     if (!specifier.startsWith('@')) {
@@ -70,8 +70,14 @@ function isCodeFilePath(filePath: string): boolean {
     return codeFileExtensions.has(path.extname(filePath));
 }
 
+function isDeclarationCodeFilePath(filePath: string): boolean {
+    return declarationCodeFileExtensions.some(function (extension) {
+        return filePath.endsWith(extension);
+    });
+}
+
 function isRuntimeCodeFilePath(filePath: string): boolean {
-    return isCodeFilePath(filePath) && !declarationCodeFilePattern.test(filePath);
+    return isCodeFilePath(filePath) && !isDeclarationCodeFilePath(filePath);
 }
 
 function packageNamesFor(

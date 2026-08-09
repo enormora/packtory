@@ -69,6 +69,19 @@ suite('eliminator resource pruning', function () {
         assert.strictEqual(analyzed?.contents[0]?.fileDescription.content, '');
     });
 
+    test('eliminate keeps declaration module files outside surviving runtime edges', async function () {
+        const eliminator = createTestEliminator();
+        const input = bundle([
+            resource('/src/index.js', 'export const api = 1;\n', 'index.js'),
+            resource('/src/types.d.cts', 'export type Common = string;\n', 'types.d.cts'),
+            resource('/src/types.d.mts', 'export type Module = string;\n', 'types.d.mts')
+        ]);
+
+        const [ analyzed ] = await eliminator.eliminate(inputs(input));
+
+        assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js', 'types.d.cts', 'types.d.mts' ]);
+    });
+
     test('eliminate keeps a pure file reached by a surviving bare import', async function () {
         const eliminator = createTestEliminator();
         const input = bundle([
