@@ -232,7 +232,7 @@ function collectImportMetaResolveLiteral(
     return literal;
 }
 
-function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
+export function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
     const literals: StringLiteral[] = [];
     for (const callExpression of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
         const literal = collectImportMetaResolveLiteral(callExpression, sourceFile);

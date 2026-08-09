@@ -135,24 +135,6 @@ suite('eliminator bundle analysis', function () {
             }
         });
 
-        test('eliminate copies roots, externalDependencies, and linkedBundleDependencies through unchanged', async function () {
-            const eliminator = createTestEliminator();
-            const input = linkedBundle({
-                name: 'a',
-                externalDependencies: new Map([ [ 'dep', { name: 'dep', referencedFrom: [ '/src/index.js' ] } ] ]),
-                linkedBundleDependencies: new Map([ [ 'bundle', {
-                    name: 'bundle',
-                    referencedFrom: [ '/src/index.js' ]
-                } ] ])
-            });
-            const [ analyzed ] = await eliminator.eliminate(inputs(input));
-            assert.partialDeepStrictEqual(analyzed, {
-                roots: input.roots,
-                externalDependencies: input.externalDependencies,
-                linkedBundleDependencies: input.linkedBundleDependencies
-            });
-        });
-
         test('eliminate preserves resource fields and uses empty analysis defaults on non-code files', async function () {
             const eliminator = createTestEliminator();
             const resource = { ...bundleResource('/src/LICENSE', { content: 'Hello' }), isSubstituted: false };

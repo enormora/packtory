@@ -1,0 +1,8 @@
+{
+    "name": "dead-code-elimination-dead-dependencies-fixture",
+    "version": "0.0.0-dev",
+    "type": "module",
+    "dependencies": {
+        "common-tags": "^1.8.2"
+    }
+}
