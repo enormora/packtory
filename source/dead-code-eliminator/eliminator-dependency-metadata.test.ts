@@ -229,7 +229,7 @@ suite('eliminator dependency metadata', function () {
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
             assert.deepStrictEqual(analyzed?.contents[0]?.directDependencies, new Set<string>());
-            assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js', 'dead.js' ]);
+            assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js' ]);
         });
 
         test('eliminate keeps surviving local direct dependencies from transformed resources', async function () {
@@ -462,6 +462,12 @@ suite('eliminator dependency metadata', function () {
             const input = linkedBundle({
                 name: 'a',
                 contents: [
+                    transformedResource(
+                        '/src/index.js',
+                        'import "./a.js";\nimport "./b.js";\nexport const api = 1;\n',
+                        'index.js',
+                        new Set([ '/src/a.js', '/src/b.js' ])
+                    ),
                     transformedResource(
                         '/src/a.js',
                         'import { api } from "dep";\nexport const a = api;\n',

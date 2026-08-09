@@ -319,7 +319,13 @@ After declaration removal, DCE walks the transformed code and rebuilds the depen
 
 Runtime imports converted to bare imports still count, because the target module must continue to evaluate. Removed type-only imports and imports inside removed declarations no longer seed manifest `dependencies`, `peerDependencies`, `noDevDependencyImports`, `noUnusedBundleDependencies`, or vendoring roots.
 
-### 6.7 Source-map recomposition
+### 6.7 File pruning
+
+After metadata recomputation, DCE prunes pure runtime code files that no surviving resource can reach and that have no surviving behavior of their own. The retention walk starts from public roots, explicit resources, generated manifests, declarations, assets, files with surviving bindings, files with top-level side effects, and surviving local dependency edges.
+
+This pass only drops runtime code files whose removal is proven safe. Files that may need module evaluation are kept, even when their import specifiers were reduced to a bare import. When a runtime code file is pruned, its paired `.map` target is pruned with it unless that map was explicitly included.
+
+### 6.8 Source-map recomposition
 
 When a `.map` file is paired with a code file the analyzer transformed, packtory rebuilds the map so the published version still maps back to the _original_ sources at the new line/column positions.
 

@@ -111,8 +111,14 @@ suite('eliminator bundle analysis', function () {
                     linkedBundle({
                         name: 'pkg',
                         contents: [
-                            { ...bundleResource('/a.ts'), isSubstituted: false },
-                            { ...bundleResource('/b.ts'), isSubstituted: false }
+                            {
+                                ...bundleResource('/a.ts', { isExplicitlyIncluded: true }),
+                                isSubstituted: false
+                            },
+                            {
+                                ...bundleResource('/b.ts', { isExplicitlyIncluded: true }),
+                                isSubstituted: false
+                            }
                         ]
                     })
                 )

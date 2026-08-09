@@ -37,8 +37,9 @@ type ExternalDependencyRecorder = {
     readonly set: (key: string, value: Dependency) => unknown;
 };
 
-const codeFileExtensions = new Set([ '.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx' ]);
 const scopedPackageSegmentCount = 2;
+const codeFileExtensions = new Set([ '.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx' ]);
+const declarationCodeFileExtensions = [ '.d.ts', '.d.cts', '.d.mts' ];
 
 function packageNameFromSpecifier(specifier: string): string {
     if (!specifier.startsWith('@')) {
@@ -67,6 +68,16 @@ function collectImportSpecifiers(sourceFile: LoadedSourceFile): readonly string[
 
 function isCodeFilePath(filePath: string): boolean {
     return codeFileExtensions.has(path.extname(filePath));
+}
+
+function isDeclarationCodeFilePath(filePath: string): boolean {
+    return declarationCodeFileExtensions.some(function (extension) {
+        return filePath.endsWith(extension);
+    });
+}
+
+function isRuntimeCodeFilePath(filePath: string): boolean {
+    return isCodeFilePath(filePath) && !isDeclarationCodeFilePath(filePath);
 }
 
 function packageNamesFor(
@@ -227,6 +238,114 @@ function recomputeDependencyMetadata(
     };
 }
 
+function rootSourceFilePaths(bundle: Pick<AnalyzedBundle, 'roots'>): ReadonlySet<string> {
+    const paths = new Set<string>();
+    for (const root of Object.values(bundle.roots)) {
+        paths.add(root.js.sourceFilePath);
+    }
+    return paths;
+}
+
+function resourceHasSurvivingRuntime(resource: AnalyzedBundleResource): boolean {
+    return resource.analysis.sideEffectStatements.length > 0 || resource.analysis.survivingBindings.size > 0;
+}
+
+function shouldSeedResource(resource: AnalyzedBundleResource, rootPaths: ReadonlySet<string>): boolean {
+    return (
+        rootPaths.has(resource.fileDescription.sourceFilePath) ||
+        resource.isExplicitlyIncluded ||
+        !isRuntimeCodeFilePath(resource.fileDescription.targetFilePath) ||
+        resourceHasSurvivingRuntime(resource)
+    );
+}
+
+function indexResourcesBySourcePath(
+    contents: readonly AnalyzedBundleResource[]
+): ReadonlyMap<string, AnalyzedBundleResource> {
+    return new Map(contents.map(function (resource) {
+        return [ resource.fileDescription.sourceFilePath, resource ];
+    }));
+}
+
+function retentionSeeds(
+    contents: readonly AnalyzedBundleResource[],
+    rootPaths: ReadonlySet<string>
+): readonly string[] {
+    return contents
+        .filter(function (resource) {
+            return shouldSeedResource(resource, rootPaths);
+        })
+        .map(function (resource) {
+            return resource.fileDescription.sourceFilePath;
+        });
+}
+
+function retainedSourcePaths(
+    bundle: Pick<AnalyzedBundle, 'roots'>,
+    contents: readonly AnalyzedBundleResource[]
+): ReadonlySet<string> {
+    const rootPaths = rootSourceFilePaths(bundle);
+    const resourcesBySourcePath = indexResourcesBySourcePath(contents);
+    const pending = Array.from(retentionSeeds(contents, rootPaths));
+    const retained = new Set<string>();
+
+    function retain(sourceFilePath: string): void {
+        const resource = resourcesBySourcePath.get(sourceFilePath);
+        if (resource !== undefined && !retained.has(sourceFilePath)) {
+            retained.add(sourceFilePath);
+            pending.push(...resource.directDependencies);
+        }
+    }
+
+    for (const sourceFilePath of pending) {
+        retain(sourceFilePath);
+    }
+    return retained;
+}
+
+function isPrunedRuntimeCode(resource: AnalyzedBundleResource, retained: ReadonlySet<string>): boolean {
+    return (
+        !retained.has(resource.fileDescription.sourceFilePath) &&
+        isRuntimeCodeFilePath(resource.fileDescription.targetFilePath)
+    );
+}
+
+function prunedMapTargetPaths(
+    contents: readonly AnalyzedBundleResource[],
+    retained: ReadonlySet<string>
+): ReadonlySet<string> {
+    return new Set(
+        contents
+            .filter(function (resource) {
+                return isPrunedRuntimeCode(resource, retained);
+            })
+            .map(function (resource) {
+                return `${resource.fileDescription.targetFilePath}.map`;
+            })
+    );
+}
+
+function pruneContents(
+    bundle: Pick<AnalyzedBundle, 'roots'>,
+    contents: readonly AnalyzedBundleResource[],
+    transformationsEnabled: boolean
+): readonly AnalyzedBundleResource[] {
+    if (!transformationsEnabled) {
+        return contents;
+    }
+    const retained = retainedSourcePaths(bundle, contents);
+    const prunedMapTargets = prunedMapTargetPaths(contents, retained);
+    return contents.filter(function (resource) {
+        if (resource.isExplicitlyIncluded) {
+            return true;
+        }
+        return (
+            retained.has(resource.fileDescription.sourceFilePath) &&
+            !prunedMapTargets.has(resource.fileDescription.targetFilePath)
+        );
+    });
+}
+
 function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
     const sourceFiles: LoadedSourceFile[] = [];
 
@@ -268,10 +387,21 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
         return output.resource;
     });
     const finalContents = recomposePairedSourceMaps(contents, transformsByMapPath);
-    const dependencyMetadata = recomputeDependencyMetadata(
+    const sourceFilesByPath = indexSourceFiles(loaded);
+    const prePruneMetadata = recomputeDependencyMetadata(
         loaded.input.bundle,
         finalContents,
-        indexSourceFiles(loaded)
+        sourceFilesByPath
+    );
+    const prunedContents = pruneContents(
+        loaded.input.bundle,
+        prePruneMetadata.contents,
+        loaded.input.transformationsEnabled
+    );
+    const dependencyMetadata = recomputeDependencyMetadata(
+        loaded.input.bundle,
+        prunedContents,
+        sourceFilesByPath
     );
     return {
         ...loaded.input.bundle,

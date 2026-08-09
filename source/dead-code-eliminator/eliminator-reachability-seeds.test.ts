@@ -240,7 +240,7 @@ suite('eliminator reachability seeds', function () {
             assert.deepStrictEqual(emittedTypes.analysis.survivingBindings, new Set([ 'Imported', 'Other' ]));
         });
 
-        test('eliminate drops a producer binding whose only consumer-side reference is in unreachable code', async function () {
+        test('eliminate prunes a producer file whose only consumer-side reference is in unreachable code', async function () {
             const eliminator = createTestEliminator();
             const consumerContent = [
                 'import { used } from "producer/helpers.ts";',
@@ -251,9 +251,9 @@ suite('eliminator reachability seeds', function () {
             const result = await eliminator.eliminate(
                 inputs(consumerBundleWith(consumerContent), producerBundleWith('export function used() { return 1; }'))
             );
-            const producerEmitted = result[1]?.contents[0];
-            assertDefined(producerEmitted);
-            assert.strictEqual(producerEmitted.fileDescription.content.includes('used'), false);
+            const producer = result[1];
+            assertDefined(producer);
+            assert.deepStrictEqual(producer.contents, []);
         });
 
         test('eliminate keeps all declarations and reports them as surviving when the file has top-level side effects', async function () {
