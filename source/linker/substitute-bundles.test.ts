@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Project } from 'ts-morph';
+import type { FileAnalysis } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { bundleResource, versionedBundleWithManifest } from '../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import type { VersionedBundleWithManifest } from '../version-manager/versioned-bundle.ts';
@@ -12,6 +13,7 @@ type ResolvedContentDescription = {
     readonly content: string;
     readonly directDependencies?: readonly string[];
     readonly project?: Project;
+    readonly isExplicitlyIncluded?: boolean;
     readonly isGeneratedManifest?: true;
 };
 
@@ -28,7 +30,8 @@ function buildInputGraph(
             return {
                 ...bundleResource(entry.source, {
                     content: entry.content,
-                    directDependencies: new Set(entry.directDependencies)
+                    directDependencies: new Set(entry.directDependencies),
+                    isExplicitlyIncluded: entry.isExplicitlyIncluded ?? false
                 }),
                 project: entry.project,
                 ...entry.isGeneratedManifest === true ? { isGeneratedManifest: true } : {}
@@ -39,6 +42,14 @@ function buildInputGraph(
         externalDependencies: new Map(),
         name: 'test-bundle'
     });
+}
+
+function emptySubstitutionAnalysis(): FileAnalysis {
+    return {
+        survivingBindings: new Set<string>(),
+        sideEffectStatements: [],
+        sideEffectImports: new Set<string>()
+    };
 }
 
 function bundleSource(packageName: string, sourceFilePath: string, isSubstituted = false): VersionedBundleWithManifest {
@@ -52,16 +63,41 @@ function bundleSource(packageName: string, sourceFilePath: string, isSubstituted
             {
                 ...bundleResource(sourceFilePath, { targetFilePath }),
                 isSubstituted,
-                analysis: {
-                    survivingBindings: new Set<string>(),
-                    sideEffectStatements: [],
-                    sideEffectImports: new Set<string>()
-                }
+                analysis: emptySubstitutionAnalysis()
             }
         ],
         packageJson: { name: packageName, version: '21' },
         exportsField: { '.': { import: `./${targetFilePath}` } },
         mainFile: { content: '', isExecutable: false, sourceFilePath: '/bar.js', targetFilePath: 'bar.js' },
+        manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
+    });
+}
+
+function bundleSourceWithExtraFile(packageName: string): VersionedBundleWithManifest {
+    return versionedBundleWithManifest({
+        name: packageName,
+        version: '21',
+        roots: {
+            main: {
+                js: { content: '', isExecutable: false, sourceFilePath: '/foo.js', targetFilePath: 'foo.js' }
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' },
+        contents: [
+            {
+                ...bundleResource('/foo.js', { targetFilePath: 'foo.js' }),
+                isSubstituted: false,
+                analysis: emptySubstitutionAnalysis()
+            },
+            {
+                ...bundleResource('/LICENSE', { targetFilePath: 'LICENSE', isExplicitlyIncluded: true }),
+                isSubstituted: false,
+                analysis: emptySubstitutionAnalysis()
+            }
+        ],
+        packageJson: { name: packageName, version: '21' },
+        exportsField: { '.': { import: './foo.js' } },
+        mainFile: { content: '', isExecutable: false, sourceFilePath: '/foo.js', targetFilePath: 'foo.js' },
         manifestFile: { content: '', isExecutable: false, filePath: '/bar.js' }
     });
 }
@@ -95,21 +131,23 @@ const entryFooSetup = [
     { source: '/foo.js', content: 'true' }
 ] as const;
 
+function substitutedEntryContent(packageName: string): unknown {
+    return {
+        directDependencies: new Set(),
+        fileDescription: {
+            sourceFilePath: '/entry.js',
+            isExecutable: false,
+            targetFilePath: 'entry.js',
+            content: `import "${packageName}";`
+        },
+        isSubstituted: true,
+        isExplicitlyIncluded: false
+    };
+}
+
 function substitutedEntryResult(packageName: string): unknown {
     return {
-        contents: [
-            {
-                directDependencies: new Set(),
-                fileDescription: {
-                    sourceFilePath: '/entry.js',
-                    isExecutable: false,
-                    targetFilePath: 'entry.js',
-                    content: `import "${packageName}";`
-                },
-                isSubstituted: true,
-                isExplicitlyIncluded: false
-            }
-        ],
+        contents: [ substitutedEntryContent(packageName) ],
         externalDependencies: new Map(),
         linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ]),
         substitutedSourceFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
@@ -131,6 +169,51 @@ function buildEntryFooGraph(): ResourceGraph {
         { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
         { source: '/foo.js', content: 'true', project }
     ]);
+}
+
+function buildEntryFooLicenseGraph(): ResourceGraph {
+    const project = buildEntryFooProject();
+    return buildInputGraph([
+        { source: '/entry.js', content: 'import "./foo.js";', directDependencies: [ '/foo.js' ], project },
+        { source: '/foo.js', content: 'true', project },
+        { source: '/LICENSE', content: 'license text', isExplicitlyIncluded: true }
+    ]);
+}
+
+function entryWithLicenseResult(packageName: string): unknown {
+    return {
+        contents: [
+            substitutedEntryContent(packageName),
+            {
+                directDependencies: new Set(),
+                fileDescription: {
+                    content: 'license text',
+                    isExecutable: false,
+                    sourceFilePath: '/LICENSE',
+                    targetFilePath: 'LICENSE'
+                },
+                isSubstituted: false,
+                isExplicitlyIncluded: true
+            }
+        ],
+        externalDependencies: new Map(),
+        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ]),
+        substitutedSourceFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
+    };
+}
+
+function assertPreservesOwnedLicense(
+    packageName: string,
+    bundleDependencies: readonly VersionedBundleWithManifest[],
+    bundlePeerDependencies: readonly VersionedBundleWithManifest[]
+): void {
+    const inputGraph = buildEntryFooLicenseGraph();
+    const substitutedGraph = substituteDependencies(inputGraph, bundleDependencies, bundlePeerDependencies);
+    const result = substitutedGraph.flatten([ '/entry.js' ]);
+
+    assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
+    assert.strictEqual(substitutedGraph.isKnown('/LICENSE'), true);
+    assert.deepStrictEqual(result, entryWithLicenseResult(packageName));
 }
 
 const passthroughResult = {
@@ -185,20 +268,12 @@ suite('substitute-bundles', function () {
                         {
                             ...bundleResource('/foo.js', { targetFilePath: 'foo.js' }),
                             isSubstituted: false,
-                            analysis: {
-                                survivingBindings: new Set<string>(),
-                                sideEffectStatements: [],
-                                sideEffectImports: new Set<string>()
-                            }
+                            analysis: emptySubstitutionAnalysis()
                         },
                         {
                             ...bundleResource('/unused.js', { targetFilePath: 'unused.js' }),
                             isSubstituted: false,
-                            analysis: {
-                                survivingBindings: new Set<string>(),
-                                sideEffectStatements: [],
-                                sideEffectImports: new Set<string>()
-                            }
+                            analysis: emptySubstitutionAnalysis()
                         }
                     ],
                     packageJson: { name: 'hidden-package', version: '1.0.0' },
@@ -237,6 +312,18 @@ suite('substitute-bundles', function () {
 
         assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
         assert.deepStrictEqual(result, substitutedEntryResult('peer-package'));
+    });
+
+    test('preserves explicitly included files owned by a substituted bundle dependency', function () {
+        const bundleDependencies = [ bundleSourceWithExtraFile('regular-package') ];
+
+        assertPreservesOwnedLicense('regular-package', bundleDependencies, []);
+    });
+
+    test('preserves explicitly included files owned by a substituted peer bundle dependency', function () {
+        const bundlePeerDependencies = [ bundleSourceWithExtraFile('peer-package') ];
+
+        assertPreservesOwnedLicense('peer-package', [], bundlePeerDependencies);
     });
 
     test('substitutes multiple matching files in the given dependencies', function () {

@@ -74,7 +74,7 @@ export function substituteDependencies(
             return;
         }
         visited.add(node.id);
-        if (isSubstitutionSourcePath(node.id, substitutionSources)) {
+        if (!node.data.isExplicitlyIncluded && isSubstitutionSourcePath(node.id, substitutionSources)) {
             return;
         }
 
