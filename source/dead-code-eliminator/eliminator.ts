@@ -297,8 +297,8 @@ function retainedSourcePaths(
         }
     }
 
-    for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-        retain(next);
+    for (const sourceFilePath of pending) {
+        retain(sourceFilePath);
     }
     return retained;
 }
