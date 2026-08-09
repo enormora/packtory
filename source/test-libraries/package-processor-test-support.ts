@@ -38,6 +38,7 @@ export function createLinkedBundle(name = 'package-a'): LinkedBundle {
         surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
         linkedBundleDependencies: new Map(),
         substitutedSourceFilePathsByPackageName: new Map(),
+        sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: new Map()
     };
 }

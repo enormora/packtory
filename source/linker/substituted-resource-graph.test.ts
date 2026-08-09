@@ -1,5 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { buildLineIndex } from '../dead-code-eliminator/transform/line-index.ts';
+import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import { createSubstitutedResourceGraph } from './substituted-resource-graph.ts';
 
@@ -19,6 +21,18 @@ function emptySubstitutedSourceFilePaths(): ReadonlyMap<string, ReadonlySet<stri
     return new Map<string, ReadonlySet<string>>();
 }
 
+function emptySourceMapTransforms(): ReadonlyMap<string, readonly []> {
+    return new Map<string, readonly []>();
+}
+
+function sourceMapTransform(marker: number): SourceMapTransform {
+    return {
+        originalLineIndex: buildLineIndex('a'),
+        transformedLineIndex: buildLineIndex('b'),
+        atoms: [ { originalStart: 0, originalEnd: 1, newStart: marker } ]
+    };
+}
+
 suite('substituted-resource-graph', function () {
     test('flatten() deduplicates visited files, merges repeated dependency references, and keeps explicitly included files', function () {
         const graph = createSubstitutedResourceGraph();
@@ -27,6 +41,7 @@ suite('substituted-resource-graph', function () {
             externalDependencies: [ 'left-pad' ],
             bundleDependencies: [ 'bundle-dependency' ],
             substitutedSourceFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/dep.js' ]) ] ]),
+            sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: true,
             isExplicitlyIncluded: false
         });
@@ -35,6 +50,7 @@ suite('substituted-resource-graph', function () {
             externalDependencies: [ 'left-pad' ],
             bundleDependencies: [ 'bundle-dependency' ],
             substitutedSourceFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/other.js' ]) ] ]),
+            sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: false
         });
@@ -43,6 +59,7 @@ suite('substituted-resource-graph', function () {
             externalDependencies: [],
             bundleDependencies: [],
             substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: true
         });
@@ -51,6 +68,7 @@ suite('substituted-resource-graph', function () {
             externalDependencies: [],
             bundleDependencies: [],
             substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: false
         });
@@ -93,6 +111,7 @@ suite('substituted-resource-graph', function () {
             externalDependencies: [],
             bundleDependencies: [],
             substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,
             isExplicitlyIncluded: false,
             isGeneratedManifest: true
@@ -101,5 +120,34 @@ suite('substituted-resource-graph', function () {
         const result = graph.flatten([ '/package.json' ]);
 
         assert.strictEqual(result.contents[0]?.isGeneratedManifest, true);
+    });
+
+    test('flatten() appends repeated source map transforms for the same target path', function () {
+        const graph = createSubstitutedResourceGraph();
+        const first = sourceMapTransform(0);
+        const second = sourceMapTransform(1);
+        graph.add('/entry.js', {
+            fileDescription: createFileDescription('/entry.js', 'entry.js'),
+            externalDependencies: [],
+            bundleDependencies: [],
+            substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            sourceMapTransformsByTargetPath: new Map([ [ 'shared.js', [ first ] ] ]),
+            isSubstituted: false,
+            isExplicitlyIncluded: false
+        });
+        graph.add('/shared.js', {
+            fileDescription: createFileDescription('/shared.js', 'shared.js'),
+            externalDependencies: [],
+            bundleDependencies: [],
+            substitutedSourceFilePathsByPackageName: emptySubstitutedSourceFilePaths(),
+            sourceMapTransformsByTargetPath: new Map([ [ 'shared.js', [ second ] ] ]),
+            isSubstituted: false,
+            isExplicitlyIncluded: false
+        });
+        graph.connect('/entry.js', '/shared.js');
+
+        const result = graph.flatten([ '/entry.js' ]);
+
+        assert.deepStrictEqual(result.sourceMapTransformsByTargetPath.get('shared.js'), [ first, second ]);
     });
 });

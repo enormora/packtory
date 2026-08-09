@@ -79,6 +79,7 @@ function linkedBundle(
         surface: { mode: 'implicit', defaultModuleRoot: 'main' },
         linkedBundleDependencies: new Map(),
         substitutedSourceFilePathsByPackageName,
+        sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: new Map()
     };
 }

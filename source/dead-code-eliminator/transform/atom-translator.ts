@@ -1,4 +1,5 @@
 import { diffChars } from 'diff';
+import { buildLineIndex, type LineIndex } from './line-index.ts';
 
 export type PositionAtom = {
     readonly originalStart: number;
@@ -9,6 +10,12 @@ export type PositionAtom = {
 export type TextTransformMap = {
     readonly originalCode: string;
     readonly transformedCode: string;
+    readonly atoms: readonly PositionAtom[];
+};
+
+export type SourceMapTransform = {
+    readonly originalLineIndex: LineIndex;
+    readonly transformedLineIndex: LineIndex;
     readonly atoms: readonly PositionAtom[];
 };
 
@@ -57,6 +64,14 @@ function appendChange(state: AtomState, change: TextChange): AtomState {
 export function buildTextTransformMap(originalCode: string, transformedCode: string): TextTransformMap {
     const state = diffChars(originalCode, transformedCode).reduce(appendChange, initialState);
     return { originalCode, transformedCode, atoms: state.atoms };
+}
+
+export function toSourceMapTransform(textTransform: TextTransformMap): SourceMapTransform {
+    return {
+        originalLineIndex: buildLineIndex(textTransform.originalCode),
+        transformedLineIndex: buildLineIndex(textTransform.transformedCode),
+        atoms: textTransform.atoms
+    };
 }
 
 function findAtomFor(atoms: readonly PositionAtom[], offset: number): PositionAtom | undefined {

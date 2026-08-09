@@ -1,0 +1,1 @@
+{"version":3,"file":"consumer.js","names":[],"sources":["consumer.ts"],"sourcesContent":["export const value = dep;\n"],"mappings":"kDAAa","ignoreList":[]}

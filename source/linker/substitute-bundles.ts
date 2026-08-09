@@ -1,7 +1,10 @@
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 import { findAllPathReplacements, ownsSourcePath, type Replacements } from './replacement-lookup.ts';
 import type { ResourceGraph } from './resource-graph.ts';
-import { replaceImportPaths } from './source-modifier/import-paths.ts';
+import {
+    replaceImportPathsWithTransform,
+    type ImportPathReplacementResult
+} from './source-modifier/import-paths.ts';
 import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from './substituted-resource-graph.ts';
 
 type ResourceGraphNode = Parameters<Parameters<ResourceGraph['traverse']>[0]>[0];
@@ -32,8 +35,11 @@ function recordUnreplacedConnections(
     }
 }
 
-function contentWithReplacements(node: ResourceGraphNode, replacements: Replacements): string {
-    return replaceImportPaths(
+function contentWithReplacements(
+    node: ResourceGraphNode,
+    replacements: Replacements
+): ImportPathReplacementResult {
+    return replaceImportPathsWithTransform(
         node.data.project,
         node.data.fileDescription.sourceFilePath,
         node.data.fileDescription.content,
@@ -47,12 +53,16 @@ function addNodeWithReplacements(
     replacements: Replacements
 ): void {
     const isSubstituted = replacements.importPathReplacements.size > 0;
-    const content = contentWithReplacements(node, replacements);
+    const replacementResult = contentWithReplacements(node, replacements);
+    const sourceMapTransformsByTargetPath = replacementResult.sourceMapTransform === undefined
+        ? new Map()
+        : new Map([ [ node.data.fileDescription.targetFilePath, [ replacementResult.sourceMapTransform ] ] ]);
     substitutedGraph.add(node.id, {
-        fileDescription: { ...node.data.fileDescription, content },
+        fileDescription: { ...node.data.fileDescription, content: replacementResult.content },
         externalDependencies: node.data.externalDependencies,
         bundleDependencies: isSubstituted ? replacements.bundleDependencies : [],
         substitutedSourceFilePathsByPackageName: replacements.substitutedSourceFilePathsByPackageName,
+        sourceMapTransformsByTargetPath,
         isSubstituted,
         isExplicitlyIncluded: node.data.isExplicitlyIncluded,
         ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}

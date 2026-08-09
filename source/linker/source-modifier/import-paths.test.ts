@@ -1,7 +1,19 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import type { Project } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
-import { replaceImportPaths } from './import-paths.ts';
+import { replaceImportPathsWithTransform } from './import-paths.ts';
+
+type Replacements = ReadonlyMap<string, string>;
+
+function replaceImportPaths(
+    project: Project | undefined,
+    sourceFilePath: string,
+    sourceContent: string,
+    replacements: Replacements
+): string {
+    return replaceImportPathsWithTransform(project, sourceFilePath, sourceContent, replacements).content;
+}
 
 suite('import-paths', function () {
     test('returns source code unmodified when project is undefined', function () {
@@ -111,7 +123,7 @@ suite('import-paths', function () {
 
         const result = replaceImportPaths(project, '/folder/foo.d.ts', 'import "./bar.js"', replacements);
 
-        assert.strictEqual(result, 'import "replacement/bar.d.ts";');
+        assert.strictEqual(result, 'import "replacement/bar.d.ts"');
     });
 
     test('keeps shebang line in the transformed output', function () {
@@ -131,5 +143,71 @@ suite('import-paths', function () {
         );
 
         assert.strictEqual(result, '#!/usr/bin/env node\nconst foo = "bar"; import "replacement";');
+    });
+
+    test('modifies import.meta.resolve() literals', function () {
+        const project = createProject({
+            withFiles: [
+                { filePath: '/folder/foo.ts', content: 'const url = import.meta.resolve("./bar.js");' },
+                { filePath: '/folder/bar.ts', content: 'export {};' }
+            ]
+        });
+        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+
+        const result = replaceImportPaths(
+            project,
+            '/folder/foo.ts',
+            'const url = import.meta.resolve("./bar.js");',
+            replacements
+        );
+
+        assert.strictEqual(result, 'const url = import.meta.resolve("replacement");');
+    });
+
+    suite('source map transform data', function () {
+        test('returns compact source map transform data only when literals are rewritten', function () {
+            const content = 'import "./bar";\nexport const value = 1;';
+            const project = createProject({
+                withFiles: [
+                    { filePath: '/folder/foo.ts', content },
+                    { filePath: '/folder/bar.ts', content: 'export {};' }
+                ]
+            });
+            const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+
+            const result = replaceImportPathsWithTransform(project, '/folder/foo.ts', content, replacements);
+            const passThrough = replaceImportPathsWithTransform(project, '/folder/foo.ts', content, new Map());
+            const transform = result.sourceMapTransform as Record<string, unknown>;
+
+            assert.deepStrictEqual(result.sourceMapTransform?.atoms, [
+                { originalStart: 0, originalEnd: 8, newStart: 0 },
+                { originalStart: 13, originalEnd: content.length, newStart: 19 }
+            ]);
+            assert.strictEqual(Object.hasOwn(transform, 'originalCode'), false);
+            assert.strictEqual(Object.hasOwn(transform, 'transformedCode'), false);
+            assert.strictEqual(passThrough.sourceMapTransform, undefined);
+        });
+
+        test('applies edits in source order when import.meta.resolve() appears before an import', function () {
+            const content = 'const url = import.meta.resolve("./bar.js"); import "./baz.js";';
+            const project = createProject({
+                withFiles: [
+                    { filePath: '/folder/foo.ts', content },
+                    { filePath: '/folder/bar.ts', content: 'export {};' },
+                    { filePath: '/folder/baz.ts', content: 'export {};' }
+                ]
+            });
+            const replacements = new Map<string, string>([
+                [ '/folder/bar.ts', 'bar-package' ],
+                [ '/folder/baz.ts', 'baz-package' ]
+            ]);
+
+            const result = replaceImportPathsWithTransform(project, '/folder/foo.ts', content, replacements);
+
+            assert.strictEqual(
+                result.content,
+                'const url = import.meta.resolve("bar-package"); import "baz-package";'
+            );
+        });
     });
 });

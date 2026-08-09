@@ -100,6 +100,7 @@ export function linkedBundle(overrides: Partial<LinkedBundle> = {}): LinkedBundl
         surface: createDefaultSurface(),
         linkedBundleDependencies: new Map(),
         substitutedSourceFilePathsByPackageName: new Map(),
+        sourceMapTransformsByTargetPath: new Map(),
         externalDependencies: new Map(),
         ...overrides
     };
