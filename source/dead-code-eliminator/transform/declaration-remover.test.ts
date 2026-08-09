@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { assertDefined } from '../../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../../test-libraries/typescript-project.ts';
 import { applyRemovalPlan } from './declaration-remover.ts';
-import type { PositionAtom } from './text-transform-map.ts';
+import type { PositionAtom } from './atom-translator.ts';
 
 type TransformResult = {
     readonly text: string;

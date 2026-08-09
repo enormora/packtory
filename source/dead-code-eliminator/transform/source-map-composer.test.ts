@@ -2,8 +2,8 @@ import assert from 'node:assert';
 import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
 import { TraceMap, eachMapping } from '@jridgewell/trace-mapping';
 import { suite, test } from 'mocha';
+import { buildTextTransformMap, type PositionAtom } from './atom-translator.ts';
 import { recomposeSourceMap as recomposeSourceMapWithTransform } from './source-map-composer.ts';
-import { buildTextTransformMap, type PositionAtom } from './text-transform-map.ts';
 
 type Mapping = {
     readonly generatedLine: number;

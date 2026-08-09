@@ -1,7 +1,6 @@
 import type { SourceFile } from 'ts-morph';
-import { processStatement } from './declaration-removal.ts';
-import { repairImportDeclarations } from './import-repair.ts';
-import { buildTextTransformMap, type PositionAtom } from './text-transform-map.ts';
+import { buildTextTransformMap, type PositionAtom } from './atom-translator.ts';
+import { processStatement, repairImportDeclarations } from './declaration-removal.ts';
 
 export type RemovalPlan = {
     readonly survivingNames: ReadonlySet<string>;

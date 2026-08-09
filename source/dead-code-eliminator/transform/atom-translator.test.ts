@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { translateGeneratedOffset } from './atom-translator.ts';
-import type { PositionAtom } from './text-transform-map.ts';
+import { translateGeneratedOffset, type PositionAtom } from './atom-translator.ts';
 
 suite('atom-translator', function () {
     test('translateGeneratedOffset shifts the offset by the atom delta when the offset is inside an atom', function () {

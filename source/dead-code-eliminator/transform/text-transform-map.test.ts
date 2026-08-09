@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { buildTextTransformMap } from './text-transform-map.ts';
+import { buildTextTransformMap } from './atom-translator.ts';
 
 suite('text-transform-map', function () {
     test('maps unchanged text after a deletion to its new offset', function () {

@@ -1,6 +1,6 @@
 import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
 import { eachMapping, TraceMap, type EachMapping } from '@jridgewell/trace-mapping';
-import { translateGeneratedOffset } from './atom-translator.ts';
+import { translateGeneratedOffset, type TextTransformMap } from './atom-translator.ts';
 import {
     buildLineIndex,
     lineColumnToOffset,
@@ -8,7 +8,6 @@ import {
     type LineColumn,
     type LineIndex
 } from './line-index.ts';
-import type { TextTransformMap } from './text-transform-map.ts';
 
 export type RecomposeInput = {
     readonly originalMap: string;

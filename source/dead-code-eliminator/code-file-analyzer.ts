@@ -4,8 +4,8 @@ import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
 import { bindingId } from './reachability/binding-id.ts';
 import { classifySideEffects } from './side-effect-classifier.ts';
+import type { PositionAtom, TextTransformMap } from './transform/atom-translator.ts';
 import { applyRemovalPlan } from './transform/declaration-remover.ts';
-import type { PositionAtom, TextTransformMap } from './transform/text-transform-map.ts';
 
 export type AnalysisContext = {
     readonly reachable: ReadonlySet<string>;
