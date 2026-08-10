@@ -28,7 +28,7 @@ suite('source-map-recomposition', function () {
     test('buildMapPathTransformIndex maps each transform to the matching .map file path', function () {
         const index = buildMapPathTransformIndex([ resourceOutput('a.js', [ transformRecord ]) ]);
 
-        assert.strictEqual(index.get('a.js.map')?.sourceMapTransforms.length, 1);
+        assert.strictEqual(index.get('a.js.map')?.length, 1);
     });
 
     test('buildMapPathTransformIndex omits entries for resources without transforms', function () {
@@ -94,7 +94,7 @@ suite('source-map-recomposition', function () {
             [ resourceOutput('a.js', [ dceTransform ]) ],
             new Map([ [ 'a.js', [ linkerTransform ] ] ])
         );
-        const transforms = index.get('a.js.map')?.sourceMapTransforms ?? [];
+        const transforms = index.get('a.js.map') ?? [];
         const firstTransform = transforms[0] as Record<string, unknown>;
 
         assert.strictEqual(transforms.length, 2);

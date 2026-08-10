@@ -1,4 +1,4 @@
-import type { Project, SourceFile, StringLiteral } from 'ts-morph';
+import type { Project, SourceFile } from 'ts-morph';
 import { buildLineIndex } from '../../dead-code-eliminator/transform/line-index.ts';
 import type { PositionAtom, SourceMapTransform } from '../../dead-code-eliminator/transform/atom-translator.ts';
 import {
@@ -9,108 +9,63 @@ import { getSourcePathFromSourceFile } from '../../dependency-scanner/typescript
 
 type Replacements = ReadonlyMap<string, string>;
 
-type LiteralEdit = {
-    readonly start: number;
-    readonly end: number;
-    readonly replacement: string;
-};
-
-type EditApplication = {
-    readonly content: string;
-    readonly atoms: readonly PositionAtom[];
-};
-
-type EditState = EditApplication & {
-    readonly originalOffset: number;
-    readonly transformedOffset: number;
-};
+type LiteralEdit = readonly [start: number, end: number, replacement: string];
 
 export type ImportPathReplacementResult = {
     readonly content: string;
     readonly sourceMapTransform: SourceMapTransform | undefined;
 };
 
-const unchangedResultSourceMapTransform = undefined;
-
-function importPathLiterals(sourceFile: SourceFile): readonly StringLiteral[] {
-    return [
+function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacements): readonly LiteralEdit[] {
+    const edits: LiteralEdit[] = [];
+    const literals = [
         ...sourceFile.getImportStringLiterals(),
         ...getImportMetaResolveLiterals(sourceFile)
     ];
-}
-
-function literalEdit(literal: StringLiteral, replacement: string): LiteralEdit {
-    return {
-        start: literal.getStart() + 1,
-        end: literal.getEnd() - 1,
-        replacement
-    };
-}
-
-function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacements): readonly LiteralEdit[] {
-    const edits: LiteralEdit[] = [];
-    for (const literal of importPathLiterals(sourceFile)) {
+    for (const literal of literals) {
         const resolvedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
         if (resolvedSourceFile !== undefined) {
             const replacement = replacements.get(getSourcePathFromSourceFile(resolvedSourceFile));
             if (replacement !== undefined) {
-                edits.push(literalEdit(literal, replacement));
+                edits.push([ literal.getStart() + 1, literal.getEnd() - 1, replacement ]);
             }
         }
     }
     return edits.toSorted(function (left, right) {
-        return left.start - right.start;
+        return left[0] - right[0];
     });
 }
 
-function appendUnchangedAtom(
-    atoms: readonly PositionAtom[],
-    originalStart: number,
-    originalEnd: number,
-    newStart: number
-): readonly PositionAtom[] {
-    return [ ...atoms, { originalStart, originalEnd, newStart } ];
-}
+function applyEdits(sourceContent: string, edits: readonly LiteralEdit[]): ImportPathReplacementResult {
+    let content = '';
+    let originalOffset = 0;
+    let transformedOffset = 0;
+    const atoms: PositionAtom[] = [];
 
-function initialEditState(): EditState {
-    return { originalOffset: 0, transformedOffset: 0, content: '', atoms: [] };
-}
+    function appendEdit(edit: LiteralEdit): void {
+        const [ start, end, replacement ] = edit;
+        content += sourceContent.slice(originalOffset, start) + replacement;
+        atoms.push({ originalStart: originalOffset, originalEnd: start, newStart: transformedOffset });
+        transformedOffset = content.length;
+        originalOffset = end;
+    }
 
-function appendEdit(sourceContent: string, state: EditState, edit: LiteralEdit): EditState {
-    const unchanged = sourceContent.slice(state.originalOffset, edit.start);
+    for (const edit of edits) {
+        appendEdit(edit);
+    }
+    content += sourceContent.slice(originalOffset);
+    atoms.push({
+        originalStart: originalOffset,
+        originalEnd: sourceContent.length,
+        newStart: transformedOffset
+    });
     return {
-        originalOffset: edit.end,
-        transformedOffset: state.transformedOffset + unchanged.length + edit.replacement.length,
-        content: `${state.content}${unchanged}${edit.replacement}`,
-        atoms: appendUnchangedAtom(state.atoms, state.originalOffset, edit.start, state.transformedOffset)
-    };
-}
-
-function finishEdits(sourceContent: string, state: EditState): EditApplication {
-    return {
-        content: `${state.content}${sourceContent.slice(state.originalOffset)}`,
-        atoms: appendUnchangedAtom(state.atoms, state.originalOffset, sourceContent.length, state.transformedOffset)
-    };
-}
-
-function applyEdits(sourceContent: string, edits: readonly LiteralEdit[]): EditApplication {
-    return finishEdits(
-        sourceContent,
-        edits.reduce(function (state, edit) {
-            return appendEdit(sourceContent, state, edit);
-        }, initialEditState())
-    );
-}
-
-function sourceMapTransform(
-    sourceContent: string,
-    transformedContent: string,
-    atoms: readonly PositionAtom[]
-): SourceMapTransform {
-    return {
-        originalLineIndex: buildLineIndex(sourceContent),
-        transformedLineIndex: buildLineIndex(transformedContent),
-        atoms
+        content,
+        sourceMapTransform: {
+            originalLineIndex: buildLineIndex(sourceContent),
+            transformedLineIndex: buildLineIndex(content),
+            atoms
+        }
     };
 }
 
@@ -121,16 +76,15 @@ export function replaceImportPathsWithTransform(
     replacements: Replacements
 ): ImportPathReplacementResult {
     if (project === undefined) {
-        return { content: sourceContent, sourceMapTransform: unchangedResultSourceMapTransform };
+        return { content: sourceContent, sourceMapTransform: undefined };
     }
     const sourceFile = project.getSourceFile(sourceFilePath);
     if (sourceFile === undefined) {
-        return { content: sourceContent, sourceMapTransform: unchangedResultSourceMapTransform };
+        return { content: sourceContent, sourceMapTransform: undefined };
     }
     const edits = collectImportPathEdits(sourceFile, replacements);
     if (edits.length === 0) {
-        return { content: sourceContent, sourceMapTransform: unchangedResultSourceMapTransform };
+        return { content: sourceContent, sourceMapTransform: undefined };
     }
-    const { content, atoms } = applyEdits(sourceContent, edits);
-    return { content, sourceMapTransform: sourceMapTransform(sourceContent, content, atoms) };
+    return applyEdits(sourceContent, edits);
 }

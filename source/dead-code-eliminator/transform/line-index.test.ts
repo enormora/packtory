@@ -4,15 +4,11 @@ import { buildLineIndex, lineColumnToOffset, offsetToLineColumn } from './line-i
 
 suite('line-index', function () {
     test('buildLineIndex returns a single entry for an empty string', function () {
-        assert.deepStrictEqual(buildLineIndex(''), [ { lineNumber: 1, lineStart: 0 } ]);
+        assert.deepStrictEqual(buildLineIndex(''), [ 0 ]);
     });
 
     test('buildLineIndex returns one entry per newline-terminated line plus the first line', function () {
-        assert.deepStrictEqual(buildLineIndex('a\nb\nc'), [
-            { lineNumber: 1, lineStart: 0 },
-            { lineNumber: 2, lineStart: 2 },
-            { lineNumber: 3, lineStart: 4 }
-        ]);
+        assert.deepStrictEqual(buildLineIndex('a\nb\nc'), [ 0, 2, 4 ]);
     });
 
     test('lineColumnToOffset returns the lineStart plus the column for a known line', function () {
