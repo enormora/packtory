@@ -382,7 +382,10 @@ function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet
     const outputs = loaded.loaded.map(function (entry) {
         return buildAnalyzedResource(entry, context);
     });
-    const transformsByMapPath = buildMapPathTransformIndex(outputs);
+    const transformsByMapPath = buildMapPathTransformIndex(
+        outputs,
+        loaded.input.bundle.sourceMapTransformsByTargetPath
+    );
     const contents = outputs.map(function (output) {
         return output.resource;
     });

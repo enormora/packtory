@@ -13,7 +13,7 @@ export type AnalysisContext = {
     readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 
-export type TransformRecord = {
+type TransformRecord = {
     readonly textTransform: TextTransformMap;
 };
 

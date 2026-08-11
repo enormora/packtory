@@ -1,10 +1,21 @@
 import path from 'node:path';
 import assert from 'node:assert';
+import { eachMapping, TraceMap } from '@jridgewell/trace-mapping';
 import { suite, test } from 'mocha';
 import { packageProcessor } from '../../source/packages/package-processor/package-processor.entry-point.ts';
 import { bindingAnalysis, emptyAnalysis } from '../analyzed-bundle-fixtures.ts';
 import { loadPackageJson } from '../load-package-json.ts';
 import { asImplicitExportsBundle } from '../modern-bundle.ts';
+
+function firstGeneratedColumn(mapContent: string): number | undefined {
+    const columns: number[] = [];
+    eachMapping(new TraceMap(mapContent), function (mapping) {
+        if (columns.length === 0) {
+            columns.push(mapping.generatedColumn);
+        }
+    });
+    return columns[0];
+}
 
 suite('source-maps', function () {
     test('adds map files to the bundle when enabled', async function () {
@@ -125,5 +136,55 @@ suite('source-maps', function () {
                 version: '42.0.0'
             })
         );
+    });
+
+    test('recomposes nonempty source maps for linker-only rewrites', async function () {
+        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/source-map-linker-rewrite');
+        const providerBundle = await packageProcessor.build({
+            name: 'provider-package',
+            version: '1.0.0',
+            sourcesFolder: path.join(fixture, 'src'),
+            roots: { main: { js: path.join(fixture, 'src/provider.js') } },
+            mainPackageJson: await loadPackageJson(fixture),
+            includeSourceMapFiles: true,
+            additionalFiles: [],
+            bundleDependencies: [],
+            bundlePeerDependencies: [],
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: [],
+            deadCodeElimination: { enabled: false }
+        });
+        const consumerBundle = await packageProcessor.build({
+            name: 'consumer-package',
+            version: '1.0.0',
+            sourcesFolder: path.join(fixture, 'src'),
+            roots: { main: { js: path.join(fixture, 'src/consumer.js') } },
+            mainPackageJson: await loadPackageJson(fixture),
+            includeSourceMapFiles: true,
+            additionalFiles: [],
+            bundleDependencies: [ providerBundle ],
+            bundlePeerDependencies: [],
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: [],
+            deadCodeElimination: { enabled: false }
+        });
+
+        const code = consumerBundle.contents.find(function (resource) {
+            return resource.fileDescription.targetFilePath === 'consumer.js';
+        });
+        const map = consumerBundle.contents.find(function (resource) {
+            return resource.fileDescription.targetFilePath === 'consumer.js.map';
+        });
+
+        assert.strictEqual(
+            code?.fileDescription.content,
+            [
+                "import { dep } from 'provider-package'; export const value = dep;",
+                '//# sourceMappingURL=consumer.js.map',
+                ''
+            ]
+                .join('\n')
+        );
+        assert.strictEqual(firstGeneratedColumn(map?.fileDescription.content ?? ''), 53);
     });
 });

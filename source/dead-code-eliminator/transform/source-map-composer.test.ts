@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { addMapping, GenMapping, toEncodedMap } from '@jridgewell/gen-mapping';
 import { TraceMap, eachMapping } from '@jridgewell/trace-mapping';
 import { suite, test } from 'mocha';
-import { buildTextTransformMap, type PositionAtom } from './atom-translator.ts';
+import { buildTextTransformMap, toSourceMapTransform, type PositionAtom } from './atom-translator.ts';
 import { recomposeSourceMap as recomposeSourceMapWithTransform } from './source-map-composer.ts';
 
 type Mapping = {
@@ -21,14 +21,16 @@ type LegacyRecomposeInput = {
 };
 
 function recomposeSourceMap(input: LegacyRecomposeInput): string {
-    return recomposeSourceMapWithTransform({
-        originalMap: input.originalMap,
-        textTransform: {
-            originalCode: input.originalCode,
-            transformedCode: input.transformedCode,
-            atoms: input.atoms
-        }
-    });
+    return recomposeSourceMapWithTransform(
+        input.originalMap,
+        [
+            toSourceMapTransform({
+                originalCode: input.originalCode,
+                transformedCode: input.transformedCode,
+                atoms: input.atoms
+            })
+        ]
+    );
 }
 
 function listMappings(mapJson: string): readonly Mapping[] {
@@ -121,6 +123,24 @@ suite('source-map-composer', function () {
                 atoms: removeFunctionDeadAtoms
             });
             assert.strictEqual(result, minimal);
+        });
+
+        test('recomposeSourceMap returns an empty mappings map unchanged', function () {
+            const map = {
+                version: 3,
+                sources: [ 'index.ts' ],
+                names: [],
+                mappings: ''
+            };
+            const emptyMappings = `${JSON.stringify(map)}\n`;
+            const result = recomposeSourceMap({
+                originalMap: emptyMappings,
+                originalCode,
+                transformedCode,
+                atoms: removeFunctionDeadAtoms
+            });
+
+            assert.strictEqual(result, emptyMappings);
         });
 
         test('recomposeSourceMap produces a valid v3 map for a no-op atom list', function () {
@@ -332,10 +352,12 @@ suite('source-map-composer', function () {
             const editedTransformedCode = 'import { live } from "./other";\nexport const api = live;';
             const originalLiveColumn = editedOriginalCode.indexOf('live');
             const transformedLiveColumn = editedTransformedCode.indexOf('live');
-            const result = recomposeSourceMapWithTransform({
-                originalMap: singleMappingMap(originalLiveColumn, editedOriginalCode),
-                textTransform: buildTextTransformMap(editedOriginalCode, editedTransformedCode)
-            });
+            const result = recomposeSourceMapWithTransform(
+                singleMappingMap(originalLiveColumn, editedOriginalCode),
+                [
+                    toSourceMapTransform(buildTextTransformMap(editedOriginalCode, editedTransformedCode))
+                ]
+            );
 
             assert.deepStrictEqual(listMappings(result), [
                 {
@@ -351,12 +373,39 @@ suite('source-map-composer', function () {
         test('recomposeSourceMap does not map an inserted module marker', function () {
             const markerOriginalCode = 'import type { Dead } from "./types";\ntype Local = Dead;';
             const markerTransformedCode = 'export {};\n';
-            const result = recomposeSourceMapWithTransform({
-                originalMap: singleMappingMap(0, markerOriginalCode),
-                textTransform: buildTextTransformMap(markerOriginalCode, markerTransformedCode)
-            });
+            const result = recomposeSourceMapWithTransform(
+                singleMappingMap(0, markerOriginalCode),
+                [
+                    toSourceMapTransform(buildTextTransformMap(markerOriginalCode, markerTransformedCode))
+                ]
+            );
 
             assert.deepStrictEqual(listMappings(result), []);
+        });
+
+        test('recomposeSourceMap translates mappings through multiple transforms in order', function () {
+            const firstOriginalCode = 'import "./dep.js";\nexport const live = 1;\n';
+            const firstTransformedCode = 'import "pkg";\nexport const live = 1;\n';
+            const secondTransformedCode = 'export const live = 1;\n';
+            const originalLiveColumn = firstOriginalCode.indexOf('live');
+            const transformedLiveColumn = secondTransformedCode.indexOf('live');
+            const result = recomposeSourceMapWithTransform(
+                singleMappingMap(originalLiveColumn, firstOriginalCode),
+                [
+                    toSourceMapTransform(buildTextTransformMap(firstOriginalCode, firstTransformedCode)),
+                    toSourceMapTransform(buildTextTransformMap(firstTransformedCode, secondTransformedCode))
+                ]
+            );
+
+            assert.deepStrictEqual(listMappings(result), [
+                {
+                    generatedLine: 1,
+                    generatedColumn: transformedLiveColumn,
+                    originalLine: 1,
+                    originalColumn: originalLiveColumn,
+                    source: 'index.ts'
+                }
+            ]);
         });
     });
 });

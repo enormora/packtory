@@ -1,4 +1,5 @@
 import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
+import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
 import type { PackageSurface } from '../package-surface/surface.ts';
 import type { BundleResource, RootFileDescription } from '../resource-resolver/resolved-bundle.ts';
 
@@ -14,6 +15,7 @@ export type LinkedBundle = {
     readonly exportPackageJson?: true | undefined;
     readonly linkedBundleDependencies: ExternalDependencies;
     readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly sourceMapTransformsByTargetPath: ReadonlyMap<string, readonly SourceMapTransform[]>;
     readonly externalDependencies: ExternalDependencies;
 };
 

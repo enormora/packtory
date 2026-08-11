@@ -1,5 +1,6 @@
 import { unique } from 'remeda';
 import type { Except } from 'type-fest';
+import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
 import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
 import { createDirectedGraph } from '../directed-graph/graph.ts';
 import type { LinkedBundle, LinkedBundleResource } from './linked-bundle.ts';
@@ -8,6 +9,7 @@ import type { ResourceGraphNodeData } from './resource-graph.ts';
 type SubstitutedResourceGraphNodeData = ResourceGraphNodeData & {
     readonly bundleDependencies: readonly string[];
     readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly sourceMapTransformsByTargetPath: ReadonlyMap<string, readonly SourceMapTransform[]>;
     readonly isSubstituted: boolean;
 };
 
@@ -45,12 +47,18 @@ type FlattenCollectors = {
     readonly contents: readonly LinkedBundleResource[];
     readonly linkedBundleDependencies: ReadonlyMap<string, ExternalDependency>;
     readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+    readonly sourceMapTransformsByTargetPath: ReadonlyMap<string, readonly SourceMapTransform[]>;
     readonly externalDependencies: ReadonlyMap<string, ExternalDependency>;
 };
 
 type MutableExternalDependencyRecord = {
     readonly get: (key: string) => ExternalDependency | undefined;
     readonly set: (key: string, value: ExternalDependency) => unknown;
+};
+
+type MutableSourceMapTransformRecord = {
+    readonly get: (key: string) => readonly SourceMapTransform[] | undefined;
+    readonly set: (key: string, value: readonly SourceMapTransform[]) => unknown;
 };
 
 function collectLinkedBundleDependencies(
@@ -93,10 +101,21 @@ function collectExternalDependencies(
     }
 }
 
+function collectSourceMapTransforms(
+    sourceMapTransformsByTargetPath: MutableSourceMapTransformRecord,
+    source: ReadonlyMap<string, readonly SourceMapTransform[]>
+): void {
+    for (const [ targetPath, transforms ] of source) {
+        const existing = sourceMapTransformsByTargetPath.get(targetPath) ?? [];
+        sourceMapTransformsByTargetPath.set(targetPath, [ ...existing, ...transforms ]);
+    }
+}
+
 function createFlattenCollectors(): FlattenCollectors {
     const contents: LinkedBundleResource[] = [];
     const linkedBundleDependencies = new Map<string, ExternalDependency>();
     const substitutedSourceFilePathsByPackageName = new Map<string, Set<string>>();
+    const sourceMapTransformsByTargetPath = new Map<string, readonly SourceMapTransform[]>();
     const externalDependencies = new Map<string, ExternalDependency>();
     const visited = new Set<string>();
 
@@ -127,6 +146,7 @@ function createFlattenCollectors(): FlattenCollectors {
         ) {
             substitutedSourceFilePathsByPackageName.set(packageName, new Set(sourceFilePaths));
         }
+        collectSourceMapTransforms(sourceMapTransformsByTargetPath, data.sourceMapTransformsByTargetPath);
         collectExternalDependencies(externalDependencies, data.externalDependencies, filePath);
     }
 
@@ -135,6 +155,7 @@ function createFlattenCollectors(): FlattenCollectors {
         contents,
         linkedBundleDependencies,
         substitutedSourceFilePathsByPackageName,
+        sourceMapTransformsByTargetPath,
         externalDependencies
     };
 }
@@ -161,6 +182,7 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
                 contents,
                 linkedBundleDependencies,
                 substitutedSourceFilePathsByPackageName,
+                sourceMapTransformsByTargetPath,
                 externalDependencies
             } = createFlattenCollectors();
 
@@ -182,6 +204,7 @@ export function createSubstitutedResourceGraph(): SubstitutedResourceGraph {
                 contents,
                 linkedBundleDependencies,
                 substitutedSourceFilePathsByPackageName,
+                sourceMapTransformsByTargetPath,
                 externalDependencies
             };
         }

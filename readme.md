@@ -499,7 +499,7 @@ The same static analysis also drives, regardless of any `checks` configuration:
 
 ### Source maps
 
-When a `.map` file is paired with a code file the analyzer transforms, packtory recomposes the source map from the full text transform so the published map still points back to the original sources at the new line and column numbers. If DCE prunes the paired code file, the paired map is pruned with it. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Malformed source maps that cannot be parsed are passed through unchanged rather than dropped.
+When a `.map` file is paired with a code or declaration file rewritten by the linker or transformed by DCE, packtory recomposes the source map so the published map still points back to the original sources at the new line and column numbers. Linker import rewrites are applied before DCE transforms. If DCE prunes the paired code file, the paired map is pruned with it. If no `.map` is shipped (because `includeSourceMapFiles` is off, or the toolchain never emitted one), there is nothing to do and recomposition is a no-op. Empty and malformed source maps are passed through unchanged.
 
 ## Example Use-Cases
 

@@ -213,14 +213,16 @@ function assertPreservesOwnedLicense(
 
     assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
     assert.strictEqual(substitutedGraph.isKnown('/LICENSE'), true);
-    assert.deepStrictEqual(result, entryWithLicenseResult(packageName));
+    assert.partialDeepStrictEqual(result, entryWithLicenseResult(packageName));
+    assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
 }
 
 const passthroughResult = {
     contents: [ entryWithFooImport, fooFileResult ],
     externalDependencies: new Map(),
     linkedBundleDependencies: new Map(),
-    substitutedSourceFilePathsByPackageName: new Map()
+    substitutedSourceFilePathsByPackageName: new Map(),
+    sourceMapTransformsByTargetPath: new Map()
 } as const;
 
 suite('substitute-bundles', function () {
@@ -290,7 +292,9 @@ suite('substitute-bundles', function () {
         const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('the-package', '/foo.js') ], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.deepStrictEqual(result, substitutedEntryResult('the-package'));
+        assert.partialDeepStrictEqual(result, substitutedEntryResult('the-package'));
+        assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
+        assert.strictEqual(result.sourceMapTransformsByTargetPath.get('entry.js')?.length, 1);
     });
 
     test('substitutes a file which matches an already substituted file from a dependency', function () {
@@ -302,7 +306,8 @@ suite('substitute-bundles', function () {
         );
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.deepStrictEqual(result, substitutedEntryResult('first-package'));
+        assert.partialDeepStrictEqual(result, substitutedEntryResult('first-package'));
+        assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
     });
 
     test('substitutes peer dependency files without carrying their source nodes forward', function () {
@@ -311,7 +316,8 @@ suite('substitute-bundles', function () {
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
         assert.strictEqual(substitutedGraph.isKnown('/foo.js'), false);
-        assert.deepStrictEqual(result, substitutedEntryResult('peer-package'));
+        assert.partialDeepStrictEqual(result, substitutedEntryResult('peer-package'));
+        assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
     });
 
     test('preserves explicitly included files owned by a substituted bundle dependency', function () {
@@ -352,7 +358,7 @@ suite('substitute-bundles', function () {
         ], []);
         const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.deepStrictEqual(result, {
+        assert.partialDeepStrictEqual(result, {
             contents: [
                 {
                     directDependencies: new Set([ '/foo.js' ]),
@@ -387,6 +393,7 @@ suite('substitute-bundles', function () {
                 [ 'second-package', new Set([ '/baz.js' ]) ]
             ])
         });
+        assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'foo.js' ]);
     });
 
     test('preserves generated manifest markers while substituting dependencies', function () {
