@@ -37,6 +37,7 @@ export type ReleasePreparationDependencies = {
     readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
     readonly spinnerRenderer: { readonly stopAll: () => void; };
     readonly configLoader: { readonly load: () => Promise<unknown>; };
+    readonly trace: boolean;
     readonly workingDirectory: string;
 };
 
@@ -61,7 +62,7 @@ async function planRelease(
     const outcome = await dependencies.packtory.planReleaseAgainstLatestPublished(config);
     dependencies.spinnerRenderer.stopAll();
     if (outcome.result.isErr) {
-        printReleasePlanFailure(dependencies.log, outcome.result.error);
+        printReleasePlanFailure(dependencies.log, outcome.result.error, dependencies.trace);
         return undefined;
     }
     return outcome.result.value.packages;

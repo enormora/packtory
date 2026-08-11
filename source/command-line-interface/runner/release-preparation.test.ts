@@ -175,6 +175,7 @@ function createDependencies(overrides: Partial<DependencySpec> = {}): CreatedRel
             }
         },
         configLoader: { load: fake.resolves(validConfig) },
+        trace: false,
         workingDirectory: '/repo',
         stopAll: input.stopAll
     };

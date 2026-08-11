@@ -147,6 +147,7 @@ type DependencyOverrides = {
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
     readonly readEnvironmentVariable?: ReleaseHandlerDependencies['readEnvironmentVariable'];
     readonly readPackageInfo?: ReleaseHandlerDependencies['readPackageInfo'];
+    readonly trace?: boolean;
 };
 type CreatedReleaseHandlerDependencies = ReleaseHandlerDependencies & {
     readonly buildAndPublishAll: SinonSpy;
@@ -216,6 +217,7 @@ function createCompleteDependencyOverrides(overrides: DependencyOverrides): Comp
         planReleaseAgainstLatestPublished: createPlanRelease(packages),
         readEnvironmentVariable: readDefaultEnvironmentVariable,
         readPackageInfo: readDefaultPackageInfo,
+        trace: false,
         ...overrides
     };
 }
@@ -242,6 +244,7 @@ function createDependencies(overrides: DependencyOverrides = {}): CreatedRelease
         readPackageInfo: completeOverrides.readPackageInfo,
         spinnerRenderer: { stopAll: fake() },
         configLoader: { load: fake.resolves(validConfig) },
+        trace: completeOverrides.trace,
         workingDirectory: '/repo'
     };
 }
@@ -335,6 +338,29 @@ suite('release-handler', function () {
 
             assert.strictEqual(await runReleaseHandler(dependencies), 1);
             assert.match(String(dependencies.log.lastCall.args[0]), /invalid release plan/u);
+        });
+
+        test('prints a stack trace when an action error is caught with trace enabled', async function () {
+            const latestRegistryMetadata: ReleasePlanPackage['latestRegistryMetadata'] = {
+                gitHead: 'current-head',
+                publishedAt: undefined,
+                version: '1.0.1'
+            };
+            const dependencies = createDependencies({
+                flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
+                packages: [
+                    releasePackage({
+                        changed: false,
+                        currentGitHead: 'current-head',
+                        latestRegistryMetadata
+                    })
+                ],
+                readPackageInfo: fake.rejects(new Error('repository failed')),
+                trace: true
+            });
+
+            assert.strictEqual(await runReleaseHandler(dependencies), 1);
+            assert.match(String(dependencies.log.firstCall.args[0]), /Stack trace: Error: repository failed/u);
         });
     });
 

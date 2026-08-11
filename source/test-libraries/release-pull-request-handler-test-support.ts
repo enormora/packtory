@@ -168,6 +168,7 @@ export function createDependencies(
         sleep: fake.resolves(undefined),
         spinnerRenderer: { stopAll: fake() },
         configLoader: { load: fake.resolves(createReleasePullRequestConfig()) },
+        trace: false,
         workingDirectory: '/repo',
         ...overrides
     };

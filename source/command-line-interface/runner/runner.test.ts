@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { fake } from 'sinon';
+import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
 import { toOutcome } from '../../test-libraries/result-helpers.ts';
 import {
@@ -9,6 +9,22 @@ import {
     expectHelp,
     expectSubcommandHelp
 } from '../../test-libraries/runner-test-support.ts';
+
+type LoggedCommandRun = {
+    readonly buildAndPublishAll: SinonSpy;
+    readonly exitCode: number;
+    readonly log: SinonSpy;
+};
+
+async function runWithBuildAndLog(
+    buildAndPublishAll: SinonSpy,
+    commandArguments: readonly string[]
+): Promise<LoggedCommandRun> {
+    const log = fake();
+    const runner = createRunner({ buildAndPublishAll, log });
+    const exitCode = await runner.run(commandArguments);
+    return { buildAndPublishAll, exitCode, log };
+}
 
 suite('runner command routing', function () {
     suite('publish and preview options', function () {
@@ -97,15 +113,24 @@ suite('runner command routing', function () {
 
         test('returns exit code 1 instead of exiting the process when command parsing fails', async function () {
             const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
-            const log = fake();
-            const runner = createRunner({ buildAndPublishAll, log });
+            const result = await runWithBuildAndLog(buildAndPublishAll, [ 'foo', 'bar', 'not-a-command' ]);
 
-            const exitCode = await runner.run([ 'foo', 'bar', 'not-a-command' ]);
-
-            assert.strictEqual(exitCode, 1);
+            assert.strictEqual(result.exitCode, 1);
             assert.strictEqual(buildAndPublishAll.callCount, 0);
-            assert.strictEqual(log.callCount, 1);
-            assert.match(String(log.firstCall.args[0]), /packtory --help/);
+            assert.strictEqual(result.log.callCount, 1);
+            assert.match(String(result.log.firstCall.args[0]), /packtory --help/);
+        });
+
+        test('prints root help with trace when no command is provided', async function () {
+            const help = await expectHelp([]);
+
+            assert.match(help, /--trace/u);
+        });
+
+        test('prints root help with trace for short help', async function () {
+            const help = await expectHelp([ '-h' ]);
+
+            assert.match(help, /--trace/u);
         });
 
         test('returns exit code 1 when the publish command name is misspelled', async function () {
@@ -116,6 +141,35 @@ suite('runner command routing', function () {
 
             assert.strictEqual(exitCode, 1);
             assert.strictEqual(buildAndPublishAll.callCount, 0);
+        });
+
+        test('returns exit code 1 and logs a concise message when a command throws without trace', async function () {
+            const result = await runWithBuildAndLog(
+                fake.rejects(new Error('boom')),
+                [ 'foo', 'bar', 'publish', '--no-dry-run' ]
+            );
+
+            assert.strictEqual(result.exitCode, 1);
+            assert.strictEqual(result.log.firstCall.args[0], 'boom');
+        });
+
+        test('returns exit code 1 and logs a stack trace when a command throws with root trace', async function () {
+            const result = await runWithBuildAndLog(
+                fake.rejects(new Error('boom')),
+                [ 'foo', 'bar', '--trace', 'publish', '--no-dry-run' ]
+            );
+
+            assert.strictEqual(result.exitCode, 1);
+            assert.match(String(result.log.firstCall.args[0]), /Stack trace: Error: boom/u);
+        });
+
+        test('rejects trace after the subcommand as an unknown argument', async function () {
+            const buildAndPublishAll = fake.resolves(toOutcome(Result.ok([])));
+            const result = await runWithBuildAndLog(buildAndPublishAll, [ 'foo', 'bar', 'publish', '--trace' ]);
+
+            assert.strictEqual(result.exitCode, 1);
+            assert.strictEqual(buildAndPublishAll.callCount, 0);
+            assert.match(String(result.log.firstCall.args[0]), /Unknown arguments/u);
         });
     });
 
@@ -136,10 +190,14 @@ suite('runner command routing', function () {
             );
             assert.ok(help.includes('changelog'), 'Expected help output to include the changelog command');
             assert.ok(help.includes('release-pr'), 'Expected help output to include the release-pr command');
+            assert.ok(help.includes('--trace'), 'Expected help output to include the trace flag');
         });
 
         test('prints subcommand help that includes the full publish command path', async function () {
-            assert.match(await expectSubcommandHelp('publish'), /packtory publish/);
+            const help = await expectSubcommandHelp('publish');
+
+            assert.match(help, /packtory publish/);
+            assert.ok(!help.includes('--trace'), 'Expected publish help to omit the root trace flag');
         });
 
         test('prints subcommand help that includes the full preview command path and --open flag', async function () {

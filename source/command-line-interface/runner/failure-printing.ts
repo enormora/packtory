@@ -10,13 +10,14 @@ import {
 import type { BuildAndPublishResult } from '../../packtory/package-processor.ts';
 import type { PartialError } from '../../packtory/scheduler.ts';
 import { getErrorSymbol, getSuccessSymbol, getWarningSymbol } from './runner-symbols.ts';
-import { formatTerminalErrorBullet } from './terminal-error-chain.ts';
+import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
 
 type PublishPartialError = PartialError<BuildAndPublishResult>;
 type StagedResult = BuildAndPublishResult & {
     readonly publication: Extract<PublicationOutcome, { readonly type: 'staged'; }>;
 };
 type Logger = (message: string) => void;
+type ErrorFormatter = (error: Error) => string;
 type DryRunFlags = {
     readonly noDryRun: boolean;
 };
@@ -84,23 +85,29 @@ function formatStageSuccessSummary(results: readonly BuildAndPublishResult[]): s
     return `${getSuccessSymbol()} Success: staged ${stagedResults.length} package(s)${unchangedSuffix}`;
 }
 
-function printPartialErrorSummary(log: Logger, error: PublishPartialError, stage: boolean): void {
+function printPartialErrorSummary(
+    log: Logger,
+    error: PublishPartialError,
+    stage: boolean,
+    formatError: ErrorFormatter
+): void {
     const total = error.succeeded.length + error.failures.length;
     const failureCount = red(String(error.failures.length));
     const successCount = green(String(error.succeeded.length));
     const summary = `${getErrorSymbol()} ${failureCount} from ${bold(String(total))} package(s) failed; ` +
         `${successCount} succeeded`;
-    const details = error.failures.map(formatTerminalErrorBullet);
+    const details = error.failures.map(formatError);
     log([ summary, ...details ].join('\n'));
     if (stage) {
         printStagedPackageList(log, error.succeeded);
     }
 }
 
-export function printPublishFailure(log: Logger, error: PublishFailure, stage: boolean): void {
+export function printPublishFailure(log: Logger, error: PublishFailure, stage: boolean, trace: boolean): void {
     match(error)
         .with({ type: partialFailureType }, function (partialError) {
-            printPartialErrorSummary(log, partialError, stage);
+            const formatError = trace ? formatTerminalErrorTraceBullet : formatTerminalErrorBullet;
+            printPartialErrorSummary(log, partialError, stage, formatError);
         })
         .otherwise(function (issueError) {
             printIssueSummary(log, issueTitleByType[issueError.type], issueError.issues);

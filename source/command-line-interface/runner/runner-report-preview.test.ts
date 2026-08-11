@@ -315,16 +315,14 @@ suite('runner report and preview', function () {
 
         test('preview stops all spinners when config loading fails before the build starts', async function () {
             const stopAll = fake();
+            const log = fake();
             const loadConfig = fake.rejects(new Error('config boom'));
-            const runner = createRunner({ loadConfig, spinnerRenderer: { stopAll } });
+            const runner = createRunner({ loadConfig, log, spinnerRenderer: { stopAll } });
 
-            try {
-                await runner.run([ 'foo', 'bar', 'preview' ]);
-                assert.fail('expected preview run to throw');
-            } catch (error: unknown) {
-                assert.strictEqual((error as Error).message, 'config boom');
-            }
+            const exitCode = await runner.run([ 'foo', 'bar', 'preview' ]);
 
+            assert.strictEqual(exitCode, 1);
+            assert.strictEqual(log.firstCall.args[0], 'config boom');
             assert.strictEqual(stopAll.callCount, 1);
         });
     });

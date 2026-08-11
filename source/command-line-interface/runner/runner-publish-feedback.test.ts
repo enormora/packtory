@@ -12,19 +12,25 @@ import {
 } from '../../test-libraries/runner-test-support.ts';
 
 suite('runner publish feedback', function () {
-    async function expectRunnerToRethrow(overrides: Overrides, expectedMessage: string): Promise<void> {
-        const runner = createRunner(overrides);
-        try {
-            await runner.run([ 'foo', 'bar', 'publish' ]);
-            assert.fail('Expected run() should fail but it did not');
-        } catch (error: unknown) {
-            assert.strictEqual((error as Error).message, expectedMessage);
-        }
+    async function expectRunnerToReportFailure(overrides: Overrides, expectedMessage: string): Promise<void> {
+        const log = fake();
+        const runner = createRunner({ ...overrides, log });
+
+        const exitCode = await runner.run([ 'foo', 'bar', 'publish', '--no-dry-run' ]);
+
+        assert.strictEqual(exitCode, 1);
+        assert.strictEqual(log.firstCall.args[0], expectedMessage);
     }
 
     suite('throwing and issue output', function () {
-        test('rethrows the error when buildAndPublishAll() throws', async function () {
-            await expectRunnerToRethrow({ buildAndPublishAll: fake.rejects(new Error('foo')) }, 'foo');
+        test('reports the error when buildAndPublishAll() throws', async function () {
+            const log = fake();
+            const runner = createRunner({ buildAndPublishAll: fake.rejects(new Error('foo')), log });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'publish', '--no-dry-run' ]);
+
+            assert.strictEqual(exitCode, 1);
+            assert.strictEqual(log.firstCall.args[0], 'foo');
         });
 
         async function runWithIssues(
@@ -156,10 +162,10 @@ suite('runner publish feedback', function () {
     suite('spinners and progress', function () {
         test('stops all spinners when buildAndPublishAll throws', async function () {
             const stopAll = fake();
-            await expectRunnerToRethrow(
-                { buildAndPublishAll: fake.rejects(new Error('foo')), spinnerRenderer: { stopAll } },
-                'foo'
-            );
+            await expectRunnerToReportFailure({
+                buildAndPublishAll: fake.rejects(new Error('foo')),
+                spinnerRenderer: { stopAll }
+            }, 'foo');
             assert.strictEqual(stopAll.callCount, 1);
         });
 

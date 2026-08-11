@@ -25,6 +25,7 @@ import {
     type ReleasePullRequestPolicyConfig,
     type ReleasePullRequestPolicyInput
 } from './release-pull-request-policy.ts';
+import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentReader = (name: string) => string | undefined;
@@ -70,6 +71,7 @@ export type ReleasePullRequestHandlerDependencies = {
     readonly sleep: (milliseconds: number) => Promise<void>;
     readonly spinnerRenderer: ReleasePreparationDependencies['spinnerRenderer'];
     readonly configLoader: ReleasePreparationDependencies['configLoader'];
+    readonly trace: boolean;
     readonly workingDirectory: string;
 };
 
@@ -115,8 +117,16 @@ type GitHubRepository = GitHubRepositoryNameParts & {
 
 const defaultGitHubApiBaseUrl = 'https://api.github.com';
 
+function toError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(String(error));
+}
+
 function formatHandlerError(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    return formatTerminalError(toError(error));
+}
+
+function formatHandlerTrace(error: unknown): string {
+    return formatTerminalErrorTrace(toError(error));
 }
 
 function readGitHubToken(
@@ -520,7 +530,8 @@ export async function runReleasePullRequestHandler(
     try {
         return stopSpinnersAndReturn(dependencies, await runReleasePullRequestCommand(dependencies));
     } catch (error: unknown) {
-        dependencies.log(formatHandlerError(error));
+        const formatError = dependencies.trace ? formatHandlerTrace : formatHandlerError;
+        dependencies.log(formatError(error));
         return stopSpinnersAndReturn(dependencies, 1);
     }
 }

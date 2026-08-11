@@ -41,6 +41,7 @@ function defaultFlags(overrides: Readonly<Partial<PackFlags>> = {}): PackFlags {
         outputPath: '/out/pkg-a.zip',
         version: '0.0.0',
         vendorDependencies: false,
+        trace: false,
         ...overrides
     };
 }
@@ -220,6 +221,30 @@ suite('pack-handler', function () {
                     /- resolve A\n {2}Caused by: read failed\n- resolve B/u
                 ]
             );
+        });
+
+        test('includes partial resolve failure stack traces when trace is enabled', async function () {
+            const outcome = makeOutcome(
+                {
+                    isOk: false,
+                    isErr: true,
+                    error: {
+                        type: 'partial',
+                        error: {
+                            succeeded: [],
+                            failures: [ new Error('resolve A', { cause: new Error('read failed') }) ]
+                        }
+                    }
+                } as unknown as PackOutcome['result']
+            );
+            const { dependencies, logSpy } = setup(outcome, { trace: true });
+
+            const code = await runPackHandler(dependencies);
+
+            assert.strictEqual(code, 1);
+            const message = logSpy.firstCall.args[0] as string;
+            assert.match(message, /Stack trace: Error: resolve A/u);
+            assert.match(message, /Caused by stack trace: Error: read failed/u);
         });
     });
 

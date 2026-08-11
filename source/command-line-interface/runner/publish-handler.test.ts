@@ -21,6 +21,7 @@ type PublishFlags = {
     readonly stage: boolean;
     readonly reportJson: boolean;
     readonly reportHtml: boolean;
+    readonly trace: boolean;
 };
 type CapturedPublishMessages = {
     readonly code: number;
@@ -48,7 +49,7 @@ async function captureMessages(
 suite('publish-handler', function () {
     test('runPublishHandler returns 0 and logs a success summary when the build succeeds', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
+            { noDryRun: true, stage: false, reportJson: false, reportHtml: false, trace: false },
             buildOutcome({
                 result: Result.ok([ createBuildResultFixture() ])
             })
@@ -62,7 +63,7 @@ suite('publish-handler', function () {
 
     test('runPublishHandler passes stage mode through to the success summary', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: true, reportJson: false, reportHtml: false },
+            { noDryRun: true, stage: true, reportJson: false, reportHtml: false, trace: false },
             buildOutcome({
                 result: Result.ok([
                     createBuildResultFixture({
@@ -83,7 +84,7 @@ suite('publish-handler', function () {
 
     test('runPublishHandler returns 1 and logs the publish failure when the build fails', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: false, reportJson: false, reportHtml: false },
+            { noDryRun: true, stage: false, reportJson: false, reportHtml: false, trace: false },
             buildOutcome({
                 result: Result.err(configError([ 'missing field' ]))
             })
@@ -97,7 +98,7 @@ suite('publish-handler', function () {
 
     test('runPublishHandler passes stage mode through to the publish failure summary', async function () {
         const { code, messages } = await captureMessages(
-            { noDryRun: true, stage: true, reportJson: false, reportHtml: false },
+            { noDryRun: true, stage: true, reportJson: false, reportHtml: false, trace: false },
             buildOutcome({
                 result: Result.err(
                     publishPartialFailure({
@@ -123,7 +124,7 @@ suite('publish-handler', function () {
 
     test('runPublishHandler appends the dry-run reminder when noDryRun is false', async function () {
         const { messages } = await captureMessages(
-            { noDryRun: false, stage: false, reportJson: false, reportHtml: false },
+            { noDryRun: false, stage: false, reportJson: false, reportHtml: false, trace: false },
             buildOutcome()
         );
 
@@ -146,7 +147,7 @@ suite('publish-handler', function () {
                 spinnerRenderer: spinner,
                 configLoader: configLoaderStub(),
                 fileManager: fileManagerStub(),
-                flags: { noDryRun: true, stage: false, reportJson: false, reportHtml: false }
+                flags: { noDryRun: true, stage: false, reportJson: false, reportHtml: false, trace: false }
             });
             assert.fail('Expected runPublishHandler to throw');
         } catch (error: unknown) {

@@ -9,6 +9,7 @@ import {
     type PlannedRelease,
     type ReleasePreparationDependencies
 } from './release-preparation.ts';
+import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
@@ -45,12 +46,21 @@ export type ReleaseHandlerDependencies = ReleasePreparationDependencies & {
     readonly flags: ReleaseFlags;
     readonly packtory: Packtory;
     readonly readEnvironmentVariable: (name: EnvironmentVariableName) => string | undefined;
+    readonly trace: boolean;
 };
 
 const releaseCompletedMessage = 'Release completed.';
 
+function toError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(String(error));
+}
+
 function formatReleaseHandlerError(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    return formatTerminalError(toError(error));
+}
+
+function formatReleaseHandlerTrace(error: unknown): string {
+    return formatTerminalErrorTrace(toError(error));
 }
 
 function hasAction(flags: ReleaseFlags): boolean {
@@ -189,7 +199,7 @@ async function publishTargets(
     });
     dependencies.spinnerRenderer.stopAll();
     if (outcome.result.isErr) {
-        printPublishFailure(dependencies.log, outcome.result.error, false);
+        printPublishFailure(dependencies.log, outcome.result.error, false, dependencies.trace);
         return undefined;
     }
     return outcome.result.value.flatMap(function (result) {
@@ -327,7 +337,8 @@ export async function runReleaseHandler(dependencies: ReleaseHandlerDependencies
     try {
         return stopSpinnersAndReturn(dependencies, await runRelease(dependencies));
     } catch (error: unknown) {
-        dependencies.log(formatReleaseHandlerError(error));
+        const formatError = dependencies.trace ? formatReleaseHandlerTrace : formatReleaseHandlerError;
+        dependencies.log(formatError(error));
         return stopSpinnersAndReturn(dependencies, 1);
     }
 }

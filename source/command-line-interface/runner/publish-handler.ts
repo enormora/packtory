@@ -14,7 +14,7 @@ export type PublishHandlerDependencies = {
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
     readonly fileManager: Pick<FileManager, 'readFile' | 'writeFile'>;
-    readonly flags: ReportFlags & { readonly noDryRun: boolean; readonly stage: boolean; };
+    readonly flags: ReportFlags & { readonly noDryRun: boolean; readonly stage: boolean; readonly trace: boolean; };
 };
 
 async function reportOutcome(
@@ -26,7 +26,7 @@ async function reportOutcome(
     let exitCode = 0;
     if (outcome.result.isErr) {
         exitCode = 1;
-        printPublishFailure(log, outcome.result.error, flags.stage);
+        printPublishFailure(log, outcome.result.error, flags.stage, flags.trace);
     } else {
         printSuccessSummary(log, outcome.result.value, { stage: flags.stage });
     }
