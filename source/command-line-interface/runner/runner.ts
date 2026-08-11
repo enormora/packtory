@@ -28,6 +28,7 @@ import { registerProgressListeners } from './progress-wiring.ts';
 import { runPublishHandler } from './publish-handler.ts';
 import type { ReleasePullRequestGitHubClient } from './release-pr-github-client.ts';
 import { runReleasePullRequestHandler } from './release-pull-request-handler.ts';
+import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
 
 type ReleasePullRequestGitHubClientContext = {
     readonly apiBaseUrl: string;
@@ -39,6 +40,11 @@ type GitHubReleaseClientContext = {
     readonly owner: string;
     readonly repo: string;
     readonly token: string;
+};
+type PreparedProgramArguments = {
+    readonly arguments: readonly string[];
+    readonly rootHelp: boolean;
+    readonly trace: boolean;
 };
 
 export type CommandLineInterfaceRunnerDependencies = {
@@ -78,6 +84,53 @@ const maintainReleasePullRequestCommandName = 'maintain';
 const packCommandName = 'pack';
 const validateReleasePullRequestCommandName = 'validate';
 const defaultPackVersion = '0.0.0';
+const traceFlag = '--trace';
+const traceHelpText = '  --trace  print stack traces for errors';
+const commandArgumentOffset = 2;
+const firstCommandArgumentIndex = 2;
+const firstArgumentAfterTraceIndex = 3;
+
+function isRootHelpRequest(programArguments: readonly string[]): boolean {
+    const commandArguments = programArguments.slice(commandArgumentOffset);
+    return commandArguments.length === 0 || commandArguments[0] === '--help' || commandArguments[0] === '-h';
+}
+
+function prepareProgramArguments(programArguments: readonly string[]): PreparedProgramArguments {
+    const trace = programArguments[firstCommandArgumentIndex] === traceFlag;
+    const preparedArguments = trace
+        ? [
+            ...programArguments.slice(0, commandArgumentOffset),
+            ...programArguments.slice(firstArgumentAfterTraceIndex)
+        ]
+        : Array.from(programArguments);
+    return {
+        arguments: preparedArguments,
+        rootHelp: isRootHelpRequest(preparedArguments),
+        trace
+    };
+}
+
+function addTraceHelp(message: string): string {
+    return `${message}\n${traceHelpText}`;
+}
+
+function toError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(String(error));
+}
+
+function formatUnexpectedError(error: unknown): string {
+    return formatTerminalError(toError(error));
+}
+
+function formatUnexpectedTrace(error: unknown): string {
+    return formatTerminalErrorTrace(toError(error));
+}
+
+function createParseLogger(log: (message: string) => void, rootHelp: boolean): (message: string) => void {
+    return function logParseMessage(message) {
+        log(rootHelp ? addTraceHelp(message) : message);
+    };
+}
 
 export function createCommandLineInterfaceRunner(
     dependencies: CommandLineInterfaceRunnerDependencies
@@ -102,6 +155,7 @@ export function createCommandLineInterfaceRunner(
         workingDirectory
     } = dependencies;
     let exitCode = 0;
+    let traceEnabled = Boolean();
     const baseCommand = subcommands({
         name: 'packtory',
         cmds: {
@@ -121,7 +175,7 @@ export function createCommandLineInterfaceRunner(
                         spinnerRenderer,
                         configLoader,
                         fileManager,
-                        flags: { noDryRun, stage, reportJson, reportHtml }
+                        flags: { noDryRun, stage, reportJson, reportHtml, trace: traceEnabled }
                     });
                 }
             }),
@@ -180,7 +234,8 @@ export function createCommandLineInterfaceRunner(
                         readEnvironmentVariable,
                         readPackageInfo,
                         workingDirectory,
-                        flags: { publish, tag, push, githubRelease, noDryRun }
+                        flags: { publish, tag, push, githubRelease, noDryRun },
+                        trace: traceEnabled
                     });
                 }
             }),
@@ -207,6 +262,7 @@ export function createCommandLineInterfaceRunner(
                                 readPackageInfo,
                                 workingDirectory,
                                 sleep,
+                                trace: traceEnabled,
                                 flags: {
                                     command: maintainReleasePullRequestCommandName,
                                     noDryRun,
@@ -233,6 +289,7 @@ export function createCommandLineInterfaceRunner(
                                 readPackageInfo,
                                 workingDirectory,
                                 sleep,
+                                trace: traceEnabled,
                                 flags: {
                                     command: validateReleasePullRequestCommandName,
                                     releasePullRequestNumber: undefined
@@ -263,6 +320,7 @@ export function createCommandLineInterfaceRunner(
                                 readPackageInfo,
                                 workingDirectory,
                                 sleep,
+                                trace: traceEnabled,
                                 flags: {
                                     command: authorizePublishReleasePullRequestCommandName,
                                     releasePullRequestNumber
@@ -288,7 +346,8 @@ export function createCommandLineInterfaceRunner(
                         currentDate,
                         readEnvironmentVariable,
                         readPackageInfo,
-                        workingDirectory
+                        workingDirectory,
+                        trace: traceEnabled
                     });
                 }
             }),
@@ -314,24 +373,39 @@ export function createCommandLineInterfaceRunner(
                         packtory,
                         spinnerRenderer,
                         configLoader,
-                        flags: { packageName, format, outputPath, version, vendorDependencies }
+                        flags: { packageName, format, outputPath, version, vendorDependencies, trace: traceEnabled }
                     });
                 }
             })
         }
     });
 
+    async function runPreparedCommand(
+        preparedProgramArguments: PreparedProgramArguments,
+        logParseMessage: (message: string) => void
+    ): Promise<number> {
+        const parseExitCode = getParseExitCode(
+            logParseMessage,
+            await runSafely(binary(baseCommand), Array.from(preparedProgramArguments.arguments))
+        );
+        return parseExitCode ?? exitCode;
+    }
+
     return {
         async run(programArguments) {
             exitCode = 0;
+            const preparedProgramArguments = prepareProgramArguments(programArguments);
+            traceEnabled = preparedProgramArguments.trace;
+            const logParseMessage = createParseLogger(log, preparedProgramArguments.rootHelp);
             registerProgressListeners(progressBroadcaster, spinnerRenderer);
 
-            const parseExitCode = getParseExitCode(
-                log,
-                await runSafely(binary(baseCommand), Array.from(programArguments))
-            );
-
-            return parseExitCode ?? exitCode;
+            try {
+                return await runPreparedCommand(preparedProgramArguments, logParseMessage);
+            } catch (error: unknown) {
+                const formatError = traceEnabled ? formatUnexpectedTrace : formatUnexpectedError;
+                log(formatError(error));
+                return 1;
+            }
         }
     };
 }

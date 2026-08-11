@@ -14,6 +14,7 @@ import {
 } from './changelog-destinations.ts';
 import { formatGitHubRepositoryName } from './github-repository.ts';
 import { printReleasePlanFailure, collectReleasePlanPackages } from './release-plan-result-printing.ts';
+import { formatTerminalError, formatTerminalErrorTrace } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 type EnvironmentVariableName = 'GH_TOKEN' | 'GITHUB_TOKEN';
@@ -30,11 +31,20 @@ export type ChangelogHandlerDependencies = {
     readonly readPackageInfo: () => Promise<Readonly<Record<string, unknown>>>;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
+    readonly trace: boolean;
     readonly workingDirectory: string;
 };
 
+function toError(error: unknown): Error {
+    return error instanceof Error ? error : new Error(String(error));
+}
+
 function formatChangelogHandlerError(error: unknown): string {
-    return String(error).replace(/^[A-Za-z]*Error: /u, '');
+    return formatTerminalError(toError(error));
+}
+
+function formatChangelogHandlerTrace(error: unknown): string {
+    return formatTerminalErrorTrace(toError(error));
 }
 
 function readGitHubToken(
@@ -80,11 +90,11 @@ async function renderChangelog(
     await writeConfiguredChangelogs(dependencies, config, prLogEngine, changelog);
 }
 
-function resolveReleasePlanExitCode(log: Logger, result: ReleasePlanResult): number {
+function resolveReleasePlanExitCode(log: Logger, result: ReleasePlanResult, trace: boolean): number {
     if (result.isOk) {
         return 0;
     }
-    printReleasePlanFailure(log, result.error);
+    printReleasePlanFailure(log, result.error, trace);
     return 1;
 }
 
@@ -96,7 +106,7 @@ async function runChangelog(dependencies: ChangelogHandlerDependencies): Promise
     if (validConfig !== undefined) {
         await renderChangelog(dependencies, validConfig, collectReleasePlanPackages(outcome.result));
     }
-    return resolveReleasePlanExitCode(dependencies.log, outcome.result);
+    return resolveReleasePlanExitCode(dependencies.log, outcome.result, dependencies.trace);
 }
 
 function stopSpinnersAndReturn(dependencies: ChangelogHandlerDependencies, exitCode: number): number {
@@ -108,7 +118,8 @@ export async function runChangelogHandler(dependencies: ChangelogHandlerDependen
     try {
         return stopSpinnersAndReturn(dependencies, await runChangelog(dependencies));
     } catch (error: unknown) {
-        dependencies.log(formatChangelogHandlerError(error));
+        const formatError = dependencies.trace ? formatChangelogHandlerTrace : formatChangelogHandlerError;
+        dependencies.log(formatError(error));
         return stopSpinnersAndReturn(dependencies, 1);
     }
 }

@@ -22,26 +22,28 @@ function captureLogger(): CapturedLogger {
 }
 
 suite('failure-printing', function () {
-    test('printDryRunNote does not log anything when noDryRun is true', function () {
-        const sink = captureLogger();
-        printDryRunNote(sink.log, { noDryRun: true });
+    suite('dry-run notes', function () {
+        test('printDryRunNote does not log anything when noDryRun is true', function () {
+            const sink = captureLogger();
+            printDryRunNote(sink.log, { noDryRun: true });
 
-        assert.deepStrictEqual(sink.messages, []);
-    });
+            assert.deepStrictEqual(sink.messages, []);
+        });
 
-    test('printDryRunNote logs a single dry-run reminder when noDryRun is false', function () {
-        const sink = captureLogger();
-        printDryRunNote(sink.log, { noDryRun: false });
+        test('printDryRunNote logs a single dry-run reminder when noDryRun is false', function () {
+            const sink = captureLogger();
+            printDryRunNote(sink.log, { noDryRun: false });
 
-        assert.strictEqual(sink.messages.length, 1);
-        assert.match(sink.messages[0] ?? '', /dry-run mode was enabled/u);
+            assert.strictEqual(sink.messages.length, 1);
+            assert.match(sink.messages[0] ?? '', /dry-run mode was enabled/u);
+        });
     });
 
     test('printPublishFailure formats config issues with bullet list when type is config', function () {
         const sink = captureLogger();
         const failure: PublishFailure = { type: 'config', issues: [ 'issue A', 'issue B' ] };
 
-        printPublishFailure(sink.log, failure, false);
+        printPublishFailure(sink.log, failure, false, false);
 
         assert.strictEqual(sink.messages.length, 1);
         const message = sink.messages[0] ?? '';
@@ -53,7 +55,7 @@ suite('failure-printing', function () {
         const sink = captureLogger();
         const failure: PublishFailure = { type: 'checks', issues: [ 'check X' ] };
 
-        printPublishFailure(sink.log, failure, false);
+        printPublishFailure(sink.log, failure, false, false);
 
         const message = sink.messages[0] ?? '';
         assert.match(message, /Checks failed, there are 1 issue\(s\)/u);
@@ -75,13 +77,33 @@ suite('failure-printing', function () {
             ] as never
         };
 
-        printPublishFailure(sink.log, failure, true);
+        printPublishFailure(sink.log, failure, true, false);
 
         assert.ok((sink.messages[0] ?? '').includes('package(s) failed'));
         assert.ok((sink.messages[0] ?? '').includes('- pkg-c failed'));
         assert.ok((sink.messages[0] ?? '').includes('  Caused by: registry failed'));
         assert.ok((sink.messages[0] ?? '').includes('    Caused by: connection reset'));
         assert.deepStrictEqual(sink.messages[1], 'Staged packages:\n- pkg-a@1.0.0: stage-a');
+    });
+
+    test('printPublishFailure appends stack traces for partial failures when trace is enabled', function () {
+        const sink = captureLogger();
+        const failure: PublishFailure = {
+            type: 'partial',
+            succeeded: [] as never,
+            failures: [
+                new Error('pkg-c failed', {
+                    cause: new Error('registry failed')
+                })
+            ] as never
+        };
+
+        printPublishFailure(sink.log, failure, false, true);
+
+        const message = sink.messages[0] ?? '';
+        assert.match(message, /- pkg-c failed\n {2}Caused by: registry failed/u);
+        assert.match(message, /Stack trace: Error: pkg-c failed/u);
+        assert.match(message, /Caused by stack trace: Error: registry failed/u);
     });
 
     test('printPublishFailure omits the staged package list when no partial successes were staged', function () {
@@ -92,7 +114,7 @@ suite('failure-printing', function () {
             failures: [ { message: 'pkg-b failed' } ] as never
         };
 
-        printPublishFailure(sink.log, failure, true);
+        printPublishFailure(sink.log, failure, true, false);
 
         assert.strictEqual(sink.messages.length, 1);
         assert.ok((sink.messages[0] ?? '').includes('- pkg-b failed'));

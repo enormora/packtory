@@ -50,6 +50,19 @@ suite('release-pull-request-handler', function () {
                 assert.strictEqual(log.firstCall.args[0], 'Release PR writes require --no-dry-run');
             });
 
+            test('prints a stack trace when a handler error is caught with trace enabled', async function () {
+                const { dependencies, log } = createDependencies({
+                    readEnvironmentVariable(name) {
+                        return { GH_TOKEN: 'token' }[name];
+                    },
+                    readPackageInfo: fake.rejects(new Error('repository failed')),
+                    trace: true
+                });
+
+                assert.strictEqual(await runReleasePullRequestHandler(dependencies), 1);
+                assert.match(String(log.firstCall.args[0]), /Stack trace: Error: repository failed/u);
+            });
+
             test('maintain closes release state when no release content remains', async function () {
                 const deleteBranch = fake.resolves(undefined);
                 const closeOpenReleasePullRequests = fake.resolves(undefined);

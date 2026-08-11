@@ -5,7 +5,7 @@ import {
     partialFailureType,
     type ReleasePlanFailure
 } from '../../packtory/packtory-results.ts';
-import { formatTerminalErrorBullet } from './terminal-error-chain.ts';
+import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 
@@ -13,7 +13,7 @@ function printIssueFailure(log: Logger, title: string, issues: readonly string[]
     log(`${title}, there are ${issues.length} issue(s)\n\n- ${issues.join('\n- ')}`);
 }
 
-export function printReleasePlanFailure(log: Logger, error: ReleasePlanFailure): void {
+export function printReleasePlanFailure(log: Logger, error: ReleasePlanFailure, trace: boolean): void {
     if (error.type === configErrorType) {
         printIssueFailure(log, 'Configuration issues', error.issues);
         return;
@@ -22,7 +22,7 @@ export function printReleasePlanFailure(log: Logger, error: ReleasePlanFailure):
         printIssueFailure(log, 'Check issues', error.issues);
         return;
     }
-    log(error.failures.map(formatTerminalErrorBullet).join('\n'));
+    log(error.failures.map(trace ? formatTerminalErrorTraceBullet : formatTerminalErrorBullet).join('\n'));
 }
 
 export function collectReleasePlanPackages(result: ReleasePlanResult): readonly ReleasePlanPackage[] {

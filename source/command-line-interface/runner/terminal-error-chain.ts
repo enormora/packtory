@@ -11,6 +11,10 @@ type CauseFormattingState = {
     readonly lines: readonly string[];
     readonly visitedCauses: ReadonlySet<unknown>;
 };
+type CauseLineFormatter = (cause: MessageCarrier, depth: number) => readonly string[];
+type StackCarrier = MessageCarrier & {
+    readonly stack: string;
+};
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null;
@@ -26,6 +30,10 @@ function hasMessage(value: unknown): value is MessageCarrier {
 
 function readCause(value: MessageCarrier): unknown {
     return Reflect.get(value, 'cause');
+}
+
+function hasStack(value: unknown): value is StackCarrier {
+    return hasMessage(value) && typeof Reflect.get(value, 'stack') === 'string';
 }
 
 function formatMessageLines(
@@ -47,7 +55,20 @@ function formatCauseMessageLines(cause: MessageCarrier, depth: number): readonly
     return formatMessageLines(`${causeIndent}Caused by: `, cause.message, `${causeIndent}${indent}`);
 }
 
-function advanceCauseFormatting(state: CauseFormattingState): CauseFormattingState {
+function formatStackLines(stack: string, depth: number): readonly string[] {
+    const stackIndent = indent.repeat(depth);
+    return formatMessageLines(`${stackIndent}Stack trace: `, stack, `${stackIndent}${indent}`);
+}
+
+function formatCauseStackLines(cause: StackCarrier, depth: number): readonly string[] {
+    const causeIndent = indent.repeat(depth);
+    return formatMessageLines(`${causeIndent}Caused by stack trace: `, cause.stack, `${causeIndent}${indent}`);
+}
+
+function advanceCauseFormatting(
+    state: CauseFormattingState,
+    formatCause: CauseLineFormatter
+): CauseFormattingState {
     const { cause, visitedCauses } = state;
     if (!hasMessage(cause) || visitedCauses.has(cause)) {
         return state;
@@ -56,12 +77,12 @@ function advanceCauseFormatting(state: CauseFormattingState): CauseFormattingSta
     return {
         cause: readCause(cause),
         depth: state.depth + 1,
-        lines: [ ...state.lines, ...formatCauseMessageLines(cause, state.depth) ],
+        lines: [ ...state.lines, ...formatCause(cause, state.depth) ],
         visitedCauses: new Set<unknown>([ ...visitedCauses, cause ])
     };
 }
 
-function formatCauseLines(error: MessageCarrier): readonly string[] {
+function collectCauseLines(error: MessageCarrier, formatCause: CauseLineFormatter): readonly string[] {
     const initialState: CauseFormattingState = {
         cause: readCause(error),
         depth: 1,
@@ -70,8 +91,14 @@ function formatCauseLines(error: MessageCarrier): readonly string[] {
     };
     return Array
         .from({ length: maximumCauseDepth })
-        .reduce(advanceCauseFormatting, initialState)
+        .reduce<CauseFormattingState>(function (state) {
+            return advanceCauseFormatting(state, formatCause);
+        }, initialState)
         .lines;
+}
+
+function formatCauseLines(error: MessageCarrier): readonly string[] {
+    return collectCauseLines(error, formatCauseMessageLines);
 }
 
 function formatErrorChain(error: Error, firstLinePrefix: string): string {
@@ -82,6 +109,38 @@ function formatErrorChain(error: Error, firstLinePrefix: string): string {
         .join('\n');
 }
 
+function formatCauseTraceLines(cause: MessageCarrier, depth: number): readonly string[] {
+    return hasStack(cause) ? formatCauseStackLines(cause, depth) : [];
+}
+
+function formatTraceLines(error: Error): readonly string[] {
+    const errorStackLines = hasStack(error) ? formatStackLines(error.stack, 1) : [];
+    return [
+        ...errorStackLines,
+        ...collectCauseLines(error, formatCauseTraceLines)
+    ];
+}
+
+function formatErrorTrace(error: Error, firstLinePrefix: string): string {
+    return [
+        formatErrorChain(error, firstLinePrefix),
+        ...formatTraceLines(error)
+    ]
+        .join('\n');
+}
+
+export function formatTerminalError(error: Error): string {
+    return formatErrorChain(error, '');
+}
+
+export function formatTerminalErrorTrace(error: Error): string {
+    return formatErrorTrace(error, '');
+}
+
 export function formatTerminalErrorBullet(error: Error): string {
     return formatErrorChain(error, '- ');
+}
+
+export function formatTerminalErrorTraceBullet(error: Error): string {
+    return formatErrorTrace(error, '- ');
 }

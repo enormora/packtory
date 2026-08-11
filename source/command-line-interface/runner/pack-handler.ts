@@ -9,7 +9,7 @@ import {
 import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { getErrorSymbol, getSuccessSymbol } from './runner-symbols.ts';
-import { formatTerminalErrorBullet } from './terminal-error-chain.ts';
+import { formatTerminalErrorBullet, formatTerminalErrorTraceBullet } from './terminal-error-chain.ts';
 
 type Logger = (message: string) => void;
 const issuePrefixByType = {
@@ -23,6 +23,7 @@ type PackFlags = {
     readonly outputPath: string;
     readonly version: string;
     readonly vendorDependencies: boolean;
+    readonly trace: boolean;
 };
 type PartialPackFailure = Extract<PackFailure, { readonly type: typeof partialFailureType; }>;
 type PeerDependenciesUnsatisfiedPackFailure = Extract<
@@ -70,10 +71,10 @@ function formatBulletedLines(header: string, details: readonly string[]): string
     return [ header, ...details ].join('\n');
 }
 
-function formatPartialResolveFailure(error: PartialPackFailure): string {
+function formatPartialResolveFailure(error: PartialPackFailure, trace: boolean): string {
     return formatBulletedLines(
         `${getErrorSymbol()} ${error.error.failures.length} package(s) failed to resolve`,
-        error.error.failures.map(formatTerminalErrorBullet)
+        error.error.failures.map(trace ? formatTerminalErrorTraceBullet : formatTerminalErrorBullet)
     );
 }
 
@@ -131,10 +132,11 @@ function isPackageNameFailure(error: PackFailure): error is PackageNamePackFailu
 }
 
 function formatNonIssuePackFailure(
-    error: Exclude<PackFailure, { readonly type: typeof checksErrorType | typeof configErrorType; }>
+    error: Exclude<PackFailure, { readonly type: typeof checksErrorType | typeof configErrorType; }>,
+    trace: boolean
 ): string {
     if (error.type === partialFailureType) {
-        return formatPartialResolveFailure(error);
+        return formatPartialResolveFailure(error, trace);
     }
 
     if (isPackageNameFailure(error)) {
@@ -152,17 +154,17 @@ function formatNonIssuePackFailure(
     return formatVendorSymlinkOutsidePackageFailure(error);
 }
 
-function formatPackFailure(error: PackFailure): string {
+function formatPackFailure(error: PackFailure, trace: boolean): string {
     if (isIssueFailure(error)) {
         return formatIssueList(issuePrefixByType[error.type], error.issues);
     }
 
-    return formatNonIssuePackFailure(error);
+    return formatNonIssuePackFailure(error, trace);
 }
 
 function reportOutcome(log: Logger, outcome: PackOutcome, flags: PackFlags): number {
     if (outcome.result.isErr) {
-        log(formatPackFailure(outcome.result.error));
+        log(formatPackFailure(outcome.result.error, flags.trace));
         return 1;
     }
     log(`${getSuccessSymbol()} Packed "${flags.packageName}" as ${flags.format} to ${flags.outputPath}`);

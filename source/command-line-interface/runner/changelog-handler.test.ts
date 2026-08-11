@@ -162,6 +162,7 @@ type ChangelogHandlerDependenciesSpec = {
     readonly fileManager?: FakeFileManager;
     readonly readPackageInfo?: () => Promise<Readonly<Record<string, unknown>>>;
     readonly readEnvironmentVariable?: (name: 'GH_TOKEN' | 'GITHUB_TOKEN') => string | undefined;
+    readonly trace?: boolean;
 };
 
 function dependenciesWith(input: ChangelogHandlerDependenciesSpec): ChangelogHandlerDependencies {
@@ -188,6 +189,7 @@ function dependenciesWith(input: ChangelogHandlerDependenciesSpec): ChangelogHan
             async function () {
                 return { repository: { url: 'git+https://github.com/Owner/Repo.git' } };
             },
+        trace: input.trace ?? false,
         workingDirectory: '/repo'
     };
 }

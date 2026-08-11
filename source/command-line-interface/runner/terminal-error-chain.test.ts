@@ -1,6 +1,10 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { formatTerminalErrorBullet } from './terminal-error-chain.ts';
+import {
+    formatTerminalErrorTrace,
+    formatTerminalErrorBullet,
+    formatTerminalErrorTraceBullet
+} from './terminal-error-chain.ts';
 
 function createCauseChain(errorCount: number): Error {
     let error = new Error(`failure ${errorCount - 1}`);
@@ -49,6 +53,38 @@ suite('terminal-error-chain', function () {
                 formatTerminalErrorBullet(error),
                 '- failed\n  with details\n  Caused by: inner failure\n    with inner details'
             );
+        });
+
+        test('formats stack traces for the error and recursive causes', function () {
+            const error = new Error('failed', { cause: new Error('inner failure') });
+
+            const message = formatTerminalErrorTraceBullet(error);
+
+            assert.match(message, /^- failed\n {2}Caused by: inner failure/u);
+            assert.match(message, /Stack trace: Error: failed\n {8}at /u);
+            assert.match(message, /Caused by stack trace: Error: inner failure\n {8}at /u);
+        });
+
+        test('omits trace sections for error-like values without stack strings', function () {
+            const error: Error = { name: 'Error', message: 'failed', cause: { message: 'inner failure', stack: 42 } };
+
+            const message = formatTerminalErrorTraceBullet(error);
+
+            assert.strictEqual(message, '- failed\n  Caused by: inner failure');
+        });
+
+        test('ignores stack-only causes without messages', function () {
+            const error = new Error('failed', { cause: { stack: 'hidden stack' } });
+
+            const message = formatTerminalErrorTraceBullet(error);
+
+            assert.ok(!message.includes('hidden stack'));
+        });
+
+        test('formats non-bulleted stack traces without a prefix', function () {
+            const message = formatTerminalErrorTrace(new Error('failed'));
+
+            assert.match(message, /^failed\n {2}Stack trace: Error: failed/u);
         });
     });
 
