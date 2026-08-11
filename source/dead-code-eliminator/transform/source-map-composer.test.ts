@@ -48,12 +48,37 @@ function listMappings(mapJson: string): readonly Mapping[] {
     return result;
 }
 
+function mappingNames(mapJson: string): readonly string[] {
+    const traceMap = new TraceMap(mapJson);
+    const result: string[] = [];
+    eachMapping(traceMap, function (mapping) {
+        if (mapping.name !== null) {
+            result.push(mapping.name);
+        }
+    });
+    return result;
+}
+
 function singleMappingMap(generatedColumn: number, originalCode: string): string {
     const map = new GenMapping({ file: 'index.ts' });
     addMapping(map, {
         generated: { line: 1, column: generatedColumn },
         source: 'index.ts',
         original: { line: 1, column: generatedColumn }
+    });
+    return JSON.stringify({
+        ...toEncodedMap(map),
+        sourcesContent: [ originalCode ]
+    });
+}
+
+function singleNamedMappingMap(generatedColumn: number, originalCode: string, name: string): string {
+    const map = new GenMapping({ file: 'index.ts' });
+    addMapping(map, {
+        generated: { line: 1, column: generatedColumn },
+        source: 'index.ts',
+        original: { line: 1, column: generatedColumn },
+        name
     });
     return JSON.stringify({
         ...toEncodedMap(map),
@@ -213,6 +238,18 @@ suite('source-map-composer', function () {
             });
             const parsed = JSON.parse(result) as { readonly names?: readonly string[]; };
             assert.deepStrictEqual(parsed.names, [ 'live' ]);
+            assert.deepStrictEqual(mappingNames(result), [ 'live' ]);
+        });
+
+        test('recomposeSourceMap leaves unnamed mappings unnamed', function () {
+            const result = recomposeSourceMap({
+                originalMap,
+                originalCode,
+                transformedCode,
+                atoms: removeFunctionDeadAtoms
+            });
+
+            assert.deepStrictEqual(mappingNames(result), []);
         });
 
         test('recomposeSourceMap drops mappings with a null source even when the position falls inside a surviving atom', function () {
@@ -236,6 +273,7 @@ suite('source-map-composer', function () {
             const mappings = listMappings(result);
             for (const mapping of mappings) {
                 assert.notStrictEqual(mapping.source, null);
+                assert.strictEqual(typeof mapping.source, 'string');
             }
         });
 
@@ -363,6 +401,29 @@ suite('source-map-composer', function () {
                 {
                     generatedLine: 1,
                     generatedColumn: transformedLiveColumn,
+                    originalLine: 1,
+                    originalColumn: originalLiveColumn,
+                    source: 'index.ts'
+                }
+            ]);
+        });
+
+        test('recomposeSourceMap preserves named mappings inside a text edit', function () {
+            const editedOriginalCode = 'import { dead, live } from "./other";\nexport const api = live;';
+            const editedTransformedCode = 'import { live } from "./other";\nexport const api = live;';
+            const originalLiveColumn = editedOriginalCode.indexOf('live');
+            const result = recomposeSourceMapWithTransform(
+                singleNamedMappingMap(originalLiveColumn, editedOriginalCode, 'live'),
+                [
+                    toSourceMapTransform(buildTextTransformMap(editedOriginalCode, editedTransformedCode))
+                ]
+            );
+
+            assert.deepStrictEqual(mappingNames(result), [ 'live' ]);
+            assert.deepStrictEqual(listMappings(result), [
+                {
+                    generatedLine: 1,
+                    generatedColumn: editedTransformedCode.indexOf('live'),
                     originalLine: 1,
                     originalColumn: originalLiveColumn,
                     source: 'index.ts'
