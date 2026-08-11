@@ -55,7 +55,7 @@ function createSourceMapSegmentStore(): SourceMapSegmentStore {
             }
         },
         toMappings(): SourceMapMappings {
-            return Array.from({ length: mappings.length }, function (ignoredValue, index) {
+            return Array.from({ length: mappings.length }, function (_ignoredValue, index) {
                 return mappings[index] ?? [];
             });
         }
