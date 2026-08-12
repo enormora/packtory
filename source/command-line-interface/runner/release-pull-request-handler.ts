@@ -314,6 +314,15 @@ async function runMaintain(dependencies: MaintainReleasePullRequestHandlerDepend
         return 1;
     }
     const loadedConfig = await loadReleasePullRequestConfig(dependencies);
+    if (
+        dependencies.readEnvironmentVariable('GITHUB_EVENT_NAME') === 'workflow_dispatch' &&
+        dependencies.readEnvironmentVariable('GITHUB_REF_NAME') === loadedConfig.config.branch
+    ) {
+        dependencies.log(
+            `Skipping release PR maintenance during dispatched validation for ${loadedConfig.config.branch}`
+        );
+        return 0;
+    }
     const { client } = await createGitHubClient(dependencies);
     const releaseCommit = await prepareReleasePullRequest(dependencies, client, loadedConfig.config);
     return finishReleasePullRequestMaintenance(dependencies, client, loadedConfig.config, releaseCommit);

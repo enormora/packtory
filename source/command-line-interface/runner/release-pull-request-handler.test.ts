@@ -50,6 +50,32 @@ suite('release-pull-request-handler', function () {
                 assert.strictEqual(log.firstCall.args[0], 'Release PR writes require --no-dry-run');
             });
 
+            test('maintain skips dispatched release branch validation runs', async function () {
+                const createReleasePullRequestGitHubClient = fake();
+                const planReleaseAgainstLatestPublished = fake();
+                const { dependencies, log } = createDependencies({
+                    createReleasePullRequestGitHubClient,
+                    flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
+                    packtory: createPacktoryWithPlan(planReleaseAgainstLatestPublished),
+                    readEnvironmentVariable(name) {
+                        return {
+                            GH_TOKEN: 'token',
+                            GITHUB_EVENT_NAME: 'workflow_dispatch',
+                            GITHUB_REF_NAME: 'release/packtory',
+                            GITHUB_REPOSITORY: 'owner/repo'
+                        }[name];
+                    }
+                });
+
+                assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
+                assert.strictEqual(createReleasePullRequestGitHubClient.callCount, 0);
+                assert.strictEqual(planReleaseAgainstLatestPublished.callCount, 0);
+                assert.strictEqual(
+                    log.lastCall.args[0],
+                    'Skipping release PR maintenance during dispatched validation for release/packtory'
+                );
+            });
+
             test('prints a stack trace when a handler error is caught with trace enabled', async function () {
                 const { dependencies, log } = createDependencies({
                     readEnvironmentVariable(name) {
