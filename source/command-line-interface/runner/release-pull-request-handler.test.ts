@@ -76,6 +76,39 @@ suite('release-pull-request-handler', function () {
                 );
             });
 
+            for (
+                const runEnvironment of [
+                    {
+                        eventName: 'workflow_dispatch',
+                        refName: 'main'
+                    },
+                    {
+                        eventName: 'push',
+                        refName: 'release/packtory'
+                    }
+                ]
+            ) {
+                test(`maintain runs for ${runEnvironment.eventName} on ${runEnvironment.refName}`, async function () {
+                    const createReleasePullRequestGitHubClient = fake.returns(createReleasePullRequestClient({}));
+                    const { dependencies, log } = createDependencies({
+                        createReleasePullRequestGitHubClient,
+                        flags: { command: 'maintain', noDryRun: true, releasePullRequestNumber: undefined },
+                        readEnvironmentVariable(name) {
+                            return {
+                                GH_TOKEN: 'token',
+                                GITHUB_EVENT_NAME: runEnvironment.eventName,
+                                GITHUB_REF_NAME: runEnvironment.refName,
+                                GITHUB_REPOSITORY: 'owner/repo'
+                            }[name];
+                        }
+                    });
+
+                    assert.strictEqual(await runReleasePullRequestHandler(dependencies), 0);
+                    assert.strictEqual(createReleasePullRequestGitHubClient.callCount, 1);
+                    assert.strictEqual(log.lastCall.args[0], 'No release content remains');
+                });
+            }
+
             test('prints a stack trace when a handler error is caught with trace enabled', async function () {
                 const { dependencies, log } = createDependencies({
                     readEnvironmentVariable(name) {
