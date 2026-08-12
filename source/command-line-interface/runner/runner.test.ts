@@ -15,6 +15,12 @@ type LoggedCommandRun = {
     readonly exitCode: number;
     readonly log: SinonSpy;
 };
+type PackageOperationSpies = {
+    readonly buildAndPublishAll: SinonSpy;
+    readonly diffAgainstLatestPublished: SinonSpy;
+    readonly packPackage: SinonSpy;
+    readonly planReleaseAgainstLatestPublished: SinonSpy;
+};
 
 async function runWithBuildAndLog(
     buildAndPublishAll: SinonSpy,
@@ -24,6 +30,40 @@ async function runWithBuildAndLog(
     const runner = createRunner({ buildAndPublishAll, log });
     const exitCode = await runner.run(commandArguments);
     return { buildAndPublishAll, exitCode, log };
+}
+
+function createConfigInspectLoadConfig(): SinonSpy {
+    return fake.resolves({
+        commonPackageSettings: {
+            sourcesFolder: 'dist',
+            mainPackageJson: { type: 'module' },
+            publishSettings: { access: 'public' }
+        },
+        packages: [ { name: 'package-a', roots: { main: { js: 'index.js' } } } ]
+    });
+}
+
+function createPackageOperationSpies(): PackageOperationSpies {
+    return {
+        buildAndPublishAll: fake.resolves(toOutcome(Result.ok([]))),
+        diffAgainstLatestPublished: fake.resolves(undefined),
+        packPackage: fake.resolves(undefined),
+        planReleaseAgainstLatestPublished: fake.resolves(undefined)
+    };
+}
+
+function assertPackageOperationsSkipped(spies: PackageOperationSpies): void {
+    assert.deepStrictEqual({
+        buildAndPublishAll: spies.buildAndPublishAll.callCount,
+        diffAgainstLatestPublished: spies.diffAgainstLatestPublished.callCount,
+        packPackage: spies.packPackage.callCount,
+        planReleaseAgainstLatestPublished: spies.planReleaseAgainstLatestPublished.callCount
+    }, {
+        buildAndPublishAll: 0,
+        diffAgainstLatestPublished: 0,
+        packPackage: 0,
+        planReleaseAgainstLatestPublished: 0
+    });
 }
 
 suite('runner command routing', function () {
@@ -89,6 +129,21 @@ suite('runner command routing', function () {
                 stage: false,
                 collectReport: true
             });
+        });
+
+        test('config inspect command loads config without running package operations', async function () {
+            const loadConfig = createConfigInspectLoadConfig();
+            const spies = createPackageOperationSpies();
+            const runner = createRunner({
+                loadConfig,
+                ...spies
+            });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'config', 'inspect' ]);
+
+            assert.strictEqual(exitCode, 0);
+            assert.strictEqual(loadConfig.callCount, 1);
+            assertPackageOperationsSkipped(spies);
         });
     });
 
@@ -189,6 +244,7 @@ suite('runner command routing', function () {
                 'Expected help output to include the release command description'
             );
             assert.ok(help.includes('changelog'), 'Expected help output to include the changelog command');
+            assert.ok(help.includes('config'), 'Expected help output to include the config command');
             assert.ok(help.includes('release-pr'), 'Expected help output to include the release-pr command');
             assert.ok(help.includes('--trace'), 'Expected help output to include the trace flag');
         });
@@ -217,6 +273,13 @@ suite('runner command routing', function () {
             assert.match(help, /--push/);
             assert.match(help, /--github-release/);
             assert.match(help, /--no-dry-run/);
+        });
+
+        test('prints nested config inspect help', async function () {
+            const help = await expectSubcommandHelp('config', 'inspect');
+
+            assert.match(help, /packtory config inspect/u);
+            assert.match(help, /Validates packtory\.config\.js and prints a compact package summary\./u);
         });
     });
 });

@@ -28,6 +28,7 @@ type RunPreviewResult = {
 };
 
 export type Overrides = {
+    readonly analyzeReleaseAgainstLatestPublished?: SinonSpy;
     readonly buildAndPublishAll?: SinonSpy;
     readonly diffAgainstLatestPublished?: SinonSpy;
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
@@ -153,7 +154,7 @@ function createGitHubReleaseClientFactory(
 
 function createPacktoryFixture(overrides: Overrides): CommandLineInterfaceRunnerDependencies['packtory'] {
     return {
-        analyzeReleaseAgainstLatestPublished: fake.resolves(
+        analyzeReleaseAgainstLatestPublished: overrides.analyzeReleaseAgainstLatestPublished ?? fake.resolves(
             toReleaseAnalysisOutcome(
                 Result.ok({
                     classification: 'unchanged',
@@ -265,8 +266,8 @@ export async function expectHelp(commandArguments: readonly string[]): Promise<s
     return String(log.firstCall.args[0]);
 }
 
-export async function expectSubcommandHelp(command: 'preview' | 'publish' | 'release'): Promise<string> {
-    return expectHelp([ command, '--help' ]);
+export async function expectSubcommandHelp(...commandPath: readonly string[]): Promise<string> {
+    return expectHelp([ ...commandPath, '--help' ]);
 }
 
 export function createReleasePullRequestConfig(): Readonly<Record<string, unknown>> {
