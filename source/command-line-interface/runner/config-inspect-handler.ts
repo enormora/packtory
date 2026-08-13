@@ -46,17 +46,10 @@ function formatRootEntries(roots: CommandLineInterfacePacktoryConfig['packages']
     );
 }
 
-function resolvePackageSourcesFolder(
-    config: CommandLineInterfacePacktoryConfig,
-    packageConfig: CommandLineInterfacePacktoryConfig['packages'][number]
-): string {
-    const sourcesFolder = packageConfig.sourcesFolder ?? config.commonPackageSettings?.sourcesFolder;
-    return sourcesFolder ?? '';
-}
-
 function formatPackageSummary(config: CommandLineInterfacePacktoryConfig): readonly string[] {
+    const commonSourcesFolder = config.commonPackageSettings?.sourcesFolder;
     return config.packages.map(function (packageConfig) {
-        const sourcesFolder = resolvePackageSourcesFolder(config, packageConfig);
+        const sourcesFolder = packageConfig.sourcesFolder ?? commonSourcesFolder;
         return (
             [
                 `- ${packageConfig.name}`,
