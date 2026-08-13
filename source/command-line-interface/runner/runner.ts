@@ -1,4 +1,4 @@
-/* eslint-disable import/max-dependencies -- the CLI runner wires seven subcommands plus shared dependencies */
+/* eslint-disable import/max-dependencies -- the CLI runner wires command routing plus shared dependencies */
 import {
     binary,
     command,
@@ -19,6 +19,7 @@ import type { ConfigLoader } from '../config-loader.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runChangelogHandler } from './changelog-handler.ts';
 import { getParseExitCode } from './command-parsing.ts';
+import { runConfigInspectHandler } from './config-inspect-handler.ts';
 import { runPackHandler } from './pack-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
@@ -80,6 +81,8 @@ const releaseDiffCommandName = 'release-diff';
 const releasePullRequestCommandName = 'release-pr';
 const authorizePublishReleasePullRequestCommandName = 'authorize-publish';
 const changelogCommandName = 'changelog';
+const configCommandName = 'config';
+const inspectConfigCommandName = 'inspect';
 const maintainReleasePullRequestCommandName = 'maintain';
 const packCommandName = 'pack';
 const validateReleasePullRequestCommandName = 'validate';
@@ -349,6 +352,23 @@ export function createCommandLineInterfaceRunner(
                         workingDirectory,
                         trace: traceEnabled
                     });
+                }
+            }),
+            [configCommandName]: subcommands({
+                name: configCommandName,
+                cmds: {
+                    [inspectConfigCommandName]: command({
+                        name: inspectConfigCommandName,
+                        description: 'Validates packtory.config.js and prints a compact package summary.',
+                        args: {},
+                        async handler() {
+                            exitCode = await runConfigInspectHandler({
+                                log,
+                                spinnerRenderer,
+                                configLoader
+                            });
+                        }
+                    })
                 }
             }),
             [packCommandName]: command({

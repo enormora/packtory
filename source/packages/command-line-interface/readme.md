@@ -21,6 +21,7 @@ packtory <command> [options]
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
+- **config inspect:** Validates `packtory.config.js` and prints a compact package-shape summary without building packages.
 - **release:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API.
 - **release-pr:** Maintains, validates, and authorizes a reviewed release PR flow for generated changelog releases.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
@@ -34,6 +35,7 @@ packtory <command> [options]
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
 - **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
+- **config inspect:** Loads `packtory.config.js`, validates Packtory and CLI-only settings, then prints package count, package names, resolved `sourcesFolder`, roots, and bundled package dependencies.
 - **release --publish --tag --push --github-release --no-dry-run:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API. `--push` is accepted for compatibility with existing workflows because tags are created remotely.
 - **release-pr maintain --no-dry-run:** Writes configured changelogs, creates a GitHub-signed commit on the configured release branch, and creates or updates the release PR.
 - **release-pr validate:** Validates the current GitHub `pull_request` or `merge_group` event against the release PR policy.
@@ -82,6 +84,13 @@ packtory <command> [options]
 - Generated changelog files are not automatically added to package artifacts. Use `additionalFiles` when a package artifact should include a changelog.
 - `packtory changelog` exits with code `0` on a clean run and `1` on config, release-plan, Git, GitHub, or changelog generation failures. Partial release-plan failures still render succeeded changed packages when changelog generation succeeds.
 - `changelog` never commits, tags, creates releases, creates deployments, writes registry data, or publishes packages.
+
+**Config inspect behavior:**
+
+- `packtory config inspect` validates the same configuration file used by other CLI commands, including `releasePullRequest` settings.
+- A valid run prints a compact summary of package names, resolved `sourcesFolder`, roots, `bundleDependencies`, and `bundlePeerDependencies`.
+- It never builds packages, reads registry metadata, writes files, or publishes packages.
+- `packtory config inspect` exits with code `0` on valid config and `1` on validation issues.
 
 **Release behavior:**
 

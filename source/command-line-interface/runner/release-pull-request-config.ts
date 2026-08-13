@@ -1,4 +1,5 @@
 import { z } from 'zod/mini';
+import { Result } from 'true-myth';
 import { safeParse } from '../../common/schema-validation.ts';
 import { packtoryConfigSchema } from '../../config/packtory-config-schema.ts';
 import { releasePullRequestSettingsSchema, type ReleasePullRequestSettings } from './release-pull-request-settings.ts';
@@ -30,6 +31,10 @@ const commandLineInterfacePacktoryConfigSchema = z.intersection(
 
 export type ReleasePullRequestConfigContainer = z.infer<typeof releasePullRequestConfigContainerSchema>;
 export type CommandLineInterfacePacktoryConfig = Readonly<z.infer<typeof commandLineInterfacePacktoryConfigSchema>>;
+export type CommandLineInterfacePacktoryConfigResult = Result<
+    CommandLineInterfacePacktoryConfig,
+    readonly string[]
+>;
 type StringReleasePullRequestSetting = Exclude<keyof ReleasePullRequestConfig, 'githubActionsCi'>;
 
 const defaultReleasePullRequestConfig: ReleasePullRequestConfig = {
@@ -82,4 +87,11 @@ export function parseCommandLineInterfacePacktoryConfig(
 ): CommandLineInterfacePacktoryConfig | undefined {
     const result = safeParse(commandLineInterfacePacktoryConfigSchema, config);
     return result.success ? result.data : undefined;
+}
+
+export function validateCommandLineInterfacePacktoryConfig(
+    config: unknown
+): CommandLineInterfacePacktoryConfigResult {
+    const result = safeParse(commandLineInterfacePacktoryConfigSchema, config);
+    return result.success ? Result.ok(result.data) : Result.err(result.error.issues);
 }
