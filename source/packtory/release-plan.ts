@@ -15,6 +15,7 @@ import {
     attributeSelectedChangelogSourceFiles,
     attributeChangelogSourceFiles,
     changedPackageManifestDependencyNames,
+    collectManifestChangelogSourceFiles,
     packageManifestDependencyVersions,
     type ChangelogSourceAttributionDependencies
 } from './changelog-source-attribution.ts';
@@ -27,6 +28,8 @@ export type CollectReleaseArtifactFiles = (
 ) => readonly FileDescription[];
 
 type ChangelogSourceInputOptions = {
+    readonly additionalPackageJsonAttributes: Readonly<Record<string, unknown>>;
+    readonly mainPackageJson: Readonly<Record<string, unknown>>;
     readonly additionalChangelogSourceFiles: {
         readonly packageFiles: readonly string[];
         readonly sharedFiles: readonly string[];
@@ -53,7 +56,22 @@ function sortedUnique(values: readonly string[]): readonly string[] {
 }
 
 function collectReleasePlanChangelogSourceFiles(resolveOptions: ChangelogSourceInputOptions): readonly string[] {
-    return resolveOptions.additionalChangelogSourceFiles.packageFiles;
+    return [
+        ...resolveOptions.additionalChangelogSourceFiles.sharedFiles,
+        ...resolveOptions.additionalChangelogSourceFiles.packageFiles
+    ];
+}
+
+function collectReleasePlanManifestChangelogSourceFiles(
+    resolveOptions: ChangelogSourceInputOptions
+): readonly string[] {
+    return collectManifestChangelogSourceFiles(
+        {
+            ...resolveOptions.mainPackageJson,
+            additionalPackageJsonAttributes: resolveOptions.additionalPackageJsonAttributes
+        },
+        collectReleasePlanChangelogSourceFiles(resolveOptions)
+    );
 }
 
 function packageRelativeFiles(files: readonly FileDescription[]): readonly string[] {
@@ -182,7 +200,7 @@ export async function createReleasePlanPackage(
     const artifactState = artifactStateFrom(buildResult);
     const latestRegistryMetadata = registryMetadataFrom(buildResult);
     const changedArtifactFiles = changedArtifactFilesFrom(artifactState, buildResult, input.releaseArtifactFiles);
-    const changelogSourceFiles = collectReleasePlanChangelogSourceFiles(input.changelogSourceOptions);
+    const changelogSourceFiles = collectReleasePlanManifestChangelogSourceFiles(input.changelogSourceOptions);
     const changelogDependencyNames = collectReleasePlanChangelogDependencyNames(
         buildResult,
         input.releaseArtifactFiles

@@ -259,4 +259,76 @@ suite('packtory-changelog dependency updates', function () {
             packageNamesWithoutChangelogEntries: []
         });
     });
+
+    test('includes generated package manifest metadata pull requests for every attributed package', async function () {
+        const pullRequests: readonly PullRequest[] = [ { id: 697, title: 'Align Node engines with CI' } ];
+        const renderGroupedTargetChangelog = fake(function (input: RenderGroupedTargetChangelogMarkdownInput) {
+            return renderPullRequests(input.targets.flatMap(function (target) {
+                return target.mergedPullRequests;
+            }));
+        });
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves(pullRequests),
+            filterPullRequestsByTargetFiles: fake(function (input: FilterPullRequestsByTargetFilesInput) {
+                return input.targetSourceFiles.includes('package.json') ? input.pullRequests : [];
+            }),
+            readPullRequestChangedFiles: fake.resolves(
+                new Map([ [ 697, [ pullRequestChangedFileFactory.build({ path: 'package.json' }) ] ] ])
+            ),
+            renderGroupedTargetChangelog,
+            resolvePullRequestLabels: fake(async function (options: ResolvePullRequestLabelsOptions) {
+                return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {
+                    return { ...pullRequest, label: 'build' };
+                });
+            })
+        });
+
+        await generateChangelogOutputs({
+            packages: [
+                releasePackage({
+                    name: 'pr-log',
+                    nextVersion: '6.4.2',
+                    releaseClassification: 'substantive',
+                    changelogSourceFiles: [ 'package.json' ],
+                    changelogDependencyNames: [],
+                    changelogDependencyUpdates: []
+                }),
+                releasePackage({
+                    name: '@pr-log/core',
+                    nextVersion: '0.0.5',
+                    releaseClassification: 'substantive',
+                    changelogSourceFiles: [ 'package.json' ],
+                    changelogDependencyNames: [],
+                    changelogDependencyUpdates: []
+                })
+            ],
+            prLogEngine: engine,
+            changelogSourceFileRootsByPackageName: new Map(),
+            githubRepo: 'enormora/pr-log',
+            currentDate: new Date('2026-06-13T00:00:00.000Z'),
+            explicitBaseRef: undefined,
+            ignoredAttributionPaths: [],
+            packageTagFormat: undefined,
+            prLogConfig: {
+                ...defaultPrLogConfig,
+                validLabels: new Map([ ...defaultPrLogConfig.validLabels, [ 'build', 'Build-Related' ] ])
+            },
+            targetScopedLabelPattern: undefined
+        });
+
+        assert.deepStrictEqual(renderGroupedTargetChangelog.firstCall.args[0].targets, [
+            {
+                targetName: 'pr-log',
+                unreleased: false,
+                versionNumber: '6.4.2',
+                mergedPullRequests: [ { id: 697, title: 'Align Node engines with CI', label: 'build' } ]
+            },
+            {
+                targetName: '@pr-log/core',
+                unreleased: false,
+                versionNumber: '0.0.5',
+                mergedPullRequests: [ { id: 697, title: 'Align Node engines with CI', label: 'build' } ]
+            }
+        ]);
+    });
 });

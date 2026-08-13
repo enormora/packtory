@@ -247,11 +247,21 @@ function releasePackageMainPackageJson(
 function releasePackageAdditionalChangelogSourceFiles(
     validated: ValidConfigResult,
     packageConfig: ReleasePackageConfig
-): readonly string[] {
-    return [
-        ...validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? [],
-        ...packageConfig.additionalChangelogSourceFiles ?? []
-    ];
+): ResolvedPackage['resolveOptions']['additionalChangelogSourceFiles'] {
+    return {
+        packageFiles: packageConfig.additionalChangelogSourceFiles ?? [],
+        sharedFiles: validated.packtoryConfig.commonPackageSettings?.additionalChangelogSourceFiles ?? []
+    };
+}
+
+function releasePackageAdditionalPackageJsonAttributes(
+    validated: ValidConfigResult,
+    packageConfig: ReleasePackageConfig
+): ResolvedPackage['resolveOptions']['additionalPackageJsonAttributes'] {
+    return {
+        ...validated.packtoryConfig.commonPackageSettings?.additionalPackageJsonAttributes,
+        ...packageConfig.additionalPackageJsonAttributes
+    };
 }
 
 function releasePackageResolveOptions(
@@ -267,11 +277,8 @@ function releasePackageResolveOptions(
         includeSourceMapFiles: packageConfig.includeSourceMapFiles ?? false,
         additionalFiles: packageConfig.additionalFiles ?? [],
         mainPackageJson: releasePackageMainPackageJson(validated, packageConfig),
-        additionalChangelogSourceFiles: {
-            packageFiles: releasePackageAdditionalChangelogSourceFiles(validated, packageConfig),
-            sharedFiles: []
-        },
-        additionalPackageJsonAttributes: packageConfig.additionalPackageJsonAttributes ?? {},
+        additionalChangelogSourceFiles: releasePackageAdditionalChangelogSourceFiles(validated, packageConfig),
+        additionalPackageJsonAttributes: releasePackageAdditionalPackageJsonAttributes(validated, packageConfig),
         allowMutableSpecifiers: [],
         deadCodeElimination: packageConfig.deadCodeElimination,
         bundleDependencies: [],

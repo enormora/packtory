@@ -24,7 +24,10 @@ export async function createVersionProviderContext(
     let targetSourceFiles: readonly string[] = [];
     if (hasVersionProvider(options.versioning)) {
         const manifestChangelogSourceFiles = collectManifestChangelogSourceFiles(
-            options.mainPackageJson,
+            {
+                ...options.mainPackageJson,
+                additionalPackageJsonAttributes: options.additionalPackageJsonAttributes
+            },
             allConfiguredChangelogSourceFiles(options)
         );
         targetSourceFiles = await attributeChangelogSourceFiles(
