@@ -112,7 +112,9 @@ export type ReleasePullRequestGitHubClient = {
     readonly createCommitOnBranch: (input: CreateCommitOnBranchInput) => Promise<string>;
     readonly createOrUpdateReleasePullRequest: (input: CreateOrUpdateReleasePullRequestInput) => Promise<number>;
     readonly createStatus: (input: CreateStatusInput) => Promise<void>;
-    readonly deleteActionRequiredPullRequestRuns: (input: DeleteActionRequiredPullRequestRunsInput) => Promise<void>;
+    readonly deleteActionRequiredPullRequestRuns: (
+        input: DeleteActionRequiredPullRequestRunsInput
+    ) => Promise<readonly number[]>;
     readonly deleteBranch: (branch: string) => Promise<void>;
     readonly dispatchWorkflow: (input: DispatchWorkflowInput) => Promise<void>;
     readonly findDispatchedWorkflowRun: (input: FindDispatchedWorkflowRunInput) => Promise<WorkflowRunLookupResult>;
@@ -377,7 +379,7 @@ export function createReleasePullRequestGitHubClient(context: GitHubClientContex
         },
 
         async deleteActionRequiredPullRequestRuns(input) {
-            await deleteActionRequiredPullRequestRuns({
+            return deleteActionRequiredPullRequestRuns({
                 branch: input.branch,
                 deleteWorkflowRun: octokit.rest.actions.deleteWorkflowRun,
                 headSha: input.headSha,

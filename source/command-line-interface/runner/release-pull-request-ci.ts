@@ -66,6 +66,8 @@ type RunConfiguredGitHubActionsCiInput = {
 
 const workflowRunLookupAttempts = 30;
 const workflowRunCompletionAttempts = 120;
+const actionRequiredPullRequestRunCleanupAttempts = 30;
+const actionRequiredPullRequestRunCleanReads = 2;
 const staleWorkflowRunCancellationAttempts = 30;
 const workflowPollIntervalMilliseconds = 10_000;
 
@@ -320,6 +322,13 @@ async function waitForActiveDispatchedWorkflowRunsToCancel(input: WaitForDispatc
     }
 }
 
+function nextActionRequiredPullRequestRunCleanReads(
+    cleanReads: number,
+    deletedRunIds: readonly number[]
+): number {
+    return deletedRunIds.length === 0 ? cleanReads + 1 : 0;
+}
+
 async function dispatchWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Promise<number> {
     await waitForActiveDispatchedWorkflowRunsToCancel(input);
     const baseline = await findDispatchedWorkflowRun(input);
@@ -335,13 +344,40 @@ async function dispatchWorkflowRun(input: WaitForDispatchedWorkflowRunInput): Pr
 }
 
 async function deleteActionRequiredPullRequestRuns(
+    input: RunConfiguredGitHubActionsCiInput
+): Promise<readonly number[]> {
+    return input.client.deleteActionRequiredPullRequestRuns({
+        branch: input.config.branch,
+        headSha: input.headSha
+    });
+}
+
+async function waitForActionRequiredPullRequestRunsToDelete(
+    input: RunConfiguredGitHubActionsCiInput
+): Promise<void> {
+    let cleanReads = 0;
+    for (const attempt of createRetryAttempts(actionRequiredPullRequestRunCleanupAttempts)) {
+        const deletedRunIds = await deleteActionRequiredPullRequestRuns(input);
+        cleanReads = nextActionRequiredPullRequestRunCleanReads(cleanReads, deletedRunIds);
+        if (cleanReads === actionRequiredPullRequestRunCleanReads) {
+            return;
+        }
+        if (isLastAttempt(attempt, actionRequiredPullRequestRunCleanupAttempts)) {
+            throw new Error(
+                `Action-required pull request workflow runs did not delete: ${formatObservedRunIds(deletedRunIds)}`
+            );
+        }
+        await input.sleep(workflowPollIntervalMilliseconds);
+    }
+}
+
+async function waitForConfiguredActionRequiredPullRequestRunCleanup(
     input: RunConfiguredGitHubActionsCiInput,
     ciConfig: GitHubActionsCiConfig
 ): Promise<void> {
-    if (!ciConfig.deleteActionRequiredPullRequestRuns) {
-        return;
+    if (ciConfig.deleteActionRequiredPullRequestRuns) {
+        await waitForActionRequiredPullRequestRunsToDelete(input);
     }
-    await input.client.deleteActionRequiredPullRequestRuns({ branch: input.config.branch, headSha: input.headSha });
 }
 
 async function resolveWorkflowRunIdOrFailStatuses(
@@ -349,6 +385,7 @@ async function resolveWorkflowRunIdOrFailStatuses(
     ciConfig: GitHubActionsCiConfig
 ): Promise<number> {
     try {
+        await waitForConfiguredActionRequiredPullRequestRunCleanup(input, ciConfig);
         return await dispatchWorkflowRun({ ...input, ciConfig, ignoredRunIds: new Set() });
     } catch (error) {
         await createFailedWorkflowStatuses({
@@ -390,7 +427,6 @@ export async function runConfiguredGitHubActionsCi(input: RunConfiguredGitHubAct
     if (githubActionsCi === undefined) {
         return true;
     }
-    await deleteActionRequiredPullRequestRuns(input, githubActionsCi);
     const runId = await resolveWorkflowRunIdOrFailStatuses(input, githubActionsCi);
     return mirrorWorkflowStatuses({
         ciConfig: githubActionsCi,

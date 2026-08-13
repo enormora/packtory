@@ -106,7 +106,7 @@ export async function cancelActiveDispatchedWorkflowRuns(
 
 export async function deleteActionRequiredPullRequestRuns(
     input: DeleteActionRequiredPullRequestRunsInput
-): Promise<void> {
+): Promise<readonly number[]> {
     const response = await resolveGitHubResponse(
         input.listWorkflowRunsForRepo({
             ...input.requestContext,
@@ -131,4 +131,5 @@ export async function deleteActionRequiredPullRequestRuns(
             })
         );
     }
+    return blockedRunIds;
 }

@@ -76,4 +76,47 @@ suite('release-pr-workflow-run-cancellation', function () {
             );
         }));
     });
+
+    test('returns deleted action-required pull request run ids', async function () {
+        const capturedRequests = captureRequests();
+        const { records } = capturedRequests;
+        const client = createClient(
+            createRecordedRouteFetch(
+                capturedRequests,
+                new Map([
+                    [ routeKey('GET', '/repos/owner/repo/actions/runs'), function () {
+                        return jsonResponse({
+                            workflow_runs: [
+                                {
+                                    conclusion: 'action_required',
+                                    database_id: 10,
+                                    event: 'pull_request',
+                                    head_sha: 'release-head'
+                                },
+                                {
+                                    conclusion: 'success',
+                                    database_id: 11,
+                                    event: 'pull_request',
+                                    head_sha: 'release-head'
+                                }
+                            ]
+                        });
+                    } ],
+                    [ routeKey('DELETE', '/repos/owner/repo/actions/runs/10'), emptyResponse ]
+                ])
+            )
+        );
+
+        assert.deepStrictEqual(
+            await client.deleteActionRequiredPullRequestRuns({ branch: 'release/packtory', headSha: 'release-head' }),
+            [ 10 ]
+        );
+        assert.ok(records.some(function (record) {
+            return (
+                record.path === '/repos/owner/repo/actions/runs' &&
+                requestHasSearchParameter(record, 'branch', 'release/packtory') &&
+                requestHasSearchParameter(record, 'event', 'pull_request')
+            );
+        }));
+    });
 });
