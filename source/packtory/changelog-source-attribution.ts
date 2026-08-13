@@ -11,6 +11,7 @@ export type ChangelogSourceAttributionDependencies = {
 };
 
 export type ManifestChangelogInputs = {
+    readonly additionalPackageJsonAttributes?: Readonly<Record<string, unknown>> | undefined;
     readonly dependencies?: Readonly<Record<string, unknown>> | undefined;
     readonly imports?: Readonly<Record<string, unknown>> | undefined;
     readonly peerDependencies?: Readonly<Record<string, unknown>> | undefined;
@@ -37,6 +38,7 @@ function hasEntries(value: Readonly<Record<string, unknown>> | undefined): boole
 
 function hasGeneratedManifestInputs(mainPackageJson: ManifestChangelogInputs): boolean {
     return (
+        hasEntries(mainPackageJson.additionalPackageJsonAttributes) ||
         hasEntries(mainPackageJson.dependencies) ||
         hasEntries(mainPackageJson.peerDependencies) ||
         hasEntries(mainPackageJson.imports)

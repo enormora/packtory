@@ -254,6 +254,7 @@ The configuration for `packtory` is an object with the following properties:
    - Output paths must be safe relative paths. Absolute paths and parent-traversing paths are rejected.
    - Duplicate `github-release` outputs, duplicate repository-file paths, and package-file destinations that resolve to the same file are rejected.
    - Generated changelog files are ignored during pull request source attribution.
+   - Generated `package.json` changes are attributed to manifest inputs, including root `package.json` fields used through `mainPackageJson` or `additionalPackageJsonAttributes`.
    - JavaScript files are attributed through referenced source maps when they have a `sourceMappingURL`. Without that reference, the JavaScript file itself is attributed.
    - Changelog outputs are not automatically added to package artifacts. Use `additionalFiles` when a package artifact should include a generated changelog.
 

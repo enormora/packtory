@@ -16,9 +16,13 @@ type ArtifactFile = {
 
 type ReleasePlanFixture = {
     readonly additionalChangelogSourceFiles: readonly string[];
+    readonly additionalPackageJsonAttributes?: Readonly<Record<string, unknown>> | undefined;
     readonly bundleContents: readonly AnalyzedBundleResource[];
     readonly currentArtifactFiles: readonly ArtifactFile[];
+    readonly mainPackageJson?: Readonly<Record<string, unknown>> | undefined;
+    readonly packageName?: string | undefined;
     readonly previousArtifactFiles: readonly ArtifactFile[];
+    readonly sharedChangelogSourceFiles?: readonly string[] | undefined;
 };
 
 function artifactFile(filePath: string, content: string): ArtifactFile {
@@ -51,14 +55,17 @@ async function releasePlanFor(input: ReleasePlanFixture): ReturnType<typeof crea
                 version: '1.0.0',
                 publishedAt: new Date('2026-05-01T00:00:00.000Z'),
                 files: input.previousArtifactFiles
-            })
+            }),
+            ...input.packageName === undefined ? {} : { packageName: input.packageName }
         }),
         {
             changelogSourceOptions: {
+                additionalPackageJsonAttributes: input.additionalPackageJsonAttributes ?? {},
                 additionalChangelogSourceFiles: {
                     packageFiles: input.additionalChangelogSourceFiles,
-                    sharedFiles: []
-                }
+                    sharedFiles: input.sharedChangelogSourceFiles ?? []
+                },
+                mainPackageJson: input.mainPackageJson ?? {}
             },
             currentGitHead: undefined,
             releaseArtifactFiles: input.currentArtifactFiles,
@@ -139,6 +146,90 @@ suite('packtory-release-plan changelog attribution', function () {
             changedArtifactFiles: [ 'package.json' ],
             changelogSourceFiles: [ 'source/packages/pkg-a/package.json' ]
         });
+    });
+
+    test('attributes generated package manifest metadata fields to shared manifest inputs', async function () {
+        const generatedManifest = {
+            ...analyzedBundleResource('/source/generated-package-json.js', { targetFilePath: 'package/package.json' }),
+            isGeneratedManifest: true as const
+        };
+
+        const result = await releasePlanFor({
+            additionalChangelogSourceFiles: [],
+            additionalPackageJsonAttributes: {
+                engines: { node: '^22.0.0 || ^24.0.0 || ^26.0.0' }
+            },
+            bundleContents: [ generatedManifest ],
+            previousArtifactFiles: [
+                artifactFile(
+                    'package/package.json',
+                    '{"name":"pkg-a","version":"1.0.0","engines":{"node":"^24.0.0 || ^26.0.0"}}'
+                )
+            ],
+            currentArtifactFiles: [
+                artifactFile(
+                    'package/package.json',
+                    '{"name":"pkg-a","version":"1.0.1","engines":{"node":"^22.0.0 || ^24.0.0 || ^26.0.0"}}'
+                )
+            ]
+        });
+
+        assert.partialDeepStrictEqual(result, {
+            changedArtifactFiles: [ 'package.json' ],
+            changelogSourceFiles: [ 'package.json' ]
+        });
+    });
+
+    test('attributes shared generated package manifest metadata inputs to multiple changed packages', async function () {
+        const generatedManifest = {
+            ...analyzedBundleResource('/source/generated-package-json.js', { targetFilePath: 'package/package.json' }),
+            isGeneratedManifest: true as const
+        };
+        const packagePlans = await Promise.all(
+            [ 'pr-log', '@pr-log/core' ].map(async function (packageName) {
+                return releasePlanFor({
+                    additionalChangelogSourceFiles: [],
+                    additionalPackageJsonAttributes: {
+                        engines: { node: '^22.0.0 || ^24.0.0 || ^26.0.0' }
+                    },
+                    bundleContents: [ generatedManifest ],
+                    currentArtifactFiles: [
+                        artifactFile(
+                            'package/package.json',
+                            JSON.stringify({
+                                name: packageName,
+                                version: '1.0.1',
+                                engines: { node: '^22.0.0 || ^24.0.0 || ^26.0.0' }
+                            })
+                        )
+                    ],
+                    packageName,
+                    previousArtifactFiles: [
+                        artifactFile(
+                            'package/package.json',
+                            JSON.stringify({
+                                name: packageName,
+                                version: '1.0.0',
+                                engines: { node: '^24.0.0 || ^26.0.0' }
+                            })
+                        )
+                    ]
+                });
+            })
+        );
+
+        assert.deepStrictEqual(
+            packagePlans.map(function (packagePlan) {
+                return {
+                    name: packagePlan.name,
+                    changelogSourceFiles: packagePlan.changelogSourceFiles
+                };
+            }),
+            [
+                { name: 'pr-log', changelogSourceFiles: [ 'package.json' ] },
+                { name: '@pr-log/core', changelogSourceFiles: [ 'package.json' ] }
+            ]
+        );
     });
 
     test('ignores additional package manifest sources when generated package manifests are unchanged', async function () {

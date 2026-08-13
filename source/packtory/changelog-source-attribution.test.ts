@@ -276,6 +276,13 @@ function registerManifestInputTests(): void {
             collectManifestChangelogSourceFiles({ imports: { '#runtime': './runtime.js' } }, []),
             [ 'package.json' ]
         );
+        assert.deepStrictEqual(
+            collectManifestChangelogSourceFiles(
+                { additionalPackageJsonAttributes: { engines: { node: '^24.0.0' } } },
+                []
+            ),
+            [ 'package.json' ]
+        );
     });
 
     test('collectManifestChangelogSourceFiles omits package.json when generated manifest inputs are empty', function () {
