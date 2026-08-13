@@ -143,7 +143,7 @@ suite('release-pull-request-ci', function () {
     suite('successful workflow mirroring', function () {
         test('dispatches the configured workflow and mirrors successful statuses', async function () {
             const createStatus = fake.resolves(undefined);
-            const deleteActionRequiredPullRequestRuns = fake.resolves(undefined);
+            const deleteActionRequiredPullRequestRuns = fake.resolves([]);
             const dispatchWorkflow = fake.resolves(undefined);
             const findDispatchedWorkflowRun = createDispatchedWorkflowRunLookup();
             const client = createClient({
@@ -462,7 +462,7 @@ suite('release-pull-request-ci', function () {
                 }
             );
             assert.strictEqual(findDispatchedWorkflowRun.callCount, 31);
-            assert.strictEqual(sleep.callCount, 29);
+            assert.strictEqual(sleep.callCount, 30);
         });
 
         test('reports observed workflow run IDs when dispatch lookup never finds the run', async function () {
@@ -509,7 +509,7 @@ suite('release-pull-request-ci', function () {
 
         test('fails when the dispatched workflow run does not complete', async function () {
             const createStatus = fake.resolves(undefined);
-            const deleteActionRequiredPullRequestRuns = fake.resolves(undefined);
+            const deleteActionRequiredPullRequestRuns = fake.resolves([]);
             const readWorkflowRunResult = fake.resolves({ conclusion: undefined, databaseId: 1, jobs: [] });
             const sleep = fake.resolves(undefined);
             await assert.rejects(
@@ -522,7 +522,7 @@ suite('release-pull-request-ci', function () {
                 { message: 'Release workflow run 1 did not complete' }
             );
             assert.strictEqual(readWorkflowRunResult.callCount, 120);
-            assert.strictEqual(sleep.callCount, 119);
+            assert.strictEqual(sleep.callCount, 120);
             assert.deepStrictEqual(deleteActionRequiredPullRequestRuns.firstCall.args[0], {
                 branch: 'release/packtory',
                 headSha: 'release-head'

@@ -107,7 +107,7 @@ function createReleasePullRequestClientFixture(
         createCommitOnBranch: fake.resolves('signed-release-head'),
         createOrUpdateReleasePullRequest: fake.resolves(1),
         createStatus: fake.resolves(undefined),
-        deleteActionRequiredPullRequestRuns: fake.resolves(undefined),
+        deleteActionRequiredPullRequestRuns: fake.resolves([]),
         deleteBranch: fake.resolves(undefined),
         dispatchWorkflow: fake.resolves(undefined),
         findDispatchedWorkflowRun: fake(async function () {
