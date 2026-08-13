@@ -22,7 +22,9 @@ const ignoreFromOrphans = [
     ...testLibraryFiles
 ];
 
-/** @type {import('dependency-cruiser').IConfiguration} */
+/**
+@type {import('dependency-cruiser').IConfiguration}
+*/
 export default {
     forbidden: [
         {

@@ -66,10 +66,10 @@
         "zod": "4.4.3"
     },
     "devDependencies": {
-        "@enormora/eslint-config-base": "0.0.56",
-        "@enormora/eslint-config-mocha-node-assert": "0.0.10",
-        "@enormora/eslint-config-node": "0.0.41",
-        "@enormora/eslint-config-typescript": "0.0.63",
+        "@enormora/eslint-config-base": "0.0.57",
+        "@enormora/eslint-config-mocha-node-assert": "0.0.12",
+        "@enormora/eslint-config-node": "0.0.43",
+        "@enormora/eslint-config-typescript": "0.0.65",
         "@enormora/objectory": "0.0.15",
         "@jridgewell/gen-mapping": "0.3.13",
         "@ls-lint/ls-lint": "2.3.1",
