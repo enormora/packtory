@@ -21,6 +21,7 @@ import { runChangelogHandler } from './changelog-handler.ts';
 import { getParseExitCode } from './command-parsing.ts';
 import { runConfigInspectHandler } from './config-inspect-handler.ts';
 import { runPackHandler } from './pack-handler.ts';
+import { runPackageTreeHandler } from './package-tree-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
 import type { GitHubReleaseClient } from './github-release-client.ts';
@@ -85,6 +86,7 @@ const configCommandName = 'config';
 const inspectConfigCommandName = 'inspect';
 const maintainReleasePullRequestCommandName = 'maintain';
 const packCommandName = 'pack';
+const treeCommandName = 'tree';
 const validateReleasePullRequestCommandName = 'validate';
 const defaultPackVersion = '0.0.0';
 const traceFlag = '--trace';
@@ -394,6 +396,22 @@ export function createCommandLineInterfaceRunner(
                         spinnerRenderer,
                         configLoader,
                         flags: { packageName, format, outputPath, version, vendorDependencies, trace: traceEnabled }
+                    });
+                }
+            }),
+            [treeCommandName]: command({
+                name: treeCommandName,
+                description: 'Prints the local artifact tree for a single configured package.',
+                args: {
+                    packageName: positional({ type: string, displayName: 'package' })
+                },
+                async handler({ packageName }) {
+                    exitCode = await runPackageTreeHandler({
+                        log,
+                        packtory,
+                        spinnerRenderer,
+                        configLoader,
+                        flags: { packageName, trace: traceEnabled }
                     });
                 }
             })

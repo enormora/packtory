@@ -419,4 +419,47 @@ suite('runner release-pr and pack', function () {
             assert.strictEqual(exitCode, 1);
         });
     });
+
+    suite('tree command', function () {
+        test('tree command loads the config and forwards the package name to inspectPackageTree', async function () {
+            const loadConfig = fake.resolves('the-config');
+            const inspectPackageTree = fake.resolves({
+                result: Result.ok({ packageName: 'pkg-a', entries: [] })
+            });
+            const runner = createRunner({ loadConfig, inspectPackageTree });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'tree', 'pkg-a' ]);
+
+            assert.strictEqual(exitCode, 0);
+            assert.strictEqual(loadConfig.callCount, 1);
+            assert.deepStrictEqual(inspectPackageTree.firstCall.args, [ 'the-config', 'pkg-a' ]);
+        });
+
+        test('tree command returns exit code 1 when inspectPackageTree reports an Err', async function () {
+            const inspectPackageTree = fake.resolves(
+                { result: Result.err({ type: 'package-not-found', packageName: 'missing' }) }
+            );
+            const runner = createRunner({ inspectPackageTree });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'tree', 'missing' ]);
+
+            assert.strictEqual(exitCode, 1);
+        });
+
+        test('tree --help advertises the command and positional package argument', async function () {
+            const help = await expectHelp([ 'tree', '--help' ]);
+
+            assert.match(help, /Prints the local artifact tree for a single configured package\./u);
+            assert.match(help, /<package>/u);
+        });
+
+        test('tree command rejects a missing package argument', async function () {
+            const log = fake();
+            const runner = createRunner({ log });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'tree' ]);
+
+            assert.strictEqual(exitCode, 1);
+        });
+    });
 });

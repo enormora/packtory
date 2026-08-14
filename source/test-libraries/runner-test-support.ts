@@ -31,6 +31,7 @@ export type Overrides = {
     readonly analyzeReleaseAgainstLatestPublished?: SinonSpy;
     readonly buildAndPublishAll?: SinonSpy;
     readonly diffAgainstLatestPublished?: SinonSpy;
+    readonly inspectPackageTree?: SinonSpy;
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
     readonly packPackage?: SinonSpy;
     readonly loadConfig?: SinonSpy;
@@ -136,6 +137,11 @@ function createReleasePullRequestGitHubClientFactory(
     return overrides.createReleasePullRequestGitHubClient ?? fake.returns(createReleasePullRequestClientFixture({}));
 }
 
+function createInspectPackageTreeFixture(overrides: Overrides): SinonSpy {
+    return overrides.inspectPackageTree ??
+        fake.resolves({ result: Result.ok({ packageName: 'pkg-a', entries: [] }) });
+}
+
 export function createGitHubReleaseClientFixture(
     overrides: Readonly<Partial<GitHubReleaseClientFixture>>
 ): GitHubReleaseClientFixture {
@@ -166,6 +172,7 @@ function createPacktoryFixture(overrides: Overrides): CommandLineInterfaceRunner
         buildAndPublishAll: overrides.buildAndPublishAll ?? fake.resolves(undefined as never),
         diffAgainstLatestPublished: overrides.diffAgainstLatestPublished ??
             fake.resolves(toReleaseDiffOutcome(Result.ok([]))),
+        inspectPackageTree: createInspectPackageTreeFixture(overrides),
         planReleaseAgainstLatestPublished: overrides.planReleaseAgainstLatestPublished ??
             fake.resolves({
                 result: Result.ok({ packages: [] }),

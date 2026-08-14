@@ -1,6 +1,9 @@
 import type { Result } from 'true-myth';
 import type { PackFormat } from '../pack-emitter/pack-emitter.ts';
-import type { ProgressBroadcaster as ProgressBroadcasterBase } from '../progress/progress-broadcaster.ts';
+import type {
+    ArtifactEntry,
+    ProgressBroadcaster as ProgressBroadcasterBase
+} from '../progress/progress-broadcaster.ts';
 import type { BuildReport as ReportBuildReport } from '../report/aggregator/report-types.ts';
 import type { PackageReleaseDiff } from '../report/release-diff/file-set-diff.ts';
 import type { BuildAndPublishResult } from './package-processor.ts';
@@ -299,6 +302,23 @@ export function createPackOutcome(result: PackResult): PackOutcome {
     return { result };
 }
 
+export type PackageTree = {
+    readonly packageName: string;
+    readonly entries: readonly ArtifactEntry[];
+};
+
+export type PackageTreeFailure = CheckError | ConfigError | PackPackageFailure | PartialErrorResult;
+
+export type PackageTreeResult = Result<PackageTree, PackageTreeFailure>;
+
+export type PackageTreeOutcome = {
+    readonly result: PackageTreeResult;
+};
+
+export function createPackageTreeOutcome(result: PackageTreeResult): PackageTreeOutcome {
+    return { result };
+}
+
 export type Packtory = {
     analyzeReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleaseAnalysisOutcome>;
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
@@ -306,6 +326,7 @@ export type Packtory = {
     planReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleasePlanOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
     packPackage: (config: unknown, options: PackPublicOptions) => Promise<PackOutcome>;
+    inspectPackageTree: (config: unknown, packageName: string) => Promise<PackageTreeOutcome>;
 };
 
 export type ProgressBroadcaster = ProgressBroadcasterBase;
