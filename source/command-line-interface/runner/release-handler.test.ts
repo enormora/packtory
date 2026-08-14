@@ -173,6 +173,7 @@ function createPacktory(
         analyzeReleaseAgainstLatestPublished: unusedPacktoryMethod,
         buildAndPublishAll,
         diffAgainstLatestPublished: unusedPacktoryMethod,
+        inspectPackageTree: unusedPacktoryMethod,
         packPackage: unusedPacktoryMethod,
         planReleaseAgainstLatestPublished,
         resolveAndLinkAll: unusedPacktoryMethod

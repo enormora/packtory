@@ -11,6 +11,7 @@ import type { VersionManager } from '../version-manager/manager.ts';
 import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import { createAnalyzeReleaseAgainstLatestPublishedValidated } from './packtory-release-analysis.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
+import { createInspectPackageTreeValidated } from './packtory-package-tree.ts';
 import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
 import { createRunPackValidated } from './packtory-pack.ts';
 import { attachAggregator, emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
@@ -20,6 +21,7 @@ import {
     createReleaseAnalysisOutcome,
     configError,
     createPackOutcome,
+    createPackageTreeOutcome,
     createReleasePlanOutcome,
     createPublishAllOutcome,
     createReleaseDiffAllOutcome,
@@ -28,6 +30,8 @@ import {
     type BuildReport as BuildReportBase,
     type PackageReleaseAnalysis as PackageReleaseAnalysisBase,
     type PackageReleaseAnalysisClassification as PackageReleaseAnalysisClassificationBase,
+    type PackageTree,
+    type PackageTreeOutcome,
     type PackOutcome as PackOutcomeBase,
     type PackPublicOptions as PackPublicOptionsBase,
     type PackResult as PackResultBase,
@@ -79,7 +83,7 @@ export type PackageReleaseAnalysisClassification = PackageReleaseAnalysisClassif
 export type ResolveAndLinkFailure = ResolveAndLinkFailureBase;
 export type Packtory = PacktoryBase;
 
-type PacktoryDependencies = {
+export type PacktoryDependencies = {
     readonly packageProcessor: PackageProcessor;
     readonly scheduler: PacktoryScheduler;
     readonly deadCodeEliminator: DeadCodeEliminator;
@@ -106,6 +110,7 @@ type ValidatedRunners = {
         typeof createPlanReleaseAgainstLatestPublishedValidated
     >;
     readonly runPackValidated: ReturnType<typeof createRunPackValidated>;
+    readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
 };
 
 function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRunners {
@@ -117,7 +122,8 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
             dependencies
         ),
         planReleaseAgainstLatestPublishedValidated: createPlanReleaseAgainstLatestPublishedValidated(dependencies),
-        runPackValidated: createRunPackValidated(dependencies)
+        runPackValidated: createRunPackValidated(dependencies),
+        inspectPackageTreeValidated: createInspectPackageTreeValidated(dependencies)
     };
 }
 
@@ -125,6 +131,25 @@ type Reporting<TReport> = {
     readonly dispose: () => void;
     readonly getReport: () => TReport;
 };
+
+type InspectPackageTreeInput = {
+    readonly config: unknown;
+    readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
+    readonly packageName: string;
+    readonly reporting: Reporting<BuildReport>;
+    readonly resolveAndLinkAllValidated: ReturnType<typeof createResolveAndLinkAllValidated>;
+};
+
+function selectPackageTreeEntries(report: BuildReport, packageName: string): PackageTree['entries'] {
+    const packageReport = report.packages[packageName];
+    if (packageReport === undefined) {
+        throw new Error(`Package tree report for "${packageName}" is missing`);
+    }
+    if (packageReport.outputs === undefined) {
+        throw new Error(`Package tree outputs for "${packageName}" are missing`);
+    }
+    return packageReport.outputs.tarball.entries;
+}
 
 const missingPublishAuthIssue =
     'registrySettings.auth must be configured to publish; run with dryRun=true to skip the registry write.';
@@ -171,6 +196,25 @@ async function runReportedOperation<TValidated, TResult, TReport, TOutcome>(
     }
 }
 
+async function inspectPackageTreeWithReport(input: InspectPackageTreeInput): Promise<PackageTreeOutcome> {
+    const validation = validateConfigWithoutRegistry(input.config);
+    if (validation.isErr) {
+        return createPackageTreeOutcome(Result.err(configError(validation.error)));
+    }
+
+    const result = await input.inspectPackageTreeValidated(
+        validation.value,
+        input.packageName,
+        input.resolveAndLinkAllValidated,
+        function selectTreeEntries(selectedPackageName) {
+            const report = input.reporting.getReport();
+            const entries = selectPackageTreeEntries(report, selectedPackageName);
+            return Result.ok({ packageName: selectedPackageName, entries });
+        }
+    );
+    return createPackageTreeOutcome(result);
+}
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const {
         resolveAndLinkAllValidated,
@@ -178,7 +222,8 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         diffAgainstLatestPublishedValidated,
         analyzeReleaseAgainstLatestPublishedValidated,
         planReleaseAgainstLatestPublishedValidated,
-        runPackValidated
+        runPackValidated,
+        inspectPackageTreeValidated
     } = createValidatedRunners(dependencies);
 
     async function resolveAndLinkAllPublic(
@@ -241,6 +286,21 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         return createPackOutcome(result);
     }
 
+    async function inspectPackageTreePublic(config: unknown, packageName: string): Promise<PackageTreeOutcome> {
+        const reporting = attachAggregator(dependencies.progressBroadcaster);
+        try {
+            return await inspectPackageTreeWithReport({
+                config,
+                inspectPackageTreeValidated,
+                packageName,
+                reporting,
+                resolveAndLinkAllValidated
+            });
+        } finally {
+            reporting.dispose();
+        }
+    }
+
     async function diffAgainstLatestPublishedPublic(config: unknown): Promise<ReleaseDiffAllOutcome> {
         return runReportedOperation({
             config,
@@ -301,6 +361,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         diffAgainstLatestPublished: diffAgainstLatestPublishedPublic,
         planReleaseAgainstLatestPublished: planReleaseAgainstLatestPublishedPublic,
         resolveAndLinkAll: resolveAndLinkAllPublic,
-        packPackage: packPackagePublic
+        packPackage: packPackagePublic,
+        inspectPackageTree: inspectPackageTreePublic
     };
 }

@@ -85,6 +85,7 @@ export function createPacktoryWithPlan(
         analyzeReleaseAgainstLatestPublished: unusedPacktoryMethod,
         buildAndPublishAll: unusedPacktoryMethod,
         diffAgainstLatestPublished: unusedPacktoryMethod,
+        inspectPackageTree: unusedPacktoryMethod,
         packPackage: unusedPacktoryMethod,
         planReleaseAgainstLatestPublished,
         resolveAndLinkAll: unusedPacktoryMethod
