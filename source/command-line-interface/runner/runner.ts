@@ -205,14 +205,17 @@ export function createCommandLineInterfaceRunner(
             [releaseDiffCommandName]: command({
                 name: releaseDiffCommandName,
                 description: 'Compares the next dry-run build against the latest published version, per package.',
-                args: {},
-                async handler() {
+                args: {
+                    filesOnly: flag({ long: 'files-only' })
+                },
+                async handler({ filesOnly }) {
                     exitCode = await runReleaseDiffHandler({
                         log,
                         pageOutput,
                         packtory,
                         spinnerRenderer,
-                        configLoader
+                        configLoader,
+                        flags: { filesOnly }
                     });
                 }
             }),

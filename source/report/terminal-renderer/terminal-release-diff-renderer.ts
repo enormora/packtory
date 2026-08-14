@@ -4,6 +4,7 @@ import { createColors, renderFailureDocumentHeader, type Colors } from './termin
 
 type TerminalReleaseDiffRendererOptions = {
     readonly color?: boolean | undefined;
+    readonly filesOnly?: boolean | undefined;
 };
 
 function renderDocumentSummary(document: ReleaseDiffDocument, colors: Colors): string {
@@ -51,7 +52,9 @@ export function renderTerminalReleaseDiff(
         sections.push(issuesSection);
     }
     for (const packageDiff of document.packages) {
-        sections.push(renderReleaseDiffPackage(packageDiff, colors));
+        sections.push(renderReleaseDiffPackage(packageDiff, colors, {
+            filesOnly: Boolean(options.filesOnly)
+        }));
     }
 
     return `${sections.join('\n\n')}\n`;

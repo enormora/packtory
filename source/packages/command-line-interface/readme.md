@@ -72,6 +72,7 @@ packtory <command> [options]
 
 - `packtory release-diff` runs the same fresh dry-run build as `preview`, then for each package fetches the tarball of the version currently tagged `latest` on the configured registry and computes the set of file changes between that tarball and the bundle the next run would publish.
 - For each package, files are grouped as **Added**, **Removed**, or **Modified**, rendered as a directory tree. Modified files include line-level hunks for textual content (code files, `package.json`, JSON, Markdown, YAML, source maps, and common no-extension license files); other modifications render as `(binary, no text diff)` or as a mode-only change (executable bit flip).
+- `release-diff --files-only` keeps the package and changed-file tree, including sizes, binary annotations, and mode changes, but omits line-level text hunks.
 - Packages that have never been published are rendered with a `[first publish]` chip and every bundled file in the **Added** group.
 - Packages whose new build is byte-equal to the published version are rendered as a single dim `no changes` line.
 - A package that fails earlier in the dry-run build appears in the document `Issues` section rather than as a per-package diff entry.

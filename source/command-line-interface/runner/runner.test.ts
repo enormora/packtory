@@ -264,6 +264,13 @@ suite('runner command routing', function () {
             assert.match(help, /Builds all packages in fresh dry-run mode and opens a human preview\./);
         });
 
+        test('prints subcommand help that includes the release-diff files-only flag', async function () {
+            const help = await expectSubcommandHelp('release-diff');
+
+            assert.match(help, /packtory release-diff/u);
+            assert.match(help, /--files-only/u);
+        });
+
         test('prints subcommand help that includes the release publish flags', async function () {
             const help = await expectSubcommandHelp('release');
 
