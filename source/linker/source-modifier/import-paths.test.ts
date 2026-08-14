@@ -145,23 +145,44 @@ suite('import-paths', function () {
         assert.strictEqual(result, '#!/usr/bin/env node\nconst foo = "bar"; import "replacement";');
     });
 
-    test('modifies import.meta.resolve() literals', function () {
-        const project = createProject({
-            withFiles: [
-                { filePath: '/folder/foo.ts', content: 'const url = import.meta.resolve("./bar.js");' },
-                { filePath: '/folder/bar.ts', content: 'export {};' }
-            ]
+    suite('call expression literals', function () {
+        test('modifies import.meta.resolve() literals', function () {
+            const project = createProject({
+                withFiles: [
+                    { filePath: '/folder/foo.ts', content: 'const url = import.meta.resolve("./bar.js");' },
+                    { filePath: '/folder/bar.ts', content: 'export {};' }
+                ]
+            });
+            const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+
+            const result = replaceImportPaths(
+                project,
+                '/folder/foo.ts',
+                'const url = import.meta.resolve("./bar.js");',
+                replacements
+            );
+
+            assert.strictEqual(result, 'const url = import.meta.resolve("replacement");');
         });
-        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
-        const result = replaceImportPaths(
-            project,
-            '/folder/foo.ts',
-            'const url = import.meta.resolve("./bar.js");',
-            replacements
-        );
+        test('modifies dynamic import literals', function () {
+            const project = createProject({
+                withFiles: [
+                    { filePath: '/folder/foo.ts', content: 'export const loaded = import("./bar.js");' },
+                    { filePath: '/folder/bar.ts', content: 'export {};' }
+                ]
+            });
+            const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
 
-        assert.strictEqual(result, 'const url = import.meta.resolve("replacement");');
+            const result = replaceImportPaths(
+                project,
+                '/folder/foo.ts',
+                'export const loaded = import("./bar.js");',
+                replacements
+            );
+
+            assert.strictEqual(result, 'export const loaded = import("replacement");');
+        });
     });
 
     suite('source map transform data', function () {

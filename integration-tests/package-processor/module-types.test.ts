@@ -258,4 +258,104 @@ suite('module-types', function () {
             })
         );
     });
+
+    test('correctly resolves ESM files with dynamic import literals', async function () {
+        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/js-esm-dynamic-import');
+        const interpolationMarker = '$';
+        const entryContent = [
+            'export async function loadValues() {',
+            "    const foo = await import('./foo.js');",
+            '    const bar = await import(`./bar.js`);',
+            `    return \`${interpolationMarker}{foo.foo}-${interpolationMarker}{bar.bar}\`;`,
+            '}',
+            ''
+        ]
+            .join('\n');
+        const result = await packageProcessor.build({
+            name: 'the-package-name',
+            version: '42.0.0',
+            sourcesFolder: path.join(fixture, 'src'),
+            roots: { main: { js: path.join(fixture, 'src/entry.js') } },
+            mainPackageJson: await loadPackageJson(fixture),
+            includeSourceMapFiles: false,
+            additionalFiles: [],
+            bundleDependencies: [],
+            bundlePeerDependencies: [],
+            additionalPackageJsonAttributes: {},
+            allowMutableSpecifiers: [],
+            deadCodeElimination: { enabled: false }
+        });
+
+        assert.deepStrictEqual(
+            result,
+            asImplicitExportsBundle({
+                additionalAttributes: {},
+                packageJson: {
+                    name: 'the-package-name',
+                    sideEffects: false,
+                    version: '42.0.0',
+                    type: 'module'
+                },
+                manifestFile: {
+                    isExecutable: false,
+                    content: '',
+                    filePath: 'package.json'
+                },
+                contents: [
+                    {
+                        directDependencies: new Set([
+                            path.join(fixture, 'src/foo.js'),
+                            path.join(fixture, 'src/bar.js')
+                        ]),
+                        fileDescription: {
+                            content: entryContent,
+                            isExecutable: false,
+                            sourceFilePath: path.join(fixture, 'src/entry.js'),
+                            targetFilePath: 'entry.js'
+                        },
+                        isExplicitlyIncluded: false,
+                        isSubstituted: false,
+                        analysis: bindingAnalysis('loadValues')
+                    },
+                    {
+                        directDependencies: new Set(),
+                        fileDescription: {
+                            content: "export const foo = 'foo';\n",
+                            isExecutable: false,
+                            sourceFilePath: path.join(fixture, 'src/foo.js'),
+                            targetFilePath: 'foo.js'
+                        },
+                        isExplicitlyIncluded: false,
+                        isSubstituted: false,
+                        analysis: bindingAnalysis('foo')
+                    },
+                    {
+                        directDependencies: new Set(),
+                        fileDescription: {
+                            content: "export const bar = 'bar';\n",
+                            isExecutable: false,
+                            sourceFilePath: path.join(fixture, 'src/bar.js'),
+                            targetFilePath: 'bar.js'
+                        },
+                        isExplicitlyIncluded: false,
+                        isSubstituted: false,
+                        analysis: bindingAnalysis('bar')
+                    }
+                ],
+                dependencies: {},
+                mainFile: {
+                    content: entryContent,
+                    isExecutable: false,
+                    sourceFilePath: path.join(fixture, 'src/entry.js'),
+                    targetFilePath: 'entry.js'
+                },
+                name: 'the-package-name',
+                packageType: 'module',
+                peerDependencies: {},
+                sideEffectsField: false,
+                typesMainFile: undefined,
+                version: '42.0.0'
+            })
+        );
+    });
 });
