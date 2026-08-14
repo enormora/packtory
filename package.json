@@ -29,7 +29,7 @@
     },
     "dependencies": {
         "@arethetypeswrong/core": "0.18.5",
-        "@cyclonedx/cyclonedx-library": "10.1.0",
+        "@cyclonedx/cyclonedx-library": "10.1.1",
         "@jridgewell/trace-mapping": "0.3.31",
         "@octokit/core": "7.0.7",
         "@octokit/plugin-paginate-rest": "15.0.0",
