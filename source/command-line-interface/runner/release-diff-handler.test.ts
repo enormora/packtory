@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import { stripVTControlCharacters } from 'node:util';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
@@ -187,7 +188,7 @@ suite('release-diff-handler', function () {
         const code = await runReleaseDiffHandler(dependenciesWith(outcome, spies, { filesOnly: true }));
 
         assert.strictEqual(code, 0);
-        const pagedMessage = spies.pageOutput.firstCall.args[0] as string;
+        const pagedMessage = stripVTControlCharacters(spies.pageOutput.firstCall.args[0] as string);
         assert.match(pagedMessage, /~ package\.json \(32 B -> 35 B\)/u);
         assert.doesNotMatch(pagedMessage, /@@ -1,1 \+1,1 @@/u);
         assert.doesNotMatch(pagedMessage, /-"version": "1\.0\.0"/u);
