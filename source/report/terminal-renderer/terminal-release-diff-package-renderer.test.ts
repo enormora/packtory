@@ -13,7 +13,7 @@ function colors(): Colors {
 
 suite('terminal-release-diff-package-renderer', function () {
     test('renders the unchanged state as exactly one dim no-changes line including the previous version', function () {
-        const output = renderReleaseDiffPackage(basePkg({ state: 'unchanged' }), colors());
+        const output = renderReleaseDiffPackage(basePkg({ state: 'unchanged' }), colors(), { filesOnly: false });
         assert.strictEqual(output, 'pkg-a  1.0.0  ·  no changes');
     });
 
@@ -33,7 +33,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
 
         assert.strictEqual(
@@ -60,7 +61,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: [ { path: 'readme.md', sizeBytes: 10, isExecutable: false } ]
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
 
         assert.strictEqual(
@@ -126,7 +128,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.strictEqual(
             output,
@@ -159,7 +162,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.strictEqual(
             output,
@@ -192,7 +196,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.match(output, /mode 755 -> 644/u);
     });
@@ -207,7 +212,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.strictEqual(
             output,

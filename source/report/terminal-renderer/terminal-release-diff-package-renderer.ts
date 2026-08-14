@@ -231,7 +231,7 @@ function renderPackageLines(
 export function renderReleaseDiffPackage(
     packageDiff: PackageReleaseDiff,
     colors: Colors,
-    options: ReleaseDiffPackageRendererOptions = { filesOnly: false }
+    options: ReleaseDiffPackageRendererOptions
 ): string {
     return renderPackageLines(packageDiff, colors, options).join('\n');
 }
