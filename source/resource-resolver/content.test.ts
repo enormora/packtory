@@ -48,7 +48,7 @@ function registerLocalFileTests(): void {
                 );
             },
             {
-                message: 'Local file "/secret.js" must resolve inside sourcesFolder "/src"'
+                message: 'Local file "/secret.js" must resolve to a valid bundle target inside "/src"'
             }
         );
     });
@@ -69,7 +69,7 @@ function registerLocalFileTests(): void {
                 );
             },
             {
-                message: 'Local file "/src" must resolve inside sourcesFolder "/src"'
+                message: 'Local file "/src" must resolve to a valid bundle target inside "/src"'
             }
         );
     });
@@ -163,6 +163,50 @@ function registerLocalFileTests(): void {
     });
 }
 
+function registerLocalManifestValidationTests(): void {
+    test('rejects non-generated local files that target the generated package manifest', function () {
+        assert.throws(
+            function () {
+                combineAllBundleFiles(
+                    '/src',
+                    [
+                        {
+                            filePath: '/src/package.json',
+                            directDependencies: new Set()
+                        }
+                    ],
+                    []
+                );
+            },
+            {
+                message: 'Local file "/src/package.json" must resolve to a valid bundle target inside "/src"'
+            }
+        );
+    });
+
+    test('keeps nested package.json local files as package content', function () {
+        const result = combineAllBundleFiles(
+            '/src',
+            [
+                {
+                    filePath: '/src/fixtures/package.json',
+                    directDependencies: new Set()
+                }
+            ],
+            []
+        );
+
+        assert.deepStrictEqual(result, [
+            {
+                sourceFilePath: '/src/fixtures/package.json',
+                targetFilePath: 'fixtures/package.json',
+                directDependencies: new Set(),
+                isExplicitlyIncluded: false
+            }
+        ]);
+    });
+}
+
 const additionalCodeFileErrorMessage = [
     'additionalFiles must not include code files; received "lib/template.ts".',
     'Code that should ship in the bundle must be reachable from a root so',
@@ -214,5 +258,6 @@ function registerAdditionalFileValidationTests(): void {
 
 suite('content', function () {
     registerLocalFileTests();
+    registerLocalManifestValidationTests();
     registerAdditionalFileValidationTests();
 });

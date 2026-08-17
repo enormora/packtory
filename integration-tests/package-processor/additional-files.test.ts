@@ -140,6 +140,34 @@ suite('additional-files', function () {
         );
     });
 
+    test('rejects additional files that target the generated package manifest', async function () {
+        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/additional-files');
+
+        await assert.rejects(
+            packageProcessor.build({
+                name: 'additional-files-package',
+                version: '1.0.0',
+                sourcesFolder: path.join(fixture, 'src'),
+                roots: { main: { js: path.join(fixture, 'src/entry.js') } },
+                mainPackageJson: await loadPackageJson(fixture),
+                includeSourceMapFiles: false,
+                additionalFiles: [
+                    {
+                        sourceFilePath: path.join(fixture, 'docs/additional-info.txt'),
+                        targetFilePath: 'package.json'
+                    }
+                ],
+                bundleDependencies: [],
+                bundlePeerDependencies: [],
+                additionalPackageJsonAttributes: {},
+                allowMutableSpecifiers: []
+            }),
+            {
+                message: 'additionalFiles must not target generated package manifest "package.json".'
+            }
+        );
+    });
+
     test('keeps shared additional files when another package substitutes bundle dependency sources', async function () {
         const fixture = await loadSharedAdditionalFileSubstitutionFixture();
         const producerBundle = await buildSharedLicensePackage(fixture, 'producer', 'producer.js', []);

@@ -49,8 +49,13 @@ type ResolvedBundleFile = {
 
 function toSourceRelativeTargetPath(sourcesFolder: string, filePath: string): string {
     const targetFilePath = path.relative(sourcesFolder, filePath);
-    if (targetFilePath.startsWith('..') || path.isAbsolute(targetFilePath) || targetFilePath.length === 0) {
-        throw new Error(`Local file "${filePath}" must resolve inside sourcesFolder "${sourcesFolder}"`);
+    if (
+        targetFilePath === packageManifestFilePath ||
+        targetFilePath.startsWith('..') ||
+        path.isAbsolute(targetFilePath) ||
+        targetFilePath.length === 0
+    ) {
+        throw new Error(`Local file "${filePath}" must resolve to a valid bundle target inside "${sourcesFolder}"`);
     }
 
     return targetFilePath;
