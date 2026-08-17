@@ -18,6 +18,9 @@ type TreeGroupRenderer<T extends AnyFile> = {
     readonly files: readonly T[];
     readonly title: string;
 };
+type ReleaseDiffPackageRendererOptions = {
+    readonly filesOnly: boolean;
+};
 
 const fileMarker = { added: '+', modified: '~', removed: '-' } as const;
 const modifiedAnnotationLabel = {
@@ -126,6 +129,10 @@ function renderModifiedFileLines(node: PathTreeFileNode<ModifiedFile>, colors: C
     ];
 }
 
+function renderModifiedFileNameLines(node: PathTreeFileNode<ModifiedFile>, colors: Colors): readonly string[] {
+    return [ renderModifiedHeading(node, colors) ];
+}
+
 function renderTreeGroup<T extends AnyFile>(
     group: TreeGroupRenderer<T>,
     colors: Colors
@@ -175,7 +182,11 @@ function renderFirstPublishPackageLines(packageDiff: PackageReleaseDiff, colors:
     ];
 }
 
-function renderChangedPackageLines(packageDiff: PackageReleaseDiff, colors: Colors): readonly string[] {
+function renderChangedPackageLines(
+    packageDiff: PackageReleaseDiff,
+    colors: Colors,
+    options: ReleaseDiffPackageRendererOptions
+): readonly string[] {
     const summary = renderHeaderSummary(packageDiff.files, packageDiff.files.unchanged.length);
     const packageName = colors.bold(packageDiff.name);
     const versionTransition = colors.dim(packageDiff.versionTransition);
@@ -191,13 +202,21 @@ function renderChangedPackageLines(packageDiff: PackageReleaseDiff, colors: Colo
             colors
         ),
         ...renderTreeGroup(
-            { title: 'Modified', files: packageDiff.files.modified, renderFileLines: renderModifiedFileLines },
+            {
+                title: 'Modified',
+                files: packageDiff.files.modified,
+                renderFileLines: options.filesOnly ? renderModifiedFileNameLines : renderModifiedFileLines
+            },
             colors
         )
     ];
 }
 
-function renderPackageLines(packageDiff: PackageReleaseDiff, colors: Colors): readonly string[] {
+function renderPackageLines(
+    packageDiff: PackageReleaseDiff,
+    colors: Colors,
+    options: ReleaseDiffPackageRendererOptions
+): readonly string[] {
     if (packageDiff.state === packageReleaseDiffState.unchanged) {
         return [ renderUnchangedPackage(packageDiff, colors) ];
     }
@@ -206,9 +225,13 @@ function renderPackageLines(packageDiff: PackageReleaseDiff, colors: Colors): re
         return renderFirstPublishPackageLines(packageDiff, colors);
     }
 
-    return renderChangedPackageLines(packageDiff, colors);
+    return renderChangedPackageLines(packageDiff, colors, options);
 }
 
-export function renderReleaseDiffPackage(packageDiff: PackageReleaseDiff, colors: Colors): string {
-    return renderPackageLines(packageDiff, colors).join('\n');
+export function renderReleaseDiffPackage(
+    packageDiff: PackageReleaseDiff,
+    colors: Colors,
+    options: ReleaseDiffPackageRendererOptions
+): string {
+    return renderPackageLines(packageDiff, colors, options).join('\n');
 }

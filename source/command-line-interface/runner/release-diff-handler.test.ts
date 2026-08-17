@@ -1,9 +1,11 @@
 import assert from 'node:assert';
+import { stripVTControlCharacters } from 'node:util';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { assertDeepSubset } from '../../test-libraries/deep-subset-assertion.ts';
 import type { Packtory } from '../../packtory/packtory.ts';
 import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
+import { createPackageReleaseDiff, textModifiedFileFactory } from '../../test-libraries/release-diff-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runReleaseDiffHandler, type ReleaseDiffHandlerDependencies } from './release-diff-handler.ts';
 
@@ -38,7 +40,11 @@ type Spies = {
     readonly stopAll: SinonSpy;
 };
 
-function dependenciesWith(outcome: ReleaseDiffOutcome, spies: Spies): ReleaseDiffHandlerDependencies {
+function dependenciesWith(
+    outcome: ReleaseDiffOutcome,
+    spies: Spies,
+    flags: ReleaseDiffHandlerDependencies['flags'] = { filesOnly: false }
+): ReleaseDiffHandlerDependencies {
     return {
         log(message) {
             spies.log(message);
@@ -46,7 +52,8 @@ function dependenciesWith(outcome: ReleaseDiffOutcome, spies: Spies): ReleaseDif
         pageOutput: spies.pageOutput,
         packtory: packtoryStub(outcome),
         spinnerRenderer: spinnerRendererCapturing(spies.stopAll),
-        configLoader: createConfigLoaderStub()
+        configLoader: createConfigLoaderStub(),
+        flags
     };
 }
 
@@ -84,7 +91,8 @@ suite('release-diff-handler', function () {
                 pageOutput: spies.pageOutput,
                 packtory: throwingPacktory,
                 spinnerRenderer: spinnerRendererCapturing(spies.stopAll),
-                configLoader: createConfigLoaderStub()
+                configLoader: createConfigLoaderStub(),
+                flags: { filesOnly: false }
             });
             assert.fail('expected the handler to rethrow');
         } catch (error) {
@@ -156,5 +164,33 @@ suite('release-diff-handler', function () {
         const pagedMessage = spies.pageOutput.firstCall.args[0] as string;
         assert.match(pagedMessage, /pkg-a/u);
         assert.match(pagedMessage, /\[first publish\]/u);
+    });
+
+    test('passes files-only mode into the terminal renderer', async function () {
+        const spies = makeSpies();
+        const outcome = emptyOutcome({
+            result: {
+                isOk: true,
+                isErr: false,
+                value: [
+                    createPackageReleaseDiff({
+                        files: {
+                            added: [],
+                            removed: [],
+                            modified: [ textModifiedFileFactory.build() ],
+                            unchanged: []
+                        }
+                    })
+                ]
+            } as unknown as ReleaseDiffOutcome['result']
+        });
+
+        const code = await runReleaseDiffHandler(dependenciesWith(outcome, spies, { filesOnly: true }));
+
+        assert.strictEqual(code, 0);
+        const pagedMessage = stripVTControlCharacters(spies.pageOutput.firstCall.args[0] as string);
+        assert.match(pagedMessage, /~ package\.json \(32 B -> 35 B\)/u);
+        assert.doesNotMatch(pagedMessage, /@@ -1,1 \+1,1 @@/u);
+        assert.doesNotMatch(pagedMessage, /-"version": "1\.0\.0"/u);
     });
 });

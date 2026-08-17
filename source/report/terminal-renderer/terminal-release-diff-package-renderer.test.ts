@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import { createPackageReleaseDiff as basePkg } from '../../test-libraries/release-diff-fixtures.ts';
+import {
+    createPackageReleaseDiff as basePkg,
+    textModifiedFileFactory
+} from '../../test-libraries/release-diff-fixtures.ts';
 import { createColors, type Colors } from './terminal-preview-renderer-shared.ts';
 import { renderReleaseDiffPackage } from './terminal-release-diff-package-renderer.ts';
 
@@ -10,7 +13,7 @@ function colors(): Colors {
 
 suite('terminal-release-diff-package-renderer', function () {
     test('renders the unchanged state as exactly one dim no-changes line including the previous version', function () {
-        const output = renderReleaseDiffPackage(basePkg({ state: 'unchanged' }), colors());
+        const output = renderReleaseDiffPackage(basePkg({ state: 'unchanged' }), colors(), { filesOnly: false });
         assert.strictEqual(output, 'pkg-a  1.0.0  ·  no changes');
     });
 
@@ -30,7 +33,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
 
         assert.strictEqual(
@@ -53,31 +57,12 @@ suite('terminal-release-diff-package-renderer', function () {
                 files: {
                     added: [ { path: 'lib/new.js', sizeBytes: 12, isExecutable: false } ],
                     removed: [ { path: 'lib/legacy.js', sizeBytes: 4, isExecutable: false } ],
-                    modified: [
-                        {
-                            path: 'package.json',
-                            oldSizeBytes: 32,
-                            newSizeBytes: 35,
-                            oldIsExecutable: false,
-                            newIsExecutable: false,
-                            contentChange: {
-                                kind: 'text',
-                                hunks: [
-                                    {
-                                        header: '@@ -1,1 +1,1 @@',
-                                        lines: [
-                                            { type: 'remove', text: '-"version": "1.0.0"' },
-                                            { type: 'add', text: '+"version": "1.0.1"' }
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
-                    ],
+                    modified: [ textModifiedFileFactory.build() ],
                     unchanged: [ { path: 'readme.md', sizeBytes: 10, isExecutable: false } ]
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
 
         assert.strictEqual(
@@ -93,8 +78,32 @@ suite('terminal-release-diff-package-renderer', function () {
                 '  Modified (1)',
                 '  ~ package.json (32 B -> 35 B)',
                 '      @@ -1,1 +1,1 @@',
-                '      -"version": "1.0.0"',
-                '      +"version": "1.0.1"'
+                '      -"version": "1.0.0"'
+            ]
+                .join('\n')
+        );
+    });
+
+    test('renders files-only mode without text hunk contents', function () {
+        const output = renderReleaseDiffPackage(
+            basePkg({
+                files: {
+                    added: [],
+                    removed: [],
+                    modified: [ textModifiedFileFactory.build() ],
+                    unchanged: []
+                }
+            }),
+            colors(),
+            { filesOnly: true }
+        );
+
+        assert.strictEqual(
+            output,
+            [
+                'pkg-a  1.0.0 -> 1.0.1  ·  0 added, 0 removed, 1 modified, 0 unchanged',
+                '  Modified (1)',
+                '  ~ package.json (32 B -> 35 B)'
             ]
                 .join('\n')
         );
@@ -119,7 +128,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.strictEqual(
             output,
@@ -152,7 +162,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.strictEqual(
             output,
@@ -185,7 +196,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.match(output, /mode 755 -> 644/u);
     });
@@ -200,7 +212,8 @@ suite('terminal-release-diff-package-renderer', function () {
                     unchanged: []
                 }
             }),
-            colors()
+            colors(),
+            { filesOnly: false }
         );
         assert.strictEqual(
             output,

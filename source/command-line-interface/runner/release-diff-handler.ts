@@ -10,20 +10,27 @@ import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-render
 
 type Logger = (message: string) => void;
 
+type ReleaseDiffFlags = {
+    readonly filesOnly: boolean;
+};
+
 export type ReleaseDiffHandlerDependencies = {
     readonly log: Logger;
     readonly pageOutput: (content: string) => Promise<void>;
     readonly packtory: Packtory;
     readonly spinnerRenderer: TerminalSpinnerRenderer;
     readonly configLoader: ConfigLoader;
+    readonly flags: ReleaseDiffFlags;
 };
 
 async function renderDocument(
-    dependencies: Pick<ReleaseDiffHandlerDependencies, 'log' | 'pageOutput'>,
+    dependencies: Pick<ReleaseDiffHandlerDependencies, 'flags' | 'log' | 'pageOutput'>,
     document: ReleaseDiffDocument
 ): Promise<void> {
     if (document.previewable) {
-        await dependencies.pageOutput(renderTerminalReleaseDiff(document));
+        await dependencies.pageOutput(renderTerminalReleaseDiff(document, {
+            filesOnly: dependencies.flags.filesOnly
+        }));
         return;
     }
     dependencies.log(renderFailureOnlyTerminalReleaseDiff(document).trimEnd());

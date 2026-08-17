@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import { Result } from 'true-myth';
-import { toOutcome } from '../../test-libraries/result-helpers.ts';
+import { toOutcome, toReleaseDiffOutcome } from '../../test-libraries/result-helpers.ts';
+import { createPackageReleaseDiff, textModifiedFileFactory } from '../../test-libraries/release-diff-fixtures.ts';
 import {
     createRunner,
     expectCommandLoadsConfig,
@@ -145,6 +146,32 @@ suite('runner command routing', function () {
             assert.strictEqual(loadConfig.callCount, 1);
             assertPackageOperationsSkipped(spies);
         });
+
+        test('release-diff files-only mode suppresses text hunks from parsed CLI arguments', async function () {
+            const pageOutput = fake.resolves(undefined);
+            const diffAgainstLatestPublished = fake.resolves(
+                toReleaseDiffOutcome(
+                    Result.ok([
+                        createPackageReleaseDiff({
+                            files: {
+                                added: [],
+                                removed: [],
+                                modified: [ textModifiedFileFactory.build() ],
+                                unchanged: []
+                            }
+                        })
+                    ])
+                )
+            );
+            const runner = createRunner({ diffAgainstLatestPublished, pageOutput });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'release-diff', '--files-only' ]);
+
+            assert.strictEqual(exitCode, 0);
+            const pagedMessage = pageOutput.firstCall.args[0] as string;
+            assert.match(pagedMessage, /~ package\.json \(32 B -> 35 B\)/u);
+            assert.doesNotMatch(pagedMessage, /@@ -1,1 \+1,1 @@/u);
+        });
     });
 
     suite('exit codes', function () {
@@ -262,6 +289,13 @@ suite('runner command routing', function () {
             assert.match(help, /packtory preview/);
             assert.match(help, /--open/);
             assert.match(help, /Builds all packages in fresh dry-run mode and opens a human preview\./);
+        });
+
+        test('prints subcommand help that includes the release-diff files-only flag', async function () {
+            const help = await expectSubcommandHelp('release-diff');
+
+            assert.match(help, /packtory release-diff/u);
+            assert.match(help, /--files-only/u);
         });
 
         test('prints subcommand help that includes the release publish flags', async function () {
