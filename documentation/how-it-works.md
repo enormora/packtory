@@ -145,6 +145,7 @@ A few details worth highlighting:
 - **Node built-ins** (`node:fs`, etc.) are silently ignored. Anything else that fails to resolve throws.
 - The external-dependency extractor uses a small regex to pull the package name out of a `node_modules/…` path, with care for scoped packages (`@scope/name`).
 - The graph is flattened with a breadth-first walk into the `DependencyFiles` shape that downstream stages consume.
+- The root `package.json` target is reserved for Packtory's generated manifest. Imports that resolve to the package root manifest are marked as generated-manifest resources and synthesized later; any non-generated local file that would target root `package.json` fails before artifact assembly.
 
 ### Literal sources
 
