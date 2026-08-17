@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { getImportMetaResolveLiterals } from '../dependency-scanner/source-file-references.ts';
+import { getModuleReferenceLiterals } from '../dependency-scanner/source-file-references.ts';
 import type { ProgressBroadcastProvider } from '../progress/progress-broadcaster.ts';
 import type { AnalyzedBundle, AnalyzedBundleResource, DeadCodeEliminator } from './analyzed-bundle.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
@@ -57,10 +57,7 @@ function isRelativeOrAbsoluteSpecifier(specifier: string): boolean {
 }
 
 function collectImportSpecifiers(sourceFile: LoadedSourceFile): readonly string[] {
-    return [
-        ...sourceFile.getImportStringLiterals(),
-        ...getImportMetaResolveLiterals(sourceFile)
-    ]
+    return getModuleReferenceLiterals(sourceFile)
         .map(function (literal) {
             return literal.getLiteralValue();
         });

@@ -87,4 +87,44 @@ suite('dynamic-import-substitution', function () {
         assert.strictEqual(hasEntry(consumer, 'producer/index.js'), false);
         assert.strictEqual(hasEntry(consumer, 'producer/feature.js'), false);
     });
+
+    test('rewrites injected dynamic import literals when substituting bundle dependencies', async function () {
+        const fixture = path.join(process.cwd(), 'integration-tests/fixtures/dynamic-import-substitution');
+        const producer = await buildPackage({
+            name: 'producer',
+            version: '1.2.3',
+            fixture,
+            sourcesFolder: path.join(fixture, 'src/producer'),
+            rootSourceFilePath: path.join(fixture, 'src/producer/index.js'),
+            bundleDependencies: []
+        });
+        const consumer = await buildPackage({
+            name: 'consumer',
+            version: '2.3.4',
+            fixture,
+            sourcesFolder: path.join(fixture, 'src'),
+            rootSourceFilePath: path.join(fixture, 'src/consumer/injected.js'),
+            bundleDependencies: [ producer ]
+        });
+
+        const entry = findEntry(consumer, 'consumer/injected.js');
+
+        assert.strictEqual(
+            entry.fileDescription.content,
+            [
+                'export async function loadInjected(loadModule) {',
+                "    const producer = await loadModule('producer');",
+                '    return producer.value;',
+                '}',
+                '',
+                'export async function load() {',
+                '    return loadInjected((modulePath) => import(modulePath));',
+                '}',
+                ''
+            ]
+                .join('\n')
+        );
+        assert.deepStrictEqual(consumer.packageJson.dependencies, { producer: '1.2.3' });
+        assert.strictEqual(hasEntry(consumer, 'producer/index.js'), false);
+    });
 });
