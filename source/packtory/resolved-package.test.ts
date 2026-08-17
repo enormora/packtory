@@ -241,41 +241,72 @@ suite('resolved-package', function () {
         assert.strictEqual(result.isOk, true);
     });
 
-    test('buildChecksResult materializes generated packages when typeScriptIntegrity is enabled', async function () {
-        const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
-        const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
-        const result = await buildChecksResult(
-            dependencies,
-            validated({
-                checks: { typeScriptIntegrity: { enabled: true } },
-                packages: [ packageConfig('pkg-a') ]
-            }),
-            [
-                {
-                    name: 'pkg-a',
-                    analyzedBundle,
-                    resolveOptions: {
-                        ...createResolveOptions(),
-                        mainPackageJson: { type: 'module' },
-                        bundleDependencies: [ createLinkedBundle('bundle-dependency') ],
-                        bundlePeerDependencies: [ createLinkedBundle('bundle-peer-dependency') ],
-                        additionalPackageJsonAttributes: {},
-                        allowMutableSpecifiers: []
+    suite('generated check packages', function () {
+        test('buildChecksResult materializes generated packages when typeScriptIntegrity is enabled', async function () {
+            const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
+            const result = await buildChecksResult(
+                dependencies,
+                validated({
+                    checks: { typeScriptIntegrity: { enabled: true } },
+                    packages: [ packageConfig('pkg-a') ]
+                }),
+                [
+                    {
+                        name: 'pkg-a',
+                        analyzedBundle,
+                        resolveOptions: {
+                            ...createResolveOptions(),
+                            mainPackageJson: { type: 'module' },
+                            bundleDependencies: [ createLinkedBundle('bundle-dependency') ],
+                            bundlePeerDependencies: [ createLinkedBundle('bundle-peer-dependency') ],
+                            additionalPackageJsonAttributes: {},
+                            allowMutableSpecifiers: []
+                        }
                     }
-                }
-            ]
-        );
+                ]
+            );
 
-        assert.strictEqual(result.isOk, true);
-        assert.strictEqual(addVersionCalls.length, 1);
-        assert.deepStrictEqual(addVersionCalls[0], {
-            bundle: analyzedBundle,
-            version: '0.0.0',
-            mainPackageJson: { type: 'module' },
-            bundleDependencies: [ { name: 'bundle-dependency', version: '0.0.0' } ],
-            bundlePeerDependencies: [ { name: 'bundle-peer-dependency', version: '0.0.0' } ],
-            additionalPackageJsonAttributes: {},
-            allowMutableSpecifiers: []
+            assert.strictEqual(result.isOk, true);
+            assert.strictEqual(addVersionCalls.length, 1);
+            assert.deepStrictEqual(addVersionCalls[0], {
+                bundle: analyzedBundle,
+                version: '0.0.0',
+                mainPackageJson: { type: 'module' },
+                bundleDependencies: [ { name: 'bundle-dependency', version: '0.0.0' } ],
+                bundlePeerDependencies: [ { name: 'bundle-peer-dependency', version: '0.0.0' } ],
+                additionalPackageJsonAttributes: {},
+                allowMutableSpecifiers: []
+            });
+        });
+
+        test('buildChecksResult materializes generated packages when noUnexposedExecutables is enabled', async function () {
+            const analyzedBundle = checkBundle('pkg-a', [ 'index.js' ]);
+            const { addVersionCalls, dependencies } = recordPublishedPackageInputs('pkg-a');
+            const result = await buildChecksResult(
+                dependencies,
+                validated({
+                    checks: { noUnexposedExecutables: { enabled: true } },
+                    packages: [ packageConfig('pkg-a') ]
+                }),
+                [
+                    {
+                        name: 'pkg-a',
+                        analyzedBundle,
+                        resolveOptions: {
+                            ...createResolveOptions(),
+                            mainPackageJson: { type: 'module' },
+                            bundleDependencies: [],
+                            bundlePeerDependencies: [],
+                            additionalPackageJsonAttributes: {},
+                            allowMutableSpecifiers: []
+                        }
+                    }
+                ]
+            );
+
+            assert.strictEqual(result.isOk, true);
+            assert.strictEqual(addVersionCalls.length, 1);
         });
     });
 

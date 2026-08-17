@@ -350,7 +350,8 @@ checks: {
     noUnusedBundleDependencies: { enabled: true },
     noDevDependencyImports: { enabled: true },
     uniqueTargetPaths: { enabled: true },
-    noSideEffects: { enabled: true }
+    noSideEffects: { enabled: true },
+    noUnexposedExecutables: { enabled: true }
 }
 ```
 
@@ -460,6 +461,13 @@ checks: { noSideEffects: { enabled: true, allowList: ['/src/polyfill.ts'] } }
 ```
 
 The error message names the file and the offending statement(s) by line and kind, so the location is actionable without further investigation. The rule is opt-in by default - many legitimate packages (CLI bins, polyfill libraries) have side effects on purpose.
+
+### `noUnexposedExecutables`
+
+Reports any executable package file that is not exposed through the generated `bin` field. This catches accidental executable file modes in published artifacts.
+
+- **Top-level:** `enabled: boolean`.
+- **Per-package:** `{}` only.
 
 ## Dead-Code Elimination
 

@@ -1,5 +1,7 @@
 import path from 'node:path';
 import assert from 'node:assert';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { suite, test } from 'mocha';
 import { resolveAndLinkAll } from '../../source/packages/packtory/packtory.entry-point.ts';
 import { loadPackageJson } from '../load-package-json.ts';
@@ -47,6 +49,56 @@ function firstIssue(issues: readonly string[]): string {
         assert.fail('expected issue');
     }
     return issue;
+}
+
+type ExecutableFixture = {
+    readonly entryFilePath: string;
+    readonly fixturePath: string;
+    readonly hiddenFilePath: string;
+};
+
+async function createExecutableFixture(): Promise<ExecutableFixture> {
+    const fixturePath = await mkdtemp(path.join(tmpdir(), 'packtory-unexposed-executable-'));
+    const sourceFolder = path.join(fixturePath, 'src');
+    const entryFilePath = path.join(sourceFolder, 'index.js');
+    const hiddenFilePath = path.join(sourceFolder, 'hidden.js');
+
+    await mkdir(sourceFolder, { recursive: true });
+    await writeFile(path.join(fixturePath, 'package.json'), '{"type":"module"}\n');
+    await writeFile(entryFilePath, 'import "./hidden.js";\nexport const value = 1;\n');
+    await writeFile(hiddenFilePath, '#!/usr/bin/env node\nconsole.log("hidden");\n');
+    await chmod(hiddenFilePath, 0o755);
+
+    return { entryFilePath, fixturePath, hiddenFilePath };
+}
+
+async function unexposedExecutableIssues(fixture: ExecutableFixture): Promise<readonly string[]> {
+    const config: PacktoryConfigWithoutRegistry = {
+        commonPackageSettings: {
+            sourcesFolder: path.join(fixture.fixturePath, 'src'),
+            mainPackageJson: await loadPackageJson(fixture.fixturePath),
+            publishSettings: { access: 'public' }
+        },
+        checks: { noUnexposedExecutables: { enabled: true } },
+        packages: [
+            {
+                name: 'pkg',
+                roots: { main: { js: fixture.entryFilePath } }
+            }
+        ]
+    };
+
+    const { result } = await resolveAndLinkAll(config);
+
+    if (!result.isErr) {
+        assert.fail('Expected resolveAndLinkAll to fail because an executable file is not exposed through bin');
+    }
+
+    if (result.error.type !== 'checks') {
+        assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+    }
+
+    return result.error.issues;
 }
 
 async function maxBundleOverrideConfig(fixturePath: string): Promise<PacktoryConfigWithoutRegistry> {
@@ -179,46 +231,48 @@ suite('checks', function () {
         }
     });
 
-    test('resolveAndLinkAll succeeds when the global allowList covers the duplicated file', async function () {
-        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const baseConfig = await createBaseConfig(fixturePath);
-        const sharedFile = `${fixturePath}/src/shared/util.js`;
-        const config = {
-            ...baseConfig,
-            checks: { noDuplicatedFiles: { enabled: true, allowList: [ sharedFile ] } }
-        };
+    suite('duplicate consent', function () {
+        test('resolveAndLinkAll succeeds when the global allowList covers the duplicated file', async function () {
+            const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+            const baseConfig = await createBaseConfig(fixturePath);
+            const sharedFile = `${fixturePath}/src/shared/util.js`;
+            const config = {
+                ...baseConfig,
+                checks: { noDuplicatedFiles: { enabled: true, allowList: [ sharedFile ] } }
+            };
 
-        const { result } = await resolveAndLinkAll(config);
+            const { result } = await resolveAndLinkAll(config);
 
-        if (!result.isOk) {
-            assert.fail('Globally allow-listed shared file should not fail checks');
-        }
+            if (!result.isOk) {
+                assert.fail('Globally allow-listed shared file should not fail checks');
+            }
 
-        assert.strictEqual(result.value.length, 2);
-    });
+            assert.strictEqual(result.value.length, 2);
+        });
 
-    test('resolveAndLinkAll succeeds when every owner consents to the duplicated file', async function () {
-        const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
-        const baseConfig = await createBaseConfig(fixturePath);
-        const sharedFile = `${fixturePath}/src/shared/util.js`;
-        const config = {
-            ...baseConfig,
-            checks: { noDuplicatedFiles: { enabled: true } },
-            packages: baseConfig.packages.map(function (packageConfig) {
-                return {
-                    ...packageConfig,
-                    checks: { noDuplicatedFiles: { allowList: [ sharedFile ] } }
-                };
-            })
-        };
+        test('resolveAndLinkAll succeeds when every owner consents to the duplicated file', async function () {
+            const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/duplicate-files');
+            const baseConfig = await createBaseConfig(fixturePath);
+            const sharedFile = `${fixturePath}/src/shared/util.js`;
+            const config = {
+                ...baseConfig,
+                checks: { noDuplicatedFiles: { enabled: true } },
+                packages: baseConfig.packages.map(function (packageConfig) {
+                    return {
+                        ...packageConfig,
+                        checks: { noDuplicatedFiles: { allowList: [ sharedFile ] } }
+                    };
+                })
+            };
 
-        const { result } = await resolveAndLinkAll(config);
+            const { result } = await resolveAndLinkAll(config);
 
-        if (!result.isOk) {
-            assert.fail('Owners that all consent to the shared file should not fail checks');
-        }
+            if (!result.isOk) {
+                assert.fail('Owners that all consent to the shared file should not fail checks');
+            }
 
-        assert.strictEqual(result.value.length, 2);
+            assert.strictEqual(result.value.length, 2);
+        });
     });
 
     test('resolveAndLinkAll reports an external dependency that is only declared in devDependencies', async function () {
@@ -353,6 +407,21 @@ suite('checks', function () {
             ]);
         } else {
             assert.fail(`Expected a checks failure, but received "${result.error.type}"`);
+        }
+    });
+
+    test('resolveAndLinkAll reports an executable file that is not exposed through bin', async function () {
+        const fixture = await createExecutableFixture();
+        try {
+            assert.deepStrictEqual(await unexposedExecutableIssues(fixture), [
+                [
+                    `Package "pkg" ships executable file "hidden.js" from "${fixture.hiddenFilePath}" `,
+                    'that is not exposed through bin'
+                ]
+                    .join('')
+            ]);
+        } finally {
+            await rm(fixture.fixturePath, { recursive: true, force: true });
         }
     });
 });

@@ -2,6 +2,7 @@ import { maxBundleSizeRule } from './max-bundle-size.ts';
 import { noDevDependencyImportsRule } from './no-dev-dependency-imports.ts';
 import { noDuplicatedFilesRule } from './no-duplicated-files.ts';
 import { noSideEffectsRule } from './no-side-effects.ts';
+import { noUnexposedExecutablesRule } from './no-unexposed-executables.ts';
 import { noUnusedBundleDependenciesRule } from './no-unused-bundle-dependencies.ts';
 import { requiredFilesRule } from './required-files.ts';
 import {
@@ -21,7 +22,8 @@ export type AllCheckRules = readonly [
     typeof noUnusedBundleDependenciesRule,
     typeof noDevDependencyImportsRule,
     typeof uniqueTargetPathsRule,
-    typeof noSideEffectsRule
+    typeof noSideEffectsRule,
+    typeof noUnexposedExecutablesRule
 ];
 
 export function createAllRules(dependencies: CheckRuleDependencies): AllCheckRules {
@@ -33,6 +35,7 @@ export function createAllRules(dependencies: CheckRuleDependencies): AllCheckRul
         noUnusedBundleDependenciesRule,
         noDevDependencyImportsRule,
         uniqueTargetPathsRule,
-        noSideEffectsRule
+        noSideEffectsRule,
+        noUnexposedExecutablesRule
     ];
 }

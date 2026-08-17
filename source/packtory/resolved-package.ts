@@ -69,20 +69,34 @@ function buildPublishedPackagesForChecks(
     );
 }
 
+function typeScriptIntegrityNeedsPublishedPackages(config: PacktoryConfigWithoutRegistry): boolean {
+    return config.checks?.typeScriptIntegrity?.enabled === true;
+}
+
+function executableChecksNeedPublishedPackages(config: PacktoryConfigWithoutRegistry): boolean {
+    return config.checks?.noUnexposedExecutables?.enabled === true;
+}
+
+function checksNeedPublishedPackages(config: PacktoryConfigWithoutRegistry): boolean {
+    return typeScriptIntegrityNeedsPublishedPackages(config) || executableChecksNeedPublishedPackages(config);
+}
+
 function maybeBuildPublishedPackagesForChecks(
     dependencies: CheckEvaluationDependencies,
     config: PacktoryConfigWithoutRegistry,
     resolvedPackages: readonly ResolvedPackage[]
 ): ReadonlyMap<string, PublishedPackageWithManifest> | undefined {
-    return config.checks?.typeScriptIntegrity?.enabled === true
-        ? buildPublishedPackagesForChecks(
-            dependencies,
-            resolvedPackages,
-            collectPublicModuleUsage(resolvedPackages.map(function (resolvedPackage) {
-                return resolvedPackage.analyzedBundle;
-            }))
-        )
-        : undefined;
+    if (!checksNeedPublishedPackages(config)) {
+        return undefined;
+    }
+
+    return buildPublishedPackagesForChecks(
+        dependencies,
+        resolvedPackages,
+        collectPublicModuleUsage(resolvedPackages.map(function (resolvedPackage) {
+            return resolvedPackage.analyzedBundle;
+        }))
+    );
 }
 
 function checkPackageIssue(error: unknown): string {

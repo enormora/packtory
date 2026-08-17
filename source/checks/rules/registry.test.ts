@@ -8,7 +8,7 @@ function allRules(): AllCheckRules {
 }
 
 suite('registry', function () {
-    test('createAllRules() exposes the eight well-known check rules by name', function () {
+    test('createAllRules() exposes the nine well-known check rules by name', function () {
         const names = allRules()
             .map(function (rule) {
                 return rule.name;
@@ -21,6 +21,7 @@ suite('registry', function () {
             'noDevDependencyImports',
             'noDuplicatedFiles',
             'noSideEffects',
+            'noUnexposedExecutables',
             'noUnusedBundleDependencies',
             'requiredFiles',
             'typeScriptIntegrity',
