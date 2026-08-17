@@ -2,7 +2,7 @@ import type { Project, SourceFile } from 'ts-morph';
 import { buildLineIndex } from '../../dead-code-eliminator/transform/line-index.ts';
 import type { PositionAtom, SourceMapTransform } from '../../dead-code-eliminator/transform/atom-translator.ts';
 import {
-    getImportMetaResolveLiterals,
+    getModuleReferenceLiterals,
     resolveSourceFileForLiteral
 } from '../../dependency-scanner/source-file-references.ts';
 import { getSourcePathFromSourceFile } from '../../dependency-scanner/typescript-project-analyzer.ts';
@@ -18,10 +18,7 @@ export type ImportPathReplacementResult = {
 
 function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacements): readonly LiteralEdit[] {
     const edits: LiteralEdit[] = [];
-    const literals = [
-        ...sourceFile.getImportStringLiterals(),
-        ...getImportMetaResolveLiterals(sourceFile)
-    ];
+    const literals = getModuleReferenceLiterals(sourceFile);
     for (const literal of literals) {
         const resolvedSourceFile = resolveSourceFileForLiteral(literal, sourceFile);
         if (resolvedSourceFile !== undefined) {

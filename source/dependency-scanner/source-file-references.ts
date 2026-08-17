@@ -9,6 +9,7 @@ import {
     type SourceFile,
     type StringLiteral
 } from 'ts-morph';
+import { getInjectedDynamicImportLiterals } from './injected-dynamic-imports.ts';
 import { findPackageOwnedAssetFilePath } from './package-owned-asset-file-path.ts';
 
 export const moduleReferenceKind = {
@@ -232,7 +233,7 @@ function collectImportMetaResolveLiteral(
     return literal;
 }
 
-export function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
+function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
     const literals: StringLiteral[] = [];
     for (const callExpression of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
         const literal = collectImportMetaResolveLiteral(callExpression, sourceFile);
@@ -243,12 +244,20 @@ export function getImportMetaResolveLiterals(sourceFile: Readonly<SourceFile>): 
     return literals;
 }
 
+export function getModuleReferenceLiterals(sourceFile: Readonly<SourceFile>): readonly StringLiteral[] {
+    return [
+        ...sourceFile.getImportStringLiterals(),
+        ...getImportMetaResolveLiterals(sourceFile),
+        ...getInjectedDynamicImportLiterals(sourceFile)
+    ];
+}
+
 export function getReferencedModules(
     sourceFile: Readonly<SourceFile>,
     packageJsonPath: string
 ): readonly Readonly<ModuleReference>[] {
     const referencedModules: ModuleReference[] = [];
-    const allLiterals = [ ...sourceFile.getImportStringLiterals(), ...getImportMetaResolveLiterals(sourceFile) ];
+    const allLiterals = getModuleReferenceLiterals(sourceFile);
 
     for (const literal of allLiterals) {
         const importValue = literal.getLiteralValue();

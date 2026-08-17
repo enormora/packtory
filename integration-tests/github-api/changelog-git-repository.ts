@@ -3,11 +3,11 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-const gitExecutable = '/usr/bin/git';
+const gitExecutable = '/usr/bin/env';
 
 async function git(workingDirectory: string, commandArguments: readonly string[]): Promise<void> {
     await new Promise<void>(function (resolve, reject) {
-        execFile(gitExecutable, commandArguments, {
+        execFile(gitExecutable, [ 'git', ...commandArguments ], {
             cwd: workingDirectory,
             timeout: 5000
         }, function (error) {
