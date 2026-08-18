@@ -26,7 +26,7 @@ packtory <command> [options]
 - **release:** Publishes changed packages, creates package tags, and creates GitHub releases through the GitHub API.
 - **release-pr:** Maintains, validates, and authorizes a reviewed release PR flow for generated changelog releases.
 - **publish:** Bundles and publishes npm packages based on the configuration in `packtory.config.js`.
-- **pack:** Builds a single configured package and writes it to disk as a zip archive, tarball, or expanded folder. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection. `pack` never talks to a registry.
+- **pack:** Builds one configured package as a zip archive, tarball, or expanded folder, or builds all configured packages into a folder tree. Intended for ad-hoc artifact use cases such as AWS Lambda deployments, container builds, or local inspection. `pack` never talks to a registry.
 
 **Options:**
 
@@ -44,6 +44,7 @@ packtory <command> [options]
 - **release-pr authorize-publish:** Writes `should_publish` and publish target outputs for a workflow that should publish only after a valid release PR merge.
 - **release-pr authorize-publish --release-pull-request &lt;number&gt;:** Authorizes a manual retry from a merged release PR.
 - **pack &lt;package&gt; --format &lt;zip|tar|folder&gt; --out &lt;path&gt;:** Selects which package from the configuration to build and where to write it. `--format` and `--out` are required.
+- **pack --all --format folder --out &lt;path&gt;:** Builds every configured package into package-named child folders below `--out`. Scoped packages use npm-style nested folders such as `@scope/pkg`.
 - **pack --version &lt;version&gt;:** Stamps the produced manifest with the given version. Defaults to `0.0.0` when omitted, since `pack` is decoupled from the registry-driven automatic versioning used by `publish`.
 - **pack --vendor-dependencies:** Resolves every external (and bundle) dependency from the local `node_modules` and materializes them next to the package files inside the artifact. Use this for self-contained deployments where the runtime cannot run `npm install` (e.g. AWS Lambda zips). Without the flag, dependencies are recorded in the generated `package.json` only.
 
@@ -126,7 +127,10 @@ packtory <command> [options]
 
 **Pack behavior:**
 
-- `packtory pack` runs the same validate → resolve → link → checks pipeline as the other commands, then emits the selected package's bundle to the path given by `--out`. It never reads from or writes to the configured registry.
+- `packtory pack` runs the same validate → resolve → link → checks pipeline as the other commands, then emits package bundles to the path given by `--out`. It never reads from or writes to the configured registry.
+- `packtory pack <package>` emits one package. `packtory pack --all --format folder` emits every configured package into child folders under `--out`.
+- Batch folder layout follows npm package names: `pkg-a` writes to `<out>/pkg-a`, and `@scope/pkg-a` writes to `<out>/@scope/pkg-a`.
+- The batch output root may already exist when it is a directory. Each package child folder must not already exist.
 - Format choices:
   - `zip`: single-file zip archive. The format AWS Lambda accepts directly. Uses static metadata (1980-01-01 entries, deterministic ordering) so byte-identical inputs yield byte-identical archives.
   - `tar`: single-file gzipped tarball, the same shape `publish` would upload, but written to disk instead of the registry.

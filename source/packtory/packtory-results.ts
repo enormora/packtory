@@ -17,8 +17,11 @@ export type UnsatisfiedPeerDependency = {
 
 export const packPackageFailureType = {
     bundleDependenciesUnsupported: 'bundle-dependencies-unsupported',
+    outputFolderExists: 'output-folder-exists',
+    outputRootNotDirectory: 'output-root-not-directory',
     packageNotFound: 'package-not-found',
     peerDependenciesUnsatisfied: 'peer-dependencies-unsatisfied',
+    unsafeOutputFolder: 'unsafe-output-folder',
     vendorInvalidDependencyName: 'vendor-invalid-dependency-name',
     vendorSymlinkTargetOutsidePackage: 'vendor-symlink-target-outside-package'
 } as const;
@@ -49,6 +52,23 @@ type BundleDependenciesUnsupportedFailure = {
     readonly packageName: string;
 };
 
+type OutputFolderExistsFailure = {
+    readonly type: typeof packPackageFailureType.outputFolderExists;
+    readonly packageName: string;
+    readonly outputPath: string;
+};
+
+type OutputRootNotDirectoryFailure = {
+    readonly type: typeof packPackageFailureType.outputRootNotDirectory;
+    readonly outputPath: string;
+};
+
+type UnsafeOutputFolderFailure = {
+    readonly type: typeof packPackageFailureType.unsafeOutputFolder;
+    readonly packageName: string;
+    readonly outputPath: string;
+};
+
 type PackageNotFoundFailure = {
     readonly type: typeof packPackageFailureType.packageNotFound;
     readonly packageName: string;
@@ -59,6 +79,9 @@ type PackPackageFailures = readonly [
     VendorInvalidDependencyNameFailure,
     VendorSymlinkOutsidePackageFailure,
     BundleDependenciesUnsupportedFailure,
+    OutputFolderExistsFailure,
+    OutputRootNotDirectoryFailure,
+    UnsafeOutputFolderFailure,
     PackageNotFoundFailure
 ];
 
@@ -290,15 +313,35 @@ export type PackPublicOptions = {
     readonly vendorDependencies: boolean;
 };
 
+export type PackAllPublicOptions = {
+    readonly outputPath: string;
+    readonly version: string;
+    readonly vendorDependencies: boolean;
+};
+
+export type PackAllSuccess = {
+    readonly packageNames: readonly string[];
+};
+
 export type PackFailure = CheckError | ConfigError | PackPackageFailure | PartialErrorResult;
 
 export type PackResult = Result<undefined, PackFailure>;
+
+export type PackAllResult = Result<PackAllSuccess, PackFailure>;
 
 export type PackOutcome = {
     readonly result: PackResult;
 };
 
 export function createPackOutcome(result: PackResult): PackOutcome {
+    return { result };
+}
+
+export type PackAllOutcome = {
+    readonly result: PackAllResult;
+};
+
+export function createPackAllOutcome(result: PackAllResult): PackAllOutcome {
     return { result };
 }
 
@@ -326,6 +369,7 @@ export type Packtory = {
     planReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleasePlanOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
     packPackage: (config: unknown, options: PackPublicOptions) => Promise<PackOutcome>;
+    packAllPackages: (config: unknown, options: PackAllPublicOptions) => Promise<PackAllOutcome>;
     inspectPackageTree: (config: unknown, packageName: string) => Promise<PackageTreeOutcome>;
 };
 

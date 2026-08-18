@@ -5,6 +5,9 @@ import type {
     BuildReport as PublicBuildReport,
     PackageReleaseAnalysis as PublicPackageReleaseAnalysis,
     PackageReleaseAnalysisClassification as PublicPackageReleaseAnalysisClassification,
+    PackAllOutcome as PublicPackAllOutcome,
+    PackAllPublicOptions as PublicPackAllPublicOptions,
+    PackAllResult as PublicPackAllResult,
     PackOutcome as PublicPackOutcome,
     PackPublicOptions as PublicPackPublicOptions,
     PackResult as PublicPackResult,
@@ -40,6 +43,7 @@ export const {
     diffAgainstLatestPublished,
     planReleaseAgainstLatestPublished,
     resolveAndLinkAll,
+    packAllPackages,
     packPackage
 } = packtory;
 export const progressBroadcastConsumer: PublicProgressBroadcastConsumer = progressBroadcaster.consumer;
@@ -50,6 +54,9 @@ export type BuildAndPublishAllOptions = PublicBuildAndPublishAllOptions;
 export type BuildReport = PublicBuildReport;
 export type PackageReleaseAnalysis = PublicPackageReleaseAnalysis;
 export type PackageReleaseAnalysisClassification = PublicPackageReleaseAnalysisClassification;
+export type PackAllOutcome = PublicPackAllOutcome;
+export type PackAllPublicOptions = PublicPackAllPublicOptions;
+export type PackAllResult = PublicPackAllResult;
 export type PackOutcome = PublicPackOutcome;
 export type PackPublicOptions = PublicPackPublicOptions;
 export type PackResult = PublicPackResult;

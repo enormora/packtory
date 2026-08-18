@@ -114,6 +114,24 @@ suite('file-manager', function () {
         });
     });
 
+    suite('checkDirectory', function () {
+        test('checkDirectory() returns exists false when stat fails', async function () {
+            const fileManager = fileManagerFactory({ stat: fake.rejects(new Error('missing')) });
+
+            assert.deepStrictEqual(await fileManager.checkDirectory('/target'), { exists: false });
+        });
+
+        test('checkDirectory() returns whether the existing path is a directory', async function () {
+            const stat = fake.resolves({ isDirectory: fake.returns(true) });
+            const fileManager = fileManagerFactory({ stat });
+
+            assert.deepStrictEqual(await fileManager.checkDirectory('/target'), {
+                exists: true,
+                isDirectory: true
+            });
+        });
+    });
+
     suite('binary writes', function () {
         async function runWriteBinaryFile(
             access: SinonSpy

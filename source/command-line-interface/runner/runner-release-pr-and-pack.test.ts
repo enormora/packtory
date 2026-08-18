@@ -47,6 +47,14 @@ async function expectCommandPlansRelease(command: 'changelog' | 'release'): Prom
     assert.strictEqual(planReleaseAgainstLatestPublished.firstCall.args[0], 'the-config');
 }
 
+function packAllArguments(format: 'folder' | 'zip', outputPath: string): readonly string[] {
+    return [ 'foo', 'bar', 'pack', '--all', '--format', format, '--out', outputPath ];
+}
+
+function packAllFolderArguments(): readonly string[] {
+    return packAllArguments('folder', '/workspace/packages');
+}
+
 suite('runner release-pr and pack', function () {
     suite('release diff and changelog', function () {
         test('release command loads the config and plans the release', async function () {
@@ -384,7 +392,7 @@ suite('runner release-pr and pack', function () {
             }
         });
 
-        test('pack --help advertises the command, positional <package>, --format, --out, and --version flags', async function () {
+        test('pack --help advertises the command, package argument, --all, --format, --out, and --version flags', async function () {
             const log = fake();
             const runner = createRunner({ log });
 
@@ -393,9 +401,10 @@ suite('runner release-pr and pack', function () {
             const helpText = String(log.firstCall.args[0]);
             assert.match(
                 helpText,
-                /Builds a single configured package and writes it as a zip, tar, or folder artifact\./u
+                /Builds one package or all packages and writes artifacts to disk\./u
             );
-            assert.match(helpText, /<package>/u);
+            assert.match(helpText, /\[package\]/u);
+            assert.match(helpText, /--all/u);
             assert.match(helpText, /--format/u);
             assert.match(helpText, /--out/u);
             assert.match(helpText, /--version/u);
@@ -417,6 +426,89 @@ suite('runner release-pr and pack', function () {
             ]);
 
             assert.strictEqual(exitCode, 1);
+        });
+    });
+
+    suite('pack all command', function () {
+        test('pack --all loads the config and forwards flags into packAllPackages', async function () {
+            const loadConfig = fake.resolves('the-config');
+            const packAllPackages = fake.resolves({ result: Result.ok({ packageNames: [ 'pkg-a', 'pkg-b' ] }) });
+            const runner = createRunner({ loadConfig, packAllPackages });
+
+            const exitCode = await runner.run([
+                ...packAllFolderArguments(),
+                '--version',
+                '1.2.3',
+                '--vendor-dependencies'
+            ]);
+
+            assert.strictEqual(exitCode, 0);
+            assert.strictEqual(loadConfig.callCount, 1);
+            assert.strictEqual(packAllPackages.callCount, 1);
+            assert.strictEqual(packAllPackages.firstCall.args[0], 'the-config');
+            assert.deepStrictEqual(packAllPackages.firstCall.args[1], {
+                outputPath: '/workspace/packages',
+                version: '1.2.3',
+                vendorDependencies: true
+            });
+        });
+
+        test('pack --all reports the packed package count and output root', async function () {
+            const log = fake();
+            const packAllPackages = fake.resolves({ result: Result.ok({ packageNames: [ 'pkg-a', 'pkg-b' ] }) });
+            const runner = createRunner({ log, packAllPackages });
+
+            const exitCode = await runner.run(packAllFolderArguments());
+
+            assert.strictEqual(exitCode, 0);
+            assert.match(String(log.firstCall.args[0]), /Packed 2 packages as folders to \/workspace\/packages/u);
+        });
+
+        test('pack --all rejects archive formats before loading the config', async function () {
+            const loadConfig = fake.resolves('the-config');
+            const log = fake();
+            const runner = createRunner({ loadConfig, log });
+
+            const exitCode = await runner.run(packAllArguments('zip', '/workspace/packages.zip'));
+
+            assert.strictEqual(exitCode, 1);
+            assert.strictEqual(loadConfig.callCount, 0);
+            assert.match(String(log.firstCall.args[0]), /pack --all only supports --format folder/u);
+        });
+
+        test('pack rejects using --all together with a package argument before loading the config', async function () {
+            const loadConfig = fake.resolves('the-config');
+            const log = fake();
+            const runner = createRunner({ loadConfig, log });
+
+            const exitCode = await runner.run([
+                'foo',
+                'bar',
+                'pack',
+                'pkg-a',
+                ...packAllFolderArguments().slice(3)
+            ]);
+
+            assert.strictEqual(exitCode, 1);
+            assert.strictEqual(loadConfig.callCount, 0);
+            assert.match(String(log.firstCall.args[0]), /Pass either --all or <package>, not both/u);
+        });
+
+        test('pack rejects a missing package argument without --all before loading the config', async function () {
+            const loadConfig = fake.resolves('the-config');
+            const log = fake();
+            const runner = createRunner({ loadConfig, log });
+
+            const exitCode = await runner.run([
+                'foo',
+                'bar',
+                'pack',
+                ...packAllFolderArguments().slice(4)
+            ]);
+
+            assert.strictEqual(exitCode, 1);
+            assert.strictEqual(loadConfig.callCount, 0);
+            assert.match(String(log.firstCall.args[0]), /Pass <package> or --all/u);
         });
     });
 

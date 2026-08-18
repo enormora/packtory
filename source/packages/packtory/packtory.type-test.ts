@@ -6,10 +6,14 @@ import {
     progressBroadcastConsumer,
     type BuildAndPublishAllOptions,
     type buildAndPublishAll,
+    type packAllPackages,
     type planReleaseAgainstLatestPublished,
     type ResolveAndLinkAllOptions,
     type resolveAndLinkAll,
     type BuildReport,
+    type PackAllOutcome,
+    type PackAllPublicOptions,
+    type PackAllResult,
     type PacktoryConfig,
     type PublishAllOutcome,
     type PublishAllResult,
@@ -36,6 +40,10 @@ type ResolveAndLinkAllFunction = (
     options?: ResolveAndLinkAllOptions
 ) => Promise<ResolveAndLinkAllOutcome>;
 type PlanReleaseAgainstLatestPublishedFunction = (config: unknown) => Promise<ReleasePlanOutcome>;
+type PackAllPackagesFunction = (
+    config: unknown,
+    options: PackAllPublicOptions
+) => Promise<PackAllOutcome>;
 
 type PackageConfig = PacktoryConfig['packages'][number];
 type ChangelogSettings = NonNullable<PacktoryConfig['changelog']>;
@@ -76,6 +84,10 @@ describe('public functions', function () {
     test('planReleaseAgainstLatestPublished takes an unknown config and returns a ReleasePlanOutcome', function () {
         expect<typeof planReleaseAgainstLatestPublished>().type.toBe<PlanReleaseAgainstLatestPublishedFunction>();
     });
+
+    test('packAllPackages takes an unknown config and returns a PackAllOutcome', function () {
+        expect<typeof packAllPackages>().type.toBe<PackAllPackagesFunction>();
+    });
 });
 
 describe('PublishAllOutcome', function () {
@@ -105,6 +117,27 @@ describe('ReleasePlanOutcome', function () {
 
     test('exposes a getReport method that returns BuildReport', function () {
         expect<ReleasePlanOutcome['getReport']>().type.toBe<() => BuildReport>();
+    });
+});
+
+describe('PackAllOutcome', function () {
+    test('exposes the wrapped result', function () {
+        expect<PackAllOutcome['result']>().type.toBe<PackAllResult>();
+    });
+
+    test('returns the packed package names on success', function () {
+        expect<Extract<PackAllResult, { readonly isOk: true; }>['value']>().type.toBe<{
+            readonly packageNames: readonly string[];
+        }>();
+    });
+
+    test('accepts folder output options without a format property', function () {
+        expect<PackAllPublicOptions>().type.toBeAssignableFrom<{
+            readonly outputPath: '/out';
+            readonly version: '1.0.0';
+            readonly vendorDependencies: false;
+        }>();
+        expect<keyof PackAllPublicOptions>().type.toBe<'outputPath' | 'vendorDependencies' | 'version'>();
     });
 });
 

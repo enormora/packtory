@@ -20,6 +20,7 @@ type PackageTreeFlags = {
 type CheckPackageTreeFailure = Extract<PackageTreeFailure, { readonly type: typeof checksErrorType; }>;
 type ConfigPackageTreeFailure = Extract<PackageTreeFailure, { readonly type: typeof configErrorType; }>;
 type IssuePackageTreeFailure = CheckPackageTreeFailure | ConfigPackageTreeFailure;
+type NamedPackageTreeFailure = Extract<PackageTreeFailure, { readonly packageName: string; }>;
 
 export type PackageTreeHandlerDependencies = {
     readonly log: Logger;
@@ -64,6 +65,10 @@ function formatPartialFailure(
         .join('\n');
 }
 
+function hasPackageName(error: PackageTreeFailure): error is NamedPackageTreeFailure {
+    return Object.hasOwn(error, 'packageName');
+}
+
 function formatPackageTreeFailure(error: PackageTreeFailure, trace: boolean): string {
     if (error.type === configErrorType || error.type === checksErrorType) {
         return formatIssueFailure(error);
@@ -77,7 +82,11 @@ function formatPackageTreeFailure(error: PackageTreeFailure, trace: boolean): st
         return formatPackageNotFoundFailure(error);
     }
 
-    return `Package "${error.packageName}" could not be inspected`;
+    if (hasPackageName(error)) {
+        return `Package "${error.packageName}" could not be inspected`;
+    }
+
+    return 'Package could not be inspected';
 }
 
 async function inspectPackageTree(dependencies: PackageTreeHandlerDependencies): Promise<number> {

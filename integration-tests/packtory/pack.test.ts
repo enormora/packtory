@@ -4,6 +4,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { suite, test } from 'mocha';
 import {
+    packAllPackages,
     packPackage,
     type PacktoryConfig
 } from '../../source/packages/packtory/packtory.entry-point.ts';
@@ -53,6 +54,34 @@ suite('pack', function () {
         );
         assert.strictEqual(
             await readFile(path.join(outputPath, 'entry3.d.ts'), 'utf8'),
+            "export declare const foo: import('second').Foo;\n"
+        );
+    });
+
+    test('writes every configured package into a package-named folder', async function () {
+        const fixturePath = getFixturePath('multiple-packages-with-substitution');
+        const outputPath = path.join(await mkdtemp(path.join(tmpdir(), 'packtory-pack-all-')), 'packages');
+
+        const outcome = await packAllPackages(await createPackConfig(fixturePath), {
+            outputPath,
+            version: '2.3.4',
+            vendorDependencies: false
+        });
+
+        assert.deepStrictEqual(
+            outcome.result.isOk ? outcome.result.value : 'errored',
+            { packageNames: [ 'second', 'third' ] }
+        );
+        assert.partialDeepStrictEqual(
+            JSON.parse(await readFile(path.join(outputPath, 'second', 'package.json'), 'utf8')),
+            { name: 'second', version: '2.3.4' }
+        );
+        assert.partialDeepStrictEqual(
+            JSON.parse(await readFile(path.join(outputPath, 'third', 'package.json'), 'utf8')),
+            { name: 'third', version: '2.3.4' }
+        );
+        assert.strictEqual(
+            await readFile(path.join(outputPath, 'third', 'entry3.d.ts'), 'utf8'),
             "export declare const foo: import('second').Foo;\n"
         );
     });

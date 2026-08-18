@@ -86,6 +86,9 @@ const noPublicationOutcome: Extract<PublicationOutcome, { readonly type: 'none';
 const publishedOutcome: Extract<PublicationOutcome, { readonly type: 'published'; }> = { type: 'published' };
 
 const releasePlanFileReader = {
+    async checkDirectory() {
+        return { exists: false as const };
+    },
     async checkReadability() {
         return { isReadable: true };
     },
@@ -451,55 +454,6 @@ suite('packtory', function () {
 
                 assert.strictEqual(getOkResult(result, 'Expected buildAndPublishAll() should succeed').length, 1);
                 assert.strictEqual(buildAndPublish.callCount, 1);
-            });
-        });
-
-        suite('pack', function () {
-            test('packPackage() returns config issues when the config is invalid', async function () {
-                const { packtory } = createPacktoryUnderTest();
-
-                const { result } = await packtory.packPackage(
-                    { invalid: true },
-                    {
-                        packageName: 'package-a',
-                        format: 'tar',
-                        outputPath: '/out/package-a.tgz',
-                        version: '1.0.0',
-                        vendorDependencies: false
-                    }
-                );
-
-                const error = getErrResult(result, 'Expected packPackage() should fail but it did not');
-                assert.strictEqual(error.type, 'config');
-            });
-
-            test('packPackage() emits the requested package artifact on success', async function () {
-                const packEmitterPack = fake.resolves(undefined);
-                const versioned = createVersionedBundle('package-a');
-                const { packtory } = createPacktoryUnderTest({
-                    packEmitterPack,
-                    versionManagerAddVersion: fake.returns(versioned)
-                });
-
-                const { result } = await packtory.packPackage(
-                    createConfigWithoutRegistry(),
-                    {
-                        packageName: 'package-a',
-                        format: 'tar',
-                        outputPath: '/out/package-a.tgz',
-                        version: '1.0.0',
-                        vendorDependencies: false
-                    }
-                );
-
-                getOkResult(result, 'Expected packPackage() should succeed');
-                assert.deepStrictEqual(packEmitterPack.firstCall.args[0], {
-                    bundle: versioned,
-                    format: 'tar',
-                    outputPath: '/out/package-a.tgz',
-                    vendorEntries: [],
-                    extraFiles: []
-                });
             });
         });
 

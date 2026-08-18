@@ -159,7 +159,11 @@ function createTreePacktory(mode: ArtifactReportMode, visibility: SubscriberVisi
             deadCodeEliminator: createTestEliminator(),
             progressBroadcaster,
             artifactsBuilder: { collectContents: createArtifactCollector(progressBroadcaster, mode) },
-            fileManager: { checkReadability: fake.resolves({ isReadable: true }), readFile: fake.resolves('') },
+            fileManager: {
+                checkDirectory: fake.resolves({ exists: true, isDirectory: true }),
+                checkReadability: fake.resolves({ isReadable: true }),
+                readFile: fake.resolves('')
+            },
             repositoryFolder: '/',
             versionManager: {
                 addVersion: addVersion as never,
