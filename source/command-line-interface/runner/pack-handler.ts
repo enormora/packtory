@@ -74,9 +74,13 @@ type PackModeRule = {
     readonly invalid: (flags: PackFlags) => boolean;
     readonly message: string;
 };
-type AllPackMode = { readonly type: 'all'; };
-type InvalidPackMode = { readonly message: string; readonly type: 'invalid'; };
-type SinglePackMode = { readonly packageName: string; readonly type: 'single'; };
+const conflictingAllPackageMessage = 'Pass either --all or <package>, not both';
+const unsupportedAllFormatMessage = 'pack --all only supports --format folder';
+const missingPackageMessage = 'Pass <package> or --all';
+const allPackMode = new Set<never>();
+type AllPackMode = typeof allPackMode;
+type InvalidPackMode = { readonly message: string; };
+type SinglePackMode = { readonly packageName: string; };
 type PackMode = AllPackMode | InvalidPackMode | SinglePackMode;
 
 const packModeRules: readonly PackModeRule[] = [
@@ -84,13 +88,13 @@ const packModeRules: readonly PackModeRule[] = [
         invalid(flags) {
             return flags.all && flags.packageName !== undefined;
         },
-        message: 'Pass either --all or <package>, not both'
+        message: conflictingAllPackageMessage
     },
     {
         invalid(flags) {
             return flags.all && flags.format !== 'folder';
         },
-        message: 'pack --all only supports --format folder'
+        message: unsupportedAllFormatMessage
     }
 ];
 
@@ -222,18 +226,18 @@ function packMode(flags: PackFlags): PackMode {
         return candidate.invalid(flags);
     });
     if (rule !== undefined) {
-        return { type: 'invalid', message: rule.message };
+        return { message: rule.message };
     }
 
     if (flags.all) {
-        return { type: 'all' };
+        return allPackMode;
     }
 
     if (flags.packageName === undefined) {
-        return { type: 'invalid', message: 'Pass <package> or --all' };
+        return { message: missingPackageMessage };
     }
 
-    return { type: 'single', packageName: flags.packageName };
+    return { packageName: flags.packageName };
 }
 
 async function runPackAll(dependencies: PackHandlerDependencies, config: unknown): Promise<number> {
@@ -278,21 +282,33 @@ async function runConfiguredSinglePack(
     return await runSinglePack(dependencies, config, packageName);
 }
 
+function isAllPackMode(mode: PackMode): mode is AllPackMode {
+    return mode === allPackMode;
+}
+
 async function runConfiguredPack(
     dependencies: PackHandlerDependencies,
-    mode: Exclude<PackMode, { readonly type: 'invalid'; }>
+    mode: AllPackMode | SinglePackMode
 ): Promise<number> {
-    if (mode.type === 'single') {
-        return await runConfiguredSinglePack(dependencies, mode.packageName);
+    if (isAllPackMode(mode)) {
+        return await runConfiguredPackAll(dependencies);
     }
 
-    return await runConfiguredPackAll(dependencies);
+    return await runConfiguredSinglePack(dependencies, mode.packageName);
+}
+
+function isSinglePackMode(mode: PackMode): mode is SinglePackMode {
+    return Object.hasOwn(mode, 'packageName');
+}
+
+function isInvalidPackMode(mode: PackMode): mode is InvalidPackMode {
+    return !isAllPackMode(mode) && !isSinglePackMode(mode);
 }
 
 export async function runPackHandler(dependencies: PackHandlerDependencies): Promise<number> {
     const { flags, log, spinnerRenderer } = dependencies;
     const mode = packMode(flags);
-    if (mode.type === 'invalid') {
+    if (isInvalidPackMode(mode)) {
         log(formatInvalidPackMode(mode.message));
         return 1;
     }

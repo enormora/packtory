@@ -3,7 +3,6 @@ import { stripVTControlCharacters } from 'node:util';
 import { suite, test } from 'mocha';
 import { fake, type SinonSpy } from 'sinon';
 import type { Packtory } from '../../packtory/packtory.ts';
-import { createConfigLoaderStub } from '../../test-libraries/handler-stub-fixtures.ts';
 import type { TerminalSpinnerRenderer } from '../spinner/terminal-spinner-renderer.ts';
 import { runPackHandler, type PackHandlerDependencies } from './pack-handler.ts';
 
@@ -15,6 +14,7 @@ type PackHandlerFixture = {
     readonly logSpy: SinonSpy;
     readonly stopAllSpy: SinonSpy;
     readonly packPackageSpy: SinonSpy;
+    readonly configLoadSpy: SinonSpy;
 };
 
 function spinnerRendererCapturing(stopAll: SinonSpy): TerminalSpinnerRenderer {
@@ -64,6 +64,7 @@ function setup(
     const logSpy = fake();
     const stopAllSpy = fake();
     const packPackageSpy = fake();
+    const configLoadSpy = fake.resolves({});
     const flags = defaultFlags(overrides);
     return {
         dependencies: {
@@ -72,12 +73,13 @@ function setup(
             },
             packtory: packtoryStub(outcome, packPackageSpy, flags),
             spinnerRenderer: spinnerRendererCapturing(stopAllSpy),
-            configLoader: createConfigLoaderStub(),
+            configLoader: { load: configLoadSpy },
             flags
         },
         logSpy,
         stopAllSpy,
-        packPackageSpy
+        packPackageSpy,
+        configLoadSpy
     };
 }
 
@@ -111,6 +113,48 @@ suite('pack-handler', function () {
             outputPath: '/out/pkg-b.tgz',
             version: '1.2.3',
             vendorDependencies: false
+        });
+    });
+
+    async function expectInvalidMode(
+        overrides: Readonly<Partial<PackFlags>>,
+        messagePattern: RegExp
+    ): Promise<void> {
+        const { dependencies, logSpy, stopAllSpy, packPackageSpy, configLoadSpy } = setup(
+            makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result']),
+            overrides
+        );
+
+        const code = await runPackHandler(dependencies);
+
+        assert.strictEqual(code, 1);
+        assert.strictEqual(logSpy.callCount, 1);
+        assert.match(logSpy.firstCall.args[0] as string, messagePattern);
+        assert.strictEqual(configLoadSpy.callCount, 0);
+        assert.strictEqual(packPackageSpy.callCount, 0);
+        assert.strictEqual(stopAllSpy.callCount, 0);
+    }
+
+    suite('invalid modes', function () {
+        test('rejects --all together with a package argument before loading config', async function () {
+            await expectInvalidMode(
+                { all: true, packageName: 'pkg-a', format: 'folder' },
+                /Pass either --all or <package>, not both/u
+            );
+        });
+
+        test('rejects --all with an archive format before loading config', async function () {
+            await expectInvalidMode(
+                { all: true, packageName: undefined, format: 'zip' },
+                /pack --all only supports --format folder/u
+            );
+        });
+
+        test('rejects a missing package argument without --all before loading config', async function () {
+            await expectInvalidMode(
+                { all: false, packageName: undefined },
+                /Pass <package> or --all/u
+            );
         });
     });
 
