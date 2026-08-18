@@ -1,3 +1,4 @@
+import { match } from 'ts-pattern';
 import type { PackOutcome, Packtory } from '../../packtory/packtory.ts';
 import {
     checksErrorType,
@@ -77,12 +78,6 @@ type AllPackMode = { readonly type: 'all'; };
 type InvalidPackMode = { readonly message: string; readonly type: 'invalid'; };
 type SinglePackMode = { readonly packageName: string; readonly type: 'single'; };
 type PackMode = AllPackMode | InvalidPackMode | SinglePackMode;
-
-const outputPathFailureTypes = new Set<string>([
-    packPackageFailureType.outputFolderExists,
-    packPackageFailureType.outputRootNotDirectory,
-    packPackageFailureType.unsafeOutputFolder
-]);
 
 const packModeRules: readonly PackModeRule[] = [
     {
@@ -175,35 +170,16 @@ function isIssueFailure(error: PackFailure): error is IssuePackFailure {
     return error.type === configErrorType || error.type === checksErrorType;
 }
 
-function isPackageNameFailure(error: PackFailure): error is PackageNamePackFailure {
-    return (
-        error.type === packPackageFailureType.bundleDependenciesUnsupported ||
-        error.type === packPackageFailureType.packageNotFound
-    );
-}
-
-function isOutputPathFailure(error: PackFailure): error is OutputPathPackFailure {
-    return outputPathFailureTypes.has(error.type);
-}
-
 function formatPackageFailure(error: Exclude<PackFailure, IssuePackFailure | PartialPackFailure>): string {
-    if (isPackageNameFailure(error)) {
-        return formatPackageNameFailure(error);
-    }
-
-    if (isOutputPathFailure(error)) {
-        return formatOutputPathFailure(error);
-    }
-
-    if (error.type === packPackageFailureType.peerDependenciesUnsatisfied) {
-        return formatPeerFailure(error);
-    }
-
-    if (error.type === packPackageFailureType.vendorInvalidDependencyName) {
-        return formatVendorInvalidDependencyNameFailure(error);
-    }
-
-    return formatVendorSymlinkOutsidePackageFailure(error);
+    return match(error)
+        .with({ type: packPackageFailureType.bundleDependenciesUnsupported }, formatPackageNameFailure)
+        .with({ type: packPackageFailureType.packageNotFound }, formatPackageNameFailure)
+        .with({ type: packPackageFailureType.outputFolderExists }, formatOutputPathFailure)
+        .with({ type: packPackageFailureType.outputRootNotDirectory }, formatOutputPathFailure)
+        .with({ type: packPackageFailureType.unsafeOutputFolder }, formatOutputPathFailure)
+        .with({ type: packPackageFailureType.peerDependenciesUnsatisfied }, formatPeerFailure)
+        .with({ type: packPackageFailureType.vendorInvalidDependencyName }, formatVendorInvalidDependencyNameFailure)
+        .otherwise(formatVendorSymlinkOutsidePackageFailure);
 }
 
 function formatPackFailure(error: PackFailure, trace: boolean): string {
