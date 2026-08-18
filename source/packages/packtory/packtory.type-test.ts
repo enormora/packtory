@@ -161,7 +161,10 @@ describe('PacktoryConfig - accepted shapes', function () {
                     readonly metadata: 'auto';
                 };
             };
-            readonly checks: { readonly noDuplicatedFiles: { readonly enabled: true; }; };
+            readonly checks: {
+                readonly noDuplicatedFiles: { readonly enabled: true; };
+                readonly noUnexposedExecutables: { readonly enabled: true; };
+            };
             readonly changelog: {
                 readonly explicitBaseRef: 'main';
                 readonly prLog: {
@@ -330,6 +333,14 @@ describe('PacktoryConfig - exposed structure', function () {
         type PackageChecks = NonNullable<PackageConfig['checks']>;
         type TypeScriptIntegrity = NonNullable<PackageChecks['typeScriptIntegrity']>;
         expect<TypeScriptIntegrity>().type.toBe<Readonly<Record<string, never>>>();
+    });
+});
+
+describe('PacktoryConfig checks', function () {
+    test('checks.noUnexposedExecutables is toggled at the top level via `enabled`', function () {
+        type Checks = NonNullable<PacktoryConfig['checks']>;
+        type NoUnexposedExecutables = NonNullable<Checks['noUnexposedExecutables']>;
+        expect<NoUnexposedExecutables['enabled']>().type.toBe<boolean>();
     });
 });
 

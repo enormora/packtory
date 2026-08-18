@@ -315,5 +315,24 @@ suite('checks-schema', function () {
                 false
             );
         });
+
+        test('top-level schema accepts noUnexposedExecutables with enabled', function () {
+            assert.strictEqual(safeParse(checksSchema, { noUnexposedExecutables: { enabled: true } }).success, true);
+        });
+
+        test('top-level schema rejects noUnexposedExecutables without enabled', function () {
+            assert.strictEqual(safeParse(checksSchema, { noUnexposedExecutables: {} }).success, false);
+        });
+
+        test('per-package schema accepts an empty noUnexposedExecutables object', function () {
+            assert.strictEqual(safeParse(checksPerPackageSchema, { noUnexposedExecutables: {} }).success, true);
+        });
+
+        test('per-package schema rejects any field on noUnexposedExecutables', function () {
+            assert.strictEqual(
+                safeParse(checksPerPackageSchema, { noUnexposedExecutables: { enabled: true } }).success,
+                false
+            );
+        });
     });
 });
