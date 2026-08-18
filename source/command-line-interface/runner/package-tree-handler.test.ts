@@ -115,6 +115,17 @@ suite('package-tree-handler', function () {
         assert.strictEqual(log.firstCall.args[0], 'Package "pkg-a" could not be inspected');
     });
 
+    test('prints a generic fallback for package failures without a package name', async function () {
+        const { dependencies, log } = setup({
+            result: Result.err({ type: 'output-root-not-directory', outputPath: '/out' })
+        });
+
+        const code = await runPackageTreeHandler(dependencies);
+
+        assert.strictEqual(code, 1);
+        assert.strictEqual(log.firstCall.args[0], 'Package could not be inspected');
+    });
+
     test('prints partial failure stack traces when trace is enabled', async function () {
         const { dependencies, log } = setup({
             result: Result.err({

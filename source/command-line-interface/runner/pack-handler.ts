@@ -18,7 +18,8 @@ const issuePrefixByType = {
 } as const;
 
 type PackFlags = {
-    readonly packageName: string;
+    readonly all: boolean;
+    readonly packageName: string | undefined;
     readonly format: 'folder' | 'tar' | 'zip';
     readonly outputPath: string;
     readonly version: string;
@@ -47,6 +48,12 @@ type PackageNotFoundPackFailure = Extract<
     { readonly type: typeof packPackageFailureType.packageNotFound; }
 >;
 type PackageNamePackFailure = BundleDependenciesUnsupportedPackFailure | PackageNotFoundPackFailure;
+type OutputPathPackFailures = readonly [
+    Extract<PackFailure, { readonly type: typeof packPackageFailureType.outputFolderExists; }>,
+    Extract<PackFailure, { readonly type: typeof packPackageFailureType.outputRootNotDirectory; }>,
+    Extract<PackFailure, { readonly type: typeof packPackageFailureType.unsafeOutputFolder; }>
+];
+type OutputPathPackFailure = OutputPathPackFailures[number];
 type IssuePackFailure = Extract<
     PackFailure,
     {
@@ -61,6 +68,36 @@ export type PackHandlerDependencies = {
     readonly configLoader: ConfigLoader;
     readonly flags: PackFlags;
 };
+
+type PackModeRule = {
+    readonly invalid: (flags: PackFlags) => boolean;
+    readonly message: string;
+};
+type AllPackMode = { readonly type: 'all'; };
+type InvalidPackMode = { readonly message: string; readonly type: 'invalid'; };
+type SinglePackMode = { readonly packageName: string; readonly type: 'single'; };
+type PackMode = AllPackMode | InvalidPackMode | SinglePackMode;
+
+const outputPathFailureTypes = new Set<string>([
+    packPackageFailureType.outputFolderExists,
+    packPackageFailureType.outputRootNotDirectory,
+    packPackageFailureType.unsafeOutputFolder
+]);
+
+const packModeRules: readonly PackModeRule[] = [
+    {
+        invalid(flags) {
+            return flags.all && flags.packageName !== undefined;
+        },
+        message: 'Pass either --all or <package>, not both'
+    },
+    {
+        invalid(flags) {
+            return flags.all && flags.format !== 'folder';
+        },
+        message: 'pack --all only supports --format folder'
+    }
+];
 
 function formatIssueList(prefix: string, issues: readonly string[]): string {
     const issueCount = `${issues.length} issue(s)`;
@@ -92,6 +129,20 @@ const packageFailureSuffixByType = {
         'declares bundleDependencies which pack does not yet support without --vendor-dependencies',
     [packPackageFailureType.packageNotFound]: 'is not declared in the packtory configuration'
 } as const;
+
+function formatInvalidPackMode(message: string): string {
+    return `${getErrorSymbol()} ${message}`;
+}
+
+function formatOutputPathFailure(error: OutputPathPackFailure): string {
+    if (error.type === packPackageFailureType.outputRootNotDirectory) {
+        return `${getErrorSymbol()} Pack output root "${error.outputPath}" exists but is not a directory`;
+    }
+    if (error.type === packPackageFailureType.unsafeOutputFolder) {
+        return `${getErrorSymbol()} Package "${error.packageName}" cannot be packed safely to "${error.outputPath}"`;
+    }
+    return `${getErrorSymbol()} Pack output folder "${error.outputPath}" for "${error.packageName}" already exists`;
+}
 
 function formatVendorSymlinkOutsidePackageFailure(
     error: VendorSymlinkOutsidePackagePackFailure
@@ -131,16 +182,17 @@ function isPackageNameFailure(error: PackFailure): error is PackageNamePackFailu
     );
 }
 
-function formatNonIssuePackFailure(
-    error: Exclude<PackFailure, { readonly type: typeof checksErrorType | typeof configErrorType; }>,
-    trace: boolean
-): string {
-    if (error.type === partialFailureType) {
-        return formatPartialResolveFailure(error, trace);
-    }
+function isOutputPathFailure(error: PackFailure): error is OutputPathPackFailure {
+    return outputPathFailureTypes.has(error.type);
+}
 
+function formatPackageFailure(error: Exclude<PackFailure, IssuePackFailure | PartialPackFailure>): string {
     if (isPackageNameFailure(error)) {
         return formatPackageNameFailure(error);
+    }
+
+    if (isOutputPathFailure(error)) {
+        return formatOutputPathFailure(error);
     }
 
     if (error.type === packPackageFailureType.peerDependenciesUnsatisfied) {
@@ -159,30 +211,118 @@ function formatPackFailure(error: PackFailure, trace: boolean): string {
         return formatIssueList(issuePrefixByType[error.type], error.issues);
     }
 
-    return formatNonIssuePackFailure(error, trace);
+    if (error.type === partialFailureType) {
+        return formatPartialResolveFailure(error, trace);
+    }
+
+    return formatPackageFailure(error);
 }
 
-function reportOutcome(log: Logger, outcome: PackOutcome, flags: PackFlags): number {
+function reportOutcome(log: Logger, outcome: PackOutcome, flags: PackFlags, packageName: string): number {
     if (outcome.result.isErr) {
         log(formatPackFailure(outcome.result.error, flags.trace));
         return 1;
     }
-    log(`${getSuccessSymbol()} Packed "${flags.packageName}" as ${flags.format} to ${flags.outputPath}`);
+    log(`${getSuccessSymbol()} Packed "${packageName}" as ${flags.format} to ${flags.outputPath}`);
     return 0;
 }
 
+function reportAllOutcome(
+    log: Logger,
+    outcome: Awaited<ReturnType<Packtory['packAllPackages']>>,
+    flags: PackFlags
+): number {
+    if (outcome.result.isErr) {
+        log(formatPackFailure(outcome.result.error, flags.trace));
+        return 1;
+    }
+    const packageCount = String(outcome.result.value.packageNames.length);
+    log(`${getSuccessSymbol()} Packed ${packageCount} packages as folders to ${flags.outputPath}`);
+    return 0;
+}
+
+function packMode(flags: PackFlags): PackMode {
+    const rule = packModeRules.find(function (candidate) {
+        return candidate.invalid(flags);
+    });
+    if (rule !== undefined) {
+        return { type: 'invalid', message: rule.message };
+    }
+
+    if (flags.all) {
+        return { type: 'all' };
+    }
+
+    if (flags.packageName === undefined) {
+        return { type: 'invalid', message: 'Pass <package> or --all' };
+    }
+
+    return { type: 'single', packageName: flags.packageName };
+}
+
+async function runPackAll(dependencies: PackHandlerDependencies, config: unknown): Promise<number> {
+    const { log, packtory, flags } = dependencies;
+    const outcome = await packtory.packAllPackages(config, {
+        outputPath: flags.outputPath,
+        version: flags.version,
+        vendorDependencies: flags.vendorDependencies
+    });
+    return reportAllOutcome(log, outcome, flags);
+}
+
+async function runSinglePack(
+    dependencies: PackHandlerDependencies,
+    config: unknown,
+    packageName: string
+): Promise<number> {
+    const { log, packtory, flags } = dependencies;
+    const outcome = await packtory.packPackage(config, {
+        packageName,
+        format: flags.format,
+        outputPath: flags.outputPath,
+        version: flags.version,
+        vendorDependencies: flags.vendorDependencies
+    });
+    return reportOutcome(log, outcome, flags, packageName);
+}
+
+async function runConfiguredPackAll(dependencies: PackHandlerDependencies): Promise<number> {
+    const { configLoader } = dependencies;
+    const config = await configLoader.load();
+
+    return await runPackAll(dependencies, config);
+}
+
+async function runConfiguredSinglePack(
+    dependencies: PackHandlerDependencies,
+    packageName: string
+): Promise<number> {
+    const config = await dependencies.configLoader.load();
+
+    return await runSinglePack(dependencies, config, packageName);
+}
+
+async function runConfiguredPack(
+    dependencies: PackHandlerDependencies,
+    mode: Exclude<PackMode, { readonly type: 'invalid'; }>
+): Promise<number> {
+    if (mode.type === 'single') {
+        return await runConfiguredSinglePack(dependencies, mode.packageName);
+    }
+
+    return await runConfiguredPackAll(dependencies);
+}
+
 export async function runPackHandler(dependencies: PackHandlerDependencies): Promise<number> {
-    const { log, packtory, spinnerRenderer, configLoader, flags } = dependencies;
+    const { flags, log, spinnerRenderer } = dependencies;
+    const mode = packMode(flags);
+    if (mode.type === 'invalid') {
+        log(formatInvalidPackMode(mode.message));
+        return 1;
+    }
+
     try {
-        const outcome = await packtory.packPackage(await configLoader.load(), {
-            packageName: flags.packageName,
-            format: flags.format,
-            outputPath: flags.outputPath,
-            version: flags.version,
-            vendorDependencies: flags.vendorDependencies
-        });
-        spinnerRenderer.stopAll();
-        return reportOutcome(log, outcome, flags);
+        return await runConfiguredPack(dependencies, mode);
     } finally {
         spinnerRenderer.stopAll();
     }

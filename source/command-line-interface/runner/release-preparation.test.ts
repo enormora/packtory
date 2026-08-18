@@ -117,6 +117,7 @@ function createPacktory(result: ReleasePlanResult): Packtory {
         buildAndPublishAll: unusedPacktoryMethod,
         diffAgainstLatestPublished: unusedPacktoryMethod,
         inspectPackageTree: unusedPacktoryMethod,
+        packAllPackages: unusedPacktoryMethod,
         packPackage: unusedPacktoryMethod,
         planReleaseAgainstLatestPublished: fake.resolves({
             result,

@@ -13,12 +13,13 @@ import { createAnalyzeReleaseAgainstLatestPublishedValidated } from './packtory-
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
 import { createInspectPackageTreeValidated } from './packtory-package-tree.ts';
 import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
-import { createRunPackValidated } from './packtory-pack.ts';
+import { createRunPackAllValidated, createRunPackValidated } from './packtory-pack.ts';
 import { attachAggregator, emitEffectiveConfigPerPackage, maybeAttachAggregator } from './report-attachment.ts';
 import { createResolveAndLinkAllValidated } from './packtory-resolve.ts';
 import { createRunBuildAndPublishValidated } from './packtory-publish.ts';
 import {
     createReleaseAnalysisOutcome,
+    createPackAllOutcome,
     configError,
     createPackOutcome,
     createPackageTreeOutcome,
@@ -32,6 +33,9 @@ import {
     type PackageReleaseAnalysisClassification as PackageReleaseAnalysisClassificationBase,
     type PackageTree,
     type PackageTreeOutcome,
+    type PackAllOutcome as PackAllOutcomeBase,
+    type PackAllPublicOptions as PackAllPublicOptionsBase,
+    type PackAllResult as PackAllResultBase,
     type PackOutcome as PackOutcomeBase,
     type PackPublicOptions as PackPublicOptionsBase,
     type PackResult as PackResultBase,
@@ -66,6 +70,9 @@ export type ResolveAndLinkAllOutcome = ResolveAndLinkAllOutcomeBase;
 export type ReleaseDiffAllOutcome = ReleaseDiffAllOutcomeBase;
 export type ReleaseAnalysisOutcome = ReleaseAnalysisOutcomeBase;
 export type ReleasePlanOutcome = ReleasePlanOutcomeBase;
+export type PackAllOutcome = PackAllOutcomeBase;
+export type PackAllResult = PackAllResultBase;
+export type PackAllPublicOptions = PackAllPublicOptionsBase;
 export type PackOutcome = PackOutcomeBase;
 export type PackResult = PackResultBase;
 export type PackPublicOptions = PackPublicOptionsBase;
@@ -89,7 +96,7 @@ export type PacktoryDependencies = {
     readonly deadCodeEliminator: DeadCodeEliminator;
     readonly progressBroadcaster: ProgressBroadcaster;
     readonly artifactsBuilder: Pick<ArtifactsBuilder, 'collectContents'>;
-    readonly fileManager: Pick<FileManager, 'checkReadability' | 'readFile'>;
+    readonly fileManager: Pick<FileManager, 'checkDirectory' | 'checkReadability' | 'readFile'>;
     readonly repositoryFolder: string;
     readonly versionManager: VersionManager;
     readonly runChecks: CheckRunner;
@@ -110,6 +117,7 @@ type ValidatedRunners = {
         typeof createPlanReleaseAgainstLatestPublishedValidated
     >;
     readonly runPackValidated: ReturnType<typeof createRunPackValidated>;
+    readonly runPackAllValidated: ReturnType<typeof createRunPackAllValidated>;
     readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
 };
 
@@ -123,6 +131,7 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
         ),
         planReleaseAgainstLatestPublishedValidated: createPlanReleaseAgainstLatestPublishedValidated(dependencies),
         runPackValidated: createRunPackValidated(dependencies),
+        runPackAllValidated: createRunPackAllValidated(dependencies),
         inspectPackageTreeValidated: createInspectPackageTreeValidated(dependencies)
     };
 }
@@ -137,6 +146,13 @@ type InspectPackageTreeInput = {
     readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
     readonly packageName: string;
     readonly reporting: Reporting<BuildReport>;
+    readonly resolveAndLinkAllValidated: ReturnType<typeof createResolveAndLinkAllValidated>;
+};
+
+type PackAllPackagesInput = {
+    readonly config: unknown;
+    readonly options: PackAllPublicOptions;
+    readonly runPackAllValidated: ReturnType<typeof createRunPackAllValidated>;
     readonly resolveAndLinkAllValidated: ReturnType<typeof createResolveAndLinkAllValidated>;
 };
 
@@ -215,6 +231,20 @@ async function inspectPackageTreeWithReport(input: InspectPackageTreeInput): Pro
     return createPackageTreeOutcome(result);
 }
 
+async function packAllPackagesWithValidation(input: PackAllPackagesInput): Promise<PackAllOutcome> {
+    const validation = validateConfigWithoutRegistry(input.config);
+    if (validation.isErr) {
+        return createPackAllOutcome(Result.err(configError(validation.error)));
+    }
+
+    const result = await input.runPackAllValidated(
+        validation.value,
+        input.options,
+        input.resolveAndLinkAllValidated
+    );
+    return createPackAllOutcome(result);
+}
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const {
         resolveAndLinkAllValidated,
@@ -223,6 +253,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         analyzeReleaseAgainstLatestPublishedValidated,
         planReleaseAgainstLatestPublishedValidated,
         runPackValidated,
+        runPackAllValidated,
         inspectPackageTreeValidated
     } = createValidatedRunners(dependencies);
 
@@ -362,6 +393,14 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         planReleaseAgainstLatestPublished: planReleaseAgainstLatestPublishedPublic,
         resolveAndLinkAll: resolveAndLinkAllPublic,
         packPackage: packPackagePublic,
+        async packAllPackages(config, options) {
+            return packAllPackagesWithValidation({
+                config,
+                options,
+                runPackAllValidated,
+                resolveAndLinkAllValidated
+            });
+        },
         inspectPackageTree: inspectPackageTreePublic
     };
 }

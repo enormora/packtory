@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { fake } from 'sinon';
 import { Result } from 'true-myth';
 import { vendorMaterializerFailureType } from '../vendor-materializer/vendor-materializer.ts';
+import { createFakeFileManager } from '../test-libraries/fake-file-manager.ts';
 import {
     baseOptions,
     buildDependenciesWith,
@@ -12,13 +13,15 @@ import {
     expectErr,
     makeResolvedPackage,
     packEmitterInput,
+    packEmitterOutputPaths,
     runVendorAndExpectExtraFiles,
     sortedFilePaths,
     validatedConfig,
     type CreatedDependencies,
-    type FakeVersionedBundle
+    type FakeVersionedBundle,
+    type PackEmitterInput
 } from '../test-libraries/packtory-pack-test-support.ts';
-import { createRunPackValidated } from './packtory-pack.ts';
+import { createRunPackAllValidated, createRunPackValidated } from './packtory-pack.ts';
 import type { InternalResolveAndLinkFailure } from './packtory-resolve.ts';
 
 async function runVendoredPackage(fixture: CreatedDependencies): ReturnType<ReturnType<typeof createRunPackValidated>> {
@@ -58,6 +61,26 @@ function createVendorFailureDependencies(failure: unknown): CreatedDependencies 
         ])
     });
 }
+
+function createReadableOutputDependencies(): CreatedDependencies {
+    return createDependencies({
+        fileManager: createFakeFileManager({
+            simulatedCheckReadabilityResponses: [ { value: { isReadable: true } } ]
+        })
+    });
+}
+
+function validatedWithPackages(packageNames: readonly string[]): typeof validatedConfig {
+    return {
+        packtoryConfig: {
+            packages: packageNames.map(function (name) {
+                return { name };
+            })
+        }
+    } as unknown as typeof validatedConfig;
+}
+
+const batchFolderOptions = { outputPath: '/out', version: '1.2.3', vendorDependencies: false } as const;
 
 suite('packtory-pack', function () {
     suite('direct pack', function () {
@@ -126,6 +149,231 @@ suite('packtory-pack', function () {
                 vendorEntries: [],
                 extraFiles: []
             });
+        });
+
+        test('returns output-folder-exists for an existing single-package folder target', async function () {
+            const { dependencies, fakes } = createReadableOutputDependencies();
+            const runPack = createRunPackValidated(dependencies);
+
+            const result = await runPack(
+                validatedConfig,
+                { ...baseOptions, format: 'folder', outputPath: '/out/pkg-a' },
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(expectErr(result), {
+                type: 'output-folder-exists',
+                packageName: 'pkg-a',
+                outputPath: '/out/pkg-a'
+            });
+            assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+        });
+
+        test('does not reject archive targets that already look readable', async function () {
+            const { dependencies, fakes } = createReadableOutputDependencies();
+            const runPack = createRunPackValidated(dependencies);
+
+            const result = await runPack(
+                validatedConfig,
+                { ...baseOptions, format: 'zip', outputPath: '/out/pkg-a.zip' },
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(result.isOk ? result.value : 'errored', undefined);
+            assert.strictEqual(fakes.packEmitterPack.callCount, 1);
+        });
+    });
+
+    suite('batch folder pack', function () {
+        test('resolves once and packs every configured package in config order', async function () {
+            const { dependencies, fakes } = createDependencies({
+                resolveResult: Result.ok([
+                    makeResolvedPackage({ name: 'pkg-b' }),
+                    makeResolvedPackage({ name: 'pkg-a' })
+                ])
+            });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedWithPackages([ 'pkg-a', 'pkg-b' ]),
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(result.isOk ? result.value : 'errored', { packageNames: [ 'pkg-a', 'pkg-b' ] });
+            assert.deepStrictEqual([ fakes.resolveAndLinkAll.callCount, fakes.packEmitterPack.callCount ], [ 1, 2 ]);
+            assert.deepStrictEqual(fakes.versionManagerAddVersion.firstCall.args[0], {
+                bundle: makeResolvedPackage({ name: 'pkg-a' }).analyzedBundle,
+                version: '1.2.3',
+                mainPackageJson: { type: 'module' },
+                bundleDependencies: [],
+                bundlePeerDependencies: [],
+                additionalPackageJsonAttributes: {},
+                allowMutableSpecifiers: []
+            });
+            assert.deepStrictEqual(packEmitterOutputPaths(fakes.packEmitterPack), [ '/out/pkg-a', '/out/pkg-b' ]);
+            const emitterInputs: readonly PackEmitterInput[] = fakes.packEmitterPack.args.map(function (call) {
+                return call[0] as PackEmitterInput;
+            });
+            const packFormats = emitterInputs.map(function (input) {
+                return input.format;
+            });
+            assert.deepStrictEqual(packFormats, [ 'folder', 'folder' ]);
+        });
+
+        test('uses nested npm-style output folders for scoped packages', async function () {
+            const { dependencies, fakes } = createDependencies({
+                resolveResult: Result.ok([ makeResolvedPackage({ name: '@scope/pkg-a' }) ])
+            });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedWithPackages([ '@scope/pkg-a' ]),
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(result.isOk ? result.value : 'errored', { packageNames: [ '@scope/pkg-a' ] });
+            assert.deepStrictEqual(packEmitterOutputPaths(fakes.packEmitterPack), [ '/out/@scope/pkg-a' ]);
+        });
+
+        test('returns output-root-not-directory before resolving when the output root is a file', async function () {
+            const { dependencies, fakes } = createDependencies({
+                fileManager: createFakeFileManager({
+                    simulatedCheckDirectoryResponses: [ { value: { exists: true, isDirectory: false } } ]
+                })
+            });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedConfig,
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(expectErr(result), { type: 'output-root-not-directory', outputPath: '/out' });
+            assert.deepStrictEqual([ fakes.resolveAndLinkAll.callCount, fakes.packEmitterPack.callCount ], [ 0, 0 ]);
+        });
+
+        test('returns unsafe-output-folder for package names that escape the output root', async function () {
+            const { dependencies, fakes } = createDependencies({
+                resolveResult: Result.ok([ makeResolvedPackage({ name: '../pkg-a' }) ])
+            });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedWithPackages([ '../pkg-a' ]),
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(expectErr(result), {
+                type: 'unsafe-output-folder',
+                packageName: '../pkg-a',
+                outputPath: '/pkg-a'
+            });
+            assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+        });
+
+        test('returns unsafe-output-folder for package names with unsafe path segments', async function () {
+            const unsafePackageNames = [ 'pkg/', 'pkg/.', 'pkg/../pkg-a', 'pkg\\a' ];
+            for (const packageName of unsafePackageNames) {
+                const { dependencies, fakes } = createDependencies({
+                    resolveResult: Result.ok([ makeResolvedPackage({ name: packageName }) ])
+                });
+                const runPackAll = createRunPackAllValidated(dependencies);
+
+                const result = await runPackAll(
+                    validatedWithPackages([ packageName ]),
+                    batchFolderOptions,
+                    fakes.resolveAndLinkAll
+                );
+
+                assert.deepStrictEqual(expectErr(result).type, 'unsafe-output-folder');
+                assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+            }
+        });
+
+        test('returns output-folder-exists before writing any package folder', async function () {
+            const { dependencies, fakes } = createDependencies({
+                fileManager: createFakeFileManager({
+                    simulatedCheckReadabilityResponses: [
+                        { value: { isReadable: false } },
+                        { value: { isReadable: true } }
+                    ]
+                }),
+                resolveResult: Result.ok([
+                    makeResolvedPackage({ name: 'pkg-a' }),
+                    makeResolvedPackage({ name: 'pkg-b' })
+                ])
+            });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedWithPackages([ 'pkg-a', 'pkg-b' ]),
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(expectErr(result), {
+                type: 'output-folder-exists',
+                packageName: 'pkg-b',
+                outputPath: '/out/pkg-b'
+            });
+            assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+        });
+
+        test('returns package-not-found before writing any package folder', async function () {
+            const { dependencies, fakes } = createDependencies({
+                resolveResult: Result.ok([ makeResolvedPackage({ name: 'pkg-b' }) ])
+            });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedWithPackages([ 'pkg-a' ]),
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(expectErr(result), { type: 'package-not-found', packageName: 'pkg-a' });
+            assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+        });
+
+        test('passes resolve failures through before writing any package folder', async function () {
+            const resolveFailure: InternalResolveAndLinkFailure = { type: 'checks', issues: [ 'bad' ] };
+            const { dependencies, fakes } = createDependencies({ resolveResult: Result.err(resolveFailure) });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedWithPackages([ 'pkg-a' ]),
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(expectErr(result), resolveFailure);
+            assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+        });
+
+        test('does not write earlier packages when a later package cannot be prepared', async function () {
+            const { dependencies, fakes } = createDependencies({
+                resolveResult: Result.ok([
+                    makeResolvedPackage({ name: 'pkg-a' }),
+                    makeResolvedPackage({ name: 'pkg-b', bundleDependencies: [ { name: 'pkg-a' } ] })
+                ])
+            });
+            const runPackAll = createRunPackAllValidated(dependencies);
+
+            const result = await runPackAll(
+                validatedWithPackages([ 'pkg-a', 'pkg-b' ]),
+                batchFolderOptions,
+                fakes.resolveAndLinkAll
+            );
+
+            assert.deepStrictEqual(expectErr(result), {
+                type: 'bundle-dependencies-unsupported',
+                packageName: 'pkg-b'
+            });
+            assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
     });
 

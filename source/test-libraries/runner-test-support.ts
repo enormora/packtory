@@ -33,6 +33,7 @@ export type Overrides = {
     readonly diffAgainstLatestPublished?: SinonSpy;
     readonly inspectPackageTree?: SinonSpy;
     readonly planReleaseAgainstLatestPublished?: SinonSpy;
+    readonly packAllPackages?: SinonSpy;
     readonly packPackage?: SinonSpy;
     readonly loadConfig?: SinonSpy;
     readonly log?: SinonSpy;
@@ -158,6 +159,10 @@ function createGitHubReleaseClientFactory(
     return overrides.createGitHubReleaseClient ?? fake.returns(createGitHubReleaseClientFixture({}));
 }
 
+function createPackAllPackagesFixture(overrides: Overrides): SinonSpy {
+    return overrides.packAllPackages ?? fake.resolves({ result: Result.ok({ packageNames: [] }) });
+}
+
 function createPacktoryFixture(overrides: Overrides): CommandLineInterfaceRunnerDependencies['packtory'] {
     return {
         analyzeReleaseAgainstLatestPublished: overrides.analyzeReleaseAgainstLatestPublished ?? fake.resolves(
@@ -181,6 +186,7 @@ function createPacktoryFixture(overrides: Overrides): CommandLineInterfaceRunner
                 }
             }),
         resolveAndLinkAll: fake.resolves(toOutcome(Result.ok([]))),
+        packAllPackages: createPackAllPackagesFixture(overrides),
         packPackage: overrides.packPackage ?? fake.resolves(toOutcome(Result.ok(undefined)))
     };
 }

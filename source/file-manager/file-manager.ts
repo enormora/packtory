@@ -17,8 +17,16 @@ type DirectoryEntry = {
     readonly isSymbolicLink: boolean;
 };
 
+type DirectoryStatus = {
+    readonly exists: false;
+} | {
+    readonly exists: true;
+    readonly isDirectory: boolean;
+};
+
 export type FileManager = {
     checkReadability: (fileOrFolderPath: string) => Promise<FileOrFolderReadability>;
+    checkDirectory: (fileOrFolderPath: string) => Promise<DirectoryStatus>;
     readFile: (filePath: string) => Promise<string>;
     readFileBytes: (filePath: string) => Promise<Buffer>;
     writeFile: (filePath: string, content: string) => Promise<void>;
@@ -36,6 +44,18 @@ export type FileManager = {
 
 const executableFileMode = 0o755;
 const regularFileMode = 0o644;
+
+async function checkDirectoryStatus(
+    hostFileSystem: Readonly<FileManagerDependencies['hostFileSystem']>,
+    fileOrFolderPath: string
+): Promise<DirectoryStatus> {
+    try {
+        const stats = await hostFileSystem.stat(fileOrFolderPath);
+        return { exists: true, isDirectory: stats.isDirectory() };
+    } catch {
+        return { exists: false };
+    }
+}
 
 export function createFileManager(dependencies: FileManagerDependencies): FileManager {
     const { hostFileSystem } = dependencies;
@@ -88,6 +108,10 @@ export function createFileManager(dependencies: FileManagerDependencies): FileMa
 
     return {
         checkReadability,
+
+        async checkDirectory(fileOrFolderPath) {
+            return checkDirectoryStatus(hostFileSystem, fileOrFolderPath);
+        },
 
         writeFile,
 

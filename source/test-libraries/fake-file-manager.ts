@@ -20,6 +20,8 @@ type ReadabilityResult = {
     readonly isReadable: boolean;
 };
 
+type DirectoryStatus = Awaited<ReturnType<FileManager['checkDirectory']>>;
+
 type ReadFileCall = {
     readonly filePath: string;
 };
@@ -60,6 +62,10 @@ type CheckReadabilityCall = {
     readonly fileOrFolderPath: string;
 };
 
+type CheckDirectoryCall = {
+    readonly fileOrFolderPath: string;
+};
+
 type TransferableFileDescriptionCall = {
     readonly sourceFilePath: string;
     readonly targetFilePath: string;
@@ -74,6 +80,7 @@ type FakeFileManagerOptions = {
     readonly simulatedReadFileResponses?: readonly SimulatedResponse<string>[];
     readonly simulatedReadFileBytesResponses?: readonly SimulatedResponse<Buffer>[];
     readonly simulatedCheckReadabilityResponses?: readonly SimulatedResponse<ReadabilityResult>[];
+    readonly simulatedCheckDirectoryResponses?: readonly SimulatedResponse<DirectoryStatus>[];
     readonly simulatedTransferableFileDescriptionResponses?: readonly SimulatedResponse<TransferableFileDescription>[];
     readonly transferableFileDescriptionResponder?: TransferableFileDescriptionResponder;
     readonly simulatedWriteFileResponses?: readonly SimulatedVoidResponse[];
@@ -88,6 +95,7 @@ type ResolvedFakeFileManagerOptions = {
     readonly simulatedReadFileResponses: readonly SimulatedResponse<string>[];
     readonly simulatedReadFileBytesResponses: readonly SimulatedResponse<Buffer>[];
     readonly simulatedCheckReadabilityResponses: readonly SimulatedResponse<ReadabilityResult>[];
+    readonly simulatedCheckDirectoryResponses: readonly SimulatedResponse<DirectoryStatus>[];
     readonly simulatedTransferableFileDescriptionResponses: readonly SimulatedResponse<TransferableFileDescription>[];
     readonly transferableFileDescriptionResponder: TransferableFileDescriptionResponder | undefined;
     readonly simulatedWriteFileResponses: readonly SimulatedVoidResponse[];
@@ -112,6 +120,7 @@ type FileManagerCallLog = {
     readonly listDirectory: CallList<ListDirectoryCall>;
     readonly realPath: CallList<RealPathCall>;
     readonly checkReadability: CallList<CheckReadabilityCall>;
+    readonly checkDirectory: CallList<CheckDirectoryCall>;
     readonly transferableFileDescription: CallList<TransferableFileDescriptionCall>;
 };
 
@@ -152,6 +161,10 @@ export type FakeFileManager = FileManager & {
     readonly getCheckReadabilityCall: (index: number) => CheckReadabilityCall;
     readonly getAllCheckReadabilityCalls: () => readonly CheckReadabilityCall[];
 
+    readonly getCheckDirectoryCallCount: () => number;
+    readonly getCheckDirectoryCall: (index: number) => CheckDirectoryCall;
+    readonly getAllCheckDirectoryCalls: () => readonly CheckDirectoryCall[];
+
     readonly getTransferableFileDescriptionCallCount: () => number;
     readonly getTransferableFileDescriptionCall: (index: number) => TransferableFileDescriptionCall;
     readonly getAllTransferableFileDescriptionCalls: () => readonly TransferableFileDescriptionCall[];
@@ -160,11 +173,13 @@ export type FakeFileManager = FileManager & {
 const defaultReadFileResponse: SimulatedResponse<string> = { value: '' };
 const defaultReadFileBytesResponse: SimulatedResponse<Buffer> = { value: Buffer.alloc(0) };
 const defaultCheckReadabilityResponse: SimulatedResponse<ReadabilityResult> = { value: { isReadable: true } };
+const defaultCheckDirectoryResponse: SimulatedResponse<DirectoryStatus> = { value: { exists: false } };
 const defaultVoidResponse: SimulatedVoidResponse = {};
 const defaultFakeFileManagerOptions: ResolvedFakeFileManagerOptions = {
     simulatedReadFileResponses: [],
     simulatedReadFileBytesResponses: [],
     simulatedCheckReadabilityResponses: [],
+    simulatedCheckDirectoryResponses: [],
     simulatedTransferableFileDescriptionResponses: [],
     transferableFileDescriptionResponder: undefined,
     simulatedWriteFileResponses: [],
@@ -216,6 +231,7 @@ function createFileManagerCallLog(): FileManagerCallLog {
         listDirectory: [] as ListDirectoryCall[],
         realPath: [] as RealPathCall[],
         checkReadability: [] as CheckReadabilityCall[],
+        checkDirectory: [] as CheckDirectoryCall[],
         transferableFileDescription: [] as TransferableFileDescriptionCall[]
     };
 }
@@ -286,6 +302,13 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
             const response = resolvedOptions.simulatedCheckReadabilityResponses[calls.checkReadability.length] ??
                 defaultCheckReadabilityResponse;
             calls.checkReadability.push({ fileOrFolderPath });
+            return resolveValueResponse(response);
+        },
+
+        async checkDirectory(fileOrFolderPath) {
+            const response = resolvedOptions.simulatedCheckDirectoryResponses[calls.checkDirectory.length] ??
+                defaultCheckDirectoryResponse;
+            calls.checkDirectory.push({ fileOrFolderPath });
             return resolveValueResponse(response);
         },
 
@@ -394,6 +417,16 @@ export function createFakeFileManager(options: FakeFileManagerOptions = {}): Fak
         },
         getAllCheckReadabilityCalls() {
             return calls.checkReadability;
+        },
+
+        getCheckDirectoryCallCount() {
+            return calls.checkDirectory.length;
+        },
+        getCheckDirectoryCall(index) {
+            return getCallAtIndex(calls.checkDirectory, 'checkDirectory', index);
+        },
+        getAllCheckDirectoryCalls() {
+            return calls.checkDirectory;
         },
 
         getTransferableFileDescriptionCallCount() {

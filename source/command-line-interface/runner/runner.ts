@@ -378,9 +378,10 @@ export function createCommandLineInterfaceRunner(
             }),
             [packCommandName]: command({
                 name: packCommandName,
-                description: 'Builds a single configured package and writes it as a zip, tar, or folder artifact.',
+                description: 'Builds one package or all packages and writes artifacts to disk.',
                 args: {
-                    packageName: positional({ type: string, displayName: 'package' }),
+                    packageName: positional({ type: optionalType(string), displayName: 'package' }),
+                    all: flag({ long: 'all' }),
                     format: option({ long: 'format', type: oneOf([ 'zip', 'tar', 'folder' ]) }),
                     outputPath: option({ long: 'out', type: string }),
                     version: option({
@@ -392,13 +393,21 @@ export function createCommandLineInterfaceRunner(
                     }),
                     vendorDependencies: flag({ long: 'vendor-dependencies' })
                 },
-                async handler({ packageName, format, outputPath, version, vendorDependencies }) {
+                async handler({ packageName, all, format, outputPath, version, vendorDependencies }) {
                     exitCode = await runPackHandler({
                         log,
                         packtory,
                         spinnerRenderer,
                         configLoader,
-                        flags: { packageName, format, outputPath, version, vendorDependencies, trace: traceEnabled }
+                        flags: {
+                            all,
+                            packageName,
+                            format,
+                            outputPath,
+                            version,
+                            vendorDependencies,
+                            trace: traceEnabled
+                        }
                     });
                 }
             }),

@@ -174,6 +174,7 @@ function createPacktory(
         buildAndPublishAll,
         diffAgainstLatestPublished: unusedPacktoryMethod,
         inspectPackageTree: unusedPacktoryMethod,
+        packAllPackages: unusedPacktoryMethod,
         packPackage: unusedPacktoryMethod,
         planReleaseAgainstLatestPublished,
         resolveAndLinkAll: unusedPacktoryMethod

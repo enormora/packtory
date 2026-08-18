@@ -12,6 +12,7 @@ import {
 } from '../packtory/packtory-pack.ts';
 import type { InternalResolveAndLinkFailure } from '../packtory/packtory-resolve.ts';
 import type { ResolvedPackage } from '../packtory/resolved-package.ts';
+import { createFakeFileManager, type FakeFileManager } from './fake-file-manager.ts';
 
 export const validatedConfig = {} as unknown as ValidConfigWithoutRegistryResult;
 
@@ -47,6 +48,7 @@ type VendorEntryFixture = {
 };
 
 type DependencyOverrides = {
+    readonly fileManager?: FakeFileManager;
     readonly versionedBundle?: unknown;
     readonly resolveResult?: Result<readonly ResolvedPackage[], InternalResolveAndLinkFailure>;
     readonly materializerSpy?: SinonSpy;
@@ -55,6 +57,7 @@ type DependencyOverrides = {
 
 export type CreatedDependencies = {
     readonly dependencies: PackRunDependencies;
+    readonly fileManager?: FakeFileManager | undefined;
     readonly fakes: RunPackDependenciesFakes;
 };
 
@@ -65,6 +68,8 @@ type AddVersionInput = {
 export type PackEmitterInput = {
     readonly bundle: { readonly manifestFile: { readonly content: string; }; };
     readonly extraFiles: readonly { readonly filePath: string; readonly content: string; }[];
+    readonly format: string;
+    readonly outputPath: string;
     readonly vendorEntries: readonly unknown[];
 };
 
@@ -142,6 +147,14 @@ export function createDependencies(overrides: DependencyOverrides): CreatedDepen
     const packEmitter: PackEmitter = {
         pack: packEmitterPack
     };
+    const fileManager = overrides.fileManager ?? createFakeFileManager({
+        simulatedCheckReadabilityResponses: [
+            { value: { isReadable: false } },
+            { value: { isReadable: false } },
+            { value: { isReadable: false } },
+            { value: { isReadable: false } }
+        ]
+    });
     const resolveAndLinkAll = fake.resolves(overrides.resolveResult ?? Result.ok([ makeResolvedPackage() ]));
     const materializeExternals = overrides.materializerSpy ??
         fake.resolves(
@@ -156,12 +169,13 @@ export function createDependencies(overrides: DependencyOverrides): CreatedDepen
             materializeExternals as unknown as PackRunDependencies['vendorMaterializer']['materializeExternals']
     };
     return {
-        dependencies: { versionManager, packEmitter, vendorMaterializer },
+        dependencies: { versionManager, packEmitter, vendorMaterializer, fileManager },
+        fileManager,
         fakes: { versionManagerAddVersion, packEmitterPack, resolveAndLinkAll }
     };
 }
 
-export function expectErr(result: Result<undefined, InternalPackFailure>): InternalPackFailure {
+export function expectErr<TValue>(result: Result<TValue, InternalPackFailure>): InternalPackFailure {
     if (result.isOk) {
         assert.fail('expected Err result');
     }
@@ -188,7 +202,15 @@ export function buildDependenciesWith(
                         peerRequirements: new Map<string, readonly string[]>()
                     })
                 )) as never
-        }
+        },
+        fileManager: createFakeFileManager({
+            simulatedCheckReadabilityResponses: [
+                { value: { isReadable: false } },
+                { value: { isReadable: false } },
+                { value: { isReadable: false } },
+                { value: { isReadable: false } }
+            ]
+        })
     };
 }
 
@@ -310,4 +332,11 @@ export function sortedFilePaths(extraFiles: readonly { readonly filePath: string
 
 export function packEmitterInput(packEmitterPack: SinonSpy): PackEmitterInput {
     return packEmitterPack.firstCall.args[0] as PackEmitterInput;
+}
+
+export function packEmitterOutputPaths(packEmitterPack: SinonSpy): readonly string[] {
+    return packEmitterPack.args.map(function (call) {
+        const input = call[0] as PackEmitterInput;
+        return input.outputPath;
+    });
 }

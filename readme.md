@@ -188,8 +188,11 @@ This source uses the same pull request attribution files as changelog generation
 - **Version**: stamped into the generated manifest. Defaults to `0.0.0` - `pack` is intentionally decoupled from the registry-driven automatic versioning, so the caller decides the version (often the CI build's release tag).
 - **Vendor dependencies**: an opt-in `--vendor-dependencies` (CLI) / `vendorDependencies: true` (API) flag materializes every transitive runtime dependency from the local `node_modules` directly into `node_modules/` inside the artifact. This is what makes the output self-contained for runtimes that cannot run `npm install` (AWS Lambda, distroless containers). Symlink layouts created by npm, yarn-classic, and pnpm are all handled. Packages declared in `bundleDependencies` are materialized too, with their original cross-package import paths preserved.
 
+Use `pack --all --format folder --out <path>` to build every configured package into child folders below one output root. The layout follows npm package names: `pkg-a` writes to `<path>/pkg-a`, and `@scope/pkg-a` writes to `<path>/@scope/pkg-a`. The output root may already exist when it is a directory, but each package child folder must not already exist.
+
 ```bash
 npx packtory pack image-resizer-cli --format zip --out ./dist/image-resizer-cli.zip --vendor-dependencies
+npx packtory pack --all --format folder --out ./dist/packages
 ```
 
 See the [CLI documentation](./source/packages/command-line-interface/readme.md) for the full flag reference and the programmatic API in [`packtory`](./source/packages/packtory/readme.md) for `packPackage(config, options)`.

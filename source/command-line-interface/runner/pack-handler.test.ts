@@ -21,9 +21,19 @@ function spinnerRendererCapturing(stopAll: SinonSpy): TerminalSpinnerRenderer {
     return { stopAll } as unknown as TerminalSpinnerRenderer;
 }
 
-function packtoryStub(outcome: Readonly<PackOutcome>, spy: SinonSpy): Packtory {
+function packtoryStub(outcome: Readonly<PackOutcome>, spy: SinonSpy, flags: PackFlags): Packtory {
     return {
         async packPackage(...packageArguments: readonly unknown[]) {
+            if (flags.all) {
+                throw new Error('packPackage called for pack-all');
+            }
+            spy(...packageArguments);
+            return outcome;
+        },
+        async packAllPackages(...packageArguments: readonly unknown[]) {
+            if (!flags.all) {
+                throw new Error('packAllPackages called for single-package pack');
+            }
             spy(...packageArguments);
             return outcome;
         }
@@ -36,6 +46,7 @@ function makeOutcome(result: Readonly<PackOutcome['result']>): PackOutcome {
 
 function defaultFlags(overrides: Readonly<Partial<PackFlags>> = {}): PackFlags {
     return {
+        all: false,
         packageName: 'pkg-a',
         format: 'zip',
         outputPath: '/out/pkg-a.zip',
@@ -59,7 +70,7 @@ function setup(
             log(message) {
                 logSpy(stripVTControlCharacters(message));
             },
-            packtory: packtoryStub(outcome, packPackageSpy),
+            packtory: packtoryStub(outcome, packPackageSpy, flags),
             spinnerRenderer: spinnerRendererCapturing(stopAllSpy),
             configLoader: createConfigLoaderStub(),
             flags
@@ -103,9 +114,14 @@ suite('pack-handler', function () {
         });
     });
 
-    async function expectFailure(error: unknown, patterns: readonly RegExp[]): Promise<void> {
+    async function expectFailure(
+        error: unknown,
+        patterns: readonly RegExp[],
+        overrides: Readonly<Partial<PackFlags>> = {}
+    ): Promise<void> {
         const { dependencies, logSpy } = setup(
-            makeOutcome({ isOk: false, isErr: true, error } as unknown as PackOutcome['result'])
+            makeOutcome({ isOk: false, isErr: true, error } as unknown as PackOutcome['result']),
+            overrides
         );
 
         const code = await runPackHandler(dependencies);
@@ -118,20 +134,22 @@ suite('pack-handler', function () {
     }
 
     suite('failures', function () {
-        test('prints the config issues separated by newlines with the total issue count', async function () {
-            await expectFailure({ type: 'config', issues: [ 'bad-one', 'bad-two' ] }, [
-                /config is invalid/u,
-                /2 issue\(s\)/u,
-                /- bad-one\n- bad-two/u
-            ]);
-        });
+        suite('issue failures', function () {
+            test('prints the config issues separated by newlines with the total issue count', async function () {
+                await expectFailure({ type: 'config', issues: [ 'bad-one', 'bad-two' ] }, [
+                    /config is invalid/u,
+                    /2 issue\(s\)/u,
+                    /- bad-one\n- bad-two/u
+                ]);
+            });
 
-        test('prints the check issues separated by newlines with the total issue count', async function () {
-            await expectFailure({ type: 'checks', issues: [ 'rule-a', 'rule-b' ] }, [
-                /Checks failed/u,
-                /2 issue\(s\)/u,
-                /- rule-a\n- rule-b/u
-            ]);
+            test('prints the check issues separated by newlines with the total issue count', async function () {
+                await expectFailure({ type: 'checks', issues: [ 'rule-a', 'rule-b' ] }, [
+                    /Checks failed/u,
+                    /2 issue\(s\)/u,
+                    /- rule-a\n- rule-b/u
+                ]);
+            });
         });
 
         test('prints a package-not-found message when packPackage returns that failure', async function () {
@@ -144,6 +162,30 @@ suite('pack-handler', function () {
             await expectFailure({ type: 'bundle-dependencies-unsupported', packageName: 'pkg-a' }, [
                 /bundleDependencies which pack does not yet support/u
             ]);
+        });
+
+        suite('output path failures', function () {
+            test('prints output folder collision failures', async function () {
+                await expectFailure(
+                    { type: 'output-folder-exists', packageName: 'pkg-a', outputPath: '/out/pkg-a' },
+                    [ /Pack output folder "\/out\/pkg-a" for "pkg-a" already exists/u ]
+                );
+            });
+
+            test('prints batch output root type failures', async function () {
+                await expectFailure(
+                    { type: 'output-root-not-directory', outputPath: '/out' },
+                    [ /Pack output root "\/out" exists but is not a directory/u ],
+                    { all: true, packageName: undefined, format: 'folder', outputPath: '/out' }
+                );
+            });
+
+            test('prints unsafe output folder failures', async function () {
+                await expectFailure(
+                    { type: 'unsafe-output-folder', packageName: '../pkg-a', outputPath: '/pkg-a' },
+                    [ /Package "\.\.\/pkg-a" cannot be packed safely to "\/pkg-a"/u ]
+                );
+            });
         });
 
         test('lists each unsatisfied peer dependency on its own line when the closure is incomplete', async function () {
@@ -248,13 +290,13 @@ suite('pack-handler', function () {
         });
     });
 
-    test('stops spinners both immediately after the call and again in the finally block', async function () {
+    test('stops spinners in the finally block', async function () {
         const { dependencies, stopAllSpy } = setup(
             makeOutcome({ isOk: true, isErr: false, value: undefined } as PackOutcome['result'])
         );
 
         await runPackHandler(dependencies);
 
-        assert.strictEqual(stopAllSpy.callCount, 2);
+        assert.strictEqual(stopAllSpy.callCount, 1);
     });
 });
