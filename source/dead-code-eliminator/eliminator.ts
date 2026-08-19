@@ -31,7 +31,7 @@ type MetadataBundle = {
 
 type LoadedSourceFile = NonNullable<LoadedBundle['loaded'][number]['sourceFile']>;
 
-type SourceFileByPath = ReadonlyMap<string, LoadedSourceFile>;
+type SourceFileByPath = ReadonlyMap<string, Readonly<LoadedSourceFile>>;
 
 type ReferencedPackages = {
     readonly externalDependencies: Dependencies;
@@ -67,7 +67,7 @@ function isPackageSpecifier(specifier: string): boolean {
     return !isRelativeOrAbsoluteSpecifier(specifier) && !specifier.startsWith('#');
 }
 
-function collectImportSpecifiers(sourceFile: LoadedSourceFile): readonly string[] {
+function collectImportSpecifiers(sourceFile: Readonly<LoadedSourceFile>): readonly string[] {
     return getModuleReferenceLiterals(sourceFile)
         .map(function (literal) {
             return literal.getLiteralValue();
@@ -476,13 +476,9 @@ function crossBundleInputFrom(loaded: LoadedBundle): CrossBundleInput {
 }
 
 function indexSourceFiles(loaded: LoadedBundle): SourceFileByPath {
-    const result = new Map<string, LoadedSourceFile>();
-    for (const entry of loaded.loaded) {
-        if (entry.sourceFile !== undefined) {
-            result.set(entry.resource.fileDescription.sourceFilePath, entry.sourceFile);
-        }
-    }
-    return result;
+    return new Map(loaded.fileBindings.map(function (binding) {
+        return [ binding.sourceFilePath, binding.sourceFile ];
+    }));
 }
 
 function analyzeBundleWithSeeds(loaded: LoadedBundle, externalSeeds: ReadonlySet<string> | undefined): AnalyzedBundle {

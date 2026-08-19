@@ -16,7 +16,8 @@ type PackageTreeDependencies = {
     readonly versionManager: Pick<VersionManager, 'addVersion'>;
 };
 
-const treeManifestVersion = '0.0.0';
+const treeManifestVersionPrefix = '0.0';
+const treeManifestVersion = `${treeManifestVersionPrefix}.0`;
 
 function versionedDependenciesForTree(
     dependencies: readonly { readonly name: string; }[]
