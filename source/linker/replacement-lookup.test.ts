@@ -212,7 +212,10 @@ suite('replacement-lookup', function () {
 
         const result = findAllPathReplacements([ '/b/helpers.ts' ], [ bundle ], []);
 
-        assert.strictEqual(result.importPathReplacements.get('/b/helpers.ts'), 'pkg-b');
+        assert.deepStrictEqual(
+            result.importPathReplacements.get('/b/helpers.ts'),
+            { emittedSpecifier: 'pkg-b', packageName: 'pkg-b' }
+        );
         assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
     });
 
@@ -227,7 +230,10 @@ suite('replacement-lookup', function () {
 
         const result = findAllPathReplacements([ '/b/helpers.d.ts' ], [ bundle ], []);
 
-        assert.strictEqual(result.importPathReplacements.get('/b/helpers.d.ts'), 'pkg-b/helpers.js');
+        assert.deepStrictEqual(
+            result.importPathReplacements.get('/b/helpers.d.ts'),
+            { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' }
+        );
         assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
     });
 
@@ -284,7 +290,10 @@ suite('replacement-lookup', function () {
 
             const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
-            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
+            assert.deepStrictEqual(
+                result.importPathReplacements.get('/b/internal.d.ts'),
+                { emittedSpecifier: 'pkg-b/entry.js', packageName: 'pkg-b' }
+            );
             assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
         });
 
@@ -300,7 +309,10 @@ suite('replacement-lookup', function () {
 
             const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
-            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
+            assert.deepStrictEqual(
+                result.importPathReplacements.get('/b/internal.d.ts'),
+                { emittedSpecifier: 'pkg-b/entry.js', packageName: 'pkg-b' }
+            );
         });
 
         test('findAllPathReplacements maps peer internals through JavaScript declaration exports', function () {
@@ -310,7 +322,10 @@ suite('replacement-lookup', function () {
 
             const result = findAllPathReplacements([ '/b/internal.js' ], [], [ bundle ]);
 
-            assert.strictEqual(result.importPathReplacements.get('/b/internal.js'), 'pkg-b/entry.js');
+            assert.deepStrictEqual(
+                result.importPathReplacements.get('/b/internal.js'),
+                { emittedSpecifier: 'pkg-b/entry.js', packageName: 'pkg-b' }
+            );
         });
     });
 
@@ -352,7 +367,10 @@ suite('replacement-lookup', function () {
 
             const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
-            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/entry.js');
+            assert.deepStrictEqual(
+                result.importPathReplacements.get('/b/internal.d.ts'),
+                { emittedSpecifier: 'pkg-b/entry.js', packageName: 'pkg-b' }
+            );
         });
 
         test('findAllPathReplacements keeps the shortest peer module that reaches an internal declaration', function () {
@@ -360,7 +378,10 @@ suite('replacement-lookup', function () {
 
             const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
-            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/short.js');
+            assert.deepStrictEqual(
+                result.importPathReplacements.get('/b/internal.d.ts'),
+                { emittedSpecifier: 'pkg-b/short.js', packageName: 'pkg-b' }
+            );
         });
 
         test('findAllPathReplacements keeps the first peer module when reachable specifiers tie', function () {
@@ -368,7 +389,10 @@ suite('replacement-lookup', function () {
 
             const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
-            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/one.js');
+            assert.deepStrictEqual(
+                result.importPathReplacements.get('/b/internal.d.ts'),
+                { emittedSpecifier: 'pkg-b/one.js', packageName: 'pkg-b' }
+            );
         });
 
         test('findAllPathReplacements maps implicit peer internals through secondary roots', function () {
@@ -376,7 +400,10 @@ suite('replacement-lookup', function () {
 
             const result = findAllPathReplacements([ '/b/internal.d.ts' ], [], [ bundle ]);
 
-            assert.strictEqual(result.importPathReplacements.get('/b/internal.d.ts'), 'pkg-b/feature.js');
+            assert.deepStrictEqual(
+                result.importPathReplacements.get('/b/internal.d.ts'),
+                { emittedSpecifier: 'pkg-b/feature.js', packageName: 'pkg-b' }
+            );
         });
     });
 

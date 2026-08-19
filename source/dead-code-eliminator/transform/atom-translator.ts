@@ -27,11 +27,13 @@ type AtomState = {
 
 type TextChange = Readonly<ReturnType<typeof diffChars>[number]>;
 
-const initialState: AtomState = {
-    originalOffset: 0,
-    transformedOffset: 0,
-    atoms: []
-};
+function initialState(): AtomState {
+    return {
+        originalOffset: 0,
+        transformedOffset: 0,
+        atoms: new Array<PositionAtom>()
+    };
+}
 
 function appendAtom(state: AtomState, length: number): AtomState {
     return {
@@ -62,7 +64,7 @@ function appendChange(state: AtomState, change: TextChange): AtomState {
 }
 
 export function buildTextTransformMap(originalCode: string, transformedCode: string): TextTransformMap {
-    const state = diffChars(originalCode, transformedCode).reduce(appendChange, initialState);
+    const state = diffChars(originalCode, transformedCode).reduce(appendChange, initialState());
     return { originalCode, transformedCode, atoms: state.atoms };
 }
 

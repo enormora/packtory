@@ -22,6 +22,7 @@ export const moduleReferenceKind = {
 type ExternalReference = {
     readonly kind: typeof moduleReferenceKind.externalPackage;
     readonly packageName: string;
+    readonly specifier: string;
 };
 
 type ManifestReference = {
@@ -172,7 +173,8 @@ function resolveWasmReference(
 
     return {
         kind: moduleReferenceKind.externalPackage,
-        packageName: packageNameFromSpecifier(importValue)
+        packageName: packageNameFromSpecifier(importValue),
+        specifier: importValue
     };
 }
 
@@ -190,7 +192,8 @@ function resolveModuleReferenceForImport(
                     importValue,
                     resolvedModule.resolvedFileName,
                     containingSourceFile
-                )
+                ),
+                specifier: importValue
             };
         }
 

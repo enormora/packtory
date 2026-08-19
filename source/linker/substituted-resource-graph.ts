@@ -1,13 +1,16 @@
-import { unique } from 'remeda';
 import type { Except } from 'type-fest';
 import type { SourceMapTransform } from '../dead-code-eliminator/transform/atom-translator.ts';
-import type { ExternalDependency } from '../dependency-scanner/external-dependencies.ts';
+import {
+    mergeExternalDependencyReference,
+    type DependencySpecifierReference,
+    type ExternalDependency
+} from '../dependency-scanner/external-dependencies.ts';
 import { createDirectedGraph } from '../directed-graph/graph.ts';
 import type { LinkedBundle, LinkedBundleResource } from './linked-bundle.ts';
 import type { ResourceGraphNodeData } from './resource-graph.ts';
 
 type SubstitutedResourceGraphNodeData = ResourceGraphNodeData & {
-    readonly bundleDependencies: readonly string[];
+    readonly bundleDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[];
     readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
     readonly sourceMapTransformsByTargetPath: ReadonlyMap<string, readonly SourceMapTransform[]>;
     readonly isSubstituted: boolean;
@@ -19,24 +22,6 @@ export type SubstitutedResourceGraph = {
     isKnown: (filePath: string) => boolean;
     flatten: (rootFilePaths: readonly string[]) => Except<LinkedBundle, 'name' | 'roots' | 'surface'>;
 };
-
-function addOrCreateReference(
-    externalDependencyName: string,
-    reference: string,
-    externalDependency?: ExternalDependency
-): ExternalDependency {
-    if (externalDependency === undefined) {
-        return {
-            name: externalDependencyName,
-            referencedFrom: [ reference ]
-        };
-    }
-
-    return {
-        name: externalDependencyName,
-        referencedFrom: unique([ ...externalDependency.referencedFrom, reference ])
-    };
-}
 
 type FlattenCollectors = {
     readonly collect: (
@@ -63,14 +48,14 @@ type MutableSourceMapTransformRecord = {
 
 function collectLinkedBundleDependencies(
     linkedBundleDependencies: MutableExternalDependencyRecord,
-    bundleDependencies: readonly string[],
+    bundleDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[],
     filePath: string
 ): void {
-    for (const bundleDependencyName of bundleDependencies) {
-        const bundleDependency = linkedBundleDependencies.get(bundleDependencyName);
+    for (const bundleDependencyReference of bundleDependencies) {
+        const bundleDependency = linkedBundleDependencies.get(bundleDependencyReference.name);
         linkedBundleDependencies.set(
-            bundleDependencyName,
-            addOrCreateReference(bundleDependencyName, filePath, bundleDependency)
+            bundleDependencyReference.name,
+            mergeExternalDependencyReference(bundleDependencyReference, filePath, bundleDependency)
         );
     }
 }
@@ -89,14 +74,14 @@ function collectSubstitutedSourceFilePaths(
 
 function collectExternalDependencies(
     externalDependencies: MutableExternalDependencyRecord,
-    dependencyNames: readonly string[],
+    dependencies: readonly (DependencySpecifierReference & { readonly name: string; })[],
     filePath: string
 ): void {
-    for (const externalDependencyName of dependencyNames) {
-        const externalDependency = externalDependencies.get(externalDependencyName);
+    for (const dependencyReference of dependencies) {
+        const externalDependency = externalDependencies.get(dependencyReference.name);
         externalDependencies.set(
-            externalDependencyName,
-            addOrCreateReference(externalDependencyName, filePath, externalDependency)
+            dependencyReference.name,
+            mergeExternalDependencyReference(dependencyReference, filePath, externalDependency)
         );
     }
 }

@@ -362,10 +362,70 @@ export function createPackageTreeOutcome(result: PackageTreeResult): PackageTree
     return { result };
 }
 
+export type PackageDependencyOrigin = 'bundle' | 'bundle-peer' | 'external';
+export type PackageDependencyGroup = 'dependencies' | 'peerDependencies';
+
+type PackageDependencyReference = {
+    readonly sourcePath: string;
+    readonly sourceSpecifier: string;
+    readonly emittedSpecifier: string;
+};
+
+type EmittedManifestState = {
+    readonly type: 'emitted';
+    readonly group: PackageDependencyGroup;
+    readonly version: string;
+};
+
+type InvalidManifestState = {
+    readonly type: 'invalid-version';
+    readonly group: PackageDependencyGroup;
+    readonly version: string;
+    readonly message: string;
+};
+
+type MissingManifestState = {
+    readonly type: 'missing-version';
+};
+
+type VersionedManifestState = EmittedManifestState | InvalidManifestState;
+
+export type PackageDependencyManifestState = MissingManifestState | VersionedManifestState;
+
+export type PackageDependency = {
+    readonly name: string;
+    readonly origin: PackageDependencyOrigin;
+    readonly manifest: PackageDependencyManifestState;
+    readonly references: readonly PackageDependencyReference[];
+};
+
+export type PackageDependencyInspection = {
+    readonly packageName: string;
+    readonly dependencies: readonly PackageDependency[];
+};
+
+export type PackageDependencyInspectionFailure = ConfigError | PackPackageFailure | PartialErrorResult;
+
+export type PackageDependencyInspectionResult = Result<
+    PackageDependencyInspection,
+    PackageDependencyInspectionFailure
+>;
+
+export type PackageDependencyInspectionOutcome = {
+    readonly result: PackageDependencyInspectionResult;
+};
+
+export function createPackageDependencyInspectionOutcome(
+    result: PackageDependencyInspectionResult
+): PackageDependencyInspectionOutcome {
+    return { result };
+}
+
 export type Packtory = {
     analyzeReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleaseAnalysisOutcome>;
     buildAndPublishAll: (config: unknown, options: BuildAndPublishAllOptions) => Promise<PublishAllOutcome>;
     diffAgainstLatestPublished: (config: unknown) => Promise<ReleaseDiffAllOutcome>;
+    inspectPackageDependencies: (config: unknown, packageName: string) => Promise<PackageDependencyInspectionOutcome>;
     planReleaseAgainstLatestPublished: (config: unknown) => Promise<ReleasePlanOutcome>;
     resolveAndLinkAll: (config: unknown, options?: ResolveAndLinkAllOptions) => Promise<ResolveAndLinkAllOutcome>;
     packPackage: (config: unknown, options: PackPublicOptions) => Promise<PackOutcome>;

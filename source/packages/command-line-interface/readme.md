@@ -20,6 +20,7 @@ packtory <command> [options]
 
 - **preview:** Runs a fresh dry-run build with report collection enabled and shows a human-oriented preview of the emitted package contents, file statuses, and changed-file diffs.
 - **tree:** Builds locally and prints one configured package's artifact tree without reading the registry or writing an artifact.
+- **inspect dependencies:** Builds locally and prints why one configured package emits final `dependencies` and `peerDependencies`.
 - **release-diff:** Runs the same dry-run build as `preview` and shows, per package, the changes between the latest version currently published on the configured registry and the bundle the next run would publish.
 - **changelog:** Builds the next release plan, attributes merged GitHub pull requests to changed packages, and prints grouped Markdown changelog output.
 - **config inspect:** Validates `packtory.config.js` and prints a compact package-shape summary without building packages.
@@ -34,6 +35,7 @@ packtory <command> [options]
 - **--trace:** Prints stack traces for unexpected errors and package-level partial failures. This is a root-level diagnostic flag, so place it before the command, for example `packtory --trace publish`.
 - **preview --open:** Generates the same fresh preview report as `packtory preview`, writes a temporary HTML file, and opens it with the platform opener.
 - **tree &lt;package&gt;:** Selects which package from the configuration to inspect. The output includes package-relative paths, file kind, byte size, status, and artifact badges.
+- **inspect dependencies &lt;package&gt;:** Selects which package from the configuration to inspect. The output groups final manifest dependencies by `dependencies`, `peerDependencies`, and unresolved version state, then lists source import specifiers and emitted import specifiers for each dependency.
 - **publish --report-json:** Writes `packtory-report.json`, the machine-readable `BuildReport`.
 - **publish --report-html:** Writes `packtory-report.html`, the rich HTML report used by `packtory preview --open`.
 - **publish --stage:** Uses npm staged publishing instead of a direct publish. Successful runs print the npm `stageId` per package. Approval still happens later via `npm stage approve <stage-id>` or npmjs.com. Stage mode is npm-only, and the package must already exist on npm.
@@ -66,6 +68,16 @@ packtory <command> [options]
 - It never reads registry metadata, publishes, writes archives, writes folders, opens HTML, or uses a pager.
 - An unknown `<package>` argument is reported as `package-not-found`.
 - `packtory tree` exits with code `0` on a clean run and `1` on config errors, check failures, package failures, or an unknown package.
+
+**Dependency inspect behavior:**
+
+- `packtory inspect dependencies <package>` validates the local config, resolves and links all configured packages, and prints why the selected package emits each final manifest dependency.
+- It reports external dependencies, bundled package dependencies, and bundled peer dependencies after import rewriting and dead-code elimination.
+- It does not read registry metadata, publish, write artifacts, run package checks, open HTML, or use a pager.
+- Dependency versions are read from the configured root `package.json` for external dependencies. Missing or invalid versions are printed instead of failing the command.
+- Bundled package dependencies are shown with version `0.0.0`, matching local dry-run package inspection.
+- An unknown `<package>` argument is reported as `package-not-found`.
+- `packtory inspect dependencies` exits with code `0` on a clean run and `1` on config errors, package failures, or an unknown package.
 
 **Release-diff behavior:**
 

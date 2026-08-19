@@ -48,7 +48,7 @@ function localAsset(filePath: string): ModuleReference {
 }
 
 function externalPackage(packageName: string): ModuleReference {
-    return { kind: 'external-package', packageName };
+    return { kind: 'external-package', packageName, specifier: packageName };
 }
 
 function generatedManifest(filePath: string): ModuleReference {
@@ -339,7 +339,11 @@ suite('scanner', function () {
             referencedModules: readonly ModuleReference[],
             expectedDependencies: ReadonlyMap<
                 string,
-                { readonly name: string; readonly referencedFrom: readonly string[]; }
+                {
+                    readonly name: string;
+                    readonly referencedFrom: readonly string[];
+                    readonly references?: readonly unknown[];
+                }
             >
         ): Promise<void> {
             const result = await scanWithReferencedModules(referencedModules);
@@ -363,7 +367,17 @@ suite('scanner', function () {
             test('returns all detected package dependencies', async function () {
                 await expectExternalDependencies(
                     [ externalPackage('any-module') ],
-                    new Map([ [ 'any-module', { name: 'any-module', referencedFrom: [ '/dir/entry.js' ] } ] ])
+                    new Map([ [ 'any-module', {
+                        name: 'any-module',
+                        referencedFrom: [ '/dir/entry.js' ],
+                        references: [
+                            {
+                                sourceFilePath: '/dir/entry.js',
+                                sourceSpecifier: 'any-module',
+                                emittedSpecifier: 'any-module'
+                            }
+                        ]
+                    } ] ])
                 );
             });
 
@@ -372,7 +386,14 @@ suite('scanner', function () {
                     [ externalPackage('@scope/any-module') ],
                     new Map([ [ '@scope/any-module', {
                         name: '@scope/any-module',
-                        referencedFrom: [ '/dir/entry.js' ]
+                        referencedFrom: [ '/dir/entry.js' ],
+                        references: [
+                            {
+                                sourceFilePath: '/dir/entry.js',
+                                sourceSpecifier: '@scope/any-module',
+                                emittedSpecifier: '@scope/any-module'
+                            }
+                        ]
                     } ] ])
                 );
             });
@@ -392,7 +413,17 @@ suite('scanner', function () {
 
                 assert.deepStrictEqual(
                     result.externalDependencies,
-                    new Map([ [ 'any-module', { name: 'any-module', referencedFrom: [ '/dir/entry.js' ] } ] ])
+                    new Map([ [ 'any-module', {
+                        name: 'any-module',
+                        referencedFrom: [ '/dir/entry.js' ],
+                        references: [
+                            {
+                                sourceFilePath: '/dir/entry.js',
+                                sourceSpecifier: 'any-module',
+                                emittedSpecifier: 'any-module'
+                            }
+                        ]
+                    } ] ])
                 );
             });
         });

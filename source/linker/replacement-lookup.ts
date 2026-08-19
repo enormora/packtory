@@ -9,13 +9,13 @@ import { getRoot } from '../package-surface/root-registry.ts';
 import { toPackageSpecifier } from '../package-surface/specifier-syntax.ts';
 import type { BundleSubstitutionSource } from './linked-bundle.ts';
 
-type Replacement = {
-    readonly targetPath: string;
+export type ImportPathReplacement = {
+    readonly emittedSpecifier: string;
     readonly packageName: string;
 };
 
 export type Replacements = {
-    readonly importPathReplacements: ReadonlyMap<string, string>;
+    readonly importPathReplacements: ReadonlyMap<string, ImportPathReplacement>;
     readonly bundleDependencies: readonly string[];
     readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
 };
@@ -213,12 +213,12 @@ function findReplacementInBundles(
     file: string,
     bundles: readonly BundleSubstitutionSource[],
     getTargetPath: (bundle: BundleSubstitutionSource, sourceFilePath: string) => string | undefined
-): Replacement | undefined {
+): ImportPathReplacement | undefined {
     for (const bundle of bundles) {
         const targetPath = getTargetPath(bundle, file);
         if (targetPath !== undefined) {
             return {
-                targetPath,
+                emittedSpecifier: targetPath,
                 packageName: bundle.name
             };
         }
@@ -234,7 +234,7 @@ function findReplacement(
     file: string,
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
-): Replacement | undefined {
+): ImportPathReplacement | undefined {
     const dependencyReplacement = findReplacementInBundles(
         file,
         bundleDependencies,
@@ -266,14 +266,14 @@ export function findAllPathReplacements(
     bundleDependencies: readonly BundleSubstitutionSource[],
     bundlePeerDependencies: readonly BundleSubstitutionSource[]
 ): Replacements {
-    const importPathReplacements = new Map<string, string>();
+    const importPathReplacements = new Map<string, ImportPathReplacement>();
     const matchedBundleDependencies: string[] = [];
     let substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
 
     for (const file of files) {
         const replacement = findReplacement(file, bundleDependencies, bundlePeerDependencies);
         if (replacement !== undefined) {
-            importPathReplacements.set(file, replacement.targetPath);
+            importPathReplacements.set(file, replacement);
             matchedBundleDependencies.push(replacement.packageName);
             substitutedSourceFilePathsByPackageName = withSubstitutedSourcePath(
                 substitutedSourceFilePathsByPackageName,

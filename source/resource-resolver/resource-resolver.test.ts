@@ -58,7 +58,11 @@ function createGraph(input: GraphInput): DependencyGraph {
 
     graph.addDependency(rootFile, {
         sourceMapFilePath: Maybe.nothing(),
-        externalDependencies: externalDependencyName === undefined ? [] : [ externalDependencyName ],
+        externalDependencies: externalDependencyName === undefined ? [] : [ {
+            name: externalDependencyName,
+            sourceSpecifier: externalDependencyName,
+            emittedSpecifier: externalDependencyName
+        } ],
         project: project as never
     });
 

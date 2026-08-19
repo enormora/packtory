@@ -6,11 +6,15 @@ import {
     progressBroadcastConsumer,
     type BuildAndPublishAllOptions,
     type buildAndPublishAll,
+    type inspectPackageDependencies,
     type packAllPackages,
     type planReleaseAgainstLatestPublished,
     type ResolveAndLinkAllOptions,
     type resolveAndLinkAll,
     type BuildReport,
+    type PackageDependencyInspection,
+    type PackageDependencyInspectionOutcome,
+    type PackageDependencyInspectionResult,
     type PackAllOutcome,
     type PackAllPublicOptions,
     type PackAllResult,
@@ -44,6 +48,10 @@ type PackAllPackagesFunction = (
     config: unknown,
     options: PackAllPublicOptions
 ) => Promise<PackAllOutcome>;
+type InspectPackageDependenciesFunction = (
+    config: unknown,
+    packageName: string
+) => Promise<PackageDependencyInspectionOutcome>;
 
 type PackageConfig = PacktoryConfig['packages'][number];
 type ChangelogSettings = NonNullable<PacktoryConfig['changelog']>;
@@ -71,6 +79,8 @@ type ReleasePlanOk = OkVariant<ReleasePlanResult>['value'];
 type ReleasePlanErr = ErrVariant<ReleasePlanResult>['error'];
 type ResultFailureType = 'checks' | 'config' | 'partial';
 type ReleasePlanArtifactState = 'changed' | 'first-publish' | 'unchanged';
+type PackageDependencyOrigin = 'bundle' | 'bundle-peer' | 'external';
+type PackageDependencyManifestState = 'emitted' | 'invalid-version' | 'missing-version';
 
 describe('public functions', function () {
     test('buildAndPublishAll takes an unknown config and build options and returns a PublishAllOutcome', function () {
@@ -88,6 +98,13 @@ describe('public functions', function () {
     test('packAllPackages takes an unknown config and returns a PackAllOutcome', function () {
         expect<typeof packAllPackages>().type.toBe<PackAllPackagesFunction>();
     });
+
+    test(
+        'inspectPackageDependencies takes an unknown config and package name and returns an inspection outcome',
+        function () {
+            expect<typeof inspectPackageDependencies>().type.toBe<InspectPackageDependenciesFunction>();
+        }
+    );
 });
 
 describe('PublishAllOutcome', function () {
@@ -138,6 +155,24 @@ describe('PackAllOutcome', function () {
             readonly vendorDependencies: false;
         }>();
         expect<keyof PackAllPublicOptions>().type.toBe<'outputPath' | 'vendorDependencies' | 'version'>();
+    });
+});
+
+describe('PackageDependencyInspectionOutcome', function () {
+    test('exposes the wrapped result', function () {
+        expect<PackageDependencyInspectionOutcome['result']>().type.toBe<PackageDependencyInspectionResult>();
+    });
+
+    test('the ok value exposes dependency reasons for one package', function () {
+        type Dependency = PackageDependencyInspection['dependencies'][number];
+        type Reference = Dependency['references'][number];
+        expect<PackageDependencyInspection['packageName']>().type.toBe<string>();
+        expect<Dependency['name']>().type.toBe<string>();
+        expect<Dependency['origin']>().type.toBe<PackageDependencyOrigin>();
+        expect<Dependency['manifest']['type']>().type.toBe<PackageDependencyManifestState>();
+        expect<Reference['sourcePath']>().type.toBe<string>();
+        expect<Reference['sourceSpecifier']>().type.toBe<string>();
+        expect<Reference['emittedSpecifier']>().type.toBe<string>();
     });
 });
 

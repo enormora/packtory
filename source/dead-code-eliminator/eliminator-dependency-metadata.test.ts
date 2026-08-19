@@ -481,15 +481,17 @@ suite('eliminator dependency metadata', function () {
                         new Set<string>()
                     )
                 ],
-                externalDependencies: new Map([ [
-                    'dep',
-                    externalDependency('dep', [ '/src/a.js', '/src/b.js' ])
-                ] ])
+                externalDependencies: new Map([ [ 'dep', externalDependency('dep', [ '/src/a.js', '/src/b.js' ]) ] ])
             });
             const [ analyzed ] = await eliminator.eliminate(inputs(input));
-            assert.deepStrictEqual(analyzed?.externalDependencies.get('dep'), {
+            assertDefined(analyzed);
+            assert.deepStrictEqual(analyzed.externalDependencies.get('dep'), {
                 name: 'dep',
-                referencedFrom: [ '/src/a.js', '/src/b.js' ]
+                referencedFrom: [ '/src/a.js', '/src/b.js' ],
+                references: [
+                    { sourceFilePath: '/src/a.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' },
+                    { sourceFilePath: '/src/b.js', sourceSpecifier: 'dep', emittedSpecifier: 'dep' }
+                ]
             });
         });
 

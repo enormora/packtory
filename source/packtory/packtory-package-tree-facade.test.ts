@@ -180,6 +180,26 @@ function createTreePacktory(mode: ArtifactReportMode, visibility: SubscriberVisi
 }
 
 suite('packtory package tree facade', function () {
+    test('inspectPackageDependencies() returns config issues when the config is invalid', async function () {
+        const { packtory } = createTreePacktory('entries', 'normal');
+
+        const { result } = await packtory.inspectPackageDependencies({ invalid: true }, 'package-a');
+
+        const error = getErrResult(result, 'Expected inspectPackageDependencies() should fail but it did not');
+        assert.strictEqual(error.type, 'config');
+    });
+
+    test('inspectPackageDependencies() returns dependency reasons for a configured package', async function () {
+        const { packtory } = createTreePacktory('entries', 'normal');
+
+        const { result } = await packtory.inspectPackageDependencies(createConfig(), 'package-a');
+
+        assert.deepStrictEqual(
+            getOkResult(result, 'Expected inspectPackageDependencies() should succeed'),
+            { packageName: 'package-a', dependencies: [] }
+        );
+    });
+
     test('inspectPackageTree() returns config issues when the config is invalid', async function () {
         const { packtory } = createTreePacktory('entries', 'normal');
 

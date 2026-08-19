@@ -15,6 +15,7 @@ type ExpectedImportMetaReference = {
     readonly kind: string;
     readonly filePath?: string;
     readonly packageName?: string;
+    readonly specifier?: string;
 };
 
 type ImportMetaResolveExpectation = {
@@ -159,7 +160,7 @@ suite('source-file-references import.meta and package assets', function () {
                             content: 'declare const foo: string; export default foo;'
                         }
                     ],
-                    expected: [ { kind: 'external-package', packageName: 'foo' } ]
+                    expected: [ { kind: 'external-package', packageName: 'foo', specifier: 'foo' } ]
                 });
             });
 
@@ -167,7 +168,7 @@ suite('source-file-references import.meta and package assets', function () {
                 expectImportMetaResolveReferences({
                     mainContent: 'const url = import.meta.resolve("foo/module.wasm");',
                     extraFiles: [ { filePath: '/node_modules/foo/module.wasm', content: 'wasm' } ],
-                    expected: [ { kind: 'external-package', packageName: 'foo' } ]
+                    expected: [ { kind: 'external-package', packageName: 'foo', specifier: 'foo/module.wasm' } ]
                 });
             });
 

@@ -2,6 +2,7 @@ import { Maybe } from 'true-myth/maybe';
 import type { MainPackageJson } from '../config/package-json.ts';
 import { isCodeFile } from '../common/code-files.ts';
 import { createDependencyGraph, type DependencyGraph, type DependencyGraphNodeData } from './dependency-graph.ts';
+import type { DependencySpecifierReference } from './external-dependencies.ts';
 import type { SourceMapFileLocator } from './source-map-file-locator.ts';
 import { moduleReferenceKind, type ModuleReference } from './source-file-references.ts';
 import type { TypescriptProject, TypescriptProjectAnalyzer } from './typescript-project-analyzer.ts';
@@ -44,7 +45,7 @@ type ScannableLocalReference = Extract<ModuleReference, { readonly kind: Scannab
 
 type ReferenceLists = {
     readonly localReferences: readonly ScannableLocalReference[];
-    readonly externalDependencies: readonly string[];
+    readonly externalDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[];
 };
 
 type ScanContext = {
@@ -55,7 +56,7 @@ type ScanContext = {
 };
 
 type DependencyNodeDataInput = {
-    readonly externalDependencies: readonly string[];
+    readonly externalDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[];
     readonly options: Required<ScanOptions>;
     readonly project: TypescriptProject | undefined;
     readonly sourceFilePath: string;
@@ -81,11 +82,15 @@ export function createDependencyScanner(
 
     function collectReferenceLists(references: readonly ModuleReference[]): ReferenceLists {
         const localReferences: ScannableLocalReference[] = [];
-        const externalDependencies: string[] = [];
+        const externalDependencies: (DependencySpecifierReference & { readonly name: string; })[] = [];
 
         for (const reference of references) {
             if (reference.kind === moduleReferenceKind.externalPackage) {
-                externalDependencies.push(reference.packageName);
+                externalDependencies.push({
+                    name: reference.packageName,
+                    sourceSpecifier: reference.specifier,
+                    emittedSpecifier: reference.specifier
+                });
             } else {
                 localReferences.push(reference);
             }
