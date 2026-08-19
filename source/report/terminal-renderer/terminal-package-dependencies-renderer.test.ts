@@ -8,7 +8,7 @@ suite('terminal-package-dependencies-renderer', function () {
             renderTerminalPackageDependencies({
                 packageName: 'pkg-a',
                 dependencies: []
-            }),
+            }, { color: false }),
             'Packtory dependency reasons [Dry run]\npkg-a\nNo dependencies.\n'
         );
 
@@ -58,7 +58,7 @@ suite('terminal-package-dependencies-renderer', function () {
                         ]
                     }
                 ]
-            }),
+            }, { color: false }),
             [
                 'Packtory dependency reasons [Dry run]',
                 'pkg-a',
