@@ -7,10 +7,17 @@ npm install packtory
 ```
 
 ```javascript
-import { buildAndPublishAll, packAllPackages, packPackage, resolveAndLinkAll } from 'packtory';
+import {
+    buildAndPublishAll,
+    inspectPackageDependencies,
+    packAllPackages,
+    packPackage,
+    resolveAndLinkAll
+} from 'packtory';
 
 await buildAndPublishAll(config, { dryRun: true, stage: false });
 await resolveAndLinkAll(config);
+await inspectPackageDependencies(config, 'pkg');
 await packPackage(config, {
     packageName: 'pkg',
     format: 'zip',
@@ -25,6 +32,6 @@ await packAllPackages(config, {
 });
 ```
 
-Main exports: `buildAndPublishAll`, `resolveAndLinkAll`, `diffAgainstLatestPublished`, `planReleaseAgainstLatestPublished`, `packPackage`, and `packAllPackages`.
+Main exports: `buildAndPublishAll`, `resolveAndLinkAll`, `diffAgainstLatestPublished`, `planReleaseAgainstLatestPublished`, `inspectPackageDependencies`, `packPackage`, and `packAllPackages`.
 
 See the repository readme for configuration and workflow documentation.

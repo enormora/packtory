@@ -21,7 +21,13 @@ function dependencyGraphNodeDataFactory(overrides: Overrides = {}): DependencyGr
 
     return {
         sourceMapFilePath: Maybe.nothing(),
-        externalDependencies: topLevelDependencies,
+        externalDependencies: topLevelDependencies.map(function (dependencyName) {
+            return {
+                name: dependencyName,
+                sourceSpecifier: dependencyName,
+                emittedSpecifier: dependencyName
+            };
+        }),
         project: {
             getProject
         }
@@ -184,9 +190,24 @@ suite('dependency-graph', function () {
             assert.deepStrictEqual(result, {
                 localFiles: fooBarLocalFiles,
                 externalDependencies: new Map([
-                    [ 'a', { name: 'a', referencedFrom: [ 'foo.js' ] } ],
-                    [ 'b', { name: 'b', referencedFrom: [ 'foo.js', 'bar.js' ] } ],
-                    [ 'c', { name: 'c', referencedFrom: [ 'bar.js' ] } ]
+                    [ 'a', {
+                        name: 'a',
+                        referencedFrom: [ 'foo.js' ],
+                        references: [ { sourceFilePath: 'foo.js', sourceSpecifier: 'a', emittedSpecifier: 'a' } ]
+                    } ],
+                    [ 'b', {
+                        name: 'b',
+                        referencedFrom: [ 'foo.js', 'bar.js' ],
+                        references: [
+                            { sourceFilePath: 'foo.js', sourceSpecifier: 'b', emittedSpecifier: 'b' },
+                            { sourceFilePath: 'bar.js', sourceSpecifier: 'b', emittedSpecifier: 'b' }
+                        ]
+                    } ],
+                    [ 'c', {
+                        name: 'c',
+                        referencedFrom: [ 'bar.js' ],
+                        references: [ { sourceFilePath: 'bar.js', sourceSpecifier: 'c', emittedSpecifier: 'c' } ]
+                    } ]
                 ])
             });
         });

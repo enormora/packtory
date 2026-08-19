@@ -1,18 +1,22 @@
 import type { Maybe } from 'true-myth';
 import type { Project } from 'ts-morph';
-import { indexBy, unique, values } from 'remeda';
+import { indexBy, values } from 'remeda';
 import { createDirectedGraph } from '../directed-graph/graph.ts';
 import {
+    type NamedDependencySpecifierReference,
+    mergeExternalDependencyReference,
     mergeExternalDependencies,
     type ExternalDependencies,
     type ExternalDependency
 } from './external-dependencies.ts';
 import type { TypescriptProject } from './typescript-project-analyzer.ts';
 
+type ExternalDependencyReferenceInput = NamedDependencySpecifierReference;
+
 export type DependencyGraphNodeData = {
     readonly sourceMapFilePath: Maybe<string>;
     readonly project?: TypescriptProject | undefined;
-    readonly externalDependencies: readonly string[];
+    readonly externalDependencies: readonly ExternalDependencyReferenceInput[];
     readonly isGeneratedManifest?: true | undefined;
 };
 
@@ -59,24 +63,6 @@ function sourceMapLocalFile(
         filePath: sourceMapFilePath.value,
         directDependencies: new Set(),
         project: project?.getProject()
-    };
-}
-
-function mergedExternalDependency(
-    externalDependency: ExternalDependency | undefined,
-    externalDependencyName: string,
-    reference: string
-): ExternalDependency {
-    if (externalDependency === undefined) {
-        return {
-            name: externalDependencyName,
-            referencedFrom: [ reference ]
-        };
-    }
-
-    return {
-        name: externalDependency.name,
-        referencedFrom: unique([ ...externalDependency.referencedFrom, reference ])
     };
 }
 
@@ -139,11 +125,11 @@ export function createDependencyGraph(): DependencyGraph {
                     project: node.data.project?.getProject(),
                     ...node.data.isGeneratedManifest ? { isGeneratedManifest: true } : {}
                 });
-                for (const externalDependencyName of node.data.externalDependencies) {
-                    const externalDependency = externalDependencies.get(externalDependencyName);
+                for (const dependencyReference of node.data.externalDependencies) {
+                    const externalDependency = externalDependencies.get(dependencyReference.name);
                     externalDependencies.set(
-                        externalDependencyName,
-                        mergedExternalDependency(externalDependency, externalDependencyName, node.id)
+                        dependencyReference.name,
+                        mergeExternalDependencyReference(dependencyReference, node.id, externalDependency)
                     );
                 }
             });

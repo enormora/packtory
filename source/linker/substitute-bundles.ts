@@ -3,6 +3,7 @@ import { findAllPathReplacements, ownsSourcePath, type Replacements } from './re
 import type { ResourceGraph } from './resource-graph.ts';
 import {
     replaceImportPathsWithTransform,
+    type ImportPathDependencyReference,
     type ImportPathReplacementResult
 } from './source-modifier/import-paths.ts';
 import { createSubstitutedResourceGraph, type SubstitutedResourceGraph } from './substituted-resource-graph.ts';
@@ -47,6 +48,16 @@ function contentWithReplacements(
     );
 }
 
+function fallbackDependencyReferences(replacements: Replacements): readonly ImportPathDependencyReference[] {
+    return Array.from(replacements.importPathReplacements.values(), function (replacement) {
+        return {
+            name: replacement.packageName,
+            sourceSpecifier: replacement.emittedSpecifier,
+            emittedSpecifier: replacement.emittedSpecifier
+        };
+    });
+}
+
 function addNodeWithReplacements(
     substitutedGraph: SubstitutedResourceGraph,
     node: ResourceGraphNode,
@@ -54,13 +65,16 @@ function addNodeWithReplacements(
 ): void {
     const isSubstituted = replacements.importPathReplacements.size > 0;
     const replacementResult = contentWithReplacements(node, replacements);
+    const dependencyReferences = replacementResult.dependencyReferences.length === 0
+        ? fallbackDependencyReferences(replacements)
+        : replacementResult.dependencyReferences;
     const sourceMapTransformsByTargetPath = replacementResult.sourceMapTransform === undefined
         ? new Map()
         : new Map([ [ node.data.fileDescription.targetFilePath, [ replacementResult.sourceMapTransform ] ] ]);
     substitutedGraph.add(node.id, {
         fileDescription: { ...node.data.fileDescription, content: replacementResult.content },
         externalDependencies: node.data.externalDependencies,
-        bundleDependencies: isSubstituted ? replacements.bundleDependencies : [],
+        bundleDependencies: isSubstituted ? dependencyReferences : [],
         substitutedSourceFilePathsByPackageName: replacements.substitutedSourceFilePathsByPackageName,
         sourceMapTransformsByTargetPath,
         isSubstituted,

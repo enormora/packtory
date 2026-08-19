@@ -39,18 +39,70 @@ suite('resource-graph', function () {
             surface: { mode: 'implicit', defaultModuleRoot: 'main' } as const,
             externalDependencies: new Map([
                 [ 'left-pad', { name: 'left-pad', referencedFrom: [ '/entry.js' ] as const } ],
+                [
+                    'referenced',
+                    {
+                        name: 'referenced',
+                        referencedFrom: [ '/entry.js', '/other.js' ],
+                        references: [
+                            {
+                                sourceFilePath: '/entry.js',
+                                sourceSpecifier: 'referenced/source',
+                                emittedSpecifier: 'referenced'
+                            },
+                            {
+                                sourceFilePath: '/other.js',
+                                sourceSpecifier: 'referenced/other',
+                                emittedSpecifier: 'referenced'
+                            }
+                        ]
+                    }
+                ],
+                [
+                    'stale-reference',
+                    {
+                        name: 'stale-reference',
+                        referencedFrom: [ '/entry.js' ],
+                        references: [
+                            {
+                                sourceFilePath: '/not-entry.js',
+                                sourceSpecifier: 'stale-reference/not-entry',
+                                emittedSpecifier: 'stale-reference'
+                            }
+                        ]
+                    }
+                ],
                 [ 'unused', { name: 'unused', referencedFrom: [ '/not-used.js' ] as const } ]
             ])
         });
-        const visited: { readonly id: string; readonly externalDependencies: readonly string[]; }[] = [];
+        const visited: {
+            readonly id: string;
+            readonly externalDependencies: readonly { readonly name: string; }[];
+        }[] = [];
 
         graph.visitBreadthFirstSearch('/entry.js', function (node) {
             visited.push({ id: node.id, externalDependencies: node.data.externalDependencies });
         });
 
         assert.deepStrictEqual(visited, [
-            { id: '/entry.js', externalDependencies: [ 'left-pad' ] },
-            { id: '/other.js', externalDependencies: [] }
+            {
+                id: '/entry.js',
+                externalDependencies: [
+                    { name: 'left-pad', sourceSpecifier: 'left-pad', emittedSpecifier: 'left-pad' },
+                    { name: 'referenced', sourceSpecifier: 'referenced/source', emittedSpecifier: 'referenced' },
+                    {
+                        name: 'stale-reference',
+                        sourceSpecifier: 'stale-reference',
+                        emittedSpecifier: 'stale-reference'
+                    }
+                ]
+            },
+            {
+                id: '/other.js',
+                externalDependencies: [
+                    { name: 'referenced', sourceSpecifier: 'referenced/other', emittedSpecifier: 'referenced' }
+                ]
+            }
         ]);
     });
 

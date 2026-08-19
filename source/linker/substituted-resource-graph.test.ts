@@ -25,6 +25,16 @@ function emptySourceMapTransforms(): ReadonlyMap<string, readonly []> {
     return new Map<string, readonly []>();
 }
 
+type DependencyReferenceFixture = {
+    readonly name: string;
+    readonly sourceSpecifier: string;
+    readonly emittedSpecifier: string;
+};
+
+function dependency(name: string): DependencyReferenceFixture {
+    return { name, sourceSpecifier: name, emittedSpecifier: name };
+}
+
 function sourceMapTransform(marker: number): SourceMapTransform {
     return {
         originalLineIndex: buildLineIndex('a'),
@@ -38,8 +48,8 @@ suite('substituted-resource-graph', function () {
         const graph = createSubstitutedResourceGraph();
         graph.add('/entry.js', {
             fileDescription: createFileDescription('/entry.js', 'entry.js'),
-            externalDependencies: [ 'left-pad' ],
-            bundleDependencies: [ 'bundle-dependency' ],
+            externalDependencies: [ dependency('left-pad') ],
+            bundleDependencies: [ dependency('bundle-dependency') ],
             substitutedSourceFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/dep.js' ]) ] ]),
             sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: true,
@@ -47,8 +57,8 @@ suite('substituted-resource-graph', function () {
         });
         graph.add('/shared.js', {
             fileDescription: createFileDescription('/shared.js', 'shared.js'),
-            externalDependencies: [ 'left-pad' ],
-            bundleDependencies: [ 'bundle-dependency' ],
+            externalDependencies: [ dependency('left-pad') ],
+            bundleDependencies: [ dependency('bundle-dependency') ],
             substitutedSourceFilePathsByPackageName: new Map([ [ 'bundle-dependency', new Set([ '/other.js' ]) ] ]),
             sourceMapTransformsByTargetPath: emptySourceMapTransforms(),
             isSubstituted: false,

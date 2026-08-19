@@ -11,6 +11,7 @@ import type { VersionManager } from '../version-manager/manager.ts';
 import type { CurrentGitHeadReader } from '../git/current-git-head.ts';
 import { createAnalyzeReleaseAgainstLatestPublishedValidated } from './packtory-release-analysis.ts';
 import { createDiffAgainstLatestPublishedValidated } from './packtory-release-diff.ts';
+import { createInspectPackageDependenciesValidated } from './packtory-package-dependencies.ts';
 import { createInspectPackageTreeValidated } from './packtory-package-tree.ts';
 import { createPlanReleaseAgainstLatestPublishedValidated } from './packtory-release-plan.ts';
 import { createRunPackAllValidated, createRunPackValidated } from './packtory-pack.ts';
@@ -22,6 +23,7 @@ import {
     createPackAllOutcome,
     configError,
     createPackOutcome,
+    createPackageDependencyInspectionOutcome,
     createPackageTreeOutcome,
     createReleasePlanOutcome,
     createPublishAllOutcome,
@@ -31,6 +33,9 @@ import {
     type BuildReport as BuildReportBase,
     type PackageReleaseAnalysis as PackageReleaseAnalysisBase,
     type PackageReleaseAnalysisClassification as PackageReleaseAnalysisClassificationBase,
+    type PackageDependencyInspection as PackageDependencyInspectionBase,
+    type PackageDependencyInspectionOutcome as PackageDependencyInspectionOutcomeBase,
+    type PackageDependencyInspectionResult as PackageDependencyInspectionResultBase,
     type PackageTree,
     type PackageTreeOutcome,
     type PackAllOutcome as PackAllOutcomeBase,
@@ -87,6 +92,9 @@ export type ReleasePlanPackage = ReleasePlanPackageBase;
 export type ReleasePlanRegistryMetadata = ReleasePlanRegistryMetadataBase;
 export type PackageReleaseAnalysis = PackageReleaseAnalysisBase;
 export type PackageReleaseAnalysisClassification = PackageReleaseAnalysisClassificationBase;
+export type PackageDependencyInspection = PackageDependencyInspectionBase;
+export type PackageDependencyInspectionOutcome = PackageDependencyInspectionOutcomeBase;
+export type PackageDependencyInspectionResult = PackageDependencyInspectionResultBase;
 export type ResolveAndLinkFailure = ResolveAndLinkFailureBase;
 export type Packtory = PacktoryBase;
 
@@ -118,6 +126,7 @@ type ValidatedRunners = {
     >;
     readonly runPackValidated: ReturnType<typeof createRunPackValidated>;
     readonly runPackAllValidated: ReturnType<typeof createRunPackAllValidated>;
+    readonly inspectPackageDependenciesValidated: ReturnType<typeof createInspectPackageDependenciesValidated>;
     readonly inspectPackageTreeValidated: ReturnType<typeof createInspectPackageTreeValidated>;
 };
 
@@ -132,6 +141,7 @@ function createValidatedRunners(dependencies: PacktoryDependencies): ValidatedRu
         planReleaseAgainstLatestPublishedValidated: createPlanReleaseAgainstLatestPublishedValidated(dependencies),
         runPackValidated: createRunPackValidated(dependencies),
         runPackAllValidated: createRunPackAllValidated(dependencies),
+        inspectPackageDependenciesValidated: createInspectPackageDependenciesValidated(dependencies),
         inspectPackageTreeValidated: createInspectPackageTreeValidated(dependencies)
     };
 }
@@ -154,6 +164,12 @@ type PackAllPackagesInput = {
     readonly options: PackAllPublicOptions;
     readonly runPackAllValidated: ReturnType<typeof createRunPackAllValidated>;
     readonly resolveAndLinkAllValidated: ReturnType<typeof createResolveAndLinkAllValidated>;
+};
+
+type InspectPackageDependenciesInput = {
+    readonly config: unknown;
+    readonly inspectPackageDependenciesValidated: ReturnType<typeof createInspectPackageDependenciesValidated>;
+    readonly packageName: string;
 };
 
 function selectPackageTreeEntries(report: BuildReport, packageName: string): PackageTree['entries'] {
@@ -245,6 +261,17 @@ async function packAllPackagesWithValidation(input: PackAllPackagesInput): Promi
     return createPackAllOutcome(result);
 }
 
+async function inspectPackageDependenciesWithValidation(
+    input: InspectPackageDependenciesInput
+): Promise<PackageDependencyInspectionOutcome> {
+    const validation = validateConfigWithoutRegistry(input.config);
+    if (validation.isErr) {
+        return createPackageDependencyInspectionOutcome(Result.err(configError(validation.error)));
+    }
+    const result = await input.inspectPackageDependenciesValidated(validation.value, input.packageName);
+    return createPackageDependencyInspectionOutcome(result);
+}
+
 export function createPacktory(dependencies: PacktoryDependencies): Packtory {
     const {
         resolveAndLinkAllValidated,
@@ -254,6 +281,7 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         planReleaseAgainstLatestPublishedValidated,
         runPackValidated,
         runPackAllValidated,
+        inspectPackageDependenciesValidated,
         inspectPackageTreeValidated
     } = createValidatedRunners(dependencies);
 
@@ -390,6 +418,13 @@ export function createPacktory(dependencies: PacktoryDependencies): Packtory {
         analyzeReleaseAgainstLatestPublished: analyzeReleaseAgainstLatestPublishedPublic,
         buildAndPublishAll: buildAndPublishAllPublic,
         diffAgainstLatestPublished: diffAgainstLatestPublishedPublic,
+        async inspectPackageDependencies(config, packageName) {
+            return inspectPackageDependenciesWithValidation({
+                config,
+                inspectPackageDependenciesValidated,
+                packageName
+            });
+        },
         planReleaseAgainstLatestPublished: planReleaseAgainstLatestPublishedPublic,
         resolveAndLinkAll: resolveAndLinkAllPublic,
         packPackage: packPackagePublic,

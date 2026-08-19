@@ -512,6 +512,40 @@ suite('runner release-pr and pack', function () {
         });
     });
 
+    suite('inspect dependencies command', function () {
+        test('loads the config and forwards the package name to inspectPackageDependencies', async function () {
+            const loadConfig = fake.resolves('the-config');
+            const inspectPackageDependencies = fake.resolves({
+                result: Result.ok({ packageName: 'pkg-a', dependencies: [] })
+            });
+            const runner = createRunner({ loadConfig, inspectPackageDependencies });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'inspect', 'dependencies', 'pkg-a' ]);
+
+            assert.strictEqual(exitCode, 0);
+            assert.strictEqual(loadConfig.callCount, 1);
+            assert.deepStrictEqual(inspectPackageDependencies.firstCall.args, [ 'the-config', 'pkg-a' ]);
+        });
+
+        test('returns exit code 1 when inspectPackageDependencies reports an Err', async function () {
+            const inspectPackageDependencies = fake.resolves(
+                { result: Result.err({ type: 'package-not-found', packageName: 'missing' }) }
+            );
+            const runner = createRunner({ inspectPackageDependencies });
+
+            const exitCode = await runner.run([ 'foo', 'bar', 'inspect', 'dependencies', 'missing' ]);
+
+            assert.strictEqual(exitCode, 1);
+        });
+
+        test('inspect dependencies --help advertises the package argument', async function () {
+            const help = await expectHelp([ 'inspect', 'dependencies', '--help' ]);
+
+            assert.match(help, /Prints why final manifest dependencies are emitted for one package\./u);
+            assert.match(help, /<package>/u);
+        });
+    });
+
     suite('tree command', function () {
         test('tree command loads the config and forwards the package name to inspectPackageTree', async function () {
             const loadConfig = fake.resolves('the-config');

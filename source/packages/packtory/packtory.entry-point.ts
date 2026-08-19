@@ -3,6 +3,9 @@ import type { VersionProviderInput as PublicVersionProviderInput } from '../../c
 import type {
     BuildAndPublishAllOptions as PublicBuildAndPublishAllOptions,
     BuildReport as PublicBuildReport,
+    PackageDependencyInspection as PublicPackageDependencyInspection,
+    PackageDependencyInspectionOutcome as PublicPackageDependencyInspectionOutcome,
+    PackageDependencyInspectionResult as PublicPackageDependencyInspectionResult,
     PackageReleaseAnalysis as PublicPackageReleaseAnalysis,
     PackageReleaseAnalysisClassification as PublicPackageReleaseAnalysisClassification,
     PackAllOutcome as PublicPackAllOutcome,
@@ -41,6 +44,7 @@ export const {
     analyzeReleaseAgainstLatestPublished,
     buildAndPublishAll,
     diffAgainstLatestPublished,
+    inspectPackageDependencies,
     planReleaseAgainstLatestPublished,
     resolveAndLinkAll,
     packAllPackages,
@@ -52,6 +56,9 @@ export type PacktoryConfig = PublicPacktoryConfig;
 export type VersionProviderInput = PublicVersionProviderInput;
 export type BuildAndPublishAllOptions = PublicBuildAndPublishAllOptions;
 export type BuildReport = PublicBuildReport;
+export type PackageDependencyInspection = PublicPackageDependencyInspection;
+export type PackageDependencyInspectionOutcome = PublicPackageDependencyInspectionOutcome;
+export type PackageDependencyInspectionResult = PublicPackageDependencyInspectionResult;
 export type PackageReleaseAnalysis = PublicPackageReleaseAnalysis;
 export type PackageReleaseAnalysisClassification = PublicPackageReleaseAnalysisClassification;
 export type PackAllOutcome = PublicPackAllOutcome;

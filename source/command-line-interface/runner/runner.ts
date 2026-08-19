@@ -21,6 +21,7 @@ import { runChangelogHandler } from './changelog-handler.ts';
 import { getParseExitCode } from './command-parsing.ts';
 import { runConfigInspectHandler } from './config-inspect-handler.ts';
 import { runPackHandler } from './pack-handler.ts';
+import { runPackageDependenciesHandler } from './package-dependencies-handler.ts';
 import { runPackageTreeHandler } from './package-tree-handler.ts';
 import { runPreviewHandler } from './preview-handler.ts';
 import { runReleaseDiffHandler } from './release-diff-handler.ts';
@@ -83,6 +84,8 @@ const releasePullRequestCommandName = 'release-pr';
 const authorizePublishReleasePullRequestCommandName = 'authorize-publish';
 const changelogCommandName = 'changelog';
 const configCommandName = 'config';
+const dependenciesInspectCommandName = 'dependencies';
+const inspectCommandName = 'inspect';
 const inspectConfigCommandName = 'inspect';
 const maintainReleasePullRequestCommandName = 'maintain';
 const packCommandName = 'pack';
@@ -371,6 +374,27 @@ export function createCommandLineInterfaceRunner(
                                 log,
                                 spinnerRenderer,
                                 configLoader
+                            });
+                        }
+                    })
+                }
+            }),
+            [inspectCommandName]: subcommands({
+                name: inspectCommandName,
+                cmds: {
+                    [dependenciesInspectCommandName]: command({
+                        name: dependenciesInspectCommandName,
+                        description: 'Prints why final manifest dependencies are emitted for one package.',
+                        args: {
+                            packageName: positional({ type: string, displayName: 'package' })
+                        },
+                        async handler({ packageName }) {
+                            exitCode = await runPackageDependenciesHandler({
+                                log,
+                                packtory,
+                                spinnerRenderer,
+                                configLoader,
+                                flags: { packageName, trace: traceEnabled }
                             });
                         }
                     })

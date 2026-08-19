@@ -149,7 +149,20 @@ function substitutedEntryResult(packageName: string): unknown {
     return {
         contents: [ substitutedEntryContent(packageName) ],
         externalDependencies: new Map(),
-        linkedBundleDependencies: new Map([ [ packageName, { name: packageName, referencedFrom: [ '/entry.js' ] } ] ]),
+        linkedBundleDependencies: new Map([ [
+            packageName,
+            {
+                name: packageName,
+                referencedFrom: [ '/entry.js' ],
+                references: [
+                    {
+                        sourceFilePath: '/entry.js',
+                        sourceSpecifier: './foo.js',
+                        emittedSpecifier: packageName
+                    }
+                ]
+            }
+        ] ]),
         substitutedSourceFilePathsByPackageName: new Map([ [ packageName, new Set([ '/foo.js' ]) ] ])
     };
 }
@@ -287,14 +300,30 @@ suite('substitute-bundles', function () {
         }, /^Error: Package "hidden-package" does not expose "\/foo\.js" for cross-package substitution$/u);
     });
 
-    test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', function () {
-        const inputGraph = buildEntryFooGraph();
-        const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('the-package', '/foo.js') ], []);
-        const result = substitutedGraph.flatten([ '/entry.js' ]);
+    suite('dependency references', function () {
+        test('substitutes a file that has imports statements matching the files in the given dependencies and returns a new graph eliminating unnecessary files', function () {
+            const inputGraph = buildEntryFooGraph();
+            const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('the-package', '/foo.js') ], []);
+            const result = substitutedGraph.flatten([ '/entry.js' ]);
 
-        assert.partialDeepStrictEqual(result, substitutedEntryResult('the-package'));
-        assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
-        assert.strictEqual(result.sourceMapTransformsByTargetPath.get('entry.js')?.length, 1);
+            assert.partialDeepStrictEqual(result, substitutedEntryResult('the-package'));
+            assert.deepStrictEqual(Array.from(result.sourceMapTransformsByTargetPath.keys()), [ 'entry.js' ]);
+            assert.strictEqual(result.sourceMapTransformsByTargetPath.get('entry.js')?.length, 1);
+        });
+
+        test('records dependency references when substituting without a TypeScript project', function () {
+            const inputGraph = buildInputGraph(entryFooSetup);
+            const substitutedGraph = substituteDependencies(inputGraph, [ bundleSource('the-package', '/foo.js') ], []);
+            const result = substitutedGraph.flatten([ '/entry.js' ]);
+
+            assert.deepStrictEqual(result.linkedBundleDependencies.get('the-package')?.references, [
+                {
+                    sourceFilePath: '/entry.js',
+                    sourceSpecifier: 'the-package',
+                    emittedSpecifier: 'the-package'
+                }
+            ]);
+        });
     });
 
     test('substitutes a file which matches an already substituted file from a dependency', function () {

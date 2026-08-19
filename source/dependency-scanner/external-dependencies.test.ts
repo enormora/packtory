@@ -40,4 +40,14 @@ suite('external-dependencies', function () {
 
         assert.deepStrictEqual(merged.get('lodash')?.referencedFrom, [ '/a.ts', '/b.ts', '/c.ts' ]);
     });
+
+    test('mergeExternalDependencies deduplicates duplicate dependency references', function () {
+        const reference = { sourceFilePath: '/a.ts', sourceSpecifier: 'lodash', emittedSpecifier: 'lodash' };
+        const merged = mergeExternalDependencies(
+            asMap({ name: 'lodash', referencedFrom: [ '/a.ts' ], references: [ reference ] }),
+            asMap({ name: 'lodash', referencedFrom: [ '/a.ts' ], references: [ reference ] })
+        );
+
+        assert.deepStrictEqual(merged.get('lodash')?.references, [ reference ]);
+    });
 });

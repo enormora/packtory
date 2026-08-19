@@ -280,7 +280,10 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [ { kind: 'external-package', packageName: 'foo', specifier: 'foo/package.json' } ]
+                );
             });
 
             test('returns external package references for package-owned wasm imports', function () {
@@ -291,7 +294,10 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [ { kind: 'external-package', packageName: 'foo', specifier: 'foo/module.wasm' } ]
+                );
             });
         });
 
@@ -307,7 +313,7 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo' } ]);
+                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo', specifier: 'foo' } ]);
             });
 
             test('returns external package references for declaration imports resolved through @types packages', function () {
@@ -322,7 +328,10 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: '@types/foo' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [ { kind: 'external-package', packageName: '@types/foo', specifier: 'foo' } ]
+                );
             });
 
             test('returns the imported package name for source files resolved through @types packages', function () {
@@ -340,7 +349,7 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo' } ]);
+                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo', specifier: 'foo' } ]);
             });
 
             test('returns external package references for declaration imports resolved outside @types packages', function () {
@@ -353,7 +362,7 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.d.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo' } ]);
+                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo', specifier: 'foo' } ]);
             });
         });
 
@@ -366,7 +375,10 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo.wasm' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [ { kind: 'external-package', packageName: 'foo.wasm', specifier: 'foo.wasm' } ]
+                );
             });
 
             test('resolves package-owned wasm imports by walking up node_modules ancestors', function () {
@@ -377,7 +389,10 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('/src/main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: 'foo' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [ { kind: 'external-package', packageName: 'foo', specifier: 'foo/module.wasm' } ]
+                );
             });
 
             test('returns external package references for scoped package-owned wasm imports', function () {
@@ -388,7 +403,10 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: '@scope/foo' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [ { kind: 'external-package', packageName: '@scope/foo', specifier: '@scope/foo/module.wasm' } ]
+                );
             });
         });
 
@@ -404,7 +422,10 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: '@scope/foo' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [ { kind: 'external-package', packageName: '@scope/foo', specifier: '@scope/foo' } ]
+                );
             });
         });
 
@@ -447,7 +468,16 @@ suite('source-file-references', function () {
 
                 const result = getReferencedModules(project.getSourceFileOrThrow('main.ts'), packageJsonPath);
 
-                assert.deepStrictEqual(result, [ { kind: 'external-package', packageName: '@scope/foo' } ]);
+                assert.deepStrictEqual(
+                    result,
+                    [
+                        {
+                            kind: 'external-package',
+                            packageName: '@scope/foo',
+                            specifier: '@scope/foo/package.json'
+                        }
+                    ]
+                );
             });
 
             test('returns generated manifest references for root package.json imports', function () {

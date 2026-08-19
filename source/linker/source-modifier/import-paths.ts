@@ -6,13 +6,25 @@ import {
     resolveSourceFileForLiteral
 } from '../../dependency-scanner/source-file-references.ts';
 import { getSourcePathFromSourceFile } from '../../dependency-scanner/typescript-project-analyzer.ts';
+import type { ImportPathReplacement } from '../replacement-lookup.ts';
 
-type Replacements = ReadonlyMap<string, string>;
+type Replacements = ReadonlyMap<string, ImportPathReplacement>;
 
-type LiteralEdit = readonly [start: number, end: number, replacement: string];
+export type ImportPathDependencyReference = {
+    readonly name: string;
+    readonly sourceSpecifier: string;
+    readonly emittedSpecifier: string;
+};
+
+type LiteralEdit = {
+    readonly start: number;
+    readonly end: number;
+    readonly reference: ImportPathDependencyReference;
+};
 
 export type ImportPathReplacementResult = {
     readonly content: string;
+    readonly dependencyReferences: readonly ImportPathDependencyReference[];
     readonly sourceMapTransform: SourceMapTransform | undefined;
 };
 
@@ -24,40 +36,54 @@ function collectImportPathEdits(sourceFile: SourceFile, replacements: Replacemen
         if (resolvedSourceFile !== undefined) {
             const replacement = replacements.get(getSourcePathFromSourceFile(resolvedSourceFile));
             if (replacement !== undefined) {
-                edits.push([ literal.getStart() + 1, literal.getEnd() - 1, replacement ]);
+                edits.push({
+                    start: literal.getStart() + 1,
+                    end: literal.getEnd() - 1,
+                    reference: {
+                        name: replacement.packageName,
+                        sourceSpecifier: literal.getLiteralValue(),
+                        emittedSpecifier: replacement.emittedSpecifier
+                    }
+                });
             }
         }
     }
     return edits.toSorted(function (left, right) {
-        return left[0] - right[0];
+        return left.start - right.start;
     });
 }
 
 function applyEdits(sourceContent: string, edits: readonly LiteralEdit[]): ImportPathReplacementResult {
     let content = '';
     let originalOffset = 0;
-    let transformedOffset = 0;
     const atoms: PositionAtom[] = [];
 
     function appendEdit(edit: LiteralEdit): void {
-        const [ start, end, replacement ] = edit;
-        content += sourceContent.slice(originalOffset, start) + replacement;
-        atoms.push({ originalStart: originalOffset, originalEnd: start, newStart: transformedOffset });
-        transformedOffset = content.length;
-        originalOffset = end;
+        const newStart = content.length;
+        content += sourceContent.slice(originalOffset, edit.start) + edit.reference.emittedSpecifier;
+        atoms.push({ originalStart: originalOffset, originalEnd: edit.start, newStart });
+        originalOffset = edit.end;
+    }
+
+    function appendTail(): void {
+        const tailStart = content.length;
+        content += sourceContent.slice(originalOffset);
+        atoms.push({
+            originalStart: originalOffset,
+            originalEnd: sourceContent.length,
+            newStart: tailStart
+        });
     }
 
     for (const edit of edits) {
         appendEdit(edit);
     }
-    content += sourceContent.slice(originalOffset);
-    atoms.push({
-        originalStart: originalOffset,
-        originalEnd: sourceContent.length,
-        newStart: transformedOffset
-    });
+    appendTail();
     return {
         content,
+        dependencyReferences: edits.map(function (edit) {
+            return edit.reference;
+        }),
         sourceMapTransform: {
             originalLineIndex: buildLineIndex(sourceContent),
             transformedLineIndex: buildLineIndex(content),
@@ -73,15 +99,15 @@ export function replaceImportPathsWithTransform(
     replacements: Replacements
 ): ImportPathReplacementResult {
     if (project === undefined) {
-        return { content: sourceContent, sourceMapTransform: undefined };
+        return { content: sourceContent, dependencyReferences: [], sourceMapTransform: undefined };
     }
     const sourceFile = project.getSourceFile(sourceFilePath);
     if (sourceFile === undefined) {
-        return { content: sourceContent, sourceMapTransform: undefined };
+        return { content: sourceContent, dependencyReferences: [], sourceMapTransform: undefined };
     }
     const edits = collectImportPathEdits(sourceFile, replacements);
     if (edits.length === 0) {
-        return { content: sourceContent, sourceMapTransform: undefined };
+        return { content: sourceContent, dependencyReferences: [], sourceMapTransform: undefined };
     }
     return applyEdits(sourceContent, edits);
 }

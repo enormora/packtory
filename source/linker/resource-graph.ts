@@ -1,6 +1,9 @@
 import type { Project } from 'ts-morph';
-import { filter, map, pipe } from 'remeda';
-import type { ExternalDependencies } from '../dependency-scanner/external-dependencies.ts';
+import { filter, flatMap, pipe } from 'remeda';
+import type {
+    DependencySpecifierReference,
+    ExternalDependencies
+} from '../dependency-scanner/external-dependencies.ts';
 import { type DirectedGraph, createDirectedGraph } from '../directed-graph/graph.ts';
 import type { TransferableFileDescription } from '../file-manager/file-description.ts';
 import type { BundleResource, ResolvedBundle } from '../resource-resolver/resolved-bundle.ts';
@@ -8,7 +11,7 @@ import type { BundleResource, ResolvedBundle } from '../resource-resolver/resolv
 export type ResourceGraphNodeData = {
     readonly fileDescription: TransferableFileDescription;
     readonly project?: Project | undefined;
-    readonly externalDependencies: readonly string[];
+    readonly externalDependencies: readonly (DependencySpecifierReference & { readonly name: string; })[];
     readonly isExplicitlyIncluded: boolean;
     readonly isGeneratedManifest?: true | undefined;
 };
@@ -18,14 +21,30 @@ export type ResourceGraph = DirectedGraph<string, ResourceGraphNodeData>;
 function collectResourceSpecificExternalDependencies(
     resource: BundleResource,
     externalDependencies: ExternalDependencies
-): readonly string[] {
+): readonly (DependencySpecifierReference & { readonly name: string; })[] {
     return pipe(
         Array.from(externalDependencies.values()),
         filter(function (dependency) {
             return dependency.referencedFrom.includes(resource.fileDescription.sourceFilePath);
         }),
-        map(function (dependency) {
-            return dependency.name;
+        flatMap(function (dependency) {
+            const references = dependency.references?.filter(function (reference) {
+                return reference.sourceFilePath === resource.fileDescription.sourceFilePath;
+            });
+            if (references === undefined || references.length === 0) {
+                return [ {
+                    name: dependency.name,
+                    sourceSpecifier: dependency.name,
+                    emittedSpecifier: dependency.name
+                } ];
+            }
+            return references.map(function (reference) {
+                return {
+                    name: dependency.name,
+                    sourceSpecifier: reference.sourceSpecifier,
+                    emittedSpecifier: reference.emittedSpecifier
+                };
+            });
         })
     );
 }

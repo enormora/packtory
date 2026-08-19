@@ -2,9 +2,14 @@ import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import type { Project } from 'ts-morph';
 import { createProject } from '../../test-libraries/typescript-project.ts';
+import type { ImportPathReplacement } from '../replacement-lookup.ts';
 import { replaceImportPathsWithTransform } from './import-paths.ts';
 
-type Replacements = ReadonlyMap<string, string>;
+type Replacements = ReadonlyMap<string, ImportPathReplacement>;
+
+function replacement(emittedSpecifier: string, packageName = emittedSpecifier): ImportPathReplacement {
+    return { emittedSpecifier, packageName };
+}
 
 function replaceImportPaths(
     project: Project | undefined,
@@ -17,32 +22,40 @@ function replaceImportPaths(
 
 suite('import-paths', function () {
     test('returns source code unmodified when project is undefined', function () {
-        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+        const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
-        const result = replaceImportPaths(
+        const result = replaceImportPathsWithTransform(
             undefined,
             '/folder/foo.ts',
             'const foo = "bar"; import "./bar";',
             replacements
         );
 
-        assert.strictEqual(result, 'const foo = "bar"; import "./bar";');
+        assert.deepStrictEqual(result, {
+            content: 'const foo = "bar"; import "./bar";',
+            dependencyReferences: [],
+            sourceMapTransform: undefined
+        });
     });
 
     test('returns source code unmodified when there is no matching file in the given project', function () {
         const project = createProject({
             withFiles: [ { filePath: '/folder/bar.ts', content: 'const bar = "baz";' } ]
         });
-        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+        const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
-        const result = replaceImportPaths(
+        const result = replaceImportPathsWithTransform(
             project,
             '/folder/foo.ts',
             'const foo = "bar"; import "./bar";',
             replacements
         );
 
-        assert.strictEqual(result, 'const foo = "bar"; import "./bar";');
+        assert.deepStrictEqual(result, {
+            content: 'const foo = "bar"; import "./bar";',
+            dependencyReferences: [],
+            sourceMapTransform: undefined
+        });
     });
 
     test('returns source code unmodified when it doesn’t contain any import statement that needs to be replaced', function () {
@@ -52,7 +65,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+        const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
         const result = replaceImportPaths(project, '/folder/foo.ts', 'const foo = "bar";', replacements);
 
@@ -66,16 +79,20 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>();
+        const replacements = new Map<string, ImportPathReplacement>();
 
-        const result = replaceImportPaths(
+        const result = replaceImportPathsWithTransform(
             project,
             '/folder/foo.ts',
             'const foo = "bar"; import "./bar";',
             replacements
         );
 
-        assert.strictEqual(result, 'const foo = "bar"; import "./bar";');
+        assert.deepStrictEqual(result, {
+            content: 'const foo = "bar"; import "./bar";',
+            dependencyReferences: [],
+            sourceMapTransform: undefined
+        });
     });
 
     test('returns the source code with the modified import statement', function () {
@@ -85,7 +102,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+        const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
         const result = replaceImportPaths(
             project,
@@ -105,7 +122,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/baz.ts', content: 'const baz = "qux";' }
             ]
         });
-        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+        const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
         const result = replaceImportPaths(project, '/folder/foo.ts', 'import "./baz"; import "./bar";', replacements);
 
@@ -119,7 +136,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.d.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([ [ '/folder/bar.d.ts', 'replacement/bar.d.ts' ] ]);
+        const replacements = new Map([ [ '/folder/bar.d.ts', replacement('replacement/bar.d.ts') ] ]);
 
         const result = replaceImportPaths(project, '/folder/foo.d.ts', 'import "./bar.js"', replacements);
 
@@ -133,7 +150,7 @@ suite('import-paths', function () {
                 { filePath: '/folder/bar.ts', content: 'const bar = "baz";' }
             ]
         });
-        const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+        const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
         const result = replaceImportPaths(
             project,
@@ -153,7 +170,7 @@ suite('import-paths', function () {
                     { filePath: '/folder/bar.ts', content: 'export {};' }
                 ]
             });
-            const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+            const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
             const result = replaceImportPaths(
                 project,
@@ -172,7 +189,7 @@ suite('import-paths', function () {
                     { filePath: '/folder/bar.ts', content: 'export {};' }
                 ]
             });
-            const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+            const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
             const result = replaceImportPaths(
                 project,
@@ -194,7 +211,7 @@ suite('import-paths', function () {
                     { filePath: '/folder/bar.ts', content: 'export {};' }
                 ]
             });
-            const replacements = new Map<string, string>([ [ '/folder/bar.ts', 'replacement' ] ]);
+            const replacements = new Map([ [ '/folder/bar.ts', replacement('replacement') ] ]);
 
             const result = replaceImportPathsWithTransform(project, '/folder/foo.ts', content, replacements);
             const passThrough = replaceImportPathsWithTransform(project, '/folder/foo.ts', content, new Map());
@@ -204,9 +221,15 @@ suite('import-paths', function () {
                 { originalStart: 0, originalEnd: 8, newStart: 0 },
                 { originalStart: 13, originalEnd: content.length, newStart: 19 }
             ]);
-            assert.strictEqual(Object.hasOwn(transform, 'originalCode'), false);
-            assert.strictEqual(Object.hasOwn(transform, 'transformedCode'), false);
-            assert.strictEqual(passThrough.sourceMapTransform, undefined);
+            assert.partialDeepStrictEqual({
+                hasOriginalCode: Object.hasOwn(transform, 'originalCode'),
+                hasTransformedCode: Object.hasOwn(transform, 'transformedCode'),
+                passThroughSourceMapTransform: passThrough.sourceMapTransform
+            }, {
+                hasOriginalCode: false,
+                hasTransformedCode: false,
+                passThroughSourceMapTransform: undefined
+            });
         });
 
         test('applies edits in source order when import.meta.resolve() appears before an import', function () {
@@ -218,17 +241,20 @@ suite('import-paths', function () {
                     { filePath: '/folder/baz.ts', content: 'export {};' }
                 ]
             });
-            const replacements = new Map<string, string>([
-                [ '/folder/bar.ts', 'bar-package' ],
-                [ '/folder/baz.ts', 'baz-package' ]
+            const replacements = new Map([
+                [ '/folder/bar.ts', replacement('bar-package') ],
+                [ '/folder/baz.ts', replacement('baz-package') ]
             ]);
 
             const result = replaceImportPathsWithTransform(project, '/folder/foo.ts', content, replacements);
 
-            assert.strictEqual(
-                result.content,
-                'const url = import.meta.resolve("bar-package"); import "baz-package";'
-            );
+            assert.partialDeepStrictEqual(result, {
+                content: 'const url = import.meta.resolve("bar-package"); import "baz-package";',
+                dependencyReferences: [
+                    { name: 'bar-package', sourceSpecifier: './bar.js', emittedSpecifier: 'bar-package' },
+                    { name: 'baz-package', sourceSpecifier: './baz.js', emittedSpecifier: 'baz-package' }
+                ]
+            });
         });
     });
 });
