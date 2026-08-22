@@ -1,4 +1,10 @@
-import { Node as TsMorphNode, SyntaxKind, type CallExpression, type Expression, type NewExpression } from 'ts-morph';
+import {
+    Node as TsMorphNode,
+    SyntaxKind,
+    type CallExpression,
+    type Expression,
+    type NewExpression
+} from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import { unwrapExpression } from './expression-unwrapping.ts';
 import {
@@ -6,6 +12,7 @@ import {
     resolveImportedExpressionOrigin,
     type ExpressionPurityChecker
 } from './imported-expression-origin.ts';
+import { externalCallIsPure } from './liveness/external-purity.ts';
 import {
     allowedBinaryOperators,
     allowedPrefixUnaryOperators,
@@ -49,6 +56,18 @@ function isPureBuiltinCallExpression(
         : false;
 }
 
+function hasPureAnnotation(expression: Expression): boolean {
+    const text = expression.getFullText();
+    return text.includes('@__PURE__') || text.includes('#__PURE__');
+}
+
+function pureAnnotationMakesCallPure(
+    expression: CallExpression | NewExpression,
+    recurse: ExpressionPurityChecker
+): boolean {
+    return hasPureAnnotation(expression) && arePureCallArguments(expression.getArguments(), recurse);
+}
+
 function isPureCallExpression(
     expression: CallExpression,
     recurse: ExpressionPurityChecker,
@@ -56,9 +75,19 @@ function isPureCallExpression(
 ): boolean {
     const callTarget = unwrapExpression(expression.getExpression());
     return (
+        pureAnnotationMakesCallPure(expression, recurse) ||
         isPureBuiltinCallExpression(callTarget, expression, recurse) ||
+        externalCallIsPure(expression, recurse) ||
         resolveImportedExpressionOrigin(expression, recurse, settings) !== undefined
     );
+}
+
+function constructorNameIsTrusted(
+    constructorExpression: Expression,
+    settings: DeadCodeEliminationSettings | undefined
+): boolean {
+    return TsMorphNode.isIdentifier(constructorExpression) &&
+        settings?.pureConstructors?.includes(constructorExpression.getText()) === true;
 }
 
 function isPureNewExpression(
@@ -67,13 +96,9 @@ function isPureNewExpression(
     settings: DeadCodeEliminationSettings | undefined
 ): boolean {
     const constructorExpression = unwrapExpression(expression.getExpression());
-    const pureConstructors = settings?.pureConstructors;
-    return (
-        TsMorphNode.isIdentifier(constructorExpression) &&
-        pureConstructors !== undefined &&
-        pureConstructors.includes(constructorExpression.getText()) &&
-        arePureCallArguments(expression.getArguments(), recurse)
-    );
+    const trustedConstructorCall = constructorNameIsTrusted(constructorExpression, settings) &&
+        arePureCallArguments(expression.getArguments(), recurse);
+    return pureAnnotationMakesCallPure(expression, recurse) || trustedConstructorCall;
 }
 
 function templateExpressionIsPure(expression: Expression, recurse: ExpressionPurityChecker): boolean {

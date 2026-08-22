@@ -1,7 +1,15 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
-import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
+import type { AnalyzedBundleResource, FileAnalysis } from './analyzed-bundle.ts';
 import { computeSideEffectsField } from './side-effects-field.ts';
+
+function analysis(hasSideEffects: boolean): FileAnalysis {
+    return {
+        survivingBindings: new Set<string>(),
+        sideEffectStatements: hasSideEffects ? [ { line: 1, kind: 'expression statement' } ] : [],
+        sideEffectImports: new Set<string>()
+    };
+}
 
 function resource(targetFilePath: string, hasSideEffects = false): AnalyzedBundleResource {
     return {
@@ -9,15 +17,11 @@ function resource(targetFilePath: string, hasSideEffects = false): AnalyzedBundl
         directDependencies: new Set<string>(),
         isSubstituted: false,
         isExplicitlyIncluded: false,
-        analysis: {
-            survivingBindings: new Set<string>(),
-            sideEffectStatements: hasSideEffects ? [ { line: 1, kind: 'expression statement' } ] : [],
-            sideEffectImports: new Set<string>()
-        }
+        analysis: analysis(hasSideEffects)
     };
 }
 
-suite('side-effects-field', function () {
+function registerWholeFieldTests(): void {
     test('returns false when there are no resources at all', function () {
         assert.strictEqual(computeSideEffectsField([]), false);
     });
@@ -33,7 +37,9 @@ suite('side-effects-field', function () {
     test('returns undefined when every code file has side effects', function () {
         assert.strictEqual(computeSideEffectsField([ resource('a.js', true), resource('b.ts', true) ]), undefined);
     });
+}
 
+function registerPathListTests(): void {
     test('returns the impure file paths when only some code files have side effects', function () {
         assert.deepStrictEqual(
             computeSideEffectsField([ resource('a.js'), resource('b.js', true), resource('c.js') ]),
@@ -61,6 +67,13 @@ suite('side-effects-field', function () {
         );
     });
 
+    test('ignores declaration files when classifying runtime side effects', function () {
+        assert.strictEqual(
+            computeSideEffectsField([ resource('index.js', true), resource('index.d.ts') ]),
+            undefined
+        );
+    });
+
     test('reports the impure file even when pure non-code files are also present', function () {
         const field = computeSideEffectsField([ resource('a.js', true), resource('b.js'), resource('LICENSE') ]);
         assert.deepStrictEqual(field, [ './a.js' ]);
@@ -76,4 +89,9 @@ suite('side-effects-field', function () {
             assert.strictEqual(path.startsWith('./'), true);
         }
     });
+}
+
+suite('side-effects-field', function () {
+    registerWholeFieldTests();
+    registerPathListTests();
 });

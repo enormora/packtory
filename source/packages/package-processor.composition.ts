@@ -129,8 +129,7 @@ function buildDeadCodeEliminator(progressBroadcaster: ProgressBroadcaster): Dead
                     target: ScriptTarget.ES2022,
                     moduleResolution: ModuleResolutionKind.Node16
                 },
-                skipLoadingLibFiles: true,
-                useInMemoryFileSystem: true
+                skipLoadingLibFiles: true
             });
         }
     });

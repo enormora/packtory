@@ -14,6 +14,12 @@ type TrustedImport = {
     readonly imports?: readonly string[] | undefined;
 };
 
+type ImportedExpressionOriginResolver = (
+    expression: Expression,
+    recurse: ExpressionPurityChecker,
+    settings: DeadCodeEliminationSettings | undefined
+) => ImportedExpressionOrigin | undefined;
+
 function importedOriginForDeclaration(declaration: TsMorphNode): ImportedExpressionOrigin | undefined {
     if (TsMorphNode.isImportSpecifier(declaration)) {
         return {
@@ -112,24 +118,52 @@ function originOfTrustedCall(
     return arePureCallArguments(callArguments, recurse) ? callee : undefined;
 }
 
+export function resolveImportedExpressionPath(expression: Expression): ImportedExpressionOrigin | undefined {
+    const unwrapped = unwrapExpression(expression);
+    if (TsMorphNode.isIdentifier(unwrapped)) {
+        return importedOriginForIdentifier(unwrapped);
+    }
+    return undefined;
+}
+
+function propertyAccessOrigin(
+    expression: Expression,
+    recurse: ExpressionPurityChecker,
+    settings: DeadCodeEliminationSettings | undefined,
+    resolveOrigin: ImportedExpressionOriginResolver
+): ImportedExpressionOrigin | undefined {
+    if (!TsMorphNode.isPropertyAccessExpression(expression)) {
+        return undefined;
+    }
+    const base = resolveOrigin(expression.getExpression(), recurse, settings);
+    return appendPropertyAccess(base, expression.getName());
+}
+
+function trustedCallOrigin(
+    expression: Expression,
+    recurse: ExpressionPurityChecker,
+    settings: DeadCodeEliminationSettings | undefined,
+    resolveOrigin: ImportedExpressionOriginResolver
+): ImportedExpressionOrigin | undefined {
+    if (!TsMorphNode.isCallExpression(expression)) {
+        return undefined;
+    }
+    const callee = resolveOrigin(expression.getExpression(), recurse, settings);
+    return originOfTrustedCall(callee, expression.getArguments(), recurse, settings);
+}
+
 export function resolveImportedExpressionOrigin(
     expression: Expression,
     recurse: ExpressionPurityChecker,
     settings: DeadCodeEliminationSettings | undefined
 ): ImportedExpressionOrigin | undefined {
     const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isIdentifier(unwrapped)) {
-        return importedOriginForIdentifier(unwrapped);
+    const directOrigin = resolveImportedExpressionPath(unwrapped);
+    if (directOrigin !== undefined) {
+        return directOrigin;
     }
-    if (TsMorphNode.isPropertyAccessExpression(unwrapped)) {
-        const base = resolveImportedExpressionOrigin(unwrapped.getExpression(), recurse, settings);
-        return appendPropertyAccess(base, unwrapped.getName());
-    }
-    if (TsMorphNode.isCallExpression(unwrapped)) {
-        const callee = resolveImportedExpressionOrigin(unwrapped.getExpression(), recurse, settings);
-        return originOfTrustedCall(callee, unwrapped.getArguments(), recurse, settings);
-    }
-    return undefined;
+    return propertyAccessOrigin(unwrapped, recurse, settings, resolveImportedExpressionOrigin) ??
+        trustedCallOrigin(unwrapped, recurse, settings, resolveImportedExpressionOrigin);
 }
 
 export { arePureCallArguments };

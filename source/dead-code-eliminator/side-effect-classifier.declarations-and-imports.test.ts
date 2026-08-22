@@ -69,5 +69,11 @@ suite('side-effect-classifier declarations and imports', function () {
         test('flags a bare import of a CSS module as impure', function () {
             assert.deepStrictEqual(classify('import "./styles.css";'), [ { line: 1, kind: 'css import' } ]);
         });
+
+        test('flags documented style asset imports as impure', function () {
+            assert.deepStrictEqual(classify('import "./styles.scss";'), [ { line: 1, kind: 'scss import' } ]);
+            assert.deepStrictEqual(classify('import "./styles.sass";'), [ { line: 1, kind: 'sass import' } ]);
+            assert.deepStrictEqual(classify('import "./styles.less";'), [ { line: 1, kind: 'less import' } ]);
+        });
     });
 });

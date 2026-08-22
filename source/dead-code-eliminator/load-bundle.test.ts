@@ -48,6 +48,22 @@ suite('load-bundle', function () {
         assert.strictEqual(result.fileBindings.length, 1);
     });
 
+    test('loadBundle() overwrites duplicate source files inside one project', function () {
+        const duplicateResource = {
+            ...bundleResource('/src/index.js', {
+                content: 'export const value = 2;\n',
+                targetFilePath: 'index.js'
+            }),
+            isSubstituted: false
+        };
+        const bundle = packageABundle({ contents: [ indexResource(), duplicateResource ] });
+
+        const result = loadBundle(createProject, { bundle, transformationsEnabled: true });
+
+        assert.strictEqual(result.fileBindings.length, 2);
+        assert.strictEqual(result.fileBindings[1]?.sourceFile.getFullText(), duplicateResource.fileDescription.content);
+    });
+
     test('loadBundle() throws when the public surface references a missing root', function () {
         const bundle = packageABundle({
             surface: {

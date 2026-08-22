@@ -1,6 +1,6 @@
 import { Node as TsMorphNode, type Expression } from 'ts-morph';
 
-function nextUnwrappedExpression(expression: Expression): Expression | undefined {
+function nextUnwrappedExpression(expression: Expression | undefined): Expression | undefined {
     if (TsMorphNode.isAsExpression(expression) || TsMorphNode.isSatisfiesExpression(expression)) {
         return expression.getExpression();
     }
@@ -14,7 +14,9 @@ function nextUnwrappedExpression(expression: Expression): Expression | undefined
     return undefined;
 }
 
-export function unwrapExpression(expression: Expression): Expression {
+export function unwrapExpression(expression: Expression): Expression;
+export function unwrapExpression(expression: Expression | undefined): Expression | undefined;
+export function unwrapExpression(expression: Expression | undefined): Expression | undefined {
     const nextExpression = nextUnwrappedExpression(expression);
     return nextExpression === undefined ? expression : unwrapExpression(nextExpression);
 }

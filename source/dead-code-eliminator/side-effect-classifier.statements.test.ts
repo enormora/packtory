@@ -19,6 +19,52 @@ suite('side-effect-classifier statements', function () {
             assert.deepStrictEqual(classify('if (true) { console.log(1); }'), [ { line: 1, kind: 'if statement' } ]);
         });
 
+        suite('static boolean conditions', function () {
+            test('treats a statically false top-level if statement without else as pure', function () {
+                assert.deepStrictEqual(classify('const enabled = false;\nif (enabled) { console.log(1); }'), []);
+            });
+
+            test('treats statically true boolean fact conditions as impure', function () {
+                assert.deepStrictEqual(
+                    classify('const enabled = false || true;\nif (enabled) { console.log(1); }'),
+                    [ { line: 2, kind: 'if statement' } ]
+                );
+            });
+
+            test('treats statically false boolean expressions as pure', function () {
+                assert.deepStrictEqual(
+                    classify('const enabled = true && false;\nif (enabled) { console.log(1); }'),
+                    []
+                );
+                assert.deepStrictEqual(
+                    classify('const enabled = true === false;\nif (enabled) { console.log(1); }'),
+                    []
+                );
+                assert.deepStrictEqual(
+                    classify('const enabled = true !== true;\nif (enabled) { console.log(1); }'),
+                    []
+                );
+                assert.deepStrictEqual(classify('const enabled = !true;\nif (enabled) { console.log(1); }'), []);
+            });
+
+            test('does not use mutable boolean declarations as facts', function () {
+                assert.deepStrictEqual(classify('let enabled = false;\nif (enabled) { console.log(1); }'), [
+                    { line: 2, kind: 'if statement' }
+                ]);
+            });
+
+            test('keeps statically false if statements with else branches impure', function () {
+                assert.deepStrictEqual(
+                    classify('const enabled = false;\nif (enabled) { console.log(1); } else { console.log(2); }'),
+                    [ { line: 2, kind: 'if statement' } ]
+                );
+            });
+        });
+
+        test('treats an unknown top-level if condition as impure', function () {
+            assert.deepStrictEqual(classify('if (enabled) { console.log(1); }'), [ { line: 1, kind: 'if statement' } ]);
+        });
+
         test('treats a top-level for statement as impure', function () {
             assert.deepStrictEqual(classify('for (let i = 0; i < 1; i++) { console.log(i); }'), [
                 { line: 1, kind: 'for statement' }

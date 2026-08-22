@@ -5,6 +5,7 @@ import {
     type SourceFile,
     type Statement
 } from 'ts-morph';
+import { isDeclarationCodeTargetPath } from '../liveness/runtime-code.ts';
 import { variableDeclarationSurvives } from '../variable-declaration-bindings.ts';
 import { isNamedDeclaration } from './named-declaration-kinds.ts';
 
@@ -45,6 +46,9 @@ function importName(binding: ReturnType<ImportDeclaration['getNamedImports']>[nu
 }
 
 function hasRuntime(declaration: ImportDeclaration): boolean {
+    if (isDeclarationCodeTargetPath(declaration.getSourceFile().getFilePath())) {
+        return false;
+    }
     if (declaration.isTypeOnly()) {
         return false;
     }

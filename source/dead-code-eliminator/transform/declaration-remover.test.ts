@@ -13,10 +13,11 @@ type TransformResult = {
 
 function transform(
     content: string,
-    surviving: ReadonlySet<string>
+    surviving: ReadonlySet<string>,
+    filePath = 'index.ts'
 ): TransformResult {
-    const project = createProject({ withFiles: [ { filePath: 'index.ts', content } ] });
-    const sourceFile = project.getSourceFileOrThrow('index.ts');
+    const project = createProject({ withFiles: [ { filePath, content } ] });
+    const sourceFile = project.getSourceFileOrThrow(filePath);
     const result = applyRemovalPlan(sourceFile, { survivingNames: surviving });
     return { text: sourceFile.getFullText(), mutated: result.mutated, atoms: result.atoms };
 }
@@ -237,6 +238,16 @@ suite('declaration-remover', function () {
             );
 
             assert.strictEqual(text, 'export const api = 1;');
+        });
+
+        test('removes stale declaration-file imports instead of converting them to bare imports', function () {
+            const { text } = transform(
+                'import { Dead } from "./types.js";\nexport interface Api {}',
+                new Set([ 'Api' ]),
+                'index.d.ts'
+            );
+
+            assert.strictEqual(text, 'export interface Api {}');
         });
 
         test('removes stale inline type-only imports', function () {

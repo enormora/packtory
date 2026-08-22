@@ -69,7 +69,7 @@ suite('eliminator resource pruning', function () {
         assert.strictEqual(analyzed?.contents[0]?.fileDescription.content, '');
     });
 
-    test('eliminate keeps declaration module files outside surviving runtime edges', async function () {
+    test('eliminate prunes declaration module files outside the public declaration surface', async function () {
         const eliminator = createTestEliminator();
         const input = bundle([
             resource('/src/index.js', 'export const api = 1;\n', 'index.js'),
@@ -79,7 +79,20 @@ suite('eliminator resource pruning', function () {
 
         const [ analyzed ] = await eliminator.eliminate(inputs(input));
 
-        assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js', 'types.d.cts', 'types.d.mts' ]);
+        assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js' ]);
+    });
+
+    test('eliminate prunes a paired declaration source map with its dead declaration file', async function () {
+        const eliminator = createTestEliminator();
+        const input = bundle([
+            resource('/src/index.js', 'export const api = 1;\n', 'index.js'),
+            resource('/src/dead.d.ts', 'export type Dead = string;\n', 'dead.d.ts', new Set([ '/src/dead.d.ts.map' ])),
+            resource('/src/dead.d.ts.map', '{"version":3,"mappings":""}', 'dead.d.ts.map')
+        ]);
+
+        const [ analyzed ] = await eliminator.eliminate(inputs(input));
+
+        assert.deepStrictEqual(collectTargetPaths(analyzed), [ 'index.js' ]);
     });
 
     test('eliminate keeps a pure file reached by a surviving bare import', async function () {

@@ -1,5 +1,4 @@
 import { Node as TsMorphNode, type SourceFile, type Statement } from 'ts-morph';
-import { isDeclarationCompanionFilePath } from '../../common/declaration-companion-paths.ts';
 import type { DeadCodeEliminationSettings } from '../../config/dead-code-elimination-settings.ts';
 import { bindingId, type FileBindingSet } from './binding-id.ts';
 import { collectIdentifierTargets, type DeclarationNodeIndex } from './identifier-target-collector.ts';
@@ -30,7 +29,7 @@ function entryPointExportDeclarationSeeds(
 }
 
 function exportedBindingSeeds(file: FileBindings, isEntry: boolean): readonly string[] {
-    if (!isEntry && !isDeclarationCompanionFilePath(file.sourceFilePath)) {
+    if (!isEntry) {
         return [];
     }
     return file.bindings.flatMap(function (binding) {

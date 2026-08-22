@@ -48,7 +48,8 @@ function loadResource(
     const project = projectForResource(runtimeProject, declarationProject, resource);
     const sourceFile = project.createSourceFile(
         resource.fileDescription.sourceFilePath,
-        resource.fileDescription.content
+        resource.fileDescription.content,
+        { overwrite: true }
     );
     return { resource, sourceFile, bindings: extractTopLevelBindings(sourceFile) };
 }
@@ -77,6 +78,9 @@ function entryRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
         }
 
         paths.add(root.js.sourceFilePath);
+        if (root.declarationFile !== undefined) {
+            paths.add(root.declarationFile.sourceFilePath);
+        }
     }
     return paths;
 }
