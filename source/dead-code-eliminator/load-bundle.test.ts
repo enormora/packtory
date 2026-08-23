@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { linkedBundle, bundleResource } from '../test-libraries/bundle-fixtures.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
+import type { EliminationInput } from './analyzed-bundle.ts';
 import { loadBundle } from './load-bundle.ts';
 
 const indexFile = {
@@ -31,6 +32,13 @@ function packageABundle(overrides: Partial<Parameters<typeof linkedBundle>[0]> =
     });
 }
 
+function loadInput(
+    bundle: LinkedBundle,
+    substitutionPublicModuleSourceFilePaths: ReadonlySet<string> = new Set<string>()
+): EliminationInput {
+    return { bundle, transformationsEnabled: true, substitutionPublicModuleSourceFilePaths };
+}
+
 suite('load-bundle', function () {
     test('loadBundle() keeps non-code resources out of source-file analysis', function () {
         const resource = {
@@ -42,7 +50,7 @@ suite('load-bundle', function () {
         };
         const bundle = packageABundle({ contents: [ indexResource(), resource ] });
 
-        const result = loadBundle(createProject, { bundle, transformationsEnabled: true });
+        const result = loadBundle(createProject, loadInput(bundle));
 
         assert.deepStrictEqual(result.loaded[1], { resource });
         assert.strictEqual(result.fileBindings.length, 1);
@@ -58,7 +66,7 @@ suite('load-bundle', function () {
         };
         const bundle = packageABundle({ contents: [ indexResource(), duplicateResource ] });
 
-        const result = loadBundle(createProject, { bundle, transformationsEnabled: true });
+        const result = loadBundle(createProject, loadInput(bundle));
 
         assert.strictEqual(result.fileBindings.length, 2);
         assert.strictEqual(result.fileBindings[1]?.sourceFile.getFullText(), duplicateResource.fileDescription.content);
@@ -75,7 +83,7 @@ suite('load-bundle', function () {
         });
 
         assert.throws(function () {
-            loadBundle(createProject, { bundle, transformationsEnabled: true });
+            loadBundle(createProject, loadInput(bundle));
         }, /^Error: Bundle "package-a" is missing root "missing" referenced by its entry surface$/u);
     });
 });

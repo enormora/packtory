@@ -96,6 +96,33 @@ suite('package-analysis-stage', function () {
         assert.strictEqual(result[0]?.analyzedBundle, analyzed[0]);
     });
 
+    test('analyzeResolvedPackages forwards substitution-public module paths to the matching package', async function () {
+        const provider = linkedPackageNamed('pkg-a');
+        const consumer = {
+            ...linkedPackageNamed('consumer'),
+            linkedBundle: {
+                ...createLinkedBundle('consumer'),
+                substitutedSourceFilePathsByPackageName: new Map([
+                    [ 'pkg-a', new Set([ '/provider/feature.js' ]) ]
+                ])
+            }
+        };
+        const eliminator = stubEliminator(async function (inputs) {
+            assert.deepStrictEqual(
+                inputs[0]?.substitutionPublicModuleSourceFilePaths,
+                new Set([ '/provider/feature.js' ])
+            );
+            assert.deepStrictEqual(inputs[1]?.substitutionPublicModuleSourceFilePaths, new Set<string>());
+            return [ createAnalyzedBundle('pkg-a'), createAnalyzedBundle('consumer') ];
+        });
+
+        await analyzeResolvedPackages(
+            { deadCodeEliminator: eliminator },
+            configWithPackages({ name: 'pkg-a' }, { name: 'consumer' }),
+            [ provider, consumer ]
+        );
+    });
+
     test('analyzeResolvedPackages forwards the configured enabled flag through transformationsEnabled', async function () {
         const { eliminator, getObserved } = captureTransformationsEnabled();
 

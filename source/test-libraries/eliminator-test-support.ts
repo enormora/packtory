@@ -1,14 +1,31 @@
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
-import type { AnalyzedBundle } from '../dead-code-eliminator/analyzed-bundle.ts';
+import type { AnalyzedBundle, EliminationInput } from '../dead-code-eliminator/analyzed-bundle.ts';
 import { assertDefined } from './deep-subset-assertion.ts';
 import { bundleResource, linkedBundle } from './bundle-fixtures.ts';
 
 export function inputs(
     ...bundles: readonly LinkedBundle[]
-): readonly { readonly bundle: LinkedBundle; readonly transformationsEnabled: boolean; }[] {
+): readonly EliminationInput[] {
     return bundles.map(function (bundle) {
-        return { bundle, transformationsEnabled: true };
+        return { bundle, transformationsEnabled: true, substitutionPublicModuleSourceFilePaths: new Set<string>() };
     });
+}
+
+export function inputWithSubstitutionPublicModules(
+    bundle: LinkedBundle,
+    substitutionPublicModuleSourceFilePaths: ReadonlySet<string>
+): readonly EliminationInput[] {
+    return [ { bundle, transformationsEnabled: true, substitutionPublicModuleSourceFilePaths } ];
+}
+
+export function inputWithoutTransformations(bundle: LinkedBundle): readonly EliminationInput[] {
+    return [
+        {
+            bundle,
+            transformationsEnabled: false,
+            substitutionPublicModuleSourceFilePaths: new Set<string>()
+        }
+    ];
 }
 
 type CodeFileSpec = {

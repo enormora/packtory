@@ -1,4 +1,5 @@
 import type { Project, SourceFile } from 'ts-morph';
+import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
 import { isCodeFile, isDeclarationCodeFile } from '../common/code-files.ts';
 import type { LinkedBundle, LinkedBundleResource } from '../linker/linked-bundle.ts';
 import { getEntryRootIds } from '../package-surface/root-registry.ts';
@@ -68,21 +69,39 @@ function buildFileBindings(loaded: readonly LoadedResource[]): readonly FileBind
     return result;
 }
 
-function entryRootFilePathsFor(bundle: LinkedBundle): ReadonlySet<string> {
-    const entryRootIds = getEntryRootIds(bundle);
+function substitutionPublicModuleFilePathsFor(
+    substitutionPublicModuleSourceFilePaths: ReadonlySet<string>
+): ReadonlySet<string> {
     const paths = new Set<string>();
-    for (const rootId of entryRootIds) {
-        const root = bundle.roots[rootId];
-        if (root === undefined) {
-            throw new Error(`Bundle "${bundle.name}" is missing root "${rootId}" referenced by its entry surface`);
-        }
-
-        paths.add(root.js.sourceFilePath);
-        if (root.declarationFile !== undefined) {
-            paths.add(root.declarationFile.sourceFilePath);
+    for (const sourceFilePath of substitutionPublicModuleSourceFilePaths) {
+        paths.add(sourceFilePath);
+        for (const companionPath of declarationCompanionCandidates(sourceFilePath)) {
+            paths.add(companionPath);
         }
     }
     return paths;
+}
+
+function rootFilePathsFor(bundle: LinkedBundle, rootId: string): readonly string[] {
+    const root = bundle.roots[rootId];
+    if (root === undefined) {
+        throw new Error(`Bundle "${bundle.name}" is missing root "${rootId}" referenced by its entry surface`);
+    }
+    return root.declarationFile === undefined
+        ? [ root.js.sourceFilePath ]
+        : [ root.js.sourceFilePath, root.declarationFile.sourceFilePath ];
+}
+
+function entryRootFilePathsFor(
+    bundle: LinkedBundle,
+    substitutionPublicModuleSourceFilePaths: ReadonlySet<string>
+): ReadonlySet<string> {
+    return new Set([
+        ...Array.from(getEntryRootIds(bundle)).flatMap(function (rootId) {
+            return rootFilePathsFor(bundle, rootId);
+        }),
+        ...substitutionPublicModuleFilePathsFor(substitutionPublicModuleSourceFilePaths)
+    ]);
 }
 
 export function loadBundle(createProject: CreateProject, input: EliminationInput): LoadedBundle {
@@ -94,7 +113,7 @@ export function loadBundle(createProject: CreateProject, input: EliminationInput
     const fileBindings = buildFileBindings(loaded);
     const reachability = buildReachabilityIndex({
         files: fileBindings,
-        entryPointFilePaths: entryRootFilePathsFor(input.bundle),
+        entryPointFilePaths: entryRootFilePathsFor(input.bundle, input.substitutionPublicModuleSourceFilePaths),
         deadCodeElimination: input.deadCodeElimination
     });
     return { input, loaded, fileBindings, reachability };
