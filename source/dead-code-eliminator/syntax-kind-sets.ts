@@ -13,7 +13,6 @@ export const pureLeafKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet(
     SyntaxKind.NullKeyword,
     SyntaxKind.RegularExpressionLiteral,
     SyntaxKind.NoSubstitutionTemplateLiteral,
-    SyntaxKind.Identifier,
     SyntaxKind.FunctionExpression,
     SyntaxKind.ArrowFunction,
     SyntaxKind.ClassExpression
@@ -55,8 +54,6 @@ export const pureDeclarationKinds: ReadonlySet<SyntaxKind> = createSyntaxKindSet
     SyntaxKind.FunctionDeclaration,
     SyntaxKind.InterfaceDeclaration,
     SyntaxKind.TypeAliasDeclaration,
-    SyntaxKind.EnumDeclaration,
-    SyntaxKind.ModuleDeclaration,
     SyntaxKind.ExportDeclaration,
     SyntaxKind.EmptyStatement
 );

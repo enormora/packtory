@@ -10,17 +10,25 @@ function fetchErrorWithStatusCode(statusCode: number): Error & { readonly status
 }
 
 suite('registry-client metadata responses', function () {
-    test('fetchLatestVersion() returns nothing for 404 and 403 responses', async function () {
-        for (const statusCode of [ 404, 403 ]) {
-            const error = fetchErrorWithStatusCode(statusCode);
-            const registryClient = registryClientFactory({ npmFetchJson: fake.rejects(error) });
+    test('fetchLatestVersion() returns nothing for 404 responses', async function () {
+        const error = fetchErrorWithStatusCode(404);
+        const registryClient = registryClientFactory({ npmFetchJson: fake.rejects(error) });
 
-            const result = await registryClient.fetchLatestVersion('the-name', {
+        const result = await registryClient.fetchLatestVersion('the-name', {
+            auth: { type: 'bearer-token', token: 'the-token' }
+        });
+
+        assert.deepStrictEqual(result, Maybe.nothing());
+    });
+
+    test('fetchLatestVersion() rethrows 403 responses', async function () {
+        const registryClient = registryClientFactory({ npmFetchJson: fake.rejects(fetchErrorWithStatusCode(403)) });
+
+        await expectFailure(async function () {
+            await registryClient.fetchLatestVersion('the-name', {
                 auth: { type: 'bearer-token', token: 'the-token' }
             });
-
-            assert.deepStrictEqual(result, Maybe.nothing());
-        }
+        }, /^Error: fetch-error$/u);
     });
 
     test('fetchLatestVersion() throws on invalid registry payloads', async function () {

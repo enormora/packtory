@@ -19,7 +19,6 @@ import { assertTarballIntegrity, type TarballIntegrity } from './tarball-integri
 import { assertTarballOriginMatchesRegistry } from './validate-tarball-host.ts';
 
 const notFoundStatusCode = 404;
-const forbiddenStatusCode = 403;
 const abbreviatedResponseAcceptHeader = 'application/vnd.npm.install-v1+json';
 const maxDownloadedTarballBytes = 268_435_456;
 
@@ -59,7 +58,7 @@ function assertContentLengthWithinDownloadLimit(response: BufferedRegistryRespon
 
 function isMissingPackageError(error: unknown): boolean {
     const statusCode = isRecord(error) ? error.statusCode : undefined;
-    return statusCode === notFoundStatusCode || statusCode === forbiddenStatusCode;
+    return statusCode === notFoundStatusCode;
 }
 
 function parseTimestamp(timestamp: string): Date {

@@ -75,6 +75,15 @@ function publishResult(name: string, version: string): BuildAndPublishResult {
     } as unknown as BuildAndPublishResult;
 }
 
+function successfulPublish(results: readonly BuildAndPublishResult[]): SinonSpy {
+    return fake.resolves({
+        result: Result.ok(results),
+        getReport() {
+            return createBuildReportFixture();
+        }
+    });
+}
+
 function failedPublish(): SinonSpy {
     return fake.resolves({
         result: Result.err({ type: 'config', issues: [ 'publish failed' ] }),
@@ -140,6 +149,7 @@ function createEngine(): PrLogEngine {
 
 type DependencyOverrides = {
     readonly buildAndPublishAll?: SinonSpy;
+    readonly createPrLogEngine?: SinonSpy;
     readonly createGitHubReleaseClient?: SinonSpy;
     readonly flags?: ReleaseHandlerDependencies['flags'];
     readonly log?: SinonSpy;
@@ -151,14 +161,13 @@ type DependencyOverrides = {
 };
 type CreatedReleaseHandlerDependencies = ReleaseHandlerDependencies & {
     readonly buildAndPublishAll: SinonSpy;
+    readonly createPrLogEngine: SinonSpy;
     readonly createGitHubReleaseClient: SinonSpy;
     readonly log: SinonSpy;
 };
 type CompleteDependencyOverrides = Required<DependencyOverrides>;
 
-function createPlanRelease(
-    packages: readonly ReleasePlanPackage[]
-): SinonSpy {
+function createPlanRelease(packages: readonly ReleasePlanPackage[]): SinonSpy {
     return fake.resolves(releasePlanOutcome(packages));
 }
 
@@ -183,22 +192,11 @@ function createPacktory(
 }
 
 function createDefaultPublish(): SinonSpy {
-    return fake.resolves({
-        result: Result.ok([ publishResult('pkg-a', '1.0.1') ]),
-        getReport() {
-            return createBuildReportFixture();
-        }
-    });
+    return successfulPublish([ publishResult('pkg-a', '1.0.1') ]);
 }
 
 function createDefaultFlags(): ReleaseHandlerDependencies['flags'] {
-    return {
-        githubRelease: false,
-        noDryRun: false,
-        publish: false,
-        push: false,
-        tag: false
-    };
+    return { githubRelease: false, noDryRun: false, publish: false, push: false, tag: false };
 }
 
 function readDefaultEnvironmentVariable(name: 'GH_TOKEN' | 'GITHUB_TOKEN'): string | undefined {
@@ -213,6 +211,7 @@ function createCompleteDependencyOverrides(overrides: DependencyOverrides): Comp
     const packages = overrides.packages ?? [ releasePackage() ];
     return {
         buildAndPublishAll: createDefaultPublish(),
+        createPrLogEngine: fake.returns(createEngine()),
         createGitHubReleaseClient: fake.returns(createGitHubReleaseClientFixture({})),
         flags: createDefaultFlags(),
         log: fake(),
@@ -230,7 +229,7 @@ function createDependencies(overrides: DependencyOverrides = {}): CreatedRelease
     return {
         buildAndPublishAll: completeOverrides.buildAndPublishAll,
         createGitHubReleaseClient: completeOverrides.createGitHubReleaseClient,
-        createPrLogEngine: fake.returns(createEngine()),
+        createPrLogEngine: completeOverrides.createPrLogEngine,
         currentDate() {
             return new Date('2026-06-13T00:00:00.000Z');
         },
@@ -451,19 +450,21 @@ suite('release-handler', function () {
             assertAnnotatedTagCreated(ensureAnnotatedTag);
         });
 
-        test('does not create GitHub tags for publish results outside the release plan', async function () {
+        test('does not build GitHub release notes for publish results outside the release plan', async function () {
+            const createReleaseIfMissing = fake.resolves('created');
+            const ensureAnnotatedTag = fake.resolves('created');
             const dependencies = createDependencies({
-                buildAndPublishAll: fake.resolves({
-                    result: Result.ok([ publishResult('other-pkg', '1.0.1') ]),
-                    getReport() {
-                        return createBuildReportFixture();
-                    }
-                }),
-                flags: { publish: true, tag: true, push: true, githubRelease: false, noDryRun: true }
+                buildAndPublishAll: successfulPublish([ publishResult('other-pkg', '1.0.1') ]),
+                createGitHubReleaseClient: fake.returns(
+                    createGitHubReleaseClientFixture({ createReleaseIfMissing, ensureAnnotatedTag })
+                ),
+                flags: { publish: true, tag: true, push: true, githubRelease: true, noDryRun: true }
             });
 
             assert.strictEqual(await runReleaseHandler(dependencies), 0);
-            assert.strictEqual(dependencies.createGitHubReleaseClient.callCount, 0);
+            assert.strictEqual(ensureAnnotatedTag.callCount, 0);
+            assert.strictEqual(createReleaseIfMissing.callCount, 0);
+            assert.strictEqual(dependencies.createPrLogEngine.callCount, 0);
         });
     });
 
@@ -494,34 +495,28 @@ suite('release-handler', function () {
             assertAnnotatedTagCreated(ensureAnnotatedTag);
         });
 
-        test('does not tag retry packages when registry metadata points at another commit', async function () {
-            const dependencies = createDependencies({
-                flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
-                packages: [
-                    currentHeadPublishedPackage({
-                        latestRegistryMetadata: { version: '1.0.1', publishedAt: undefined, gitHead: 'other-head' }
-                    })
-                ]
-            });
+        test('does not tag retry packages that are not published at the current head', async function () {
+            const cases = [
+                currentHeadPublishedPackage({
+                    latestRegistryMetadata: { version: '1.0.1', publishedAt: undefined, gitHead: 'other-head' }
+                }),
+                currentHeadPublishedPackage({ latestRegistryMetadata: undefined }),
+                currentHeadPublishedPackage({
+                    currentGitHead: undefined,
+                    latestRegistryMetadata: { version: '1.0.1', publishedAt: undefined, gitHead: undefined }
+                })
+            ];
 
-            assert.strictEqual(await runReleaseHandler(dependencies), 0);
-            assert.strictEqual(dependencies.log.firstCall.args[0], 'No packages need release.');
-            assert.strictEqual(dependencies.createGitHubReleaseClient.callCount, 0);
-        });
+            for (const packagePlan of cases) {
+                const dependencies = createDependencies({
+                    flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
+                    packages: [ packagePlan ]
+                });
 
-        test('does not tag retry packages without registry metadata or a current head', async function () {
-            const dependencies = createDependencies({
-                flags: { publish: false, tag: true, push: true, githubRelease: false, noDryRun: true },
-                packages: [
-                    currentHeadPublishedPackage({
-                        currentGitHead: undefined,
-                        latestRegistryMetadata: { version: '1.0.1', publishedAt: undefined, gitHead: undefined }
-                    })
-                ]
-            });
-
-            assert.strictEqual(await runReleaseHandler(dependencies), 0);
-            assert.strictEqual(dependencies.log.firstCall.args[0], 'No packages need release.');
+                assert.strictEqual(await runReleaseHandler(dependencies), 0);
+                assert.strictEqual(dependencies.log.firstCall.args[0], 'No packages need release.');
+                assert.strictEqual(dependencies.createGitHubReleaseClient.callCount, 0);
+            }
         });
 
         test('rejects GitHub tagging when the release plan has no current head', async function () {
@@ -535,6 +530,7 @@ suite('release-handler', function () {
                 dependencies.log.lastCall.args[0],
                 'GitHub tag target for "pkg-a@1.0.1" could not be determined'
             );
+            assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
         });
 
         test('requires a GitHub token when tags are created through the GitHub API', async function () {
@@ -547,6 +543,7 @@ suite('release-handler', function () {
 
             assert.strictEqual(await runReleaseHandler(dependencies), 1);
             assert.match(String(dependencies.log.lastCall.args[0]), /GH_TOKEN or GITHUB_TOKEN/u);
+            assert.strictEqual(dependencies.buildAndPublishAll.callCount, 0);
         });
 
         test('uses GITHUB_TOKEN when GH_TOKEN is unset', async function () {

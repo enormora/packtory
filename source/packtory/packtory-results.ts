@@ -22,6 +22,7 @@ export const packPackageFailureType = {
     packageNotFound: 'package-not-found',
     peerDependenciesUnsatisfied: 'peer-dependencies-unsatisfied',
     unsafeOutputFolder: 'unsafe-output-folder',
+    vendorDependencyNotFound: 'vendor-dependency-not-found',
     vendorInvalidDependencyName: 'vendor-invalid-dependency-name',
     vendorSymlinkTargetOutsidePackage: 'vendor-symlink-target-outside-package'
 } as const;
@@ -45,6 +46,13 @@ type VendorInvalidDependencyNameFailure = {
     readonly packageName: string;
     readonly sourcePackageName: string | undefined;
     readonly invalidDependencyName: string;
+};
+
+type VendorDependencyNotFoundFailure = {
+    readonly type: typeof packPackageFailureType.vendorDependencyNotFound;
+    readonly packageName: string;
+    readonly sourcePackageName: string | undefined;
+    readonly dependencyName: string;
 };
 
 type BundleDependenciesUnsupportedFailure = {
@@ -76,6 +84,7 @@ type PackageNotFoundFailure = {
 
 type PackPackageFailures = readonly [
     PeerDependenciesUnsatisfiedFailure,
+    VendorDependencyNotFoundFailure,
     VendorInvalidDependencyNameFailure,
     VendorSymlinkOutsidePackageFailure,
     BundleDependenciesUnsupportedFailure,

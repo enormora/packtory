@@ -525,6 +525,24 @@ suite('packtory-pack', function () {
             assert.strictEqual(fakes.packEmitterPack.callCount, 0);
         });
 
+        test('maps missing vendored dependencies to package failures', async function () {
+            const { dependencies, fakes } = createVendorFailureDependencies({
+                type: vendorMaterializerFailureType.dependencyNotFound,
+                sourcePackageName: 'dep',
+                dependencyName: 'missing'
+            });
+
+            const result = await runVendoredPackage({ dependencies, fakes });
+
+            assert.deepStrictEqual(expectErr(result), {
+                type: 'vendor-dependency-not-found',
+                packageName: 'pkg-a',
+                sourcePackageName: 'dep',
+                dependencyName: 'missing'
+            });
+            assert.strictEqual(fakes.packEmitterPack.callCount, 0);
+        });
+
         test('maps vendored symlinks that escape the package to package failures', async function () {
             const { dependencies, fakes } = createVendorFailureDependencies({
                 type: vendorMaterializerFailureType.symlinkTargetOutsidePackage,

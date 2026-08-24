@@ -291,36 +291,6 @@ function registerMaterializationTests(): void {
         ]);
     });
 
-    test('skips dependencies that cannot be located in any reachable node_modules ancestor, probing every ancestor up to the filesystem root', async function () {
-        const fileManager = setupFileManager({
-            readabilities: Array.from({ length: 20 }, function () {
-                return { value: { isReadable: false } };
-            }),
-            realPaths: [],
-            listings: [],
-            fileReads: []
-        });
-        const materializer = createVendorMaterializer({ fileManager });
-
-        const result = expectOk(
-            await materializer.materializeExternals({
-                initialDependencyNames: [ 'missing' ],
-                projectFolder: '/some/deep/folder'
-            })
-        );
-
-        assert.partialDeepStrictEqual(result, {
-            entries: [],
-            packageNames: []
-        });
-        assert.deepStrictEqual(fileManager.getAllCheckReadabilityCalls(), [
-            { fileOrFolderPath: '/some/deep/folder/node_modules/missing' },
-            { fileOrFolderPath: '/some/deep/node_modules/missing' },
-            { fileOrFolderPath: '/some/node_modules/missing' },
-            { fileOrFolderPath: '/node_modules/missing' }
-        ]);
-    });
-
     test('deduplicates packages so the same name is materialized at most once even when referenced from multiple dependencies', async function () {
         const truthyReadability = { value: { isReadable: true } } as const;
         const result = await runWith(

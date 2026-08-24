@@ -186,15 +186,24 @@ suite('package-metadata-fetcher', function () {
             assert.strictEqual(result.isNothing, true);
         });
 
-        test('fetchLatestPackageVersion returns Nothing when the registry responds with a missing-package status', async function () {
-            for (const statusCode of [ 404, 403 ] as const) {
-                const result = await fetchLatestPackageVersion(
-                    fakeNpmFetch(fake.rejects(Object.assign(new Error(`status ${statusCode}`), { statusCode }))),
+        test('fetchLatestPackageVersion returns Nothing when the registry responds with 404', async function () {
+            const result = await fetchLatestPackageVersion(
+                fakeNpmFetch(fake.rejects(Object.assign(new Error('status 404'), { statusCode: 404 }))),
+                'pkg-a',
+                settings
+            );
+
+            assert.strictEqual(result.isNothing, true);
+        });
+
+        test('fetchLatestPackageVersion rethrows 403 instead of treating the package as unpublished', async function () {
+            await assert.rejects(async function () {
+                await fetchLatestPackageVersion(
+                    fakeNpmFetch(fake.rejects(Object.assign(new Error('status 403'), { statusCode: 403 }))),
                     'pkg-a',
                     settings
                 );
-                assert.strictEqual(result.isNothing, true);
-            }
+            }, /status 403/u);
         });
 
         test('fetchLatestPackageVersion throws when the registry response shape is invalid', async function () {

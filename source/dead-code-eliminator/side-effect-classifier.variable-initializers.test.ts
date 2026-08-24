@@ -88,6 +88,13 @@ suite('side-effect-classifier variable initializers', function () {
             } ]);
         });
 
+        test('treats a const with an object literal whose computed key calls a function as impure', function () {
+            assert.deepStrictEqual(classify('const x = { [compute()]: 1 };'), [ {
+                line: 1,
+                kind: 'variable initializer'
+            } ]);
+        });
+
         test('treats a const with an object literal mixing pure and impure properties as impure', function () {
             assert.deepStrictEqual(classify('const x = { a: 1, b: compute() };'), [
                 { line: 1, kind: 'variable initializer' }
@@ -169,8 +176,12 @@ suite('side-effect-classifier variable initializers', function () {
             assert.deepStrictEqual(classify('const x = 1 + compute();'), [ { line: 1, kind: 'variable initializer' } ]);
         });
 
-        test('treats a const with an identifier reference as pure', function () {
+        test('treats a const with an earlier identifier reference as pure', function () {
             assert.deepStrictEqual(classify('const a = 1; const x = a;'), []);
+        });
+
+        test('treats a const with an unresolved identifier reference as impure', function () {
+            assert.deepStrictEqual(classify('const x = missing;'), [ { line: 1, kind: 'variable initializer' } ]);
         });
 
         test('treats a const with a property access as impure', function () {

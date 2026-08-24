@@ -21,6 +21,7 @@ export type FakeVersionedBundle = {
     readonly version: string;
     readonly manifestFile: { readonly content: string; readonly isExecutable: boolean; readonly filePath: string; };
     readonly contents: readonly {
+        readonly isGeneratedManifest?: true;
         readonly fileDescription: {
             readonly targetFilePath: string;
             readonly content: string;

@@ -229,6 +229,22 @@ async function createGitHubClientAsync(dependencies: ReleaseHandlerDependencies)
     });
 }
 
+async function preflightGitHubReleaseActions(
+    dependencies: ReleaseHandlerDependencies,
+    planned: PlannedRelease,
+    changedTargets: readonly ReleaseTarget[]
+): Promise<GitHubReleaseClient | undefined> {
+    if (!dependencies.flags.tag && !dependencies.flags.githubRelease) {
+        return undefined;
+    }
+
+    for (const target of changedTargets) {
+        requireTargetHead(target);
+    }
+    selectCurrentHeadPublishedTargets(planned.packages);
+    return await createGitHubClientAsync(dependencies);
+}
+
 async function ensureTags(client: GitHubReleaseClient, targets: readonly PublishedReleaseTarget[]): Promise<void> {
     for (const target of targets) {
         await client.ensureAnnotatedTag({
@@ -288,16 +304,13 @@ function resolvePlannedReleaseExitCode(
 async function finishReleaseActions(
     dependencies: ReleaseHandlerDependencies,
     planned: PlannedRelease,
-    publishedTargets: readonly PublishedReleaseTarget[]
+    publishedTargets: readonly PublishedReleaseTarget[],
+    client: GitHubReleaseClient
 ): Promise<void> {
     const releaseTargets = mergeTargets(publishedTargets, selectCurrentHeadPublishedTargets(planned.packages));
     if (releaseTargets.length === 0) {
         return;
     }
-    if (!dependencies.flags.tag && !dependencies.flags.githubRelease) {
-        return;
-    }
-    const client = await createGitHubClientAsync(dependencies);
     await ensureTags(client, releaseTargets);
     if (dependencies.flags.githubRelease) {
         await createGitHubReleases(dependencies, client, planned, releaseTargets);
@@ -307,11 +320,14 @@ async function finishReleaseActions(
 async function runMutatingRelease(dependencies: ReleaseHandlerDependencies, planned: PlannedRelease): Promise<number> {
     const changedTargets = selectChangedTargets(planned.packages);
     assertTagRule(dependencies.flags, changedTargets);
+    const githubClient = await preflightGitHubReleaseActions(dependencies, planned, changedTargets);
     const publishedTargets = await publishTargets(dependencies, planned, changedTargets);
     if (publishedTargets === undefined) {
         return 1;
     }
-    await finishReleaseActions(dependencies, planned, publishedTargets);
+    if (githubClient !== undefined) {
+        await finishReleaseActions(dependencies, planned, publishedTargets, githubClient);
+    }
     dependencies.log(releaseCompletedMessage);
     return 0;
 }

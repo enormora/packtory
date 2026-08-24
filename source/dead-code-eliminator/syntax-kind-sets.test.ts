@@ -18,7 +18,6 @@ suite('syntax-kind-sets', function () {
                 SyntaxKind.NumericLiteral,
                 SyntaxKind.TrueKeyword,
                 SyntaxKind.NullKeyword,
-                SyntaxKind.Identifier,
                 SyntaxKind.ArrowFunction
             ]
         ) {
@@ -63,20 +62,20 @@ suite('syntax-kind-sets', function () {
         }
     });
 
-    test('pureDeclarationKinds includes function, interface, type alias, enum, namespace, and export declarations', function () {
+    test('pureDeclarationKinds includes declarations that are always pure', function () {
         for (
             const kind of [
                 SyntaxKind.FunctionDeclaration,
                 SyntaxKind.InterfaceDeclaration,
                 SyntaxKind.TypeAliasDeclaration,
-                SyntaxKind.EnumDeclaration,
-                SyntaxKind.ModuleDeclaration,
                 SyntaxKind.ExportDeclaration,
                 SyntaxKind.EmptyStatement
             ]
         ) {
             assert.strictEqual(pureDeclarationKinds.has(kind), true);
         }
+        assert.strictEqual(pureDeclarationKinds.has(SyntaxKind.EnumDeclaration), false);
+        assert.strictEqual(pureDeclarationKinds.has(SyntaxKind.ModuleDeclaration), false);
     });
 
     test('describeControlFlowStatementKind maps control-flow statements to labels', function () {

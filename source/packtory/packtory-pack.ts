@@ -122,11 +122,13 @@ function collectBundleDependencies(
             isExecutable: versioned.manifestFile.isExecutable
         });
         for (const entry of versioned.contents) {
-            closure.extraFiles.push({
-                filePath: bundledInstalledDependencyPath(versioned.name, entry.fileDescription.targetFilePath),
-                content: entry.fileDescription.content,
-                isExecutable: entry.fileDescription.isExecutable
-            });
+            if (!entry.isGeneratedManifest) {
+                closure.extraFiles.push({
+                    filePath: bundledInstalledDependencyPath(versioned.name, entry.fileDescription.targetFilePath),
+                    content: entry.fileDescription.content,
+                    isExecutable: entry.fileDescription.isExecutable
+                });
+            }
         }
         closure.peerRequirements.set(resolvedPackage.name, Object.keys(versioned.peerDependencies));
         closure.pendingDependencyNames.scheduleAll(resolvedPackage.analyzedBundle.linkedBundleDependencies.keys());
@@ -165,6 +167,15 @@ type VendoredClosureCheck = {
 };
 
 function mapMaterializerFailure(packageName: string, error: VendorMaterializerFailure): PackPackageFailure {
+    if (error.type === vendorMaterializerFailureType.dependencyNotFound) {
+        return {
+            type: packPackageFailureType.vendorDependencyNotFound,
+            packageName,
+            sourcePackageName: error.sourcePackageName,
+            dependencyName: error.dependencyName
+        };
+    }
+
     if (error.type === vendorMaterializerFailureType.symlinkTargetOutsidePackage) {
         return {
             type: packPackageFailureType.vendorSymlinkTargetOutsidePackage,

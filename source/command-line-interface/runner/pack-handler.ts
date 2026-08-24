@@ -40,6 +40,10 @@ type VendorInvalidDependencyNamePackFailure = Extract<
     PackFailure,
     { readonly type: typeof packPackageFailureType.vendorInvalidDependencyName; }
 >;
+type VendorDependencyNotFoundPackFailure = Extract<
+    PackFailure,
+    { readonly type: typeof packPackageFailureType.vendorDependencyNotFound; }
+>;
 type BundleDependenciesUnsupportedPackFailure = Extract<
     PackFailure,
     { readonly type: typeof packPackageFailureType.bundleDependenciesUnsupported; }
@@ -166,6 +170,17 @@ function formatVendorInvalidDependencyNameFailure(
     return `${header}\n${details}`;
 }
 
+function formatVendorDependencyNotFoundFailure(error: VendorDependencyNotFoundPackFailure): string {
+    const reason = 'could not find a required vendored dependency';
+    const header = `${getErrorSymbol()} Pack of "${error.packageName}" ${reason}`;
+    if (error.sourcePackageName === undefined) {
+        return `${header}\n- runtime imports need "${error.dependencyName}"`;
+    }
+    const sourceLabel = `"${error.sourcePackageName}"`;
+    const details = `- ${sourceLabel} needs "${error.dependencyName}"`;
+    return `${header}\n${details}`;
+}
+
 function formatPackageNameFailure(error: PackageNamePackFailure): string {
     return `${getErrorSymbol()} Package "${error.packageName}" ${packageFailureSuffixByType[error.type]}`;
 }
@@ -182,6 +197,7 @@ function formatPackageFailure(error: Exclude<PackFailure, IssuePackFailure | Par
         .with({ type: packPackageFailureType.outputRootNotDirectory }, formatOutputPathFailure)
         .with({ type: packPackageFailureType.unsafeOutputFolder }, formatOutputPathFailure)
         .with({ type: packPackageFailureType.peerDependenciesUnsatisfied }, formatPeerFailure)
+        .with({ type: packPackageFailureType.vendorDependencyNotFound }, formatVendorDependencyNotFoundFailure)
         .with({ type: packPackageFailureType.vendorInvalidDependencyName }, formatVendorInvalidDependencyNameFailure)
         .otherwise(formatVendorSymlinkOutsidePackageFailure);
 }
