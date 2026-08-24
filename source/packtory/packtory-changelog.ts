@@ -23,6 +23,11 @@ type CollectedPullRequests = {
     readonly manifestDependencyPullRequests: readonly PullRequestWithLabel[];
     readonly pullRequests: readonly PullRequestWithLabel[];
 };
+type PullRequestTargetContext = {
+    readonly changedFilesByPullRequest: ReadonlyMap<number, readonly PullRequestChangedFile[]>;
+    readonly dependencyPullRequestIds: ReadonlySet<number>;
+    readonly targetSourceFiles: ReadonlySet<string>;
+};
 
 type PrLogMethods = readonly [
     'collectMergedPullRequests',
@@ -158,6 +163,43 @@ function mergePullRequests<T extends PullRequest>(pullRequests: readonly T[]): r
     return Array.from(pullRequestsById.values());
 }
 
+function targetFilePath(file: PullRequestChangedFile): string {
+    return file.path.split(path.sep).join('/');
+}
+
+function touchesPackageManifestInput(changedFiles: readonly PullRequestChangedFile[]): boolean {
+    return changedFiles.some(function (changedFile) {
+        return isPackageManifestInputPath(targetFilePath(changedFile));
+    });
+}
+
+function touchesNonManifestTargetSource(
+    changedFiles: readonly PullRequestChangedFile[],
+    targetSourceFiles: ReadonlySet<string>
+): boolean {
+    return changedFiles.some(function (changedFile) {
+        const filePath = targetFilePath(changedFile);
+        return targetSourceFiles.has(filePath) && !isPackageManifestInputPath(filePath);
+    });
+}
+
+function shouldKeepPackagePullRequest(
+    pullRequest: PullRequestWithLabel,
+    context: PullRequestTargetContext
+): boolean {
+    if (context.dependencyPullRequestIds.has(pullRequest.id)) {
+        return true;
+    }
+
+    if (pullRequest.label !== dependencyUpdateLabel()) {
+        return true;
+    }
+
+    const changedFiles = context.changedFilesByPullRequest.get(pullRequest.id) ?? [];
+    return touchesNonManifestTargetSource(changedFiles, context.targetSourceFiles) ||
+        !touchesPackageManifestInput(changedFiles);
+}
+
 async function resolveBaseRefFor(
     prLogEngine: GenerateChangelogInput['prLogEngine'],
     packagePlan: ReleasePlanPackage,
@@ -233,7 +275,13 @@ async function collectTargetPullRequests(
         manifestDependencyPullRequests: labeledPullRequests.filter(function (pullRequest) {
             return dependencyPullRequestIds.has(pullRequest.id);
         }),
-        pullRequests: labeledPullRequests
+        pullRequests: labeledPullRequests.filter(function (pullRequest) {
+            return shouldKeepPackagePullRequest(pullRequest, {
+                changedFilesByPullRequest,
+                dependencyPullRequestIds,
+                targetSourceFiles: new Set(targetSourceFiles)
+            });
+        })
     };
 }
 
