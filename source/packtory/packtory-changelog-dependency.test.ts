@@ -6,6 +6,7 @@ import {
     type ChangelogEntryInput,
     type FilterPullRequestsByTargetFilesInput,
     type PullRequest,
+    type PullRequestChangedFile,
     type PullRequestWithLabel,
     type RenderGroupedTargetChangelogMarkdownInput,
     type RenderTargetChangelogMarkdownInput,
@@ -49,6 +50,31 @@ function renderPullRequests(pullRequests: readonly ChangelogEntryInput[]): strin
             return `* ${pullRequest.title} ([#${pullRequest.id}](https://github.com/owner/repo/pull/${pullRequest.id}))`;
         })
         .join('\n');
+}
+
+function testPullRequest(id: number, title: string): PullRequest {
+    return { id, title };
+}
+
+function changedFilesByPullRequest(
+    entries: readonly (readonly [number, string])[]
+): Map<number, PullRequestChangedFile[]> {
+    return new Map(
+        entries.map(function ([ id, filePath ]) {
+            return [ id, [ pullRequestChangedFileFactory.build({ path: filePath }) ] ];
+        })
+    );
+}
+
+function labelUpgradesById(upgradeIds: ReadonlySet<number>): ChangelogEngine['resolvePullRequestLabels'] {
+    return fake(async function (options: ResolvePullRequestLabelsOptions) {
+        return options.pullRequests.map(function (pullRequest): PullRequestWithLabel {
+            return {
+                ...pullRequest,
+                label: upgradeIds.has(pullRequest.id) ? 'upgrade' : 'bug'
+            };
+        });
+    });
 }
 
 function createEngine(overrides: Partial<ChangelogEngine>): ChangelogEngine {
@@ -109,7 +135,54 @@ async function generateReactDependencyChangelog(engine: ChangelogEngine): Return
     return generate([ reactDependencyPackage() ], engine);
 }
 
-suite('packtory-changelog dependency updates', function () {
+function eslintUpdateTitle(): string {
+    return 'Update dependency eslint to v10.9.0';
+}
+
+function eslintUpdatePullRequest(): PullRequest {
+    return testPullRequest(2, eslintUpdateTitle());
+}
+
+function changedFilesFrom(filePaths: readonly string[]): readonly PullRequestChangedFile[] {
+    return filePaths.map(function (filePath) {
+        return pullRequestChangedFileFactory.build({ path: filePath });
+    });
+}
+
+function eslintUpdateChangedFiles(
+    filePaths: readonly string[]
+): ReadonlyMap<number, readonly PullRequestChangedFile[]> {
+    return new Map([ [ 2, changedFilesFrom(filePaths) ] ]);
+}
+
+function engineForEslintUpdate(
+    changedFilesByPullRequestMap: ReadonlyMap<number, readonly PullRequestChangedFile[]>
+): ChangelogEngine {
+    return createEngine({
+        collectMergedPullRequests: fake.resolves([ eslintUpdatePullRequest() ]),
+        filterPullRequestsByTargetFiles: fake.returns([ eslintUpdatePullRequest() ]),
+        readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequestMap),
+        resolvePullRequestLabels: labelUpgradesById(new Set([ 2 ]))
+    });
+}
+
+function substantiveManifestPackage(changelogSourceFiles: readonly string[]): ReleasePlanPackage {
+    return releasePackage({
+        releaseClassification: 'substantive',
+        changelogSourceFiles,
+        changelogDependencyNames: [],
+        changelogDependencyUpdates: []
+    });
+}
+
+async function generateSubstantiveManifestChangelog(
+    engine: ChangelogEngine,
+    changelogSourceFiles: readonly string[]
+): ReturnType<typeof generateChangelogOutputs> {
+    return generate([ substantiveManifestPackage(changelogSourceFiles) ], engine);
+}
+
+function registerDependencyEntryTests(): void {
     test('omits pull request links for substitution-only dependency entries', async function () {
         const engine = createEngine({});
 
@@ -126,6 +199,19 @@ suite('packtory-changelog dependency updates', function () {
             readPullRequestChangedFiles: fake.resolves(
                 new Map([ [ 1, [ pullRequestChangedFileFactory.build({ path: 'package-lock.json' }) ] ] ])
             )
+        });
+
+        const changelog = await generateReactDependencyChangelog(engine);
+
+        assert.strictEqual(changelog.groupedMarkdown, reactDependencyMarkdown);
+    });
+
+    test('keeps labeled manifest dependency pull requests for changed artifact dependencies', async function () {
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves([ testPullRequest(1, 'Update React to v19') ]),
+            filterPullRequestsByTargetFiles: fake.returns([]),
+            readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([ [ 1, 'package.json' ] ])),
+            resolvePullRequestLabels: labelUpgradesById(new Set([ 1 ]))
         });
 
         const changelog = await generateReactDependencyChangelog(engine);
@@ -200,6 +286,76 @@ suite('packtory-changelog dependency updates', function () {
                 .join('\n')
         );
     });
+}
+
+function registerManifestDependencyFilterTests(): void {
+    test('omits unrelated manifest-only dependency updates for substantive package changes', async function () {
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves([
+                testPullRequest(1, 'Add feature'),
+                testPullRequest(2, 'Update dependency eslint to v10.9.0')
+            ]),
+            filterPullRequestsByTargetFiles: fake.returns([
+                testPullRequest(1, 'Add feature'),
+                testPullRequest(2, 'Update dependency eslint to v10.9.0')
+            ]),
+            readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([
+                [ 1, 'source/pkg-a.ts' ],
+                [ 2, 'package.json' ]
+            ])),
+            resolvePullRequestLabels: labelUpgradesById(new Set([ 2 ]))
+        });
+
+        const changelog = await generate(
+            [
+                releasePackage({
+                    releaseClassification: 'substantive',
+                    changelogSourceFiles: [ 'package.json', 'source/pkg-a.ts' ],
+                    changelogDependencyNames: [],
+                    changelogDependencyUpdates: []
+                })
+            ],
+            engine
+        );
+
+        assert.strictEqual(changelog.groupedMarkdown, '* Add feature ([#1](https://github.com/owner/repo/pull/1))');
+    });
+
+    test('keeps unrelated dependency updates that also touch package source files', async function () {
+        const changelog = await generateSubstantiveManifestChangelog(
+            engineForEslintUpdate(eslintUpdateChangedFiles([ 'package.json', 'source/pkg-a.ts' ])),
+            [ 'package.json', 'source/pkg-a.ts' ]
+        );
+
+        assert.strictEqual(
+            changelog.groupedMarkdown,
+            '* Update dependency eslint to v10.9.0 ([#2](https://github.com/owner/repo/pull/2))'
+        );
+    });
+
+    test('omits manifest dependency updates when remaining changed files are unrelated', async function () {
+        const changelog = await generateSubstantiveManifestChangelog(
+            engineForEslintUpdate(eslintUpdateChangedFiles([ 'package.json', 'docs/readme.md' ])),
+            [ 'package.json', 'source/pkg-a.ts' ]
+        );
+
+        assert.partialDeepStrictEqual(changelog, {
+            groupedMarkdown: '',
+            packageNamesWithoutChangelogEntries: [ 'pkg-a' ]
+        });
+    });
+
+    test('keeps dependency update pull requests when changed file data is unavailable', async function () {
+        const changelog = await generateSubstantiveManifestChangelog(
+            engineForEslintUpdate(new Map()),
+            [ 'package.json' ]
+        );
+
+        assert.strictEqual(
+            changelog.groupedMarkdown,
+            '* Update dependency eslint to v10.9.0 ([#2](https://github.com/owner/repo/pull/2))'
+        );
+    });
 
     test('keeps manifest dependency pull requests without current dependency versions', async function () {
         const engine = createEngine({
@@ -234,6 +390,31 @@ suite('packtory-changelog dependency updates', function () {
                 '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
             ]
                 .join('\n')
+        );
+    });
+
+    test('keeps labeled manifest dependency pull requests without current dependency versions', async function () {
+        const engine = createEngine({
+            collectMergedPullRequests: fake.resolves([ testPullRequest(2, 'Remove React') ]),
+            filterPullRequestsByTargetFiles: fake.returns([]),
+            readPullRequestChangedFiles: fake.resolves(changedFilesByPullRequest([ [ 2, 'package-lock.json' ] ])),
+            resolvePullRequestLabels: labelUpgradesById(new Set([ 2 ]))
+        });
+
+        const changelog = await generate(
+            [
+                releasePackage({
+                    releaseClassification: 'substantive',
+                    changelogDependencyNames: [ 'react' ],
+                    changelogDependencyUpdates: []
+                })
+            ],
+            engine
+        );
+
+        assert.strictEqual(
+            changelog.groupedMarkdown,
+            '* Remove React ([#2](https://github.com/owner/repo/pull/2))'
         );
     });
 
@@ -331,4 +512,9 @@ suite('packtory-changelog dependency updates', function () {
             }
         ]);
     });
+}
+
+suite('packtory-changelog dependency updates', function () {
+    registerDependencyEntryTests();
+    registerManifestDependencyFilterTests();
 });
