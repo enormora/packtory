@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import type { LinkedBundle } from '../linker/linked-bundle.ts';
 import { bundleResource, externalDependency, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
-import { collectTargetPaths, inputs } from '../test-libraries/eliminator-test-support.ts';
+import { collectTargetPaths, inputWithoutTransformations, inputs } from '../test-libraries/eliminator-test-support.ts';
 
 type TestDependency = {
     readonly name: string;
@@ -527,10 +527,7 @@ suite('eliminator dependency metadata', function () {
                 'function dead() { return import("dep"); }\nexport const api = 1;\n',
                 dependencyMap('dep')
             );
-            const [ analyzed ] = await eliminator.eliminate([ {
-                bundle: input,
-                transformationsEnabled: false
-            } ]);
+            const [ analyzed ] = await eliminator.eliminate(inputWithoutTransformations(input));
             assert.deepStrictEqual(mapKeys(analyzed?.externalDependencies), [ 'dep' ]);
         });
     });

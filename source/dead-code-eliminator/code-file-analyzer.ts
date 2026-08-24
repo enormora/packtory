@@ -2,8 +2,8 @@ import type { SourceFile } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import { createEmptyFileAnalysis, type AnalyzedBundleResource, type FileAnalysis } from './analyzed-bundle.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
+import { buildModuleAnalysis } from './liveness/module-analysis.ts';
 import { bindingId } from './reachability/binding-id.ts';
-import { classifySideEffects } from './side-effect-classifier.ts';
 import type { PositionAtom, TextTransformMap } from './transform/atom-translator.ts';
 import { applyRemovalPlan } from './transform/declaration-remover.ts';
 
@@ -61,9 +61,16 @@ type CodeAnalysis = {
 };
 
 function analyzeCodeFile(loaded: LoadedCodeResource, context: AnalysisContext): CodeAnalysis {
-    const sideEffectStatements = classifySideEffects(loaded.sourceFile, context.deadCodeElimination);
+    const moduleAnalysis = buildModuleAnalysis({
+        sourceFilePath: loaded.resource.fileDescription.sourceFilePath,
+        targetFilePath: loaded.resource.fileDescription.targetFilePath,
+        sourceFile: loaded.sourceFile,
+        bindings: loaded.bindings,
+        deadCodeElimination: context.deadCodeElimination
+    });
+    const sideEffectStatements = moduleAnalysis.effects;
     const reachableBindings = reachableBindingsFor(loaded, context.reachable);
-    const shouldTransform = context.transformationsEnabled && sideEffectStatements.length === 0;
+    const shouldTransform = context.transformationsEnabled;
     const survivingBindings = shouldTransform ? reachableBindings : allBindingNamesFor(loaded);
     return {
         analysis: { survivingBindings, sideEffectStatements, sideEffectImports: new Set<string>() },

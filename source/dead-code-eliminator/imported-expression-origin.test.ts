@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { firstVariableInitializerExpression } from '../test-libraries/first-variable-initializer-expression.ts';
-import { resolveImportedExpressionOrigin } from './imported-expression-origin.ts';
+import { resolveImportedExpressionOrigin, resolveImportedExpressionPath } from './imported-expression-origin.ts';
 
 function pureRecurseStub(): boolean {
     return true;
@@ -76,6 +76,12 @@ suite('imported-expression-origin', function () {
             const expression = firstVariableInitializerExpression('import { x } from "lib";\nconst a = x();');
 
             assert.strictEqual(resolveImportedExpressionOrigin(expression, pureRecurseStub, undefined), undefined);
+        });
+
+        test('resolveImportedExpressionPath returns undefined for a non-identifier expression', function () {
+            const expression = firstVariableInitializerExpression('import { x } from "lib";\nconst a = x();');
+
+            assert.strictEqual(resolveImportedExpressionPath(expression), undefined);
         });
     });
 

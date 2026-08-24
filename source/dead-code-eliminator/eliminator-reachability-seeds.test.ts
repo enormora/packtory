@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
 import { assertDefined } from '../test-libraries/deep-subset-assertion.ts';
-import { bundleResource, linkedBundle } from '../test-libraries/bundle-fixtures.ts';
+import { bundleResource, linkedBundle, type BundleFixtureLinkedBundle } from '../test-libraries/bundle-fixtures.ts';
 import { createTestEliminator } from '../test-libraries/eliminator-fixtures.ts';
 import {
     bundleForCodeFile,
@@ -9,6 +9,43 @@ import {
     inputs,
     producerBundleWith
 } from '../test-libraries/eliminator-test-support.ts';
+
+function declarationImportBundle(): BundleFixtureLinkedBundle {
+    const entryResource = {
+        ...bundleResource('/src/index.js', { content: 'export const live = 1;\n', targetFilePath: 'index.js' }),
+        isSubstituted: false
+    };
+    const privateDeclarationResource = {
+        ...bundleResource('/src/private.d.ts', {
+            content: 'import type { Imported } from "./types.js";\nexport type Private = Imported;\n',
+            targetFilePath: 'private.d.ts'
+        }),
+        isSubstituted: false
+    };
+    const typesDeclarationResource = {
+        ...bundleResource('/src/types.d.ts', {
+            content: 'export type Imported = string;\nexport type Other = number;\n',
+            targetFilePath: 'types.d.ts'
+        }),
+        isSubstituted: false
+    };
+    return linkedBundle({
+        name: 'pkg',
+        contents: [ entryResource, privateDeclarationResource, typesDeclarationResource ],
+        roots: {
+            main: {
+                js: {
+                    content: '',
+                    isExecutable: false,
+                    sourceFilePath: '/src/index.js',
+                    targetFilePath: 'index.js'
+                },
+                declarationFile: privateDeclarationResource.fileDescription
+            }
+        },
+        surface: { mode: 'implicit', defaultModuleRoot: 'main' }
+    });
+}
 
 suite('eliminator reachability seeds', function () {
     suite('declaration files and cross-bundle reachability', function () {
@@ -196,48 +233,16 @@ suite('eliminator reachability seeds', function () {
             assert.strictEqual(runtimeHelper.fileDescription.content.includes('unused'), false);
         });
 
-        test('eliminate keeps type exports imported by retained declaration files', async function () {
+        test('eliminate keeps type exports imported by public declaration files', async function () {
             const eliminator = createTestEliminator();
-            const entryResource = {
-                ...bundleResource('/src/index.js', { content: 'export const live = 1;\n', targetFilePath: 'index.js' }),
-                isSubstituted: false
-            };
-            const privateDeclarationResource = {
-                ...bundleResource('/src/private.d.ts', {
-                    content: 'import type { Imported } from "./types.js";\nexport type Private = Imported;\n',
-                    targetFilePath: 'private.d.ts'
-                }),
-                isSubstituted: false
-            };
-            const typesDeclarationResource = {
-                ...bundleResource('/src/types.d.ts', {
-                    content: 'export type Imported = string;\nexport type Other = number;\n',
-                    targetFilePath: 'types.d.ts'
-                }),
-                isSubstituted: false
-            };
-            const bundle = linkedBundle({
-                name: 'pkg',
-                contents: [ entryResource, privateDeclarationResource, typesDeclarationResource ],
-                roots: {
-                    main: {
-                        js: {
-                            content: '',
-                            isExecutable: false,
-                            sourceFilePath: '/src/index.js',
-                            targetFilePath: 'index.js'
-                        }
-                    }
-                },
-                surface: { mode: 'implicit', defaultModuleRoot: 'main' }
-            });
-            const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
+            const [ analyzed ] = await eliminator.eliminate(inputs(declarationImportBundle()));
             const emittedTypes = analyzed?.contents.find(function (resource) {
                 return resource.fileDescription.sourceFilePath === '/src/types.d.ts';
             });
             assertDefined(emittedTypes);
             assert.strictEqual(emittedTypes.fileDescription.content.includes('Imported'), true);
-            assert.deepStrictEqual(emittedTypes.analysis.survivingBindings, new Set([ 'Imported', 'Other' ]));
+            assert.strictEqual(emittedTypes.fileDescription.content.includes('Other'), false);
+            assert.deepStrictEqual(emittedTypes.analysis.survivingBindings, new Set([ 'Imported' ]));
         });
 
         test('eliminate prunes a producer file whose only consumer-side reference is in unreachable code', async function () {
@@ -256,7 +261,7 @@ suite('eliminator reachability seeds', function () {
             assert.deepStrictEqual(producer.contents, []);
         });
 
-        test('eliminate keeps all declarations and reports them as surviving when the file has top-level side effects', async function () {
+        test('eliminate removes unrelated dead declarations when the file has top-level side effects', async function () {
             const eliminator = createTestEliminator();
             const sideEffectContent = [
                 'function dead() { return 1; }',
@@ -273,8 +278,9 @@ suite('eliminator reachability seeds', function () {
             const [ analyzed ] = await eliminator.eliminate(inputs(bundle));
             const emitted = analyzed?.contents[0];
             assertDefined(emitted);
-            assert.strictEqual(emitted.fileDescription.content.includes('dead'), true);
-            assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'dead', 'live' ]));
+            assert.strictEqual(emitted.fileDescription.content.includes('dead'), false);
+            assert.strictEqual(emitted.fileDescription.content.includes('console.log("init")'), true);
+            assert.deepStrictEqual(emitted.analysis.survivingBindings, new Set([ 'live' ]));
         });
     });
 });

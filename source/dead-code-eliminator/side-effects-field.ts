@@ -1,5 +1,5 @@
-import { isCodeFile } from '../common/code-files.ts';
 import type { AnalyzedBundleResource } from './analyzed-bundle.ts';
+import { isRuntimeCodeTargetPath } from './liveness/runtime-code.ts';
 
 function fileHasSideEffects(resource: AnalyzedBundleResource): boolean {
     return resource.analysis.sideEffectStatements.length > 0;
@@ -9,7 +9,7 @@ export function computeSideEffectsField(
     contents: readonly AnalyzedBundleResource[]
 ): readonly string[] | false | undefined {
     const codeFiles = contents.filter(function (resource) {
-        return isCodeFile(resource.fileDescription.targetFilePath);
+        return isRuntimeCodeTargetPath(resource.fileDescription.targetFilePath);
     });
     const impureFiles = codeFiles.filter(fileHasSideEffects);
     if (impureFiles.length === 0) {

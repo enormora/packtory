@@ -246,6 +246,7 @@ suite('package-processor-build', function () {
                 {
                     bundle: createLinkedBundle(),
                     transformationsEnabled: true,
+                    substitutionPublicModuleSourceFilePaths: new Set<string>(),
                     deadCodeElimination: undefined
                 }
             ]
@@ -280,6 +281,7 @@ suite('package-processor-build', function () {
                 {
                     bundle: createLinkedBundle(),
                     transformationsEnabled: false,
+                    substitutionPublicModuleSourceFilePaths: new Set<string>(),
                     deadCodeElimination: { enabled: false }
                 }
             ]

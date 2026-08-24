@@ -8,6 +8,7 @@ import {
 } from 'ts-morph';
 import type { DeadCodeEliminationSettings } from '../config/dead-code-elimination-settings.ts';
 import { hasClassImpurity } from './class-purity.ts';
+import { sideEffectAssetImportKind } from './liveness/asset-side-effects.ts';
 import { isPureExpression } from './pure-expression.ts';
 
 type StatementClassifier = (
@@ -15,15 +16,8 @@ type StatementClassifier = (
     settings: DeadCodeEliminationSettings | undefined
 ) => string | undefined;
 
-function isBareCssImport(specifier: string): boolean {
-    return specifier.endsWith('.css');
-}
-
 function classifyImportDeclaration(statement: ImportDeclaration): string | undefined {
-    if (isBareCssImport(statement.getModuleSpecifierValue())) {
-        return 'css import';
-    }
-    return undefined;
+    return sideEffectAssetImportKind(statement.getModuleSpecifierValue());
 }
 
 function classifyExportAssignment(

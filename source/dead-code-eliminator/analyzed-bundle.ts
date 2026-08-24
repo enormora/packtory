@@ -25,6 +25,7 @@ export type AnalyzedBundle = Except<LinkedBundle, 'contents'> & {
 export type EliminationInput = {
     readonly bundle: LinkedBundle;
     readonly transformationsEnabled: boolean;
+    readonly substitutionPublicModuleSourceFilePaths: ReadonlySet<string>;
     readonly deadCodeElimination?: DeadCodeEliminationSettings | undefined;
 };
 

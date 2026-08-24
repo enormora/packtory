@@ -57,7 +57,12 @@ async function analyzeOne(
     deadCodeElimination: DeadCodeEliminationSettings | undefined
 ): Promise<AnalyzedBundle> {
     const [ analyzedBundle ] = await dependencies.deadCodeEliminator.eliminate([
-        { bundle: linkedBundle, transformationsEnabled, deadCodeElimination }
+        {
+            bundle: linkedBundle,
+            transformationsEnabled,
+            substitutionPublicModuleSourceFilePaths: new Set<string>(),
+            deadCodeElimination
+        }
     ]);
     if (analyzedBundle === undefined) {
         throw new Error(`Dead code eliminator returned no bundle for "${linkedBundle.name}"`);

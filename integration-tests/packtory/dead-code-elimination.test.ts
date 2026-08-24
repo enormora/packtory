@@ -166,7 +166,7 @@ suite('dead-code-elimination', function () {
         assert.strictEqual(targetPaths(resolvedPackage).includes('dead-local.js'), false);
     });
 
-    test('keeps a side-effecting file untouched and lists it in sideEffectsField', async function () {
+    test('removes dead declarations from a side-effecting file and lists it in sideEffectsField', async function () {
         const fixturePath = path.join(process.cwd(), 'integration-tests/fixtures/dead-code-elimination-side-effects');
         const config = await singlePackageConfig(fixturePath);
         const result = await resolveAndLinkAll(config);
@@ -174,10 +174,8 @@ suite('dead-code-elimination', function () {
         const resolvedPackage = findPackage(packages, 'pkg');
         const entry = findResource(resolvedPackage, 'pkg/index.js');
 
-        assert.ok(
-            entry.fileDescription.content.includes('unusedHelper'),
-            'unusedHelper must be kept because the file has top-level side effects'
-        );
+        assert.strictEqual(entry.fileDescription.content.includes('unusedHelper'), false);
+        assert.strictEqual(entry.fileDescription.content.includes('module loaded'), true);
         assert.deepStrictEqual(resolvedPackage.analyzedBundle.sideEffectsField, [ './pkg/index.js' ]);
     });
 

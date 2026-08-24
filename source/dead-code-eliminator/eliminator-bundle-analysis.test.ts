@@ -10,6 +10,7 @@ import {
     collectTargetPaths,
     indexTsBundle,
     indexTsContent,
+    inputWithoutTransformations,
     inputs
 } from '../test-libraries/eliminator-test-support.ts';
 import type { AnalyzedBundle } from './analyzed-bundle.ts';
@@ -271,7 +272,7 @@ suite('eliminator bundle analysis', function () {
 
         test('eliminate keeps unreachable declarations when transformations are disabled', async function () {
             const eliminator = createTestEliminator();
-            const result = await eliminator.eliminate([ { bundle: indexTsBundle(), transformationsEnabled: false } ]);
+            const result = await eliminator.eliminate(inputWithoutTransformations(indexTsBundle()));
             const emitted = result[0]?.contents[0];
             assertDefined(emitted);
             assert.strictEqual(emitted.fileDescription.content, indexTsContent);

@@ -5,6 +5,8 @@ import { assertDeepSubset } from '../test-libraries/deep-subset-assertion.ts';
 import { createProject } from '../test-libraries/typescript-project.ts';
 import { buildAnalyzedResource, type AnalysisContext } from './code-file-analyzer.ts';
 import type { LoadedCodeResource, LoadedResource } from './load-bundle.ts';
+import { bindingId } from './reachability/binding-id.ts';
+import { extractTopLevelBindings } from './reachability/binding-extractor.ts';
 
 const statementStub = { id: 'stmt' };
 const declarationStub = { id: 'decl' };
@@ -26,7 +28,7 @@ function loadedCodeResource(targetFilePath: string, content: string): LoadedCode
             isSubstituted: false
         },
         sourceFile,
-        bindings: []
+        bindings: extractTopLevelBindings(sourceFile)
     };
 }
 
@@ -93,22 +95,26 @@ suite('code-file-analyzer', function () {
         assert.strictEqual(result.resource.analysis.sideEffectStatements.length, 1);
     });
 
-    test('buildAnalyzedResource leaves the content unchanged when transformations are enabled but the file has side effects', function () {
+    test('buildAnalyzedResource removes dead declarations while retaining side-effect statements', function () {
         const loaded = loadedCodeResource(
             'a.ts',
             'import { dead } from "./b";\nconsole.log(1);\nexport const foo = 1;\n'
         );
 
-        const result = buildAnalyzedResource(loaded, { ...baseContext, transformationsEnabled: true });
+        const result = buildAnalyzedResource(loaded, {
+            ...baseContext,
+            reachable: new Set([ bindingId('/src/a.ts', 'foo') ]),
+            transformationsEnabled: true
+        });
 
         assertDeepSubset(result, {
-            transforms: [],
             resource: {
                 fileDescription: {
-                    content: 'import { dead } from "./b";\nconsole.log(1);\nexport const foo = 1;\n'
+                    content: 'import "./b";\nconsole.log(1);\nexport const foo = 1;\n'
                 }
             }
         });
+        assert.strictEqual(result.transforms.length, 1);
     });
 
     test('buildAnalyzedResource carries through every original binding name on the analysis when no transform happens', function () {

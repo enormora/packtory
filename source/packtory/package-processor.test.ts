@@ -17,6 +17,7 @@ import type { DetermineVersionAndPublishOptions, PackageProcessor } from './pack
 
 type TransformationInput = {
     readonly transformationsEnabled: boolean;
+    readonly substitutionPublicModuleSourceFilePaths: ReadonlySet<string>;
 };
 
 type DeadCodeEliminationInput<TDeadCodeElimination> = TransformationInput & {
@@ -132,6 +133,7 @@ suite('package-processor', function () {
         }
         assert.partialDeepStrictEqual(firstInput, {
             transformationsEnabled: false,
+            substitutionPublicModuleSourceFilePaths: new Set<string>(),
             deadCodeElimination
         });
     });
@@ -151,7 +153,10 @@ suite('package-processor', function () {
         if (firstInput === undefined) {
             assert.fail('expected elimination input');
         }
-        assert.strictEqual(firstInput.transformationsEnabled, true);
+        assert.partialDeepStrictEqual(firstInput, {
+            transformationsEnabled: true,
+            substitutionPublicModuleSourceFilePaths: new Set<string>()
+        });
     });
 
     test('build() throws when the dead-code eliminator returns no bundle', async function () {
