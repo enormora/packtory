@@ -119,11 +119,8 @@ function originOfTrustedCall(
 }
 
 export function resolveImportedExpressionPath(expression: Expression): ImportedExpressionOrigin | undefined {
-    const unwrapped = unwrapExpression(expression);
-    if (TsMorphNode.isIdentifier(unwrapped)) {
-        return importedOriginForIdentifier(unwrapped);
-    }
-    return undefined;
+    const identifier = unwrapExpression(expression).asKind(SyntaxKind.Identifier);
+    return identifier === undefined ? undefined : importedOriginForIdentifier(identifier);
 }
 
 function propertyAccessOrigin(

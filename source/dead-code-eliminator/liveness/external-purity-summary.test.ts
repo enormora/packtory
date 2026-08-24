@@ -137,6 +137,10 @@ suite('external purity summary', function () {
                 filePath: '/project/node_modules/schema-lib/index.js',
                 content: [
                     'export function literal() { return true; }',
+                    'export function text() { return "ok"; }',
+                    'export function count() { return 1; }',
+                    'export function disabled() { return false; }',
+                    'export function absent() { return null; }',
                     'export function declared();',
                     'export function empty() {}',
                     'export function computed() { return compute(); }',
@@ -146,6 +150,10 @@ suite('external purity summary', function () {
             } ];
 
             assert.strictEqual(purityFor([ 'literal' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'text' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'count' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'disabled' ], files), 'pure-callable');
+            assert.strictEqual(purityFor([ 'absent' ], files), 'pure-callable');
             assert.strictEqual(purityFor([ 'declared' ], files), 'unknown');
             assert.strictEqual(purityFor([ 'empty' ], files), 'unknown');
             assert.strictEqual(purityFor([ 'computed' ], files), 'unknown');

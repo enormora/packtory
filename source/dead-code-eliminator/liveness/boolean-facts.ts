@@ -11,7 +11,6 @@ import { unwrapExpression } from '../expression-unwrapping.ts';
 
 export type BooleanFacts = ReadonlyMap<string, boolean>;
 
-type BinaryBooleanOperator = (left: boolean, right: boolean) => boolean;
 type BooleanValueEvaluator = (expression: Expression, facts: BooleanFacts) => boolean | undefined;
 
 function andOperator(left: boolean, right: boolean): boolean {
@@ -30,18 +29,35 @@ function notEqualOperator(left: boolean, right: boolean): boolean {
     return left !== right;
 }
 
-const binaryBooleanOperators: ReadonlyMap<SyntaxKind, BinaryBooleanOperator> = new Map([
-    [ SyntaxKind.AmpersandAmpersandToken, andOperator ],
-    [ SyntaxKind.BarBarToken, orOperator ],
-    [ SyntaxKind.EqualsEqualsEqualsToken, equalOperator ],
-    [ SyntaxKind.ExclamationEqualsEqualsToken, notEqualOperator ]
-]);
-
 function literalBooleanValue(expression: Expression): boolean | undefined {
     if (expression.getKind() === SyntaxKind.TrueKeyword) {
         return true;
     }
     return expression.getKind() === SyntaxKind.FalseKeyword ? false : undefined;
+}
+
+function logicalBooleanOperatorValue(kind: SyntaxKind, left: boolean, right: boolean): boolean | undefined {
+    if (kind === SyntaxKind.AmpersandAmpersandToken) {
+        return andOperator(left, right);
+    }
+    if (kind === SyntaxKind.BarBarToken) {
+        return orOperator(left, right);
+    }
+    return undefined;
+}
+
+function equalityBooleanOperatorValue(kind: SyntaxKind, left: boolean, right: boolean): boolean | undefined {
+    if (kind === SyntaxKind.EqualsEqualsEqualsToken) {
+        return equalOperator(left, right);
+    }
+    if (kind === SyntaxKind.ExclamationEqualsEqualsToken) {
+        return notEqualOperator(left, right);
+    }
+    return undefined;
+}
+
+function binaryBooleanOperatorValue(kind: SyntaxKind, left: boolean, right: boolean): boolean | undefined {
+    return logicalBooleanOperatorValue(kind, left, right) ?? equalityBooleanOperatorValue(kind, left, right);
 }
 
 function identifierBooleanValue(expression: Expression, facts: BooleanFacts): boolean | undefined {
@@ -59,11 +75,10 @@ function binaryBooleanValue(
     const binary = expression.asKindOrThrow(SyntaxKind.BinaryExpression);
     const left = evaluate(binary.getLeft(), facts);
     const right = evaluate(binary.getRight(), facts);
-    const operator = binaryBooleanOperators.get(binary.getOperatorToken().getKind());
-    if (left === undefined || right === undefined || operator === undefined) {
+    if (left === undefined || right === undefined) {
         return undefined;
     }
-    return operator(left, right);
+    return binaryBooleanOperatorValue(binary.getOperatorToken().getKind(), left, right);
 }
 
 function prefixBooleanValue(

@@ -54,24 +54,31 @@ type SummaryContext = {
 type FunctionLike = ArrowFunction | FunctionDeclaration | FunctionExpression | MethodDeclaration;
 type SupportedObjectProperty = MethodDeclaration | PropertyAssignment;
 
-const summariesByProject = new WeakMap<Project, Map<string, ExternalPuritySummary>>();
-const pureReturnLeafKinds = new Set([
-    SyntaxKind.StringLiteral,
-    SyntaxKind.NumericLiteral,
-    SyntaxKind.TrueKeyword,
-    SyntaxKind.FalseKeyword,
-    SyntaxKind.NullKeyword
-]);
 const noExportEntries: readonly ExportPurityEntry[] = [];
 
+function isProjectSummaryStore(value: unknown): value is Map<string, ExternalPuritySummary> {
+    return value instanceof Map;
+}
+
 function projectSummaryCache(project: Project): Map<string, ExternalPuritySummary> {
-    const existing = summariesByProject.get(project);
-    if (existing !== undefined) {
-        return existing;
-    }
-    const created = new Map<string, ExternalPuritySummary>();
-    summariesByProject.set(project, created);
-    return created;
+    const stored: unknown = Reflect.get(project, projectSummaryCache.name);
+    const cache = isProjectSummaryStore(stored) ? stored : new Map<string, ExternalPuritySummary>();
+    Reflect.set(project, projectSummaryCache.name, cache);
+    return cache;
+}
+
+function kindIsTextOrNumberReturnLeaf(kind: SyntaxKind): boolean {
+    return kind === SyntaxKind.StringLiteral || kind === SyntaxKind.NumericLiteral;
+}
+
+function kindIsBooleanReturnLeaf(kind: SyntaxKind): boolean {
+    return kind === SyntaxKind.TrueKeyword || kind === SyntaxKind.FalseKeyword;
+}
+
+function kindIsPureReturnLeaf(kind: SyntaxKind): boolean {
+    return kindIsTextOrNumberReturnLeaf(kind) ||
+        kindIsBooleanReturnLeaf(kind) ||
+        kind === SyntaxKind.NullKeyword;
 }
 
 function arrowReturnExpressionFrom(functionLike: ArrowFunction): Expression | undefined {
@@ -112,7 +119,7 @@ function expressionIsPureReturnStructure(expression: Expression): boolean {
 
 function expressionIsPureReturnValue(expression: Expression): boolean {
     const unwrapped = unwrapExpression(expression);
-    return pureReturnLeafKinds.has(unwrapped.getKind()) || expressionIsPureReturnStructure(unwrapped);
+    return kindIsPureReturnLeaf(unwrapped.getKind()) || expressionIsPureReturnStructure(unwrapped);
 }
 
 function functionLikeIsPureBuilder(functionLike: FunctionLike): boolean {
