@@ -53,22 +53,29 @@ function hostReadFile(sourceFile: SourceFile, filePath: string): string | undefi
     return sourceFile.getProject().getModuleResolutionHost().readFile(filePath);
 }
 
+function packageLookupDirectories(containingSourceFile: SourceFile): readonly string[] {
+    const start = path.resolve(path.dirname(containingSourceFile.getFilePath()));
+    const { root } = path.parse(start);
+    const directorySegments = path
+        .relative(root, start)
+        .split(path.sep);
+
+    return Array.from({ length: directorySegments.length + 1 }, function (_unusedValue, ancestorOffset) {
+        return path.join(root, ...directorySegments.slice(0, directorySegments.length - ancestorOffset));
+    });
+}
+
 function packageRootPath(
     specifier: PackageSpecifier,
     containingSourceFile: SourceFile
 ): string | undefined {
-    let directory = path.resolve(path.dirname(containingSourceFile.getFilePath()));
-    for (;;) {
+    for (const directory of packageLookupDirectories(containingSourceFile)) {
         const packageRoot = path.join(directory, 'node_modules', specifier.packageName);
         if (hostFileExists(containingSourceFile, path.join(packageRoot, 'package.json'))) {
             return packageRoot;
         }
-        const parent = path.dirname(directory);
-        if (parent === directory) {
-            return undefined;
-        }
-        directory = parent;
     }
+    return undefined;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
