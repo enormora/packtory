@@ -238,11 +238,17 @@ suite('replacement-lookup', function () {
 
         const result = findAllPathReplacements([ pathOnlyReplacementRequest('/b/helpers.d.ts') ], [ bundle ], []);
 
-        assert.deepStrictEqual(
-            result.importPathReplacements.get('/b/helpers.d.ts'),
-            { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' }
-        );
-        assert.deepStrictEqual(result.bundleDependencies, [ 'pkg-b' ]);
+        assert.deepStrictEqual({
+            replacement: result.importPathReplacements.get('/b/helpers.d.ts'),
+            bundleDependencies: result.bundleDependencies,
+            substitutedSourceFilePathsByPackageName: result.substitutedSourceFilePathsByPackageName
+        }, {
+            replacement: { emittedSpecifier: 'pkg-b/helpers.js', packageName: 'pkg-b' },
+            bundleDependencies: [ 'pkg-b' ],
+            substitutedSourceFilePathsByPackageName: new Map([
+                [ 'pkg-b', new Set([ '/b/helpers.js', '/b/helpers.d.ts' ]) ]
+            ])
+        });
     });
 
     test('findAllPathReplacements throws when a bundle owns the file but does not expose it', function () {

@@ -1,6 +1,9 @@
 import path from 'node:path';
 import { ts as typescript } from 'ts-morph';
-import { declarationCompanionCandidates } from '../common/declaration-companion-paths.ts';
+import {
+    declarationCompanionCandidates,
+    isDeclarationCompanionFilePath
+} from '../common/declaration-companion-paths.ts';
 import { bfsClosure, type BfsClosureDependencies } from '../dead-code-eliminator/reachability/bfs-closure.ts';
 import type { ExplicitPackageSurface, ImplicitPackageSurface } from '../package-surface/surface.ts';
 import { rootSourceFilePaths } from '../package-surface/package-surface-index.ts';
@@ -24,6 +27,11 @@ export type Replacements = {
     readonly importPathReplacements: ReadonlyMap<string, ImportPathReplacement>;
     readonly bundleDependencies: readonly string[];
     readonly substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>;
+};
+
+type BundleReplacementLookup = {
+    readonly bundleDependencies: readonly BundleSubstitutionSource[];
+    readonly bundlePeerDependencies: readonly BundleSubstitutionSource[];
 };
 
 export function ownsSourcePath(file: string, bundle: BundleSubstitutionSource): boolean {
@@ -360,13 +368,100 @@ function withSubstitutedSourcePath(
     packageName: string,
     file: string
 ): ReadonlyMap<string, ReadonlySet<string>> {
-    if (declarationCompanionCandidates(file).length === 0) {
-        return substitutedSourceFilePathsByPackageName;
-    }
-
     const existing = substitutedSourceFilePathsByPackageName.get(packageName) ?? [];
     const updated = new Map(substitutedSourceFilePathsByPackageName);
     updated.set(packageName, new Set([ ...existing, file ]));
+    return updated;
+}
+
+function contentWithSourceFilePath(
+    bundle: BundleSubstitutionSource,
+    sourceFilePath: string
+): BundleSubstitutionSource['contents'][number] | undefined {
+    return bundle.contents.find(function (content) {
+        return content.fileDescription.sourceFilePath === sourceFilePath;
+    });
+}
+
+function runtimeSourceFilePathForDeclaration(
+    bundle: BundleSubstitutionSource,
+    declarationSourceFilePath: string
+): string | undefined {
+    const declarationContent = contentWithSourceFilePath(bundle, declarationSourceFilePath);
+    if (declarationContent === undefined) {
+        return undefined;
+    }
+
+    const runtimeContent = bundle.contents.find(function (content) {
+        return declarationCompanionCandidates(content.fileDescription.targetFilePath)
+            .includes(declarationContent.fileDescription.targetFilePath);
+    });
+    return runtimeContent?.fileDescription.sourceFilePath;
+}
+
+function substitutedSourceFilePathsFor(
+    bundle: BundleSubstitutionSource,
+    file: string
+): readonly string[] {
+    if (declarationCompanionCandidates(file).length > 0) {
+        return [
+            file
+        ];
+    }
+
+    if (!isDeclarationCompanionFilePath(file)) {
+        return [];
+    }
+
+    const runtimeSourceFilePath = runtimeSourceFilePathForDeclaration(bundle, file);
+    if (runtimeSourceFilePath === undefined) {
+        return contentWithSourceFilePath(bundle, file) === undefined
+            ? []
+            : [
+                file
+            ];
+    }
+
+    return [
+        runtimeSourceFilePath,
+        file
+    ];
+}
+
+function bundleNamed(
+    bundles: readonly BundleSubstitutionSource[],
+    packageName: string
+): BundleSubstitutionSource | undefined {
+    return bundles.find(function (bundle) {
+        return bundle.name === packageName;
+    });
+}
+
+function bundleForReplacement(
+    replacement: ImportPathReplacement,
+    bundleLookup: BundleReplacementLookup
+): BundleSubstitutionSource | undefined {
+    return bundleNamed([
+        ...bundleLookup.bundleDependencies,
+        ...bundleLookup.bundlePeerDependencies
+    ], replacement.packageName);
+}
+
+function withSubstitutedSourcePaths(
+    substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>>,
+    replacement: ImportPathReplacement,
+    request: ImportPathReplacementRequest,
+    bundleLookup: BundleReplacementLookup
+): ReadonlyMap<string, ReadonlySet<string>> {
+    const bundle = bundleForReplacement(replacement, bundleLookup);
+    if (bundle === undefined) {
+        return substitutedSourceFilePathsByPackageName;
+    }
+
+    let updated = substitutedSourceFilePathsByPackageName;
+    for (const sourceFilePath of substitutedSourceFilePathsFor(bundle, request.sourceFilePath)) {
+        updated = withSubstitutedSourcePath(updated, replacement.packageName, sourceFilePath);
+    }
     return updated;
 }
 
@@ -377,18 +472,24 @@ export function findAllPathReplacements(
 ): Replacements {
     const importPathReplacements = new Map<string, ImportPathReplacement>();
     const matchedBundleDependencies: string[] = [];
+    const bundleLookup: BundleReplacementLookup = { bundleDependencies, bundlePeerDependencies };
     let substitutedSourceFilePathsByPackageName: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+
+    function recordReplacement(replacement: ImportPathReplacement, request: ImportPathReplacementRequest): void {
+        importPathReplacements.set(request.sourceFilePath, replacement);
+        matchedBundleDependencies.push(replacement.packageName);
+        substitutedSourceFilePathsByPackageName = withSubstitutedSourcePaths(
+            substitutedSourceFilePathsByPackageName,
+            replacement,
+            request,
+            bundleLookup
+        );
+    }
 
     for (const request of requests) {
         const replacement = findReplacement(request, bundleDependencies, bundlePeerDependencies);
         if (replacement !== undefined) {
-            importPathReplacements.set(request.sourceFilePath, replacement);
-            matchedBundleDependencies.push(replacement.packageName);
-            substitutedSourceFilePathsByPackageName = withSubstitutedSourcePath(
-                substitutedSourceFilePathsByPackageName,
-                replacement.packageName,
-                request.sourceFilePath
-            );
+            recordReplacement(replacement, request);
         }
     }
 
