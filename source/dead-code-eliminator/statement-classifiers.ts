@@ -120,14 +120,6 @@ function expressionStatementClassifier(): string {
     return 'expression statement';
 }
 
-const executableStatementClassifiers = new Map<SyntaxKind, StatementClassifier>([
-    [ SyntaxKind.ClassDeclaration, classDeclarationClassifier ],
-    [ SyntaxKind.EnumDeclaration, enumDeclarationClassifier ],
-    [ SyntaxKind.ModuleDeclaration, moduleDeclarationClassifier ],
-    [ SyntaxKind.VariableStatement, variableStatementClassifier ],
-    [ SyntaxKind.ExpressionStatement, expressionStatementClassifier ]
-]);
-
 function declarationStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
     if (kind === SyntaxKind.ImportDeclaration) {
         return importDeclarationClassifier;
@@ -139,7 +131,19 @@ function declarationStatementClassifierFor(kind: SyntaxKind): StatementClassifie
 }
 
 function executableStatementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {
-    return executableStatementClassifiers.get(kind);
+    if (kind === SyntaxKind.ClassDeclaration) {
+        return classDeclarationClassifier;
+    }
+    if (kind === SyntaxKind.EnumDeclaration) {
+        return enumDeclarationClassifier;
+    }
+    if (kind === SyntaxKind.ModuleDeclaration) {
+        return moduleDeclarationClassifier;
+    }
+    if (kind === SyntaxKind.VariableStatement) {
+        return variableStatementClassifier;
+    }
+    return kind === SyntaxKind.ExpressionStatement ? expressionStatementClassifier : undefined;
 }
 
 export function statementClassifierFor(kind: SyntaxKind): StatementClassifier | undefined {

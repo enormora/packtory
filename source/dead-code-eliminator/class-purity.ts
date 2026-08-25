@@ -24,16 +24,15 @@ function memberHasImpureStaticInit(member: TsMorphNode, settings: DeadCodeElimin
 
 function memberHasImpureComputedName(member: TsMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
     if (
-        TsMorphNode.isMethodDeclaration(member) ||
-        TsMorphNode.isPropertyDeclaration(member) ||
-        TsMorphNode.isGetAccessorDeclaration(member) ||
-        TsMorphNode.isSetAccessorDeclaration(member)
+        !TsMorphNode.isMethodDeclaration(member) &&
+        !TsMorphNode.isPropertyDeclaration(member) &&
+        !TsMorphNode.isGetAccessorDeclaration(member) &&
+        !TsMorphNode.isSetAccessorDeclaration(member)
     ) {
-        const name = member.getNameNode();
-        return TsMorphNode.isComputedPropertyName(name) && !isPureExpression(name.getExpression(), settings);
+        return false;
     }
-
-    return false;
+    const name = member.getNameNode();
+    return TsMorphNode.isComputedPropertyName(name) && !isPureExpression(name.getExpression(), settings);
 }
 
 function classMemberIsImpure(member: TsMorphNode, settings: DeadCodeEliminationSettings | undefined): boolean {
@@ -45,14 +44,6 @@ function classMemberIsImpure(member: TsMorphNode, settings: DeadCodeEliminationS
         memberHasImpureStaticInit(member, settings);
 }
 
-function classHeritageIsImpure(
-    classDeclaration: ClassDeclaration,
-    settings: DeadCodeEliminationSettings | undefined
-): boolean {
-    const extendsExpression = classDeclaration.getExtends()?.getExpression();
-    return extendsExpression !== undefined && !isPureExpression(extendsExpression, settings);
-}
-
 export function hasClassImpurity(
     classDeclaration: ClassDeclaration,
     settings: DeadCodeEliminationSettings | undefined
@@ -60,7 +51,8 @@ export function hasClassImpurity(
     if (classDeclaration.getDecorators().length > 0) {
         return true;
     }
-    if (classHeritageIsImpure(classDeclaration, settings)) {
+    const extendsExpression = classDeclaration.getExtends()?.getExpression();
+    if (extendsExpression !== undefined && !isPureExpression(extendsExpression, settings)) {
         return true;
     }
     return classDeclaration.getMembers().some(function (member) {

@@ -94,13 +94,6 @@ type QueueItem = {
     readonly sourcePackageName: string | undefined;
 };
 
-type TransitiveDependencySchedule = {
-    readonly dependencyNames: readonly string[];
-    readonly fromFolder: string;
-    readonly required: boolean;
-    readonly sourcePackageName: string | undefined;
-};
-
 type VisitedPackageRegistry = {
     readonly add: (name: string) => unknown;
     readonly has: (name: string) => boolean;
@@ -125,8 +118,8 @@ type Closure = {
 };
 
 type ParsedManifestSummary = {
-    readonly transitiveDependencyNames: readonly string[];
-    readonly peerDependencyNames: readonly string[];
+    readonly dependencies: readonly string[];
+    readonly peers: readonly string[];
 };
 
 function getPackageArgumentName(name: string): string | undefined {
@@ -151,12 +144,11 @@ function parseManifestSummary(
 ): Result<ParsedManifestSummary, InvalidDependencyNameFailure> {
     const parsed = safeParse(packageManifestSchema(), JSON.parse(content));
     if (!parsed.success) {
-        return Result.ok({ transitiveDependencyNames: [], peerDependencyNames: [] });
+        return Result.ok({ dependencies: [], peers: [] });
     }
     const dependencyNames = Object.keys(parsed.data.dependencies ?? {});
     const peerDependencyNames = Object.keys(parsed.data.peerDependencies ?? {});
-    const transitiveDependencyNames = dependencyNames.concat(peerDependencyNames);
-    const invalidDependencyName = findFirstInvalidDependencyName(transitiveDependencyNames);
+    const invalidDependencyName = findFirstInvalidDependencyName(dependencyNames.concat(peerDependencyNames));
     if (invalidDependencyName !== undefined) {
         return Result.err({
             type: vendorMaterializerFailureType.invalidDependencyName,
@@ -165,8 +157,8 @@ function parseManifestSummary(
         });
     }
     return Result.ok({
-        transitiveDependencyNames: dependencyNames,
-        peerDependencyNames
+        dependencies: dependencyNames,
+        peers: peerDependencyNames
     });
 }
 
@@ -316,17 +308,13 @@ const walkPackageDirectory = async function (
 export function createVendorMaterializer(dependencies: VendorMaterializerDependencies): VendorMaterializer {
     const { fileManager } = dependencies;
 
-    function scheduleTransitiveDependencies(closure: Closure, schedule: TransitiveDependencySchedule): void {
-        closure.pendingPackages.scheduleAll(
-            schedule.dependencyNames.map(function (dependencyName) {
-                return {
-                    name: dependencyName,
-                    fromFolder: schedule.fromFolder,
-                    required: schedule.required,
-                    sourcePackageName: schedule.sourcePackageName
-                };
-            })
-        );
+    function queueItem(
+        name: string,
+        fromFolder: string,
+        sourcePackageName: string | undefined,
+        required: boolean
+    ): QueueItem {
+        return { name, fromFolder, required, sourcePackageName };
     }
 
     function scheduleManifestDependencies(
@@ -335,18 +323,12 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         realPath: string,
         summary: ParsedManifestSummary
     ): void {
-        scheduleTransitiveDependencies(closure, {
-            dependencyNames: summary.transitiveDependencyNames,
-            fromFolder: realPath,
-            sourcePackageName: name,
-            required: true
-        });
-        scheduleTransitiveDependencies(closure, {
-            dependencyNames: summary.peerDependencyNames,
-            fromFolder: realPath,
-            sourcePackageName: name,
-            required: false
-        });
+        closure.pendingPackages.scheduleAll(summary.dependencies.map(function (dependencyName) {
+            return queueItem(dependencyName, realPath, name, true);
+        }));
+        closure.pendingPackages.scheduleAll(summary.peers.map(function (dependencyName) {
+            return queueItem(dependencyName, realPath, name, false);
+        }));
     }
 
     async function collectVendorEntries(
@@ -396,7 +378,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
         }
 
         scheduleManifestDependencies(closure, name, realPath, summaryResult.value);
-        closure.peerRequirements.set(name, summaryResult.value.peerDependencyNames);
+        closure.peerRequirements.set(name, summaryResult.value.peers);
         const collectedResult = await collectVendorEntries(name, realPath);
         if (collectedResult.isErr) {
             return Result.err(collectedResult.error);
@@ -461,12 +443,7 @@ export function createVendorMaterializer(dependencies: VendorMaterializerDepende
                 entries,
                 pendingPackages: createWorklist<QueueItem>(
                     options.initialDependencyNames.map(function (name) {
-                        return {
-                            name,
-                            fromFolder: options.projectFolder,
-                            required: true,
-                            sourcePackageName: undefined
-                        };
+                        return queueItem(name, options.projectFolder, undefined, true);
                     })
                 ),
                 peerRequirements: new Map<string, readonly string[]>()

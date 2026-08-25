@@ -28,6 +28,19 @@ type PurityRule = (
     settings: DeadCodeEliminationSettings | undefined
 ) => boolean;
 
+const alwaysAvailableDeclarationKinds = new Set<SyntaxKind>([
+    SyntaxKind.FunctionDeclaration,
+    SyntaxKind.ImportClause,
+    SyntaxKind.ImportSpecifier,
+    SyntaxKind.NamespaceImport,
+    SyntaxKind.Parameter
+]);
+const orderedDeclarationKinds = new Set<SyntaxKind>([
+    SyntaxKind.ClassDeclaration,
+    SyntaxKind.EnumDeclaration,
+    SyntaxKind.VariableDeclaration
+]);
+
 function isPureArrayElement(element: Expression, recurse: ExpressionPurityChecker): boolean {
     if (TsMorphNode.isOmittedExpression(element)) {
         return true;
@@ -38,29 +51,24 @@ function isPureArrayElement(element: Expression, recurse: ExpressionPurityChecke
     return recurse(element);
 }
 
-function propertyNameNode(property: TsMorphNode): TsMorphNode | undefined {
-    if (TsMorphNode.isPropertyAssignment(property)) {
-        return property.getNameNode();
-    }
-    if (TsMorphNode.isMethodDeclaration(property)) {
-        return property.getNameNode();
-    }
-    if (TsMorphNode.isGetAccessorDeclaration(property) || TsMorphNode.isSetAccessorDeclaration(property)) {
-        return property.getNameNode();
+function computedPropertyNameExpression(property: TsMorphNode): Expression | undefined {
+    if (
+        TsMorphNode.isPropertyAssignment(property) ||
+        TsMorphNode.isMethodDeclaration(property) ||
+        TsMorphNode.isGetAccessorDeclaration(property) ||
+        TsMorphNode.isSetAccessorDeclaration(property)
+    ) {
+        const name = property.getNameNode();
+        if (TsMorphNode.isComputedPropertyName(name)) {
+            return name.getExpression();
+        }
     }
     return undefined;
 }
 
-function hasPureComputedName(property: TsMorphNode, recurse: ExpressionPurityChecker): boolean {
-    const name = propertyNameNode(property);
-    if (TsMorphNode.isComputedPropertyName(name)) {
-        return recurse(name.getExpression());
-    }
-    return true;
-}
-
 function isPurePropertyAssignment(property: TsMorphNode, recurse: ExpressionPurityChecker): boolean {
-    if (!hasPureComputedName(property, recurse)) {
+    const computedNameExpression = computedPropertyNameExpression(property);
+    if (computedNameExpression !== undefined && !recurse(computedNameExpression)) {
         return false;
     }
     if (TsMorphNode.isPropertyAssignment(property)) {
@@ -76,25 +84,12 @@ function declarationIsAvailableBeforeRead(declaration: TsMorphNodeType, expressi
     return Math.sign(expression.getStart() - declaration.getEnd()) === 1;
 }
 
-function declarationIsAlwaysAvailableForRead(declaration: TsMorphNodeType): boolean {
-    return TsMorphNode.isImportClause(declaration) ||
-        TsMorphNode.isImportSpecifier(declaration) ||
-        TsMorphNode.isNamespaceImport(declaration) ||
-        TsMorphNode.isFunctionDeclaration(declaration) ||
-        TsMorphNode.isParameterDeclaration(declaration);
-}
-
-function declarationNeedsEarlierPositionForRead(declaration: TsMorphNodeType): boolean {
-    return TsMorphNode.isClassDeclaration(declaration) ||
-        TsMorphNode.isEnumDeclaration(declaration) ||
-        TsMorphNode.isVariableDeclaration(declaration);
-}
-
 function declarationMakesIdentifierReadPure(declaration: TsMorphNodeType, expression: Identifier): boolean {
-    if (declarationIsAlwaysAvailableForRead(declaration)) {
+    const kind = declaration.getKind();
+    if (alwaysAvailableDeclarationKinds.has(kind)) {
         return true;
     }
-    if (declarationNeedsEarlierPositionForRead(declaration)) {
+    if (orderedDeclarationKinds.has(kind)) {
         return declarationIsAvailableBeforeRead(declaration, expression);
     }
 
